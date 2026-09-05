@@ -1,4 +1,5 @@
 pre-commit:
-  commands:
-    check:
-      run: task server:check
+  parallel: true
+  jobs:
+    - run: task web:check
+    - run: task server:check

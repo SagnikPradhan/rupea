@@ -25,3 +25,17 @@ tasks:
   server:compile-flags:
     dir: server
     cmd: pkg-config --cflags poppler-glib | xargs -n1 > compile_flags.txt
+
+  web:build:
+    dir: web
+    cmd: pnpm run build
+
+  web:format:
+    dir: web
+    cmd: pnpm prettier --write .
+
+  web:check:
+    dir: web
+    cmds:
+      - pnpm prettier --check .
+      - pnpm typecheck

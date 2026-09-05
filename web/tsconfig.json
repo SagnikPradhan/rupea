@@ -1,0 +1,14 @@
+{
+  "extends": ["@tsconfig/strictest", "@tsconfig/vite-react"],
+
+  "compilerOptions": {
+    "types": ["node", "vite/client"],
+    "rootDirs": [".", "./.react-router/types"],
+    "paths": { "~/*": ["./app/*"] },
+
+    "noEmit": true,
+    "resolveJsonModule": true
+  },
+
+  "include": ["**/*", "**/.server/**/*", "**/.client/**/*", ".react-router/types/**/*"]
+}

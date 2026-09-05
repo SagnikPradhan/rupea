@@ -1,0 +1,20 @@
+BasedOnStyle: LLVM
+
+IndentWidth: 2
+TabWidth: 2
+UseTab: Always
+
+ColumnLimit: 100
+
+AllowShortIfStatementsOnASingleLine: AllIfsAndElse
+AllowShortBlocksOnASingleLine: Always
+AllowShortLoopsOnASingleLine: true
+AllowShortCaseLabelsOnASingleLine: true
+AllowShortFunctionsOnASingleLine: Inline
+AllowShortLambdasOnASingleLine: All
+
+BreakBeforeBraces: Attach
+BraceWrapping:
+  AfterControlStatement: Never
+
+SpaceBeforeParens: ControlStatements

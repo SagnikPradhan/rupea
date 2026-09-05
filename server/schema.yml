@@ -1,0 +1,33 @@
+version: 1 # Schema version.
+
+headers: # Defines how to locate the table header row.
+  where:
+    text: # Match the header row containing this exact text.
+    regex: # Match the header row using this regular expression.
+
+records:
+  each: row # Iterate one logical record per row.
+  where: # Optional filter deciding whether a row is a record.
+
+fields:
+  date: # Semantic field name.
+    from: # Try these locators in order until one succeeds.
+      - col: A # Read the value from a column.
+      - header: Date # Read from a named column.
+      - text: "Date" # Find literal text.
+      - regex: '\d{2}/\d{2}/\d{4}' # Find the first matching value.
+      - rightOf: Amount # Cell immediately right of matched text.
+      - leftOf: Amount # Cell immediately left of matched text.
+      - above: Amount # Cell immediately above matched text.
+      - below: Amount # Cell immediately below matched text.
+      - value: INR # Constant value.
+
+    pipe: # Transform the located value.
+      - trim # Remove surrounding whitespace.
+      - replace: # Replace text.
+          from: Cr
+          to: ""
+      - number # Parse as a number.
+      - money # Parse as a monetary amount.
+      - date: DD/MM/YYYY # Parse using a date format.
+      - negate # Negate a numeric value.

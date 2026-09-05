@@ -1,0 +1,8 @@
+cradle:
+  cabal:
+    - path: "src"
+      component: "lib:rupee"
+    - path: "app/Main.hs"
+      component: "rupee:exe:rupee"
+    - path: "test"
+      component: "rupee:test:rupee-test"

@@ -1,0 +1,27 @@
+version: "3"
+
+tasks:
+  server:build:
+    dir: server
+    cmd: cabal build -v
+
+  server:test:
+    dir: server
+    cmd: cabal test
+
+  server:format:
+    dir: server
+    cmds:
+      - fourmolu -i src/**/*.hs app/*.hs
+      - clang-format -i csrc/*.{c,h}
+
+  server:check:
+    dir: server
+    cmds:
+      - fourmolu --mode check src/**/*.hs app/*.hs
+      - clang-format --dry-run --Werror csrc/*.{c,h}
+      - cabal check
+
+  server:compile-flags:
+    dir: server
+    cmd: pkg-config --cflags poppler-glib | xargs -n1 > compile_flags.txt

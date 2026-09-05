@@ -1,0 +1,5 @@
+[tools]
+clang = "23.1.0"
+clang-format = "23.1.0"
+ghcup = "0.2.6.2"
+lefthook = "2.1.12"

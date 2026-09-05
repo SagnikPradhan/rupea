@@ -1,0 +1,29 @@
+{
+  "lsp": {
+    "hls": {
+      "initialization_options": {
+        "haskell": {
+          "formattingProvider": "fourmolu",
+          "plugin": {
+            "fourmolu": { "config": { "external": true } }
+          }
+        }
+      }
+    }
+  },
+
+  "languages": {
+    "C": { "formatter": "language_server" },
+    "C++": { "formatter": "language_server" },
+
+    "Haskell": { "formatter": "language_server" },
+    "Cabal": {
+      "formatter": {
+        "external": {
+          "command": "cabal-gild",
+          "arguments": ["{buffer_path}"]
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,34 @@
+# Layout
+indentation: 4
+column-limit: 120
+newlines-between-decls: 1
+respectful: true
+
+# Expressions
+comma-style: trailing
+function-arrows: leading
+indent-wheres: true
+let-style: inline
+in-style: right-align
+if-style: hanging
+trailing-section-operators: false
+
+# Records
+record-style: knr
+record-brace-space: true
+
+# Imports
+import-grouping: by-qualified
+import-export-style: trailing
+
+# Deriving
+sort-deriving-classes: true
+sort-derived-classes: true
+single-constraint-parens: never
+single-deriving-parens: never
+
+# Documentation
+haddock-style: single-line
+
+# Language
+unicode: never

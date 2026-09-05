@@ -1,0 +1,11 @@
+[
+  {
+    "label": "Debug rupee",
+    "adapter": "haskell-debugger",
+    "request": "launch",
+    "entryFile": "app/Main.hs",
+    "args": [],
+    "cwd": "${workspaceFolder}",
+    "projectRoot": "${workspaceFolder}"
+  }
+]

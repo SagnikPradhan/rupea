@@ -50,12 +50,12 @@ export default defineConfig(
 	{
 		...functional.configs.noExceptions,
 		files: ['**/*.ts'],
-		ignores: ['**/*.test.ts'],
+		ignores: ['**/*.test.ts', 'tests/**'],
 	},
 	{
 		files: ['**/*.ts'],
 		plugins: { rupee: { rules: { 'local-name-length': localNameLength } } },
 		rules: { 'rupee/local-name-length': 'error' },
-		ignores: ['**/*.test.ts'],
+		ignores: ['**/*.test.ts', 'tests/**'],
 	},
 );

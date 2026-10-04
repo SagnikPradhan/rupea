@@ -36,29 +36,97 @@ const transaction = (
 	postings,
 });
 
-const posting = (account: string, amount: string | null): RupeePosting => ({
+const posting = (account: string, amount: string): RupeePosting => ({
 	account,
-	amount: amount === null ? null : parseAmount(amount),
+	amount: parseAmount(amount) as Amount,
 });
 
 describe('parse transactions', () => {
-	it('parses a transaction with one posting', () => {
-		expect(run(['2026-08-29 Groceries', '\tExpenses:Food 100'])).toEqual({
+	it('parses a balanced transaction', () => {
+		expect(run(['2026-08-29 Groceries', '\tExpenses:Food 100', '\tAssets:Bank -100'])).toEqual({
 			failed: [],
-			succeeded: [transaction(1, '2026-08-29', 'Groceries', [posting('Expenses:Food', '100')])],
+			succeeded: [
+				transaction(1, '2026-08-29', 'Groceries', [
+					posting('Expenses:Food', '100'),
+					posting('Assets:Bank', '-100'),
+				]),
+			],
 		});
 	});
 
-	it('parses a posting without an amount', () => {
+	it('works out the amount of a posting without one', () => {
 		expect(run(['2026-08-29 Transfer', '\tAssets:Bank 100', '\tAssets:Savings'])).toEqual({
 			failed: [],
 			succeeded: [
 				transaction(1, '2026-08-29', 'Transfer', [
 					posting('Assets:Bank', '100'),
-					posting('Assets:Savings', null),
+					posting('Assets:Savings', '-100'),
 				]),
 			],
 		});
+	});
+
+	it('works out an amount from several postings, wherever it is', () => {
+		expect(
+			run(['2026-08-29 Dinner', '\tAssets:Bank', '\tExpenses:Food 90', '\tExpenses:Tip 10']),
+		).toEqual({
+			failed: [],
+			succeeded: [
+				transaction(1, '2026-08-29', 'Dinner', [
+					posting('Assets:Bank', '-100'),
+					posting('Expenses:Food', '90'),
+					posting('Expenses:Tip', '10'),
+				]),
+			],
+		});
+	});
+
+	it('allows zero amounts', () => {
+		expect(run(['2026-08-29 Nothing', '\tAssets:Bank 0', '\tAssets:Savings']).succeeded).toEqual([
+			transaction(1, '2026-08-29', 'Nothing', [
+				posting('Assets:Bank', '0'),
+				posting('Assets:Savings', '0'),
+			]),
+		]);
+	});
+
+	it('reports amounts that do not sum to zero', () => {
+		expect(run(['2026-08-29 Oops', '\tExpenses:Food 100', '\tAssets:Bank -99.5'])).toEqual({
+			failed: [{ type: 'ParseUnbalancedTransaction', location: at, residual: '0.50', cause: [] }],
+			succeeded: [],
+		});
+	});
+
+	it('reports several postings without an amount', () => {
+		expect(
+			run(['2026-08-29 Oops', '\tExpenses:Food 100', '\tAssets:Bank', '\tAssets:Cash']),
+		).toEqual({
+			failed: [{ type: 'ParseMultipleImplicitPostings', location: at, cause: [] }],
+			succeeded: [],
+		});
+	});
+
+	it.each([['\tExpenses:Food 100'], ['\tExpenses:Food'], ['\tExpenses:Food 0']])(
+		'reports a transaction with the single posting %j',
+		(only) => {
+			expect(run(['2026-08-29 Lonely', only])).toEqual({
+				failed: [{ type: 'ParseMissingTransactionBody', location: at, cause: [] }],
+				succeeded: [],
+			});
+		},
+	);
+
+	it('drops a transaction with an invalid posting, keeping the others', () => {
+		const result = run([
+			'2026-08-29 Bad',
+			'\tExpenses:Food 100',
+			'\ta b c',
+			'2026-08-30 Good',
+			'\tExpenses:Food 1',
+			'\tAssets:Bank',
+		]);
+		expect(result.failed.map((e) => e.type)).toEqual(['ParseInvalidPosting']);
+		expect(result.succeeded.map((t) => t.description)).toEqual(['Good']);
 	});
 
 	it('reports an invalid transaction header', () => {
@@ -80,14 +148,22 @@ describe('parse transactions', () => {
 			run([
 				'2026-08-29 Groceries',
 				'\tExpenses:Food 100',
+				'\tAssets:Bank',
 				'2026-08-30 Salary',
 				'\tAssets:Bank 1000',
+				'\tIncome:Salary',
 			]),
 		).toEqual({
 			failed: [],
 			succeeded: [
-				transaction(1, '2026-08-29', 'Groceries', [posting('Expenses:Food', '100')]),
-				transaction(3, '2026-08-30', 'Salary', [posting('Assets:Bank', '1000')]),
+				transaction(1, '2026-08-29', 'Groceries', [
+					posting('Expenses:Food', '100'),
+					posting('Assets:Bank', '-100'),
+				]),
+				transaction(4, '2026-08-30', 'Salary', [
+					posting('Assets:Bank', '1000'),
+					posting('Income:Salary', '-1000'),
+				]),
 			],
 		});
 	});
@@ -106,6 +182,38 @@ describe('parse transactions', () => {
 	});
 });
 
+describe('hledger-style input', () => {
+	it('parses space indentation, an INR suffix and comments', () => {
+		expect(
+			run([
+				'; opening',
+				'2023/04/01 Opening Balance',
+				'    Assets:Checking:HDFC                    28350.18 INR',
+				'; between postings',
+				'    Equity:OpeningBalances',
+			]),
+		).toEqual({
+			failed: [],
+			succeeded: [
+				transaction(2, '2023-04-01', 'Opening Balance', [
+					posting('Assets:Checking:HDFC', '28350.18'),
+					posting('Equity:OpeningBalances', '-28350.18'),
+				]),
+			],
+		});
+	});
+
+	it('accepts the INR suffix in any case', () => {
+		expect(
+			run(['2026-08-29 Groceries', '  Expenses:Food 100 inr', '  Assets:Bank']).failed,
+		).toEqual([]);
+	});
+
+	it.each(['  Expenses:Food 100 USD', ' Expenses:Food 100'])('rejects %j', (p) => {
+		expect(run(['2026-08-29 Groceries', p]).succeeded).toEqual([]);
+	});
+});
+
 describe('blank lines', () => {
 	it.each([[[]], [['']], [['', '  ', '\t']]])('parses nothing from %j', (n) => {
 		expect(run(n)).toEqual({ failed: [], succeeded: [] });
@@ -117,17 +225,25 @@ describe('blank lines', () => {
 				'',
 				'2026-08-29 Groceries',
 				'\tExpenses:Food 100',
+				'\tAssets:Bank',
 				'',
 				'\t',
 				'2026-08-30 Salary',
 				'\tAssets:Bank 1000',
+				'\tIncome:Salary',
 				'  ',
 			]),
 		).toEqual({
 			failed: [],
 			succeeded: [
-				transaction(2, '2026-08-29', 'Groceries', [posting('Expenses:Food', '100')]),
-				transaction(6, '2026-08-30', 'Salary', [posting('Assets:Bank', '1000')]),
+				transaction(2, '2026-08-29', 'Groceries', [
+					posting('Expenses:Food', '100'),
+					posting('Assets:Bank', '-100'),
+				]),
+				transaction(7, '2026-08-30', 'Salary', [
+					posting('Assets:Bank', '1000'),
+					posting('Income:Salary', '-1000'),
+				]),
 			],
 		});
 	});

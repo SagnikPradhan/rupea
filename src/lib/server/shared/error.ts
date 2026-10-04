@@ -39,6 +39,15 @@ export type RupeeError =
 			cause: RupeeError[];
 	  }
 	| { type: 'ParseInvalidPosting'; location: string; cause: RupeeError[] }
+	/** The postings' amounts do not sum to zero; `residual` is what they sum to. */
+	| {
+			type: 'ParseUnbalancedTransaction';
+			location: string;
+			residual: string;
+			cause: RupeeError[];
+	  }
+	/** More than one posting leaves its amount out, so none can be worked out. */
+	| { type: 'ParseMultipleImplicitPostings'; location: string; cause: RupeeError[] }
 	| {
 			type: 'ExtractionInvalidSchema';
 			path: string;

@@ -1,4 +1,12 @@
 {
 	"extends": ["@tsconfig/strictest", "@tsconfig/svelte", "$app/tsconfig"],
-	"include": ["src", "scripts", "lint", "vite.config.ts", "prisma.config.ts"]
+	"include": [
+		"src",
+		"scripts",
+		"lint",
+		"tests",
+		"vite.config.ts",
+		"playwright.config.ts",
+		"prisma.config.ts"
+	]
 }

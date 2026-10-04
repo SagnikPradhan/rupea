@@ -1,7 +1,7 @@
 import { describe, expect } from 'vitest';
 import type { Database } from '#lib/server/db/index.ts';
 import { provide } from '#lib/server/shared/context.ts';
-import { it } from '#lib/server/shared/fixture.ts';
+import { it } from '#tests/shared/vitest.ts';
 import { scoped, type Storage } from '#lib/server/shared/storage/storage.ts';
 import { index } from '../adapters/database';
 import { formatAmount } from '../domain/types';
@@ -67,11 +67,11 @@ describe('syncing the ledger', () => {
 	it('reports parse errors on every sync until the file is fixed', ({ context, db, storage }) =>
 		provide(context, async () => {
 			const { userId, ledgerId } = await createUser(db);
-			await put(storage, ledgerId, 'a.rupee', `${groceries}\tbad posting x\n`);
+			await put(storage, ledgerId, 'a.rupee', `${groceries}2026-08-30 Bad\n\tbad posting x\n`);
 
 			const problem = {
 				type: 'ParseInvalidPosting',
-				location: 'a.rupee:4',
+				location: 'a.rupee:5',
 				cause: [],
 			};
 			expect(await Ledger.sync(userId)).toEqual(ok([problem]));
@@ -147,6 +147,26 @@ describe('mutations', () => {
 		}));
 });
 
+describe('reading a file', () => {
+	it('returns what is in storage, even before any sync', ({ context, db, storage }) =>
+		provide(context, async () => {
+			const { userId, ledgerId } = await createUser(db);
+			await put(storage, ledgerId, 'a.rupee', groceries);
+
+			const file = await Ledger.getFile(userId, 'a.rupee');
+			expect(file.isOk() && file.value).toMatchObject({ key: 'a.rupee', content: groceries });
+			expect(await summary(ledgerId)).toEqual([]);
+		}));
+
+	it('fails for a file that is not there', ({ context, db }) =>
+		provide(context, async () => {
+			const { userId } = await createUser(db);
+			expect(await Ledger.getFile(userId, 'a.rupee')).toMatchObject(
+				err({ type: 'CannotReadFile', path: 'a.rupee' }),
+			);
+		}));
+});
+
 describe('listing transactions', () => {
 	it('returns exact amounts and source locations', ({ context, db }) =>
 		provide(context, async () => {
@@ -163,11 +183,11 @@ describe('listing transactions', () => {
 			expect(
 				groceriesTransaction?.postings.map(({ account, amount }) => [
 					account,
-					amount === null ? null : formatAmount(amount),
+					formatAmount(amount),
 				]),
 			).toEqual([
 				['Expenses:Food', '100.50'],
-				['Assets:Bank', null],
+				['Assets:Bank', '-100.50'],
 			]);
 		}));
 });

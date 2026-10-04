@@ -17,9 +17,9 @@ import type {
 } from '@prisma/orm-sqlite/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'32f6140f6ae639ecee7814efc8fb487b84c1d275d908deffb28952aeeef94935'>;
+  StorageHashBase<'ba7a9c49840241a315c59676c7d5d136b27ca133727c76d0f33accb39e98f5e6'>;
 export type ExecutionHash =
-  ExecutionHashBase<'daa160a5add4d18fa4e93fd7ccfc85c630b53331479fc5c801e94bb36951772d'>;
+  ExecutionHashBase<'088098886dced4543194368f1e560aa89ea72db8388269d736a5dab79da340e4'>;
 export type ProfileHash =
   ProfileHashBase<'260b8608d1aacaf1f690779a6cff39a12947c599597c5ba464ca75b9e775df53'>;
 
@@ -143,6 +143,14 @@ export type FieldOutputTypes = {
       readonly name: CodecTypes['sqlite/text@1']['output'];
       readonly updatedAt: CodecTypes['sqlite/datetime@1']['output'];
     };
+    readonly LedgerFile: {
+      readonly createdAt: CodecTypes['sqlite/datetime@1']['output'];
+      readonly id: CodecTypes['sql/char@1']['output'];
+      readonly key: CodecTypes['sqlite/text@1']['output'];
+      readonly ledgerId: CodecTypes['sqlite/text@1']['output'];
+      readonly updatedAt: CodecTypes['sqlite/datetime@1']['output'];
+      readonly version: CodecTypes['sqlite/text@1']['output'] | null;
+    };
     readonly Membership: {
       readonly createdAt: CodecTypes['sqlite/datetime@1']['output'];
       readonly id: CodecTypes['sql/char@1']['output'];
@@ -151,6 +159,15 @@ export type FieldOutputTypes = {
       readonly updatedAt: CodecTypes['sqlite/datetime@1']['output'];
       readonly userId: CodecTypes['sqlite/text@1']['output'];
     };
+    readonly Posting: {
+      readonly account: CodecTypes['sqlite/text@1']['output'];
+      readonly amount: CodecTypes['sqlite/bigint@1']['output'];
+      readonly createdAt: CodecTypes['sqlite/datetime@1']['output'];
+      readonly id: CodecTypes['sql/char@1']['output'];
+      readonly position: CodecTypes['sqlite/integer@1']['output'];
+      readonly transactionId: CodecTypes['sqlite/text@1']['output'];
+      readonly updatedAt: CodecTypes['sqlite/datetime@1']['output'];
+    };
     readonly Session: {
       readonly createdAt: CodecTypes['sqlite/datetime@1']['output'];
       readonly expiresAt: CodecTypes['sqlite/datetime@1']['output'];
@@ -158,6 +175,16 @@ export type FieldOutputTypes = {
       readonly tokenHash: CodecTypes['sqlite/text@1']['output'];
       readonly updatedAt: CodecTypes['sqlite/datetime@1']['output'];
       readonly userId: CodecTypes['sqlite/text@1']['output'];
+    };
+    readonly Transaction: {
+      readonly createdAt: CodecTypes['sqlite/datetime@1']['output'];
+      readonly date: CodecTypes['sqlite/text@1']['output'];
+      readonly description: CodecTypes['sqlite/text@1']['output'];
+      readonly fileId: CodecTypes['sqlite/text@1']['output'];
+      readonly id: CodecTypes['sql/char@1']['output'];
+      readonly line: CodecTypes['sqlite/integer@1']['output'];
+      readonly time: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly updatedAt: CodecTypes['sqlite/datetime@1']['output'];
     };
     readonly User: {
       readonly createdAt: CodecTypes['sqlite/datetime@1']['output'];
@@ -184,6 +211,14 @@ export type FieldInputTypes = {
       readonly name: CodecTypes['sqlite/text@1']['input'];
       readonly updatedAt: CodecTypes['sqlite/datetime@1']['input'];
     };
+    readonly LedgerFile: {
+      readonly createdAt: CodecTypes['sqlite/datetime@1']['input'];
+      readonly id: CodecTypes['sql/char@1']['input'];
+      readonly key: CodecTypes['sqlite/text@1']['input'];
+      readonly ledgerId: CodecTypes['sqlite/text@1']['input'];
+      readonly updatedAt: CodecTypes['sqlite/datetime@1']['input'];
+      readonly version: CodecTypes['sqlite/text@1']['input'] | null;
+    };
     readonly Membership: {
       readonly createdAt: CodecTypes['sqlite/datetime@1']['input'];
       readonly id: CodecTypes['sql/char@1']['input'];
@@ -192,6 +227,15 @@ export type FieldInputTypes = {
       readonly updatedAt: CodecTypes['sqlite/datetime@1']['input'];
       readonly userId: CodecTypes['sqlite/text@1']['input'];
     };
+    readonly Posting: {
+      readonly account: CodecTypes['sqlite/text@1']['input'];
+      readonly amount: CodecTypes['sqlite/bigint@1']['input'];
+      readonly createdAt: CodecTypes['sqlite/datetime@1']['input'];
+      readonly id: CodecTypes['sql/char@1']['input'];
+      readonly position: CodecTypes['sqlite/integer@1']['input'];
+      readonly transactionId: CodecTypes['sqlite/text@1']['input'];
+      readonly updatedAt: CodecTypes['sqlite/datetime@1']['input'];
+    };
     readonly Session: {
       readonly createdAt: CodecTypes['sqlite/datetime@1']['input'];
       readonly expiresAt: CodecTypes['sqlite/datetime@1']['input'];
@@ -199,6 +243,16 @@ export type FieldInputTypes = {
       readonly tokenHash: CodecTypes['sqlite/text@1']['input'];
       readonly updatedAt: CodecTypes['sqlite/datetime@1']['input'];
       readonly userId: CodecTypes['sqlite/text@1']['input'];
+    };
+    readonly Transaction: {
+      readonly createdAt: CodecTypes['sqlite/datetime@1']['input'];
+      readonly date: CodecTypes['sqlite/text@1']['input'];
+      readonly description: CodecTypes['sqlite/text@1']['input'];
+      readonly fileId: CodecTypes['sqlite/text@1']['input'];
+      readonly id: CodecTypes['sql/char@1']['input'];
+      readonly line: CodecTypes['sqlite/integer@1']['input'];
+      readonly time: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly updatedAt: CodecTypes['sqlite/datetime@1']['input'];
     };
     readonly User: {
       readonly createdAt: CodecTypes['sqlite/datetime@1']['input'];
@@ -219,6 +273,14 @@ export type StorageColumnTypes = {
       readonly id: CodecTypes['sql/char@1']['output'];
       readonly updated_at: CodecTypes['sqlite/datetime@1']['output'];
     };
+    readonly ledger_files: {
+      readonly created_at: CodecTypes['sqlite/datetime@1']['output'];
+      readonly id: CodecTypes['sql/char@1']['output'];
+      readonly key: CodecTypes['sqlite/text@1']['output'];
+      readonly ledger_id: CodecTypes['sqlite/text@1']['output'];
+      readonly updated_at: CodecTypes['sqlite/datetime@1']['output'];
+      readonly version: CodecTypes['sqlite/text@1']['output'] | null;
+    };
     readonly ledgers: {
       readonly created_at: CodecTypes['sqlite/datetime@1']['output'];
       readonly id: CodecTypes['sql/char@1']['output'];
@@ -233,6 +295,15 @@ export type StorageColumnTypes = {
       readonly updated_at: CodecTypes['sqlite/datetime@1']['output'];
       readonly user_id: CodecTypes['sqlite/text@1']['output'];
     };
+    readonly postings: {
+      readonly account: CodecTypes['sqlite/text@1']['output'];
+      readonly amount: CodecTypes['sqlite/bigint@1']['output'];
+      readonly created_at: CodecTypes['sqlite/datetime@1']['output'];
+      readonly id: CodecTypes['sql/char@1']['output'];
+      readonly position: CodecTypes['sqlite/integer@1']['output'];
+      readonly transaction_id: CodecTypes['sqlite/text@1']['output'];
+      readonly updated_at: CodecTypes['sqlite/datetime@1']['output'];
+    };
     readonly sessions: {
       readonly created_at: CodecTypes['sqlite/datetime@1']['output'];
       readonly expires_at: CodecTypes['sqlite/datetime@1']['output'];
@@ -240,6 +311,16 @@ export type StorageColumnTypes = {
       readonly token_hash: CodecTypes['sqlite/text@1']['output'];
       readonly updated_at: CodecTypes['sqlite/datetime@1']['output'];
       readonly user_id: CodecTypes['sqlite/text@1']['output'];
+    };
+    readonly transactions: {
+      readonly created_at: CodecTypes['sqlite/datetime@1']['output'];
+      readonly date: CodecTypes['sqlite/text@1']['output'];
+      readonly description: CodecTypes['sqlite/text@1']['output'];
+      readonly file_id: CodecTypes['sqlite/text@1']['output'];
+      readonly id: CodecTypes['sql/char@1']['output'];
+      readonly line: CodecTypes['sqlite/integer@1']['output'];
+      readonly time: CodecTypes['sqlite/text@1']['output'] | null;
+      readonly updated_at: CodecTypes['sqlite/datetime@1']['output'];
     };
     readonly users: {
       readonly created_at: CodecTypes['sqlite/datetime@1']['output'];
@@ -260,6 +341,14 @@ export type StorageColumnInputTypes = {
       readonly id: CodecTypes['sql/char@1']['input'];
       readonly updated_at: CodecTypes['sqlite/datetime@1']['input'];
     };
+    readonly ledger_files: {
+      readonly created_at: CodecTypes['sqlite/datetime@1']['input'];
+      readonly id: CodecTypes['sql/char@1']['input'];
+      readonly key: CodecTypes['sqlite/text@1']['input'];
+      readonly ledger_id: CodecTypes['sqlite/text@1']['input'];
+      readonly updated_at: CodecTypes['sqlite/datetime@1']['input'];
+      readonly version: CodecTypes['sqlite/text@1']['input'] | null;
+    };
     readonly ledgers: {
       readonly created_at: CodecTypes['sqlite/datetime@1']['input'];
       readonly id: CodecTypes['sql/char@1']['input'];
@@ -274,6 +363,15 @@ export type StorageColumnInputTypes = {
       readonly updated_at: CodecTypes['sqlite/datetime@1']['input'];
       readonly user_id: CodecTypes['sqlite/text@1']['input'];
     };
+    readonly postings: {
+      readonly account: CodecTypes['sqlite/text@1']['input'];
+      readonly amount: CodecTypes['sqlite/bigint@1']['input'];
+      readonly created_at: CodecTypes['sqlite/datetime@1']['input'];
+      readonly id: CodecTypes['sql/char@1']['input'];
+      readonly position: CodecTypes['sqlite/integer@1']['input'];
+      readonly transaction_id: CodecTypes['sqlite/text@1']['input'];
+      readonly updated_at: CodecTypes['sqlite/datetime@1']['input'];
+    };
     readonly sessions: {
       readonly created_at: CodecTypes['sqlite/datetime@1']['input'];
       readonly expires_at: CodecTypes['sqlite/datetime@1']['input'];
@@ -281,6 +379,16 @@ export type StorageColumnInputTypes = {
       readonly token_hash: CodecTypes['sqlite/text@1']['input'];
       readonly updated_at: CodecTypes['sqlite/datetime@1']['input'];
       readonly user_id: CodecTypes['sqlite/text@1']['input'];
+    };
+    readonly transactions: {
+      readonly created_at: CodecTypes['sqlite/datetime@1']['input'];
+      readonly date: CodecTypes['sqlite/text@1']['input'];
+      readonly description: CodecTypes['sqlite/text@1']['input'];
+      readonly file_id: CodecTypes['sqlite/text@1']['input'];
+      readonly id: CodecTypes['sql/char@1']['input'];
+      readonly line: CodecTypes['sqlite/integer@1']['input'];
+      readonly time: CodecTypes['sqlite/text@1']['input'] | null;
+      readonly updated_at: CodecTypes['sqlite/datetime@1']['input'];
     };
     readonly users: {
       readonly created_at: CodecTypes['sqlite/datetime@1']['input'];
@@ -307,9 +415,21 @@ export namespace Models {
     id: CodecTypes['sql/char@1']['output'];
     name: CodecTypes['sqlite/text@1']['output'];
     updatedAt: CodecTypes['sqlite/datetime@1']['output'];
+    files: LedgerFile[];
     memberships: Membership[];
     users: User[];
-    readonly [RelationKeys]?: 'memberships' | 'users';
+    readonly [RelationKeys]?: 'files' | 'memberships' | 'users';
+  };
+  export type LedgerFile = {
+    createdAt: CodecTypes['sqlite/datetime@1']['output'];
+    id: CodecTypes['sql/char@1']['output'];
+    key: CodecTypes['sqlite/text@1']['output'];
+    ledgerId: CodecTypes['sqlite/text@1']['output'];
+    updatedAt: CodecTypes['sqlite/datetime@1']['output'];
+    version: CodecTypes['sqlite/text@1']['output'] | null;
+    ledger: Ledger;
+    transactions: Transaction[];
+    readonly [RelationKeys]?: 'ledger' | 'transactions';
   };
   export type Membership = {
     createdAt: CodecTypes['sqlite/datetime@1']['output'];
@@ -322,6 +442,17 @@ export namespace Models {
     user: User;
     readonly [RelationKeys]?: 'ledger' | 'user';
   };
+  export type Posting = {
+    account: CodecTypes['sqlite/text@1']['output'];
+    amount: CodecTypes['sqlite/bigint@1']['output'];
+    createdAt: CodecTypes['sqlite/datetime@1']['output'];
+    id: CodecTypes['sql/char@1']['output'];
+    position: CodecTypes['sqlite/integer@1']['output'];
+    transactionId: CodecTypes['sqlite/text@1']['output'];
+    updatedAt: CodecTypes['sqlite/datetime@1']['output'];
+    transaction: Transaction;
+    readonly [RelationKeys]?: 'transaction';
+  };
   export type Session = {
     createdAt: CodecTypes['sqlite/datetime@1']['output'];
     expiresAt: CodecTypes['sqlite/datetime@1']['output'];
@@ -331,6 +462,19 @@ export namespace Models {
     userId: CodecTypes['sqlite/text@1']['output'];
     user: User;
     readonly [RelationKeys]?: 'user';
+  };
+  export type Transaction = {
+    createdAt: CodecTypes['sqlite/datetime@1']['output'];
+    date: CodecTypes['sqlite/text@1']['output'];
+    description: CodecTypes['sqlite/text@1']['output'];
+    fileId: CodecTypes['sqlite/text@1']['output'];
+    id: CodecTypes['sql/char@1']['output'];
+    line: CodecTypes['sqlite/integer@1']['output'];
+    time: CodecTypes['sqlite/text@1']['output'] | null;
+    updatedAt: CodecTypes['sqlite/datetime@1']['output'];
+    file: LedgerFile;
+    postings: Posting[];
+    readonly [RelationKeys]?: 'file' | 'postings';
   };
   export type User = {
     createdAt: CodecTypes['sqlite/datetime@1']['output'];
@@ -348,8 +492,11 @@ export namespace Models {
 export declare const models: {
   EmailCode: Models.EmailCode;
   Ledger: Models.Ledger;
+  LedgerFile: Models.LedgerFile;
   Membership: Models.Membership;
+  Posting: Models.Posting;
   Session: Models.Session;
+  Transaction: Models.Transaction;
   User: Models.User;
 };
 
@@ -409,6 +556,65 @@ type ContractBase = Omit<
               uniques: readonly [{ readonly columns: readonly ['email'] }];
               indexes: readonly [];
               foreignKeys: readonly [];
+            };
+            readonly ledger_files: {
+              columns: {
+                readonly created_at: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'sqlite/datetime@1';
+                  readonly nullable: false;
+                };
+                readonly id: {
+                  readonly nativeType: 'character';
+                  readonly codecId: 'sql/char@1';
+                  readonly nullable: false;
+                  readonly typeParams: { readonly length: 36 };
+                };
+                readonly key: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                };
+                readonly ledger_id: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                };
+                readonly updated_at: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'sqlite/datetime@1';
+                  readonly nullable: false;
+                };
+                readonly version: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: true;
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [{ readonly columns: readonly ['ledger_id', 'key'] }];
+              indexes: readonly [
+                {
+                  readonly name: 'ledger_files_ledger_id_idx_828febee';
+                  readonly prefix: 'ledger_files_ledger_id_idx';
+                  readonly columns: readonly ['ledger_id'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: '__unbound__' & NamespaceId;
+                    readonly tableName: 'ledger_files';
+                    readonly columns: readonly ['ledger_id'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: '__unbound__' & NamespaceId;
+                    readonly tableName: 'ledgers';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
             };
             readonly ledgers: {
               columns: {
@@ -516,6 +722,70 @@ type ContractBase = Omit<
                 },
               ];
             };
+            readonly postings: {
+              columns: {
+                readonly account: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                };
+                readonly amount: {
+                  readonly nativeType: 'integer';
+                  readonly codecId: 'sqlite/bigint@1';
+                  readonly nullable: false;
+                };
+                readonly created_at: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'sqlite/datetime@1';
+                  readonly nullable: false;
+                };
+                readonly id: {
+                  readonly nativeType: 'character';
+                  readonly codecId: 'sql/char@1';
+                  readonly nullable: false;
+                  readonly typeParams: { readonly length: 36 };
+                };
+                readonly position: {
+                  readonly nativeType: 'integer';
+                  readonly codecId: 'sqlite/integer@1';
+                  readonly nullable: false;
+                };
+                readonly transaction_id: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                };
+                readonly updated_at: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'sqlite/datetime@1';
+                  readonly nullable: false;
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [];
+              indexes: readonly [
+                {
+                  readonly name: 'postings_transaction_id_idx_d55c89e2';
+                  readonly prefix: 'postings_transaction_id_idx';
+                  readonly columns: readonly ['transaction_id'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: '__unbound__' & NamespaceId;
+                    readonly tableName: 'postings';
+                    readonly columns: readonly ['transaction_id'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: '__unbound__' & NamespaceId;
+                    readonly tableName: 'transactions';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
             readonly sessions: {
               columns: {
                 readonly created_at: {
@@ -570,6 +840,75 @@ type ContractBase = Omit<
                   readonly target: {
                     readonly namespaceId: '__unbound__' & NamespaceId;
                     readonly tableName: 'users';
+                    readonly columns: readonly ['id'];
+                  };
+                },
+              ];
+            };
+            readonly transactions: {
+              columns: {
+                readonly created_at: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'sqlite/datetime@1';
+                  readonly nullable: false;
+                };
+                readonly date: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                };
+                readonly description: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                };
+                readonly file_id: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: false;
+                };
+                readonly id: {
+                  readonly nativeType: 'character';
+                  readonly codecId: 'sql/char@1';
+                  readonly nullable: false;
+                  readonly typeParams: { readonly length: 36 };
+                };
+                readonly line: {
+                  readonly nativeType: 'integer';
+                  readonly codecId: 'sqlite/integer@1';
+                  readonly nullable: false;
+                };
+                readonly time: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'sqlite/text@1';
+                  readonly nullable: true;
+                };
+                readonly updated_at: {
+                  readonly nativeType: 'text';
+                  readonly codecId: 'sqlite/datetime@1';
+                  readonly nullable: false;
+                };
+              };
+              primaryKey: { readonly columns: readonly ['id'] };
+              uniques: readonly [];
+              indexes: readonly [
+                {
+                  readonly name: 'transactions_file_id_idx_4f0f24cb';
+                  readonly prefix: 'transactions_file_id_idx';
+                  readonly columns: readonly ['file_id'];
+                  readonly unique: false;
+                },
+              ];
+              foreignKeys: readonly [
+                {
+                  readonly source: {
+                    readonly namespaceId: '__unbound__' & NamespaceId;
+                    readonly tableName: 'transactions';
+                    readonly columns: readonly ['file_id'];
+                  };
+                  readonly target: {
+                    readonly namespaceId: '__unbound__' & NamespaceId;
+                    readonly tableName: 'ledger_files';
                     readonly columns: readonly ['id'];
                   };
                 },
@@ -647,14 +986,26 @@ type ContractBase = Omit<
       readonly namespace: '__unbound__' & NamespaceId;
       readonly model: 'EmailCode';
     };
+    readonly ledger_files: {
+      readonly namespace: '__unbound__' & NamespaceId;
+      readonly model: 'LedgerFile';
+    };
     readonly ledgers: { readonly namespace: '__unbound__' & NamespaceId; readonly model: 'Ledger' };
     readonly memberships: {
       readonly namespace: '__unbound__' & NamespaceId;
       readonly model: 'Membership';
     };
+    readonly postings: {
+      readonly namespace: '__unbound__' & NamespaceId;
+      readonly model: 'Posting';
+    };
     readonly sessions: {
       readonly namespace: '__unbound__' & NamespaceId;
       readonly model: 'Session';
+    };
+    readonly transactions: {
+      readonly namespace: '__unbound__' & NamespaceId;
+      readonly model: 'Transaction';
     };
     readonly users: { readonly namespace: '__unbound__' & NamespaceId; readonly model: 'User' };
   };
@@ -731,6 +1082,17 @@ type ContractBase = Omit<
               };
             };
             readonly relations: {
+              readonly files: {
+                readonly to: {
+                  readonly namespace: '__unbound__' & NamespaceId;
+                  readonly model: 'LedgerFile';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['ledgerId'];
+                };
+              };
               readonly memberships: {
                 readonly to: {
                   readonly namespace: '__unbound__' & NamespaceId;
@@ -762,6 +1124,75 @@ type ContractBase = Omit<
                 readonly id: { readonly column: 'id' };
                 readonly name: { readonly column: 'name' };
                 readonly updatedAt: { readonly column: 'updated_at' };
+              };
+            };
+          };
+          readonly LedgerFile: {
+            readonly fields: {
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/datetime@1' };
+              };
+              readonly id: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'sql/char@1';
+                  readonly typeParams: { readonly length: 36 };
+                };
+              };
+              readonly key: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly ledgerId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly updatedAt: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/datetime@1' };
+              };
+              readonly version: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+            };
+            readonly relations: {
+              readonly ledger: {
+                readonly to: {
+                  readonly namespace: '__unbound__' & NamespaceId;
+                  readonly model: 'Ledger';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['ledgerId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly transactions: {
+                readonly to: {
+                  readonly namespace: '__unbound__' & NamespaceId;
+                  readonly model: 'Transaction';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['fileId'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'ledger_files';
+              readonly namespaceId: '__unbound__';
+              readonly fields: {
+                readonly createdAt: { readonly column: 'created_at' };
+                readonly id: { readonly column: 'id' };
+                readonly key: { readonly column: 'key' };
+                readonly ledgerId: { readonly column: 'ledger_id' };
+                readonly updatedAt: { readonly column: 'updated_at' };
+                readonly version: { readonly column: 'version' };
               };
             };
           };
@@ -835,6 +1266,69 @@ type ContractBase = Omit<
               };
             };
           };
+          readonly Posting: {
+            readonly fields: {
+              readonly account: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly amount: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/bigint@1' };
+              };
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/datetime@1' };
+              };
+              readonly id: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'sql/char@1';
+                  readonly typeParams: { readonly length: 36 };
+                };
+              };
+              readonly position: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/integer@1' };
+              };
+              readonly transactionId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly updatedAt: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/datetime@1' };
+              };
+            };
+            readonly relations: {
+              readonly transaction: {
+                readonly to: {
+                  readonly namespace: '__unbound__' & NamespaceId;
+                  readonly model: 'Transaction';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['transactionId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'postings';
+              readonly namespaceId: '__unbound__';
+              readonly fields: {
+                readonly account: { readonly column: 'account' };
+                readonly amount: { readonly column: 'amount' };
+                readonly createdAt: { readonly column: 'created_at' };
+                readonly id: { readonly column: 'id' };
+                readonly position: { readonly column: 'position' };
+                readonly transactionId: { readonly column: 'transaction_id' };
+                readonly updatedAt: { readonly column: 'updated_at' };
+              };
+            };
+          };
           readonly Session: {
             readonly fields: {
               readonly createdAt: {
@@ -890,6 +1384,85 @@ type ContractBase = Omit<
                 readonly tokenHash: { readonly column: 'token_hash' };
                 readonly updatedAt: { readonly column: 'updated_at' };
                 readonly userId: { readonly column: 'user_id' };
+              };
+            };
+          };
+          readonly Transaction: {
+            readonly fields: {
+              readonly createdAt: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/datetime@1' };
+              };
+              readonly date: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly description: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly fileId: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly id: {
+                readonly nullable: false;
+                readonly type: {
+                  readonly kind: 'scalar';
+                  readonly codecId: 'sql/char@1';
+                  readonly typeParams: { readonly length: 36 };
+                };
+              };
+              readonly line: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/integer@1' };
+              };
+              readonly time: {
+                readonly nullable: true;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
+              };
+              readonly updatedAt: {
+                readonly nullable: false;
+                readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/datetime@1' };
+              };
+            };
+            readonly relations: {
+              readonly file: {
+                readonly to: {
+                  readonly namespace: '__unbound__' & NamespaceId;
+                  readonly model: 'LedgerFile';
+                };
+                readonly cardinality: 'N:1';
+                readonly nullable: false;
+                readonly on: {
+                  readonly localFields: readonly ['fileId'];
+                  readonly targetFields: readonly ['id'];
+                };
+              };
+              readonly postings: {
+                readonly to: {
+                  readonly namespace: '__unbound__' & NamespaceId;
+                  readonly model: 'Posting';
+                };
+                readonly cardinality: '1:N';
+                readonly on: {
+                  readonly localFields: readonly ['id'];
+                  readonly targetFields: readonly ['transactionId'];
+                };
+              };
+            };
+            readonly storage: {
+              readonly table: 'transactions';
+              readonly namespaceId: '__unbound__';
+              readonly fields: {
+                readonly createdAt: { readonly column: 'created_at' };
+                readonly date: { readonly column: 'date' };
+                readonly description: { readonly column: 'description' };
+                readonly fileId: { readonly column: 'file_id' };
+                readonly id: { readonly column: 'id' };
+                readonly line: { readonly column: 'line' };
+                readonly time: { readonly column: 'time' };
+                readonly updatedAt: { readonly column: 'updated_at' };
               };
             };
           };
@@ -1022,6 +1595,31 @@ type ContractBase = Omit<
         {
           readonly onCreate: { readonly id: 'timestampNow'; readonly kind: 'generator' };
           readonly ref: {
+            readonly entry: 'ledger_files';
+            readonly field: 'created_at';
+            readonly namespace: '__unbound__';
+          };
+        },
+        {
+          readonly onCreate: { readonly id: 'uuidv7'; readonly kind: 'generator' };
+          readonly ref: {
+            readonly entry: 'ledger_files';
+            readonly field: 'id';
+            readonly namespace: '__unbound__';
+          };
+        },
+        {
+          readonly onCreate: { readonly id: 'timestampNow'; readonly kind: 'generator' };
+          readonly onUpdate: { readonly id: 'timestampNow'; readonly kind: 'generator' };
+          readonly ref: {
+            readonly entry: 'ledger_files';
+            readonly field: 'updated_at';
+            readonly namespace: '__unbound__';
+          };
+        },
+        {
+          readonly onCreate: { readonly id: 'timestampNow'; readonly kind: 'generator' };
+          readonly ref: {
             readonly entry: 'ledgers';
             readonly field: 'created_at';
             readonly namespace: '__unbound__';
@@ -1072,6 +1670,31 @@ type ContractBase = Omit<
         {
           readonly onCreate: { readonly id: 'timestampNow'; readonly kind: 'generator' };
           readonly ref: {
+            readonly entry: 'postings';
+            readonly field: 'created_at';
+            readonly namespace: '__unbound__';
+          };
+        },
+        {
+          readonly onCreate: { readonly id: 'uuidv7'; readonly kind: 'generator' };
+          readonly ref: {
+            readonly entry: 'postings';
+            readonly field: 'id';
+            readonly namespace: '__unbound__';
+          };
+        },
+        {
+          readonly onCreate: { readonly id: 'timestampNow'; readonly kind: 'generator' };
+          readonly onUpdate: { readonly id: 'timestampNow'; readonly kind: 'generator' };
+          readonly ref: {
+            readonly entry: 'postings';
+            readonly field: 'updated_at';
+            readonly namespace: '__unbound__';
+          };
+        },
+        {
+          readonly onCreate: { readonly id: 'timestampNow'; readonly kind: 'generator' };
+          readonly ref: {
             readonly entry: 'sessions';
             readonly field: 'created_at';
             readonly namespace: '__unbound__';
@@ -1090,6 +1713,31 @@ type ContractBase = Omit<
           readonly onUpdate: { readonly id: 'timestampNow'; readonly kind: 'generator' };
           readonly ref: {
             readonly entry: 'sessions';
+            readonly field: 'updated_at';
+            readonly namespace: '__unbound__';
+          };
+        },
+        {
+          readonly onCreate: { readonly id: 'timestampNow'; readonly kind: 'generator' };
+          readonly ref: {
+            readonly entry: 'transactions';
+            readonly field: 'created_at';
+            readonly namespace: '__unbound__';
+          };
+        },
+        {
+          readonly onCreate: { readonly id: 'uuidv7'; readonly kind: 'generator' };
+          readonly ref: {
+            readonly entry: 'transactions';
+            readonly field: 'id';
+            readonly namespace: '__unbound__';
+          };
+        },
+        {
+          readonly onCreate: { readonly id: 'timestampNow'; readonly kind: 'generator' };
+          readonly onUpdate: { readonly id: 'timestampNow'; readonly kind: 'generator' };
+          readonly ref: {
+            readonly entry: 'transactions';
             readonly field: 'updated_at';
             readonly namespace: '__unbound__';
           };

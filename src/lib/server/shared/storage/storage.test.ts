@@ -1,7 +1,7 @@
 import { symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect } from 'vitest';
-import { it } from './fixture';
+import { it } from '#tests/shared/vitest.ts';
 import { scoped, validateKey, type Storage } from './storage';
 import { err, ok } from '../result';
 

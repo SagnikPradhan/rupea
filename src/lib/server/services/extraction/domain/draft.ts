@@ -1,10 +1,10 @@
-import type { RupeeTransaction } from '#lib/server/services/ledger/domain/types.ts';
+import type { Amount, RupeeTransaction } from '#lib/server/services/ledger/domain/types.ts';
 import { predictAccount } from '#lib/server/services/prediction/domain/prediction.ts';
 import type { RupeeRecord } from './types';
 
 /**
  * A record as a transaction of the statement's own `account`: the amount
- * lands there, and the other side, left to balance it, goes to the record's
+ * lands there, and the other side, its negation, goes to the record's
  * category or else a predicted account.
  */
 export const toTransaction =
@@ -18,7 +18,7 @@ export const toTransaction =
 			{ account, amount: record.amount },
 			{
 				account: record.category ? words(record.category).join('-') : predictAccount(record),
-				amount: null,
+				amount: -record.amount as Amount,
 			},
 		],
 	});

@@ -1,9 +1,10 @@
 /**
  * The `.rupee` format: a header line `<date> [time] <description>`, followed
- * by one tab-indented posting per line, `<account> [amount]`. Blank
- * (whitespace-only) lines may separate transactions; a blank line ends the
- * postings above it. Dates and times may be written in any of the configured
- * formats.
+ * by one posting per line, indented with a tab or at least two spaces:
+ * `<account> [amount [INR]]`. Blank (whitespace-only) lines may separate
+ * transactions; a blank line ends the postings above it. Lines starting with
+ * `;` are comments and ignored. Dates and times may be written in any of the
+ * configured formats.
  *
  *     2026-08-29 18:45 Groceries
  *     	Expenses:Food 100
@@ -12,6 +13,9 @@
  *     30 Aug 2026 Salary
  *     	Assets:Bank 50000
  *     	Income:Salary
+ *
+ * Amounts are signed and a transaction's postings sum to zero. One posting
+ * may leave its amount out; it takes whatever balances the others.
  */
 import * as dateFns from 'date-fns';
 import { match, P } from 'ts-pattern';
@@ -20,6 +24,7 @@ import type { RupeeError } from '#lib/server/shared/error.ts';
 import { batch, err, ok, type Batch, type Result } from '#lib/server/shared/result.ts';
 import {
 	AMOUNT_SCALE,
+	formatAmount,
 	type Amount,
 	type RupeeFile,
 	type RupeeParseLocation,
@@ -45,16 +50,19 @@ const lines = (file: string, content: string): RupeeLine[] =>
 			content: text,
 		}));
 
+/** A posting as written, before an amount left out is worked out. */
+type WrittenPosting = { account: string; amount: Amount | null };
+
 /**
- * Parse consecutive transactions. A bad posting does not sink its
- * transaction, but an unreadable header stops the parse: without it there is
- * no telling where the next transaction starts.
+ * Parse consecutive transactions. A transaction with a bad posting is
+ * dropped, the rest carry on, but an unreadable header stops the parse:
+ * without it there is no telling where the next transaction starts.
  */
 export const parseTransactions = (
 	configuration: RupeeConfiguration,
 	input: RupeeLine[],
 ): Batch<RupeeTransaction> => {
-	const lines = [...input];
+	const lines = input.filter((l) => !isComment(l));
 	const results: Result<RupeeTransaction>[] = [];
 	for (const line of drain(lines)) {
 		if (isBlank(line)) continue;
@@ -63,20 +71,14 @@ export const parseTransactions = (
 
 		const body = batch(takeWhile(lines, isPosting).map(parsePosting));
 		results.push(...body.failed.map((e) => err(e)));
-		switch (true) {
-			case body.succeeded.length > 0:
-				results.push(
-					ok({
-						location: line.location,
-						...header.value,
-						postings: body.succeeded,
-					}),
-				);
-				break;
-			case body.failed.length === 0:
-				results.push(missingBody(line.location));
-				break;
-		}
+		if (body.failed.length > 0) continue;
+		results.push(
+			balance(line.location, body.succeeded).map((postings) => ({
+				location: line.location,
+				...header.value,
+				postings,
+			})),
+		);
 	}
 	return batch(results);
 };
@@ -95,14 +97,42 @@ const takeWhile = <T>(stack: T[], keep: (item: T) => boolean): T[] => {
 /** Whitespace-only lines separate transactions and are otherwise ignored. */
 const isBlank = ({ content }: RupeeLine) => content.trim() === '';
 
-const isPosting = (l: RupeeLine) => l.content.startsWith('\t') && !isBlank(l);
+/** Lines starting with `;` are ignored, as in hledger. */
+const isComment = ({ content }: RupeeLine) => content.startsWith(';');
 
-const missingBody = (location: RupeeParseLocation): Result<never> =>
-	err({
-		type: 'ParseMissingTransactionBody',
-		location: displayLocation(location),
-		cause: [],
-	});
+const isPosting = (l: RupeeLine) => /^(\t| {2})/.test(l.content) && !isBlank(l);
+
+const failure = (
+	l: RupeeParseLocation,
+	t: Extract<RupeeError, { location: string }>['type'],
+	x: { residual?: string } = {},
+): Result<never> => err({ type: t, location: displayLocation(l), ...x, cause: [] } as RupeeError);
+
+const sum = (a: Amount[]): bigint => a.reduce((t, n) => t + n, 0n);
+
+/**
+ * Give every posting an amount: the one left out, if any, is whatever makes
+ * the transaction sum to zero. Fewer than two postings, several left out, or
+ * amounts that do not sum to zero are errors.
+ */
+const balance = (
+	location: RupeeParseLocation,
+	written: WrittenPosting[],
+): Result<RupeePosting[]> => {
+	if (written.length < 2) return failure(location, 'ParseMissingTransactionBody');
+	const implicit = written.filter((p) => p.amount === null);
+	if (implicit.length > 1) return failure(location, 'ParseMultipleImplicitPostings');
+	const known = sum(written.flatMap((p) => (p.amount === null ? [] : [p.amount])));
+	if (implicit.length === 1)
+		return ok(
+			written.map(({ account, amount }) => ({ account, amount: amount ?? (-known as Amount) })),
+		);
+	return known === 0n
+		? ok(written.map(({ account, amount }) => ({ account, amount: amount as Amount })))
+		: failure(location, 'ParseUnbalancedTransaction', {
+				residual: formatAmount(known as Amount),
+			});
+};
 
 export const parseHeader = (
 	{ dateFormats, timeFormats }: RupeeConfiguration,
@@ -145,7 +175,7 @@ const readWords = <T>(
 		.sort((a, b) => a.rest.length - b.rest.length)
 		.at(0);
 
-export const parsePosting = ({ location, content }: RupeeLine): Result<RupeePosting> => {
+export const parsePosting = ({ location, content }: RupeeLine): Result<WrittenPosting> => {
 	const invalid: RupeeError = {
 		type: 'ParseInvalidPosting',
 		location: displayLocation(location),
@@ -154,10 +184,14 @@ export const parsePosting = ({ location, content }: RupeeLine): Result<RupeePost
 	const words = content.split(/\s+/).filter(Boolean);
 	return match(words)
 		.with([P.string.minLength(1)], ([account]) => ok({ account, amount: null }))
-		.with([P.string.minLength(1), P.string.minLength(1)], ([account, text]) => {
-			const amount = parseAmount(text);
-			return amount ? ok({ account, amount }) : err(invalid);
-		})
+		.with(
+			[P.string.minLength(1), P.string.minLength(1)],
+			[P.string.minLength(1), P.string.minLength(1), P.string.regex(/^INR$/i)],
+			([account, text]) => {
+				const amount = parseAmount(text);
+				return amount === null ? err(invalid) : ok({ account, amount });
+			},
+		)
 		.otherwise(() => err(invalid));
 };
 

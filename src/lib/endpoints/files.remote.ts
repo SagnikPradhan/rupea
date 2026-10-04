@@ -32,6 +32,14 @@ export const getFiles = query(async () =>
 );
 
 /**
+ * One file as it is in storage. A command, not a query: it must never come
+ * from a cache, since the file may have been edited behind the app's back.
+ */
+export const readFile = command(Key, async (k) =>
+	fromResult(await Auth.withCurrentUser(({ id }) => Ledger.getFile(id, k))),
+);
+
+/**
  * Run a mutation in the current ledger, refreshing the file list and the
  * transactions with it.
  */

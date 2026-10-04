@@ -95,6 +95,10 @@ export const getTransactions = (userId: string): ResultAsync<Batch<IndexedTransa
 
 export const listFiles = (u: string) => withLedger(u, (l) => ledgerFiles(l).list());
 
+/** The file `key`, read from storage as it is now; nothing is synced. */
+export const getFile = (u: string, k: string): ResultAsync<RupeeFile> =>
+	withLedger(u, (l) => ledgerFiles(l).read(k));
+
 /** Parse `content` as the file `key` would be, without saving anything. */
 export const check = (k: string, c: string): Batch<RupeeTransaction> =>
 	withContext('config')((f) => parse(f, { key: k, content: c }));

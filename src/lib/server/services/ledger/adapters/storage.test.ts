@@ -1,5 +1,5 @@
 import { describe, expect } from 'vitest';
-import { it } from '#lib/server/shared/storage/fixture.ts';
+import { it } from '#tests/shared/vitest.ts';
 import { files } from './storage';
 import { err, ok } from '#lib/server/shared/result.ts';
 

@@ -24,7 +24,7 @@
 				<td>{transaction.description}</td>
 				<td>
 					{#each transaction.postings as posting, index (index)}
-						<div>{posting.account} {posting.amount ?? ''}</div>
+						<div>{posting.account} {posting.amount}</div>
 					{/each}
 				</td>
 				<td>{transaction.file}:{transaction.line}</td>

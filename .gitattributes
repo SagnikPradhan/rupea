@@ -1,0 +1,2 @@
+src/lib/server/db/generated/** linguist-generated
+prisma/migrations/** linguist-generated

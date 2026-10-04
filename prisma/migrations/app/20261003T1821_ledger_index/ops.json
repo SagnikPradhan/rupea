@@ -1,0 +1,248 @@
+[
+  {
+    "id": "table.ledger_files",
+    "label": "Create table ledger_files",
+    "summary": "Creates table ledger_files with required columns",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "table",
+        "name": "ledger_files"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"ledger_files\" does not exist",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "ledger_files"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"ledger_files\"",
+        "sql": "CREATE TABLE \"ledger_files\" (\n  \"created_at\" TEXT NOT NULL,\n  \"id\" CHARACTER NOT NULL,\n  \"key\" TEXT NOT NULL,\n  \"ledger_id\" TEXT NOT NULL,\n  \"updated_at\" TEXT NOT NULL,\n  \"version\" TEXT,\n  PRIMARY KEY (\"id\"),\n  UNIQUE (\"ledger_id\", \"key\"),\n  FOREIGN KEY (\"ledger_id\") REFERENCES \"ledgers\" (\"id\") ON DELETE CASCADE\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"ledger_files\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "ledger_files"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.postings",
+    "label": "Create table postings",
+    "summary": "Creates table postings with required columns",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "table",
+        "name": "postings"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"postings\" does not exist",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "postings"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"postings\"",
+        "sql": "CREATE TABLE \"postings\" (\n  \"account\" TEXT NOT NULL,\n  \"amount\" INTEGER,\n  \"created_at\" TEXT NOT NULL,\n  \"id\" CHARACTER NOT NULL,\n  \"position\" INTEGER NOT NULL,\n  \"transaction_id\" TEXT NOT NULL,\n  \"updated_at\" TEXT NOT NULL,\n  PRIMARY KEY (\"id\"),\n  FOREIGN KEY (\"transaction_id\") REFERENCES \"transactions\" (\"id\") ON DELETE CASCADE\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"postings\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "postings"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.transactions",
+    "label": "Create table transactions",
+    "summary": "Creates table transactions with required columns",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "table",
+        "name": "transactions"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"transactions\" does not exist",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "transactions"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"transactions\"",
+        "sql": "CREATE TABLE \"transactions\" (\n  \"created_at\" TEXT NOT NULL,\n  \"date\" TEXT NOT NULL,\n  \"description\" TEXT NOT NULL,\n  \"file_id\" TEXT NOT NULL,\n  \"id\" CHARACTER NOT NULL,\n  \"line\" INTEGER NOT NULL,\n  \"updated_at\" TEXT NOT NULL,\n  PRIMARY KEY (\"id\"),\n  FOREIGN KEY (\"file_id\") REFERENCES \"ledger_files\" (\"id\") ON DELETE CASCADE\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"transactions\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "transactions"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.ledger_files.ledger_files_ledger_id_idx_828febee",
+    "label": "Create index ledger_files_ledger_id_idx_828febee on ledger_files",
+    "summary": "Creates index ledger_files_ledger_id_idx_828febee on ledger_files",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "ledger_files_ledger_id_idx_828febee",
+        "table": "ledger_files"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"ledger_files_ledger_id_idx_828febee\" is missing",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "ledger_files_ledger_id_idx_828febee"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"ledger_files_ledger_id_idx_828febee\"",
+        "sql": "CREATE INDEX \"ledger_files_ledger_id_idx_828febee\" ON \"ledger_files\" (\"ledger_id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"ledger_files_ledger_id_idx_828febee\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "ledger_files_ledger_id_idx_828febee"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.postings.postings_transaction_id_idx_d55c89e2",
+    "label": "Create index postings_transaction_id_idx_d55c89e2 on postings",
+    "summary": "Creates index postings_transaction_id_idx_d55c89e2 on postings",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "postings_transaction_id_idx_d55c89e2",
+        "table": "postings"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"postings_transaction_id_idx_d55c89e2\" is missing",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "postings_transaction_id_idx_d55c89e2"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"postings_transaction_id_idx_d55c89e2\"",
+        "sql": "CREATE INDEX \"postings_transaction_id_idx_d55c89e2\" ON \"postings\" (\"transaction_id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"postings_transaction_id_idx_d55c89e2\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "postings_transaction_id_idx_d55c89e2"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.transactions.transactions_file_id_idx_4f0f24cb",
+    "label": "Create index transactions_file_id_idx_4f0f24cb on transactions",
+    "summary": "Creates index transactions_file_id_idx_4f0f24cb on transactions",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "transactions_file_id_idx_4f0f24cb",
+        "table": "transactions"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"transactions_file_id_idx_4f0f24cb\" is missing",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "transactions_file_id_idx_4f0f24cb"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"transactions_file_id_idx_4f0f24cb\"",
+        "sql": "CREATE INDEX \"transactions_file_id_idx_4f0f24cb\" ON \"transactions\" (\"file_id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"transactions_file_id_idx_4f0f24cb\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "transactions_file_id_idx_4f0f24cb"
+        ]
+      }
+    ]
+  }
+]

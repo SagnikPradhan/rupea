@@ -1,0 +1,371 @@
+[
+  {
+    "id": "table.email_codes",
+    "label": "Create table email_codes",
+    "summary": "Creates table email_codes with required columns",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "table",
+        "name": "email_codes"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"email_codes\" does not exist",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "email_codes"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"email_codes\"",
+        "sql": "CREATE TABLE \"email_codes\" (\n  \"code_hash\" TEXT NOT NULL,\n  \"created_at\" TEXT NOT NULL,\n  \"email\" TEXT NOT NULL,\n  \"expires_at\" TEXT NOT NULL,\n  \"id\" CHARACTER NOT NULL,\n  \"updated_at\" TEXT NOT NULL,\n  PRIMARY KEY (\"id\"),\n  UNIQUE (\"email\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"email_codes\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "email_codes"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.ledgers",
+    "label": "Create table ledgers",
+    "summary": "Creates table ledgers with required columns",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "table",
+        "name": "ledgers"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"ledgers\" does not exist",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "ledgers"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"ledgers\"",
+        "sql": "CREATE TABLE \"ledgers\" (\n  \"created_at\" TEXT NOT NULL,\n  \"id\" CHARACTER NOT NULL,\n  \"name\" TEXT NOT NULL,\n  \"updated_at\" TEXT NOT NULL,\n  PRIMARY KEY (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"ledgers\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "ledgers"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.memberships",
+    "label": "Create table memberships",
+    "summary": "Creates table memberships with required columns",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "table",
+        "name": "memberships"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"memberships\" does not exist",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "memberships"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"memberships\"",
+        "sql": "CREATE TABLE \"memberships\" (\n  \"created_at\" TEXT NOT NULL,\n  \"id\" CHARACTER NOT NULL,\n  \"ledger_id\" TEXT NOT NULL,\n  \"role\" TEXT NOT NULL,\n  \"updated_at\" TEXT NOT NULL,\n  \"user_id\" TEXT NOT NULL,\n  PRIMARY KEY (\"id\"),\n  UNIQUE (\"user_id\", \"ledger_id\"),\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\" (\"id\") ON DELETE CASCADE,\n  FOREIGN KEY (\"ledger_id\") REFERENCES \"ledgers\" (\"id\") ON DELETE CASCADE\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"memberships\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "memberships"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.sessions",
+    "label": "Create table sessions",
+    "summary": "Creates table sessions with required columns",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "table",
+        "name": "sessions"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"sessions\" does not exist",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "sessions"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"sessions\"",
+        "sql": "CREATE TABLE \"sessions\" (\n  \"created_at\" TEXT NOT NULL,\n  \"expires_at\" TEXT NOT NULL,\n  \"id\" CHARACTER NOT NULL,\n  \"token_hash\" TEXT NOT NULL,\n  \"updated_at\" TEXT NOT NULL,\n  \"user_id\" TEXT NOT NULL,\n  PRIMARY KEY (\"id\"),\n  UNIQUE (\"token_hash\"),\n  FOREIGN KEY (\"user_id\") REFERENCES \"users\" (\"id\") ON DELETE CASCADE\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"sessions\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "sessions"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "table.users",
+    "label": "Create table users",
+    "summary": "Creates table users with required columns",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "table",
+        "name": "users"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure table \"users\" does not exist",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "users"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create table \"users\"",
+        "sql": "CREATE TABLE \"users\" (\n  \"created_at\" TEXT NOT NULL,\n  \"email\" TEXT NOT NULL,\n  \"id\" CHARACTER NOT NULL,\n  \"ledger_id\" TEXT,\n  \"updated_at\" TEXT NOT NULL,\n  PRIMARY KEY (\"id\"),\n  UNIQUE (\"email\"),\n  FOREIGN KEY (\"ledger_id\") REFERENCES \"ledgers\" (\"id\")\n)",
+        "params": []
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify table \"users\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "table",
+          "users"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.memberships.memberships_ledger_id_idx_828febee",
+    "label": "Create index memberships_ledger_id_idx_828febee on memberships",
+    "summary": "Creates index memberships_ledger_id_idx_828febee on memberships",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "memberships_ledger_id_idx_828febee",
+        "table": "memberships"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"memberships_ledger_id_idx_828febee\" is missing",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "memberships_ledger_id_idx_828febee"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"memberships_ledger_id_idx_828febee\"",
+        "sql": "CREATE INDEX \"memberships_ledger_id_idx_828febee\" ON \"memberships\" (\"ledger_id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"memberships_ledger_id_idx_828febee\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "memberships_ledger_id_idx_828febee"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.memberships.memberships_user_id_idx_6c952402",
+    "label": "Create index memberships_user_id_idx_6c952402 on memberships",
+    "summary": "Creates index memberships_user_id_idx_6c952402 on memberships",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "memberships_user_id_idx_6c952402",
+        "table": "memberships"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"memberships_user_id_idx_6c952402\" is missing",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "memberships_user_id_idx_6c952402"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"memberships_user_id_idx_6c952402\"",
+        "sql": "CREATE INDEX \"memberships_user_id_idx_6c952402\" ON \"memberships\" (\"user_id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"memberships_user_id_idx_6c952402\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "memberships_user_id_idx_6c952402"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.sessions.sessions_user_id_idx_6c952402",
+    "label": "Create index sessions_user_id_idx_6c952402 on sessions",
+    "summary": "Creates index sessions_user_id_idx_6c952402 on sessions",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "sessions_user_id_idx_6c952402",
+        "table": "sessions"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"sessions_user_id_idx_6c952402\" is missing",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "sessions_user_id_idx_6c952402"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"sessions_user_id_idx_6c952402\"",
+        "sql": "CREATE INDEX \"sessions_user_id_idx_6c952402\" ON \"sessions\" (\"user_id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"sessions_user_id_idx_6c952402\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "sessions_user_id_idx_6c952402"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "index.users.users_ledger_id_idx_828febee",
+    "label": "Create index users_ledger_id_idx_828febee on users",
+    "summary": "Creates index users_ledger_id_idx_828febee on users",
+    "operationClass": "additive",
+    "target": {
+      "id": "sqlite",
+      "details": {
+        "schema": "main",
+        "objectType": "index",
+        "name": "users_ledger_id_idx_828febee",
+        "table": "users"
+      }
+    },
+    "precheck": [
+      {
+        "description": "ensure index \"users_ledger_id_idx_828febee\" is missing",
+        "sql": "SELECT COUNT(*) = 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "users_ledger_id_idx_828febee"
+        ]
+      }
+    ],
+    "execute": [
+      {
+        "description": "create index \"users_ledger_id_idx_828febee\"",
+        "sql": "CREATE INDEX \"users_ledger_id_idx_828febee\" ON \"users\" (\"ledger_id\")"
+      }
+    ],
+    "postcheck": [
+      {
+        "description": "verify index \"users_ledger_id_idx_828febee\" exists",
+        "sql": "SELECT COUNT(*) > 0 AS \"result\" FROM \"sqlite_master\" WHERE (\"type\" = ? AND \"name\" = ?)",
+        "params": [
+          "index",
+          "users_ledger_id_idx_828febee"
+        ]
+      }
+    ]
+  }
+]

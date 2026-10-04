@@ -2,7 +2,7 @@ import { describe, expect } from 'vitest';
 import type { Database } from '#lib/server/db/index.ts';
 import * as Ledger from '#lib/server/services/ledger/application/ledger.ts';
 import { provide } from '#lib/server/shared/context.ts';
-import { it } from '#lib/server/shared/fixture.ts';
+import { it } from '#tests/shared/vitest.ts';
 import * as Extraction from './extraction';
 import { err, ok } from '#lib/server/shared/result.ts';
 
@@ -60,8 +60,8 @@ describe('extracting a statement', () => {
 					key: 'imports/aug.rupee',
 					content: [
 						'2026-08-29 UPI GROCER',
-						'\tAssets:Bank -1250.50',
-						'\tExpenses:Food',
+						'\tAssets:Bank',
+						'\tExpenses:Food 1250.50',
 						'',
 						'2026-08-30 SALARY',
 						'\tAssets:Bank 50000.00',

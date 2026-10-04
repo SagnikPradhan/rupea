@@ -1,4 +1,5 @@
 import adapter from '@sveltejs/adapter-node';
+import { svelteTesting } from '@testing-library/svelte/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
 import { defineConfig } from 'vitest/config';
 
@@ -16,7 +17,26 @@ export default defineConfig({
 		}),
 	],
 	test: {
-		include: ['src/**/*.test.ts'],
-		environment: 'node',
+		projects: [
+			{
+				extends: true,
+				test: {
+					name: 'server',
+					include: ['src/**/*.test.ts', 'tests/shared/**/*.test.ts'],
+					exclude: ['src/**/*.dom.test.ts'],
+					environment: 'node',
+				},
+			},
+			{
+				// Components render in a DOM; `svelteTesting` resolves Svelte's browser build.
+				extends: true,
+				plugins: [svelteTesting()],
+				test: {
+					name: 'dom',
+					include: ['src/**/*.dom.test.ts'],
+					environment: 'happy-dom',
+				},
+			},
+		],
 	},
 });

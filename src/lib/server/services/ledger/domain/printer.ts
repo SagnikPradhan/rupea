@@ -2,6 +2,10 @@
  * Writes transactions as `.rupee` text, the inverse of `parse`: dates and
  * times in the first configured format, so the text reads back under the
  * same configuration, and a blank line between transactions.
+ *
+ * A transaction with a single outgoing (negative) posting leaves that
+ * posting's amount out, as it is just what balances the rest; any other
+ * transaction spells every amount.
  */
 import * as dateFns from 'date-fns';
 import type { RupeeConfiguration } from '#lib/server/shared/config.ts';
@@ -19,11 +23,15 @@ const printTransaction = (
 		...(time ? [printTime(timeFormats[0], time)] : []),
 		description,
 	].join(' ');
-	return [header, ...postings.map(printPosting)].map((l) => `${l}\n`).join('');
+	const outgoing = postings.filter((p) => p.amount < 0n);
+	const elided = outgoing.length === 1 ? outgoing[0] : undefined;
+	return [header, ...postings.map((p) => printPosting(p, p === elided))]
+		.map((l) => `${l}\n`)
+		.join('');
 };
 
-const printPosting = ({ account, amount }: RupeePosting): string =>
-	amount === null ? `\t${account}` : `\t${account} ${formatAmount(amount)}`;
+const printPosting = ({ account, amount }: RupeePosting, e: boolean): string =>
+	e ? `\t${account}` : `\t${account} ${formatAmount(amount)}`;
 
 const printDate = (f: string | undefined, d: Temporal.PlainDate) =>
 	f ? dateFns.format(new Date(d.year, d.month - 1, d.day), f) : d.toString();

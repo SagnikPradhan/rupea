@@ -35,6 +35,6 @@ export const viewTransaction = ({
 	description,
 	postings: postings.map(({ account, amount }) => ({
 		account,
-		amount: amount === null ? null : formatAmount(amount),
+		amount: formatAmount(amount),
 	})),
 });

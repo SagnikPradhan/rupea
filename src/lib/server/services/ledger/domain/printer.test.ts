@@ -14,7 +14,7 @@ const transactions: RupeeTransaction[] = [
 		description: 'Groceries',
 		postings: [
 			{ account: 'Expenses:Food', amount: amount('100.5') },
-			{ account: 'Assets:Bank', amount: null },
+			{ account: 'Assets:Bank', amount: amount('-100.5') },
 		],
 	},
 	{
@@ -24,7 +24,7 @@ const transactions: RupeeTransaction[] = [
 		description: 'Salary for August',
 		postings: [
 			{ account: 'Assets:Bank', amount: amount('-0.000001') },
-			{ account: 'Income:Salary', amount: null },
+			{ account: 'Income:Salary', amount: amount('0.000001') },
 		],
 	},
 ];
@@ -38,11 +38,36 @@ describe('printing a ledger', () => {
 				'\tAssets:Bank',
 				'',
 				'2026-08-30 Salary for August',
-				'\tAssets:Bank -0.000001',
-				'\tIncome:Salary',
+				'\tAssets:Bank',
+				'\tIncome:Salary 0.000001',
 				'',
 			].join('\n'),
 		);
+	});
+
+	it('spells every amount unless exactly one posting is outgoing', () => {
+		const spelled = (postings: [string, string][]) =>
+			print(defaultConfiguration, [
+				{
+					...transactions[0]!,
+					postings: postings.map(([account, a]) => ({ account, amount: amount(a) })),
+				},
+			])
+				.split('\n')
+				.slice(1, -1);
+		expect(
+			spelled([
+				['A', '-1'],
+				['B', '-2'],
+				['C', '3'],
+			]),
+		).toEqual(['\tA -1.00', '\tB -2.00', '\tC 3.00']);
+		expect(
+			spelled([
+				['A', '0'],
+				['B', '0'],
+			]),
+		).toEqual(['\tA 0.00', '\tB 0.00']);
 	});
 
 	it('reads back as what it wrote', () => {

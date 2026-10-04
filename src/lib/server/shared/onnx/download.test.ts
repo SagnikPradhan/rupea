@@ -4,7 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, vi } from 'vitest';
 import { createLogger } from '../logger';
 import { err, ok } from '../result';
-import { it } from '../storage/fixture';
+import { it } from '#tests/shared/vitest.ts';
 import { ensure, prepare, type ModelFile, type ModelMode } from './download';
 
 const bytes = new TextEncoder().encode('a model');

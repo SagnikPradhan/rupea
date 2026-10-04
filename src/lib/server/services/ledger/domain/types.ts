@@ -21,8 +21,8 @@ export type RupeeParseLocation = { file: string; line: number };
 
 export type RupeePosting = {
 	account: string;
-	/** `null` when the posting balances the rest of the transaction. */
-	amount: Amount | null;
+	/** Signed: negative is money out of the account. A transaction sums to zero. */
+	amount: Amount;
 };
 
 export type RupeeTransaction = {

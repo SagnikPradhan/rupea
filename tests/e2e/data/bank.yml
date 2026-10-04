@@ -1,0 +1,12 @@
+version: v1
+name: Bank
+header:
+  text: Narration
+fields:
+  date: { from: [header: Date], pipe: [date: dd/MM/yy] }
+  description: { from: [header: Narration] }
+  amount:
+    - from: [header: Debit]
+      pipe: [number, negate]
+    - from: [header: Credit]
+      pipe: [number]

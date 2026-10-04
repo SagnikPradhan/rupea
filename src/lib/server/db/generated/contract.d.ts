@@ -17,7 +17,7 @@ import type {
 } from '@prisma/orm-sqlite/contract/types';
 
 export type StorageHash =
-  StorageHashBase<'0a1efedef3d87f3c09a4c2794acfa89b37a9b24ca9c75e2e2894acd20a1a0bf7'>;
+  StorageHashBase<'ba7a9c49840241a315c59676c7d5d136b27ca133727c76d0f33accb39e98f5e6'>;
 export type ExecutionHash =
   ExecutionHashBase<'088098886dced4543194368f1e560aa89ea72db8388269d736a5dab79da340e4'>;
 export type ProfileHash =
@@ -161,7 +161,7 @@ export type FieldOutputTypes = {
     };
     readonly Posting: {
       readonly account: CodecTypes['sqlite/text@1']['output'];
-      readonly amount: CodecTypes['sqlite/bigint@1']['output'] | null;
+      readonly amount: CodecTypes['sqlite/bigint@1']['output'];
       readonly createdAt: CodecTypes['sqlite/datetime@1']['output'];
       readonly id: CodecTypes['sql/char@1']['output'];
       readonly position: CodecTypes['sqlite/integer@1']['output'];
@@ -229,7 +229,7 @@ export type FieldInputTypes = {
     };
     readonly Posting: {
       readonly account: CodecTypes['sqlite/text@1']['input'];
-      readonly amount: CodecTypes['sqlite/bigint@1']['input'] | null;
+      readonly amount: CodecTypes['sqlite/bigint@1']['input'];
       readonly createdAt: CodecTypes['sqlite/datetime@1']['input'];
       readonly id: CodecTypes['sql/char@1']['input'];
       readonly position: CodecTypes['sqlite/integer@1']['input'];
@@ -297,7 +297,7 @@ export type StorageColumnTypes = {
     };
     readonly postings: {
       readonly account: CodecTypes['sqlite/text@1']['output'];
-      readonly amount: CodecTypes['sqlite/bigint@1']['output'] | null;
+      readonly amount: CodecTypes['sqlite/bigint@1']['output'];
       readonly created_at: CodecTypes['sqlite/datetime@1']['output'];
       readonly id: CodecTypes['sql/char@1']['output'];
       readonly position: CodecTypes['sqlite/integer@1']['output'];
@@ -365,7 +365,7 @@ export type StorageColumnInputTypes = {
     };
     readonly postings: {
       readonly account: CodecTypes['sqlite/text@1']['input'];
-      readonly amount: CodecTypes['sqlite/bigint@1']['input'] | null;
+      readonly amount: CodecTypes['sqlite/bigint@1']['input'];
       readonly created_at: CodecTypes['sqlite/datetime@1']['input'];
       readonly id: CodecTypes['sql/char@1']['input'];
       readonly position: CodecTypes['sqlite/integer@1']['input'];
@@ -444,7 +444,7 @@ export namespace Models {
   };
   export type Posting = {
     account: CodecTypes['sqlite/text@1']['output'];
-    amount: CodecTypes['sqlite/bigint@1']['output'] | null;
+    amount: CodecTypes['sqlite/bigint@1']['output'];
     createdAt: CodecTypes['sqlite/datetime@1']['output'];
     id: CodecTypes['sql/char@1']['output'];
     position: CodecTypes['sqlite/integer@1']['output'];
@@ -732,7 +732,7 @@ type ContractBase = Omit<
                 readonly amount: {
                   readonly nativeType: 'integer';
                   readonly codecId: 'sqlite/bigint@1';
-                  readonly nullable: true;
+                  readonly nullable: false;
                 };
                 readonly created_at: {
                   readonly nativeType: 'text';
@@ -1273,7 +1273,7 @@ type ContractBase = Omit<
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/text@1' };
               };
               readonly amount: {
-                readonly nullable: true;
+                readonly nullable: false;
                 readonly type: { readonly kind: 'scalar'; readonly codecId: 'sqlite/bigint@1' };
               };
               readonly createdAt: {

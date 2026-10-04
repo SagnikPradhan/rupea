@@ -11,6 +11,7 @@
 	<nav>
 		<a href="/ledger/files">Ledger files</a>
 		<a href="/ledger/transactions">Transactions</a>
+		<a href="/ledger/postings">Postings</a>
 		<a href="/ledger/import">Import a statement</a>
 		<a href="/ledger/schemas">Statement schemas</a>
 	</nav>

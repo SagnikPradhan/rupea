@@ -105,7 +105,7 @@ const transactions = (ledgerId: string) => (): ResultAsync<IndexedTransaction[]>
 						description,
 						postings: postings.map(({ account, amount }) => ({
 							account,
-							amount: amount as Amount | null,
+							amount: amount as Amount,
 						})),
 					})),
 				)

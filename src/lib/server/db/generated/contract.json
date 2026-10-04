@@ -455,7 +455,7 @@
                 }
               },
               "amount": {
-                "nullable": true,
+                "nullable": false,
                 "type": {
                   "codecId": "sqlite/bigint@1",
                   "kind": "scalar"
@@ -1168,7 +1168,7 @@
                 "amount": {
                   "codecId": "sqlite/bigint@1",
                   "nativeType": "integer",
-                  "nullable": true
+                  "nullable": false
                 },
                 "created_at": {
                   "codecId": "sqlite/datetime@1",
@@ -1480,7 +1480,7 @@
         "id": "__unbound__"
       }
     },
-    "storageHash": "0a1efedef3d87f3c09a4c2794acfa89b37a9b24ca9c75e2e2894acd20a1a0bf7"
+    "storageHash": "ba7a9c49840241a315c59676c7d5d136b27ca133727c76d0f33accb39e98f5e6"
   },
   "execution": {
     "executionHash": "088098886dced4543194368f1e560aa89ea72db8388269d736a5dab79da340e4",

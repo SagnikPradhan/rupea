@@ -121,8 +121,8 @@ model Posting {
   // Order within the transaction.
   position      Int
   account       String
-  // Millionths of a unit; null when the posting balances the transaction.
-  amount        BigInt?
+  // Signed millionths of a unit; a transaction's postings sum to zero.
+  amount        BigInt
 
   @@map("postings")
 }

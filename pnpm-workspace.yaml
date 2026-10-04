@@ -1,0 +1,8 @@
+engineStrict: true
+
+allowBuilds:
+  esbuild: true
+  lefthook: true
+  # CPU binaries ship in the package; the script only fetches CUDA extras.
+  onnxruntime-node: false
+  workerd: false

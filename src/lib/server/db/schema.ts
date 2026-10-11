@@ -24,7 +24,7 @@ export const accountType = PG.pgEnum('account_type', accountTypes);
 export const users = PG.pgTable('users', (t) => ({
 	...base,
 	email: t.text().notNull().unique(),
-	username: t.text().notNull().unique(),
+	username: t.text().notNull().unique('users_username_unique'),
 }));
 
 // One per user for now: where their schemas and the ledgers they own live.
@@ -47,7 +47,7 @@ export const ledgers = PG.pgTable(
 			.uuid()
 			.notNull()
 			.references(() => storages.id, { onDelete: 'cascade' }),
-		handle: t.text().notNull().unique(),
+		handle: t.text().notNull().unique('ledgers_handle_unique'),
 		name: t.text().notNull(),
 	}),
 	(t) => [PG.index('ledgers_storage_id').on(t.storageId)],

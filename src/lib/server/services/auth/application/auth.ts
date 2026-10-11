@@ -1,7 +1,6 @@
 import { withContext } from '#lib/server/shared/context.ts';
-import type { RupeeError } from '#lib/server/shared/error.ts';
 import { withLogger } from '#lib/server/shared/logger.ts';
-import { petName, randomPick } from '#lib/server/shared/names.ts';
+import { petName } from '#lib/server/shared/names.ts';
 import {
 	err,
 	errAsync,
@@ -63,14 +62,10 @@ const signUp = (e: string): ResultAsync<User> =>
 		Ledger.createLedger({ user: u.id, name: 'Personal' }).map(() => u),
 	);
 
-const createUser = (email: string, tries: number): ResultAsync<User> => {
-	const username = petName(randomPick);
-	return DB.createUser({ email, username }).andThen((u) => {
-		if (u) return okAsync(u);
-		if (tries > 1) return createUser(email, tries - 1);
-		return errAsync<User, RupeeError>({ type: 'NameTaken', name: username, cause: [] });
-	});
-};
+const createUser = (a: string, n: number): ResultAsync<User> =>
+	DB.createUser({ email: a, username: petName() }).orElse((e) =>
+		e.type === 'NameTaken' && n > 1 ? createUser(a, n - 1) : errAsync(e),
+	);
 
 // A code works once: it is consumed whether or not it matches.
 export const signIn = (email: string, code: string): ResultAsync<void> =>

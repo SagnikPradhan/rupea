@@ -1,6 +1,9 @@
-import { and, asc, eq, inArray, isNotNull, ne, or, sql, type SQL } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
-import { v7 as uuidv7 } from 'uuid';
+import {
+	inOrder,
+	ROWS_PER_STATEMENT,
+	violatesUnique,
+	type Database,
+} from '#lib/server/db/index.ts';
 import {
 	ledgerFiles,
 	ledgers,
@@ -11,11 +14,13 @@ import {
 	transactions as transactionTable,
 	type StorageKind,
 } from '#lib/server/db/schema.ts';
-import { inOrder, ROWS_PER_STATEMENT, type Database } from '#lib/server/db/index.ts';
 import { batches } from '#lib/server/shared/batches.ts';
 import { withContext } from '#lib/server/shared/context.ts';
-import type { RupeeError } from '#lib/server/shared/error.ts';
+import { unknownError, type RupeeError } from '#lib/server/shared/error.ts';
 import { attempt, err, errAsync, ok, ResultAsync, type Result } from '#lib/server/shared/result.ts';
+import { and, asc, eq, inArray, isNotNull, ne, or, sql, type SQL } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
+import { v7 as uuidv7 } from 'uuid';
 import { BALANCE_TYPES, EVENT_KEYS } from '../domain/events';
 import { displayLocation } from '../domain/parser';
 import type { FileVersion } from '../domain/sync';
@@ -614,17 +619,23 @@ type InsertLedgerOptions = {
 	name: string;
 };
 
-// `null` when the handle is taken.
-export const insertLedger = (options: InsertLedgerOptions): ResultAsync<Ledger | null> => {
+export const insertLedger = (options: InsertLedgerOptions): ResultAsync<Ledger> => {
 	const { storage, owner, handle, name } = options;
 	return withContext('db')((db) =>
-		attempt(() =>
-			db
-				.insert(ledgers)
-				.values({ storageId: storage, handle, name })
-				.onConflictDoNothing({ target: ledgers.handle })
-				.returning({ id: ledgers.id })
-				.then(([i]) => (i ? { id: i.id, handle, name, owner } : null)),
-		),
+		attempt({
+			try: () =>
+				db
+					.insert(ledgers)
+					.values({ storageId: storage, handle, name })
+					.returning({ id: ledgers.id })
+					.then(([i]) => i ?? Promise.reject(new Error(`${handle} was not saved`)))
+					.then((i) => ({ id: i.id, handle, name, owner })),
+			catch: (t) => handleTaken(handle, t),
+		}),
 	);
 };
+
+const handleTaken = (h: string, t: unknown): RupeeError =>
+	violatesUnique(t, 'ledgers_handle_unique')
+		? { type: 'NameTaken', name: h, cause: [] }
+		: unknownError(t);

@@ -1,24 +1,23 @@
-import { randomInt } from 'node:crypto';
-import { afterEach, describe, expect, vi } from 'vitest';
-import * as Ledger from '#services/ledger/application/ledger.ts';
 import { provide } from '#lib/server/shared/context.ts';
-import { ADJECTIVES, ANIMALS } from '#lib/server/shared/names.ts';
+import { petName } from '#lib/server/shared/names.ts';
 import { err, ok } from '#lib/server/shared/result.ts';
+import * as Ledger from '#services/ledger/application/ledger.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
+import { afterEach, describe, expect, vi } from 'vitest';
 import * as Refinement from './refinement';
 
-vi.mock('node:crypto', async (original) => {
-	const crypto = await original<typeof import('node:crypto')>();
-	return { ...crypto, randomInt: vi.fn(crypto.randomInt) };
+vi.mock(import('#lib/server/shared/names.ts'), async (original) => {
+	const names = await original();
+	return { ...names, petName: vi.fn(names.petName) };
 });
 
-// Pins the random words in event names to the given indices, in order.
-const picking = (...indices: number[]) =>
-	indices.forEach((i) => vi.mocked(randomInt).mockReturnValueOnce(i as never));
+// Pins the pet names in event names, in order.
+const naming = (...names: string[]) =>
+	names.forEach((n) => vi.mocked(petName).mockReturnValueOnce(n));
 
 afterEach(() => {
-	vi.mocked(randomInt).mockReset();
+	vi.mocked(petName).mockReset();
 });
 
 const hdfc = [
@@ -125,7 +124,7 @@ describe('refining a saved file', () => {
 	it('picks another name when one is taken', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			const taken = `2026-10-03-deposit-${ADJECTIVES[0]}-${ANIMALS[0]}`;
+			const taken = '2026-10-03-deposit-quiet-heron';
 			await Ledger.createFile({
 				ledger,
 				key: 'cash.rupee',
@@ -133,11 +132,11 @@ describe('refining a saved file', () => {
 			});
 			await Ledger.createFile({ ledger, key: 'hdfc.rupee', content: hdfc });
 			await Ledger.createFile({ ledger, key: 'ibkr.rupee', content: ibkr });
-			picking(0, 0, 0, 1);
+			naming('quiet-heron', 'brave-otter');
 
 			const [transfer] = (await Refinement.suggestFor(ledger, 'ibkr.rupee'))._unsafeUnwrap();
 
-			expect(transfer?.event).toBe(`2026-10-03-deposit-${ADJECTIVES[0]}-${ANIMALS[1]}`);
+			expect(transfer?.event).toBe('2026-10-03-deposit-brave-otter');
 		}));
 
 	it('never gives two new events in one go the same name', ({ context, db }) =>
@@ -159,13 +158,13 @@ describe('refining a saved file', () => {
 					'2026-10-03 Deposit\n\tAssets:IBKR 2000\n\tAssets:HDFC\n',
 				].join('\n'),
 			});
-			picking(0, 0, 0, 0, 0, 1);
+			naming('quiet-heron', 'quiet-heron', 'brave-otter');
 
 			const named = (await Refinement.suggestFor(ledger, 'ibkr.rupee'))._unsafeUnwrap();
 
 			expect(named.map((n) => n.event)).toEqual([
-				`2026-10-03-deposit-${ADJECTIVES[0]}-${ANIMALS[0]}`,
-				`2026-10-03-deposit-${ADJECTIVES[0]}-${ANIMALS[1]}`,
+				'2026-10-03-deposit-quiet-heron',
+				'2026-10-03-deposit-brave-otter',
 			]);
 		}));
 
@@ -191,7 +190,7 @@ describe('refining a saved file', () => {
 	it('gives up after a few names are all taken', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			const taken = `2026-10-03-deposit-${ADJECTIVES[0]}-${ANIMALS[0]}`;
+			const taken = '2026-10-03-deposit-quiet-heron';
 			await Ledger.createFile({
 				ledger,
 				key: 'cash.rupee',
@@ -199,7 +198,7 @@ describe('refining a saved file', () => {
 			});
 			await Ledger.createFile({ ledger, key: 'hdfc.rupee', content: hdfc });
 			await Ledger.createFile({ ledger, key: 'ibkr.rupee', content: ibkr });
-			vi.mocked(randomInt).mockReturnValue(0 as never);
+			vi.mocked(petName).mockReturnValue('quiet-heron');
 
 			expect(await Refinement.suggestFor(ledger, 'ibkr.rupee')).toEqual(
 				err({ type: 'RefinementNameTaken', event: taken, cause: [] }),

@@ -1,10 +1,15 @@
 import * as Ledger from '#services/ledger/application/ledger.ts';
-import { checkEvents, EventRole, linksOf } from '#services/ledger/domain/events.ts';
+import {
+	checkEvents,
+	EventRole,
+	linksOf,
+	type RupeeFile,
+	type RupeeTransaction,
+} from '#services/ledger/application/shared.ts';
 import type { RupeeConfiguration } from '#lib/server/shared/config.ts';
 import { withContext } from '#lib/server/shared/context.ts';
 import type { RupeeError } from '#lib/server/shared/error.ts';
 import { randomPick } from '#lib/server/shared/names.ts';
-import type { RupeeFile, RupeeTransaction } from '#services/ledger/domain/types.ts';
 import {
 	batch,
 	concat,

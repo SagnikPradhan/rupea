@@ -2,7 +2,7 @@ import * as v from 'valibot';
 import { command, query } from '$app/server';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import * as Refinement from '#services/refinement/application/refinement.ts';
-import { EventRole } from '#services/ledger/domain/events.ts';
+import { EventRole } from '#services/ledger/application/shared.ts';
 import type { RupeeError } from '#lib/server/shared/error.ts';
 import { fromResult, type ResultAsync } from '#lib/server/shared/result.ts';
 import { Handle, inLedger, Key, viewTransaction } from './shared';

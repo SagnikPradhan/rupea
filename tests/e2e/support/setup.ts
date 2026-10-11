@@ -15,7 +15,7 @@ export default async function globalSetup() {
 	);
 	if (missing.flat().length > 0)
 		throw new Error(
-			`Missing models ${missing.flat().join(', ')} in data/models. Run the dev server once to download them.`,
+			`Missing models ${missing.flat().join(', ')} in data/models. Run 'pnpm models' to download them.`,
 		);
 
 	await promisify(execFile)('node_modules/.bin/vite', ['build']);

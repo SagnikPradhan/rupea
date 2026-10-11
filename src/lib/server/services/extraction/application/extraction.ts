@@ -1,8 +1,9 @@
 import { withContext } from '#lib/server/shared/context.ts';
 import { ok, type ResultAsync } from '#lib/server/shared/result.ts';
 import { scoped } from '#lib/server/shared/storage/storage.ts';
-import { withStorage, type Ledger } from '#services/ledger/application/ledger.ts';
+import type { Ledger } from '#services/ledger/application/ledger.ts';
 import { predictAccounts } from '#services/prediction/application/prediction.ts';
+import { withStorage } from '#services/storage/application/storage.ts';
 import { readGrid, type Upload } from '../adapters/grid';
 import { schemas, type SchemaFile, type Schemas } from '../adapters/storage';
 import { categorised, draft, uncategorised, type Draft } from '../domain/draft';

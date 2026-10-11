@@ -9,11 +9,11 @@ import {
 	type Batch,
 	type Result,
 } from '#lib/server/shared/result.ts';
-import { scoped, type Storage } from '#lib/server/shared/storage/storage.ts';
+import { scoped } from '#lib/server/shared/storage/storage.ts';
+import * as Storage from '#services/storage/application/storage.ts';
 import {
 	findLedger,
 	findLedgers,
-	findStorage,
 	index,
 	insertLedger,
 	type BalanceCheck,
@@ -46,15 +46,6 @@ type WithLedgerOptions<T> = {
 export const withLedger = <T>(o: WithLedgerOptions<T>): ResultAsync<T> =>
 	findLedger(o.user, o.handle).andThen(o.action);
 
-type WithStorageOptions<T> = {
-	user: string;
-	action: (storage: Storage) => Result<T> | ResultAsync<T>;
-};
-
-// The one place that opens a user's storage.
-export const withStorage = <T>(o: WithStorageOptions<T>): ResultAsync<T> =>
-	findStorage(o.user).andThen((s) => withContext('storages')((t) => o.action(t[s.kind](o.user))));
-
 export const listLedgers = (u: string): ResultAsync<Ledger[]> => findLedgers(u);
 
 type CreateLedgerOptions = {
@@ -63,7 +54,7 @@ type CreateLedgerOptions = {
 };
 
 export const createLedger = (o: CreateLedgerOptions): ResultAsync<Ledger> =>
-	findStorage(o.user).andThen((s) => insertNamed({ ...o, storage: s.id }, TRIES));
+	Storage.ensureStorage(o.user).andThen((s) => insertNamed({ ...o, storage: s.id }, TRIES));
 
 const insertNamed = (
 	o: CreateLedgerOptions & { storage: string },
@@ -74,7 +65,10 @@ const insertNamed = (
 	);
 
 const ledgerFiles = (l: Ledger): ResultAsync<Files> =>
-	withStorage({ user: l.owner, action: (s) => ok(files(scoped(s, `ledgers/${l.handle}`))) });
+	Storage.withStorage({
+		user: l.owner,
+		action: (s) => ok(files(scoped(s, `ledgers/${l.handle}`))),
+	});
 
 const indexFile = (ledgerId: string, file: RupeeFile): ResultAsync<RupeeError[]> =>
 	withContext('config')((config) => {

@@ -7,6 +7,7 @@ import { embedder, MODEL } from '../adapters/onnx';
 import {
 	classifier,
 	fallback,
+	fallbackAccount,
 	filling,
 	type ClassifierOptions,
 	type Embed,
@@ -38,15 +39,23 @@ export const fillHistory = (embed: Embed, h: History): ResultAsync<void> =>
 		return embedded.andThen((v) => h.fill(f.fill(v)));
 	});
 
-type PredictOptions = {
+type PredictOptions<L extends Line> = {
 	ledger: Ledger;
 	account: string;
-	lines: Line[];
+	lines: L[];
 };
 
-export const predictAccounts = (options: PredictOptions): ResultAsync<Prediction[]> => {
+export type Predicted<L extends Line> = L & { account: string };
+
+// Every line gets an account, Uncategorized when nothing better is known.
+export const predictAccounts = <L extends Line>(
+	options: PredictOptions<L>,
+): ResultAsync<Predicted<L>[]> => {
 	const { ledger, account, lines } = options;
 	if (lines.length === 0) return okAsync([]);
+
+	const predicted = (p: Prediction[]) =>
+		lines.map((l, i) => ({ ...l, account: p[i]?.account ?? fallbackAccount(l.amount) }));
 
 	return withContext(
 		'config',
@@ -73,7 +82,8 @@ export const predictAccounts = (options: PredictOptions): ResultAsync<Prediction
 				.orElse((error) => {
 					logger.warn({ error }, 'accounts not predicted');
 					return okAsync(lines.map((l) => fallback(l.amount)));
-				}),
+				})
+				.map(predicted),
 		),
 	);
 };

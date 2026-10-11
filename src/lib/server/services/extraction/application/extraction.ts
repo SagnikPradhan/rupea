@@ -5,7 +5,7 @@ import { withStorage, type Ledger } from '#services/ledger/application/ledger.ts
 import { predictAccounts } from '#services/prediction/application/prediction.ts';
 import { readGrid, type Upload } from '../adapters/grid';
 import { schemas, type SchemaFile, type Schemas } from '../adapters/storage';
-import { draft, uncategorised, type Draft } from '../domain/draft';
+import { categorised, draft, uncategorised, type Draft } from '../domain/draft';
 import { extract as run } from '../domain/runtime';
 import { parseSchema } from '../domain/schema';
 
@@ -53,8 +53,7 @@ export const extract = (options: ExtractOptions): ResultAsync<Draft> => {
 						config: c,
 						statement: file.name,
 						account,
-						records: succeeded,
-						predictions: p,
+						records: [...categorised(succeeded), ...p],
 						failed,
 					}),
 				),

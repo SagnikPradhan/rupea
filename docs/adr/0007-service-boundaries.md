@@ -1,0 +1,15 @@
+# Services meet only through their application layer
+
+A service's `application/` is its only public surface; no service imports another's `domain/` or `adapters/`. Orchestrators stay in `application/<service>.ts`. The types and pure functions other services need are re-exported from `application/shared.ts`, while the code itself stays in `domain/`. One application may call another's.
+
+Extraction turns arbitrary input into ledger input, so the ledger owns what that input looks like and how it is written: its `shared.ts` exports `Amount`, `RupeeTransaction`, `accountType`, `DEFAULT_COMMODITY`, date parsing, `print` and `parse`. Extraction builds transactions and calls the ledger's `print`. Prediction owns choosing an account, fallback included, and exposes only `predictAccounts`.
+
+## Considered Options
+
+- **Moving amounts and dates to `shared/`**: they are the ledger's input, not general utilities, and `shared/` would grow into a place for anything used twice.
+- **Extraction returns transactions and the route prints them**: the route would compose two services that one call can hide.
+
+## Consequences
+
+- `shared/` holds only what belongs to no service. `shared/names.ts` qualifies: auth names users, the ledger names ledgers, refinement names events.
+- Tests follow the same rule.

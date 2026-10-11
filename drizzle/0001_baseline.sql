@@ -1,3 +1,4 @@
+CREATE TYPE "public"."account_type" AS ENUM('Assets', 'Liabilities', 'Income', 'Expenses', 'Equity');--> statement-breakpoint
 CREATE TYPE "public"."price_kind" AS ENUM('unit', 'total');--> statement-breakpoint
 CREATE TYPE "public"."role" AS ENUM('owner');--> statement-breakpoint
 CREATE TABLE "dismissed_matches" (
@@ -17,17 +18,6 @@ CREATE TABLE "email_codes" (
 	"code_hash" text NOT NULL,
 	"expires_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "email_codes_email_unique" UNIQUE("email")
-);
---> statement-breakpoint
-CREATE TABLE "embeddings" (
-	"id" uuid PRIMARY KEY DEFAULT uuidv7() NOT NULL,
-	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
-	"ledger_id" uuid NOT NULL,
-	"model" text NOT NULL,
-	"text" text NOT NULL,
-	"vector" vector(384) NOT NULL,
-	CONSTRAINT "embeddings_ledger_id_model_text" UNIQUE("ledger_id","model","text")
 );
 --> statement-breakpoint
 CREATE TABLE "ledger_files" (
@@ -51,9 +41,9 @@ CREATE TABLE "memberships" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7() NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"role" "role" NOT NULL,
 	"user_id" uuid NOT NULL,
 	"ledger_id" uuid NOT NULL,
-	"role" "role" NOT NULL,
 	CONSTRAINT "memberships_user_id_ledger_id" UNIQUE("user_id","ledger_id")
 );
 --> statement-breakpoint
@@ -61,6 +51,7 @@ CREATE TABLE "metadata" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7() NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"ledger_id" uuid NOT NULL,
 	"file_id" uuid,
 	"transaction_id" uuid,
 	"posting_id" uuid,
@@ -74,9 +65,11 @@ CREATE TABLE "postings" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7() NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"ledger_id" uuid NOT NULL,
 	"transaction_id" uuid NOT NULL,
 	"position" integer NOT NULL,
 	"account" text NOT NULL,
+	"account_type" "account_type" NOT NULL,
 	"amount" bigint NOT NULL,
 	"commodity" text NOT NULL,
 	"price_amount" bigint,
@@ -89,9 +82,9 @@ CREATE TABLE "sessions" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7() NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"expires_at" timestamp with time zone NOT NULL,
 	"token_hash" text NOT NULL,
 	"user_id" uuid NOT NULL,
-	"expires_at" timestamp with time zone NOT NULL,
 	CONSTRAINT "sessions_token_hash_unique" UNIQUE("token_hash")
 );
 --> statement-breakpoint
@@ -99,11 +92,14 @@ CREATE TABLE "transactions" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7() NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"ledger_id" uuid NOT NULL,
 	"file_id" uuid NOT NULL,
 	"line" integer NOT NULL,
 	"date" date NOT NULL,
 	"time" time,
-	"description" text NOT NULL
+	"description" text NOT NULL,
+	"embedding" vector(384),
+	"embedding_model" text
 );
 --> statement-breakpoint
 CREATE TABLE "users" (
@@ -116,26 +112,26 @@ CREATE TABLE "users" (
 );
 --> statement-breakpoint
 ALTER TABLE "dismissed_matches" ADD CONSTRAINT "dismissed_matches_ledger_id_ledgers_id_fk" FOREIGN KEY ("ledger_id") REFERENCES "public"."ledgers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
-ALTER TABLE "embeddings" ADD CONSTRAINT "embeddings_ledger_id_ledgers_id_fk" FOREIGN KEY ("ledger_id") REFERENCES "public"."ledgers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "ledger_files" ADD CONSTRAINT "ledger_files_ledger_id_ledgers_id_fk" FOREIGN KEY ("ledger_id") REFERENCES "public"."ledgers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "memberships" ADD CONSTRAINT "memberships_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "memberships" ADD CONSTRAINT "memberships_ledger_id_ledgers_id_fk" FOREIGN KEY ("ledger_id") REFERENCES "public"."ledgers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "metadata" ADD CONSTRAINT "metadata_ledger_id_ledgers_id_fk" FOREIGN KEY ("ledger_id") REFERENCES "public"."ledgers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "metadata" ADD CONSTRAINT "metadata_file_id_ledger_files_id_fk" FOREIGN KEY ("file_id") REFERENCES "public"."ledger_files"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "metadata" ADD CONSTRAINT "metadata_transaction_id_transactions_id_fk" FOREIGN KEY ("transaction_id") REFERENCES "public"."transactions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "metadata" ADD CONSTRAINT "metadata_posting_id_postings_id_fk" FOREIGN KEY ("posting_id") REFERENCES "public"."postings"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "postings" ADD CONSTRAINT "postings_ledger_id_ledgers_id_fk" FOREIGN KEY ("ledger_id") REFERENCES "public"."ledgers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "postings" ADD CONSTRAINT "postings_transaction_id_transactions_id_fk" FOREIGN KEY ("transaction_id") REFERENCES "public"."transactions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "sessions" ADD CONSTRAINT "sessions_user_id_users_id_fk" FOREIGN KEY ("user_id") REFERENCES "public"."users"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "transactions" ADD CONSTRAINT "transactions_ledger_id_ledgers_id_fk" FOREIGN KEY ("ledger_id") REFERENCES "public"."ledgers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "transactions" ADD CONSTRAINT "transactions_file_id_ledger_files_id_fk" FOREIGN KEY ("file_id") REFERENCES "public"."ledger_files"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "users" ADD CONSTRAINT "users_ledger_id_ledgers_id_fk" FOREIGN KEY ("ledger_id") REFERENCES "public"."ledgers"("id") ON DELETE set null ON UPDATE no action;--> statement-breakpoint
-CREATE INDEX "embeddings_vector" ON "embeddings" USING hnsw ("vector" vector_cosine_ops);--> statement-breakpoint
 CREATE INDEX "metadata_file_id" ON "metadata" USING btree ("file_id");--> statement-breakpoint
 CREATE INDEX "metadata_transaction_id" ON "metadata" USING btree ("transaction_id");--> statement-breakpoint
 CREATE INDEX "metadata_posting_id" ON "metadata" USING btree ("posting_id");--> statement-breakpoint
-CREATE INDEX "metadata_key_value" ON "metadata" USING btree ("key","value");--> statement-breakpoint
+CREATE INDEX "metadata_ledger_id_key_value" ON "metadata" USING btree ("ledger_id","key","value");--> statement-breakpoint
 CREATE INDEX "postings_transaction_id" ON "postings" USING btree ("transaction_id");--> statement-breakpoint
-CREATE INDEX "postings_account_amount" ON "postings" USING btree ("account","commodity","amount");--> statement-breakpoint
-CREATE INDEX "postings_account_prefix" ON "postings" USING btree ("account" text_pattern_ops);--> statement-breakpoint
-CREATE INDEX "postings_account_trgm" ON "postings" USING gin ("account" gin_trgm_ops);--> statement-breakpoint
-CREATE INDEX "postings_balance" ON "postings" USING btree ("account","commodity") WHERE "postings"."balance" IS NOT NULL;--> statement-breakpoint
+CREATE INDEX "postings_ledger_id_account_amount" ON "postings" USING btree ("ledger_id","account","commodity","amount");--> statement-breakpoint
+CREATE INDEX "postings_ledger_id_balance" ON "postings" USING btree ("ledger_id","account","commodity") WHERE "postings"."balance" IS NOT NULL;--> statement-breakpoint
 CREATE INDEX "transactions_file_id" ON "transactions" USING btree ("file_id");--> statement-breakpoint
-CREATE INDEX "transactions_description_trgm" ON "transactions" USING gin ("description" gin_trgm_ops);
+CREATE INDEX "transactions_ledger_id_date" ON "transactions" USING btree ("ledger_id","date");--> statement-breakpoint
+CREATE INDEX "transactions_embedding" ON "transactions" USING hnsw ("embedding" vector_cosine_ops);

@@ -1,6 +1,6 @@
 # Postgres, served or embedded
 
-Rupee runs as a service for many users and as an app people install. Both use Postgres 18 with pgvector and pg_trgm. With `DATABASE_URL` set, the server connects to it through `pg`. Without it, the server runs PGlite in-process from `RUPEE_DATA_DIR/postgres`. Both drivers sit under drizzle's `pg-core` dialect, so nothing above `src/lib/server/db` knows which one it has. The server migrates on boot in either case, since nobody installing an app runs a migration step.
+Rupee runs as a service for many users and as an app people install. Both use Postgres 18 with pgvector. With `DATABASE_URL` set, the server connects to it through `pg`. Without it, the server runs PGlite in-process from `RUPEE_DATA_DIR/postgres`. Both drivers sit under drizzle's `pg-core` dialect, so nothing above `src/lib/server/db` knows which one it has. The server migrates on boot in either case, since nobody installing an app runs a migration step.
 
 SQLite was dropped because it had no vector search on the ORM connection, weaker indexes (no trigram or operator-class indexes), and a synchronous driver that needed a worker pool behind a proxy, which in turn ruled out interactive transactions.
 

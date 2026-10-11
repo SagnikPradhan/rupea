@@ -21,7 +21,11 @@ One line of a transaction moving an amount into or out of one account.
 _Avoid_: Split, leg
 
 **Account**:
-A colon-separated name under one of the roots Assets, Liabilities, Income, Expenses or Equity.
+A colon-separated name whose first segment is its account type.
+
+**Account type**:
+One of Assets, Liabilities, Income, Expenses or Equity; every account has exactly one.
+_Avoid_: Root, prefix, category
 
 **Commodity**:
 What an amount is counted in: a currency, a share or a fund unit. An amount with none named is in rupees.

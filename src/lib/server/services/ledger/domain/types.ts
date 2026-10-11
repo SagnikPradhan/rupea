@@ -11,7 +11,7 @@ export const AMOUNT_SCALE = 6;
 // Millionths of a unit (`1250.5` is `1_250_500_000n`); only `parseAmount` makes one.
 export type Amount = bigint & { readonly brand: unique symbol };
 
-export enum AccountRoot {
+export enum AccountType {
 	Assets = 'Assets',
 	Liabilities = 'Liabilities',
 	Income = 'Income',
@@ -99,5 +99,5 @@ const multiply = (a: Amount, b: Amount): Amount => {
 	return ((product + half) / scale) as Amount;
 };
 
-export const accountRoot = (a: string): AccountRoot | null =>
-	Object.values(AccountRoot).find((r) => r === a.split(':')[0]) ?? null;
+export const accountType = (a: string): AccountType | null =>
+	Object.values(AccountType).find((r) => r === a.split(':')[0]) ?? null;

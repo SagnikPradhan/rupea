@@ -28,6 +28,10 @@ export const variables = defineEnvVars({
 			'Postgres to connect to. Without one, the server runs Postgres in-process from `RUPEE_DATA_DIR/postgres`.',
 		schema: v.optional(v.string()),
 	},
+	RUPEE_MIGRATIONS_DIR: {
+		description: 'Directory of the database migrations the server applies when it starts.',
+		schema: text('drizzle'),
+	},
 	RUPEE_STORAGE: {
 		description: 'Where ledger files are stored. Only `local` for now.',
 		schema: choice(['local']),

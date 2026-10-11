@@ -2,8 +2,8 @@ import type { RupeeError } from '#lib/server/shared/error.ts';
 import { batch, err, ok, type Result } from '#lib/server/shared/result.ts';
 import { displayLocation } from './parser';
 import {
-	accountRoot,
-	AccountRoot,
+	accountType,
+	AccountType,
 	formatQuantity,
 	type Amount,
 	type Quantity,
@@ -28,7 +28,7 @@ export const EVENT_KEY: Record<EventRole, string> = {
 };
 
 // Where real money sits; Income and Expenses only say what it was for.
-export const BALANCE_ROOTS = [AccountRoot.Assets, AccountRoot.Liabilities];
+export const BALANCE_TYPES = [AccountType.Assets, AccountType.Liabilities];
 
 export type EventMember = Pick<RupeeTransaction, 'location' | 'metadata' | 'postings'> & {
 	id: string;
@@ -122,7 +122,7 @@ type Holding = Quantity & { account: string };
 const balances = (t: EventMember): Holding[] =>
 	Object.values(
 		Object.groupBy(
-			t.postings.filter((p) => BALANCE_ROOTS.some((r) => r === accountRoot(p.account))),
+			t.postings.filter((p) => BALANCE_TYPES.some((r) => r === accountType(p.account))),
 			(p) => `${p.account} ${p.commodity}`,
 		),
 	).flatMap(([first, ...rest] = []) =>

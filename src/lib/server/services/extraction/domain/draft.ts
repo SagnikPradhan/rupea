@@ -1,6 +1,6 @@
 import { print } from '#services/ledger/domain/printer.ts';
 import {
-	accountRoot,
+	accountType,
 	HOME_COMMODITY,
 	type Amount,
 	type RupeeTransaction,
@@ -73,7 +73,7 @@ const categoryAccount = (record: RupeeRecord): string | null => {
 	if (!record.category) return null;
 
 	const account = words(record.category).join('-');
-	return accountRoot(account) ? account : null;
+	return accountType(account) ? account : null;
 };
 
 // A `.rupee` header is one line, and an account a single word.

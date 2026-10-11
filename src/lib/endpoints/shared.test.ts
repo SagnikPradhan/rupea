@@ -47,13 +47,13 @@ describe('accounts', () => {
 		);
 	});
 
-	it('names the roots an account can start with', () => {
+	it('names the account types an account can start with', () => {
 		expect(issues(Account, 'Bank:HDFC')).toEqual([
 			'An account starts with one of Assets, Liabilities, Income, Expenses, Equity.',
 		]);
 	});
 
-	it('takes the root as written, not lowercased', () => {
+	it('takes the account type as written, not lowercased', () => {
 		expect(v.safeParse(Account, 'assets:bank').success).toBe(false);
 	});
 });

@@ -41,12 +41,18 @@ describe('the database', () => {
 		const [file] = await db.insert(ledgerFiles).values({ ledgerId, key: 'a' }).returning();
 		const [tx] = await db
 			.insert(transactions)
-			.values({ fileId: file!.id, line: 1, date: '2026-01-01', description: 'x' })
+			.values({ ledgerId, fileId: file!.id, line: 1, date: '2026-01-01', description: 'x' })
 			.returning();
 		const big = 9_007_199_254_740_993n;
+		const posting = {
+			ledgerId,
+			transactionId: tx!.id,
+			accountType: 'Assets' as const,
+			commodity: 'INR',
+		};
 		await db.insert(postings).values([
-			{ transactionId: tx!.id, position: 0, account: 'A', amount: big, commodity: 'INR' },
-			{ transactionId: tx!.id, position: 1, account: 'B', amount: -big, commodity: 'INR' },
+			{ ...posting, position: 0, account: 'Assets:A', amount: big },
+			{ ...posting, position: 1, account: 'Assets:B', amount: -big },
 		]);
 
 		const rows = await db
@@ -89,9 +95,9 @@ describe('the database', () => {
 		const [file] = await db.insert(ledgerFiles).values({ ledgerId, key: 'a' }).returning();
 		const [tx] = await db
 			.insert(transactions)
-			.values({ fileId: file!.id, line: 1, date: '2026-01-01', description: 'x' })
+			.values({ ledgerId, fileId: file!.id, line: 1, date: '2026-01-01', description: 'x' })
 			.returning();
-		const entry = { position: 0, key: 'k', value: 'v' };
+		const entry = { ledgerId, position: 0, key: 'k', value: 'v' };
 
 		const check = { cause: { message: /metadata_one_owner/ } };
 

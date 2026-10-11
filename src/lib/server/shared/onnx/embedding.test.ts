@@ -1,7 +1,7 @@
 import type { Tokenizer } from '@huggingface/tokenizers';
 import { describe, expect, it } from 'vitest';
 import type { Output } from './detr';
-import { batches, encode, inputs, vectors } from './embedding';
+import { encode, inputs, vectors } from './embedding';
 
 // One token per character, so lengths are easy to read.
 const characters = {
@@ -14,16 +14,6 @@ const characters = {
 const hidden = (rows: number[][][]): Output => ({
 	dims: [rows.length, rows[0]?.length ?? 0, rows[0]?.[0]?.length ?? 0],
 	data: Float32Array.from(rows.flat(2)),
-});
-
-describe('batching texts', () => {
-	it('splits into batches of at most the given size, in order', () => {
-		expect(batches(['a', 'b', 'c', 'd', 'e'], 2)).toEqual([['a', 'b'], ['c', 'd'], ['e']]);
-	});
-
-	it('makes no batch for no texts', () => {
-		expect(batches([], 32)).toEqual([]);
-	});
 });
 
 describe('encoding a text', () => {

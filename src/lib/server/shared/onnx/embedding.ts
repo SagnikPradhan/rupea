@@ -13,9 +13,6 @@ export type Encoded = { ids: number[]; mask: number[] };
 
 export type Inputs = { ids: BigInt64Array; mask: BigInt64Array; shape: [number, number] };
 
-export const batches = (t: string[], n: number): string[][] =>
-	Array.from({ length: Math.ceil(t.length / n) }, (_, b) => t.slice(b * n, (b + 1) * n));
-
 export const encode = (tokenizer: Tokenizer, longest: number) => (text: string) => {
 	const encoded = tokenizer.encode(text);
 	return {

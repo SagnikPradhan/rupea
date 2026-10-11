@@ -1,22 +1,29 @@
-/**
- * Writes transactions as `.rupee` text, the inverse of `parse`: dates and
- * times in the first configured format, so the text reads back under the
- * same configuration, and a blank line between transactions.
- *
- * A transaction with a single outgoing (negative) posting leaves that
- * posting's amount out, as it is just what balances the rest; any other
- * transaction spells every amount.
- */
 import * as dateFns from 'date-fns';
 import type { RupeeConfiguration } from '#lib/server/shared/config.ts';
-import { formatAmount, type RupeePosting, type RupeeTransaction } from './types';
+import {
+	formatQuantity,
+	PriceKind,
+	type RupeeLedgerFile,
+	type RupeeMetadata,
+	type RupeePosting,
+	type RupeeTransaction,
+} from './types';
 
-export const print = (c: RupeeConfiguration, t: RupeeTransaction[]): string =>
-	t.map((t) => printTransaction(c, t)).join('\n');
+export const PRICE_SIGN: Record<PriceKind, string> = {
+	[PriceKind.Unit]: '@',
+	[PriceKind.Total]: '@@',
+};
 
+export const print = (c: RupeeConfiguration, { metadata, transactions }: RupeeLedgerFile): string =>
+	[printMetadata('', metadata), ...transactions.map((t) => printTransaction(c, t))]
+		.filter(Boolean)
+		.join('\n');
+
+// A single outgoing posting leaves its amount out; it is whatever balances.
+// With prices or several commodities every amount is spelled out.
 const printTransaction = (
 	{ dateFormats, timeFormats }: RupeeConfiguration,
-	{ date, time, description, postings }: RupeeTransaction,
+	{ date, time, description, metadata, postings }: RupeeTransaction,
 ): string => {
 	const header = [
 		printDate(dateFormats[0], date),
@@ -24,14 +31,33 @@ const printTransaction = (
 		description,
 	].join(' ');
 	const outgoing = postings.filter((p) => p.amount < 0n);
-	const elided = outgoing.length === 1 ? outgoing[0] : undefined;
-	return [header, ...postings.map((p) => printPosting(p, p === elided))]
-		.map((l) => `${l}\n`)
-		.join('');
+	const plain = postings.every((p) => p.price === null && p.commodity === postings[0]?.commodity);
+	const elided = plain && outgoing.length === 1 ? outgoing[0] : undefined;
+
+	return [
+		`${header}\n`,
+		printMetadata('\t', metadata),
+		...postings.map((p) => printPosting(p, p === elided)),
+	].join('');
 };
 
-const printPosting = ({ account, amount }: RupeePosting, e: boolean): string =>
-	e ? `\t${account}` : `\t${account} ${formatAmount(amount)}`;
+// Posting metadata sits a level deeper only for the reader; the parser ignores indentation.
+const printPosting = (p: RupeePosting, elided: boolean): string => {
+	const line = [
+		p.account,
+		...(elided ? [] : [formatQuantity(p)]),
+		...(p.price === null ? [] : [PRICE_SIGN[p.price.kind], formatQuantity(p.price)]),
+		...(p.balance === null
+			? []
+			: ['=', formatQuantity({ amount: p.balance, commodity: p.commodity })]),
+	].join(' ');
+	return `\t${line}\n${printMetadata('\t\t', p.metadata)}`;
+};
+
+const printMetadata = (t: string, m: RupeeMetadata): string =>
+	Object.entries(m)
+		.flatMap(([key, values]) => values.map((v) => `${t}- ${key}: ${v}\n`))
+		.join('');
 
 const printDate = (f: string | undefined, d: Temporal.PlainDate) =>
 	f ? dateFns.format(new Date(d.year, d.month - 1, d.day), f) : d.toString();

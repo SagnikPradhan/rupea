@@ -1,11 +1,3 @@
-/**
- * Outbound storage adapter for the ledger: reads and writes `.rupee` files in
- * the ledger's `Storage`, which is already scoped to the ledger. The only
- * place in the ledger that names its own read failures.
- *
- * Each operation is a private builder over a `Storage`; `files` composes
- * them into the one view of a ledger's files this module exposes.
- */
 import {
 	batchAsync,
 	err,
@@ -36,7 +28,6 @@ const toFile = (entry: Entry, content: Uint8Array): Result<RupeeFile> => {
 		: ok({ ...entry, content: text });
 };
 
-/** The text of the file at `key`. */
 const read =
 	(storage: Storage) =>
 	(key: string): ResultAsync<RupeeFile> =>
@@ -50,7 +41,6 @@ const read =
 			}))
 			.andThen(({ entry, content }) => toFile(entry, content));
 
-/** The storage entry of every `.rupee` file, without reading any content. */
 const entries = (storage: Storage) => (): ResultAsync<Entry[]> =>
 	storage
 		.list()
@@ -61,17 +51,9 @@ const entries = (storage: Storage) => (): ResultAsync<Entry[]> =>
 		}))
 		.map((e) => e.filter(({ key }) => key.endsWith(EXTENSION)));
 
-/**
- * Every `.rupee` file in the ledger. A read failure on one file rides along
- * in the `Batch`; failing to list the storage is fatal.
- */
 const list = (st: Storage) => (): ResultAsync<Batch<RupeeFile>> =>
 	entries(st)().andThen((l) => batchAsync(l.map(({ key }) => read(st)(key))));
 
-/**
- * Write `content` to `key`. With `ifVersion`, the write only happens if the
- * stored file is still at that version (`null`: if it does not exist yet).
- */
 type LedgerWriteOptions = {
 	key: string;
 	content: string;
@@ -96,7 +78,6 @@ const rename =
 
 const remove = (s: Storage) => (k: string) => s.delete(k);
 
-/** One ledger's `.rupee` files. */
 export const files = (storage: Storage) => ({
 	entries: entries(storage),
 	list: list(storage),

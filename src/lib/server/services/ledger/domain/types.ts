@@ -1,3 +1,7 @@
+import { AccountType, PriceKind } from '#lib/server/db/schema.ts';
+
+export { AccountType, PriceKind };
+
 // `owner` is the user whose storage holds the ledger.
 export type Ledger = { id: string; handle: string; name: string; owner: string };
 
@@ -13,14 +17,6 @@ export const AMOUNT_SCALE = 6;
 
 // Millionths of a unit (`1250.5` is `1_250_500_000n`); only `parseAmount` makes one.
 export type Amount = bigint & { readonly brand: unique symbol };
-
-export enum AccountType {
-	Assets = 'Assets',
-	Liabilities = 'Liabilities',
-	Income = 'Income',
-	Expenses = 'Expenses',
-	Equity = 'Equity',
-}
 
 export type RupeeParseLocation = { file: string; line: number };
 
@@ -39,12 +35,6 @@ export const toMetadata = (entries: [string, string][]): RupeeMetadata =>
 export const DEFAULT_COMMODITY = 'INR';
 
 export type Quantity = { amount: Amount; commodity: string };
-
-// `@` prices one unit, `@@` the whole posting; kept as written so it prints back.
-export enum PriceKind {
-	Unit = 'unit',
-	Total = 'total',
-}
 
 export type Price = Quantity & { kind: PriceKind };
 

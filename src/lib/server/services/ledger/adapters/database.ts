@@ -312,7 +312,7 @@ const readIn = async (db: Database, where: SQL | undefined): Promise<IndexedTran
 type PriceColumns = {
 	priceAmount: bigint | null;
 	priceCommodity: string | null;
-	priceKind: 'unit' | 'total' | null;
+	priceKind: PriceKind | null;
 };
 
 const toPrice = ({ priceAmount, priceCommodity, priceKind }: PriceColumns): Price | null =>
@@ -321,7 +321,7 @@ const toPrice = ({ priceAmount, priceCommodity, priceKind }: PriceColumns): Pric
 		: {
 				amount: priceAmount as Amount,
 				commodity: priceCommodity,
-				kind: priceKind === 'unit' ? PriceKind.Unit : PriceKind.Total,
+				kind: priceKind,
 			};
 
 const byIds =

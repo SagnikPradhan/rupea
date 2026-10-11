@@ -1,5 +1,5 @@
 import { violatesUnique } from '#lib/server/db/index.ts';
-import { emailCodes, sessions, storages, users } from '#lib/server/db/schema.ts';
+import { emailCodes, sessions, StorageKind, storages, users } from '#lib/server/db/schema.ts';
 import { withContext } from '#lib/server/shared/context.ts';
 import { unknownError, type RupeeError } from '#lib/server/shared/error.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result.ts';
@@ -56,7 +56,7 @@ export const createUser = (options: CreateUserOptions): ResultAsync<User> =>
 						.values(options)
 						.returning(userColumns)
 						.then(([u]) => u ?? Promise.reject(new Error(`${options.email} was not saved`)));
-					await tx.insert(storages).values({ userId: user.id, kind: 'local' });
+					await tx.insert(storages).values({ userId: user.id, kind: StorageKind.Local });
 					return user;
 				}),
 			catch: (t) => usernameTaken(options.username, t),

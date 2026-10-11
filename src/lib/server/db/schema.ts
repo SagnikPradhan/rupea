@@ -11,15 +11,29 @@ const base = {
 	updatedAt: PG.timestamp({ withTimezone: true }).notNull().defaultNow(),
 };
 
-export type StorageKind = (typeof storageKinds)[number];
-export const storageKinds = ['local'] as const;
-export const storageKind = PG.pgEnum('storage_kind', storageKinds);
+export enum StorageKind {
+	Local = 'local',
+}
 
-export const priceKinds = ['unit', 'total'] as const;
-export const priceKind = PG.pgEnum('price_kind', priceKinds);
+export const storageKind = PG.pgEnum('storage_kind', StorageKind);
 
-export const accountTypes = ['Assets', 'Liabilities', 'Income', 'Expenses', 'Equity'] as const;
-export const accountType = PG.pgEnum('account_type', accountTypes);
+// `@` prices one unit, `@@` the whole posting; kept as written so it prints back.
+export enum PriceKind {
+	Unit = 'unit',
+	Total = 'total',
+}
+
+export const priceKind = PG.pgEnum('price_kind', PriceKind);
+
+export enum AccountType {
+	Assets = 'Assets',
+	Liabilities = 'Liabilities',
+	Income = 'Income',
+	Expenses = 'Expenses',
+	Equity = 'Equity',
+}
+
+export const accountType = PG.pgEnum('account_type', AccountType);
 
 export const users = PG.pgTable('users', (t) => ({
 	...base,
@@ -145,7 +159,7 @@ export const postings = PG.pgTable(
 		commodity: t.text().notNull(),
 		priceAmount: t.bigint({ mode: 'bigint' }), // price fields: all or none
 		priceCommodity: t.text(),
-		priceKind: priceKind(), // `@` unit, `@@` total
+		priceKind: priceKind(),
 		balance: t.bigint({ mode: 'bigint' }),
 	}),
 	(t) => [

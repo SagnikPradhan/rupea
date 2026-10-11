@@ -1,10 +1,10 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import type { RupeeError } from '#lib/server/shared/error.ts';
 	import { createFile } from '#lib/endpoints/files.remote.ts';
+	import { checkDraft, extractStatement } from '#lib/endpoints/import.remote.ts';
 	import { getSuggestions } from '#lib/endpoints/refinement.remote.ts';
 	import { getSchemas } from '#lib/endpoints/schemas.remote.ts';
-	import { checkDraft, extractStatement } from '#lib/endpoints/import.remote.ts';
+	import type { RupeeError } from '#lib/server/shared/error.ts';
+	import { goto } from '$app/navigation';
 
 	type Checked = Awaited<ReturnType<typeof checkDraft>>;
 

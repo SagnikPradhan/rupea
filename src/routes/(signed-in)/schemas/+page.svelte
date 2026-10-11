@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { RupeeError } from '#lib/server/shared/error.ts';
 	import { getSchema, getSchemas, saveSchema } from '#lib/endpoints/schemas.remote.ts';
+	import type { RupeeError } from '#lib/server/shared/error.ts';
 
 	/** A starting point: a statement with separate debit and credit columns. */
 	const example = `version: v1

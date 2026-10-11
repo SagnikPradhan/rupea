@@ -1,7 +1,7 @@
 <script lang="ts">
+	import { getEvents, makePrimary, renameEvent } from '#lib/endpoints/refinement.remote.ts';
 	import type { RupeeError } from '#lib/server/shared/error.ts';
 	import type { Response } from '#lib/server/shared/result.ts';
-	import { getEvents, makePrimary, renameEvent } from '#lib/endpoints/refinement.remote.ts';
 
 	type Props = {
 		handle: string;

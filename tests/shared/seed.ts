@@ -1,7 +1,7 @@
-import { v7 as uuidv7 } from 'uuid';
 import type { Database } from '#lib/server/db/index.ts';
 import { ledgers, storages, users } from '#lib/server/db/schema.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
+import { v7 as uuidv7 } from 'uuid';
 
 export const createUser = async (db: Database) => {
 	const userId = uuidv7();

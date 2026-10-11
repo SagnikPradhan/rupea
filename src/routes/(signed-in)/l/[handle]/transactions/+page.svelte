@@ -1,6 +1,6 @@
 <script lang="ts">
-	import type { RupeeError } from '#lib/server/shared/error.ts';
 	import { getTransactions } from '#lib/endpoints/transactions.remote.ts';
+	import type { RupeeError } from '#lib/server/shared/error.ts';
 
 	const { data } = $props();
 

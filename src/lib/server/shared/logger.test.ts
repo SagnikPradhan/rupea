@@ -4,8 +4,8 @@ import { defaultConfiguration } from './config';
 import { provide, type RupeeContext } from './context';
 import { withLogger } from './logger';
 import { logMailer } from './mailer';
-import { localStorage } from './storage/local';
 import { createModels } from './onnx/runtime';
+import { localStorage } from './storage/local';
 
 const recording = () => {
 	const lines: Record<string, unknown>[] = [];

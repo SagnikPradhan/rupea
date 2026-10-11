@@ -3,8 +3,8 @@ import { defaultConfiguration } from './config';
 import { provide, withContext, type RupeeContext } from './context';
 import { createLogger } from './logger';
 import { logMailer } from './mailer';
-import { localStorage } from './storage/local';
 import { createModels } from './onnx/runtime';
+import { localStorage } from './storage/local';
 
 const logger = createLogger('silent', false);
 

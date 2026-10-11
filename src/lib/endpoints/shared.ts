@@ -2,13 +2,7 @@ import { isHandle } from '#lib/server/shared/names.ts';
 import type { ResultAsync } from '#lib/server/shared/result.ts';
 import * as Auth from '#services/auth/application/auth.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
-import {
-	accountType,
-	AccountType,
-	formatQuantity,
-	PRICE_SIGN,
-	type RupeeTransaction,
-} from '#services/ledger/application/shared.ts';
+import { AccountType, accountType } from '#services/ledger/application/shared.ts';
 import * as v from 'valibot';
 
 export const Handle = v.pipe(v.string(), v.check(isHandle, 'Not a ledger handle.'));
@@ -50,22 +44,3 @@ export const inLedger = <T>(options: InLedgerOptions<T>): ResultAsync<T> =>
 			action: (l) => options.action(l, u),
 		}),
 	);
-
-export const viewTransaction = ({
-	location,
-	date,
-	time,
-	description,
-	postings,
-}: RupeeTransaction) => ({
-	file: location.file,
-	line: location.line,
-	date: date.toString(),
-	time: time?.toString({ smallestUnit: 'minute' }) ?? null,
-	description,
-	postings: postings.map((p) => ({
-		account: p.account,
-		amount: formatQuantity(p),
-		price: p.price === null ? null : `${PRICE_SIGN[p.price.kind]} ${formatQuantity(p.price)}`,
-	})),
-});

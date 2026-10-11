@@ -1,15 +1,15 @@
-import { existsSync } from 'node:fs';
-import { join } from 'node:path';
-import type { Amount, RupeeTransaction } from '#services/ledger/application/shared.ts';
 import { defaultConfiguration } from '#lib/server/shared/config.ts';
 import { models as pinned } from '#lib/server/shared/onnx/models.ts';
 import { okAsync } from '#lib/server/shared/result.ts';
+import type { Amount, RupeeTransaction } from '#services/ledger/application/shared.ts';
 import { hashVector } from '#tests/shared/embedding.ts';
 import { it } from '#tests/shared/vitest.ts';
+import { existsSync } from 'node:fs';
+import { join } from 'node:path';
 import { describe, expect, it as plain } from 'vitest';
 import { embedder } from '../adapters/onnx';
-import { clean } from '../domain/text';
 import type { Embed, Nearest } from '../domain/prediction';
+import { clean } from '../domain/text';
 import { classify as classifyNear } from './prediction';
 
 const amount = (n: bigint) => n as Amount;

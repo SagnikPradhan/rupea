@@ -1,7 +1,5 @@
 <script lang="ts">
-	import { untrack } from 'svelte';
-	import { beforeNavigate, goto } from '$app/navigation';
-	import { page } from '$app/state';
+	import { createEditor } from '#lib/editor/editor.svelte.ts';
 	import {
 		createFile,
 		deleteFile,
@@ -12,9 +10,11 @@
 	} from '#lib/endpoints/files.remote.ts';
 	import { checkDraft } from '#lib/endpoints/import.remote.ts';
 	import { getEvents, getSuggestions } from '#lib/endpoints/refinement.remote.ts';
-	import { createEditor } from '#lib/editor/editor.svelte.ts';
 	import FileEditor from '#lib/web/components/file-editor.svelte';
 	import FileEvents from '#lib/web/components/file-events.svelte';
+	import { beforeNavigate, goto } from '$app/navigation';
+	import { page } from '$app/state';
+	import { untrack } from 'svelte';
 
 	type TreeNode = { label: string; key: string; children: Map<string, TreeNode> };
 

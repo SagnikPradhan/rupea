@@ -1,5 +1,5 @@
-import { randomUUID } from 'node:crypto';
 import { test as base, expect, type Page } from '@playwright/test';
+import { randomUUID } from 'node:crypto';
 import { withServer, type Server } from './server.ts';
 import { signIn } from './sign-in.ts';
 import { visit } from './visit.ts';

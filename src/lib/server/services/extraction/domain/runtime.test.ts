@@ -1,9 +1,9 @@
-import { describe, expect, it } from 'vitest';
+import { err } from '#lib/server/shared/result.ts';
 import { formatAmount } from '#services/ledger/application/shared.ts';
+import { describe, expect, it } from 'vitest';
 import { extract } from './runtime';
 import { parseSchema, type RupeeSchema } from './schema';
 import type { Grid } from './types';
-import { err } from '#lib/server/shared/result.ts';
 
 const schema = (text: string): RupeeSchema => {
 	const parsed = parseSchema('test.yml', `version: v1\nname: Test\n${text}`);

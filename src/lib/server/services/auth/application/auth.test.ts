@@ -1,4 +1,3 @@
-import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 import { provide, type RupeeContext } from '#lib/server/shared/context.ts';
 import type { Mail, Mailer } from '#lib/server/shared/mailer.ts';
 import { isHandle } from '#lib/server/shared/names.ts';
@@ -6,6 +5,7 @@ import { ok, okAsync } from '#lib/server/shared/result.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import { createTemporaryDatabase } from '#tests/shared/database.ts';
 import { it } from '#tests/shared/vitest.ts';
+import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 import * as DB from '../adapters/database';
 import * as Auth from './auth';
 

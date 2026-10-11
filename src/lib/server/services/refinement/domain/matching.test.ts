@@ -1,10 +1,10 @@
-import { describe, expect, it } from 'vitest';
 import {
 	EventRole,
 	parseAmount,
 	type Amount,
 	type RupeeMetadata,
 } from '#services/ledger/application/shared.ts';
+import { describe, expect, it } from 'vitest';
 import { Confidence, fingerprint, suggest, type MatchedTransaction } from './matching';
 
 const transaction = (

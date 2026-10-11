@@ -3,8 +3,8 @@ import type { Database } from '../db';
 import type { RupeeConfiguration } from './config';
 import type { Logger } from './logger';
 import type { Mailer } from './mailer';
-import type { Storages } from './storage/storage';
 import type { Models } from './onnx/runtime';
+import type { Storages } from './storage/storage';
 
 export type RupeeContext = {
 	config: RupeeConfiguration;

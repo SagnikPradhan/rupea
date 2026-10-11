@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { RupeeError } from '#lib/server/shared/error.ts';
-	import type { Editor } from '#lib/editor/editor.svelte.ts';
+	import type { Editor } from '#lib/web/components/file-editor/file-editor.svelte.ts';
 
 	type Props = {
 		editor: Editor;

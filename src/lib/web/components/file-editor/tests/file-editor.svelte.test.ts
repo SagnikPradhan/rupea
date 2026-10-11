@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { createEditor } from '#lib/editor/editor.svelte.ts';
-import { fakeApi, parseError } from '#lib/editor/fixture.ts';
+import { createEditor } from '#lib/web/components/file-editor/file-editor.svelte.ts';
+import { fakeApi, parseError } from '#lib/web/components/file-editor/tests/fixture.ts';
 
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());

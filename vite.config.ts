@@ -26,9 +26,12 @@ export default defineConfig({
 			{
 				extends: true,
 				test: {
-					name: 'server',
-					include: ['src/**/tests/*.test.ts', 'tests/shared/**/*.test.ts'],
-					exclude: ['src/**/tests/*.dom.test.ts'],
+					name: 'backend',
+					include: [
+						'src/lib/server/**/tests/*.test.ts',
+						'src/lib/endpoints/tests/*.test.ts',
+						'tests/shared/**/*.test.ts',
+					],
 					environment: 'node',
 					// Starting the embedded Postgres compiles it, see `tests/shared/vitest.ts`.
 					hookTimeout: 30_000,
@@ -39,8 +42,8 @@ export default defineConfig({
 				extends: true,
 				plugins: [svelteTesting()],
 				test: {
-					name: 'dom',
-					include: ['src/**/tests/*.dom.test.ts'],
+					name: 'frontend',
+					include: ['src/lib/web/**/tests/*.test.ts'],
 					environment: 'happy-dom',
 				},
 			},

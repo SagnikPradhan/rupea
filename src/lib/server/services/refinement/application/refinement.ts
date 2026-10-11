@@ -1,9 +1,9 @@
-import { randomInt } from 'node:crypto';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import { checkEvents, EventRole, linksOf } from '#services/ledger/domain/events.ts';
 import type { RupeeConfiguration } from '#lib/server/shared/config.ts';
 import { withContext } from '#lib/server/shared/context.ts';
 import type { RupeeError } from '#lib/server/shared/error.ts';
+import { randomPick } from '#lib/server/shared/names.ts';
 import type { RupeeFile, RupeeTransaction } from '#services/ledger/domain/types.ts';
 import {
 	batch,
@@ -17,15 +17,13 @@ import {
 } from '#lib/server/shared/result.ts';
 import { dismissals } from '../adapters/database';
 import { insertLinks, rewriteLinks, type LinkEdit, type Relink } from '../domain/edits';
-import { eventId, type Pick } from '../domain/ids';
+import { eventId } from '../domain/ids';
 import { suggest, type Suggestion } from '../domain/matching';
 
 export type { LinkEdit, Suggestion };
 
 // A random word clashes rarely enough that a few tries settle it.
 const TRIES = 5;
-
-const pick: Pick = (w) => w[randomInt(w.length)] ?? '';
 
 // Runs after a file is saved, and on request: only that file's transactions
 // look for partners, so the work grows with the file, not the ledger.
@@ -61,7 +59,7 @@ const fresh = (
 	const id = eventId({
 		date: primary?.date ?? '',
 		description: primary?.description ?? '',
-		pick,
+		pick: randomPick,
 	});
 	const retry = () =>
 		tries > 1

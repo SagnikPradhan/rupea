@@ -19,7 +19,7 @@ export default defineConfig({
 	test: {
 		coverage: {
 			include: ['src/**/*.{ts,svelte}'],
-			exclude: ['src/**/*.test.ts', 'src/**/*.d.ts'],
+			exclude: ['src/**/tests/**', 'src/**/*.d.ts'],
 			reporter: ['text', 'html'],
 		},
 		projects: [
@@ -27,8 +27,8 @@ export default defineConfig({
 				extends: true,
 				test: {
 					name: 'server',
-					include: ['src/**/*.test.ts', 'tests/shared/**/*.test.ts'],
-					exclude: ['src/**/*.dom.test.ts'],
+					include: ['src/**/tests/*.test.ts', 'tests/shared/**/*.test.ts'],
+					exclude: ['src/**/tests/*.dom.test.ts'],
 					environment: 'node',
 					// Starting the embedded Postgres compiles it, see `tests/shared/vitest.ts`.
 					hookTimeout: 30_000,
@@ -40,7 +40,7 @@ export default defineConfig({
 				plugins: [svelteTesting()],
 				test: {
 					name: 'dom',
-					include: ['src/**/*.dom.test.ts'],
+					include: ['src/**/tests/*.dom.test.ts'],
 					environment: 'happy-dom',
 				},
 			},

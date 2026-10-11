@@ -1,18 +1,19 @@
-import { describe, expect, it } from 'vitest';
 import { defaultConfiguration } from '#lib/server/shared/config.ts';
+import { err, ok } from '#lib/server/shared/result.ts';
+import { describe, expect, it } from 'vitest';
 import {
 	displayLocation,
-	parseAmount,
 	isDateFormat,
 	isTimeFormat,
+	parse,
+	parseAmount,
 	parseDate,
 	parseHeader,
 	parseTime,
 	parseTransactions,
 	type RupeeLine,
 } from './parser';
-import { formatAmount, type Amount, type RupeePosting } from './types';
-import { err, ok } from '#lib/server/shared/result.ts';
+import { formatAmount, PriceKind, type Amount, type RupeePosting } from './types';
 
 const file = 'random.rupee';
 const at = displayLocation({ file, line: 1 });
@@ -33,12 +34,17 @@ const transaction = (
 	date: Temporal.PlainDate.from(date),
 	time: null,
 	description,
+	metadata: {},
 	postings,
 });
 
 const posting = (account: string, amount: string): RupeePosting => ({
 	account,
 	amount: parseAmount(amount) as Amount,
+	commodity: 'INR',
+	price: null,
+	balance: null,
+	metadata: {},
 });
 
 describe('parse transactions', () => {
@@ -129,6 +135,23 @@ describe('parse transactions', () => {
 		expect(result.succeeded.map((t) => t.description)).toEqual(['Good']);
 	});
 
+	it.each([['\tFood 100'], ['\tassets:Bank'], ['\tAssetsBank:Cash']])(
+		'reports the account outside the canonical roots in %j',
+		(bad) => {
+			expect(run(['2026-08-29 Groceries', '\tExpenses:Food 100', bad])).toEqual({
+				failed: [
+					{
+						type: 'ParseInvalidAccount',
+						location: displayLocation({ file, line: 3 }),
+						account: bad.trim().split(/\s+/)[0],
+						cause: [],
+					},
+				],
+				succeeded: [],
+			});
+		},
+	);
+
 	it('reports an invalid transaction header', () => {
 		expect(run(['not a transaction'])).toEqual({
 			failed: [{ type: 'ParseInvalidTransactionHeader', location: at, cause: [] }],
@@ -182,6 +205,244 @@ describe('parse transactions', () => {
 	});
 });
 
+describe('metadata', () => {
+	const failure = (type: string, line: number) => ({
+		type,
+		location: displayLocation({ file, line }),
+		cause: [],
+	});
+
+	const parseFile = (n: string[]) =>
+		parse(defaultConfiguration, { key: file, content: `${n.join('\n')}\n` });
+
+	it('belongs to the nearest line above it, whatever its indentation', () => {
+		const { succeeded, failed } = run([
+			'2026-10-01 Amazon order',
+			'\t- event: 2026-10-01-amazon-otter',
+			'- ref: 402-123',
+			'\tLiabilities:Card -1299',
+			'\tExpenses:Books 499',
+			'\t\t- tags: gift',
+			'- note: for Riya',
+			'\tExpenses:Electronics',
+		]);
+
+		expect(failed).toEqual([]);
+		expect(succeeded[0]?.metadata).toEqual({
+			event: ['2026-10-01-amazon-otter'],
+			ref: ['402-123'],
+		});
+		expect(succeeded[0]?.postings.map((p) => p.metadata)).toEqual([
+			{},
+			{ tags: ['gift'], note: ['for Riya'] },
+			{},
+		]);
+	});
+
+	it('collects a repeated key into a list, in order', () => {
+		const { succeeded } = run([
+			'2026-10-01 Transfer',
+			'\t- ref: a',
+			'\t- tags: x, y',
+			'\t- ref: b',
+			'\tAssets:Bank 1',
+			'\tAssets:Cash',
+		]);
+
+		expect(succeeded[0]?.metadata).toEqual({ ref: ['a', 'b'], tags: ['x, y'] });
+	});
+
+	it('keeps colons and spaces inside a value, trimming its ends', () => {
+		const { succeeded } = run([
+			'2026-10-01 Cash',
+			'\t- note:   paid at 10:30, in cash  ',
+			'\tAssets:Bank 1',
+			'\tAssets:Cash',
+		]);
+
+		expect(succeeded[0]?.metadata).toEqual({ note: ['paid at 10:30, in cash'] });
+	});
+
+	it('belongs to the file above the first transaction', () => {
+		const parsed = parseFile([
+			'; imported',
+			'- statement: hdfc-oct.pdf',
+			'',
+			'- tags: tax-2026',
+			'',
+			'2026-10-01 Cash',
+			'\tAssets:Bank 1',
+			'\tAssets:Cash',
+		]);
+
+		expect(parsed.failed).toEqual([]);
+		expect(parsed.metadata).toEqual({ statement: ['hdfc-oct.pdf'], tags: ['tax-2026'] });
+		expect(parsed.succeeded[0]?.metadata).toEqual({});
+	});
+
+	it('is reported when nothing above it can own it, and the parse goes on', () => {
+		expect(
+			parseFile([
+				'2026-10-01 Cash',
+				'\tAssets:Bank 1',
+				'\tAssets:Cash',
+				'',
+				'- ref: lost',
+				'2026-10-02 Cash',
+				'\tAssets:Bank 2',
+				'\tAssets:Cash',
+			]),
+		).toMatchObject({
+			failed: [failure('ParseDetachedMetadata', 5)],
+			succeeded: [{ description: 'Cash' }, { description: 'Cash' }],
+		});
+	});
+
+	it.each(['\t- no colon', '\t- key:', '\t- key:value', '\t-', '\t- : value'])(
+		'drops the transaction for %j, keeping the others',
+		(bad) => {
+			expect(
+				run([
+					'2026-10-01 Bad',
+					'\tAssets:Bank 1',
+					bad,
+					'\tAssets:Cash',
+					'',
+					'2026-10-02 Good',
+					'\tAssets:Bank 2',
+					'\tAssets:Cash',
+				]),
+			).toMatchObject({
+				failed: [failure('ParseInvalidMetadata', 3)],
+				succeeded: [{ description: 'Good' }],
+			});
+		},
+	);
+
+	it('reports a bad line in the file metadata', () => {
+		expect(parseFile(['- statement', '- schema: hdfc']).failed).toEqual([
+			failure('ParseInvalidMetadata', 1),
+		]);
+	});
+});
+
+describe('balance assertions', () => {
+	const asserted = (b: string) => ({ balance: parseAmount(b) as Amount });
+
+	it('reads the balance after a posting, with or without its amount', () => {
+		expect(
+			run([
+				'2026-08-29 Groceries',
+				'\tAssets:Bank -100 = 1,900.50',
+				'\tExpenses:Food',
+				'',
+				'2026-08-30 Salary',
+				'\tIncome:Salary -500',
+				'\tAssets:Bank = 2400.50 INR',
+			]),
+		).toEqual({
+			failed: [],
+			succeeded: [
+				transaction(1, '2026-08-29', 'Groceries', [
+					{ ...posting('Assets:Bank', '-100'), ...asserted('1900.50') },
+					posting('Expenses:Food', '100'),
+				]),
+				transaction(5, '2026-08-30', 'Salary', [
+					posting('Income:Salary', '-500'),
+					{ ...posting('Assets:Bank', '500'), ...asserted('2400.50') },
+				]),
+			],
+		});
+	});
+
+	it.each(['\tAssets:Bank -100 =', '\tAssets:Bank -100 = abc', '\tAssets:Bank = 1 = 2', '\t= 5'])(
+		'rejects %j',
+		(p) => {
+			expect(run(['2026-08-29 Groceries', p, '\tExpenses:Food']).failed).toEqual([
+				{ type: 'ParseInvalidPosting', location: displayLocation({ file, line: 2 }), cause: [] },
+			]);
+		},
+	);
+});
+
+describe('commodities', () => {
+	const held = (
+		account: string,
+		amount: string,
+		commodity: string,
+		price: RupeePosting['price'] = null,
+	): RupeePosting => ({ ...posting(account, amount), commodity, price });
+	const unit = (amount: string, commodity: string) => ({
+		amount: parseAmount(amount) as Amount,
+		commodity,
+		kind: PriceKind.Unit,
+	});
+	const buy = (lines: string[]) => run(['2026-10-01 Buy AAPL', ...lines]);
+
+	it('balances a priced posting at its price', () => {
+		expect(buy(['\tAssets:IBKR 10 AAPL @ 180.25 USD', '\tAssets:IBKR:Cash -1802.50 USD'])).toEqual({
+			failed: [],
+			succeeded: [
+				transaction(1, '2026-10-01', 'Buy AAPL', [
+					held('Assets:IBKR', '10', 'AAPL', unit('180.25', 'USD')),
+					held('Assets:IBKR:Cash', '-1802.50', 'USD'),
+				]),
+			],
+		});
+	});
+
+	it('takes a total price, and fills in the one commodity left over', () => {
+		expect(buy(['\tAssets:IBKR 10 aapl @@ 1802.50 USD', '\tAssets:IBKR:Cash']).succeeded).toEqual([
+			transaction(1, '2026-10-01', 'Buy AAPL', [
+				held('Assets:IBKR', '10', 'AAPL', { ...unit('1802.50', 'USD'), kind: PriceKind.Total }),
+				held('Assets:IBKR:Cash', '-1802.50', 'USD'),
+			]),
+		]);
+	});
+
+	it('prices in rupees when the price names no commodity', () => {
+		expect(buy(['\tAssets:IBKR:Cash 100 USD @ 83.50', '\tAssets:HDFC']).succeeded).toEqual([
+			transaction(1, '2026-10-01', 'Buy AAPL', [
+				held('Assets:IBKR:Cash', '100', 'USD', unit('83.50', 'INR')),
+				posting('Assets:HDFC', '-8350'),
+			]),
+		]);
+	});
+
+	it('checks each commodity on its own', () => {
+		expect(buy(['\tAssets:IBKR 10 AAPL', '\tAssets:IBKR:Cash -1802.50 USD']).failed).toEqual([
+			{
+				type: 'ParseUnbalancedTransaction',
+				location: at,
+				residual: '10.00 AAPL, -1802.50 USD',
+				cause: [],
+			},
+		]);
+		expect(
+			buy(['\tAssets:IBKR 10 AAPL', '\tAssets:IBKR:Cash 5 USD', '\tEquity:Conversion']).failed,
+		).toMatchObject([{ type: 'ParseUnbalancedTransaction', residual: '10.00 AAPL, 5.00 USD' }]);
+	});
+
+	it('asserts a balance in the posting commodity', () => {
+		const [bought] = buy([
+			'\tAssets:IBKR 10 AAPL @ 180 USD = 30 AAPL',
+			'\tAssets:IBKR:Cash',
+		]).succeeded;
+		expect(bought?.postings[0]?.balance).toBe(parseAmount('30'));
+	});
+
+	it.each([
+		['a price without an amount', '\tAssets:IBKR @ 180 USD'],
+		['a price without a number', '\tAssets:IBKR 10 AAPL @ USD'],
+		['a negative price', '\tAssets:IBKR 10 AAPL @ -180 USD'],
+		['a balance in another commodity', '\tAssets:IBKR 10 AAPL @ 180 USD = 30 USD'],
+	])('rejects %s', (_, line) => {
+		expect(buy([line, '\tAssets:IBKR:Cash']).failed).toMatchObject([
+			{ type: 'ParseInvalidPosting' },
+		]);
+	});
+});
+
 describe('hledger-style input', () => {
 	it('parses space indentation, an INR suffix and comments', () => {
 		expect(
@@ -209,7 +470,7 @@ describe('hledger-style input', () => {
 		).toEqual([]);
 	});
 
-	it.each(['  Expenses:Food 100 USD', ' Expenses:Food 100'])('rejects %j', (p) => {
+	it.each(['  Expenses:Food 100 1USD', ' Expenses:Food 100'])('rejects %j', (p) => {
 		expect(run(['2026-08-29 Groceries', p]).succeeded).toEqual([]);
 	});
 });

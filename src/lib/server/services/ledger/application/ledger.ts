@@ -1,41 +1,37 @@
-/**
- * Ledger use-cases, each run against the ledger of a user. The `.rupee` files in
- * storage are the source of truth; the database index is derived from them.
- * Mutations change the file first and then bring the index along. `sync`
- * repairs whatever changed behind the app's back: files edited directly in
- * storage, or an index write that failed.
- */
 import { withContext } from '#lib/server/shared/context.ts';
 import type { RupeeError } from '#lib/server/shared/error.ts';
 import { concat, ok, ResultAsync, type Batch, type Result } from '#lib/server/shared/result.ts';
 import { scoped } from '#lib/server/shared/storage/storage.ts';
-import { findLedgerId, index, type IndexedTransaction } from '../adapters/database';
+import {
+	findLedgerId,
+	index,
+	type BalanceCheck,
+	type CandidatePair,
+	type IndexedTransaction,
+} from '../adapters/database';
 import { files } from '../adapters/storage';
-import { parse } from '../domain/parser';
-import type { RupeeFile, RupeeTransaction } from '../domain/types';
+import { checkEvents } from '../domain/events';
+import { displayLocation, parse } from '../domain/parser';
+import { indexedVersion, plan } from '../domain/sync';
+import { formatQuantity, type RupeeFile, type RupeeTransaction } from '../domain/types';
 
 export type { IndexedTransaction };
 
-/** Run `use` against the ledger `userId` is working in. */
 export const withLedger = <T>(
 	u: string,
 	s: (ledgerId: string) => Result<T> | ResultAsync<T>,
 ): ResultAsync<T> => findLedgerId(u).andThen(s);
 
-/** The `.rupee` files in one ledger's part of the app's storage. */
 const ledgerFiles = (l: string) => withContext('storage')((s) => files(scoped(s, `ledgers/${l}`)));
 
-/**
- * Index the transactions `file` parses to, returning its parse errors. A
- * file with errors is indexed without a version, so the next sync parses it
- * again and reports them until they are fixed.
- */
 const indexFile = (ledgerId: string, file: RupeeFile): ResultAsync<RupeeError[]> =>
 	withContext('config')((config) => {
 		const parsed = parse(config, file);
-		const version = parsed.failed.length === 0 ? file.version : null;
 		return index(ledgerId)
-			.put(file.key, version, parsed.succeeded)
+			.put(file.key, indexedVersion(file.version, parsed.failed), {
+				metadata: parsed.metadata,
+				transactions: parsed.succeeded,
+			})
 			.map(() => parsed.failed);
 	});
 
@@ -49,57 +45,120 @@ const unindex = (li: string, k: string): ResultAsync<RupeeError[]> =>
 		.remove(k)
 		.map((): RupeeError[] => []);
 
-/**
- * Bring the index in line with storage, comparing versions: index files that
- * are new, changed, or had errors last time, and drop files that are gone.
- * Returns every problem met on the way; failing to list either side is fatal.
- */
-const syncLedger = (ledgerId: string): ResultAsync<RupeeError[]> =>
+// One file at a time, since embedded Postgres has one connection. A failed
+// step is reported, not fatal; failing to list either side is.
+const syncFiles = (ledgerId: string): ResultAsync<RupeeError[]> =>
 	ResultAsync.combine([ledgerFiles(ledgerId).entries(), index(ledgerId).files()]).andThen(
 		([stored, indexed]) => {
-			const versions = new Map(indexed.map(({ key, version }) => [key, version]));
-			const present = new Set(stored.map(({ key }) => key));
-			const changed = stored.filter(({ key, version }) => versions.get(key) !== version);
-			const gone = indexed.filter(({ key }) => !present.has(key));
-			// One at a time: SQLite has a single connection, and each write is a
-			// transaction of its own. A step that fails is a problem to report,
-			// not a reason to stop.
+			const p = plan(stored, indexed);
 			return concat(
 				[
-					...changed.map(
-						({ key }) =>
-							() =>
-								reindex(ledgerId, key),
-					),
-					...gone.map(
-						({ key }) =>
-							() =>
-								unindex(ledgerId, key),
-					),
+					...p.changed.map((k) => () => reindex(ledgerId, k)),
+					...p.gone.map((k) => () => unindex(ledgerId, k)),
 				].map((s) => () => s().orElse((err) => ok([err]))),
 			);
 		},
 	);
 
+// Events and balances span files, so they are checked after every file is in place.
+const checkLedger = (ledgerId: string): ResultAsync<RupeeError[]> =>
+	index(ledgerId)
+		.eventMembers()
+		.map(checkEvents)
+		.andThen((e) => checkBalances(ledgerId, e.evidence).map((b) => [...e.failed, ...b]))
+		.orElse((err) => ok([err]));
+
+// Evidence is not counted: an event's money moves at its primary.
+const checkBalances = (l: string, e: string[]): ResultAsync<RupeeError[]> =>
+	index(l)
+		.balanceChecks(e)
+		.map((c) => c.map(toBalanceError));
+
+// An assertion that could go either way is not checked; a time on either side settles it.
+const toBalanceError = (c: BalanceCheck): RupeeError =>
+	c.unordered.length > 0
+		? {
+				type: 'BalanceAssertionAmbiguous',
+				location: displayLocation(c.location),
+				account: c.account,
+				unordered: c.unordered.join(', '),
+				cause: [],
+			}
+		: {
+				type: 'BalanceAssertionFailed',
+				location: displayLocation(c.location),
+				account: c.account,
+				expected: formatQuantity({ amount: c.expected, commodity: c.commodity }),
+				actual: formatQuantity({ amount: c.actual, commodity: c.commodity }),
+				cause: [],
+			};
+
+const syncLedger = (l: string): ResultAsync<RupeeError[]> =>
+	syncFiles(l).andThen((f) => checkLedger(l).map((e) => [...f, ...e]));
+
 export const sync = (u: string): ResultAsync<RupeeError[]> => withLedger(u, syncLedger);
 
-/** Every transaction in the ledger, synced first; problems ride along. */
-export const getTransactions = (userId: string): ResultAsync<Batch<IndexedTransaction>> =>
+export type CountedTransaction = IndexedTransaction & { counted: boolean };
+
+export const getTransactions = (userId: string): ResultAsync<Batch<CountedTransaction>> =>
 	withLedger(userId, (ledgerId) =>
-		syncLedger(ledgerId).andThen((fl) =>
+		syncFiles(ledgerId).andThen((fl) =>
 			index(ledgerId)
 				.transactions()
-				.map((s) => ({ succeeded: s, failed: fl })),
+				.map((t) => counting(t, fl))
+				.andThen((c) =>
+					checkBalances(ledgerId, c.evidence).map((b) => ({
+						...c.batch,
+						failed: [...c.batch.failed, ...b],
+					})),
+				),
 		),
 	);
 
+type Counting = { batch: Batch<CountedTransaction>; evidence: string[] };
+
+// Evidence is kept but not counted.
+const counting = (all: IndexedTransaction[], failed: RupeeError[]): Counting => {
+	const events = checkEvents(all);
+	const evidence = new Set(events.evidence);
+
+	return {
+		batch: {
+			succeeded: all.map((t) => ({ ...t, counted: !evidence.has(t.id) })),
+			failed: [...failed, ...events.failed],
+		},
+		evidence: events.evidence,
+	};
+};
+
+export type Candidates = { pairs: CandidatePair[]; transactions: IndexedTransaction[] };
+
+// Pairs a file's transactions could form events with, and both sides of each.
+export const findCandidates = (userId: string, key: string): ResultAsync<Candidates> =>
+	withLedger(userId, (l) =>
+		index(l)
+			.candidates(key)
+			.andThen((c) =>
+				index(l)
+					.byIds([...new Set(c.flatMap((p) => [p.ours, p.theirs]))])
+					.map((t) => ({ pairs: c, transactions: t })),
+			),
+	);
+
+export const isEventIdTaken = (u: string, id: string): ResultAsync<boolean> =>
+	withLedger(u, (l) => index(l).eventIdTaken(id));
+
+export const findEventsIn = (u: string, k: string): ResultAsync<IndexedTransaction[]> =>
+	withLedger(u, (l) => index(l).eventsIn(k));
+
+export const findEventMembers = (u: string, e: string): ResultAsync<IndexedTransaction[]> =>
+	withLedger(u, (l) => index(l).membersOf(e));
+
 export const listFiles = (u: string) => withLedger(u, (l) => ledgerFiles(l).list());
 
-/** The file `key`, read from storage as it is now; nothing is synced. */
 export const getFile = (u: string, k: string): ResultAsync<RupeeFile> =>
 	withLedger(u, (l) => ledgerFiles(l).read(k));
 
-/** Parse `content` as the file `key` would be, without saving anything. */
 export const check = (k: string, c: string): Batch<RupeeTransaction> =>
 	withContext('config')((f) => parse(f, { key: k, content: c }));
 
@@ -110,10 +169,7 @@ type WriteFileOptions = {
 	ifVersion: string | null;
 };
 
-/**
- * Write a file, then index it. The write is what counts: if indexing fails,
- * the file is left for the next sync, which also reports its parse errors.
- */
+// If indexing fails, the next sync picks the file up.
 const writeFile = (options: WriteFileOptions): ResultAsync<RupeeFile> => {
 	const { ledgerId, key, content, ifVersion } = options;
 	return ledgerFiles(ledgerId)
@@ -127,21 +183,15 @@ type CreateFileOptions = {
 	content: string;
 };
 
-/** Create a new file; fails with `StorageConflict` if `key` exists. */
 export const createFile = (options: CreateFileOptions) => {
 	const { userId, key, content } = options;
 	return withLedger(userId, (l) => writeFile({ ledgerId: l, key, content, ifVersion: null }));
 };
 
 type EditFileOptions = CreateFileOptions & {
-	/** The version the edit was based on. */
 	version: string;
 };
 
-/**
- * Replace a file's content, as long as nobody changed it since `version` was
- * read; otherwise fails with `StorageConflict`.
- */
 export const editFile = (options: EditFileOptions) => {
 	const { userId, key, content, version } = options;
 	return withLedger(userId, (l) => writeFile({ ledgerId: l, key, content, ifVersion: version }));
@@ -153,7 +203,6 @@ type RenameFileOptions = {
 	to: string;
 };
 
-/** Rename a file; its indexed transactions move with it, unparsed. */
 export const renameFile = (options: RenameFileOptions): ResultAsync<RupeeFile> => {
 	const { userId, from, to } = options;
 	return withLedger(userId, (li) =>

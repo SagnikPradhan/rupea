@@ -1,32 +1,21 @@
-/**
- * The `.rupee` format: a header line `<date> [time] <description>`, followed
- * by one posting per line, indented with a tab or at least two spaces:
- * `<account> [amount [INR]]`. Blank (whitespace-only) lines may separate
- * transactions; a blank line ends the postings above it. Lines starting with
- * `;` are comments and ignored. Dates and times may be written in any of the
- * configured formats.
- *
- *     2026-08-29 18:45 Groceries
- *     	Expenses:Food 100
- *     	Assets:Bank
- *
- *     30 Aug 2026 Salary
- *     	Assets:Bank 50000
- *     	Income:Salary
- *
- * Amounts are signed and a transaction's postings sum to zero. One posting
- * may leave its amount out; it takes whatever balances the others.
- */
 import * as dateFns from 'date-fns';
 import { match, P } from 'ts-pattern';
 import type { RupeeConfiguration } from '#lib/server/shared/config.ts';
 import type { RupeeError } from '#lib/server/shared/error.ts';
 import { batch, err, ok, type Batch, type Result } from '#lib/server/shared/result.ts';
 import {
+	accountRoot,
 	AMOUNT_SCALE,
-	formatAmount,
+	formatQuantity,
+	HOME_COMMODITY,
+	PriceKind,
+	toMetadata,
+	weight,
+	type Price,
+	type Quantity,
 	type Amount,
 	type RupeeFile,
+	type RupeeMetadata,
 	type RupeeParseLocation,
 	type RupeePosting,
 	type RupeeTransaction,
@@ -36,10 +25,25 @@ export const displayLocation = ({ file, line }: RupeeParseLocation): string => `
 
 export type RupeeLine = { location: RupeeParseLocation; content: string };
 
+export type RupeeParsedFile = Batch<RupeeTransaction> & { metadata: RupeeMetadata };
+
+// Metadata above the first transaction belongs to the file.
 export const parse = (
 	c: RupeeConfiguration,
 	{ key, content }: Pick<RupeeFile, 'key' | 'content'>,
-): Batch<RupeeTransaction> => parseTransactions(c, lines(key, content));
+): RupeeParsedFile => {
+	const input = lines(key, content).filter((l) => !isComment(l));
+	const preamble = readMetadata(
+		takeWhile(input, (l) => isBlank(l) || isMetadata(l)).filter(isMetadata),
+	);
+	const parsed = parseTransactions(c, input);
+
+	return {
+		metadata: preamble.metadata,
+		succeeded: parsed.succeeded,
+		failed: [...preamble.failed, ...parsed.failed],
+	};
+};
 
 const lines = (file: string, content: string): RupeeLine[] =>
 	content
@@ -50,14 +54,21 @@ const lines = (file: string, content: string): RupeeLine[] =>
 			content: text,
 		}));
 
-/** A posting as written, before an amount left out is worked out. */
-type WrittenPosting = { account: string; amount: Amount | null };
+// A commodity left out is filled in: the home one for amounts and prices, the
+// posting's own for a balance.
+type WrittenQuantity = { amount: Amount; commodity: string | null };
 
-/**
- * Parse consecutive transactions. A transaction with a bad posting is
- * dropped, the rest carry on, but an unreadable header stops the parse:
- * without it there is no telling where the next transaction starts.
- */
+type WrittenPosting = {
+	account: string;
+	quantity: WrittenQuantity | null;
+	price: Price | null;
+	balance: WrittenQuantity | null;
+};
+
+type MetadataPosting = WrittenPosting & { metadata: RupeeMetadata };
+
+// A bad posting or metadata line drops its transaction; a bad header stops the
+// parse, since there is no telling where the next transaction starts.
 export const parseTransactions = (
 	configuration: RupeeConfiguration,
 	input: RupeeLine[],
@@ -66,16 +77,23 @@ export const parseTransactions = (
 	const results: Result<RupeeTransaction>[] = [];
 	for (const line of drain(lines)) {
 		if (isBlank(line)) continue;
+		if (isMetadata(line)) {
+			results.push(failure(line.location, 'ParseDetachedMetadata'));
+			continue;
+		}
+
 		const header = parseHeader(configuration, line);
 		if (header.isErr()) return batch([...results, err(header.error)]);
 
-		const body = batch(takeWhile(lines, isPosting).map(parsePosting));
+		const body = readBody(takeWhile(lines, (l) => isPosting(l) || isMetadata(l)));
 		results.push(...body.failed.map((e) => err(e)));
 		if (body.failed.length > 0) continue;
+
 		results.push(
-			balance(line.location, body.succeeded).map((postings) => ({
+			balance(line.location, body.postings).map((postings) => ({
 				location: line.location,
 				...header.value,
+				metadata: body.metadata,
 				postings,
 			})),
 		);
@@ -83,24 +101,63 @@ export const parseTransactions = (
 	return batch(results);
 };
 
-/** Shift items off `stack` until it is empty; the loop body may take more. */
+type Body = { metadata: RupeeMetadata; postings: MetadataPosting[]; failed: RupeeError[] };
+
+// Metadata belongs to the nearest line above it that is not metadata.
+const readBody = (lines: RupeeLine[]): Body => {
+	const own = readMetadata(takeWhile(lines, isMetadata));
+	// `Array.from` maps as it drains, so each posting takes the metadata under it.
+	const postings = Array.from(drain(lines), (l) => ({
+		posting: parsePosting(l),
+		metadata: readMetadata(takeWhile(lines, isMetadata)),
+	}));
+
+	return {
+		metadata: own.metadata,
+		postings: postings.flatMap(({ posting, metadata }) =>
+			posting.isOk() ? [{ ...posting.value, metadata: metadata.metadata }] : [],
+		),
+		failed: [
+			...own.failed,
+			...postings.flatMap(({ posting, metadata }) => [
+				...(posting.isErr() ? [posting.error] : []),
+				...metadata.failed,
+			]),
+		],
+	};
+};
+
+type ReadMetadata = { metadata: RupeeMetadata; failed: RupeeError[] };
+
+const readMetadata = (lines: RupeeLine[]): ReadMetadata => {
+	const entries = batch(lines.map(parseMetadata));
+	return { metadata: toMetadata(entries.succeeded), failed: entries.failed };
+};
+
+const parseMetadata = ({ location, content }: RupeeLine): Result<[string, string]> => {
+	const entry = /^\s*-\s+([^\s:]+):\s+(\S.*?)\s*$/.exec(content);
+	return entry?.[1] && entry[2]
+		? ok([entry[1], entry[2]])
+		: failure(location, 'ParseInvalidMetadata');
+};
+
 function* drain<T>(sk: T[]): Generator<T> {
 	while (sk.length > 0) yield* sk.splice(0, 1);
 }
 
-/** Remove and return the leading items of `stack` that satisfy `keep`. */
 const takeWhile = <T>(stack: T[], keep: (item: T) => boolean): T[] => {
 	const end = stack.findIndex((i) => !keep(i));
 	return stack.splice(0, end < 0 ? stack.length : end);
 };
 
-/** Whitespace-only lines separate transactions and are otherwise ignored. */
 const isBlank = ({ content }: RupeeLine) => content.trim() === '';
 
-/** Lines starting with `;` are ignored, as in hledger. */
 const isComment = ({ content }: RupeeLine) => content.startsWith(';');
 
-const isPosting = (l: RupeeLine) => /^(\t| {2})/.test(l.content) && !isBlank(l);
+// Indentation means nothing to a metadata line; the dash does.
+const isMetadata = ({ content }: RupeeLine) => /^\s*-(\s|$)/.test(content);
+
+const isPosting = (l: RupeeLine) => /^(\t| {2})/.test(l.content) && !isBlank(l) && !isMetadata(l);
 
 const failure = (
 	l: RupeeParseLocation,
@@ -108,31 +165,57 @@ const failure = (
 	x: { residual?: string } = {},
 ): Result<never> => err({ type: t, location: displayLocation(l), ...x, cause: [] } as RupeeError);
 
-const sum = (a: Amount[]): bigint => a.reduce((t, n) => t + n, 0n);
-
-/**
- * Give every posting an amount: the one left out, if any, is whatever makes
- * the transaction sum to zero. Fewer than two postings, several left out, or
- * amounts that do not sum to zero are errors.
- */
+// Each commodity sums to zero once priced postings are weighed at their price.
+// A posting without an amount takes what is left, if that is one commodity.
 const balance = (
 	location: RupeeParseLocation,
-	written: WrittenPosting[],
+	written: MetadataPosting[],
 ): Result<RupeePosting[]> => {
 	if (written.length < 2) return failure(location, 'ParseMissingTransactionBody');
-	const implicit = written.filter((p) => p.amount === null);
+	const implicit = written.filter((p) => p.quantity === null);
 	if (implicit.length > 1) return failure(location, 'ParseMultipleImplicitPostings');
-	const known = sum(written.flatMap((p) => (p.amount === null ? [] : [p.amount])));
-	if (implicit.length === 1)
-		return ok(
-			written.map(({ account, amount }) => ({ account, amount: amount ?? (-known as Amount) })),
-		);
-	return known === 0n
-		? ok(written.map(({ account, amount }) => ({ account, amount: amount as Amount })))
-		: failure(location, 'ParseUnbalancedTransaction', {
-				residual: formatAmount(known as Amount),
-			});
+
+	const known = written.flatMap((p) =>
+		p.quantity === null ? [] : [{ ...p, quantity: p.quantity }],
+	);
+	const left = residual(known.map((p) => weight(home(p))));
+	if (implicit.length === 0 && left.length > 0) return unbalanced(location, left);
+	if (left.length > 1) return unbalanced(location, left);
+
+	const [rest = { amount: 0n as Amount, commodity: HOME_COMMODITY }] = left;
+	const postings = written.map(({ account, quantity, price, balance: b, metadata }) => {
+		const filled =
+			quantity === null
+				? { amount: -rest.amount as Amount, commodity: rest.commodity }
+				: { amount: quantity.amount, commodity: quantity.commodity ?? HOME_COMMODITY };
+		return { account, ...filled, price, balance: b, metadata };
+	});
+	if (
+		postings.some((p) => p.balance !== null && (p.balance.commodity ?? p.commodity) !== p.commodity)
+	)
+		return failure(location, 'ParseInvalidPosting');
+
+	return ok(postings.map(({ balance: b, ...p }) => ({ ...p, balance: b?.amount ?? null })));
 };
+
+type KnownPosting = WrittenPosting & { quantity: WrittenQuantity };
+
+const home = (p: KnownPosting) => ({
+	amount: p.quantity.amount,
+	commodity: p.quantity.commodity ?? HOME_COMMODITY,
+	price: p.price,
+});
+
+const residual = (weights: Quantity[]): Quantity[] =>
+	Object.entries(Object.groupBy(weights, (w) => w.commodity))
+		.map(([commodity, group = []]) => ({
+			commodity,
+			amount: group.reduce((t, w) => t + w.amount, 0n) as Amount,
+		}))
+		.filter((q) => q.amount !== 0n);
+
+const unbalanced = (l: RupeeParseLocation, q: Quantity[]): Result<never> =>
+	failure(l, 'ParseUnbalancedTransaction', { residual: q.map(formatQuantity).join(', ') });
 
 export const parseHeader = (
 	{ dateFormats, timeFormats }: RupeeConfiguration,
@@ -155,12 +238,6 @@ export const parseHeader = (
 			});
 };
 
-/**
- * Read the leading words with whichever of `formats` fits the most of them,
- * the earliest on a tie, returning the value and the words after it. A
- * format with spaces (`h:mm a`) spans as many words, so `9:15 pm` is read
- * whole rather than as `9:15` by `H:mm`.
- */
 const readWords = <T>(
 	formats: string[],
 	words: string[],
@@ -175,31 +252,71 @@ const readWords = <T>(
 		.sort((a, b) => a.rest.length - b.rest.length)
 		.at(0);
 
-export const parsePosting = ({ location, content }: RupeeLine): Result<WrittenPosting> => {
+export const parsePosting = (l: RupeeLine): Result<WrittenPosting> =>
+	readPosting(l).andThen((p) => checkAccount(l.location, p));
+
+const checkAccount = (
+	location: RupeeParseLocation,
+	posting: WrittenPosting,
+): Result<WrittenPosting> => {
+	if (accountRoot(posting.account)) return ok(posting);
+
+	return err({
+		type: 'ParseInvalidAccount',
+		location: displayLocation(location),
+		account: posting.account,
+		cause: [],
+	});
+};
+
+// `Account amount [commodity] [@ price | @@ total] [= balance]`.
+const readPosting = ({ location, content }: RupeeLine): Result<WrittenPosting> => {
 	const invalid: RupeeError = {
 		type: 'ParseInvalidPosting',
 		location: displayLocation(location),
 		cause: [],
 	};
-	const words = content.split(/\s+/).filter(Boolean);
-	return match(words)
-		.with([P.string.minLength(1)], ([account]) => ok({ account, amount: null }))
-		.with(
-			[P.string.minLength(1), P.string.minLength(1)],
-			[P.string.minLength(1), P.string.minLength(1), P.string.regex(/^INR$/i)],
-			([account, text]) => {
-				const amount = parseAmount(text);
-				return amount === null ? err(invalid) : ok({ account, amount });
-			},
-		)
-		.otherwise(() => err(invalid));
+	const parts = /^\s*([^\s=@]+)(?:\s+([^@=]*?))?\s*(?:(@@?)\s*([^=]*?))?\s*(?:=\s*(.*?))?\s*$/.exec(
+		content,
+	);
+	if (!parts?.[1]) return err(invalid);
+
+	const [, account, amount = '', priced, price = '', balance] = parts;
+	const quantity = amount === '' ? null : readQuantity(amount);
+	const cost = priced === undefined ? null : readQuantity(price);
+	const asserted = balance === undefined ? null : readQuantity(balance);
+	if (quantity === undefined || cost === undefined || asserted === undefined) return err(invalid);
+	if (priced !== undefined && (quantity === null || cost === null || cost.amount < 0n))
+		return err(invalid);
+
+	return ok({
+		account,
+		quantity,
+		price:
+			cost === null
+				? null
+				: {
+						amount: cost.amount,
+						commodity: cost.commodity ?? HOME_COMMODITY,
+						kind: priced === '@@' ? PriceKind.Total : PriceKind.Unit,
+					},
+		balance: asserted,
+	});
 };
 
-/**
- * Read the leading number of `text`, ignoring `₹` and thousands separators
- * (`₹1,250.50` → 1250.5). Text after the number is ignored, but more than
- * `AMOUNT_SCALE` decimal places is rejected rather than cut off.
- */
+// An amount, and optionally its commodity after it; `undefined` if it is neither.
+const readQuantity = (text: string): WrittenQuantity | undefined =>
+	match(text.split(/\s+/).filter(Boolean))
+		.with([P.string], [P.string, P.string.regex(COMMODITY)], ([amount, commodity]) => {
+			const parsed = parseAmount(amount);
+			return parsed === null
+				? undefined
+				: { amount: parsed, commodity: commodity?.toUpperCase() ?? null };
+		})
+		.otherwise(() => undefined);
+
+const COMMODITY = /^[A-Za-z][A-Za-z0-9._-]*$/;
+
 export const parseAmount = (text: string): Amount | null => {
 	const cleaned = text.replaceAll(',', '').replaceAll('₹', '').trim();
 	const match = /^([+-]?)(\d+)(?:\.(\d+))?/.exec(cleaned);
@@ -210,18 +327,12 @@ export const parseAmount = (text: string): Amount | null => {
 	return (sign === '-' ? -units : units) as Amount;
 };
 
-/**
- * Parse `text` against a date-fns format. Strict: the text must be exactly
- * what the format would write, up to case, so `dd/MM/yyyy` takes
- * `09/08/2026` but neither `9/8/2026` nor `09/08/26`. That keeps a list of
- * formats from reading one text two ways. A two-digit year (`yy`) reads as
- * the one within 50 years of `reference`.
- */
 type ParseOptions = {
 	format: string;
 	text: string;
 };
 
+// Strict, so a list of formats never reads one text two ways.
 const read = ({
 	format,
 	text,
@@ -234,16 +345,9 @@ const read = ({
 };
 
 type ParseDateOptions = ParseOptions & {
-	/** What a two-digit year is read relative to. */
 	reference?: Date | undefined;
 };
 
-/**
- * Parse `text` against a date-fns date format (`yyyy-MM-dd`, `d MMM yyyy`);
- * anything else the format reads is dropped. Check the format with
- * `isDateFormat` first: date-fns throws on unknown tokens, and fills in
- * fields the format leaves out.
- */
 export const parseDate = (options: ParseDateOptions): Temporal.PlainDate | null => {
 	const date = read(options);
 	return date
@@ -255,7 +359,6 @@ export const parseDate = (options: ParseDateOptions): Temporal.PlainDate | null 
 		: null;
 };
 
-/** Parse `text` against a date-fns time format (`HH:mm`, `h:mm a`). */
 export const parseTime = (options: ParseOptions): Temporal.PlainTime | null => {
 	const time = read(options);
 	return time
@@ -267,13 +370,8 @@ export const parseTime = (options: ParseOptions): Temporal.PlainTime | null => {
 		: null;
 };
 
-/**
- * Whether `format` is a date-fns format that pins down a whole date: a day
- * written with it reads back as that day. date-fns fills a field the format
- * leaves out with the 1st, January or 1970, so the sample avoids all three.
- * A two-digit year passes only with a `reference` within 50 years of 2026.
- * Throws `RangeError` on unknown tokens.
- */
+// date-fns fills fields a format leaves out with the 1st, January or 1970, so
+// the sample date avoids all three.
 export const isDateFormat = (format: string, reference?: Date): boolean =>
 	parseDate({
 		format,
@@ -281,12 +379,6 @@ export const isDateFormat = (format: string, reference?: Date): boolean =>
 		reference,
 	})?.equals('2026-08-29') === true;
 
-/**
- * Whether `format` is a date-fns format that pins down an hour and minute:
- * an afternoon time written with it reads back as that time. A missing field
- * reads as 0, and a 12-hour clock without AM/PM reads it as morning.
- * Throws `RangeError` on unknown tokens.
- */
 export const isTimeFormat = (format: string): boolean =>
 	parseTime({
 		format,

@@ -2,43 +2,102 @@ export type RupeeFile = {
 	key: string;
 	size: number;
 	modified: Date;
-	/** Opaque storage version; pass it back to make an edit conditional. */
 	version: string;
 	content: string;
 };
 
-/** Amounts are exact to this many decimal places. */
 export const AMOUNT_SCALE = 6;
 
-/**
- * A money amount as an exact integer count of millionths (`1250.5` is
- * `1_250_500_000n`), never a float. Only `parseAmount` constructs one.
- */
+// Millionths of a unit (`1250.5` is `1_250_500_000n`); only `parseAmount` makes one.
 export type Amount = bigint & { readonly brand: unique symbol };
 
-/** Where something came from: source file key and 1-based line number. */
+export enum AccountRoot {
+	Assets = 'Assets',
+	Liabilities = 'Liabilities',
+	Income = 'Income',
+	Expenses = 'Expenses',
+	Equity = 'Equity',
+}
+
 export type RupeeParseLocation = { file: string; line: number };
+
+// A repeated key collects its values in the order they were written.
+export type RupeeMetadata = Record<string, string[]>;
+
+export const toMetadata = (entries: [string, string][]): RupeeMetadata =>
+	Object.fromEntries(
+		Object.entries(Object.groupBy(entries, ([key]) => key)).map(([key, group = []]) => [
+			key,
+			group.map(([, value]) => value),
+		]),
+	);
+
+// What a bare amount is in.
+export const HOME_COMMODITY = 'INR';
+
+export type Quantity = { amount: Amount; commodity: string };
+
+// `@` prices one unit, `@@` the whole posting; kept as written so it prints back.
+export enum PriceKind {
+	Unit = 'unit',
+	Total = 'total',
+}
+
+export type Price = Quantity & { kind: PriceKind };
 
 export type RupeePosting = {
 	account: string;
-	/** Signed: negative is money out of the account. A transaction sums to zero. */
 	amount: Amount;
+	commodity: string;
+	price: Price | null;
+	// What the account holds of the posting's commodity after it, if the file asserts it.
+	balance: Amount | null;
+	metadata: RupeeMetadata;
 };
 
 export type RupeeTransaction = {
-	/** The header line of the transaction. */
 	location: RupeeParseLocation;
 	date: Temporal.PlainDate;
-	/** Wall-clock time, in no particular zone, if the header gives one. */
 	time: Temporal.PlainTime | null;
 	description: string;
+	metadata: RupeeMetadata;
 	postings: RupeePosting[];
 };
 
-/** `1_250_500_000n` → `1250.50`: at least two decimals, no trailing zeros. */
+export type RupeeLedgerFile = {
+	metadata: RupeeMetadata;
+	transactions: RupeeTransaction[];
+};
+
 export const formatAmount = (amount: Amount): string => {
 	const digits = (amount < 0n ? -amount : amount).toString().padStart(AMOUNT_SCALE + 1, '0');
 	const whole = digits.slice(0, -AMOUNT_SCALE);
 	const fraction = digits.slice(-AMOUNT_SCALE).replace(/0+$/, '').padEnd(2, '0');
 	return `${amount < 0n ? '-' : ''}${whole}.${fraction}`;
 };
+
+export const formatQuantity = ({ amount, commodity }: Quantity): string =>
+	commodity === HOME_COMMODITY ? formatAmount(amount) : `${formatAmount(amount)} ${commodity}`;
+
+// What a posting weighs in balancing: its price if it has one, else itself.
+export const weight = (p: Pick<RupeePosting, 'amount' | 'commodity' | 'price'>): Quantity => {
+	if (p.price === null) return { amount: p.amount, commodity: p.commodity };
+	if (p.price.kind === PriceKind.Total)
+		return {
+			amount: (p.amount < 0n ? -p.price.amount : p.price.amount) as Amount,
+			commodity: p.price.commodity,
+		};
+
+	return { amount: multiply(p.amount, p.price.amount), commodity: p.price.commodity };
+};
+
+// Rounds half away from zero, back to the amount scale.
+const multiply = (a: Amount, b: Amount): Amount => {
+	const scale = 10n ** BigInt(AMOUNT_SCALE);
+	const product = a * b;
+	const half = (product < 0n ? -scale : scale) / 2n;
+	return ((product + half) / scale) as Amount;
+};
+
+export const accountRoot = (a: string): AccountRoot | null =>
+	Object.values(AccountRoot).find((r) => r === a.split(':')[0]) ?? null;

@@ -2,10 +2,10 @@ import { randomInt } from 'node:crypto';
 import { afterEach, describe, expect, vi } from 'vitest';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import { provide } from '#lib/server/shared/context.ts';
+import { ADJECTIVES, ANIMALS } from '#lib/server/shared/names.ts';
 import { err, ok } from '#lib/server/shared/result.ts';
 import { createUser } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
-import { ADJECTIVES, ANIMALS } from '../domain/ids';
 import * as Refinement from './refinement';
 
 vi.mock('node:crypto', async (original) => {

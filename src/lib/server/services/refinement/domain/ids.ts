@@ -1,3 +1,5 @@
+import { petName, type Pick } from '#lib/server/shared/names.ts';
+
 // Words a bank puts around the merchant's name; shorter ones are skipped anyway.
 const NOISE = new Set([
 	'ach',
@@ -26,86 +28,6 @@ const NOISE = new Set([
 	'upi',
 ]);
 
-export const ADJECTIVES = [
-	'amber',
-	'bold',
-	'brave',
-	'brisk',
-	'calm',
-	'clever',
-	'cosy',
-	'eager',
-	'fair',
-	'gentle',
-	'glad',
-	'golden',
-	'grand',
-	'happy',
-	'jolly',
-	'keen',
-	'kind',
-	'lively',
-	'lucky',
-	'merry',
-	'mighty',
-	'neat',
-	'noble',
-	'proud',
-	'quick',
-	'quiet',
-	'rapid',
-	'shy',
-	'silver',
-	'sunny',
-	'swift',
-	'tidy',
-	'witty',
-	'wise',
-];
-
-export const ANIMALS = [
-	'badger',
-	'bear',
-	'bison',
-	'camel',
-	'cobra',
-	'crane',
-	'deer',
-	'dolphin',
-	'eagle',
-	'falcon',
-	'fox',
-	'gecko',
-	'heron',
-	'ibex',
-	'koala',
-	'langur',
-	'leopard',
-	'lion',
-	'lynx',
-	'macaw',
-	'mongoose',
-	'myna',
-	'otter',
-	'owl',
-	'panda',
-	'parrot',
-	'peacock',
-	'python',
-	'rhino',
-	'robin',
-	'sparrow',
-	'swan',
-	'tiger',
-	'turtle',
-	'walrus',
-	'yak',
-	'zebra',
-];
-
-// Chooses one of the words it is given.
-export type Pick = (words: string[]) => string;
-
 type EventIdOptions = {
 	date: string;
 	description: string;
@@ -121,10 +43,5 @@ export const eventId = (options: EventIdOptions): string => {
 		.split(/[^a-z]+/)
 		.find((w) => w.length >= 3 && !NOISE.has(w));
 
-	return [
-		options.date,
-		...(merchant ? [merchant] : []),
-		options.pick(ADJECTIVES),
-		options.pick(ANIMALS),
-	].join('-');
+	return [options.date, ...(merchant ? [merchant] : []), petName(options.pick)].join('-');
 };

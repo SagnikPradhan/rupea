@@ -116,17 +116,17 @@ describe('rewriting links', () => {
 });
 
 describe('naming an event', () => {
-	const first = (w: string[]) => w[0] ?? '';
+	const first = (w: readonly string[]) => w[0] ?? '';
 
 	it('uses the date, the first word naming the merchant, an adjective and an animal', () => {
 		expect(
 			eventId({ date: '2026-10-03', description: 'UPI/DR/4123/SWIGGY/YESB', pick: first }),
-		).toBe('2026-10-03-swiggy-amber-badger');
+		).toBe('2026-10-03-swiggy-able-aardvark');
 	});
 
 	it('leaves the merchant out when no word names it', () => {
 		expect(eventId({ date: '2026-10-03', description: 'NEFT 4412 TO', pick: first })).toBe(
-			'2026-10-03-amber-badger',
+			'2026-10-03-able-aardvark',
 		);
 	});
 });

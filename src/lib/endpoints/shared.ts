@@ -1,7 +1,7 @@
 import { PRICE_SIGN } from '#services/ledger/domain/printer.ts';
 import {
-	AccountRoot,
-	accountRoot,
+	AccountType,
+	accountType,
 	formatQuantity,
 	type RupeeTransaction,
 } from '#services/ledger/domain/types.ts';
@@ -25,8 +25,8 @@ export const Account = v.pipe(
 	v.trim(),
 	v.regex(/^\S+$/, 'An account is one word, like Assets:Bank.'),
 	v.check(
-		(a) => accountRoot(a) !== null,
-		`An account starts with one of ${Object.values(AccountRoot).join(', ')}.`,
+		(a) => accountType(a) !== null,
+		`An account starts with one of ${Object.values(AccountType).join(', ')}.`,
 	),
 );
 

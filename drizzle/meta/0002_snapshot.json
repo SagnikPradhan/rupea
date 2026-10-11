@@ -1,6 +1,6 @@
 {
-  "id": "3ab75218-ba7d-47d2-97f9-5ee6ae93f707",
-  "prevId": "e5ddc792-9e8b-424a-82f3-a579a3188c97",
+  "id": "b4a6ea58-b1ec-47bf-be98-f6c291e502c5",
+  "prevId": "535a1b6c-a30b-4a0a-afe3-e6ab30ff8025",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -125,105 +125,6 @@
           "name": "email_codes_email_unique",
           "columns": [
             "email"
-          ],
-          "nullsNotDistinct": false
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.embeddings": {
-      "name": "embeddings",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "uuidv7()"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "ledger_id": {
-          "name": "ledger_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "model": {
-          "name": "model",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "text": {
-          "name": "text",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "vector": {
-          "name": "vector",
-          "type": "vector(384)",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "embeddings_vector": {
-          "name": "embeddings_vector",
-          "columns": [
-            {
-              "expression": "vector",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "vector_cosine_ops"
-            }
-          ],
-          "isUnique": false,
-          "with": {},
-          "method": "hnsw",
-          "concurrently": false
-        }
-      },
-      "foreignKeys": {
-        "embeddings_ledger_id_ledgers_id_fk": {
-          "name": "embeddings_ledger_id_ledgers_id_fk",
-          "tableFrom": "embeddings",
-          "columnsFrom": [
-            "ledger_id"
-          ],
-          "tableTo": "ledgers",
-          "columnsTo": [
-            "id"
-          ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "embeddings_ledger_id_model_text": {
-          "name": "embeddings_ledger_id_model_text",
-          "columns": [
-            "ledger_id",
-            "model",
-            "text"
           ],
           "nullsNotDistinct": false
         }
@@ -372,6 +273,13 @@
           "notNull": true,
           "default": "now()"
         },
+        "role": {
+          "name": "role",
+          "type": "role",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        },
         "user_id": {
           "name": "user_id",
           "type": "uuid",
@@ -381,13 +289,6 @@
         "ledger_id": {
           "name": "ledger_id",
           "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "role": {
-          "name": "role",
-          "type": "role",
-          "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
         }
@@ -460,6 +361,12 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
+        },
+        "ledger_id": {
+          "name": "ledger_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
         },
         "file_id": {
           "name": "file_id",
@@ -544,9 +451,15 @@
           "method": "btree",
           "concurrently": false
         },
-        "metadata_key_value": {
-          "name": "metadata_key_value",
+        "metadata_ledger_id_key_value": {
+          "name": "metadata_ledger_id_key_value",
           "columns": [
+            {
+              "expression": "ledger_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
             {
               "expression": "key",
               "isExpression": false,
@@ -567,6 +480,19 @@
         }
       },
       "foreignKeys": {
+        "metadata_ledger_id_ledgers_id_fk": {
+          "name": "metadata_ledger_id_ledgers_id_fk",
+          "tableFrom": "metadata",
+          "columnsFrom": [
+            "ledger_id"
+          ],
+          "tableTo": "ledgers",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
         "metadata_file_id_ledger_files_id_fk": {
           "name": "metadata_file_id_ledger_files_id_fk",
           "tableFrom": "metadata",
@@ -643,6 +569,12 @@
           "notNull": true,
           "default": "now()"
         },
+        "ledger_id": {
+          "name": "ledger_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
         "transaction_id": {
           "name": "transaction_id",
           "type": "uuid",
@@ -658,6 +590,13 @@
         "account": {
           "name": "account",
           "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "account_type": {
+          "name": "account_type",
+          "type": "account_type",
+          "typeSchema": "public",
           "primaryKey": false,
           "notNull": true
         },
@@ -715,9 +654,15 @@
           "method": "btree",
           "concurrently": false
         },
-        "postings_account_amount": {
-          "name": "postings_account_amount",
+        "postings_ledger_id_account_amount": {
+          "name": "postings_ledger_id_account_amount",
           "columns": [
+            {
+              "expression": "ledger_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
             {
               "expression": "account",
               "isExpression": false,
@@ -742,41 +687,15 @@
           "method": "btree",
           "concurrently": false
         },
-        "postings_account_prefix": {
-          "name": "postings_account_prefix",
+        "postings_ledger_id_balance": {
+          "name": "postings_ledger_id_balance",
           "columns": [
             {
-              "expression": "account",
+              "expression": "ledger_id",
               "isExpression": false,
               "asc": true,
-              "nulls": "last",
-              "opclass": "text_pattern_ops"
-            }
-          ],
-          "isUnique": false,
-          "with": {},
-          "method": "btree",
-          "concurrently": false
-        },
-        "postings_account_trgm": {
-          "name": "postings_account_trgm",
-          "columns": [
-            {
-              "expression": "account",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last",
-              "opclass": "gin_trgm_ops"
-            }
-          ],
-          "isUnique": false,
-          "with": {},
-          "method": "gin",
-          "concurrently": false
-        },
-        "postings_balance": {
-          "name": "postings_balance",
-          "columns": [
+              "nulls": "last"
+            },
             {
               "expression": "account",
               "isExpression": false,
@@ -798,6 +717,19 @@
         }
       },
       "foreignKeys": {
+        "postings_ledger_id_ledgers_id_fk": {
+          "name": "postings_ledger_id_ledgers_id_fk",
+          "tableFrom": "postings",
+          "columnsFrom": [
+            "ledger_id"
+          ],
+          "tableTo": "ledgers",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
         "postings_transaction_id_transactions_id_fk": {
           "name": "postings_transaction_id_transactions_id_fk",
           "tableFrom": "postings",
@@ -843,6 +775,12 @@
           "notNull": true,
           "default": "now()"
         },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        },
         "token_hash": {
           "name": "token_hash",
           "type": "text",
@@ -852,12 +790,6 @@
         "user_id": {
           "name": "user_id",
           "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "timestamp with time zone",
           "primaryKey": false,
           "notNull": true
         }
@@ -917,6 +849,12 @@
           "notNull": true,
           "default": "now()"
         },
+        "ledger_id": {
+          "name": "ledger_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
         "file_id": {
           "name": "file_id",
           "type": "uuid",
@@ -946,6 +884,18 @@
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "embedding": {
+          "name": "embedding",
+          "type": "vector(384)",
+          "primaryKey": false,
+          "notNull": false
+        },
+        "embedding_model": {
+          "name": "embedding_model",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
       "indexes": {
@@ -964,24 +914,58 @@
           "method": "btree",
           "concurrently": false
         },
-        "transactions_description_trgm": {
-          "name": "transactions_description_trgm",
+        "transactions_ledger_id_date": {
+          "name": "transactions_ledger_id_date",
           "columns": [
             {
-              "expression": "description",
+              "expression": "ledger_id",
               "isExpression": false,
               "asc": true,
-              "nulls": "last",
-              "opclass": "gin_trgm_ops"
+              "nulls": "last"
+            },
+            {
+              "expression": "date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
             }
           ],
           "isUnique": false,
           "with": {},
-          "method": "gin",
+          "method": "btree",
+          "concurrently": false
+        },
+        "transactions_embedding": {
+          "name": "transactions_embedding",
+          "columns": [
+            {
+              "expression": "embedding",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last",
+              "opclass": "vector_cosine_ops"
+            }
+          ],
+          "isUnique": false,
+          "with": {},
+          "method": "hnsw",
           "concurrently": false
         }
       },
       "foreignKeys": {
+        "transactions_ledger_id_ledgers_id_fk": {
+          "name": "transactions_ledger_id_ledgers_id_fk",
+          "tableFrom": "transactions",
+          "columnsFrom": [
+            "ledger_id"
+          ],
+          "tableTo": "ledgers",
+          "columnsTo": [
+            "id"
+          ],
+          "onUpdate": "no action",
+          "onDelete": "cascade"
+        },
         "transactions_file_id_ledger_files_id_fk": {
           "name": "transactions_file_id_ledger_files_id_fk",
           "tableFrom": "transactions",
@@ -1072,6 +1056,17 @@
     }
   },
   "enums": {
+    "public.account_type": {
+      "name": "account_type",
+      "schema": "public",
+      "values": [
+        "Assets",
+        "Liabilities",
+        "Income",
+        "Expenses",
+        "Equity"
+      ]
+    },
     "public.price_kind": {
       "name": "price_kind",
       "schema": "public",

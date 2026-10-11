@@ -5,6 +5,7 @@ import {
 	RUPEE_DATA_DIR,
 	RUPEE_DATE_FORMATS,
 	RUPEE_LOG_LEVEL,
+	RUPEE_MIGRATIONS_DIR,
 	RUPEE_MODELS,
 	RUPEE_MODELS_DIR,
 	RUPEE_TIME_FORMATS,
@@ -33,6 +34,7 @@ export const createDatabase = (): DatabaseHandle => {
 	const handle = openDatabase({
 		url: DATABASE_URL,
 		directory: resolve(RUPEE_DATA_DIR, 'postgres'),
+		migrations: resolve(RUPEE_MIGRATIONS_DIR),
 	});
 	if (import.meta.hot) import.meta.hot.data.database = handle;
 	return handle;

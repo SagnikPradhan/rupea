@@ -1,10 +1,3 @@
-/**
- * Keeps model files in a directory at their pinned revisions. A file is intact
- * when its SHA-256 matches; one that is missing or not intact is downloaded,
- * in `download` mode, or reported missing, in `verify` mode. Files and
- * downloads are streamed through the hash, so memory stays flat however large
- * a model is.
- */
 import { createHash, randomUUID } from 'node:crypto';
 import { createReadStream, createWriteStream } from 'node:fs';
 import { mkdir, readdir, rename, rm } from 'node:fs/promises';
@@ -16,10 +9,8 @@ import { unknownError, type RupeeError } from '../error';
 import type { Logger } from '../logger';
 import { attempt, errAsync, okAsync, type ResultAsync } from '../result';
 
-/** A model file, where it is downloaded from, and the SHA-256 it must have. */
 export type ModelFile = { file: string; url: string; sha256: string };
 
-/** `download` fetches what is missing or not intact; `verify` never connects out. */
 export type ModelMode = 'download' | 'verify';
 
 export type ModelOptions = {
@@ -28,13 +19,8 @@ export type ModelOptions = {
 	fetch: typeof globalThis.fetch;
 };
 
-/** How often a download in progress is logged, in milliseconds. */
 const PROGRESS = 15_000;
 
-/**
- * Readies `directory` for downloads: makes it, and removes the `.part` files
- * interrupted downloads leave.
- */
 export const prepare = (directory: string): ResultAsync<void> =>
 	attempt(() => mkdir(directory, { recursive: true }))
 		.andThen(() => attempt(() => readdir(directory)))
@@ -49,7 +35,6 @@ export const prepare = (directory: string): ResultAsync<void> =>
 		)
 		.map(() => undefined);
 
-/** The path of `model` in `directory`, once it is there and intact. */
 type EnsureOptions = ModelOptions & {
 	directory: string;
 	model: ModelFile;
@@ -70,7 +55,6 @@ export const ensure = (options: EnsureOptions): ResultAsync<string> => {
 		});
 };
 
-/** Fails unless the file at `path` is there with SHA-256 `expected`. */
 const check = (path: string, expected: string): ResultAsync<void> =>
 	attempt({
 		try: () => digest(path),
@@ -97,11 +81,6 @@ const digest = async (path: string) => {
 	return hash.digest('hex');
 };
 
-/**
- * Downloads `model` to `path`. It is written aside first, under a name of its
- * own, and checked there, so neither an interrupted download, a bad one, nor
- * another one of the same file leaves a bad model.
- */
 type DownloadOptions = {
 	path: string;
 	model: ModelFile;
@@ -109,6 +88,8 @@ type DownloadOptions = {
 	fetch: typeof globalThis.fetch;
 };
 
+// Written and checked under its own name first, so an interrupted, bad or
+// concurrent download never leaves a bad model.
 const download = (options: DownloadOptions): ResultAsync<void> => {
 	const { path, model, logger, fetch } = options;
 	const { file, url, sha256 } = model;
@@ -149,10 +130,6 @@ type SaveOptions = {
 	logger: Logger;
 };
 
-/**
- * Streams the body of `response` into `part`, logging its progress every so
- * often; how many bytes it was.
- */
 const save = async (options: SaveOptions) => {
 	const { response, part, logger } = options;
 	const total = Number(response.headers.get('content-length')) || null;

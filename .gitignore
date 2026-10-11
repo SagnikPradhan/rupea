@@ -12,9 +12,6 @@ node_modules
 # Data
 /data/
 
-# Prisma CLI local project cache
-/.prisma/
-
 # OS
 .DS_Store
 Thumbs.db
@@ -29,3 +26,6 @@ vite.config.ts.timestamp-*
 /test-results/
 /playwright-report/
 /blob-report/
+
+# Coverage
+/coverage/

@@ -7,6 +7,6 @@
 		"tests",
 		"vite.config.ts",
 		"playwright.config.ts",
-		"prisma.config.ts"
+		"drizzle.config.ts"
 	]
 }

@@ -1,18 +1,16 @@
-/** A migrated SQLite database in a temp directory, for tests to throw away. */
-import { execFile } from 'node:child_process';
-import { mkdtemp, rm } from 'node:fs/promises';
-import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { promisify } from 'node:util';
+import { PGlite } from '@electric-sql/pglite';
+import { embedDatabase, extensions, type DatabaseHandle } from '#lib/server/db/index.ts';
 
-const migrate = (p: string) =>
-	promisify(execFile)('node_modules/.bin/prisma', ['db', 'migrate'], {
-		env: { ...process.env, DATABASE_PATH: p },
-	});
-
-export const createTemporaryDatabase = async () => {
-	const directory = await mkdtemp(join(tmpdir(), 'rupee-db-'));
-	const path = join(directory, 'rupee.db');
-	await migrate(path);
-	return { directory, path, dispose: () => rm(directory, { recursive: true, force: true }) };
+const migrated = async () => {
+	const client = new PGlite({ extensions });
+	await embedDatabase(client).migrate();
+	const dump = await client.dumpDataDir('none');
+	await client.close();
+	return dump;
 };
+
+// Migrated once per test file; every database after starts from its dump.
+export const template = migrated();
+
+export const createTemporaryDatabase = async (): Promise<DatabaseHandle> =>
+	embedDatabase(new PGlite({ loadDataDir: await template, extensions }));

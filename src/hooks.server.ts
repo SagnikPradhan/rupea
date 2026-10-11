@@ -1,22 +1,21 @@
 import { randomUUID } from 'node:crypto';
-import type { Handle } from '@sveltejs/kit/hooks';
-import { validateSession } from '#lib/server/services/auth/application/auth.ts';
+import type { Handle, ServerInit } from '@sveltejs/kit/hooks';
+import { validateSession } from '#services/auth/application/auth.ts';
 import {
 	deleteSessionCookie,
 	readSessionCookie,
 	setSessionCookie,
-} from '#lib/server/services/auth/adapters/cookie.ts';
+} from '#services/auth/adapters/cookie.ts';
 import { provide } from '#lib/server/shared/context.ts';
-import { createContext } from '#lib/server/shared/environment.ts';
+import { createContext, createDatabase } from '#lib/server/shared/environment.ts';
 import { withLogger } from '#lib/server/shared/logger.ts';
 
-/** The composition root: the one place the context is built. */
-const context = createContext();
+const database = createDatabase();
 
-/**
- * Run every request inside the context, with a logger tagged for it, resolving
- * the signed-in user.
- */
+const context = createContext(database.orm);
+
+export const init: ServerInit = () => database.migrate();
+
 export const handle: Handle = ({ event, resolve }) =>
 	provide({ ...context, logger: context.logger.child({ request_id: randomUUID() }) }, async () => {
 		const token = readSessionCookie();

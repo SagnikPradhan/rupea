@@ -1,20 +1,17 @@
 import { defineEnvVars } from '@sveltejs/kit/env';
 import * as v from 'valibot';
-import { isDateFormat, isTimeFormat } from '#lib/server/services/ledger/domain/parser.ts';
+import { isDateFormat, isTimeFormat } from '#services/ledger/domain/parser.ts';
 import { defaultConfiguration } from '#lib/server/shared/config.ts';
 import { safely } from '#lib/server/shared/result.ts';
 
-/** The value, or `fallback` if it is unset or empty. */
 const text = (fallback: string) =>
 	v.pipe(
 		v.optional(v.string()),
 		v.transform((a) => a || fallback),
 	);
 
-/** One of `options`, the first being the default. */
 const choice = <const T extends [string, ...string[]]>(o: T) => v.pipe(text(o[0]), v.picklist(o));
 
-/** A `|`-separated list of formats, each checked; date-fns throws on unknown tokens. */
 const formats = (defaults: string[], check: (format: string) => boolean, pinned: string) =>
 	v.pipe(
 		text(defaults.join('|')),
@@ -26,9 +23,10 @@ const formats = (defaults: string[], check: (format: string) => boolean, pinned:
 	);
 
 export const variables = defineEnvVars({
-	DATABASE_PATH: {
-		description: 'Path to the SQLite database file.',
-		schema: text('data/rupee.db'),
+	DATABASE_URL: {
+		description:
+			'Postgres to connect to. Without one, the server runs Postgres in-process from `RUPEE_DATA_DIR/postgres`.',
+		schema: v.optional(v.string()),
 	},
 	RUPEE_STORAGE: {
 		description: 'Where ledger files are stored. Only `local` for now.',

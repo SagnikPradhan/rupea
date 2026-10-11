@@ -1,18 +1,3 @@
-/**
- * The runtime context: everything the app needs from the outside world. It is
- * built once (see `environment.ts`) and made ambient with `provide`, which
- * `hooks.server.ts` wraps around every request. Code asks for exactly the
- * dependencies it uses with `withContext`, instead of having them threaded
- * through every call:
- *
- * ```ts
- * const findUser = (email: string) =>
- * 	withContext('db')((db) => db.orm.User.where({ email }));
- *
- * withContext('db', 'mailer')(({ db, mailer }) => ...);
- * withContext()((context) => ...);
- * ```
- */
 import { AsyncLocalStorage } from 'node:async_hooks';
 import type { Database } from '../db';
 import type { RupeeConfiguration } from './config';
@@ -34,7 +19,6 @@ type Key = keyof RupeeContext;
 
 const scope = new AsyncLocalStorage<RupeeContext>();
 
-/** Run `effect` with `context` available to `withContext` inside it. */
 export const provide = <R>(ctx: RupeeContext, f: () => R): R => scope.run(ctx, f);
 
 export function withContext(): <R>(use: (context: RupeeContext) => R) => R;

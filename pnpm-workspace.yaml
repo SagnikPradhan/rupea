@@ -1,6 +1,8 @@
 engineStrict: true
 
 allowBuilds:
+  # An optional peer of drizzle-orm; the app does not use it.
+  better-sqlite3: false
   esbuild: true
   lefthook: true
   # CPU binaries ship in the package; the script only fetches CUDA extras.

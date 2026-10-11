@@ -7,7 +7,6 @@ import { logMailer } from './mailer';
 import { localStorage } from './storage/local';
 import { createModels } from './onnx/runtime';
 
-/** A context whose logger records each line as parsed JSON. */
 const recording = () => {
 	const lines: Record<string, unknown>[] = [];
 	const logger = pino(

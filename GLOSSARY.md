@@ -1,6 +1,6 @@
 # Rupee
 
-A plain-text personal ledger. Statements from many sources are imported into ledger files, and the same real money movement is often seen by more than one source.
+Rupee is a plain-text personal ledger. Bank, card and broker statements are imported into `.rupee` files, which stay the source of truth.
 
 ## Ledger
 

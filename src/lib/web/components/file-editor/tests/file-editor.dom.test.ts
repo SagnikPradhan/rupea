@@ -1,9 +1,9 @@
 import { render, screen } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createEditor } from '#lib/editor/editor.svelte.ts';
-import FileEditor from '#lib/web/components/file-editor.svelte';
-import { fakeApi } from '#lib/editor/fixture.ts';
+import { createEditor } from '#lib/web/components/file-editor/file-editor.svelte.ts';
+import FileEditor from '#lib/web/components/file-editor/file-editor.svelte';
+import { fakeApi } from '#lib/web/components/file-editor/tests/fixture.ts';
 
 afterEach(() => vi.unstubAllGlobals());
 

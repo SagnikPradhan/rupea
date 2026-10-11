@@ -1,7 +1,7 @@
 import { vi } from 'vitest';
 import type { RupeeError } from '#lib/server/shared/error.ts';
 import type { Response } from '#lib/server/shared/result.ts';
-import type { EditorApi, EditorFile } from './editor.svelte.ts';
+import type { EditorApi, EditorFile } from '#lib/web/components/file-editor/file-editor.svelte.ts';
 
 export const succeed = <T>(d: T): Response<T> => ({ ok: true, data: d, errors: [] });
 

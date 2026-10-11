@@ -6,7 +6,9 @@ import { withContext } from '#lib/server/shared/context.ts';
 import type { RupeeError } from '#lib/server/shared/error.ts';
 import type { RupeeFile, RupeeTransaction } from '#services/ledger/domain/types.ts';
 import {
+	batch,
 	concat,
+	err,
 	errAsync,
 	ok,
 	okAsync,
@@ -28,7 +30,7 @@ const pick: Pick = (w) => w[randomInt(w.length)] ?? '';
 // Runs after a file is saved, and on request: only that file's transactions
 // look for partners, so the work grows with the file, not the ledger.
 export const suggestFor = (userId: string, key: string): ResultAsync<Suggestion[]> =>
-	Ledger.sync(userId)
+	Ledger.syncIndex(userId)
 		.andThen(() => Ledger.findCandidates(userId, key))
 		.andThen((c) =>
 			Ledger.withLedger(userId, (l) =>
@@ -72,19 +74,47 @@ const fresh = (
 	);
 };
 
-// File by file, each written only if unchanged since it was read; a file that
-// fails is reported and the others still go ahead.
+// Every file is checked before any is written, and files holding a primary go
+// first, each only if unchanged since it was read. Writing stops at the first
+// failure, which leaves at worst a primary still without its evidence: a whole
+// event, never evidence without its primary.
 export const accept = (userId: string, edits: LinkEdit[]): ResultAsync<RupeeError[]> =>
-	concat(
+	concat<Result<Linked>>(
 		Object.entries(Object.groupBy(edits, (e) => e.file)).map(
 			([key, group = []]) =>
 				() =>
-					linkFile(userId, key, group).orElse((err) => ok([err])),
+					linked(userId, key, group)
+						.map((l) => [ok(l)])
+						.orElse((e) => okAsync([err(e)])),
 		),
+	)
+		.map(batch)
+		.andThen((b) => (b.failed.length > 0 ? okAsync(b.failed) : writeLinked(userId, b.succeeded)));
+
+type Linked = { file: RupeeFile; content: string; primary: boolean };
+
+const linked = (userId: string, key: string, edits: LinkEdit[]): ResultAsync<Linked> =>
+	Ledger.getFile(userId, key).andThen((file) =>
+		withContext('config')((c) => insertLinks(c, file, edits)).map((content) => ({
+			file,
+			content,
+			primary: edits.some((e) => e.role === EventRole.Primary),
+		})),
 	);
 
-const linkFile = (u: string, k: string, e: LinkEdit[]): ResultAsync<RupeeError[]> =>
-	editLinks(u, k, (c, f) => insertLinks(c, f, e));
+const writeLinked = (userId: string, linked: Linked[]): ResultAsync<RupeeError[]> =>
+	concat(
+		linked
+			.toSorted((a, b) => Number(b.primary) - Number(a.primary))
+			.map((l) => () => writeLinks(userId, l).map((): RupeeError[] => [])),
+	).orElse((e) => ok([e]));
+
+const writeLinks = (userId: string, l: Linked): ResultAsync<RupeeFile> => {
+	const file = l.file;
+	return l.content === file.content
+		? okAsync(file)
+		: Ledger.editFile({ userId, key: file.key, content: l.content, version: file.version });
+};
 
 type LinkWriter = (c: RupeeConfiguration, f: RupeeFile) => Result<string>;
 
@@ -108,7 +138,7 @@ export type FileEvent = { event: string; members: EventMember[] };
 
 // Events with a member in the file, with every member wherever it is written.
 export const eventsIn = (u: string, k: string): ResultAsync<FileEvent[]> =>
-	Ledger.sync(u)
+	Ledger.syncIndex(u)
 		.andThen(() => Ledger.findEventsIn(u, k))
 		.map(grouped);
 
@@ -128,7 +158,7 @@ const grouped = (transactions: Ledger.IndexedTransaction[]): FileEvent[] => {
 };
 
 export const renameEvent = (userId: string, event: string, to: string): ResultAsync<RupeeError[]> =>
-	Ledger.sync(userId)
+	Ledger.syncIndex(userId)
 		.andThen(() => Ledger.isEventIdTaken(userId, to))
 		.andThen((t) =>
 			t
@@ -150,7 +180,7 @@ export const makePrimary = (options: MakePrimaryOptions): ResultAsync<RupeeError
 	const isPrimary = (t: Ledger.IndexedTransaction) =>
 		linksOf(t).some((l) => l.event === event && l.role === EventRole.Primary);
 
-	return Ledger.sync(userId)
+	return Ledger.syncIndex(userId)
 		.andThen(() => Ledger.findEventMembers(userId, event))
 		.andThen((m) =>
 			m.some(isTarget)

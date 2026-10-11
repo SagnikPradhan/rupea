@@ -1,10 +1,14 @@
+import type { RupeeConfiguration } from '#lib/server/shared/config.ts';
 import { withContext } from '#lib/server/shared/context.ts';
 import type { RupeeError } from '#lib/server/shared/error.ts';
 import { petName } from '#lib/server/shared/names.ts';
 import {
+	batch,
 	concat,
+	err,
 	errAsync,
 	ok,
+	okAsync,
 	ResultAsync,
 	type Batch,
 	type Result,
@@ -21,7 +25,8 @@ import {
 	type IndexedTransaction,
 } from '../adapters/database';
 import { files, type Files } from '../adapters/storage';
-import { checkEvents } from '../domain/events';
+import { checkEvents, EventRole, linksOf } from '../domain/events';
+import { insertLinks, rewriteLinks, type LinkEdit, type Relink } from '../domain/links';
 import { displayLocation, parse } from '../domain/parser';
 import { indexedVersion, plan } from '../domain/sync';
 import {
@@ -31,7 +36,7 @@ import {
 	type RupeeTransaction,
 } from '../domain/types';
 
-export type { IndexedTransaction, Ledger };
+export type { IndexedTransaction, Ledger, LinkEdit };
 
 // A random handle clashes rarely enough that a few tries settle it.
 const TRIES = 5;
@@ -192,12 +197,6 @@ export const findCandidates = (ledger: Ledger, key: string): ResultAsync<Candida
 export const isEventIdTaken = (l: Ledger, id: string): ResultAsync<boolean> =>
 	index(l.id).eventIdTaken(id);
 
-export const findEventsIn = (l: Ledger, k: string): ResultAsync<IndexedTransaction[]> =>
-	index(l.id).eventsIn(k);
-
-export const findEventMembers = (l: Ledger, e: string): ResultAsync<IndexedTransaction[]> =>
-	index(l.id).membersOf(e);
-
 export const listFiles = (l: Ledger): ResultAsync<Batch<RupeeFile>> =>
 	ledgerFiles(l).andThen((f) => f.list());
 
@@ -257,3 +256,132 @@ export const deleteFile = (l: Ledger, k: string): ResultAsync<void> =>
 	ledgerFiles(l)
 		.andThen((f) => f.delete(k))
 		.andTee(() => index(l.id).remove(k));
+
+// Every file is checked before any is written, and files holding a primary go
+// first, each only if unchanged since it was read. Writing stops at the first
+// failure, which leaves at worst a primary still without its evidence: a whole
+// event, never evidence without its primary.
+export const linkEvents = (ledger: Ledger, edits: LinkEdit[]): ResultAsync<RupeeError[]> =>
+	concat<Result<Linked>>(
+		Object.entries(Object.groupBy(edits, (e) => e.file)).map(
+			([key, group = []]) =>
+				() =>
+					linked(ledger, key, group)
+						.map((l) => [ok(l)])
+						.orElse((e) => okAsync([err(e)])),
+		),
+	)
+		.map(batch)
+		.andThen((b) => (b.failed.length > 0 ? okAsync(b.failed) : writeLinked(ledger, b.succeeded)));
+
+type Linked = { file: RupeeFile; content: string; primary: boolean };
+
+const linked = (ledger: Ledger, key: string, edits: LinkEdit[]): ResultAsync<Linked> =>
+	getFile(ledger, key).andThen((file) =>
+		withContext('config')((c) => insertLinks(c, file, edits)).map((content) => ({
+			file,
+			content,
+			primary: edits.some((e) => e.role === EventRole.Primary),
+		})),
+	);
+
+const writeLinked = (ledger: Ledger, linked: Linked[]): ResultAsync<RupeeError[]> =>
+	concat(
+		linked
+			.toSorted((a, b) => Number(b.primary) - Number(a.primary))
+			.map((l) => () => writeLinks(ledger, l).map((): RupeeError[] => [])),
+	).orElse((e) => ok([e]));
+
+const writeLinks = (ledger: Ledger, l: Linked): ResultAsync<RupeeFile> => {
+	const file = l.file;
+	return l.content === file.content
+		? okAsync(file)
+		: editFile({ ledger, key: file.key, content: l.content, version: file.version });
+};
+
+export type EventMember = IndexedTransaction & { role: EventRole; counted: boolean };
+
+export type FileEvent = { event: string; members: EventMember[] };
+
+// Events with a member in the file, with every member wherever it is written.
+export const eventsIn = (l: Ledger, k: string): ResultAsync<FileEvent[]> =>
+	syncIndex(l)
+		.andThen(() => index(l.id).eventsIn(k))
+		.map(grouped);
+
+const grouped = (transactions: IndexedTransaction[]): FileEvent[] => {
+	const evidence = new Set(checkEvents(transactions).evidence);
+	const members = transactions.flatMap((t) =>
+		linksOf(t).map((l) => ({
+			event: l.event,
+			member: { ...t, role: l.role, counted: !evidence.has(t.id) },
+		})),
+	);
+
+	return Object.entries(Object.groupBy(members, (m) => m.event)).map(([event, group = []]) => ({
+		event,
+		members: group.map((m) => m.member),
+	}));
+};
+
+export const renameEvent = (ledger: Ledger, event: string, to: string): ResultAsync<RupeeError[]> =>
+	syncIndex(ledger)
+		.andThen(() => isEventIdTaken(ledger, to))
+		.andThen((t) =>
+			t
+				? errAsync<IndexedTransaction[], RupeeError>({ type: 'EventIdTaken', event: to, cause: [] })
+				: index(ledger.id).membersOf(event),
+		)
+		.andThen((m) => relinkFiles(ledger, m, event, (_, l) => ({ ...l, event: to })));
+
+type MakePrimaryOptions = { ledger: Ledger; event: string; file: string; line: number };
+
+// The member becomes the one that counts; the old primary becomes evidence.
+export const makePrimary = (options: MakePrimaryOptions): ResultAsync<RupeeError[]> => {
+	const { ledger, event, file, line } = options;
+	const isTarget = (t: RupeeTransaction) => t.location.file === file && t.location.line === line;
+	const isPrimary = (t: IndexedTransaction) =>
+		linksOf(t).some((l) => l.event === event && l.role === EventRole.Primary);
+
+	return syncIndex(ledger)
+		.andThen(() => index(ledger.id).membersOf(event))
+		.andThen((m) =>
+			m.some(isTarget)
+				? relinkFiles(
+						ledger,
+						m.filter((t) => isTarget(t) || isPrimary(t)),
+						event,
+						(t, l) => ({ ...l, role: isTarget(t) ? EventRole.Primary : EventRole.Evidence }),
+					)
+				: errAsync<RupeeError[], RupeeError>({
+						type: 'EventStale',
+						location: `${file}:${line}`,
+						cause: [],
+					}),
+		);
+};
+
+// File by file, like `linkEvents`: a file that fails is reported, the rest go ahead.
+const relinkFiles = (
+	ledger: Ledger,
+	members: IndexedTransaction[],
+	event: string,
+	relink: Relink,
+): ResultAsync<RupeeError[]> =>
+	concat(
+		[...new Set(members.map((m) => m.location.file))].map(
+			(k) => () =>
+				editLinks(ledger, k, (c, f) => rewriteLinks(c, f, event, relink)).orElse((e) => ok([e])),
+		),
+	);
+
+type LinkWriter = (c: RupeeConfiguration, f: RupeeFile) => Result<string>;
+
+const editLinks = (ledger: Ledger, key: string, write: LinkWriter): ResultAsync<RupeeError[]> =>
+	getFile(ledger, key)
+		.andThen((f) =>
+			withContext('config')((c) => write(c, f)).asyncAndThen((t) =>
+				t === f.content ? okAsync(f) : editFile({ ledger, key, content: t, version: f.version }),
+			),
+		)
+		.map((): RupeeError[] => []);

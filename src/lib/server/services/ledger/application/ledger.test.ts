@@ -560,3 +560,126 @@ describe('balance assertions', () => {
 			);
 		}));
 });
+
+describe('changing an event', () => {
+	const hdfc = [
+		'2026-10-03 NEFT TO INTERACTIVE BROKERS',
+		'\tAssets:HDFC -1000',
+		'\tAssets:IBKR',
+		'',
+		'2026-10-03 SWIGGY',
+		'\tAssets:HDFC -450',
+		'\tExpenses:Food',
+		'',
+	].join('\n');
+
+	const ibkr = [
+		'2026-10-03 Deposit',
+		'\tAssets:IBKR 1000',
+		'\tAssets:HDFC',
+		'',
+		'2026-10-03 ZOMATO',
+		'\tLiabilities:Card -450',
+		'\tExpenses:Food',
+		'',
+	].join('\n');
+
+	const linkedHdfc = hdfc.replace(
+		'NEFT TO INTERACTIVE BROKERS\n',
+		'NEFT TO INTERACTIVE BROKERS\n\t- same-as: transfer-otter\n',
+	);
+	const linkedIbkr = ibkr.replace('Deposit\n', 'Deposit\n\t- event: transfer-otter\n');
+
+	const counted = async (ledger: Ledger.Ledger) =>
+		(await Ledger.getTransactions(ledger))
+			._unsafeUnwrap()
+			.succeeded.filter((t) => !t.counted)
+			.map((t) => t.description);
+
+	it('lists the events a file takes part in, with members from every file', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Ledger.createFile({ ledger, key: 'hdfc.rupee', content: linkedHdfc });
+			await Ledger.createFile({ ledger, key: 'ibkr.rupee', content: linkedIbkr });
+
+			const events = (await Ledger.eventsIn(ledger, 'hdfc.rupee'))._unsafeUnwrap();
+			expect(
+				events.map((e) => [e.event, e.members.map((m) => [m.location.file, m.role, m.counted])]),
+			).toEqual([
+				[
+					'transfer-otter',
+					[
+						['hdfc.rupee', 'evidence', false],
+						['ibkr.rupee', 'primary', true],
+					],
+				],
+			]);
+		}));
+
+	it('makes evidence the primary, and the old primary evidence', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Ledger.createFile({ ledger, key: 'hdfc.rupee', content: linkedHdfc });
+			await Ledger.createFile({ ledger, key: 'ibkr.rupee', content: linkedIbkr });
+
+			expect(
+				await Ledger.makePrimary({
+					ledger,
+					event: 'transfer-otter',
+					file: 'hdfc.rupee',
+					line: 1,
+				}),
+			).toEqual(ok([]));
+			expect((await Ledger.getFile(ledger, 'hdfc.rupee'))._unsafeUnwrap().content).toBe(
+				linkedHdfc.replace('same-as:', 'event:'),
+			);
+			expect((await Ledger.getFile(ledger, 'ibkr.rupee'))._unsafeUnwrap().content).toBe(
+				linkedIbkr.replace('event:', 'same-as:'),
+			);
+			expect(await Ledger.sync(ledger)).toEqual(ok([]));
+			expect(await counted(ledger)).toEqual(['Deposit']);
+		}));
+
+	it('refuses to make primary a transaction outside the event', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Ledger.createFile({ ledger, key: 'hdfc.rupee', content: linkedHdfc });
+			await Ledger.createFile({ ledger, key: 'ibkr.rupee', content: linkedIbkr });
+
+			expect(
+				(
+					await Ledger.makePrimary({
+						ledger,
+						event: 'transfer-otter',
+						file: 'hdfc.rupee',
+						line: 6,
+					})
+				)._unsafeUnwrapErr(),
+			).toEqual({ type: 'EventStale', location: 'hdfc.rupee:6', cause: [] });
+		}));
+
+	it('renames an event in every file, and refuses a name in use', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Ledger.createFile({ ledger, key: 'hdfc.rupee', content: linkedHdfc });
+			await Ledger.createFile({ ledger, key: 'ibkr.rupee', content: linkedIbkr });
+			await Ledger.createFile({
+				ledger,
+				key: 'cash.rupee',
+				content: '2026-10-04 ATM\n\t- event: taken\n\tAssets:Cash 5\n\tAssets:HDFC\n',
+			});
+
+			expect(await Ledger.renameEvent(ledger, 'transfer-otter', 'taken')).toEqual(
+				err({ type: 'EventIdTaken', event: 'taken', cause: [] }),
+			);
+			expect(await Ledger.renameEvent(ledger, 'transfer-otter', 'ibkr-funding')).toEqual(ok([]));
+			expect((await Ledger.getFile(ledger, 'hdfc.rupee'))._unsafeUnwrap().content).toBe(
+				linkedHdfc.replace('transfer-otter', 'ibkr-funding'),
+			);
+			expect((await Ledger.getFile(ledger, 'ibkr.rupee'))._unsafeUnwrap().content).toBe(
+				linkedIbkr.replace('transfer-otter', 'ibkr-funding'),
+			);
+			expect(await Ledger.sync(ledger)).toEqual(ok([]));
+			expect(await counted(ledger)).toEqual(['NEFT TO INTERACTIVE BROKERS']);
+		}));
+});

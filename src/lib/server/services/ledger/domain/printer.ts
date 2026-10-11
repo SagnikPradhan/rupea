@@ -1,5 +1,5 @@
-import * as dateFns from 'date-fns';
 import type { RupeeConfiguration } from '#lib/server/shared/config.ts';
+import * as dateFns from 'date-fns';
 import {
 	formatQuantity,
 	PriceKind,
@@ -64,3 +64,30 @@ const printDate = (f: string | undefined, d: Temporal.PlainDate) =>
 
 const printTime = (f: string | undefined, t: Temporal.PlainTime) =>
 	f ? dateFns.format(new Date(1970, 0, 1, t.hour, t.minute, t.second), f) : t.toString();
+
+export type PostingView = { account: string; amount: string; price: string | null };
+
+export type TransactionView = {
+	file: string;
+	line: number;
+	date: string;
+	time: string | null;
+	description: string;
+	postings: PostingView[];
+};
+
+// For reading, not for writing back: amounts as text, the time to the minute.
+export const viewTransaction = (t: RupeeTransaction): TransactionView => ({
+	file: t.location.file,
+	line: t.location.line,
+	date: t.date.toString(),
+	time: t.time?.toString({ smallestUnit: 'minute' }) ?? null,
+	description: t.description,
+	postings: t.postings.map(viewPosting),
+});
+
+const viewPosting = (p: RupeePosting): PostingView => ({
+	account: p.account,
+	amount: formatQuantity(p),
+	price: p.price === null ? null : `${PRICE_SIGN[p.price.kind]} ${formatQuantity(p.price)}`,
+});

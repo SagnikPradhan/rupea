@@ -1,7 +1,8 @@
 import { fromBatch } from '#lib/server/shared/result.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
+import { viewTransaction } from '#services/ledger/application/shared.ts';
 import { query } from '$app/server';
-import { Handle, inLedger, viewTransaction } from './shared';
+import { Handle, inLedger } from './shared';
 
 const view = ({ id, counted, ...transaction }: Ledger.CountedTransaction) => ({
 	id,

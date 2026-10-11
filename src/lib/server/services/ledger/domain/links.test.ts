@@ -1,8 +1,7 @@
 import { defaultConfiguration } from '#lib/server/shared/config.ts';
-import { EventRole } from '#services/ledger/application/shared.ts';
 import { describe, expect, it } from 'vitest';
-import { insertLinks, rewriteLinks, type LinkEdit } from './edits';
-import { eventId } from './ids';
+import { EventRole } from './events';
+import { insertLinks, rewriteLinks, type LinkEdit } from './links';
 
 const content = [
 	'- statement: oct.pdf',
@@ -62,7 +61,7 @@ describe('inserting links', () => {
 		['another date', edit(3, 'TEA', '2026-10-02', EventRole.Primary)],
 	])('refuses a target with %s', (_, e) => {
 		expect(insert([e])._unsafeUnwrapErr()).toEqual({
-			type: 'RefinementStale',
+			type: 'EventStale',
 			location: `a.rupee:${e.line}`,
 			cause: [],
 		});
@@ -108,23 +107,9 @@ describe('rewriting links', () => {
 
 	it('refuses a file with no member of the event', () => {
 		expect(rewrite(content)._unsafeUnwrapErr()).toEqual({
-			type: 'RefinementStale',
+			type: 'EventStale',
 			location: 'a.rupee',
 			cause: [],
 		});
-	});
-});
-
-describe('naming an event', () => {
-	it('uses the date, the first word naming the merchant, an adjective and an animal', () => {
-		expect(eventId({ date: '2026-10-03', description: 'UPI/DR/4123/SWIGGY/YESB' })).toMatch(
-			/^2026-10-03-swiggy-[a-z]+-[a-z]+$/,
-		);
-	});
-
-	it('leaves the merchant out when no word names it', () => {
-		expect(eventId({ date: '2026-10-03', description: 'NEFT 4412 TO' })).toMatch(
-			/^2026-10-03-[a-z]+-[a-z]+$/,
-		);
 	});
 });

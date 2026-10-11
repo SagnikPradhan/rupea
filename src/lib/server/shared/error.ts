@@ -48,8 +48,8 @@ export type RupeeError =
 	| { type: 'ParseInvalidMetadata'; location: string; cause: RupeeError[] }
 	| { type: 'ParseDetachedMetadata'; location: string; cause: RupeeError[] }
 	| { type: 'EventInvalidMembership'; location: string; cause: RupeeError[] }
-	| { type: 'RefinementStale'; location: string; cause: RupeeError[] }
-	| { type: 'RefinementNameTaken'; event: string; cause: RupeeError[] }
+	| { type: 'EventStale'; location: string; cause: RupeeError[] }
+	| { type: 'EventIdTaken'; event: string; cause: RupeeError[] }
 	| { type: 'EventWithoutPrimary'; event: string; location: string; cause: RupeeError[] }
 	| { type: 'EventWithManyPrimaries'; event: string; location: string; cause: RupeeError[] }
 	| {

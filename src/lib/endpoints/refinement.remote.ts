@@ -1,12 +1,12 @@
 import type { RupeeError } from '#lib/server/shared/error.ts';
 import { fromResult, type ResultAsync } from '#lib/server/shared/result.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
-import { EventRole } from '#services/ledger/application/shared.ts';
+import { EventRole, viewTransaction } from '#services/ledger/application/shared.ts';
 import * as Refinement from '#services/refinement/application/refinement.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
 import { getFiles } from './files.remote';
-import { Handle, inLedger, Key, viewTransaction } from './shared';
+import { Handle, inLedger, Key } from './shared';
 import { getTransactions } from './transactions.remote';
 
 const Line = v.pipe(v.number(), v.integer(), v.minValue(1));
@@ -43,7 +43,7 @@ export const getSuggestions = query(InFile, async ({ handle, file }) =>
 export const acceptSuggestions = command(
 	v.object({ handle: Handle, edits: v.array(LinkEdit) }),
 	async ({ handle, edits }) => {
-		const accepted = await inLedger({ handle, action: (l) => Refinement.accept(l, edits) });
+		const accepted = await inLedger({ handle, action: (l) => Ledger.linkEvents(l, edits) });
 		void getFiles(handle).refresh();
 		void getTransactions(handle).refresh();
 		for (const file of new Set(edits.map((e) => e.file)))
@@ -64,14 +64,14 @@ export const dismissSuggestion = command(
 	},
 );
 
-const viewEvent = ({ event, members }: Refinement.FileEvent) => ({
+const viewEvent = ({ event, members }: Ledger.FileEvent) => ({
 	event,
 	members: members.map(({ role, counted, ...t }) => ({ role, counted, ...viewTransaction(t) })),
 });
 
 export const getEvents = query(InFile, async ({ handle, file }) =>
 	fromResult(
-		await inLedger({ handle, action: (l) => Refinement.eventsIn(l, file) }).map((e) =>
+		await inLedger({ handle, action: (l) => Ledger.eventsIn(l, file) }).map((e) =>
 			e.map(viewEvent),
 		),
 	),
@@ -96,7 +96,7 @@ const changeEvent = async (options: ChangeEventOptions) => {
 export const renameEvent = command(
 	v.object({ handle: Handle, file: Key, event: EventId, to: EventId }),
 	({ handle, file, event, to }) =>
-		changeEvent({ handle, file, action: (l) => Refinement.renameEvent(l, event, to) }),
+		changeEvent({ handle, file, action: (l) => Ledger.renameEvent(l, event, to) }),
 );
 
 export const makePrimary = command(
@@ -110,6 +110,6 @@ export const makePrimary = command(
 		changeEvent({
 			handle,
 			file,
-			action: (l) => Refinement.makePrimary({ ledger: l, event, ...member }),
+			action: (l) => Ledger.makePrimary({ ledger: l, event, ...member }),
 		}),
 );

@@ -2,9 +2,10 @@ import { fromBatch, fromResult, ok, type Response } from '#lib/server/shared/res
 import * as Auth from '#services/auth/application/auth.ts';
 import * as Extraction from '#services/extraction/application/extraction.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
+import { viewTransaction } from '#services/ledger/application/shared.ts';
 import { command, form } from '$app/server';
 import * as v from 'valibot';
-import { Account, Handle, inLedger, Key, SchemaKey, viewTransaction } from './shared';
+import { Account, Handle, inLedger, Key, SchemaKey } from './shared';
 
 const ExtractStatement = v.object({
 	handle: Handle,

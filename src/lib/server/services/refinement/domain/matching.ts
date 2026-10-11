@@ -2,6 +2,7 @@ import {
 	EventRole,
 	formatQuantity,
 	linksOf,
+	type LinkEdit,
 	type RupeeTransaction,
 } from '#services/ledger/application/shared.ts';
 import { createHash } from 'node:crypto';
@@ -16,13 +17,7 @@ export type MatchedTransaction = RupeeTransaction & { id: string };
 export type CandidatePair = { ours: string; theirs: string };
 
 // Where a link line goes, and what the header there must still say.
-export type LinkTarget = {
-	file: string;
-	line: number;
-	date: string;
-	description: string;
-	role: EventRole;
-};
+export type LinkTarget = Omit<LinkEdit, 'event'>;
 
 // `event` is null until a new event is named.
 export type Suggestion = {

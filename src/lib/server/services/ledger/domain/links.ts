@@ -1,17 +1,18 @@
 import type { RupeeConfiguration } from '#lib/server/shared/config.ts';
 import { err, ok, type Result } from '#lib/server/shared/result.ts';
-import {
-	EVENT_KEY,
-	EVENT_KEYS,
-	linksOf,
-	parse,
-	type EventLink,
-	type RupeeFile,
-	type RupeeTransaction,
-} from '#services/ledger/application/shared.ts';
-import type { LinkTarget } from './matching';
+import { EVENT_KEY, EVENT_KEYS, linksOf, type EventLink, type EventRole } from './events';
+import { parse } from './parser';
+import type { RupeeFile, RupeeTransaction } from './types';
 
-export type LinkEdit = LinkTarget & { event: string };
+// Where a link goes, and what the header there must still say.
+export type LinkEdit = {
+	file: string;
+	line: number;
+	date: string;
+	description: string;
+	role: EventRole;
+	event: string;
+};
 
 // A link goes right under its header, so it is transaction metadata. Each
 // header must still be the one suggested, with no link of its own.
@@ -34,8 +35,7 @@ export const insertLinks = (
 			linksOf(t).length > 0
 		);
 	});
-	if (stale)
-		return err({ type: 'RefinementStale', location: `${stale.file}:${stale.line}`, cause: [] });
+	if (stale) return err({ type: 'EventStale', location: `${stale.file}:${stale.line}`, cause: [] });
 
 	// Bottom up, so earlier insertions do not move later lines.
 	const lines = [...edits]
@@ -62,7 +62,7 @@ export const rewriteLinks = (
 			.filter((l) => l.event === event)
 			.map((l) => ({ transaction: t, link: l })),
 	);
-	if (members.length === 0) return err({ type: 'RefinementStale', location: file.key, cause: [] });
+	if (members.length === 0) return err({ type: 'EventStale', location: file.key, cause: [] });
 
 	const lines = members.reduce((l, { transaction, link }) => {
 		const at = linkLine(l, transaction.location.line, event);

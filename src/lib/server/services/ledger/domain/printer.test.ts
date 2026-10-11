@@ -1,8 +1,8 @@
-import { describe, expect, it } from 'vitest';
 import { defaultConfiguration } from '#lib/server/shared/config.ts';
+import { describe, expect, it } from 'vitest';
 import { parse, parseAmount } from './parser';
-import { print } from './printer';
-import type { Amount, RupeeLedgerFile, RupeeTransaction } from './types';
+import { print, viewTransaction } from './printer';
+import { PriceKind, type Amount, type RupeeLedgerFile, type RupeeTransaction } from './types';
 
 const amount = (t: string) => parseAmount(t) as Amount;
 
@@ -237,5 +237,62 @@ describe('printing a ledger', () => {
 
 	it('writes nothing for no transactions', () => {
 		expect(print(defaultConfiguration, ledger([]))).toBe('');
+	});
+});
+
+describe('viewing a transaction', () => {
+	const transaction: RupeeTransaction = {
+		location: { file: 'bank.rupee', line: 12 },
+		date: Temporal.PlainDate.from('2026-08-29'),
+		time: Temporal.PlainTime.from('18:45:30'),
+		description: 'Bought shares',
+		metadata: {},
+		postings: [
+			{
+				account: 'Assets:Broker',
+				amount: amount('10'),
+				commodity: 'INFY',
+				price: { kind: PriceKind.Unit, amount: amount('1500.125'), commodity: 'INR' },
+				balance: null,
+				metadata: {},
+			},
+			{
+				account: 'Assets:Bank',
+				amount: amount('-15001.25'),
+				commodity: 'INR',
+				price: null,
+				balance: null,
+				metadata: {},
+			},
+		],
+	};
+
+	it('flattens it into plain text for the page', () => {
+		expect(viewTransaction(transaction)).toEqual({
+			file: 'bank.rupee',
+			line: 12,
+			date: '2026-08-29',
+			time: '18:45',
+			description: 'Bought shares',
+			postings: [
+				{ account: 'Assets:Broker', amount: '10.00 INFY', price: '@ 1500.125' },
+				{ account: 'Assets:Bank', amount: '-15001.25', price: null },
+			],
+		});
+	});
+
+	it('shows a total price with @@', () => {
+		const [first] = transaction.postings;
+		const priced = {
+			...transaction,
+			postings: [
+				{ ...first!, price: { kind: PriceKind.Total, amount: amount('5'), commodity: 'USD' } },
+			],
+		};
+		expect(viewTransaction(priced).postings[0]?.price).toBe('@@ 5.00 USD');
+	});
+
+	it('leaves an untimed transaction without a time', () => {
+		expect(viewTransaction({ ...transaction, time: null }).time).toBeNull();
 	});
 });

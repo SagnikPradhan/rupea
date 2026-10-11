@@ -118,13 +118,13 @@ describe('rewriting links', () => {
 describe('naming an event', () => {
 	const first = (w: string[]) => w[0] ?? '';
 
-	it('uses the date, the first word naming the merchant and an animal', () => {
+	it('uses the date, the first word naming the merchant, an adjective and an animal', () => {
 		expect(
 			eventId({ date: '2026-10-03', description: 'UPI/DR/4123/SWIGGY/YESB', pick: first }),
-		).toBe('2026-10-03-swiggy-badger');
+		).toBe('2026-10-03-swiggy-amber-badger');
 	});
 
-	it('falls back to an adjective when no word names the merchant', () => {
+	it('leaves the merchant out when no word names it', () => {
 		expect(eventId({ date: '2026-10-03', description: 'NEFT 4412 TO', pick: first })).toBe(
 			'2026-10-03-amber-badger',
 		);

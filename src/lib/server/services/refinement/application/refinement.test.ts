@@ -5,7 +5,7 @@ import { provide } from '#lib/server/shared/context.ts';
 import { err, ok } from '#lib/server/shared/result.ts';
 import { createUser } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
-import { ANIMALS } from '../domain/ids';
+import { ADJECTIVES, ANIMALS } from '../domain/ids';
 import * as Refinement from './refinement';
 
 vi.mock('node:crypto', async (original) => {
@@ -56,7 +56,7 @@ describe('refining a saved file', () => {
 			const suggestions = (await Refinement.suggestFor(userId, 'ibkr.rupee'))._unsafeUnwrap();
 			expect(suggestions).toHaveLength(1);
 			const [transfer] = suggestions;
-			expect(transfer?.event).toMatch(/^2026-10-03-deposit-[a-z]+$/);
+			expect(transfer?.event).toMatch(/^2026-10-03-deposit-[a-z]+-[a-z]+$/);
 			expect(transfer?.links.map((l) => [l.file, l.line, l.role])).toEqual([
 				['ibkr.rupee', 1, 'primary'],
 				['hdfc.rupee', 1, 'evidence'],
@@ -87,10 +87,7 @@ describe('refining a saved file', () => {
 			expect(await Refinement.suggestFor(userId, 'ibkr.rupee')).toEqual(ok([]));
 		}));
 
-	it('reports a file that changed since the suggestion, and still links the rest', ({
-		context,
-		db,
-	}) =>
+	it('reports a file that changed since the suggestion, and writes no file', ({ context, db }) =>
 		provide(context, async () => {
 			const { userId } = await createUser(db);
 			await Ledger.createFile({ userId, key: 'hdfc.rupee', content: hdfc });
@@ -108,12 +105,10 @@ describe('refining a saved file', () => {
 			expect(await Refinement.accept(userId, edits(suggestions))).toEqual(
 				ok([{ type: 'RefinementStale', location: 'hdfc.rupee:1', cause: [] }]),
 			);
-			expect((await Ledger.getFile(userId, 'ibkr.rupee'))._unsafeUnwrap().content).toMatch(
-				/^2026-10-03 Deposit\n\t- event: /,
-			);
+			expect((await Ledger.getFile(userId, 'ibkr.rupee'))._unsafeUnwrap().content).toBe(ibkr);
 		}));
 
-	it('reports a file deleted since the suggestion, and still links the rest', ({ context, db }) =>
+	it('reports a file deleted since the suggestion, and writes no file', ({ context, db }) =>
 		provide(context, async () => {
 			const { userId } = await createUser(db);
 			await Ledger.createFile({ userId, key: 'hdfc.rupee', content: hdfc });
@@ -124,15 +119,13 @@ describe('refining a saved file', () => {
 			const failed = (await Refinement.accept(userId, edits(suggestions)))._unsafeUnwrap();
 
 			expect(failed).toMatchObject([{ type: 'CannotReadFile', path: 'hdfc.rupee' }]);
-			expect((await Ledger.getFile(userId, 'ibkr.rupee'))._unsafeUnwrap().content).toMatch(
-				/^2026-10-03 Deposit\n\t- event: /,
-			);
+			expect((await Ledger.getFile(userId, 'ibkr.rupee'))._unsafeUnwrap().content).toBe(ibkr);
 		}));
 
 	it('picks another name when one is taken', ({ context, db }) =>
 		provide(context, async () => {
 			const { userId } = await createUser(db);
-			const taken = `2026-10-03-deposit-${ANIMALS[0]}`;
+			const taken = `2026-10-03-deposit-${ADJECTIVES[0]}-${ANIMALS[0]}`;
 			await Ledger.createFile({
 				userId,
 				key: 'cash.rupee',
@@ -140,11 +133,11 @@ describe('refining a saved file', () => {
 			});
 			await Ledger.createFile({ userId, key: 'hdfc.rupee', content: hdfc });
 			await Ledger.createFile({ userId, key: 'ibkr.rupee', content: ibkr });
-			picking(0, 1);
+			picking(0, 0, 0, 1);
 
 			const [transfer] = (await Refinement.suggestFor(userId, 'ibkr.rupee'))._unsafeUnwrap();
 
-			expect(transfer?.event).toBe(`2026-10-03-deposit-${ANIMALS[1]}`);
+			expect(transfer?.event).toBe(`2026-10-03-deposit-${ADJECTIVES[0]}-${ANIMALS[1]}`);
 		}));
 
 	it('never gives two new events in one go the same name', ({ context, db }) =>
@@ -166,13 +159,13 @@ describe('refining a saved file', () => {
 					'2026-10-03 Deposit\n\tAssets:IBKR 2000\n\tAssets:HDFC\n',
 				].join('\n'),
 			});
-			picking(0, 0, 1);
+			picking(0, 0, 0, 0, 0, 1);
 
 			const named = (await Refinement.suggestFor(userId, 'ibkr.rupee'))._unsafeUnwrap();
 
 			expect(named.map((n) => n.event)).toEqual([
-				`2026-10-03-deposit-${ANIMALS[0]}`,
-				`2026-10-03-deposit-${ANIMALS[1]}`,
+				`2026-10-03-deposit-${ADJECTIVES[0]}-${ANIMALS[0]}`,
+				`2026-10-03-deposit-${ADJECTIVES[0]}-${ANIMALS[1]}`,
 			]);
 		}));
 
@@ -198,7 +191,7 @@ describe('refining a saved file', () => {
 	it('gives up after a few names are all taken', ({ context, db }) =>
 		provide(context, async () => {
 			const { userId } = await createUser(db);
-			const taken = `2026-10-03-deposit-${ANIMALS[0]}`;
+			const taken = `2026-10-03-deposit-${ADJECTIVES[0]}-${ANIMALS[0]}`;
 			await Ledger.createFile({
 				userId,
 				key: 'cash.rupee',

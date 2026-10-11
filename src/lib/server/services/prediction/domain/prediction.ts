@@ -1,22 +1,16 @@
 import type { RupeeConfiguration } from '#lib/server/shared/config.ts';
 import type { ResultAsync } from '#lib/server/shared/result.ts';
-import {
-	AccountRoot,
-	accountRoot,
-	type Amount,
-	type RupeeTransaction,
-} from '#services/ledger/domain/types.ts';
+import { AccountType, accountType, type Amount } from '#services/ledger/domain/types.ts';
 import { taxonomy } from './taxonomy';
 import { accountText, clean } from './text';
 
 const NEIGHBOURS = 5;
-const HISTORY = 2000;
 const HALF_LIFE = 365;
 const PRIOR = 0.25;
 const GUESSED = /(^|:)Uncategorized$/;
-const ROOTS: Record<'out' | 'in', AccountRoot[]> = {
-	in: [AccountRoot.Income, AccountRoot.Assets, AccountRoot.Liabilities, AccountRoot.Equity],
-	out: [AccountRoot.Expenses, AccountRoot.Liabilities, AccountRoot.Equity, AccountRoot.Assets],
+const TYPES: Record<'out' | 'in', AccountType[]> = {
+	in: [AccountType.Income, AccountType.Assets, AccountType.Liabilities, AccountType.Equity],
+	out: [AccountType.Expenses, AccountType.Liabilities, AccountType.Equity, AccountType.Assets],
 };
 
 export type Source = 'history' | 'name' | 'fallback';
@@ -35,30 +29,62 @@ export type Line = {
 
 export type Embed = (texts: string[]) => ResultAsync<Float32Array[]>;
 
-export type EmbeddingStore = {
-	find: (texts: string[]) => ResultAsync<Map<string, Float32Array>>;
-	save: (vectors: Map<string, Float32Array>) => ResultAsync<void>;
+// A posting of a past transaction whose description is near a line's.
+export type Neighbour = {
+	account: string;
+	amount: Amount;
+	date: Temporal.PlainDate;
+	similarity: number;
+};
+
+// The postings of the transactions nearest each vector, in the vectors' order.
+export type Nearest = (vectors: Float32Array[]) => ResultAsync<Neighbour[][]>;
+
+export type Unembedded = { id: string; description: string };
+
+export type Filled = { id: string; vector: Float32Array | null };
+
+export type History = {
+	unembedded: (limit: number) => ResultAsync<Unembedded[]>;
+	fill: (rows: Filled[]) => ResultAsync<void>;
+	nearest: Nearest;
+	accounts: () => ResultAsync<string[]>;
+};
+
+// A description with no words gets no vector, but counts as done all the same.
+export const filling = (rows: Unembedded[]) => {
+	const cleaned = rows.map((r) => clean(r.description));
+	const texts = [...new Set(cleaned)].filter((t) => t !== '');
+	const fill = (vectors: Float32Array[]): Filled[] => {
+		const found = lookup(texts, vectors);
+		return rows.map((r, i) => ({ id: r.id, vector: found(cleaned[i] ?? '') }));
+	};
+
+	return { texts, fill };
 };
 
 export type ClassifierOptions = {
 	thresholds: RupeeConfiguration['prediction'];
 	account: string;
 	lines: Line[];
-	transactions: RupeeTransaction[];
+	accounts: string[];
 	today: Temporal.PlainDate;
 };
 
+// `texts` are embedded first; `asked` takes their vectors to the ones to
+// search near, and `classify` takes the vectors and what was found near them.
 export type Classifier = {
 	texts: string[];
-	classify: (vectors: Float32Array[]) => Prediction[];
+	asked: (vectors: Float32Array[]) => Float32Array[];
+	classify: (vectors: Float32Array[], nearest: Neighbour[][]) => Prediction[];
 };
 
 export const classifier = (options: ClassifierOptions): Classifier => {
-	const past = pastOf(options.transactions);
 	const cleaned = options.lines.map((l) => clean(l.description));
+	const searched = [...new Set(cleaned)].filter((t) => t !== '');
 
 	// The user's own accounts, by name; the global ones only where they have none.
-	const accounts = accountsOf(options.transactions);
+	const accounts = options.accounts.filter((a) => !GUESSED.test(a));
 	const ours = new Set(accounts);
 	const candidates = [
 		...accounts.map((a) => ({ account: a, text: accountText(a) })),
@@ -67,44 +93,58 @@ export const classifier = (options: ClassifierOptions): Classifier => {
 			.map(([a, about]) => ({ account: a, text: `${accountText(a)} ${about}` })),
 	];
 
-	const texts = [
-		...new Set([...past.map((p) => p.text), ...cleaned, ...candidates.map((c) => c.text)]),
-	].filter((t) => t !== '');
+	const texts = [...new Set([...searched, ...candidates.map((c) => c.text)])].filter(
+		(t) => t !== '',
+	);
 
-	const classify = (vectors: Float32Array[]) => {
-		const vectorOf = new Map(texts.map((t, i) => [t, vectors[i]]));
-		const found = (t: string) => vectorOf.get(t) ?? null;
-
-		const examples = past.flatMap((p) => {
-			const vector = found(p.text);
-			return vector ? [{ ...p, vector }] : [];
+	const asked = (vectors: Float32Array[]) => {
+		const found = lookup(texts, vectors);
+		return searched.flatMap((t) => {
+			const vector = found(t);
+			return vector ? [vector] : [];
 		});
+	};
+
+	const classify = (vectors: Float32Array[], nearest: Neighbour[][]) => {
+		const found = lookup(texts, vectors);
+		const near = Object.fromEntries(
+			searched.filter((t) => found(t)).map((t, i) => [t, nearest[i] ?? []]),
+		);
 		const names = candidates.flatMap((c) => {
 			const vector = found(c.text);
 			return vector ? [{ account: c.account, vector }] : [];
 		});
 
-		const guess = predict({ ...options, examples, names });
-		return options.lines.map((l, i) => guess({ ...l, vector: found(cleaned[i] ?? '') }));
+		const guess = predict({ ...options, names });
+		return options.lines.map((l, i) => {
+			const text = cleaned[i] ?? '';
+			return guess({ ...l, vector: found(text), neighbours: near[text] ?? [] });
+		});
 	};
 
-	return { texts, classify };
+	return { texts, asked, classify };
+};
+
+const lookup = (texts: string[], vectors: Float32Array[]) => {
+	const vectorOf: Record<string, Float32Array | undefined> = Object.fromEntries(
+		texts.map((t, i) => [t, vectors[i]]),
+	);
+	return (t: string): Float32Array | null => vectorOf[t] ?? null;
 };
 
 export type Named = { account: string; vector: Float32Array };
-
-export type Example = Past & { vector: Float32Array };
 
 export type Knowledge = {
 	thresholds: RupeeConfiguration['prediction'];
 	account: string;
 	today: Temporal.PlainDate;
-	examples: Example[];
 	names: Named[];
 };
 
-export type Embedded = Line & { vector: Float32Array | null };
+export type Embedded = Line & { vector: Float32Array | null; neighbours: Neighbour[] };
 
+// Uncategorised postings are unsettled guesses; learning from them would only
+// make the guess surer.
 export const predict =
 	(knowledge: Knowledge) =>
 	(line: Embedded): Prediction => {
@@ -115,18 +155,17 @@ export const predict =
 		const names = knowledge.names.filter((n) => fits(n.account));
 		const nameScores = new Map(names.map((n) => [n.account, similarity(vector, n.vector)]));
 
-		const voters = knowledge.examples
-			.filter((e) => fits(e.account) && opposite(line.amount, e.amount))
-			.map((e) => ({ example: e, similarity: similarity(vector, e.vector) }))
+		const voters = line.neighbours
+			.filter((n) => fits(n.account) && !GUESSED.test(n.account) && opposite(line.amount, n.amount))
+			.map((n) => ({ ...n, similarity: Math.max(0, n.similarity) }))
 			.sort((a, b) => b.similarity - a.similarity)
 			.slice(0, NEIGHBOURS);
 
 		const history = new Map<string, number>();
 		for (const voter of voters) {
-			const example = voter.example;
-			const recency = 0.5 ** (age(knowledge.today, example.date) / HALF_LIFE);
-			const total = history.get(example.account) ?? 0;
-			history.set(example.account, total + (voter.similarity * recency) / NEIGHBOURS);
+			const recency = 0.5 ** (age(knowledge.today, voter.date) / HALF_LIFE);
+			const total = history.get(voter.account) ?? 0;
+			history.set(voter.account, total + (voter.similarity * recency) / NEIGHBOURS);
 		}
 
 		const remembered = best(
@@ -145,8 +184,8 @@ export const predict =
 	};
 
 export const fallbackAccount = (amount: Amount): string => {
-	const root = amount < 0n ? AccountRoot.Expenses : AccountRoot.Income;
-	return `${root}:Uncategorized`;
+	const type = amount < 0n ? AccountType.Expenses : AccountType.Income;
+	return `${type}:Uncategorized`;
 };
 
 export const fallback = (amount: Amount): Prediction => ({
@@ -154,34 +193,6 @@ export const fallback = (amount: Amount): Prediction => ({
 	score: 0,
 	source: 'fallback',
 });
-
-export type Past = {
-	account: string;
-	amount: Amount;
-	date: Temporal.PlainDate;
-	text: string;
-};
-
-// Uncategorised postings are unsettled guesses; learning from them would only
-// make the guess surer.
-export const pastOf = (transactions: RupeeTransaction[]): Past[] =>
-	transactions
-		.flatMap((t) =>
-			t.postings
-				.filter((p) => !GUESSED.test(p.account))
-				.map((p) => ({
-					account: p.account,
-					amount: p.amount,
-					date: t.date,
-					text: clean(t.description),
-				})),
-		)
-		.filter((p) => p.text !== '')
-		.sort((a, b) => Temporal.PlainDate.compare(b.date, a.date))
-		.slice(0, HISTORY);
-
-export const accountsOf = (t: RupeeTransaction[]): string[] =>
-	[...new Set(t.flatMap((x) => x.postings.map((p) => p.account)))].filter((a) => !GUESSED.test(a));
 
 const similarity = (a: Float32Array, b: Float32Array) =>
 	Math.max(
@@ -192,8 +203,8 @@ const similarity = (a: Float32Array, b: Float32Array) =>
 const allowed = (account: string, amount: Amount) => {
 	if (amount === 0n) return true;
 
-	const root = accountRoot(account);
-	return root !== null && ROOTS[amount < 0n ? 'out' : 'in'].includes(root);
+	const type = accountType(account);
+	return type !== null && TYPES[amount < 0n ? 'out' : 'in'].includes(type);
 };
 
 const opposite = (l: Amount, p: Amount) => l === 0n || (l < 0n ? p > 0n : p < 0n);

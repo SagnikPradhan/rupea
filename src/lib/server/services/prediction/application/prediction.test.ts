@@ -8,11 +8,47 @@ import { hashVector } from '#tests/shared/embedding.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { describe, expect, it as plain } from 'vitest';
 import { embedder } from '../adapters/onnx';
-import type { Embed } from '../domain/prediction';
-import { classify } from './prediction';
+import { clean } from '../domain/text';
+import type { Embed, Nearest } from '../domain/prediction';
+import { classify as classifyNear } from './prediction';
 
 const amount = (n: bigint) => n as Amount;
 const hashed: Embed = (texts) => okAsync(texts.map(hashVector));
+
+const dot = (a: Float32Array, b: Float32Array) => a.reduce((s, v, i) => s + v * (b[i] ?? 0), 0);
+
+// What the database search does, over a ledger in memory.
+const nearestIn =
+	(embed: Embed, transactions: RupeeTransaction[]): Nearest =>
+	(vectors) => {
+		const described = transactions.filter((t) => clean(t.description) !== '');
+		return embed(described.map((t) => clean(t.description))).map((history) =>
+			vectors.map((v) =>
+				described
+					.map((t, i) => ({ t, similarity: dot(v, history[i] ?? new Float32Array()) }))
+					.toSorted((x, y) => y.similarity - x.similarity)
+					.slice(0, 50)
+					.flatMap(({ t, similarity }) =>
+						t.postings.map((p) => ({
+							account: p.account,
+							amount: p.amount,
+							date: t.date,
+							similarity,
+						})),
+					),
+			),
+		);
+	};
+
+type ClassifyOptions = Omit<Parameters<typeof classifyNear>[2], 'accounts'> & {
+	transactions: RupeeTransaction[];
+};
+
+const classify = (embed: Embed, o: ClassifyOptions) =>
+	classifyNear(embed, nearestIn(embed, o.transactions), {
+		...o,
+		accounts: [...new Set(o.transactions.flatMap((t) => t.postings.map((p) => p.account)))],
+	});
 
 const transaction = (description: string, postings: [string, bigint][], date = '2026-09-01') =>
 	({
@@ -84,9 +120,9 @@ describe('classifying statement lines', () => {
 			seen.push(texts);
 			return hashed(texts);
 		};
-		const transactions = Array(4).fill(spend('SWIGGY', 'Expenses:Dining'));
+		const nearest: Nearest = (vectors) => okAsync(vectors.map(() => []));
 		const lines = Array(3).fill({ amount: amount(-1n), description: 'swiggy' });
-		await classify(embed, { ...options, lines, transactions });
+		await classifyNear(embed, nearest, { ...options, lines, accounts: ['Expenses:Dining'] });
 		expect(seen).toHaveLength(1);
 		expect(seen[0]?.filter((t) => t === 'swiggy')).toHaveLength(1);
 	});

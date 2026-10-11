@@ -2,6 +2,7 @@ import { Tokenizer } from '@huggingface/tokenizers';
 import type { Canvas } from '@napi-rs/canvas';
 import { readFile } from 'node:fs/promises';
 import { InferenceSession, Tensor } from 'onnxruntime-node';
+import { batches } from '../batches';
 import type { Namespace } from '../logger';
 import { attempt, concat, err, ok, okAsync, ResultAsync, type Result } from '../result';
 import {
@@ -13,7 +14,8 @@ import {
 	type Output,
 } from './detr';
 import { ensure, prepare, type ModelFile, type ModelOptions } from './download';
-import { batches, encode, inputs, vectors, type EmbeddingModel } from './embedding';
+import { encode, inputs, vectors, type EmbeddingModel } from './embedding';
+import { remembering, type Embed } from './remembering';
 
 export type { Box, Detection, DetrModel, EmbeddingModel };
 
@@ -27,6 +29,9 @@ type EmbedOptions = {
 	model: EmbeddingModel;
 	texts: string[];
 };
+
+// Vectors kept per embedding model, about 15 MB at 384 dimensions.
+const REMEMBERED = 10_000;
 
 type CreateModelsOptions = Omit<ModelOptions, 'fetch'> &
 	Partial<Pick<ModelOptions, 'fetch'>> & {
@@ -73,13 +78,24 @@ export const createModels = (models: CreateModelsOptions) => {
 		tokenizers.set(model.file, loaded);
 		return loaded;
 	};
+	const embedders = new Map<string, Embed>();
+	const embedder = (model: EmbeddingModel) => {
+		const kept =
+			embedders.get(model.source.file) ??
+			remembering(
+				(x) =>
+					ResultAsync.combine([session(model.source), tokenizer(model.tokenizer)]).andThen(
+						([l, t]) => embed({ model, texts: x, session: l, tokenizer: t }),
+					),
+				REMEMBERED,
+			);
+		embedders.set(model.source.file, kept);
+		return kept;
+	};
 	return {
 		detect: (o: DetectOptions): ResultAsync<Detection[]> =>
 			session(o.model.source).andThen((l) => detr({ ...o, session: l })),
-		embed: (o: EmbedOptions): ResultAsync<Float32Array[]> =>
-			ResultAsync.combine([session(o.model.source), tokenizer(o.model.tokenizer)]).andThen(
-				([l, t]) => embed({ ...o, session: l, tokenizer: t }),
-			),
+		embed: (o: EmbedOptions): ResultAsync<Float32Array[]> => embedder(o.model)(o.texts),
 	};
 };
 

@@ -136,7 +136,7 @@ describe('parse transactions', () => {
 	});
 
 	it.each([['\tFood 100'], ['\tassets:Bank'], ['\tAssetsBank:Cash']])(
-		'reports the account outside the canonical roots in %j',
+		'reports the account outside the account types in %j',
 		(bad) => {
 			expect(run(['2026-08-29 Groceries', '\tExpenses:Food 100', bad])).toEqual({
 				failed: [
@@ -531,14 +531,16 @@ describe('reading an amount', () => {
 		['+5', 5_000_000n],
 		['₹1,250.50', 1_250_500_000n],
 		['0.000001', 1n],
-		['100abc', 100_000_000n],
 	])('reads %j as %s millionths', (tx, am) => {
 		expect(parseAmount(tx)).toBe(am);
 	});
 
-	it.each(['', 'abc', '₹', '.5', '1.2345678'])('rejects %j', (tx) => {
-		expect(parseAmount(tx)).toBeNull();
-	});
+	it.each(['', 'abc', '₹', '.5', '1.2345678', '100abc', '10AAPL', '5.5.5', '1,250.00Cr'])(
+		'rejects %j',
+		(tx) => {
+			expect(parseAmount(tx)).toBeNull();
+		},
+	);
 });
 
 describe('writing an amount', () => {

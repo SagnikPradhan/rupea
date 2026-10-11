@@ -4,7 +4,7 @@ import type { RupeeConfiguration } from '#lib/server/shared/config.ts';
 import type { RupeeError } from '#lib/server/shared/error.ts';
 import { batch, err, ok, type Batch, type Result } from '#lib/server/shared/result.ts';
 import {
-	accountRoot,
+	accountType,
 	AMOUNT_SCALE,
 	formatQuantity,
 	HOME_COMMODITY,
@@ -259,7 +259,7 @@ const checkAccount = (
 	location: RupeeParseLocation,
 	posting: WrittenPosting,
 ): Result<WrittenPosting> => {
-	if (accountRoot(posting.account)) return ok(posting);
+	if (accountType(posting.account)) return ok(posting);
 
 	return err({
 		type: 'ParseInvalidAccount',
@@ -319,7 +319,7 @@ const COMMODITY = /^[A-Za-z][A-Za-z0-9._-]*$/;
 
 export const parseAmount = (text: string): Amount | null => {
 	const cleaned = text.replaceAll(',', '').replaceAll('₹', '').trim();
-	const match = /^([+-]?)(\d+)(?:\.(\d+))?/.exec(cleaned);
+	const match = /^([+-]?)(\d+)(?:\.(\d+))?$/.exec(cleaned);
 	if (!match?.[2]) return null;
 	const [, sign, whole, fraction = ''] = match;
 	if (fraction.length > AMOUNT_SCALE) return null;

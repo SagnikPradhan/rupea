@@ -98,6 +98,10 @@ const syncLedger = (l: string): ResultAsync<RupeeError[]> =>
 
 export const sync = (u: string): ResultAsync<RupeeError[]> => withLedger(u, syncLedger);
 
+// For callers that need the index fresh but not the ledger's errors, which
+// cost a pass over every event and balance assertion.
+export const syncIndex = (u: string): ResultAsync<RupeeError[]> => withLedger(u, syncFiles);
+
 export type CountedTransaction = IndexedTransaction & { counted: boolean };
 
 export const getTransactions = (userId: string): ResultAsync<Batch<CountedTransaction>> =>

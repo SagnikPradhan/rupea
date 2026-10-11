@@ -1,5 +1,5 @@
-import { and, asc, eq, inArray, like, ne, or, sql, type SQL } from 'drizzle-orm';
-import { alias, type PgColumn } from 'drizzle-orm/pg-core';
+import { and, asc, eq, inArray, isNotNull, ne, sql, type SQL } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
 import { v7 as uuidv7 } from 'uuid';
 import {
 	ledgerFiles,
@@ -8,12 +8,16 @@ import {
 	transactions as transactionTable,
 	users,
 } from '#lib/server/db/schema.ts';
-import { inOrder } from '#lib/server/db/index.ts';
+import { inOrder, ROWS_PER_STATEMENT, type Database } from '#lib/server/db/index.ts';
+import { batches } from '#lib/server/shared/batches.ts';
 import { withContext } from '#lib/server/shared/context.ts';
-import { attempt, err, ok, ResultAsync, type Result } from '#lib/server/shared/result.ts';
-import { BALANCE_ROOTS, EVENT_KEYS } from '../domain/events';
+import type { RupeeError } from '#lib/server/shared/error.ts';
+import { attempt, err, errAsync, ok, ResultAsync, type Result } from '#lib/server/shared/result.ts';
+import { BALANCE_TYPES, EVENT_KEYS } from '../domain/events';
+import { displayLocation } from '../domain/parser';
 import type { FileVersion } from '../domain/sync';
 import {
+	accountType,
 	PriceKind,
 	toMetadata,
 	type Amount,
@@ -26,13 +30,7 @@ import {
 
 export type IndexedTransaction = RupeeTransaction & { id: string };
 
-// Well under Postgres's limit of 65535 parameters per statement.
-const CHUNK = 500;
-
-const chunks = <T>(l: T[]): T[][] =>
-	Array.from({ length: Math.ceil(l.length / CHUNK) }, (_, i) =>
-		l.slice(i * CHUNK, (i + 1) * CHUNK),
-	);
+const chunks = <T>(l: T[]): T[][] => batches(l, ROWS_PER_STATEMENT);
 
 const files = (ledgerId: string) => (): ResultAsync<FileVersion[]> =>
 	withContext('db')((db) =>
@@ -44,17 +42,27 @@ const files = (ledgerId: string) => (): ResultAsync<FileVersion[]> =>
 		),
 	);
 
-// One transaction, so readers see the old file or the new one.
+// One transaction, so readers see the old file or the new one. A description
+// keeps its embedding through a reindex, so saving a file never re-embeds it.
 const put =
 	(ledgerId: string) =>
-	(key: string, version: string | null, file: RupeeLedgerFile): ResultAsync<void> =>
-		withContext('db')((db) =>
+	(key: string, version: string | null, file: RupeeLedgerFile): ResultAsync<void> => {
+		const untyped = untypedAccount(file);
+		if (untyped) return errAsync(untyped);
+
+		return withContext('db')((db) =>
 			attempt(() =>
 				db.transaction(async (tx) => {
-					const fileId = sql<string>`(${tx
-						.select({ id: ledgerFiles.id })
-						.from(ledgerFiles)
-						.where(and(eq(ledgerFiles.ledgerId, ledgerId), eq(ledgerFiles.key, key)))})`;
+					const fileId = await tx
+						.insert(ledgerFiles)
+						.values({ ledgerId, key, version })
+						.onConflictDoUpdate({
+							target: [ledgerFiles.ledgerId, ledgerFiles.key],
+							set: { version },
+						})
+						.returning({ id: ledgerFiles.id })
+						.then(([f]) => f?.id ?? Promise.reject(new Error(`${key} was not saved`)));
+					const embedded = await embeddingsIn(tx, fileId);
 					const indexed = file.transactions.map((t) => ({
 						id: uuidv7(),
 						transaction: t,
@@ -62,43 +70,50 @@ const put =
 					}));
 					const transactionRows = indexed.map(({ id, transaction }) => ({
 						id,
+						ledgerId,
 						fileId,
 						line: transaction.location.line,
 						date: transaction.date.toString(),
 						time: transaction.time?.toString() ?? null,
 						description: transaction.description,
+						embedding: embedded[transaction.description]?.embedding ?? null,
+						embeddingModel: embedded[transaction.description]?.embeddingModel ?? null,
 					}));
 					const postingRows = indexed.flatMap(({ id, postings: p }) =>
-						p.map(({ id: postingId, posting }, position) => ({
-							id: postingId,
-							transactionId: id,
-							position,
-							account: posting.account,
-							amount: posting.amount,
-							commodity: posting.commodity,
-							priceAmount: posting.price?.amount ?? null,
-							priceCommodity: posting.price?.commodity ?? null,
-							priceKind: posting.price?.kind ?? null,
-							balance: posting.balance,
-						})),
+						p.flatMap(({ id: postingId, posting }, position) => {
+							const type = accountType(posting.account);
+							return type
+								? [
+										{
+											id: postingId,
+											ledgerId,
+											transactionId: id,
+											position,
+											account: posting.account,
+											accountType: type,
+											amount: posting.amount,
+											commodity: posting.commodity,
+											priceAmount: posting.price?.amount ?? null,
+											priceCommodity: posting.price?.commodity ?? null,
+											priceKind: posting.price?.kind ?? null,
+											balance: posting.balance,
+										},
+									]
+								: [];
+						}),
 					);
 					const metadataRows = [
-						...ownedBy({ fileId }, file.metadata),
+						...ownedBy({ ledgerId, fileId }, file.metadata),
 						...indexed.flatMap(({ id, transaction }) =>
-							ownedBy({ transactionId: id }, transaction.metadata),
+							ownedBy({ ledgerId, transactionId: id }, transaction.metadata),
 						),
 						...indexed.flatMap(({ postings: p }) =>
-							p.flatMap(({ id, posting }) => ownedBy({ postingId: id }, posting.metadata)),
+							p.flatMap(({ id, posting }) =>
+								ownedBy({ ledgerId, postingId: id }, posting.metadata),
+							),
 						),
 					];
 
-					await tx
-						.insert(ledgerFiles)
-						.values({ ledgerId, key, version })
-						.onConflictDoUpdate({
-							target: [ledgerFiles.ledgerId, ledgerFiles.key],
-							set: { version },
-						});
 					await tx.delete(metadataTable).where(eq(metadataTable.fileId, fileId));
 					await tx.delete(transactionTable).where(eq(transactionTable.fileId, fileId));
 					await inOrder([
@@ -109,8 +124,39 @@ const put =
 				}),
 			),
 		);
+	};
 
-type MetadataOwner = { fileId: SQL<string> } | { transactionId: string } | { postingId: string };
+// The parser already refuses these; checked again so no posting goes unindexed.
+const untypedAccount = (file: RupeeLedgerFile): RupeeError | null =>
+	file.transactions
+		.flatMap((t) =>
+			t.postings
+				.filter((p) => !accountType(p.account))
+				.map((p): RupeeError => ({
+					type: 'ParseInvalidAccount',
+					location: displayLocation(t.location),
+					account: p.account,
+					cause: [],
+				})),
+		)
+		.at(0) ?? null;
+
+type Embedded = { embedding: number[] | null; embeddingModel: string | null };
+
+const embeddingsIn = (db: Database, fileId: string): Promise<Record<string, Embedded>> =>
+	db
+		.selectDistinctOn([transactionTable.description], {
+			description: transactionTable.description,
+			embedding: transactionTable.embedding,
+			embeddingModel: transactionTable.embeddingModel,
+		})
+		.from(transactionTable)
+		.where(and(eq(transactionTable.fileId, fileId), isNotNull(transactionTable.embedding)))
+		.then((l) => Object.fromEntries(l.map((r) => [r.description, r])));
+
+type MetadataOwner = { ledgerId: string } & (
+	{ fileId: string } | { transactionId: string } | { postingId: string }
+);
 
 const ownedBy = (o: MetadataOwner, m: RupeeMetadata) =>
 	Object.entries(m)
@@ -145,111 +191,114 @@ const rename =
 const compareTimes = (a: Temporal.PlainTime | null, b: Temporal.PlainTime | null) =>
 	a && b ? Temporal.PlainTime.compare(a, b) : Number(a !== null) - Number(b !== null);
 
-const transactions = (l: string) => (): ResultAsync<IndexedTransaction[]> =>
-	read(eq(ledgerFiles.ledgerId, l));
+const transactions = (l: string) => (): ResultAsync<IndexedTransaction[]> => read(l, undefined);
 
-// Only transactions in an event, through the metadata `(key, value)` index.
+// Only transactions in an event, through the metadata `(ledger_id, key, value)` index.
 const eventMembers = (ledgerId: string) => (): ResultAsync<IndexedTransaction[]> =>
 	withContext('db')((db) =>
 		read(
-			and(
-				eq(ledgerFiles.ledgerId, ledgerId),
-				inArray(
-					transactionTable.id,
-					db
-						.select({ id: metadataTable.transactionId })
-						.from(metadataTable)
-						.where(inArray(metadataTable.key, EVENT_KEYS)),
-				),
+			ledgerId,
+			inArray(
+				transactionTable.id,
+				db
+					.select({ id: metadataTable.transactionId })
+					.from(metadataTable)
+					.where(and(eq(metadataTable.ledgerId, ledgerId), inArray(metadataTable.key, EVENT_KEYS))),
 			),
 		),
 	);
 
-// `where` narrows the ledger's files and transactions.
-const read = (where: SQL | undefined): ResultAsync<IndexedTransaction[]> =>
+// `narrow` picks among the ledger's transactions. One snapshot, so the
+// metadata read always belongs to the transactions read.
+const read = (ledgerId: string, narrow: SQL | undefined): ResultAsync<IndexedTransaction[]> =>
 	withContext('db')((db) =>
-		attempt(async () => {
-			const rows = await db
-				.select({
-					key: ledgerFiles.key,
-					id: transactionTable.id,
-					line: transactionTable.line,
-					date: transactionTable.date,
-					time: transactionTable.time,
-					description: transactionTable.description,
-					postingId: postings.id,
-					account: postings.account,
-					amount: postings.amount,
-					commodity: postings.commodity,
-					priceAmount: postings.priceAmount,
-					priceCommodity: postings.priceCommodity,
-					priceKind: postings.priceKind,
-					balance: postings.balance,
-				})
-				.from(ledgerFiles)
-				.innerJoin(transactionTable, eq(transactionTable.fileId, ledgerFiles.id))
-				.leftJoin(postings, eq(postings.transactionId, transactionTable.id))
-				.where(where)
-				.orderBy(asc(transactionTable.id), asc(postings.position));
-			const owned = byOwner([
-				...(await db
-					.select({
-						owner: metadataTable.transactionId,
-						key: metadataTable.key,
-						value: metadataTable.value,
-					})
-					.from(metadataTable)
-					.innerJoin(transactionTable, eq(transactionTable.id, metadataTable.transactionId))
-					.innerJoin(ledgerFiles, eq(ledgerFiles.id, transactionTable.fileId))
-					.where(where)
-					.orderBy(asc(metadataTable.position))),
-				...(await db
-					.select({
-						owner: metadataTable.postingId,
-						key: metadataTable.key,
-						value: metadataTable.value,
-					})
-					.from(metadataTable)
-					.innerJoin(postings, eq(postings.id, metadataTable.postingId))
-					.innerJoin(transactionTable, eq(transactionTable.id, postings.transactionId))
-					.innerJoin(ledgerFiles, eq(ledgerFiles.id, transactionTable.fileId))
-					.where(where)
-					.orderBy(asc(metadataTable.position))),
-			]);
-
-			return [...Map.groupBy(rows, (r) => r.id).values()]
-				.flatMap(([head, ...tail]) => (head ? [{ head, rows: [head, ...tail] }] : []))
-				.map(({ head, rows: group }) => ({
-					id: head.id,
-					location: { file: head.key, line: head.line },
-					date: Temporal.PlainDate.from(head.date),
-					time: head.time === null ? null : Temporal.PlainTime.from(head.time),
-					description: head.description,
-					metadata: owned[head.id] ?? {},
-					postings: group.flatMap((r) =>
-						r.postingId === null || r.account === null || r.amount === null || r.commodity === null
-							? []
-							: [
-									{
-										account: r.account,
-										amount: r.amount as Amount,
-										commodity: r.commodity,
-										price: toPrice(r),
-										balance: r.balance as Amount | null,
-										metadata: owned[r.postingId] ?? {},
-									},
-								],
-					),
-				}))
-				.sort(
-					(a, b) =>
-						Temporal.PlainDate.compare(a.date, b.date) ||
-						compareTimes(a.time, b.time) ||
-						a.location.file.localeCompare(b.location.file) ||
-						a.location.line - b.location.line,
-				);
-		}),
+		attempt(() =>
+			db.transaction((t) => readIn(t, and(eq(transactionTable.ledgerId, ledgerId), narrow)), {
+				isolationLevel: 'repeatable read',
+				accessMode: 'read only',
+			}),
+		),
 	);
+
+const readIn = async (db: Database, where: SQL | undefined): Promise<IndexedTransaction[]> => {
+	const rows = await db
+		.select({
+			key: ledgerFiles.key,
+			id: transactionTable.id,
+			line: transactionTable.line,
+			date: transactionTable.date,
+			time: transactionTable.time,
+			description: transactionTable.description,
+			postingId: postings.id,
+			account: postings.account,
+			amount: postings.amount,
+			commodity: postings.commodity,
+			priceAmount: postings.priceAmount,
+			priceCommodity: postings.priceCommodity,
+			priceKind: postings.priceKind,
+			balance: postings.balance,
+		})
+		.from(transactionTable)
+		.innerJoin(ledgerFiles, eq(ledgerFiles.id, transactionTable.fileId))
+		.leftJoin(postings, eq(postings.transactionId, transactionTable.id))
+		.where(where)
+		.orderBy(asc(transactionTable.id), asc(postings.position));
+	const owned = byOwner([
+		...(await db
+			.select({
+				owner: metadataTable.transactionId,
+				key: metadataTable.key,
+				value: metadataTable.value,
+			})
+			.from(metadataTable)
+			.innerJoin(transactionTable, eq(transactionTable.id, metadataTable.transactionId))
+			.where(where)
+			.orderBy(asc(metadataTable.position))),
+		...(await db
+			.select({
+				owner: metadataTable.postingId,
+				key: metadataTable.key,
+				value: metadataTable.value,
+			})
+			.from(metadataTable)
+			.innerJoin(postings, eq(postings.id, metadataTable.postingId))
+			.innerJoin(transactionTable, eq(transactionTable.id, postings.transactionId))
+			.where(where)
+			.orderBy(asc(metadataTable.position))),
+	]);
+
+	return [...Map.groupBy(rows, (r) => r.id).values()]
+		.flatMap(([head, ...tail]) => (head ? [{ head, rows: [head, ...tail] }] : []))
+		.map(({ head, rows: group }) => ({
+			id: head.id,
+			location: { file: head.key, line: head.line },
+			date: Temporal.PlainDate.from(head.date),
+			time: head.time === null ? null : Temporal.PlainTime.from(head.time),
+			description: head.description,
+			metadata: owned[head.id] ?? {},
+			postings: group.flatMap((r) =>
+				r.postingId === null || r.account === null || r.amount === null || r.commodity === null
+					? []
+					: [
+							{
+								account: r.account,
+								amount: r.amount as Amount,
+								commodity: r.commodity,
+								price: toPrice(r),
+								balance: r.balance as Amount | null,
+								metadata: owned[r.postingId] ?? {},
+							},
+						],
+			),
+		}))
+		.sort(
+			(a, b) =>
+				Temporal.PlainDate.compare(a.date, b.date) ||
+				compareTimes(a.time, b.time) ||
+				a.location.file.localeCompare(b.location.file) ||
+				a.location.line - b.location.line,
+		);
+};
 
 type PriceColumns = {
 	priceAmount: bigint | null;
@@ -268,24 +317,21 @@ const toPrice = ({ priceAmount, priceCommodity, priceKind }: PriceColumns): Pric
 
 const byIds =
 	(ledgerId: string) =>
-	(ids: string[]): ResultAsync<IndexedTransaction[]> =>
-		ResultAsync.combine(
-			chunks(ids).map((c) =>
-				read(and(eq(ledgerFiles.ledgerId, ledgerId), inArray(transactionTable.id, c))),
-			),
-		).map((l) => l.flat());
+	(l: string[]): ResultAsync<IndexedTransaction[]> =>
+		ResultAsync.combine(chunks(l).map((c) => read(ledgerId, inArray(transactionTable.id, c)))).map(
+			(r) => r.flat(),
+		);
 
 export type CandidatePair = { ours: string; theirs: string };
 
 const ourFile = alias(ledgerFiles, 'our_file');
 const ourTransaction = alias(transactionTable, 'our_transaction');
 const ourPosting = alias(postings, 'our_posting');
-const theirFile = alias(ledgerFiles, 'their_file');
 const theirTransaction = alias(transactionTable, 'their_transaction');
 const theirPosting = alias(postings, 'their_posting');
 
 // Same date, amount and balance account, in another file; the other side goes
-// through the `(account, amount)` index.
+// through the `(ledger_id, account, commodity, amount)` index.
 const candidates =
 	(ledgerId: string) =>
 	(key: string): ResultAsync<CandidatePair[]> =>
@@ -299,9 +345,9 @@ const candidates =
 					.innerJoin(
 						theirPosting,
 						and(
+							eq(theirPosting.ledgerId, ledgerId),
 							eq(theirPosting.account, ourPosting.account),
 							eq(theirPosting.commodity, ourPosting.commodity),
-
 							eq(theirPosting.amount, ourPosting.amount),
 						),
 					)
@@ -310,28 +356,33 @@ const candidates =
 						and(
 							eq(theirTransaction.id, theirPosting.transactionId),
 							eq(theirTransaction.date, ourTransaction.date),
-						),
-					)
-					.innerJoin(
-						theirFile,
-						and(
-							eq(theirFile.id, theirTransaction.fileId),
-							eq(theirFile.ledgerId, ledgerId),
-							ne(theirFile.id, ourFile.id),
+							ne(theirTransaction.fileId, ourFile.id),
 						),
 					)
 					.where(
 						and(
 							eq(ourFile.ledgerId, ledgerId),
 							eq(ourFile.key, key),
-							isBalance(ourPosting.account),
+							inArray(ourPosting.accountType, BALANCE_TYPES),
 						),
 					),
 			),
 		);
 
-const isBalance = (a: PgColumn) =>
-	or(...BALANCE_ROOTS.flatMap((r) => [eq(a, r), like(a, `${r}:%`)]));
+// The event ids the file's transactions name, through the metadata index.
+const eventsOfFile = (db: Database, ledgerId: string, key: string) =>
+	db
+		.select({ value: metadataTable.value })
+		.from(metadataTable)
+		.innerJoin(transactionTable, eq(transactionTable.id, metadataTable.transactionId))
+		.innerJoin(ledgerFiles, eq(ledgerFiles.id, transactionTable.fileId))
+		.where(
+			and(
+				eq(metadataTable.ledgerId, ledgerId),
+				eq(ledgerFiles.key, key),
+				inArray(metadataTable.key, EVENT_KEYS),
+			),
+		);
 
 // Every member of every event a transaction in the file belongs to.
 const eventsIn =
@@ -339,37 +390,19 @@ const eventsIn =
 	(key: string): ResultAsync<IndexedTransaction[]> =>
 		withContext('db')((db) =>
 			read(
-				and(
-					eq(ledgerFiles.ledgerId, ledgerId),
-					inArray(
-						transactionTable.id,
-						db
-							.select({ id: metadataTable.transactionId })
-							.from(metadataTable)
-							.where(
-								and(
-									inArray(metadataTable.key, EVENT_KEYS),
-									inArray(
-										metadataTable.value,
-										db
-											.select({ value: metadataTable.value })
-											.from(metadataTable)
-											.innerJoin(
-												transactionTable,
-												eq(transactionTable.id, metadataTable.transactionId),
-											)
-											.innerJoin(ledgerFiles, eq(ledgerFiles.id, transactionTable.fileId))
-											.where(
-												and(
-													eq(ledgerFiles.ledgerId, ledgerId),
-													eq(ledgerFiles.key, key),
-													inArray(metadataTable.key, EVENT_KEYS),
-												),
-											),
-									),
-								),
+				ledgerId,
+				inArray(
+					transactionTable.id,
+					db
+						.select({ id: metadataTable.transactionId })
+						.from(metadataTable)
+						.where(
+							and(
+								eq(metadataTable.ledgerId, ledgerId),
+								inArray(metadataTable.key, EVENT_KEYS),
+								inArray(metadataTable.value, eventsOfFile(db, ledgerId, key)),
 							),
-					),
+						),
 				),
 			),
 		);
@@ -379,15 +412,19 @@ const membersOf =
 	(event: string): ResultAsync<IndexedTransaction[]> =>
 		withContext('db')((db) =>
 			read(
-				and(
-					eq(ledgerFiles.ledgerId, ledgerId),
-					inArray(
-						transactionTable.id,
-						db
-							.select({ id: metadataTable.transactionId })
-							.from(metadataTable)
-							.where(and(inArray(metadataTable.key, EVENT_KEYS), eq(metadataTable.value, event))),
-					),
+				ledgerId,
+				inArray(
+					transactionTable.id,
+					db
+						.select({ id: metadataTable.transactionId })
+						.from(metadataTable)
+						.where(
+							and(
+								eq(metadataTable.ledgerId, ledgerId),
+								inArray(metadataTable.key, EVENT_KEYS),
+								eq(metadataTable.value, event),
+							),
+						),
 				),
 			),
 		);
@@ -400,11 +437,9 @@ const eventIdTaken =
 				db
 					.select({ id: metadataTable.id })
 					.from(metadataTable)
-					.innerJoin(transactionTable, eq(transactionTable.id, metadataTable.transactionId))
-					.innerJoin(ledgerFiles, eq(ledgerFiles.id, transactionTable.fileId))
 					.where(
 						and(
-							eq(ledgerFiles.ledgerId, ledgerId),
+							eq(metadataTable.ledgerId, ledgerId),
 							inArray(metadataTable.key, EVENT_KEYS),
 							eq(metadataTable.value, id),
 						),
@@ -445,9 +480,7 @@ const balanceChecks =
 					with asserted as (
 						select distinct p.account, p.commodity
 						from ${postings} p
-						join ${transactionTable} t on t.id = p.transaction_id
-						join ${ledgerFiles} f on f.id = t.file_id
-						where f.ledger_id = ${ledgerId} and p.balance is not null
+						where p.ledger_id = ${ledgerId} and p.balance is not null
 					),
 					entries as (
 						select f.key as file, t.line, t.date, t.time, p.position, p.account, p.commodity, p.amount, p.balance,
@@ -455,7 +488,7 @@ const balanceChecks =
 						from ${postings} p
 						join ${transactionTable} t on t.id = p.transaction_id
 						join ${ledgerFiles} f on f.id = t.file_id
-						where f.ledger_id = ${ledgerId} and (p.account, p.commodity) in (select account, commodity from asserted)
+						where p.ledger_id = ${ledgerId} and (p.account, p.commodity) in (select account, commodity from asserted)
 					),
 					days as (
 						select account, commodity, date, sum(case when counted then amount else 0 end) as total

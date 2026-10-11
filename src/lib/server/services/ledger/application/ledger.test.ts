@@ -1,7 +1,13 @@
 import { asc, eq } from 'drizzle-orm';
 import { describe, expect } from 'vitest';
 import { v7 as uuidv7 } from 'uuid';
-import { ledgerFiles, metadata, users } from '#lib/server/db/schema.ts';
+import {
+	EMBEDDING_DIMENSIONS,
+	ledgerFiles,
+	metadata,
+	transactions,
+	users,
+} from '#lib/server/db/schema.ts';
 import type { Database } from '#lib/server/db/index.ts';
 import { provide } from '#lib/server/shared/context.ts';
 import { createUser } from '#tests/shared/seed.ts';
@@ -111,6 +117,34 @@ describe('syncing the ledger', () => {
 			await Ledger.sync(userId);
 
 			expect(await summary(ledgerId)).toEqual(['a.rupee:1 Salary', 'a.rupee:4 Groceries']);
+		}));
+
+	it('keeps a description embedded through a re-index', ({ context, db, storage }) =>
+		provide(context, async () => {
+			const { userId, ledgerId } = await createUser(db);
+			const vector = Array.from({ length: EMBEDDING_DIMENSIONS }, (_, i) => (i === 0 ? 1 : 0));
+			await put(storage, ledgerId, 'a.rupee', groceries);
+			await Ledger.sync(userId);
+			await db
+				.update(transactions)
+				.set({ embedding: vector, embeddingModel: 'm1' })
+				.where(eq(transactions.ledgerId, ledgerId));
+
+			await put(storage, ledgerId, 'a.rupee', `${salary}${groceries}`);
+			await Ledger.sync(userId);
+
+			const rows = await db
+				.select({
+					description: transactions.description,
+					model: transactions.embeddingModel,
+				})
+				.from(transactions)
+				.where(eq(transactions.ledgerId, ledgerId))
+				.orderBy(asc(transactions.line));
+			expect(rows).toEqual([
+				{ description: 'Salary', model: null },
+				{ description: 'Groceries', model: 'm1' },
+			]);
 		}));
 
 	it('reports parse errors on every sync until the file is fixed', ({ context, db, storage }) =>

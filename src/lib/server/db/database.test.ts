@@ -4,7 +4,16 @@ import { eq } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import { describe, expect } from 'vitest';
 import type { Database } from './index';
-import { ledgerFiles, ledgers, metadata, postings, storages, transactions, users } from './schema';
+import {
+	AccountType,
+	ledgerFiles,
+	ledgers,
+	metadata,
+	postings,
+	storages,
+	transactions,
+	users,
+} from './schema';
 
 const findLedger = (db: Database, id: string) =>
 	db
@@ -47,7 +56,7 @@ describe('the database', () => {
 		const posting = {
 			ledgerId,
 			transactionId: tx!.id,
-			accountType: 'Assets' as const,
+			accountType: AccountType.Assets,
 			commodity: 'INR',
 		};
 		await db.insert(postings).values([

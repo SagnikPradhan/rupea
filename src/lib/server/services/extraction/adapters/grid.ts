@@ -28,12 +28,10 @@ const throwing =
 const readers: Record<string, (upload: Upload) => ResultAsync<Grid>> = {
 	'.pdf': (u) => readPdf(u),
 	'.csv': throwing(async (c) => parse(Buffer.from(c), { bom: true, relax_column_count: true })),
-	'.xlsx': throwing((c) =>
-		readSheet(Buffer.from(c), { parseNumber: (n) => n }).then((r) => r.map((w) => w.map(toText))),
-	),
+	'.xlsx': throwing((c) => readSheet(Buffer.from(c)).then((r) => r.map((w) => w.map(xlsxToText)))),
 };
 
-const toText = (cell: unknown): string => {
+const xlsxToText = (cell: unknown): string => {
 	if (cell === null || cell === undefined) return '';
 	if (cell instanceof Date) return cell.toISOString().slice(0, 10);
 	return String(cell);

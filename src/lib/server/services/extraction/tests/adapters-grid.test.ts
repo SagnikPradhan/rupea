@@ -19,12 +19,12 @@ describe('reading a grid from a file', () => {
 		);
 	});
 
-	it('reads a sheet as text: dates as ISO days, numbers as written, empty cells blank', async () => {
+	it('reads a sheet as text: dates as ISO days, numbers as their values, empty cells blank', async () => {
 		const content = await readFile(join(import.meta.dirname, 'fixtures/statement.xlsx'));
 		expect(await readGrid({ name: 'a.xlsx', content })).toEqual(
 			ok([
 				['Date', 'Narration', 'Ref', 'Amount'],
-				['2026-08-29', 'GROCER', '', '1250.50'],
+				['2026-08-29', 'GROCER', '', '1250.5'],
 			]),
 		);
 	});

@@ -1,4 +1,4 @@
-import { petName, type Pick } from '#lib/server/shared/names.ts';
+import { petName } from '#lib/server/shared/names.ts';
 
 // Words a bank puts around the merchant's name; shorter ones are skipped anyway.
 const NOISE = new Set([
@@ -31,7 +31,6 @@ const NOISE = new Set([
 type EventIdOptions = {
 	date: string;
 	description: string;
-	pick: Pick;
 };
 
 // `2026-10-01-amazon-brave-otter`, or `2026-10-01-brave-otter` when no word in
@@ -43,5 +42,5 @@ export const eventId = (options: EventIdOptions): string => {
 		.split(/[^a-z]+/)
 		.find((w) => w.length >= 3 && !NOISE.has(w));
 
-	return [options.date, ...(merchant ? [merchant] : []), petName(options.pick)].join('-');
+	return [options.date, ...(merchant ? [merchant] : []), petName()].join('-');
 };

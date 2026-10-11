@@ -13,6 +13,8 @@ const MIGRATION_LOCK = 7_265_783;
 // Well under Postgres's limit of 65535 parameters per statement.
 export const ROWS_PER_STATEMENT = 500;
 
+const UNIQUE_VIOLATION = '23505';
+
 type Rows<R> = { rows: R[] };
 
 // Both drivers answer a raw query with its rows under `rows`.
@@ -71,6 +73,16 @@ export const embedDatabase = (client: PGlite, migrations: string): DatabaseHandl
 // A transaction's statements share one connection, so they go one at a time.
 export const inOrder = (l: (() => Promise<unknown>)[]): Promise<void> =>
 	l.reduce<Promise<void>>((p, f) => p.then(f).then(() => undefined), Promise.resolve());
+
+type DriverError = Error & { code?: string; constraint?: string };
+
+// Drizzle keeps the driver's error as the cause.
+export const violatesUnique = (thrown: unknown, constraint: string): boolean => {
+	if (!(thrown instanceof Error) || !(thrown.cause instanceof Error)) return false;
+
+	const cause: DriverError = thrown.cause;
+	return cause.code === UNIQUE_VIOLATION && cause.constraint === constraint;
+};
 
 type OpenOptions = { url: string | undefined; directory: string; migrations: string };
 

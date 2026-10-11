@@ -1,5 +1,7 @@
+import { violatesUnique } from '#lib/server/db/index.ts';
 import { emailCodes, sessions, storages, users } from '#lib/server/db/schema.ts';
 import { withContext } from '#lib/server/shared/context.ts';
+import { unknownError, type RupeeError } from '#lib/server/shared/error.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result.ts';
 import { eq } from 'drizzle-orm';
 
@@ -43,21 +45,28 @@ type CreateUserOptions = {
 	username: string;
 };
 
-// Every user gets a storage, where their schemas live. `null` when the username is taken.
-export const createUser = (options: CreateUserOptions): ResultAsync<User | null> =>
+// Every user gets a storage, where their schemas live.
+export const createUser = (options: CreateUserOptions): ResultAsync<User> =>
 	withContext('db')((db) =>
-		attempt(() =>
-			db.transaction(async (tx) => {
-				const [user] = await tx
-					.insert(users)
-					.values(options)
-					.onConflictDoNothing({ target: users.username })
-					.returning(userColumns);
-				if (user) await tx.insert(storages).values({ userId: user.id, kind: 'local' });
-				return user ?? null;
-			}),
-		),
+		attempt({
+			try: () =>
+				db.transaction(async (tx) => {
+					const user = await tx
+						.insert(users)
+						.values(options)
+						.returning(userColumns)
+						.then(([u]) => u ?? Promise.reject(new Error(`${options.email} was not saved`)));
+					await tx.insert(storages).values({ userId: user.id, kind: 'local' });
+					return user;
+				}),
+			catch: (t) => usernameTaken(options.username, t),
+		}),
 	);
+
+const usernameTaken = (u: string, t: unknown): RupeeError =>
+	violatesUnique(t, 'users_username_unique')
+		? { type: 'NameTaken', name: u, cause: [] }
+		: unknownError(t);
 
 type SaveEmailCodeOptions = {
 	email: string;

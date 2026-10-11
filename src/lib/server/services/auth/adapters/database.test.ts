@@ -1,9 +1,9 @@
-import { eq } from 'drizzle-orm';
-import { describe, expect } from 'vitest';
 import { storages } from '#lib/server/db/schema.ts';
 import { provide } from '#lib/server/shared/context.ts';
-import { ok } from '#lib/server/shared/result.ts';
+import { err } from '#lib/server/shared/result.ts';
 import { it } from '#tests/shared/vitest.ts';
+import { eq } from 'drizzle-orm';
+import { describe, expect } from 'vitest';
 import * as Auth from './database';
 
 const later = () => new Date(Date.now() + 60_000);
@@ -40,9 +40,9 @@ describe('the auth store', () => {
 			const users = (await Auth.countUsers()).unwrapOr(-1);
 			const stored = await db.$count(storages);
 
-			expect((await Auth.createUser({ email: 'c@example.com', username: 'c2' })).isErr()).toBe(
-				true,
-			);
+			expect(
+				(await Auth.createUser({ email: 'c@example.com', username: 'c2' }))._unsafeUnwrapErr(),
+			).toMatchObject({ type: 'UnknownError' });
 			expect((await Auth.countUsers()).unwrapOr(-1)).toBe(users);
 			expect(await db.$count(storages)).toBe(stored);
 		}));
@@ -51,7 +51,9 @@ describe('the auth store', () => {
 		provide(context, async () => {
 			await Auth.createUser({ email: 'e@example.com', username: 'e' });
 
-			expect(await Auth.createUser({ email: 'f@example.com', username: 'e' })).toEqual(ok(null));
+			expect(await Auth.createUser({ email: 'f@example.com', username: 'e' })).toEqual(
+				err({ type: 'NameTaken', name: 'e', cause: [] }),
+			);
 			expect((await Auth.findUserByEmail('f@example.com')).unwrapOr(undefined)).toBeNull();
 		}));
 

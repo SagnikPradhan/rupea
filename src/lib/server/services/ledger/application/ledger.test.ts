@@ -1,5 +1,4 @@
-import { asc, eq } from 'drizzle-orm';
-import { describe, expect } from 'vitest';
+import type { Database } from '#lib/server/db/index.ts';
 import {
 	EMBEDDING_DIMENSIONS,
 	ledgerFiles,
@@ -7,16 +6,26 @@ import {
 	metadata,
 	transactions,
 } from '#lib/server/db/schema.ts';
-import type { Database } from '#lib/server/db/index.ts';
 import { provide } from '#lib/server/shared/context.ts';
-import { isHandle } from '#lib/server/shared/names.ts';
+import { isHandle, petName } from '#lib/server/shared/names.ts';
+import { err, ok } from '#lib/server/shared/result.ts';
+import { scoped, type Storage } from '#lib/server/shared/storage/storage.ts';
 import { createLedger, createUser } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
-import { scoped, type Storage } from '#lib/server/shared/storage/storage.ts';
+import { asc, eq } from 'drizzle-orm';
+import { afterEach, describe, expect, vi } from 'vitest';
 import { index } from '../adapters/database';
 import { formatAmount } from '../domain/types';
 import * as Ledger from './ledger';
-import { err, ok } from '#lib/server/shared/result.ts';
+
+vi.mock(import('#lib/server/shared/names.ts'), async (original) => {
+	const names = await original();
+	return { ...names, petName: vi.fn(names.petName) };
+});
+
+afterEach(() => {
+	vi.mocked(petName).mockReset();
+});
 
 const groceries = '2026-08-29 Groceries\n\tExpenses:Food 100.5\n\tAssets:Bank\n';
 const salary = '2026-08-01 Salary\n\tAssets:Bank 50000\n\tIncome:Salary\n';
@@ -340,6 +349,23 @@ describe('reaching a ledger', () => {
 			expect(created).toMatchObject({ name: 'Home', owner: userId });
 			expect(isHandle(created.handle)).toBe(true);
 			expect((await stored(storage, created).read('a.rupee')).isOk()).toBe(true);
+		}));
+
+	it('tries another handle when one is taken, and gives up after a few', ({ context, db }) =>
+		provide(context, async () => {
+			const { userId } = await createUser(db);
+			vi.mocked(petName).mockReturnValueOnce('quiet-heron');
+			await Ledger.createLedger({ user: userId, name: 'Home' });
+			vi.mocked(petName).mockReturnValueOnce('quiet-heron').mockReturnValueOnce('brave-otter');
+
+			expect(await Ledger.createLedger({ user: userId, name: 'Work' })).toMatchObject(
+				ok({ handle: 'brave-otter', name: 'Work' }),
+			);
+
+			vi.mocked(petName).mockReturnValue('quiet-heron');
+			expect(await Ledger.createLedger({ user: userId, name: 'Away' })).toEqual(
+				err({ type: 'NameTaken', name: 'quiet-heron', cause: [] }),
+			);
 		}));
 });
 

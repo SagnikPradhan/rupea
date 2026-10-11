@@ -2,12 +2,11 @@ import { describe, expect, it } from 'vitest';
 import { isHandle, petName } from './names';
 
 describe('names', () => {
-	it('makes a pet name of an adjective and an animal', () => {
-		expect(petName((w) => w[0] ?? '')).toBe('able-aardvark');
-	});
+	it('makes a pet name of two words that is a handle', () => {
+		const name = petName();
 
-	it('makes only handles', () => {
-		expect(isHandle(petName((w) => w.at(-1) ?? ''))).toBe(true);
+		expect(name).toMatch(/^[a-z]+-[a-z]+$/);
+		expect(isHandle(name)).toBe(true);
 	});
 
 	it('accepts lowercase words joined by single hyphens as handles', () => {

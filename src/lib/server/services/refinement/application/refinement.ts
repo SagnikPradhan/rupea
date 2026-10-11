@@ -1,15 +1,6 @@
-import * as Ledger from '#services/ledger/application/ledger.ts';
-import {
-	checkEvents,
-	EventRole,
-	linksOf,
-	type RupeeFile,
-	type RupeeTransaction,
-} from '#services/ledger/application/shared.ts';
 import type { RupeeConfiguration } from '#lib/server/shared/config.ts';
 import { withContext } from '#lib/server/shared/context.ts';
 import type { RupeeError } from '#lib/server/shared/error.ts';
-import { randomPick } from '#lib/server/shared/names.ts';
 import {
 	batch,
 	concat,
@@ -20,6 +11,14 @@ import {
 	type Result,
 	type ResultAsync,
 } from '#lib/server/shared/result.ts';
+import * as Ledger from '#services/ledger/application/ledger.ts';
+import {
+	checkEvents,
+	EventRole,
+	linksOf,
+	type RupeeFile,
+	type RupeeTransaction,
+} from '#services/ledger/application/shared.ts';
 import { dismissals } from '../adapters/database';
 import { insertLinks, rewriteLinks, type LinkEdit, type Relink } from '../domain/edits';
 import { eventId } from '../domain/ids';
@@ -62,7 +61,6 @@ const fresh = (
 	const id = eventId({
 		date: primary?.date ?? '',
 		description: primary?.description ?? '',
-		pick: randomPick,
 	});
 	const retry = () =>
 		tries > 1

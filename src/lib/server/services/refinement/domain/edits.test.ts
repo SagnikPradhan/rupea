@@ -1,6 +1,6 @@
-import { describe, expect, it } from 'vitest';
-import { EventRole } from '#services/ledger/application/shared.ts';
 import { defaultConfiguration } from '#lib/server/shared/config.ts';
+import { EventRole } from '#services/ledger/application/shared.ts';
+import { describe, expect, it } from 'vitest';
 import { insertLinks, rewriteLinks, type LinkEdit } from './edits';
 import { eventId } from './ids';
 
@@ -116,17 +116,15 @@ describe('rewriting links', () => {
 });
 
 describe('naming an event', () => {
-	const first = (w: readonly string[]) => w[0] ?? '';
-
 	it('uses the date, the first word naming the merchant, an adjective and an animal', () => {
-		expect(
-			eventId({ date: '2026-10-03', description: 'UPI/DR/4123/SWIGGY/YESB', pick: first }),
-		).toBe('2026-10-03-swiggy-able-aardvark');
+		expect(eventId({ date: '2026-10-03', description: 'UPI/DR/4123/SWIGGY/YESB' })).toMatch(
+			/^2026-10-03-swiggy-[a-z]+-[a-z]+$/,
+		);
 	});
 
 	it('leaves the merchant out when no word names it', () => {
-		expect(eventId({ date: '2026-10-03', description: 'NEFT 4412 TO', pick: first })).toBe(
-			'2026-10-03-able-aardvark',
+		expect(eventId({ date: '2026-10-03', description: 'NEFT 4412 TO' })).toMatch(
+			/^2026-10-03-[a-z]+-[a-z]+$/,
 		);
 	});
 });

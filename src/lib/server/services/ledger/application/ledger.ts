@@ -1,11 +1,10 @@
 import { withContext } from '#lib/server/shared/context.ts';
 import type { RupeeError } from '#lib/server/shared/error.ts';
-import { petName, randomPick } from '#lib/server/shared/names.ts';
+import { petName } from '#lib/server/shared/names.ts';
 import {
 	concat,
 	errAsync,
 	ok,
-	okAsync,
 	ResultAsync,
 	type Batch,
 	type Result,
@@ -67,16 +66,12 @@ export const createLedger = (o: CreateLedgerOptions): ResultAsync<Ledger> =>
 	findStorage(o.user).andThen((s) => insertNamed({ ...o, storage: s.id }, TRIES));
 
 const insertNamed = (
-	options: CreateLedgerOptions & { storage: string },
-	tries: number,
-): ResultAsync<Ledger> => {
-	const handle = petName(randomPick);
-	return insertLedger({ ...options, owner: options.user, handle }).andThen((l) => {
-		if (l) return okAsync(l);
-		if (tries > 1) return insertNamed(options, tries - 1);
-		return errAsync<Ledger, RupeeError>({ type: 'NameTaken', name: handle, cause: [] });
-	});
-};
+	o: CreateLedgerOptions & { storage: string },
+	n: number,
+): ResultAsync<Ledger> =>
+	insertLedger({ ...o, owner: o.user, handle: petName() }).orElse((e) =>
+		e.type === 'NameTaken' && n > 1 ? insertNamed(o, n - 1) : errAsync(e),
+	);
 
 const ledgerFiles = (l: Ledger): ResultAsync<Files> =>
 	withStorage({ user: l.owner, action: (s) => ok(files(scoped(s, `ledgers/${l.handle}`))) });

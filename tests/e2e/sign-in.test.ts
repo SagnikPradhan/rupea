@@ -1,9 +1,10 @@
 import { expect, test } from './support/test.ts';
 import { visit } from './support/visit.ts';
 
-test('a new user signs in with an emailed code', async ({ signedIn, email }) => {
+test('a new user signs in with an emailed code, and gets a pet name', async ({ signedIn }) => {
 	await visit(signedIn, '/');
-	await expect(signedIn.getByText(`Signed in as ${email}`)).toBeVisible();
+	await expect(signedIn.getByText(/^Signed in as [a-z]+-[a-z]+$/)).toBeVisible();
+	await expect(signedIn.getByRole('link', { name: 'Personal' })).toBeVisible();
 });
 
 test('a visitor sees the sign-in form', async ({ page }) => {

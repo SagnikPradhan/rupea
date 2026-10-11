@@ -50,7 +50,7 @@ fields:
 </script>
 
 <h1>Statement schemas</h1>
-<p><a href="/ledger/import">Import a statement</a></p>
+<p><a href="/">Ledgers</a></p>
 
 {#each response.errors as error, index (index)}
 	<p role="alert">{error.type}</p>

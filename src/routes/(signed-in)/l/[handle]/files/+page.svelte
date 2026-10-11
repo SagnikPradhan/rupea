@@ -18,26 +18,32 @@
 
 	type TreeNode = { label: string; key: string; children: Map<string, TreeNode> };
 
+	const { data } = $props();
+
+	// The editor is made once; the layout remounts the page for another ledger.
+	const handle = untrack(() => data.ledger.handle);
+
 	// How many possible matches refinement found after the last save, and for which file.
 	const matches = $state({ key: '', count: 0 });
 
 	const editor = createEditor(
 		{
-			read: readFile,
+			read: (key) => readFile({ handle, key }),
 			check: checkDraft,
 			save: async (input) => {
-				const saved = await editFile(input);
-				if (saved.ok) await Promise.all([refine(input.key), getEvents(input.key).refresh()]);
+				const saved = await editFile({ handle, ...input });
+				if (saved.ok)
+					await Promise.all([refine(input.key), getEvents({ handle, file: input.key }).refresh()]);
 				return saved;
 			},
-			create: createFile,
-			rename: ({ key, to }) => renameFile({ key, to }),
-			remove: deleteFile,
+			create: (input) => createFile({ handle, ...input }),
+			rename: ({ key, to }) => renameFile({ handle, key, to }),
+			remove: (key) => deleteFile({ handle, key }),
 		},
 		300,
 	);
 
-	const response = $derived(await getFiles());
+	const response = $derived(await getFiles(handle));
 	const tree = $derived(toTree((response.data ?? []).map((f) => f.key)));
 	const selected = $derived(page.url.searchParams.get('file'));
 
@@ -53,7 +59,7 @@
 	});
 
 	async function refine(key: string) {
-		const found = await getSuggestions(key);
+		const found = await getSuggestions({ handle, file: key });
 		Object.assign(matches, { key, count: found.data?.length ?? 0 });
 	}
 
@@ -97,7 +103,7 @@
 {/snippet}
 
 <h1>Files</h1>
-<p><a href="/ledger/transactions">Transactions</a> · <button onclick={create}>New file</button></p>
+<p><button onclick={create}>New file</button></p>
 
 {#each response.errors as error, i (i)}
 	<p role="alert">{error.type}</p>
@@ -108,7 +114,7 @@
 	<section>
 		{#if selected !== null}
 			<p>
-				<a href="/ledger/refine?file={encodeURIComponent(selected)}">
+				<a href="/l/{handle}/refine?file={encodeURIComponent(selected)}">
 					{matches.key === selected && matches.count > 0
 						? `${matches.count} possible matches: review`
 						: 'Find matches'}
@@ -117,7 +123,7 @@
 		{/if}
 		<FileEditor {editor} onrenamed={open} onremoved={() => open(null)} />
 		{#if selected !== null}
-			<FileEvents file={selected} locked={editor.dirty} onchanged={editor.reload} />
+			<FileEvents {handle} file={selected} locked={editor.dirty} onchanged={editor.reload} />
 		{/if}
 	</section>
 </div>

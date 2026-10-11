@@ -4,7 +4,7 @@ import { describe, expect } from 'vitest';
 import { it } from '#tests/shared/vitest.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import type { Database } from './index';
-import { ledgerFiles, ledgers, metadata, postings, transactions } from './schema';
+import { ledgerFiles, ledgers, metadata, postings, storages, transactions, users } from './schema';
 
 const findLedger = (db: Database, id: string) =>
 	db
@@ -17,7 +17,7 @@ const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 describe('the database', () => {
 	it('stamps updatedAt on every update, and leaves createdAt alone', async ({ db }) => {
-		const id = await createLedger(db);
+		const id = (await createLedger(db)).id;
 		const before = await findLedger(db, id);
 		await pause(5);
 		await db.update(ledgers).set({ name: 'Renamed' }).where(eq(ledgers.id, id));
@@ -29,7 +29,7 @@ describe('the database', () => {
 	});
 
 	it('gives every row a UUIDv7 id and equal create and update times', async ({ db }) => {
-		const id = await createLedger(db);
+		const id = (await createLedger(db)).id;
 		const row = await findLedger(db, id);
 
 		expect(row?.id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-7/);
@@ -37,7 +37,7 @@ describe('the database', () => {
 	});
 
 	it('keeps amounts exact beyond 2^53, in rows and in sums', async ({ db }) => {
-		const ledgerId = await createLedger(db);
+		const ledgerId = (await createLedger(db)).id;
 		const [file] = await db.insert(ledgerFiles).values({ ledgerId, key: 'a' }).returning();
 		const [tx] = await db
 			.insert(transactions)
@@ -63,7 +63,7 @@ describe('the database', () => {
 	});
 
 	it('stamps updatedAt on an upsert too', async ({ db }) => {
-		const ledgerId = await createLedger(db);
+		const ledgerId = (await createLedger(db)).id;
 		const upsert = (version: string) =>
 			db
 				.insert(ledgerFiles)
@@ -79,7 +79,7 @@ describe('the database', () => {
 	});
 
 	it('writes a transaction all together or not at all', async ({ db }) => {
-		const id = await createLedger(db);
+		const id = (await createLedger(db)).id;
 		const failing = db.transaction(async (tx) => {
 			await tx.update(ledgers).set({ name: 'Half done' }).where(eq(ledgers.id, id));
 			await tx.insert(ledgerFiles).values({ ledgerId: uuidv7(), key: 'a' });
@@ -91,7 +91,7 @@ describe('the database', () => {
 	});
 
 	it('gives every metadata row exactly one owner', async ({ db }) => {
-		const ledgerId = await createLedger(db);
+		const ledgerId = (await createLedger(db)).id;
 		const [file] = await db.insert(ledgerFiles).values({ ledgerId, key: 'a' }).returning();
 		const [tx] = await db
 			.insert(transactions)
@@ -110,15 +110,27 @@ describe('the database', () => {
 	});
 
 	it('removes what hangs off a row it deletes', async ({ db }) => {
-		const ledgerId = await createLedger(db);
+		const ledgerId = (await createLedger(db)).id;
 		await db.insert(ledgerFiles).values({ ledgerId, key: 'a' });
 		await db.delete(ledgers).where(eq(ledgers.id, ledgerId));
 
 		expect(await db.$count(ledgerFiles, eq(ledgerFiles.ledgerId, ledgerId))).toBe(0);
 	});
 
+	it("takes a user's storage and the ledgers in it with them", async ({ db }) => {
+		const ledger = await createLedger(db);
+		await db.insert(ledgerFiles).values({ ledgerId: ledger.id, key: 'a' });
+		await db.delete(users).where(eq(users.id, ledger.owner));
+
+		expect(await db.$count(storages, eq(storages.userId, ledger.owner))).toBe(0);
+		expect(await db.$count(ledgers, eq(ledgers.id, ledger.id))).toBe(0);
+		expect(await db.$count(ledgerFiles, eq(ledgerFiles.ledgerId, ledger.id))).toBe(0);
+	});
+
 	it('reads what was just written, however many queries are in flight', async ({ db }) => {
-		const ids = await Promise.all(Array.from({ length: 20 }, () => createLedger(db)));
+		const ids = (await Promise.all(Array.from({ length: 20 }, () => createLedger(db)))).map(
+			(l) => l.id,
+		);
 		const found = await Promise.all(ids.map((id) => findLedger(db, id)));
 
 		expect(found.map((f) => f?.id)).toEqual(ids);

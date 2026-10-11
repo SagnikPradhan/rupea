@@ -1,17 +1,9 @@
-import { eq } from 'drizzle-orm';
-import { v7 as uuidv7 } from 'uuid';
-import {
-	emailCodes,
-	ledgers,
-	memberships,
-	sessions,
-	users,
-	type Role,
-} from '#lib/server/db/schema.ts';
+import { emailCodes, sessions, storages, users } from '#lib/server/db/schema.ts';
 import { withContext } from '#lib/server/shared/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result.ts';
+import { eq } from 'drizzle-orm';
 
-export type User = { id: string; email: string; ledgerId: string | null };
+export type User = { id: string; email: string; username: string };
 
 export type Session = {
 	tokenHash: string;
@@ -19,15 +11,17 @@ export type Session = {
 	expiresAt: Date;
 };
 
-const userColumns = { id: users.id, email: users.email, ledgerId: users.ledgerId };
+const userColumns = {
+	id: users.id,
+	email: users.email,
+	username: users.username,
+};
 
 const sessionColumns = {
 	tokenHash: sessions.tokenHash,
 	userId: sessions.userId,
 	expiresAt: sessions.expiresAt,
 };
-
-const OWNER: Role = 'owner';
 
 export const findUserByEmail = (email: string): ResultAsync<User | null> =>
 	withContext('db')((db) =>
@@ -44,19 +38,25 @@ export const findUserByEmail = (email: string): ResultAsync<User | null> =>
 export const countUsers = (): ResultAsync<number> =>
 	withContext('db')((db) => attempt(() => db.$count(users)));
 
-export const createUser = (email: string): ResultAsync<User> =>
+type CreateUserOptions = {
+	email: string;
+	username: string;
+};
+
+// Every user gets a storage, where their schemas live. `null` when the username is taken.
+export const createUser = (options: CreateUserOptions): ResultAsync<User | null> =>
 	withContext('db')((db) =>
-		attempt(async () => {
-			const user = { id: uuidv7(), email, ledgerId: uuidv7() };
-			await db.transaction(async (tx) => {
-				await tx.insert(ledgers).values({ id: user.ledgerId, name: 'Personal' });
-				await tx.insert(users).values(user);
-				await tx
-					.insert(memberships)
-					.values({ userId: user.id, ledgerId: user.ledgerId, role: OWNER });
-			});
-			return user;
-		}),
+		attempt(() =>
+			db.transaction(async (tx) => {
+				const [user] = await tx
+					.insert(users)
+					.values(options)
+					.onConflictDoNothing({ target: users.username })
+					.returning(userColumns);
+				if (user) await tx.insert(storages).values({ userId: user.id, kind: 'local' });
+				return user ?? null;
+			}),
+		),
 	);
 
 type SaveEmailCodeOptions = {
@@ -65,21 +65,19 @@ type SaveEmailCodeOptions = {
 	expiresAt: Date;
 };
 
-export const saveEmailCode = (options: SaveEmailCodeOptions): ResultAsync<void> => {
-	const { email, codeHash, expiresAt } = options;
-	return withContext('db')((db) =>
-		attempt(() =>
-			db
-				.insert(emailCodes)
-				.values({ email, codeHash, expiresAt })
-				.onConflictDoUpdate({
-					target: emailCodes.email,
-					set: { codeHash, expiresAt },
-				})
-				.then(() => undefined),
-		),
+export const saveEmailCode = ({
+	email,
+	codeHash,
+	expiresAt,
+}: SaveEmailCodeOptions): ResultAsync<void> =>
+	withContext('db')((db) =>
+		attempt(async () => {
+			await db.insert(emailCodes).values({ email, codeHash, expiresAt }).onConflictDoUpdate({
+				target: emailCodes.email,
+				set: { codeHash, expiresAt },
+			});
+		}),
 	);
-};
 
 export const takeEmailCode = (
 	email: string,
@@ -96,12 +94,9 @@ export const takeEmailCode = (
 
 export const createSession = (s: Session): ResultAsync<void> =>
 	withContext('db')((db) =>
-		attempt(() =>
-			db
-				.insert(sessions)
-				.values(s)
-				.then(() => undefined),
-		),
+		attempt(async () => {
+			await db.insert(sessions).values(s);
+		}),
 	);
 
 export const findSession = (
@@ -121,21 +116,14 @@ export const findSession = (
 
 export const extendSession = (tokenHash: string, expiresAt: Date): ResultAsync<void> =>
 	withContext('db')((db) =>
-		attempt(() =>
-			db
-				.update(sessions)
-				.set({ expiresAt })
-				.where(eq(sessions.tokenHash, tokenHash))
-				.then(() => undefined),
-		),
+		attempt(async () => {
+			await db.update(sessions).set({ expiresAt }).where(eq(sessions.tokenHash, tokenHash));
+		}),
 	);
 
 export const deleteSession = (tokenHash: string): ResultAsync<void> =>
 	withContext('db')((db) =>
-		attempt(() =>
-			db
-				.delete(sessions)
-				.where(eq(sessions.tokenHash, tokenHash))
-				.then(() => undefined),
-		),
+		attempt(async () => {
+			await db.delete(sessions).where(eq(sessions.tokenHash, tokenHash));
+		}),
 	);

@@ -18,7 +18,9 @@ export type RupeeError =
 	  }
 	| { type: 'AuthInvalidCode'; cause: RupeeError[] }
 	| { type: 'AuthUnauthenticated'; cause: RupeeError[] }
-	| { type: 'LedgerNotFound'; userId: string; cause: RupeeError[] }
+	| { type: 'StorageMissing'; userId: string; cause: RupeeError[] }
+	| { type: 'LedgerNotFound'; handle: string; cause: RupeeError[] }
+	| { type: 'NameTaken'; name: string; cause: RupeeError[] }
 	| {
 			type: 'ParseInvalidTransactionHeader';
 			location: string;

@@ -1,6 +1,5 @@
 import * as v from 'valibot';
 import { command, query } from '$app/server';
-import * as Auth from '#services/auth/application/auth.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import {
 	fromBatch,
@@ -8,45 +7,53 @@ import {
 	type Response,
 	type ResultAsync,
 } from '#lib/server/shared/result.ts';
-import { Key } from './shared';
+import { Handle, inLedger, Key } from './shared';
 import { getTransactions } from './transactions.remote';
 
-const CreateFile = v.object({ key: Key, content: v.string() });
+const ReadFile = v.object({ handle: Handle, key: Key });
+
+const CreateFile = v.object({ handle: Handle, key: Key, content: v.string() });
 
 const EditFile = v.object({
+	handle: Handle,
 	key: Key,
 	content: v.string(),
 	version: v.string(),
 });
 
-const RenameFile = v.object({ key: Key, to: Key });
+const RenameFile = v.object({ handle: Handle, key: Key, to: Key });
 
-export const getFiles = query(async () =>
-	fromBatch(await Auth.withCurrentUser(({ id }) => Ledger.listFiles(id))),
+export const getFiles = query(Handle, async (h) =>
+	fromBatch(await inLedger({ handle: h, action: Ledger.listFiles })),
 );
 
 // A command, not a query: never cached, as the file may change behind the app's back.
-export const readFile = command(Key, async (k) =>
-	fromResult(await Auth.withCurrentUser(({ id }) => Ledger.getFile(id, k))),
+export const readFile = command(ReadFile, async ({ handle, key }) =>
+	fromResult(await inLedger({ handle, action: (l) => Ledger.getFile(l, key) })),
 );
 
-const mutate = async <T>(run: (userId: string) => ResultAsync<T>): Promise<Response<T>> => {
-	const result = await Auth.withCurrentUser(({ id }) => run(id));
-	void getFiles().refresh();
-	void getTransactions().refresh();
+const mutate = async <T>(
+	handle: string,
+	run: (ledger: Ledger.Ledger) => ResultAsync<T>,
+): Promise<Response<T>> => {
+	const result = await inLedger({ handle, action: run });
+	void getFiles(handle).refresh();
+	void getTransactions(handle).refresh();
 	return fromResult(result);
 };
 
-export const createFile = command(CreateFile, ({ key, content }) =>
-	mutate((u) => Ledger.createFile({ userId: u, key, content })),
+export const createFile = command(CreateFile, ({ handle, key, content }) =>
+	mutate(handle, (l) => Ledger.createFile({ ledger: l, key, content })),
 );
 
-export const editFile = command(EditFile, ({ key, content, version }) =>
-	mutate((u) => Ledger.editFile({ userId: u, key, content, version })),
+export const editFile = command(EditFile, ({ handle, key, content, version }) =>
+	mutate(handle, (l) => Ledger.editFile({ ledger: l, key, content, version })),
 );
 
-export const renameFile = command(RenameFile, ({ key, to }) =>
-	mutate((u) => Ledger.renameFile({ userId: u, from: key, to })),
+export const renameFile = command(RenameFile, ({ handle, key, to }) =>
+	mutate(handle, (l) => Ledger.renameFile({ ledger: l, from: key, to })),
 );
 
-export const deleteFile = command(Key, (k) => mutate((u) => Ledger.deleteFile(u, k)));
+export const deleteFile = command(ReadFile, ({ handle, key }) =>
+	mutate(handle, (l) => Ledger.deleteFile(l, key)),
+);

@@ -1,5 +1,5 @@
 {
-  "id": "535a1b6c-a30b-4a0a-afe3-e6ab30ff8025",
+  "id": "f887d908-d3c1-462a-8447-6995f3082ed1",
   "prevId": "4ebe88a6-4d37-4ae5-8eab-1652acb02b5c",
   "version": "7",
   "dialect": "postgresql",
@@ -233,6 +233,18 @@
           "notNull": true,
           "default": "now()"
         },
+        "storage_id": {
+          "name": "storage_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "handle": {
+          "name": "handle",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
         "name": {
           "name": "name",
           "type": "text",
@@ -240,10 +252,48 @@
           "notNull": true
         }
       },
-      "indexes": {},
-      "foreignKeys": {},
+      "indexes": {
+        "ledgers_storage_id": {
+          "name": "ledgers_storage_id",
+          "columns": [
+            {
+              "expression": "storage_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "ledgers_storage_id_storages_id_fk": {
+          "name": "ledgers_storage_id_storages_id_fk",
+          "tableFrom": "ledgers",
+          "tableTo": "storages",
+          "columnsFrom": [
+            "storage_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
       "compositePrimaryKeys": {},
-      "uniqueConstraints": {},
+      "uniqueConstraints": {
+        "ledgers_handle_unique": {
+          "name": "ledgers_handle_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "handle"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -272,13 +322,6 @@
           "primaryKey": false,
           "notNull": true,
           "default": "now()"
-        },
-        "role": {
-          "name": "role",
-          "type": "role",
-          "typeSchema": "public",
-          "primaryKey": false,
-          "notNull": true
         },
         "user_id": {
           "name": "user_id",
@@ -824,6 +867,75 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
+    "public.storages": {
+      "name": "storages",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "user_id": {
+          "name": "user_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "kind": {
+          "name": "kind",
+          "type": "storage_kind",
+          "typeSchema": "public",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {},
+      "foreignKeys": {
+        "storages_user_id_users_id_fk": {
+          "name": "storages_user_id_users_id_fk",
+          "tableFrom": "storages",
+          "tableTo": "users",
+          "columnsFrom": [
+            "user_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "storages_user_id_unique": {
+          "name": "storages_user_id_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "user_id"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
     "public.transactions": {
       "name": "transactions",
       "schema": "",
@@ -1017,29 +1129,15 @@
           "primaryKey": false,
           "notNull": true
         },
-        "ledger_id": {
-          "name": "ledger_id",
-          "type": "uuid",
+        "username": {
+          "name": "username",
+          "type": "text",
           "primaryKey": false,
-          "notNull": false
+          "notNull": true
         }
       },
       "indexes": {},
-      "foreignKeys": {
-        "users_ledger_id_ledgers_id_fk": {
-          "name": "users_ledger_id_ledgers_id_fk",
-          "tableFrom": "users",
-          "tableTo": "ledgers",
-          "columnsFrom": [
-            "ledger_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "set null",
-          "onUpdate": "no action"
-        }
-      },
+      "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "users_email_unique": {
@@ -1047,6 +1145,13 @@
           "nullsNotDistinct": false,
           "columns": [
             "email"
+          ]
+        },
+        "users_username_unique": {
+          "name": "users_username_unique",
+          "nullsNotDistinct": false,
+          "columns": [
+            "username"
           ]
         }
       },
@@ -1075,11 +1180,11 @@
         "total"
       ]
     },
-    "public.role": {
-      "name": "role",
+    "public.storage_kind": {
+      "name": "storage_kind",
       "schema": "public",
       "values": [
-        "owner"
+        "local"
       ]
     }
   },

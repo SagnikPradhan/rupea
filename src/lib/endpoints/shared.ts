@@ -1,3 +1,5 @@
+import * as Auth from '#services/auth/application/auth.ts';
+import * as Ledger from '#services/ledger/application/ledger.ts';
 import { PRICE_SIGN } from '#services/ledger/domain/printer.ts';
 import {
 	AccountType,
@@ -5,7 +7,11 @@ import {
 	formatQuantity,
 	type RupeeTransaction,
 } from '#services/ledger/domain/types.ts';
+import { isHandle } from '#lib/server/shared/names.ts';
+import type { ResultAsync } from '#lib/server/shared/result.ts';
 import * as v from 'valibot';
+
+export const Handle = v.pipe(v.string(), v.check(isHandle, 'Not a ledger handle.'));
 
 export const Key = v.pipe(
 	v.string(),
@@ -29,6 +35,21 @@ export const Account = v.pipe(
 		`An account starts with one of ${Object.values(AccountType).join(', ')}.`,
 	),
 );
+
+type InLedgerOptions<T> = {
+	handle: string;
+	action: (ledger: Ledger.Ledger, user: Auth.User) => ResultAsync<T>;
+};
+
+// The ledger a page is on, if the signed-in user may reach it.
+export const inLedger = <T>(options: InLedgerOptions<T>): ResultAsync<T> =>
+	Auth.withCurrentUser((u) =>
+		Ledger.withLedger({
+			user: u.id,
+			handle: options.handle,
+			action: (l) => options.action(l, u),
+		}),
+	);
 
 export const viewTransaction = ({
 	location,

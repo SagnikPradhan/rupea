@@ -2,7 +2,7 @@ import { describe, expect } from 'vitest';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import { provide } from '#lib/server/shared/context.ts';
 import { broken, hashed } from '#tests/shared/embedding.ts';
-import { createUser } from '#tests/shared/seed.ts';
+import { createLedger, createUser } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
 import * as Extraction from './extraction';
 import { err, ok } from '#lib/server/shared/result.ts';
@@ -39,9 +39,11 @@ describe('extracting a statement', () => {
 	it('reads a statement into a draft that parses', ({ context, db }) =>
 		// Without the model, lines nobody categorised stay uncategorised.
 		provide({ ...context, models: broken(context.models) }, async () => {
-			const { userId } = await createUser(db);
-			await Extraction.saveSchema({ userId, key: 'bank.yml', content: schema });
-			const draft = await Extraction.extract(userId, {
+			const ledger = await createLedger(db);
+			await Extraction.saveSchema({ user: ledger.owner, key: 'bank.yml', content: schema });
+			const draft = await Extraction.extract({
+				user: ledger.owner,
+				ledger,
 				schema: 'bank.yml',
 				file: upload('aug.csv', statement),
 				account: 'Assets:Bank',
@@ -82,10 +84,10 @@ describe('extracting a statement', () => {
 
 	it('files uncategorised lines under the accounts the ledger shows', ({ context, db }) =>
 		provide({ ...context, models: hashed(context.models) }, async () => {
-			const { userId } = await createUser(db);
-			await Extraction.saveSchema({ userId, key: 'bank.yml', content: schema });
+			const ledger = await createLedger(db);
+			await Extraction.saveSchema({ user: ledger.owner, key: 'bank.yml', content: schema });
 			await Ledger.createFile({
-				userId,
+				ledger,
 				key: 'history.rupee',
 				content: [
 					'2026-07-30 SALARY',
@@ -98,7 +100,9 @@ describe('extracting a statement', () => {
 					'',
 				].join('\n'),
 			});
-			const draft = await Extraction.extract(userId, {
+			const draft = await Extraction.extract({
+				user: ledger.owner,
+				ledger,
 				schema: 'bank.yml',
 				file: upload('aug.csv', statement),
 				account: 'Assets:Bank',
@@ -113,13 +117,15 @@ describe('extracting a statement', () => {
 
 	it('asserts the running balance a statement prints', ({ context, db }) =>
 		provide({ ...context, models: broken(context.models) }, async () => {
-			const { userId } = await createUser(db);
+			const ledger = await createLedger(db);
 			await Extraction.saveSchema({
-				userId,
+				user: ledger.owner,
 				key: 'bank.yml',
 				content: `${schema}  balance: { from: [header: Balance], pipe: [number] }\n`,
 			});
-			const draft = await Extraction.extract(userId, {
+			const draft = await Extraction.extract({
+				user: ledger.owner,
+				ledger,
 				schema: 'bank.yml',
 				file: upload(
 					'aug.csv',
@@ -140,9 +146,11 @@ describe('extracting a statement', () => {
 
 	it('fails without the schema', ({ context, db }) =>
 		provide(context, async () => {
-			const { userId } = await createUser(db);
+			const ledger = await createLedger(db);
 			expect(
-				await Extraction.extract(userId, {
+				await Extraction.extract({
+					user: ledger.owner,
+					ledger,
 					schema: 'missing.yml',
 					file: upload('aug.csv', statement),
 					account: 'Assets:Bank',
@@ -155,7 +163,7 @@ describe('statement schemas', () => {
 	it('are saved, listed and read back', ({ context, db }) =>
 		provide(context, async () => {
 			const { userId } = await createUser(db);
-			await Extraction.saveSchema({ userId, key: 'bank.yml', content: schema });
+			await Extraction.saveSchema({ user: userId, key: 'bank.yml', content: schema });
 			expect(await Extraction.listSchemas(userId)).toMatchObject(ok([{ key: 'bank.yml' }]));
 			expect(await Extraction.readSchema(userId, 'bank.yml')).toMatchObject(
 				ok({ content: schema }),
@@ -167,11 +175,39 @@ describe('statement schemas', () => {
 			const { userId } = await createUser(db);
 			expect(
 				await Extraction.saveSchema({
-					userId,
+					user: userId,
 					key: 'bad.yml',
 					content: 'version: v2',
 				}),
 			).toMatchObject(err({ type: 'ExtractionInvalidSchema', path: 'bad.yml' }));
 			expect(await Extraction.listSchemas(userId)).toEqual(ok([]));
+		}));
+
+	it("live in their user's storage, not in a ledger", ({ context, db, storage }) =>
+		provide(context, async () => {
+			const { userId } = await createUser(db);
+			await Extraction.saveSchema({ user: userId, key: 'bank.yml', content: schema });
+
+			expect((await storage.read(`users/${userId}/schemas/bank.yml`)).isOk()).toBe(true);
+		}));
+
+	it("serve their user's imports into someone else's ledger", ({ context, db }) =>
+		provide({ ...context, models: broken(context.models) }, async () => {
+			const ledger = await createLedger(db);
+			const member = await createUser(db);
+			await Extraction.saveSchema({ user: member.userId, key: 'bank.yml', content: schema });
+			const extract = (user: string) =>
+				Extraction.extract({
+					user,
+					ledger,
+					schema: 'bank.yml',
+					file: upload('aug.csv', statement),
+					account: 'Assets:Bank',
+				});
+
+			expect((await extract(member.userId)).isOk()).toBe(true);
+			expect(await extract(ledger.owner)).toMatchObject(
+				err({ type: 'CannotReadFile', path: 'bank.yml' }),
+			);
 		}));
 });

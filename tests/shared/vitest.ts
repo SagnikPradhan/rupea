@@ -9,7 +9,7 @@ import { createLogger } from '#lib/server/shared/logger.ts';
 import { logMailer } from '#lib/server/shared/mailer.ts';
 import { createTemporaryDatabase, template } from './database.ts';
 import { localStorage } from '#lib/server/shared/storage/local.ts';
-import type { Storage } from '#lib/server/shared/storage/storage.ts';
+import { scoped, type Storage } from '#lib/server/shared/storage/storage.ts';
 import { models } from '#lib/server/shared/onnx/models.ts';
 import { createModels } from '#lib/server/shared/onnx/runtime.ts';
 
@@ -42,7 +42,7 @@ export const it = base.extend<{
 		await use({
 			config: defaultConfiguration,
 			db,
-			storage,
+			storages: { local: (u) => scoped(storage, `users/${u}`) },
 			mailer: logMailer,
 			logger,
 			models: createModels({

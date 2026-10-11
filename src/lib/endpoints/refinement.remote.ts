@@ -1,11 +1,11 @@
 import * as v from 'valibot';
 import { command, query } from '$app/server';
-import * as Auth from '#services/auth/application/auth.ts';
+import * as Ledger from '#services/ledger/application/ledger.ts';
 import * as Refinement from '#services/refinement/application/refinement.ts';
 import { EventRole } from '#services/ledger/domain/events.ts';
 import type { RupeeError } from '#lib/server/shared/error.ts';
 import { fromResult, type ResultAsync } from '#lib/server/shared/result.ts';
-import { Key, viewTransaction } from './shared';
+import { Handle, inLedger, Key, viewTransaction } from './shared';
 import { getFiles } from './files.remote';
 import { getTransactions } from './transactions.remote';
 
@@ -22,6 +22,8 @@ const LinkEdit = v.object({
 	event: EventId,
 });
 
+const InFile = v.object({ handle: Handle, file: Key });
+
 const Fingerprint = v.pipe(v.string(), v.regex(/^[0-9a-f]{64}$/));
 
 const view = ({ ours, theirs, ...suggestion }: Refinement.Suggestion) => ({
@@ -30,25 +32,34 @@ const view = ({ ours, theirs, ...suggestion }: Refinement.Suggestion) => ({
 	theirs: viewTransaction(theirs),
 });
 
-export const getSuggestions = query(Key, async (k) =>
+export const getSuggestions = query(InFile, async ({ handle, file }) =>
 	fromResult(
-		await Auth.withCurrentUser(({ id }) => Refinement.suggestFor(id, k)).map((s) => s.map(view)),
+		await inLedger({ handle, action: (l) => Refinement.suggestFor(l, file) }).map((s) =>
+			s.map(view),
+		),
 	),
 );
 
-export const acceptSuggestions = command(v.array(LinkEdit), async (edits) => {
-	const accepted = await Auth.withCurrentUser(({ id }) => Refinement.accept(id, edits));
-	void getFiles().refresh();
-	void getTransactions().refresh();
-	for (const file of new Set(edits.map((e) => e.file))) void getSuggestions(file).refresh();
-	return fromResult(accepted);
-});
+export const acceptSuggestions = command(
+	v.object({ handle: Handle, edits: v.array(LinkEdit) }),
+	async ({ handle, edits }) => {
+		const accepted = await inLedger({ handle, action: (l) => Refinement.accept(l, edits) });
+		void getFiles(handle).refresh();
+		void getTransactions(handle).refresh();
+		for (const file of new Set(edits.map((e) => e.file)))
+			void getSuggestions({ handle, file }).refresh();
+		return fromResult(accepted);
+	},
+);
 
 export const dismissSuggestion = command(
-	v.object({ file: Key, fingerprint: Fingerprint }),
-	async ({ file, fingerprint }) => {
-		const dismissed = await Auth.withCurrentUser(({ id }) => Refinement.dismiss(id, fingerprint));
-		void getSuggestions(file).refresh();
+	v.object({ handle: Handle, file: Key, fingerprint: Fingerprint }),
+	async ({ handle, file, fingerprint }) => {
+		const dismissed = await inLedger({
+			handle,
+			action: (l) => Refinement.dismiss(l, fingerprint),
+		});
+		void getSuggestions({ handle, file }).refresh();
 		return fromResult(dismissed);
 	},
 );
@@ -58,28 +69,47 @@ const viewEvent = ({ event, members }: Refinement.FileEvent) => ({
 	members: members.map(({ role, counted, ...t }) => ({ role, counted, ...viewTransaction(t) })),
 });
 
-export const getEvents = query(Key, async (k) =>
+export const getEvents = query(InFile, async ({ handle, file }) =>
 	fromResult(
-		await Auth.withCurrentUser(({ id }) => Refinement.eventsIn(id, k)).map((e) => e.map(viewEvent)),
+		await inLedger({ handle, action: (l) => Refinement.eventsIn(l, file) }).map((e) =>
+			e.map(viewEvent),
+		),
 	),
 );
 
-// `file` is the one being viewed, whose events are refreshed.
-const changeEvent = async (file: string, run: (userId: string) => ResultAsync<RupeeError[]>) => {
-	const changed = await Auth.withCurrentUser(({ id }) => run(id));
-	void getFiles().refresh();
-	void getTransactions().refresh();
-	void getEvents(file).refresh();
+type ChangeEventOptions = {
+	handle: string;
+	// The one being viewed, whose events are refreshed.
+	file: string;
+	action: (ledger: Ledger.Ledger) => ResultAsync<RupeeError[]>;
+};
+
+const changeEvent = async (options: ChangeEventOptions) => {
+	const { handle, file, action } = options;
+	const changed = await inLedger({ handle, action });
+	void getFiles(handle).refresh();
+	void getTransactions(handle).refresh();
+	void getEvents({ handle, file }).refresh();
 	return fromResult(changed);
 };
 
 export const renameEvent = command(
-	v.object({ file: Key, event: EventId, to: EventId }),
-	({ file, event, to }) => changeEvent(file, (u) => Refinement.renameEvent(u, event, to)),
+	v.object({ handle: Handle, file: Key, event: EventId, to: EventId }),
+	({ handle, file, event, to }) =>
+		changeEvent({ handle, file, action: (l) => Refinement.renameEvent(l, event, to) }),
 );
 
 export const makePrimary = command(
-	v.object({ file: Key, event: EventId, member: v.object({ file: Key, line: Line }) }),
-	({ file, event, member }) =>
-		changeEvent(file, (u) => Refinement.makePrimary({ userId: u, event, ...member })),
+	v.object({
+		handle: Handle,
+		file: Key,
+		event: EventId,
+		member: v.object({ file: Key, line: Line }),
+	}),
+	({ handle, file, event, member }) =>
+		changeEvent({
+			handle,
+			file,
+			action: (l) => Refinement.makePrimary({ ledger: l, event, ...member }),
+		}),
 );

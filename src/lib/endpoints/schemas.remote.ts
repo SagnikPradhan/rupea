@@ -17,7 +17,7 @@ export const getSchema = query(SchemaKey, async (k) =>
 
 export const saveSchema = command(SaveSchema, async ({ key, content }) => {
 	const saved = await Auth.withCurrentUser(({ id }) =>
-		Extraction.saveSchema({ userId: id, key, content }),
+		Extraction.saveSchema({ user: id, key, content }),
 	);
 	void getSchemas().refresh();
 	return fromResult(saved);

@@ -11,7 +11,7 @@ const logger = createLogger('silent', false);
 const context = {
 	config: defaultConfiguration,
 	db: {} as RupeeContext['db'],
-	storage: localStorage('/nowhere'),
+	storages: { local: () => localStorage('/nowhere') },
 	models: createModels({
 		directory: '/nowhere',
 		files: [],

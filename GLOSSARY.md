@@ -53,6 +53,23 @@ An Income or Expenses account, describing what money was for rather than where i
 A `key: value` fact attached to a ledger file, transaction or posting. Any key is allowed; the system acts only on keys it understands.
 _Avoid_: Tag (a tag is one kind of metadata value), annotation, attribute
 
+## Storage and access
+
+**Storage**:
+The place one user's files live, such as a local directory or a Drive folder. It holds that user's schemas and every ledger they own.
+_Avoid_: Root, drive, bucket, vault
+
+**Owner**:
+The user whose storage a ledger lives in.
+
+**Member**:
+A user other than the owner who has been granted a ledger.
+_Avoid_: Collaborator, guest
+
+**Handle**:
+A ledger's permanent name, used to address it.
+_Avoid_: Slug, ID
+
 ## Importing
 
 **Source**:
@@ -63,7 +80,7 @@ _Avoid_: Provider, feed
 A file from a source that is imported into the ledger.
 
 **Schema**:
-A description of how to read one kind of statement into records.
+A description of how to read one kind of statement into records. It belongs to the user who imports with it, not to a ledger.
 _Avoid_: Template, parser
 
 **Draft**:

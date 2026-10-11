@@ -1,0 +1,83 @@
+import { EVENT_KEY, EVENT_KEYS, linksOf, type EventLink } from '#services/ledger/domain/events.ts';
+import { parse } from '#services/ledger/domain/parser.ts';
+import type { RupeeFile, RupeeTransaction } from '#services/ledger/domain/types.ts';
+import type { RupeeConfiguration } from '#lib/server/shared/config.ts';
+import { err, ok, type Result } from '#lib/server/shared/result.ts';
+import type { LinkTarget } from './matching';
+
+export type LinkEdit = LinkTarget & { event: string };
+
+// A link goes right under its header, so it is transaction metadata. Each
+// header must still be the one suggested, with no link of its own.
+export const insertLinks = (
+	config: RupeeConfiguration,
+	file: Pick<RupeeFile, 'key' | 'content'>,
+	edits: LinkEdit[],
+): Result<string> => {
+	const headers = Object.fromEntries(
+		parse(config, file).succeeded.map((t) => [t.location.line, t]),
+	);
+	const stale = edits.find((e, i) => {
+		const t = headers[e.line];
+		const repeated = edits.findIndex((o) => o.line === e.line) !== i;
+		return (
+			!t ||
+			repeated ||
+			t.date.toString() !== e.date ||
+			t.description !== e.description ||
+			linksOf(t).length > 0
+		);
+	});
+	if (stale)
+		return err({ type: 'RefinementStale', location: `${stale.file}:${stale.line}`, cause: [] });
+
+	// Bottom up, so earlier insertions do not move later lines.
+	const lines = [...edits]
+		.sort((a, b) => b.line - a.line)
+		.reduce(
+			(l, e) => l.toSpliced(e.line, 0, `\t- ${EVENT_KEY[e.role]}: ${e.event}`),
+			file.content.split('\n'),
+		);
+	return ok(lines.join('\n'));
+};
+
+export type Relink = (t: RupeeTransaction, l: EventLink) => EventLink;
+
+// Rewrites, in place, each link a transaction in the file has to the event;
+// formatting, comments and other metadata stay as they were.
+export const rewriteLinks = (
+	config: RupeeConfiguration,
+	file: Pick<RupeeFile, 'key' | 'content'>,
+	event: string,
+	relink: Relink,
+): Result<string> => {
+	const members = parse(config, file).succeeded.flatMap((t) =>
+		linksOf(t)
+			.filter((l) => l.event === event)
+			.map((l) => ({ transaction: t, link: l })),
+	);
+	if (members.length === 0) return err({ type: 'RefinementStale', location: file.key, cause: [] });
+
+	const lines = members.reduce((l, { transaction, link }) => {
+		const at = linkLine(l, transaction.location.line, event);
+		const written = LINK.exec(l[at] ?? '');
+		const next = relink(transaction, link);
+		return at < 0 || !written
+			? l
+			: l.with(at, `${written[1]}- ${EVENT_KEY[next.role]}: ${next.event}`);
+	}, file.content.split('\n'));
+	return ok(lines.join('\n'));
+};
+
+const LINK = /^(\s*)-\s+([^\s:]+):\s+(\S.*?)\s*$/;
+
+// A link sits under its header, among the transaction's metadata and comments.
+const linkLine = (lines: string[], header: number, event: string): number => {
+	const own = lines.slice(header).findIndex((l) => !l.startsWith(';') && !LINK.test(l));
+	const block = lines.slice(header, own < 0 ? lines.length : header + own);
+	const found = block.findIndex((l) => {
+		const m = LINK.exec(l);
+		return m?.[2] !== undefined && EVENT_KEYS.includes(m[2]) && m[3] === event;
+	});
+	return found < 0 ? found : header + found;
+};

@@ -12,7 +12,6 @@ import {
 	postings,
 	storages,
 	transactions as transactionTable,
-	type StorageKind,
 } from '#lib/server/db/schema.ts';
 import { batches } from '#lib/server/shared/batches.ts';
 import { withContext } from '#lib/server/shared/context.ts';
@@ -565,22 +564,6 @@ export const index = (ledgerId: string) => ({
 	balanceChecks: balanceChecks(ledgerId),
 	transactions: transactions(ledgerId),
 });
-
-export type StorageRecord = { id: string; kind: StorageKind };
-
-export const findStorage = (userId: string): ResultAsync<StorageRecord> =>
-	withContext('db')((db) =>
-		attempt(() =>
-			db
-				.select({ id: storages.id, kind: storages.kind })
-				.from(storages)
-				.where(eq(storages.userId, userId))
-				.limit(1)
-				.then(([f]) => f),
-		).andThen((f): Result<StorageRecord> =>
-			f ? ok(f) : err({ type: 'StorageMissing', userId, cause: [] }),
-		),
-	);
 
 const ledgerColumns = {
 	id: ledgers.id,

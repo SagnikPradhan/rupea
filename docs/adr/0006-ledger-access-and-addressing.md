@@ -2,7 +2,7 @@
 
 A ledger lives in one storage, and the user who owns that storage owns the ledger; nothing else records ownership. A **membership** grants another user the whole ledger. There are no roles yet, so a member can do everything the owner can. A ledger is addressed by its **handle**, a cute name such as `quiet-heron`, unique across all users. It appears in the URL (`/l/<handle>/…`) and names the ledger's folder in its storage. The handle never changes; the ledger's `name` is the label the UI shows, and it can be edited freely.
 
-`withLedger({ user, handle, action })` is the only place that checks whether a user may reach a ledger: they own its storage, or they hold a membership. `withStorage({ user, action })` is the only place that opens a user's storage. The ledger to act on comes from the URL, not from anything stored on the user.
+`withLedger({ user, handle, action })` is the only place that checks whether a user may reach a ledger: they own its storage, or they hold a membership. `withStorage({ user, action })`, in the storage service, is the only place that opens a user's storage. The ledger to act on comes from the URL, not from anything stored on the user.
 
 ## Considered Options
 

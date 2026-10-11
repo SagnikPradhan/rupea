@@ -1,5 +1,5 @@
 import { violatesUnique } from '#lib/server/db/index.ts';
-import { emailCodes, sessions, StorageKind, storages, users } from '#lib/server/db/schema.ts';
+import { emailCodes, sessions, users } from '#lib/server/db/schema.ts';
 import { withContext } from '#lib/server/shared/context.ts';
 import { unknownError, type RupeeError } from '#lib/server/shared/error.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result.ts';
@@ -45,20 +45,15 @@ type CreateUserOptions = {
 	username: string;
 };
 
-// Every user gets a storage, where their schemas live.
 export const createUser = (options: CreateUserOptions): ResultAsync<User> =>
 	withContext('db')((db) =>
 		attempt({
 			try: () =>
-				db.transaction(async (tx) => {
-					const user = await tx
-						.insert(users)
-						.values(options)
-						.returning(userColumns)
-						.then(([u]) => u ?? Promise.reject(new Error(`${options.email} was not saved`)));
-					await tx.insert(storages).values({ userId: user.id, kind: StorageKind.Local });
-					return user;
-				}),
+				db
+					.insert(users)
+					.values(options)
+					.returning(userColumns)
+					.then(([u]) => u ?? Promise.reject(new Error(`${options.email} was not saved`))),
 			catch: (t) => usernameTaken(options.username, t),
 		}),
 	);

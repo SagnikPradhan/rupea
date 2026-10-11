@@ -1,8 +1,6 @@
-import { storages } from '#lib/server/db/schema.ts';
 import { provide } from '#lib/server/shared/context.ts';
 import { err } from '#lib/server/shared/result.ts';
 import { it } from '#tests/shared/vitest.ts';
-import { eq } from 'drizzle-orm';
 import { describe, expect } from 'vitest';
 import * as Auth from './database';
 
@@ -22,29 +20,26 @@ describe('the auth store', () => {
 			expect((await Auth.takeEmailCode('a@example.com')).unwrapOr(undefined)).toBeNull();
 		}));
 
-	it('creates a user with a storage of their own', ({ context, db }) =>
+	it('creates and finds a user', ({ context }) =>
 		provide(context, async () => {
 			const user = (await Auth.createUser({ email: 'b@example.com', username: 'b' })).unwrapOr(
 				null,
 			);
 
 			expect(user).toMatchObject({ email: 'b@example.com', username: 'b' });
-			expect(await db.$count(storages, eq(storages.userId, user!.id))).toBe(1);
 			expect((await Auth.findUserByEmail('b@example.com')).unwrapOr(null)).toEqual(user);
 			expect((await Auth.findUserByEmail('nobody@example.com')).unwrapOr(undefined)).toBeNull();
 		}));
 
-	it('refuses a second user with the same email, and leaves no storage behind', ({ context, db }) =>
+	it('refuses a second user with the same email', ({ context }) =>
 		provide(context, async () => {
 			await Auth.createUser({ email: 'c@example.com', username: 'c' });
 			const users = (await Auth.countUsers()).unwrapOr(-1);
-			const stored = await db.$count(storages);
 
 			expect(
 				(await Auth.createUser({ email: 'c@example.com', username: 'c2' }))._unsafeUnwrapErr(),
 			).toMatchObject({ type: 'UnknownError' });
 			expect((await Auth.countUsers()).unwrapOr(-1)).toBe(users);
-			expect(await db.$count(storages)).toBe(stored);
 		}));
 
 	it('creates no user under a taken username', ({ context }) =>

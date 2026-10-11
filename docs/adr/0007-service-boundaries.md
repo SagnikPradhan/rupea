@@ -11,5 +11,6 @@ Extraction turns arbitrary input into ledger input, so the ledger owns what that
 
 ## Consequences
 
+- Storage is a service of its own, owning the `storages` table and `withStorage`. Ledger and extraction both open storages through it, so neither depends on the other for that, and auth does not touch the table.
 - `shared/` holds only what belongs to no service. `shared/names.ts` qualifies: auth names users, the ledger names ledgers, refinement names events.
 - Tests follow the same rule.

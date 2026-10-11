@@ -1,15 +1,57 @@
-import sqlite from '@prisma/orm-sqlite/runtime';
-import type { Contract } from './generated/contract.d';
-import contractJson from './generated/contract.json' with { type: 'json' };
+import { PGlite } from '@electric-sql/pglite';
+import { pg_trgm } from '@electric-sql/pglite/contrib/pg_trgm';
+import { vector } from '@electric-sql/pglite-pgvector';
+import { drizzle as nodePostgres } from 'drizzle-orm/node-postgres';
+import { migrate as migrateNodePostgres } from 'drizzle-orm/node-postgres/migrator';
+import type { PgDatabase, PgQueryResultHKT } from 'drizzle-orm/pg-core';
+import { drizzle as pglite } from 'drizzle-orm/pglite';
+import { migrate as migratePglite } from 'drizzle-orm/pglite/migrator';
+import { Pool } from 'pg';
 
-export const openDatabase = (p: string) => sqlite<Contract>({ contractJson, path: p });
+const MIGRATIONS = { migrationsFolder: 'drizzle' };
 
-export type Database = ReturnType<typeof openDatabase>;
+type Rows<R> = { rows: R[] };
 
-type Enums = Contract['domain']['namespaces']['__unbound__']['enum'];
+// Both drivers answer a raw query with its rows under `rows`.
+export interface QueryResult extends PgQueryResultHKT {
+	type: Rows<this['row']>;
+}
 
-/**
- * The values of a schema enum. SQLite has no enum columns, so the ORM types
- * them as plain strings; this keeps code honest about the allowed values.
- */
-export type Enum<Name extends keyof Enums> = Enums[Name]['members'][number]['value'];
+export type Database = PgDatabase<QueryResult>;
+
+export type DatabaseHandle = {
+	orm: Database;
+	migrate: () => Promise<void>;
+	close: () => Promise<void>;
+};
+
+export const extensions = { vector, pg_trgm };
+
+export const connectDatabase = (url: string): DatabaseHandle => {
+	const pool = new Pool({ connectionString: url });
+	const orm = nodePostgres({ client: pool, casing: 'snake_case' });
+	return {
+		orm,
+		migrate: () => migrateNodePostgres(orm, MIGRATIONS),
+		close: () => pool.end(),
+	};
+};
+
+export const embedDatabase = (client: PGlite): DatabaseHandle => {
+	const orm = pglite({ client, casing: 'snake_case' });
+	return {
+		orm,
+		migrate: () => migratePglite(orm, MIGRATIONS),
+		close: () => client.close(),
+	};
+};
+
+// A transaction's statements share one connection, so they go one at a time.
+export const inOrder = (l: (() => Promise<unknown>)[]): Promise<void> =>
+	l.reduce<Promise<void>>((p, f) => p.then(f).then(() => undefined), Promise.resolve());
+
+type OpenOptions = { url: string | undefined; directory: string };
+
+// Without a server to connect to, Postgres runs in-process from `directory`.
+export const openDatabase = (o: OpenOptions): DatabaseHandle =>
+	o.url ? connectDatabase(o.url) : embedDatabase(new PGlite(o.directory, { extensions }));

@@ -1,62 +1,62 @@
-/**
- * Outbound persistence adapter for accounts, sign-in codes and sessions.
- * Every query runs through `attempt`, so a database failure comes back as a
- * `RupeeError` rather than a throw.
- */
-import type { Enum } from '#lib/server/db/index.ts';
+import { eq } from 'drizzle-orm';
+import { v7 as uuidv7 } from 'uuid';
+import {
+	emailCodes,
+	ledgers,
+	memberships,
+	sessions,
+	users,
+	type Role,
+} from '#lib/server/db/schema.ts';
 import { withContext } from '#lib/server/shared/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result.ts';
 
 export type User = { id: string; email: string; ledgerId: string | null };
 
 export type Session = {
-	/** SHA-256 of the cookie token. */
 	tokenHash: string;
 	userId: string;
 	expiresAt: Date;
 };
 
-const userFields = ['id', 'email', 'ledgerId'] as const;
+const userColumns = { id: users.id, email: users.email, ledgerId: users.ledgerId };
 
-const sessionFields = ['tokenHash', 'userId', 'expiresAt'] as const;
+const sessionColumns = {
+	tokenHash: sessions.tokenHash,
+	userId: sessions.userId,
+	expiresAt: sessions.expiresAt,
+};
 
-const OWNER: Enum<'Role'> = 'owner';
+const OWNER: Role = 'owner';
 
 export const findUserByEmail = (email: string): ResultAsync<User | null> =>
 	withContext('db')((db) =>
 		attempt(() =>
-			db.orm.User.select(...userFields)
-				.where({ email })
-				.first(),
+			db
+				.select(userColumns)
+				.from(users)
+				.where(eq(users.email, email))
+				.limit(1)
+				.then(([f]) => f ?? null),
 		),
 	);
 
 export const countUsers = (): ResultAsync<number> =>
-	withContext('db')((db) =>
-		attempt(() => db.orm.User.aggregate((a) => ({ users: a.count() })).then(({ users }) => users)),
-	);
+	withContext('db')((db) => attempt(() => db.$count(users)));
 
-/**
- * Create a user together with their first ledger, which they own and start
- * out in.
- */
 export const createUser = (email: string): ResultAsync<User> =>
 	withContext('db')((db) =>
-		attempt(() =>
-			db.transaction(async (tx) => {
-				const ledger = await tx.orm.Ledger.create({ name: 'Personal' });
-				const user = await tx.orm.User.select(...userFields).create({
-					email,
-					ledgerId: ledger.id,
-				});
-				await tx.orm.Membership.create({
-					userId: user.id,
-					ledgerId: ledger.id,
-					role: OWNER,
-				});
-				return user;
-			}),
-		),
+		attempt(async () => {
+			const user = { id: uuidv7(), email, ledgerId: uuidv7() };
+			await db.transaction(async (tx) => {
+				await tx.insert(ledgers).values({ id: user.ledgerId, name: 'Personal' });
+				await tx.insert(users).values(user);
+				await tx
+					.insert(memberships)
+					.values({ userId: user.id, ledgerId: user.ledgerId, role: OWNER });
+			});
+			return user;
+		}),
 	);
 
 type SaveEmailCodeOptions = {
@@ -65,61 +65,67 @@ type SaveEmailCodeOptions = {
 	expiresAt: Date;
 };
 
-/** Store the outstanding code for `email`, replacing any earlier one. */
 export const saveEmailCode = (options: SaveEmailCodeOptions): ResultAsync<void> => {
 	const { email, codeHash, expiresAt } = options;
 	return withContext('db')((db) =>
 		attempt(() =>
-			db.orm.EmailCode.upsert({
-				create: { email, codeHash, expiresAt },
-				update: { codeHash, expiresAt },
-				conflictOn: { email },
-			}).then(() => undefined),
+			db
+				.insert(emailCodes)
+				.values({ email, codeHash, expiresAt })
+				.onConflictDoUpdate({
+					target: emailCodes.email,
+					set: { codeHash, expiresAt },
+				})
+				.then(() => undefined),
 		),
 	);
 };
 
-/** Remove and return the outstanding code for `email`, if any. */
 export const takeEmailCode = (
 	email: string,
 ): ResultAsync<{ codeHash: string; expiresAt: Date } | null> =>
 	withContext('db')((db) =>
 		attempt(() =>
-			db.transaction(async (tx) => {
-				const code = await tx.orm.EmailCode.select('codeHash', 'expiresAt')
-					.where({ email })
-					.first();
-				if (code) await tx.orm.EmailCode.where({ email }).delete();
-				return code;
-			}),
+			db
+				.delete(emailCodes)
+				.where(eq(emailCodes.email, email))
+				.returning({ codeHash: emailCodes.codeHash, expiresAt: emailCodes.expiresAt })
+				.then(([t]) => t ?? null),
 		),
 	);
 
 export const createSession = (s: Session): ResultAsync<void> =>
-	withContext('db')((db) => attempt(() => db.orm.Session.create(s).then(() => undefined)));
+	withContext('db')((db) =>
+		attempt(() =>
+			db
+				.insert(sessions)
+				.values(s)
+				.then(() => undefined),
+		),
+	);
 
 export const findSession = (
 	tokenHash: string,
 ): ResultAsync<{ session: Session; user: User } | null> =>
 	withContext('db')((db) =>
 		attempt(() =>
-			db.orm.Session.select(...sessionFields)
-				.where({ tokenHash })
-				.include('user', (u) => u.select(...userFields))
-				.first()
-				.then((found) => {
-					if (!found) return null;
-					const { user, ...session } = found;
-					return user ? { session, user } : null;
-				}),
+			db
+				.select({ session: sessionColumns, user: userColumns })
+				.from(sessions)
+				.innerJoin(users, eq(users.id, sessions.userId))
+				.where(eq(sessions.tokenHash, tokenHash))
+				.limit(1)
+				.then(([f]) => f ?? null),
 		),
 	);
 
 export const extendSession = (tokenHash: string, expiresAt: Date): ResultAsync<void> =>
 	withContext('db')((db) =>
 		attempt(() =>
-			db.orm.Session.where({ tokenHash })
-				.update({ expiresAt })
+			db
+				.update(sessions)
+				.set({ expiresAt })
+				.where(eq(sessions.tokenHash, tokenHash))
 				.then(() => undefined),
 		),
 	);
@@ -127,8 +133,9 @@ export const extendSession = (tokenHash: string, expiresAt: Date): ResultAsync<v
 export const deleteSession = (tokenHash: string): ResultAsync<void> =>
 	withContext('db')((db) =>
 		attempt(() =>
-			db.orm.Session.where({ tokenHash })
-				.delete()
+			db
+				.delete(sessions)
+				.where(eq(sessions.tokenHash, tokenHash))
 				.then(() => undefined),
 		),
 	);

@@ -1,7 +1,3 @@
-/**
- * Outgoing email. Only `logMailer` exists for now: it writes the message to
- * the server log, which is enough for development and a self-hosted setup.
- */
 import { withLogger } from './logger';
 import { okAsync, type ResultAsync } from './result';
 

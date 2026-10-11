@@ -1,7 +1,3 @@
-/**
- * The session cookie of the current request. Only the token's hash is
- * stored server-side.
- */
 import { dev } from '$app/env';
 import { getRequestEvent } from '$app/server';
 

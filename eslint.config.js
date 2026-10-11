@@ -8,13 +8,7 @@ import ts from 'typescript-eslint';
 import { localNameLength } from './lint/local-name-length.ts';
 
 export default defineConfig(
-	globalIgnores([
-		'build/',
-		'data/',
-		'.svelte-kit/',
-		'src/lib/server/db/generated/',
-		'prisma/migrations/',
-	]),
+	globalIgnores(['build/', 'data/', '.svelte-kit/', 'drizzle/', 'coverage/']),
 	js.configs.recommended,
 	ts.configs.recommended,
 	svelte.configs.recommended,

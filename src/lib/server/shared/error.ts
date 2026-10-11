@@ -1,10 +1,4 @@
-/**
- * Every kind of error the server can report. Errors are values (ADR 0002):
- * they are returned in a `Result`, `ResultAsync` or `Batch`, never thrown.
- *
- * Parse errors carry their location pre-rendered (`file:line`) so this module
- * stays free of any domain dependency.
- */
+// Parse locations are pre-rendered (`file:line`) to keep this free of domain imports.
 export type RupeeError =
 	| { type: 'CannotReadDirectory'; path: string; cause: RupeeError[] }
 	| {
@@ -18,15 +12,12 @@ export type RupeeError =
 	| {
 			type: 'StorageConflict';
 			key: string;
-			/** The version the caller expected; `null` for "must not exist". */
 			expected: string | null;
-			/** The version actually stored; `null` when nothing is. */
 			actual: string | null;
 			cause: RupeeError[];
 	  }
 	| { type: 'AuthInvalidCode'; cause: RupeeError[] }
 	| { type: 'AuthUnauthenticated'; cause: RupeeError[] }
-	/** The user has no ledger to work in. */
 	| { type: 'LedgerNotFound'; userId: string; cause: RupeeError[] }
 	| {
 			type: 'ParseInvalidTransactionHeader';
@@ -39,15 +30,50 @@ export type RupeeError =
 			cause: RupeeError[];
 	  }
 	| { type: 'ParseInvalidPosting'; location: string; cause: RupeeError[] }
-	/** The postings' amounts do not sum to zero; `residual` is what they sum to. */
+	| {
+			type: 'ParseInvalidAccount';
+			location: string;
+			account: string;
+			cause: RupeeError[];
+	  }
 	| {
 			type: 'ParseUnbalancedTransaction';
 			location: string;
 			residual: string;
 			cause: RupeeError[];
 	  }
-	/** More than one posting leaves its amount out, so none can be worked out. */
 	| { type: 'ParseMultipleImplicitPostings'; location: string; cause: RupeeError[] }
+	| { type: 'ParseInvalidMetadata'; location: string; cause: RupeeError[] }
+	| { type: 'ParseDetachedMetadata'; location: string; cause: RupeeError[] }
+	| { type: 'EventInvalidMembership'; location: string; cause: RupeeError[] }
+	| { type: 'RefinementStale'; location: string; cause: RupeeError[] }
+	| { type: 'RefinementNameTaken'; event: string; cause: RupeeError[] }
+	| { type: 'EventWithoutPrimary'; event: string; location: string; cause: RupeeError[] }
+	| { type: 'EventWithManyPrimaries'; event: string; location: string; cause: RupeeError[] }
+	| {
+			type: 'EventDisagreement';
+			event: string;
+			location: string;
+			account: string;
+			expected: string;
+			actual: string;
+			cause: RupeeError[];
+	  }
+	| {
+			type: 'BalanceAssertionFailed';
+			location: string;
+			account: string;
+			expected: string;
+			actual: string;
+			cause: RupeeError[];
+	  }
+	| {
+			type: 'BalanceAssertionAmbiguous';
+			location: string;
+			account: string;
+			unordered: string;
+			cause: RupeeError[];
+	  }
 	| {
 			type: 'ExtractionInvalidSchema';
 			path: string;
@@ -55,16 +81,13 @@ export type RupeeError =
 			cause: RupeeError[];
 	  }
 	| { type: 'ExtractionUnsupportedFile'; path: string; cause: RupeeError[] }
-	/** A table recognition model is not where it should be. */
 	| { type: 'ExtractionMissingModel'; path: string; cause: RupeeError[] }
-	/** A model could not be downloaded; `status` is the HTTP one, if any. */
 	| {
 			type: 'ModelDownloadFailed';
 			url: string;
 			status?: number;
 			cause: RupeeError[];
 	  }
-	/** A model file is not the pinned revision. */
 	| {
 			type: 'ModelHashMismatch';
 			path: string;
@@ -72,11 +95,8 @@ export type RupeeError =
 			actual: string;
 			cause: RupeeError[];
 	  }
-	/** A PDF that needs a password was given none, or the wrong one. */
 	| { type: 'ExtractionPdfPassword'; path: string; cause: RupeeError[] }
-	/** No row of the statement looks like the schema's header row. */
 	| { type: 'ExtractionMissingHeader'; path: string; cause: RupeeError[] }
-	/** Columns the schema names that the statement's header row lacks. */
 	| {
 			type: 'ExtractionMissingColumns';
 			path: string;

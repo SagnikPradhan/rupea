@@ -17,6 +17,11 @@ export default defineConfig({
 		}),
 	],
 	test: {
+		coverage: {
+			include: ['src/**/*.{ts,svelte}'],
+			exclude: ['src/**/*.test.ts', 'src/**/*.d.ts'],
+			reporter: ['text', 'html'],
+		},
 		projects: [
 			{
 				extends: true,
@@ -25,6 +30,8 @@ export default defineConfig({
 					include: ['src/**/*.test.ts', 'tests/shared/**/*.test.ts'],
 					exclude: ['src/**/*.dom.test.ts'],
 					environment: 'node',
+					// Starting the embedded Postgres compiles it, see `tests/shared/vitest.ts`.
+					hookTimeout: 30_000,
 				},
 			},
 			{

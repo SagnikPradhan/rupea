@@ -1,25 +1,24 @@
-import type { Amount, RupeeTransaction } from '#services/ledger/domain/types.ts';
+import type { Amount } from '#services/ledger/domain/types.ts';
 import { describe, expect, it } from 'vitest';
 import {
-	accountsOf,
+	classifier,
 	fallback,
-	pastOf,
+	filling,
 	predict,
 	type Embedded,
-	type Example,
 	type Knowledge,
+	type Neighbour,
 } from './prediction';
 
 const amount = (n: bigint) => n as Amount;
 const axis = (i: number) => Float32Array.from({ length: 4 }, (_, d) => (d === i ? 1 : 0));
 const today = Temporal.PlainDate.from('2026-10-01');
 
-const example = (account: string, over: Partial<Example> = {}): Example => ({
+const neighbour = (account: string, over: Partial<Neighbour> = {}): Neighbour => ({
 	account,
 	amount: amount(100n),
 	date: today,
-	text: 'x',
-	vector: axis(0),
+	similarity: 1,
 	...over,
 });
 
@@ -27,72 +26,79 @@ const knowledge = (over: Partial<Knowledge> = {}): Knowledge => ({
 	thresholds: { history: 0.15, name: 0.35 },
 	account: 'Assets:Bank',
 	today,
-	examples: [],
 	names: [],
 	...over,
 });
 
-const out = (vector: Float32Array | null = axis(0)): Embedded => ({
+const out = (neighbours: Neighbour[] = [], vector: Float32Array | null = axis(0)): Embedded => ({
 	amount: amount(-100n),
 	description: 'x',
 	vector,
+	neighbours,
 });
 
 describe('predicting from history', () => {
 	it('names the account of the nearest postings', () => {
-		const guess = predict(knowledge({ examples: [example('Expenses:Food')] }))(out());
+		const guess = predict(knowledge())(out([neighbour('Expenses:Food')]));
 		expect(guess).toMatchObject({ account: 'Expenses:Food', source: 'history' });
 	});
 
 	it('grows surer as more postings agree', () => {
-		const one = predict(knowledge({ examples: [example('Expenses:Food')] }))(out());
-		const three = predict(knowledge({ examples: Array(3).fill(example('Expenses:Food')) }))(out());
+		const one = predict(knowledge())(out([neighbour('Expenses:Food')]));
+		const three = predict(knowledge())(out(Array(3).fill(neighbour('Expenses:Food'))));
 		expect(three.score).toBeGreaterThan(one.score);
 	});
 
 	it('lets the more common account win over a single nearer one', () => {
-		const near = example('Expenses:Fuel', { vector: axis(0) });
-		const farther = example('Expenses:Food', { vector: Float32Array.of(0.8, 0.6, 0, 0) });
-		const guess = predict(knowledge({ examples: [near, farther, farther, farther] }))(out());
+		const near = neighbour('Expenses:Fuel');
+		const farther = neighbour('Expenses:Food', { similarity: 0.8 });
+		const guess = predict(knowledge())(out([near, farther, farther, farther]));
 		expect(guess.account).toBe('Expenses:Food');
 	});
 
+	it('keeps only the nearest few', () => {
+		const near = Array(5).fill(neighbour('Expenses:Food', { similarity: 0.9 }));
+		const far = Array(10).fill(neighbour('Expenses:Fuel', { similarity: 0.5 }));
+		expect(predict(knowledge())(out([...far, ...near])).account).toBe('Expenses:Food');
+	});
+
 	it('lets recent postings count for more than old ones', () => {
-		const old = example('Expenses:Fuel', { date: Temporal.PlainDate.from('2021-10-01') });
-		const recent = example('Expenses:Food', { date: Temporal.PlainDate.from('2026-09-01') });
-		expect(predict(knowledge({ examples: [old, recent] }))(out()).account).toBe('Expenses:Food');
+		const old = neighbour('Expenses:Fuel', { date: Temporal.PlainDate.from('2021-10-01') });
+		const recent = neighbour('Expenses:Food', { date: Temporal.PlainDate.from('2026-09-01') });
+		expect(predict(knowledge())(out([old, recent])).account).toBe('Expenses:Food');
 	});
 
 	it('only follows postings on the other side of the money', () => {
 		// A posting that took money out of an account, like the line does, is not
 		// what the other side of a line that took money out looks like.
-		const same = example('Expenses:Food', { amount: amount(-100n) });
-		expect(predict(knowledge({ examples: [same] }))(out()).source).toBe('fallback');
+		const same = neighbour('Expenses:Food', { amount: amount(-100n) });
+		expect(predict(knowledge())(out([same])).source).toBe('fallback');
 	});
 
 	it('never puts spending under income', () => {
-		const wrong = example('Income:Salary');
-		expect(predict(knowledge({ examples: [wrong] }))(out()).source).toBe('fallback');
+		expect(predict(knowledge())(out([neighbour('Income:Salary')])).source).toBe('fallback');
 	});
 
 	it('never names the statement account', () => {
-		const own = example('Assets:Bank');
-		expect(predict(knowledge({ examples: [own] }))(out()).source).toBe('fallback');
+		expect(predict(knowledge())(out([neighbour('Assets:Bank')])).source).toBe('fallback');
+	});
+
+	it('never learns from postings nobody has categorised', () => {
+		const guessed = neighbour('Expenses:Uncategorized');
+		expect(predict(knowledge())(out([guessed])).source).toBe('fallback');
 	});
 
 	it('ignores postings that are not near enough', () => {
-		const far = example('Expenses:Food', { vector: axis(1) });
-		expect(predict(knowledge({ examples: [far] }))(out()).source).toBe('fallback');
+		const far = neighbour('Expenses:Food', { similarity: 0 });
+		expect(predict(knowledge())(out([far])).source).toBe('fallback');
 	});
 
 	it('adds how well an account name fits', () => {
-		const weak = {
-			examples: [example('Expenses:Food', { vector: Float32Array.of(0.1, 1, 0, 0) })],
-		};
-		const shy = predict(knowledge({ ...weak }))(out());
-		const fits = predict(
-			knowledge({ ...weak, names: [{ account: 'Expenses:Food', vector: axis(0) }] }),
-		)(out());
+		const weak = [neighbour('Expenses:Food', { similarity: 0.1 })];
+		const shy = predict(knowledge())(out(weak));
+		const fits = predict(knowledge({ names: [{ account: 'Expenses:Food', vector: axis(0) }] }))(
+			out(weak),
+		);
 		expect(shy.source).toBe('fallback');
 		expect(fits).toMatchObject({ account: 'Expenses:Food', source: 'history' });
 	});
@@ -132,7 +138,7 @@ describe('leaving a line uncategorised', () => {
 
 	it('does so for a line with no words', () => {
 		const names = [{ account: 'Expenses:Food', vector: axis(0) }];
-		expect(predict(knowledge({ names }))(out(null)).source).toBe('fallback');
+		expect(predict(knowledge({ names }))(out([], null)).source).toBe('fallback');
 	});
 
 	it('files money out under expenses and money in under income', () => {
@@ -141,53 +147,51 @@ describe('leaving a line uncategorised', () => {
 	});
 });
 
-const transaction = (description: string, postings: [string, bigint][], date = '2026-09-01') =>
-	({
-		location: { file: 'a.rupee', line: 1 },
-		date: Temporal.PlainDate.from(date),
-		time: null,
-		description,
-		metadata: {},
-		postings: postings.map(([account, n]) => ({
-			account,
-			amount: amount(n),
-			commodity: 'INR',
-			price: null,
-			balance: null,
-			metadata: {},
-		})),
-	}) satisfies RupeeTransaction;
-
-describe('what is learned from', () => {
-	const ledger = [
-		transaction('UPI/123456/SWIGGY', [
-			['Assets:Bank', -300n],
-			['Expenses:Food', 300n],
-		]),
-		transaction('Mystery', [
-			['Assets:Bank', -5n],
-			['Expenses:Uncategorized', 5n],
-		]),
-		transaction('UPI/987654/', [
-			['Assets:Bank', -9n],
-			['Expenses:Other', 9n],
-		]),
-	];
-
-	it('leaves out postings nobody has categorised, and descriptions with no words', () => {
-		expect(pastOf(ledger).map((p) => p.account)).toEqual([
-			'Assets:Bank',
-			'Expenses:Food',
-			'Assets:Bank',
+describe('filling in history', () => {
+	it('embeds each description once, by its words', () => {
+		const f = filling([
+			{ id: 'a', description: 'UPI/123456/SWIGGY' },
+			{ id: 'b', description: 'UPI/654321/SWIGGY' },
+		]);
+		expect(f.texts).toEqual(['swiggy']);
+		expect(f.fill([axis(1)])).toEqual([
+			{ id: 'a', vector: axis(1) },
+			{ id: 'b', vector: axis(1) },
 		]);
 	});
 
-	it('starts with the latest', () => {
-		const later = transaction('Later', [['Expenses:Fuel', 1n]], '2026-09-30');
-		expect(pastOf([...ledger, later])[0]?.account).toBe('Expenses:Fuel');
+	it('marks a description with no words done, with no vector', () => {
+		const f = filling([{ id: 'a', description: 'UPI/123456789/' }]);
+		expect(f.texts).toEqual([]);
+		expect(f.fill([])).toEqual([{ id: 'a', vector: null }]);
 	});
+});
 
-	it('knows the accounts posted to, but the uncategorised', () => {
-		expect(accountsOf(ledger)).toEqual(['Assets:Bank', 'Expenses:Food', 'Expenses:Other']);
+describe('classifying lines', () => {
+	const options = {
+		thresholds: { history: 0.15, name: 0.35 },
+		account: 'Assets:Bank',
+		today,
+		accounts: ['Assets:Bank', 'Expenses:Food', 'Expenses:Uncategorized'],
+	};
+
+	it('searches near each distinct line once, and never names a guessed account', () => {
+		const lines = [
+			{ amount: amount(-1n), description: 'swiggy' },
+			{ amount: amount(-2n), description: 'SWIGGY' },
+			{ amount: amount(-3n), description: '123456' },
+		];
+		const c = classifier({ ...options, lines });
+		expect(c.texts).not.toContain('expenses uncategorized');
+
+		const vectors = c.texts.map((t) => (t === 'swiggy' ? axis(0) : axis(3)));
+		expect(c.asked(vectors)).toEqual([axis(0)]);
+		expect(
+			c.classify(vectors, [[neighbour('Expenses:Food')]]).map((p) => [p.account, p.source]),
+		).toEqual([
+			['Expenses:Food', 'history'],
+			['Expenses:Food', 'history'],
+			['Expenses:Uncategorized', 'fallback'],
+		]);
 	});
 });

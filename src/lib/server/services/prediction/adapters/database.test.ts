@@ -1,9 +1,11 @@
-import { provide } from '#lib/server/shared/context.ts';
-import { createLedger } from '#tests/shared/seed.ts';
-import { it } from '#tests/shared/vitest.ts';
 import { describe, expect } from 'vitest';
+import * as Ledger from '#services/ledger/application/ledger.ts';
+import type { Database } from '#lib/server/db/index.ts';
 import { EMBEDDING_DIMENSIONS } from '#lib/server/db/schema.ts';
-import { embeddings } from './database';
+import { provide } from '#lib/server/shared/context.ts';
+import { createUser } from '#tests/shared/seed.ts';
+import { it } from '#tests/shared/vitest.ts';
+import { history } from './database';
 
 // The column holds full-width vectors; the rest of these stay zero.
 const vector = (...l: number[]) => {
@@ -12,61 +14,111 @@ const vector = (...l: number[]) => {
 	return v;
 };
 
-describe('remembered embeddings', () => {
-	it('come back as the vectors that were saved', ({ context, db }) =>
-		provide(context, async () => {
-			const ledgerId = await createLedger(db);
-			const store = embeddings(ledgerId, 'm1');
-			await store.save(
-				new Map([
-					['swiggy', vector(0.5, -0.25, 1)],
-					['dmart', vector(0, 1, 0)],
-				]),
-			);
+const spend = (date: string, description: string, account: string) =>
+	`${date} ${description}\n\tAssets:Bank -100\n\t${account}\n`;
 
-			const found = (await store.find(['swiggy', 'zomato'])).unwrapOr(new Map());
-			expect([...found]).toEqual([['swiggy', vector(0.5, -0.25, 1)]]);
+const ledgerWith = async (db: Database, ...transactions: string[]) => {
+	const { userId, ledgerId } = await createUser(db);
+	await Ledger.createFile({ userId, key: 'a.rupee', content: transactions.join('\n') });
+	return ledgerId;
+};
+
+// Gives every unembedded transaction the vector its description maps to.
+const embedAll = async (
+	ledgerId: string,
+	model: string,
+	of: (d: string) => Float32Array | null,
+) => {
+	const h = history(ledgerId, model);
+	const rows = (await h.unembedded(1000))._unsafeUnwrap();
+	await h.fill(rows.map((r) => ({ id: r.id, vector: of(r.description) })));
+	return h;
+};
+
+describe('the history of a ledger', () => {
+	it('lists what is not embedded yet, latest first', ({ context, db }) =>
+		provide(context, async () => {
+			const ledgerId = await ledgerWith(
+				db,
+				spend('2026-01-01', 'OLD', 'Expenses:Food'),
+				spend('2026-03-01', 'NEW', 'Expenses:Food'),
+				spend('2026-02-01', 'MID', 'Expenses:Food'),
+			);
+			const h = history(ledgerId, 'm1');
+
+			const rows = (await h.unembedded(2))._unsafeUnwrap();
+			expect(rows.map((r) => r.description)).toEqual(['NEW', 'MID']);
 		}));
 
-	it('belong to one ledger and one model', ({ context, db }) =>
+	it('counts a transaction done once filled, even with no vector, until the model changes', ({
+		context,
+		db,
+	}) =>
 		provide(context, async () => {
-			const [one, two] = [await createLedger(db), await createLedger(db)];
-			await embeddings(one, 'm1').save(new Map([['swiggy', vector(1)]]));
+			const ledgerId = await ledgerWith(
+				db,
+				spend('2026-01-01', 'SWIGGY', 'Expenses:Food'),
+				spend('2026-01-02', '123456', 'Expenses:Food'),
+			);
+			await embedAll(ledgerId, 'm1', (d) => (d === 'SWIGGY' ? vector(1) : null));
 
-			expect((await embeddings(two, 'm1').find(['swiggy'])).unwrapOr(null)?.size).toBe(0);
-			expect((await embeddings(one, 'm2').find(['swiggy'])).unwrapOr(null)?.size).toBe(0);
+			expect((await history(ledgerId, 'm1').unembedded(10))._unsafeUnwrap()).toEqual([]);
+			expect((await history(ledgerId, 'm2').unembedded(10))._unsafeUnwrap()).toHaveLength(2);
 		}));
 
-	it('are found among more texts than one query holds', ({ context, db }) =>
+	it('finds the postings of the nearest transactions, for each vector in order', ({
+		context,
+		db,
+	}) =>
 		provide(context, async () => {
-			const ledgerId = await createLedger(db);
-			const store = embeddings(ledgerId, 'm1');
-			const texts = Array.from({ length: 1200 }, (_, i) => `text ${i}`);
-			await store.save(new Map(texts.map((t, i) => [t, vector(i)])));
+			const ledgerId = await ledgerWith(
+				db,
+				spend('2026-01-01', 'SWIGGY', 'Expenses:Food'),
+				spend('2026-01-02', 'UBER', 'Expenses:Commute'),
+			);
+			const h = await embedAll(ledgerId, 'm1', (d) => (d === 'SWIGGY' ? vector(1) : vector(0, 1)));
 
-			const found = (await store.find(texts)).unwrapOr(new Map());
-			expect(found.size).toBe(1200);
-			expect(found.get('text 1100')).toEqual(vector(1100));
+			const [food, commute] = (await h.nearest([vector(1), vector(0, 1)]))._unsafeUnwrap();
+			const best = (n: typeof food) =>
+				n
+					?.filter((p) => p.similarity > 0.99)
+					.map((p) => p.account)
+					.toSorted();
+			expect(best(food)).toEqual(['Assets:Bank', 'Expenses:Food']);
+			expect(best(commute)).toEqual(['Assets:Bank', 'Expenses:Commute']);
+			expect(food?.[0]).toMatchObject({ amount: expect.any(BigInt), date: expect.anything() });
 		}));
 
-	it('keep the first vector when a text is saved again', ({ context, db }) =>
+	it('finds only its own ledger, however many near rows other ledgers have', ({ context, db }) =>
 		provide(context, async () => {
-			const store = embeddings(await createLedger(db), 'm1');
-			await store.save(new Map([['swiggy', vector(1)]]));
-			const again = await store.save(
-				new Map([
-					['swiggy', vector(2)],
-					['dmart', vector(3)],
-				]),
+			const crowd = Array.from({ length: 300 }, (_, i) =>
+				spend('2026-01-01', `OTHER ${i}`, 'Expenses:Theirs'),
+			);
+			await embedAll(await ledgerWith(db, ...crowd), 'm1', () => vector(1));
+			const ledgerId = await ledgerWith(db, spend('2026-01-01', 'MINE', 'Expenses:Mine'));
+			const h = await embedAll(ledgerId, 'm1', () => vector(1, 0.1));
+
+			const [found] = (await h.nearest([vector(1)]))._unsafeUnwrap();
+			expect(found?.map((p) => p.account).toSorted()).toEqual(['Assets:Bank', 'Expenses:Mine']);
+		}));
+
+	it('finds nothing embedded by another model', ({ context, db }) =>
+		provide(context, async () => {
+			const ledgerId = await ledgerWith(db, spend('2026-01-01', 'SWIGGY', 'Expenses:Food'));
+			await embedAll(ledgerId, 'm1', () => vector(1));
+
+			expect((await history(ledgerId, 'm2').nearest([vector(1)]))._unsafeUnwrap()).toEqual([[]]);
+		}));
+
+	it('knows the accounts posted to', ({ context, db }) =>
+		provide(context, async () => {
+			const ledgerId = await ledgerWith(
+				db,
+				spend('2026-01-01', 'A', 'Expenses:Food'),
+				spend('2026-01-02', 'B', 'Expenses:Food'),
 			);
 
-			expect(again.isOk()).toBe(true);
-			const found = (await store.find(['swiggy', 'dmart']))._unsafeUnwrap();
-			expect(found).toEqual(
-				new Map([
-					['swiggy', vector(1)],
-					['dmart', vector(3)],
-				]),
-			);
+			const accounts = (await history(ledgerId, 'm1').accounts())._unsafeUnwrap();
+			expect(accounts.toSorted()).toEqual(['Assets:Bank', 'Expenses:Food']);
 		}));
 });

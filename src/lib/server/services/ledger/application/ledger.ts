@@ -1,28 +1,85 @@
 import { withContext } from '#lib/server/shared/context.ts';
 import type { RupeeError } from '#lib/server/shared/error.ts';
-import { concat, ok, ResultAsync, type Batch, type Result } from '#lib/server/shared/result.ts';
-import { scoped } from '#lib/server/shared/storage/storage.ts';
+import { petName, randomPick } from '#lib/server/shared/names.ts';
 import {
-	findLedgerId,
+	concat,
+	errAsync,
+	ok,
+	okAsync,
+	ResultAsync,
+	type Batch,
+	type Result,
+} from '#lib/server/shared/result.ts';
+import { scoped, type Storage } from '#lib/server/shared/storage/storage.ts';
+import {
+	findLedger,
+	findLedgers,
+	findStorage,
 	index,
+	insertLedger,
 	type BalanceCheck,
 	type CandidatePair,
 	type IndexedTransaction,
 } from '../adapters/database';
-import { files } from '../adapters/storage';
+import { files, type Files } from '../adapters/storage';
 import { checkEvents } from '../domain/events';
 import { displayLocation, parse } from '../domain/parser';
 import { indexedVersion, plan } from '../domain/sync';
-import { formatQuantity, type RupeeFile, type RupeeTransaction } from '../domain/types';
+import {
+	formatQuantity,
+	type Ledger,
+	type RupeeFile,
+	type RupeeTransaction,
+} from '../domain/types';
 
-export type { IndexedTransaction };
+export type { IndexedTransaction, Ledger };
 
-export const withLedger = <T>(
-	u: string,
-	s: (ledgerId: string) => Result<T> | ResultAsync<T>,
-): ResultAsync<T> => findLedgerId(u).andThen(s);
+// A random handle clashes rarely enough that a few tries settle it.
+const TRIES = 5;
 
-const ledgerFiles = (l: string) => withContext('storage')((s) => files(scoped(s, `ledgers/${l}`)));
+type WithLedgerOptions<T> = {
+	user: string;
+	handle: string;
+	action: (ledger: Ledger) => Result<T> | ResultAsync<T>;
+};
+
+// The one place that decides whether a user may reach a ledger.
+export const withLedger = <T>(o: WithLedgerOptions<T>): ResultAsync<T> =>
+	findLedger(o.user, o.handle).andThen(o.action);
+
+type WithStorageOptions<T> = {
+	user: string;
+	action: (storage: Storage) => Result<T> | ResultAsync<T>;
+};
+
+// The one place that opens a user's storage.
+export const withStorage = <T>(o: WithStorageOptions<T>): ResultAsync<T> =>
+	findStorage(o.user).andThen((s) => withContext('storages')((t) => o.action(t[s.kind](o.user))));
+
+export const listLedgers = (u: string): ResultAsync<Ledger[]> => findLedgers(u);
+
+type CreateLedgerOptions = {
+	user: string;
+	name: string;
+};
+
+export const createLedger = (o: CreateLedgerOptions): ResultAsync<Ledger> =>
+	findStorage(o.user).andThen((s) => insertNamed({ ...o, storage: s.id }, TRIES));
+
+const insertNamed = (
+	options: CreateLedgerOptions & { storage: string },
+	tries: number,
+): ResultAsync<Ledger> => {
+	const handle = petName(randomPick);
+	return insertLedger({ ...options, owner: options.user, handle }).andThen((l) => {
+		if (l) return okAsync(l);
+		if (tries > 1) return insertNamed(options, tries - 1);
+		return errAsync<Ledger, RupeeError>({ type: 'NameTaken', name: handle, cause: [] });
+	});
+};
+
+const ledgerFiles = (l: Ledger): ResultAsync<Files> =>
+	withStorage({ user: l.owner, action: (s) => ok(files(scoped(s, `ledgers/${l.handle}`))) });
 
 const indexFile = (ledgerId: string, file: RupeeFile): ResultAsync<RupeeError[]> =>
 	withContext('config')((config) => {
@@ -35,10 +92,8 @@ const indexFile = (ledgerId: string, file: RupeeFile): ResultAsync<RupeeError[]>
 			.map(() => parsed.failed);
 	});
 
-const reindex = (li: string, k: string): ResultAsync<RupeeError[]> =>
-	ledgerFiles(li)
-		.read(k)
-		.andThen((f) => indexFile(li, f));
+const reindex = (f: Files, l: string, k: string): ResultAsync<RupeeError[]> =>
+	f.read(k).andThen((r) => indexFile(l, r));
 
 const unindex = (li: string, k: string): ResultAsync<RupeeError[]> =>
 	index(li)
@@ -47,17 +102,19 @@ const unindex = (li: string, k: string): ResultAsync<RupeeError[]> =>
 
 // One file at a time, since embedded Postgres has one connection. A failed
 // step is reported, not fatal; failing to list either side is.
-const syncFiles = (ledgerId: string): ResultAsync<RupeeError[]> =>
-	ResultAsync.combine([ledgerFiles(ledgerId).entries(), index(ledgerId).files()]).andThen(
-		([stored, indexed]) => {
-			const p = plan(stored, indexed);
-			return concat(
-				[
-					...p.changed.map((k) => () => reindex(ledgerId, k)),
-					...p.gone.map((k) => () => unindex(ledgerId, k)),
-				].map((s) => () => s().orElse((err) => ok([err]))),
-			);
-		},
+const syncFiles = (ledger: Ledger): ResultAsync<RupeeError[]> =>
+	ledgerFiles(ledger).andThen((files) =>
+		ResultAsync.combine([files.entries(), index(ledger.id).files()]).andThen(
+			([stored, indexed]) => {
+				const p = plan(stored, indexed);
+				return concat(
+					[
+						...p.changed.map((k) => () => reindex(files, ledger.id, k)),
+						...p.gone.map((k) => () => unindex(ledger.id, k)),
+					].map((s) => () => s().orElse((err) => ok([err]))),
+				);
+			},
+		),
 	);
 
 // Events and balances span files, so they are checked after every file is in place.
@@ -93,30 +150,26 @@ const toBalanceError = (c: BalanceCheck): RupeeError =>
 				cause: [],
 			};
 
-const syncLedger = (l: string): ResultAsync<RupeeError[]> =>
-	syncFiles(l).andThen((f) => checkLedger(l).map((e) => [...f, ...e]));
-
-export const sync = (u: string): ResultAsync<RupeeError[]> => withLedger(u, syncLedger);
+export const sync = (l: Ledger): ResultAsync<RupeeError[]> =>
+	syncFiles(l).andThen((f) => checkLedger(l.id).map((e) => [...f, ...e]));
 
 // For callers that need the index fresh but not the ledger's errors, which
 // cost a pass over every event and balance assertion.
-export const syncIndex = (u: string): ResultAsync<RupeeError[]> => withLedger(u, syncFiles);
+export const syncIndex = (l: Ledger): ResultAsync<RupeeError[]> => syncFiles(l);
 
 export type CountedTransaction = IndexedTransaction & { counted: boolean };
 
-export const getTransactions = (userId: string): ResultAsync<Batch<CountedTransaction>> =>
-	withLedger(userId, (ledgerId) =>
-		syncFiles(ledgerId).andThen((fl) =>
-			index(ledgerId)
-				.transactions()
-				.map((t) => counting(t, fl))
-				.andThen((c) =>
-					checkBalances(ledgerId, c.evidence).map((b) => ({
-						...c.batch,
-						failed: [...c.batch.failed, ...b],
-					})),
-				),
-		),
+export const getTransactions = (l: Ledger): ResultAsync<Batch<CountedTransaction>> =>
+	syncFiles(l).andThen((fl) =>
+		index(l.id)
+			.transactions()
+			.map((t) => counting(t, fl))
+			.andThen((c) =>
+				checkBalances(l.id, c.evidence).map((b) => ({
+					...c.batch,
+					failed: [...c.batch.failed, ...b],
+				})),
+			),
 	);
 
 type Counting = { batch: Batch<CountedTransaction>; evidence: string[] };
@@ -138,36 +191,35 @@ const counting = (all: IndexedTransaction[], failed: RupeeError[]): Counting => 
 export type Candidates = { pairs: CandidatePair[]; transactions: IndexedTransaction[] };
 
 // Pairs a file's transactions could form events with, and both sides of each.
-export const findCandidates = (userId: string, key: string): ResultAsync<Candidates> =>
-	withLedger(userId, (l) =>
-		index(l)
-			.candidates(key)
-			.andThen((c) =>
-				index(l)
-					.byIds([...new Set(c.flatMap((p) => [p.ours, p.theirs]))])
-					.map((t) => ({ pairs: c, transactions: t })),
-			),
-	);
+export const findCandidates = (ledger: Ledger, key: string): ResultAsync<Candidates> =>
+	index(ledger.id)
+		.candidates(key)
+		.andThen((c) =>
+			index(ledger.id)
+				.byIds([...new Set(c.flatMap((p) => [p.ours, p.theirs]))])
+				.map((t) => ({ pairs: c, transactions: t })),
+		);
 
-export const isEventIdTaken = (u: string, id: string): ResultAsync<boolean> =>
-	withLedger(u, (l) => index(l).eventIdTaken(id));
+export const isEventIdTaken = (l: Ledger, id: string): ResultAsync<boolean> =>
+	index(l.id).eventIdTaken(id);
 
-export const findEventsIn = (u: string, k: string): ResultAsync<IndexedTransaction[]> =>
-	withLedger(u, (l) => index(l).eventsIn(k));
+export const findEventsIn = (l: Ledger, k: string): ResultAsync<IndexedTransaction[]> =>
+	index(l.id).eventsIn(k);
 
-export const findEventMembers = (u: string, e: string): ResultAsync<IndexedTransaction[]> =>
-	withLedger(u, (l) => index(l).membersOf(e));
+export const findEventMembers = (l: Ledger, e: string): ResultAsync<IndexedTransaction[]> =>
+	index(l.id).membersOf(e);
 
-export const listFiles = (u: string) => withLedger(u, (l) => ledgerFiles(l).list());
+export const listFiles = (l: Ledger): ResultAsync<Batch<RupeeFile>> =>
+	ledgerFiles(l).andThen((f) => f.list());
 
-export const getFile = (u: string, k: string): ResultAsync<RupeeFile> =>
-	withLedger(u, (l) => ledgerFiles(l).read(k));
+export const getFile = (l: Ledger, k: string): ResultAsync<RupeeFile> =>
+	ledgerFiles(l).andThen((f) => f.read(k));
 
 export const check = (k: string, c: string): Batch<RupeeTransaction> =>
 	withContext('config')((f) => parse(f, { key: k, content: c }));
 
 type WriteFileOptions = {
-	ledgerId: string;
+	ledger: Ledger;
 	key: string;
 	content: string;
 	ifVersion: string | null;
@@ -175,50 +227,44 @@ type WriteFileOptions = {
 
 // If indexing fails, the next sync picks the file up.
 const writeFile = (options: WriteFileOptions): ResultAsync<RupeeFile> => {
-	const { ledgerId, key, content, ifVersion } = options;
-	return ledgerFiles(ledgerId)
-		.write({ key, content, ifVersion })
-		.andTee((w) => indexFile(ledgerId, w));
+	const { ledger, key, content, ifVersion } = options;
+	return ledgerFiles(ledger)
+		.andThen((f) => f.write({ key, content, ifVersion }))
+		.andTee((w) => indexFile(ledger.id, w));
 };
 
 type CreateFileOptions = {
-	userId: string;
+	ledger: Ledger;
 	key: string;
 	content: string;
 };
 
-export const createFile = (options: CreateFileOptions) => {
-	const { userId, key, content } = options;
-	return withLedger(userId, (l) => writeFile({ ledgerId: l, key, content, ifVersion: null }));
-};
+export const createFile = (o: CreateFileOptions): ResultAsync<RupeeFile> =>
+	writeFile({ ...o, ifVersion: null });
 
 type EditFileOptions = CreateFileOptions & {
 	version: string;
 };
 
-export const editFile = (options: EditFileOptions) => {
-	const { userId, key, content, version } = options;
-	return withLedger(userId, (l) => writeFile({ ledgerId: l, key, content, ifVersion: version }));
+export const editFile = (options: EditFileOptions): ResultAsync<RupeeFile> => {
+	const { ledger, key, content, version } = options;
+	return writeFile({ ledger, key, content, ifVersion: version });
 };
 
 type RenameFileOptions = {
-	userId: string;
+	ledger: Ledger;
 	from: string;
 	to: string;
 };
 
 export const renameFile = (options: RenameFileOptions): ResultAsync<RupeeFile> => {
-	const { userId, from, to } = options;
-	return withLedger(userId, (li) =>
-		ledgerFiles(li)
-			.rename(from, to)
-			.andTee(() => index(li).rename(from, to)),
-	);
+	const { ledger, from, to } = options;
+	return ledgerFiles(ledger)
+		.andThen((f) => f.rename(from, to))
+		.andTee(() => index(ledger.id).rename(from, to));
 };
 
-export const deleteFile = (userId: string, key: string): ResultAsync<void> =>
-	withLedger(userId, (li) =>
-		ledgerFiles(li)
-			.delete(key)
-			.andTee(() => index(li).remove(key)),
-	);
+export const deleteFile = (l: Ledger, k: string): ResultAsync<void> =>
+	ledgerFiles(l)
+		.andThen((f) => f.delete(k))
+		.andTee(() => index(l.id).remove(k));

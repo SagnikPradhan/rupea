@@ -1,4 +1,4 @@
-import { syncIndex, withLedger } from '#services/ledger/application/ledger.ts';
+import { syncIndex, type Ledger } from '#services/ledger/application/ledger.ts';
 import { withContext } from '#lib/server/shared/context.ts';
 import { withLogger } from '#lib/server/shared/logger.ts';
 import { okAsync, type ResultAsync } from '#lib/server/shared/result.ts';
@@ -39,13 +39,13 @@ export const fillHistory = (embed: Embed, h: History): ResultAsync<void> =>
 	});
 
 type PredictOptions = {
-	userId: string;
+	ledger: Ledger;
 	account: string;
 	lines: Line[];
 };
 
 export const predictAccounts = (options: PredictOptions): ResultAsync<Prediction[]> => {
-	const { userId, account, lines } = options;
+	const { ledger, account, lines } = options;
 	if (lines.length === 0) return okAsync([]);
 
 	return withContext(
@@ -53,24 +53,22 @@ export const predictAccounts = (options: PredictOptions): ResultAsync<Prediction
 		'models',
 	)(({ config, models }) =>
 		withLogger('prediction')((logger) =>
-			syncIndex(userId)
-				.andThen(() =>
-					withLedger(userId, (ledgerId) => {
-						const embed = embedder(models);
-						const h = history(ledgerId, MODEL);
-						return fillHistory(embed, h)
-							.andThen(h.accounts)
-							.andThen((accounts) =>
-								classify(embed, h.nearest, {
-									thresholds: config.prediction,
-									account,
-									lines,
-									accounts,
-									today: Temporal.Now.plainDateISO(),
-								}),
-							);
-					}),
-				)
+			syncIndex(ledger)
+				.andThen(() => {
+					const embed = embedder(models);
+					const h = history(ledger.id, MODEL);
+					return fillHistory(embed, h)
+						.andThen(h.accounts)
+						.andThen((accounts) =>
+							classify(embed, h.nearest, {
+								thresholds: config.prediction,
+								account,
+								lines,
+								accounts,
+								today: Temporal.Now.plainDateISO(),
+							}),
+						);
+				})
 				.andTee((p) => logger.debug({ account, predictions: p }, 'accounts predicted'))
 				.orElse((error) => {
 					logger.warn({ error }, 'accounts not predicted');

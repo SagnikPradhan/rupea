@@ -32,12 +32,9 @@ export const variables = defineEnvVars({
 		description: 'Directory of the database migrations the server applies when it starts.',
 		schema: text('drizzle'),
 	},
-	RUPEE_STORAGE: {
-		description: 'Where ledger files are stored. Only `local` for now.',
-		schema: choice(['local']),
-	},
 	RUPEE_DATA_DIR: {
-		description: 'Root directory of `local` storage. Each ledger gets `ledgers/<id>/` beneath it.',
+		description:
+			'Where the server keeps its data. Each user with `local` storage gets `users/<id>/` beneath it, holding their schemas and the ledgers they own.',
 		schema: text('data'),
 	},
 	RUPEE_MODELS_DIR: {

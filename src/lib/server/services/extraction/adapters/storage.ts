@@ -1,5 +1,5 @@
-import { err, ok, safely, type Result, type ResultAsync } from '#lib/server/shared/result.ts';
 import type { RupeeError } from '#lib/server/shared/error.ts';
+import { err, ok, safely, type Result, type ResultAsync } from '#lib/server/shared/result.ts';
 import type { Entry, Storage } from '#lib/server/shared/storage/storage.ts';
 
 const EXTENSION = '.yml';
@@ -12,12 +12,12 @@ export type SchemaFile = Entry & { content: string };
 const list = (storage: Storage) => (): ResultAsync<Entry[]> =>
 	storage
 		.list()
+		.map((e) => e.filter(({ key }) => key.endsWith(EXTENSION)))
 		.mapErr((error): RupeeError => ({
 			type: 'CannotReadDirectory',
 			path: '',
 			cause: [error],
-		}))
-		.map((e) => e.filter(({ key }) => key.endsWith(EXTENSION)));
+		}));
 
 type DecodeOptions = {
 	key: string;
@@ -55,7 +55,13 @@ const write =
 	(k: string, c: string): ResultAsync<SchemaFile> =>
 		st.write({ key: k, content: encoder.encode(c) }).map((e) => ({ ...e, content: c }));
 
-export const schemas = (storage: Storage) => ({
+export type Schemas = {
+	list: () => ResultAsync<Entry[]>;
+	read: (key: string) => ResultAsync<SchemaFile>;
+	write: (key: string, content: string) => ResultAsync<SchemaFile>;
+};
+
+export const schemas = (storage: Storage): Schemas => ({
 	list: list(storage),
 	read: read(storage),
 	write: write(storage),

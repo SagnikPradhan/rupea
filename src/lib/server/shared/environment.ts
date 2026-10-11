@@ -10,7 +10,6 @@ import {
 	RUPEE_MODELS_DIR,
 	RUPEE_TIME_FORMATS,
 	RUPEE_SIGNUP,
-	RUPEE_STORAGE,
 } from '$app/env/private';
 import { openDatabase, type Database, type DatabaseHandle } from '../db';
 import { defaultConfiguration } from './config';
@@ -18,13 +17,15 @@ import type { RupeeContext } from './context';
 import { createLogger } from './logger';
 import { logMailer } from './mailer';
 import { localStorage } from './storage/local';
-import type { Storage } from './storage/storage';
+import { scoped, type Storages } from './storage/storage';
 import { models } from './onnx/models';
 import { createModels } from './onnx/runtime';
 
-const storages = {
-	local: () => localStorage(resolve(RUPEE_DATA_DIR)),
-} satisfies Record<typeof RUPEE_STORAGE, () => Storage>;
+// One for every user, so writes to the same file wait for each other.
+const createStorages = (): Storages => {
+	const data = localStorage(resolve(RUPEE_DATA_DIR));
+	return { local: (u) => scoped(data, `users/${u}`) };
+};
 
 // Kept across dev reloads: two embedded instances on one directory corrupt it.
 export const createDatabase = (): DatabaseHandle => {
@@ -50,7 +51,7 @@ export const createContext = (db: Database): RupeeContext => {
 			prediction: defaultConfiguration.prediction,
 		},
 		db,
-		storage: storages[RUPEE_STORAGE](),
+		storages: createStorages(),
 		mailer: logMailer,
 		logger,
 		models: createModels({

@@ -1,7 +1,9 @@
 <script lang="ts">
 	import { getTransactions } from '#lib/endpoints/transactions.remote.ts';
 
-	const response = $derived(await getTransactions());
+	const { data } = $props();
+
+	const response = $derived(await getTransactions(data.ledger.handle));
 	const postings = $derived(
 		// Evidence of an event is kept in the ledger but not counted.
 		(response.data ?? [])
@@ -19,7 +21,6 @@
 </script>
 
 <h1>Postings</h1>
-<p><a href="/ledger/transactions">Transactions</a> · <a href="/ledger/files">Files</a></p>
 
 {#each response.errors as error, index (index)}
 	<p role="alert">

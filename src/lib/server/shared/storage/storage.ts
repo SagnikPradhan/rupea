@@ -1,3 +1,4 @@
+import type { StorageKind } from '../../db/schema';
 import { err, ok, type Result, type ResultAsync } from '../result';
 
 export type Entry = {
@@ -21,6 +22,9 @@ export interface Storage {
 	delete(key: string): ResultAsync<void>;
 	rename(from: string, to: string): ResultAsync<Entry>;
 }
+
+// Opens a user's storage of each kind.
+export type Storages = Record<StorageKind, (userId: string) => Storage>;
 
 // No empty, `.` or `..` segments, so a key never escapes the storage root.
 export const validateKey = (key: string): Result<string> => {

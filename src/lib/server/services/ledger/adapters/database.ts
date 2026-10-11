@@ -1,12 +1,15 @@
-import { and, asc, eq, inArray, isNotNull, ne, sql, type SQL } from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, ne, or, sql, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { v7 as uuidv7 } from 'uuid';
 import {
 	ledgerFiles,
+	ledgers,
+	memberships,
 	metadata as metadataTable,
 	postings,
+	storages,
 	transactions as transactionTable,
-	users,
+	type StorageKind,
 } from '#lib/server/db/schema.ts';
 import { inOrder, ROWS_PER_STATEMENT, type Database } from '#lib/server/db/index.ts';
 import { batches } from '#lib/server/shared/batches.ts';
@@ -21,6 +24,7 @@ import {
 	PriceKind,
 	toMetadata,
 	type Amount,
+	type Ledger,
 	type Price,
 	type RupeeLedgerFile,
 	type RupeeMetadata,
@@ -557,16 +561,70 @@ export const index = (ledgerId: string) => ({
 	transactions: transactions(ledgerId),
 });
 
-export const findLedgerId = (userId: string): ResultAsync<string> =>
+export type StorageRecord = { id: string; kind: StorageKind };
+
+export const findStorage = (userId: string): ResultAsync<StorageRecord> =>
 	withContext('db')((db) =>
 		attempt(() =>
 			db
-				.select({ ledgerId: users.ledgerId })
-				.from(users)
-				.where(eq(users.id, userId))
+				.select({ id: storages.id, kind: storages.kind })
+				.from(storages)
+				.where(eq(storages.userId, userId))
 				.limit(1)
 				.then(([f]) => f),
-		).andThen((f): Result<string> =>
-			f?.ledgerId ? ok(f.ledgerId) : err({ type: 'LedgerNotFound', userId, cause: [] }),
+		).andThen((f): Result<StorageRecord> =>
+			f ? ok(f) : err({ type: 'StorageMissing', userId, cause: [] }),
 		),
 	);
+
+const ledgerColumns = {
+	id: ledgers.id,
+	handle: ledgers.handle,
+	name: ledgers.name,
+	owner: storages.userId,
+};
+
+// A user reaches the ledgers in their storage and those they are a member of.
+const reachable = (db: Database, userId: string, where: SQL | undefined) =>
+	db
+		.select(ledgerColumns)
+		.from(ledgers)
+		.innerJoin(storages, eq(storages.id, ledgers.storageId))
+		.leftJoin(
+			memberships,
+			and(eq(memberships.ledgerId, ledgers.id), eq(memberships.userId, userId)),
+		)
+		.where(and(where, or(eq(storages.userId, userId), isNotNull(memberships.id))))
+		.orderBy(asc(ledgers.createdAt));
+
+export const findLedger = (userId: string, handle: string): ResultAsync<Ledger> =>
+	withContext('db')((db) =>
+		attempt(() => reachable(db, userId, eq(ledgers.handle, handle)).limit(1)).andThen(
+			([f]): Result<Ledger> => (f ? ok(f) : err({ type: 'LedgerNotFound', handle, cause: [] })),
+		),
+	);
+
+export const findLedgers = (u: string): ResultAsync<Ledger[]> =>
+	withContext('db')((db) => attempt(() => reachable(db, u, undefined)));
+
+type InsertLedgerOptions = {
+	storage: string;
+	owner: string;
+	handle: string;
+	name: string;
+};
+
+// `null` when the handle is taken.
+export const insertLedger = (options: InsertLedgerOptions): ResultAsync<Ledger | null> => {
+	const { storage, owner, handle, name } = options;
+	return withContext('db')((db) =>
+		attempt(() =>
+			db
+				.insert(ledgers)
+				.values({ storageId: storage, handle, name })
+				.onConflictDoNothing({ target: ledgers.handle })
+				.returning({ id: ledgers.id })
+				.then(([i]) => (i ? { id: i.id, handle, name, owner } : null)),
+		),
+	);
+};

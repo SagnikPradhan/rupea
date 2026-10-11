@@ -2,7 +2,9 @@
 	import type { RupeeError } from '#lib/server/shared/error.ts';
 	import { getTransactions } from '#lib/endpoints/transactions.remote.ts';
 
-	const response = $derived(await getTransactions());
+	const { data } = $props();
+
+	const response = $derived(await getTransactions(data.ledger.handle));
 	// Assertions only check the ledger; nothing is wrong with the data they point at.
 	const isWarning = (e: RupeeError) =>
 		e.type === 'BalanceAssertionFailed' || e.type === 'BalanceAssertionAmbiguous';
@@ -23,7 +25,6 @@
 </script>
 
 <h1>Transactions</h1>
-<p><a href="/ledger/files">Files</a> · <a href="/ledger/refine">Refine</a></p>
 
 {#each problems as error, index (index)}
 	<p role="alert">{describe(error)}</p>

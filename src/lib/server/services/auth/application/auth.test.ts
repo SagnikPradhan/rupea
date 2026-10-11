@@ -1,7 +1,9 @@
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 import { provide, type RupeeContext } from '#lib/server/shared/context.ts';
 import type { Mail, Mailer } from '#lib/server/shared/mailer.ts';
-import { okAsync } from '#lib/server/shared/result.ts';
+import { isHandle } from '#lib/server/shared/names.ts';
+import { ok, okAsync } from '#lib/server/shared/result.ts';
+import * as Ledger from '#services/ledger/application/ledger.ts';
 import { createTemporaryDatabase } from '#tests/shared/database.ts';
 import { it } from '#tests/shared/vitest.ts';
 import * as DB from '../adapters/database';
@@ -71,7 +73,7 @@ afterEach(() => {
 describe('requesting a code', () => {
 	it('mails a six-digit code to an existing user', ({ context }) =>
 		provide(context, async () => {
-			await DB.createUser('known@example.com');
+			await DB.createUser({ email: 'known@example.com', username: 'known' });
 			const mail = inbox();
 
 			const sent = await provide({ ...context, mailer: mail.mailer }, () =>
@@ -87,7 +89,7 @@ describe('requesting a code', () => {
 
 	it('mails a stranger only while sign-up is open', ({ context }) =>
 		provide(context, async () => {
-			await DB.createUser('someone@example.com');
+			await DB.createUser({ email: 'someone@example.com', username: 'someone' });
 			const closed = inbox();
 			const open = inbox();
 
@@ -133,9 +135,20 @@ describe('signing in', () => {
 			expect(session?.user.email).toBe('new@example.com');
 		}));
 
+	it('gives a new user a pet name and a ledger of their own', ({ context }) =>
+		provide(context, async () => {
+			await signIn(context, 'fresh@example.com');
+			const user = (await DB.findUserByEmail('fresh@example.com'))._unsafeUnwrap();
+
+			expect(isHandle(user?.username ?? '')).toBe(true);
+			expect(await Ledger.listLedgers(user?.id ?? '')).toMatchObject(
+				ok([{ name: 'Personal', owner: user?.id }]),
+			);
+		}));
+
 	it('signs in an existing user while sign-up is closed', ({ context }) =>
 		provide(context, async () => {
-			await DB.createUser('member@example.com');
+			await DB.createUser({ email: 'member@example.com', username: 'member' });
 			const mail = inbox();
 			await provide({ ...context, mailer: mail.mailer }, () =>
 				Auth.requestCode('member@example.com'),
@@ -179,7 +192,7 @@ describe('signing in', () => {
 
 	it('creates no user when sign-up closed after the code was sent', ({ context }) =>
 		provide(context, async () => {
-			await DB.createUser('existing@example.com');
+			await DB.createUser({ email: 'existing@example.com', username: 'existing' });
 			const mail = inbox();
 			await provide({ ...signup(context, 'open'), mailer: mail.mailer }, () =>
 				Auth.requestCode('late@example.com'),
@@ -284,7 +297,7 @@ describe('acting as the current user', () => {
 
 	it('hands over the signed-in user', ({ context }) =>
 		provide(context, async () => {
-			const user = { id: 'u1', email: 'me@example.com', ledgerId: null };
+			const user = { id: 'u1', email: 'me@example.com', username: 'me' };
 			request.locals.user = user;
 
 			const result = await Auth.withCurrentUser((u) => okAsync(u.email));

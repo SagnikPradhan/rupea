@@ -8,6 +8,9 @@
 
 	type Checked = Awaited<ReturnType<typeof checkDraft>>;
 
+	const { data } = $props();
+
+	const handle = $derived(data.ledger.handle);
 	const schemas = $derived(await getSchemas());
 	const draft = $state({
 		key: '',
@@ -33,25 +36,21 @@
 	}
 
 	async function save() {
-		const saved = await createFile({ key: draft.key, content: draft.content });
+		const saved = await createFile({ handle, key: draft.key, content: draft.content });
 		draft.errors = saved.errors;
 		if (!saved.ok) return;
 
 		// Refinement runs on every save; review its matches if it found any.
-		const found = await getSuggestions(draft.key);
+		const found = await getSuggestions({ handle, file: draft.key });
 		await goto(
 			found.data?.length
-				? `/ledger/refine?file=${encodeURIComponent(draft.key)}`
-				: '/ledger/transactions',
+				? `/l/${handle}/refine?file=${encodeURIComponent(draft.key)}`
+				: `/l/${handle}/transactions`,
 		);
 	}
 </script>
 
 <h1>Import a statement</h1>
-<p>
-	<a href="/ledger/schemas">Schemas</a> ·
-	<a href="/ledger/transactions">Transactions</a>
-</p>
 
 <form
 	{...extractStatement.enhance(async (form) => {
@@ -61,6 +60,7 @@
 		if (result?.data) Object.assign(draft, result.data);
 	})}
 >
+	<input {...extractStatement.fields.handle.as('hidden', handle)} />
 	<label>
 		Statement (.csv, .xlsx, .pdf)
 		<input {...extractStatement.fields.file.as('file')} accept=".csv,.xlsx,.pdf" required />

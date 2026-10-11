@@ -1,3 +1,6 @@
+// `owner` is the user whose storage holds the ledger.
+export type Ledger = { id: string; handle: string; name: string; owner: string };
+
 export type RupeeFile = {
 	key: string;
 	size: number;

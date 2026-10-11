@@ -13,9 +13,12 @@
 
 	const KEYS: Record<string, string> = { primary: 'event', evidence: 'same-as' };
 
+	const { data } = $props();
+
+	const handle = $derived(data.ledger.handle);
 	const file = $derived(page.url.searchParams.get('file'));
-	const files = $derived(await getFiles());
-	const response = $derived(file === null ? null : await getSuggestions(file));
+	const files = $derived(await getFiles(handle));
+	const response = $derived(file === null ? null : await getSuggestions({ handle, file }));
 	const suggestions = $derived(response?.data ?? []);
 	const duplicates = $derived(suggestions.filter((s) => s.confidence === 'duplicate'));
 	const failures = $state({ list: [] as RupeeError[] });
@@ -37,20 +40,20 @@
 		s.flatMap((x) => links(x).map((l) => ({ ...l, event: x.event ?? '' })));
 
 	async function accept(s: Suggestion[]) {
-		const accepted = await acceptSuggestions(edits(s));
+		const accepted = await acceptSuggestions({ handle, edits: edits(s) });
 		failures.list = [...accepted.errors, ...(accepted.data ?? [])];
 	}
 
 	async function dismiss(s: Suggestion) {
 		if (file === null) return;
-		const dismissed = await dismissSuggestion({ file, fingerprint: s.fingerprint });
+		const dismissed = await dismissSuggestion({ handle, file, fingerprint: s.fingerprint });
 		failures.list = dismissed.errors;
 	}
 </script>
 
 {#snippet side(t: Suggestion['ours'], role: string | undefined, event: string | null)}
 	<div>
-		<p><a href="/ledger/files?file={encodeURIComponent(t.file)}">{t.file}:{t.line}</a></p>
+		<p><a href="/l/{handle}/files?file={encodeURIComponent(t.file)}">{t.file}:{t.line}</a></p>
 		<pre>{[
 				`${t.date} ${t.description}`,
 				...(role ? [`\t- ${KEYS[role]}: ${event}   ← added`] : []),
@@ -60,9 +63,6 @@
 {/snippet}
 
 <h1>Refine</h1>
-<p>
-	<a href="/ledger/transactions">Transactions</a> · <a href="/ledger/files">Files</a>
-</p>
 
 <label>
 	Find matches for

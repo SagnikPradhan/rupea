@@ -4,15 +4,16 @@
 	import { getEvents, makePrimary, renameEvent } from '#lib/endpoints/refinement.remote.ts';
 
 	type Props = {
+		handle: string;
 		file: string;
 		/** Unsaved edits in the open file; changing an event rewrites files. */
 		locked: boolean;
 		onchanged: () => void;
 	};
 
-	const { file, locked, onchanged }: Props = $props();
+	const { handle, file, locked, onchanged }: Props = $props();
 
-	const response = $derived(await getEvents(file));
+	const response = $derived(await getEvents({ handle, file }));
 	const failures = $state({ list: [] as RupeeError[] });
 
 	const describe = (error: RupeeError) =>
@@ -27,7 +28,7 @@
 	async function rename(event: string) {
 		const to = prompt('Rename event to', event);
 		if (to === null || to === event) return;
-		await run(renameEvent({ file, event, to }));
+		await run(renameEvent({ handle, file, event, to }));
 	}
 </script>
 
@@ -56,7 +57,12 @@
 								<button
 									onclick={() =>
 										run(
-											makePrimary({ file, event: e.event, member: { file: m.file, line: m.line } }),
+											makePrimary({
+												handle,
+												file,
+												event: e.event,
+												member: { file: m.file, line: m.line },
+											}),
 										)}
 									disabled={locked}
 								>

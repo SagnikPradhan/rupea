@@ -11,9 +11,9 @@ const base = {
 	updatedAt: PG.timestamp({ withTimezone: true }).notNull().defaultNow(),
 };
 
-export type Role = (typeof roles)[number];
-export const roles = ['owner'] as const;
-export const role = PG.pgEnum('role', roles);
+export type StorageKind = (typeof storageKinds)[number];
+export const storageKinds = ['local'] as const;
+export const storageKind = PG.pgEnum('storage_kind', storageKinds);
 
 export const priceKinds = ['unit', 'total'] as const;
 export const priceKind = PG.pgEnum('price_kind', priceKinds);
@@ -21,16 +21,37 @@ export const priceKind = PG.pgEnum('price_kind', priceKinds);
 export const accountTypes = ['Assets', 'Liabilities', 'Income', 'Expenses', 'Equity'] as const;
 export const accountType = PG.pgEnum('account_type', accountTypes);
 
-export const ledgers = PG.pgTable('ledgers', (t) => ({
-	...base,
-	name: t.text().notNull(),
-}));
-
 export const users = PG.pgTable('users', (t) => ({
 	...base,
 	email: t.text().notNull().unique(),
-	ledgerId: t.uuid().references(() => ledgers.id, { onDelete: 'set null' }),
+	username: t.text().notNull().unique(),
 }));
+
+// One per user for now: where their schemas and the ledgers they own live.
+export const storages = PG.pgTable('storages', (t) => ({
+	...base,
+	userId: t
+		.uuid()
+		.notNull()
+		.unique('storages_user_id_unique')
+		.references(() => users.id, { onDelete: 'cascade' }),
+	kind: storageKind().notNull(),
+}));
+
+// The owner is the storage's user. The handle also names the ledger's folder, so it never changes.
+export const ledgers = PG.pgTable(
+	'ledgers',
+	(t) => ({
+		...base,
+		storageId: t
+			.uuid()
+			.notNull()
+			.references(() => storages.id, { onDelete: 'cascade' }),
+		handle: t.text().notNull().unique(),
+		name: t.text().notNull(),
+	}),
+	(t) => [PG.index('ledgers_storage_id').on(t.storageId)],
+);
 
 export const sessions = PG.pgTable('sessions', (t) => ({
 	...base,
@@ -53,7 +74,6 @@ export const memberships = PG.pgTable(
 	'memberships',
 	(t) => ({
 		...base,
-		role: role().notNull(),
 		userId: t
 			.uuid()
 			.notNull()

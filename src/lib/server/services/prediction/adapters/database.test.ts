@@ -3,7 +3,7 @@ import * as Ledger from '#services/ledger/application/ledger.ts';
 import type { Database } from '#lib/server/db/index.ts';
 import { EMBEDDING_DIMENSIONS } from '#lib/server/db/schema.ts';
 import { provide } from '#lib/server/shared/context.ts';
-import { createUser } from '#tests/shared/seed.ts';
+import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { history } from './database';
 
@@ -18,9 +18,9 @@ const spend = (date: string, description: string, account: string) =>
 	`${date} ${description}\n\tAssets:Bank -100\n\t${account}\n`;
 
 const ledgerWith = async (db: Database, ...transactions: string[]) => {
-	const { userId, ledgerId } = await createUser(db);
-	await Ledger.createFile({ userId, key: 'a.rupee', content: transactions.join('\n') });
-	return ledgerId;
+	const ledger = await createLedger(db);
+	await Ledger.createFile({ ledger, key: 'a.rupee', content: transactions.join('\n') });
+	return ledger.id;
 };
 
 // Gives every unembedded transaction the vector its description maps to.

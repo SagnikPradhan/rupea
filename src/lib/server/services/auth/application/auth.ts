@@ -1,5 +1,7 @@
 import { withContext } from '#lib/server/shared/context.ts';
+import type { RupeeError } from '#lib/server/shared/error.ts';
 import { withLogger } from '#lib/server/shared/logger.ts';
+import { petName, randomPick } from '#lib/server/shared/names.ts';
 import {
 	err,
 	errAsync,
@@ -8,6 +10,7 @@ import {
 	type Result,
 	type ResultAsync,
 } from '#lib/server/shared/result.ts';
+import * as Ledger from '#services/ledger/application/ledger.ts';
 import { deleteSessionCookie, readSessionCookie, setSessionCookie } from '../adapters/cookie';
 import * as DB from '../adapters/database';
 import { requestUser } from '../adapters/locals';
@@ -16,6 +19,9 @@ import { codeMatches, newCode, newSession, sessionState, sha256 } from '../domai
 export { normalizeEmail } from '../domain/credentials';
 
 export type User = DB.User;
+
+// A random username clashes rarely enough that a few tries settle it.
+const TRIES = 5;
 
 const canSignIn = (email: string): ResultAsync<boolean> =>
 	withContext('config')((c) =>
@@ -47,9 +53,24 @@ const findOrCreateUser = (email: string): ResultAsync<User> =>
 		existing
 			? okAsync(existing)
 			: canSignIn(email).andThen((a): ResultAsync<User> =>
-					a ? DB.createUser(email) : errAsync({ type: 'AuthInvalidCode', cause: [] }),
+					a ? signUp(email) : errAsync({ type: 'AuthInvalidCode', cause: [] }),
 				),
 	);
+
+// A new user starts with one ledger of their own.
+const signUp = (e: string): ResultAsync<User> =>
+	createUser(e, TRIES).andThen((u) =>
+		Ledger.createLedger({ user: u.id, name: 'Personal' }).map(() => u),
+	);
+
+const createUser = (email: string, tries: number): ResultAsync<User> => {
+	const username = petName(randomPick);
+	return DB.createUser({ email, username }).andThen((u) => {
+		if (u) return okAsync(u);
+		if (tries > 1) return createUser(email, tries - 1);
+		return errAsync<User, RupeeError>({ type: 'NameTaken', name: username, cause: [] });
+	});
+};
 
 // A code works once: it is consumed whether or not it matches.
 export const signIn = (email: string, code: string): ResultAsync<void> =>
@@ -71,20 +92,18 @@ export const validateSession = (
 	token: string,
 ): ResultAsync<{ user: User; expiresAt: Date } | null> => {
 	const tokenHash = sha256(token);
-	return DB.findSession(tokenHash).andThen(
-		(found): ResultAsync<{ user: User; expiresAt: Date } | null> => {
-			if (!found) return okAsync(null);
+	return DB.findSession(tokenHash).andThen((found) => {
+		if (!found) return okAsync(null);
 
-			const user = found.user;
-			const state = sessionState(found.session.expiresAt, Date.now());
-			if (state.type === 'expired') return DB.deleteSession(tokenHash).map(() => null);
-			if (state.type === 'valid') return okAsync({ user, expiresAt: found.session.expiresAt });
-			return DB.extendSession(tokenHash, state.expiresAt).map(() => ({
-				user,
-				expiresAt: state.expiresAt,
-			}));
-		},
-	);
+		const user = found.user;
+		const state = sessionState(found.session.expiresAt, Date.now());
+		if (state.type === 'expired') return DB.deleteSession(tokenHash).map(() => null);
+		if (state.type === 'valid') return okAsync({ user, expiresAt: found.session.expiresAt });
+		return DB.extendSession(tokenHash, state.expiresAt).map(() => ({
+			user,
+			expiresAt: state.expiresAt,
+		}));
+	});
 };
 
 // The cookie goes whether or not the session could be deleted.

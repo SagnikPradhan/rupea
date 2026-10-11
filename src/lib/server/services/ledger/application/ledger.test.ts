@@ -1,16 +1,16 @@
 import { asc, eq } from 'drizzle-orm';
 import { describe, expect } from 'vitest';
-import { v7 as uuidv7 } from 'uuid';
 import {
 	EMBEDDING_DIMENSIONS,
 	ledgerFiles,
+	memberships,
 	metadata,
 	transactions,
-	users,
 } from '#lib/server/db/schema.ts';
 import type { Database } from '#lib/server/db/index.ts';
 import { provide } from '#lib/server/shared/context.ts';
-import { createUser } from '#tests/shared/seed.ts';
+import { isHandle } from '#lib/server/shared/names.ts';
+import { createLedger, createUser } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { scoped, type Storage } from '#lib/server/shared/storage/storage.ts';
 import { index } from '../adapters/database';
@@ -44,8 +44,12 @@ const fileMetadata = async (db: Database, ledgerId: string) =>
 			.orderBy(asc(metadata.position))
 	).map((r) => [r.key, r.value]);
 
-const put = (storage: Storage, ledgerId: string, key: string, text: string) =>
-	scoped(storage, `ledgers/${ledgerId}`).write({
+// Where the ledger's files are, in a storage holding every user's.
+const stored = (storage: Storage, ledger: Ledger.Ledger) =>
+	scoped(storage, `users/${ledger.owner}/ledgers/${ledger.handle}`);
+
+const put = (storage: Storage, ledger: Ledger.Ledger, key: string, text: string) =>
+	stored(storage, ledger).write({
 		key,
 		content: new TextEncoder().encode(text),
 	});
@@ -62,13 +66,13 @@ const summary = async (ledgerId: string) => {
 describe('syncing the ledger', () => {
 	it('indexes new files, ordered by date', ({ context, db, storage }) =>
 		provide(context, async () => {
-			const { userId, ledgerId } = await createUser(db);
-			await put(storage, ledgerId, 'a.rupee', groceries);
-			await put(storage, ledgerId, 'b/c.rupee', salary);
-			await put(storage, ledgerId, 'notes.txt', 'not a ledger file');
+			const ledger = await createLedger(db);
+			await put(storage, ledger, 'a.rupee', groceries);
+			await put(storage, ledger, 'b/c.rupee', salary);
+			await put(storage, ledger, 'notes.txt', 'not a ledger file');
 
-			expect(await Ledger.sync(userId)).toEqual(ok([]));
-			expect(await summary(ledgerId)).toEqual(['b/c.rupee:1 Salary', 'a.rupee:1 Groceries']);
+			expect(await Ledger.sync(ledger)).toEqual(ok([]));
+			expect(await summary(ledger.id)).toEqual(['b/c.rupee:1 Salary', 'a.rupee:1 Groceries']);
 		}));
 
 	it('indexes metadata of the file, its transactions and their postings', ({
@@ -77,61 +81,61 @@ describe('syncing the ledger', () => {
 		storage,
 	}) =>
 		provide(context, async () => {
-			const { userId, ledgerId } = await createUser(db);
-			await put(storage, ledgerId, 'a.rupee', annotated);
-			await Ledger.sync(userId);
+			const ledger = await createLedger(db);
+			await put(storage, ledger, 'a.rupee', annotated);
+			await Ledger.sync(ledger);
 
-			const [indexed] = (await index(ledgerId).transactions())._unsafeUnwrap();
+			const [indexed] = (await index(ledger.id).transactions())._unsafeUnwrap();
 			expect(indexed?.metadata).toEqual({ ref: ['a', 'b'], note: ['weekly shop'] });
 			expect(indexed?.postings.map((p) => p.metadata)).toEqual([{ tags: ['weekly'] }, {}]);
-			expect(await fileMetadata(db, ledgerId)).toEqual([['statement', 'hdfc-oct.pdf']]);
+			expect(await fileMetadata(db, ledger.id)).toEqual([['statement', 'hdfc-oct.pdf']]);
 		}));
 
 	it('leaves no metadata behind when a file changes or goes', ({ context, db, storage }) =>
 		provide(context, async () => {
-			const { userId, ledgerId } = await createUser(db);
+			const ledger = await createLedger(db);
 			// Other tests share the database, so count only what this one adds.
 			const before = await db.$count(metadata);
-			await put(storage, ledgerId, 'a.rupee', annotated);
-			await Ledger.sync(userId);
+			await put(storage, ledger, 'a.rupee', annotated);
+			await Ledger.sync(ledger);
 			expect(await db.$count(metadata)).toBe(before + 5);
 
-			await put(storage, ledgerId, 'a.rupee', `- statement: other.pdf\n\n${groceries}`);
-			await Ledger.sync(userId);
+			await put(storage, ledger, 'a.rupee', `- statement: other.pdf\n\n${groceries}`);
+			await Ledger.sync(ledger);
 			expect(await db.$count(metadata)).toBe(before + 1);
 
-			await scoped(storage, `ledgers/${ledgerId}`).delete('a.rupee');
-			await Ledger.sync(userId);
+			await stored(storage, ledger).delete('a.rupee');
+			await Ledger.sync(ledger);
 			expect(await db.$count(metadata)).toBe(before);
 		}));
 
 	it('re-indexes changed files and drops deleted ones', ({ context, db, storage }) =>
 		provide(context, async () => {
-			const { userId, ledgerId } = await createUser(db);
-			await put(storage, ledgerId, 'a.rupee', groceries);
-			await put(storage, ledgerId, 'b.rupee', salary);
-			await Ledger.sync(userId);
+			const ledger = await createLedger(db);
+			await put(storage, ledger, 'a.rupee', groceries);
+			await put(storage, ledger, 'b.rupee', salary);
+			await Ledger.sync(ledger);
 
-			await put(storage, ledgerId, 'a.rupee', `${salary}${groceries}`);
-			await scoped(storage, `ledgers/${ledgerId}`).delete('b.rupee');
-			await Ledger.sync(userId);
+			await put(storage, ledger, 'a.rupee', `${salary}${groceries}`);
+			await stored(storage, ledger).delete('b.rupee');
+			await Ledger.sync(ledger);
 
-			expect(await summary(ledgerId)).toEqual(['a.rupee:1 Salary', 'a.rupee:4 Groceries']);
+			expect(await summary(ledger.id)).toEqual(['a.rupee:1 Salary', 'a.rupee:4 Groceries']);
 		}));
 
 	it('keeps a description embedded through a re-index', ({ context, db, storage }) =>
 		provide(context, async () => {
-			const { userId, ledgerId } = await createUser(db);
+			const ledger = await createLedger(db);
 			const vector = Array.from({ length: EMBEDDING_DIMENSIONS }, (_, i) => (i === 0 ? 1 : 0));
-			await put(storage, ledgerId, 'a.rupee', groceries);
-			await Ledger.sync(userId);
+			await put(storage, ledger, 'a.rupee', groceries);
+			await Ledger.sync(ledger);
 			await db
 				.update(transactions)
 				.set({ embedding: vector, embeddingModel: 'm1' })
-				.where(eq(transactions.ledgerId, ledgerId));
+				.where(eq(transactions.ledgerId, ledger.id));
 
-			await put(storage, ledgerId, 'a.rupee', `${salary}${groceries}`);
-			await Ledger.sync(userId);
+			await put(storage, ledger, 'a.rupee', `${salary}${groceries}`);
+			await Ledger.sync(ledger);
 
 			const rows = await db
 				.select({
@@ -139,7 +143,7 @@ describe('syncing the ledger', () => {
 					model: transactions.embeddingModel,
 				})
 				.from(transactions)
-				.where(eq(transactions.ledgerId, ledgerId))
+				.where(eq(transactions.ledgerId, ledger.id))
 				.orderBy(asc(transactions.line));
 			expect(rows).toEqual([
 				{ description: 'Salary', model: null },
@@ -149,30 +153,30 @@ describe('syncing the ledger', () => {
 
 	it('reports parse errors on every sync until the file is fixed', ({ context, db, storage }) =>
 		provide(context, async () => {
-			const { userId, ledgerId } = await createUser(db);
-			await put(storage, ledgerId, 'a.rupee', `${groceries}2026-08-30 Bad\n\tbad posting x\n`);
+			const ledger = await createLedger(db);
+			await put(storage, ledger, 'a.rupee', `${groceries}2026-08-30 Bad\n\tbad posting x\n`);
 
 			const problem = {
 				type: 'ParseInvalidPosting',
 				location: 'a.rupee:5',
 				cause: [],
 			};
-			expect(await Ledger.sync(userId)).toEqual(ok([problem]));
-			expect(await Ledger.sync(userId)).toEqual(ok([problem]));
+			expect(await Ledger.sync(ledger)).toEqual(ok([problem]));
+			expect(await Ledger.sync(ledger)).toEqual(ok([problem]));
 			// What did parse is indexed meanwhile.
-			expect(await summary(ledgerId)).toEqual(['a.rupee:1 Groceries']);
+			expect(await summary(ledger.id)).toEqual(['a.rupee:1 Groceries']);
 
-			await put(storage, ledgerId, 'a.rupee', groceries);
-			expect(await Ledger.sync(userId)).toEqual(ok([]));
+			await put(storage, ledger, 'a.rupee', groceries);
+			expect(await Ledger.sync(ledger)).toEqual(ok([]));
 		}));
 
 	it('orders a day by time, untimed first', ({ context, db, storage }) =>
 		provide(context, async () => {
-			const { userId, ledgerId } = await createUser(db);
+			const ledger = await createLedger(db);
 			const body = '\tExpenses:Food 1\n\tAssets:Bank\n';
 			await put(
 				storage,
-				ledgerId,
+				ledger,
 				'a.rupee',
 				[
 					`29 Aug 2026 9:15 pm Dinner\n${body}`,
@@ -180,9 +184,9 @@ describe('syncing the ledger', () => {
 					`2026-08-29 Untimed\n${body}`,
 				].join('\n'),
 			);
-			await Ledger.sync(userId);
+			await Ledger.sync(ledger);
 
-			expect(await summary(ledgerId)).toEqual([
+			expect(await summary(ledger.id)).toEqual([
 				'a.rupee:9 Untimed',
 				'a.rupee:5 Breakfast',
 				'a.rupee:1 Dinner',
@@ -191,60 +195,60 @@ describe('syncing the ledger', () => {
 
 	it('keeps ledgers apart', ({ context, db, storage }) =>
 		provide(context, async () => {
-			const one = await createUser(db);
-			const two = await createUser(db);
-			await put(storage, one.ledgerId, 'a.rupee', groceries);
-			await Ledger.sync(one.userId);
-			await Ledger.sync(two.userId);
+			const one = await createLedger(db);
+			const two = await createLedger(db);
+			await put(storage, one, 'a.rupee', groceries);
+			await Ledger.sync(one);
+			await Ledger.sync(two);
 
-			expect(await summary(two.ledgerId)).toEqual([]);
+			expect(await summary(two.id)).toEqual([]);
 		}));
 });
 
 describe('mutations', () => {
 	it('index what they write without a sync', ({ context, db }) =>
 		provide(context, async () => {
-			const { userId, ledgerId } = await createUser(db);
-			await Ledger.createFile({ userId, key: 'a.rupee', content: groceries });
-			expect(await summary(ledgerId)).toEqual(['a.rupee:1 Groceries']);
+			const ledger = await createLedger(db);
+			await Ledger.createFile({ ledger, key: 'a.rupee', content: groceries });
+			expect(await summary(ledger.id)).toEqual(['a.rupee:1 Groceries']);
 
-			await Ledger.renameFile({ userId, from: 'a.rupee', to: 'b.rupee' });
-			expect(await summary(ledgerId)).toEqual(['b.rupee:1 Groceries']);
+			await Ledger.renameFile({ ledger, from: 'a.rupee', to: 'b.rupee' });
+			expect(await summary(ledger.id)).toEqual(['b.rupee:1 Groceries']);
 
-			await Ledger.deleteFile(userId, 'b.rupee');
-			expect(await summary(ledgerId)).toEqual([]);
+			await Ledger.deleteFile(ledger, 'b.rupee');
+			expect(await summary(ledger.id)).toEqual([]);
 		}));
 
 	it('leave the index alone when the write is refused', ({ context, db }) =>
 		provide(context, async () => {
-			const { userId, ledgerId } = await createUser(db);
-			await Ledger.createFile({ userId, key: 'a.rupee', content: groceries });
+			const ledger = await createLedger(db);
+			await Ledger.createFile({ ledger, key: 'a.rupee', content: groceries });
 			const again = await Ledger.createFile({
-				userId,
+				ledger,
 				key: 'a.rupee',
 				content: salary,
 			});
 
 			expect(again).toMatchObject(err({ type: 'StorageConflict' }));
-			expect(await summary(ledgerId)).toEqual(['a.rupee:1 Groceries']);
+			expect(await summary(ledger.id)).toEqual(['a.rupee:1 Groceries']);
 		}));
 });
 
 describe('reading a file', () => {
 	it('returns what is in storage, even before any sync', ({ context, db, storage }) =>
 		provide(context, async () => {
-			const { userId, ledgerId } = await createUser(db);
-			await put(storage, ledgerId, 'a.rupee', groceries);
+			const ledger = await createLedger(db);
+			await put(storage, ledger, 'a.rupee', groceries);
 
-			const file = await Ledger.getFile(userId, 'a.rupee');
+			const file = await Ledger.getFile(ledger, 'a.rupee');
 			expect(file.isOk() && file.value).toMatchObject({ key: 'a.rupee', content: groceries });
-			expect(await summary(ledgerId)).toEqual([]);
+			expect(await summary(ledger.id)).toEqual([]);
 		}));
 
 	it('fails for a file that is not there', ({ context, db }) =>
 		provide(context, async () => {
-			const { userId } = await createUser(db);
-			expect(await Ledger.getFile(userId, 'a.rupee')).toMatchObject(
+			const ledger = await createLedger(db);
+			expect(await Ledger.getFile(ledger, 'a.rupee')).toMatchObject(
 				err({ type: 'CannotReadFile', path: 'a.rupee' }),
 			);
 		}));
@@ -253,9 +257,9 @@ describe('reading a file', () => {
 describe('listing transactions', () => {
 	it('returns exact amounts and source locations', ({ context, db }) =>
 		provide(context, async () => {
-			const { userId } = await createUser(db);
-			await Ledger.createFile({ userId, key: 'a.rupee', content: groceries });
-			const transactions = await Ledger.getTransactions(userId);
+			const ledger = await createLedger(db);
+			await Ledger.createFile({ ledger, key: 'a.rupee', content: groceries });
+			const transactions = await Ledger.getTransactions(ledger);
 			if (transactions.isErr()) throw new Error('getTransactions failed');
 
 			const [groceriesTransaction] = transactions.value.succeeded;
@@ -276,7 +280,7 @@ describe('listing transactions', () => {
 
 	it('returns every field as the file wrote it', ({ context, db }) =>
 		provide(context, async () => {
-			const { userId } = await createUser(db);
+			const ledger = await createLedger(db);
 			const content = [
 				'2026-08-01 Opening',
 				'\tAssets:Bank 100000',
@@ -291,22 +295,51 @@ describe('listing transactions', () => {
 				'\tAssets:Bank',
 				'',
 			].join('\n');
-			await Ledger.createFile({ userId, key: 'a.rupee', content });
+			await Ledger.createFile({ ledger, key: 'a.rupee', content });
 
-			const listed = (await Ledger.getTransactions(userId))._unsafeUnwrap();
+			const listed = (await Ledger.getTransactions(ledger))._unsafeUnwrap();
 
 			expect(listed.failed).toEqual([]);
 			expect(listed.succeeded).toMatchObject(Ledger.check('a.rupee', content).succeeded);
 		}));
+});
 
-	it('fails for a user without a ledger', ({ context, db }) =>
+describe('reaching a ledger', () => {
+	it('lets its owner and its members in, and no one else', ({ context, db }) =>
 		provide(context, async () => {
-			const userId = uuidv7();
-			await db.insert(users).values({ id: userId, email: `${userId}@example.com` });
+			const ledger = await createLedger(db);
+			const member = await createUser(db);
+			const stranger = await createUser(db);
+			await db.insert(memberships).values({ userId: member.userId, ledgerId: ledger.id });
+			const reach = (user: string) =>
+				Ledger.withLedger({ user, handle: ledger.handle, action: (l) => ok(l) });
 
-			expect(await Ledger.getTransactions(userId)).toEqual(
-				err({ type: 'LedgerNotFound', userId, cause: [] }),
+			expect(await reach(ledger.owner)).toEqual(ok(ledger));
+			expect(await reach(member.userId)).toEqual(ok(ledger));
+			expect(await reach(stranger.userId)).toEqual(
+				err({ type: 'LedgerNotFound', handle: ledger.handle, cause: [] }),
 			);
+		}));
+
+	it('lists the ledgers a user owns and those shared with them', ({ context, db }) =>
+		provide(context, async () => {
+			const own = await createLedger(db);
+			const shared = await createLedger(db);
+			await createLedger(db);
+			await db.insert(memberships).values({ userId: own.owner, ledgerId: shared.id });
+
+			expect(await Ledger.listLedgers(own.owner)).toEqual(ok([own, shared]));
+		}));
+
+	it("creates a ledger under a fresh handle, in its owner's storage", ({ context, db, storage }) =>
+		provide(context, async () => {
+			const { userId } = await createUser(db);
+			const created = (await Ledger.createLedger({ user: userId, name: 'Home' }))._unsafeUnwrap();
+			await Ledger.createFile({ ledger: created, key: 'a.rupee', content: groceries });
+
+			expect(created).toMatchObject({ name: 'Home', owner: userId });
+			expect(isHandle(created.handle)).toBe(true);
+			expect((await stored(storage, created).read('a.rupee')).isOk()).toBe(true);
 		}));
 });
 
@@ -322,13 +355,13 @@ describe('events across files', () => {
 
 	it('counts an event once, keeping its evidence', ({ context, db }) =>
 		provide(context, async () => {
-			const { userId } = await createUser(db);
-			await Ledger.createFile({ userId, key: 'hdfc.rupee', content: transfer('event', '1000') });
-			await Ledger.createFile({ userId, key: 'ibkr.rupee', content: transfer('same-as', '1000') });
-			await Ledger.createFile({ userId, key: 'a.rupee', content: groceries });
+			const ledger = await createLedger(db);
+			await Ledger.createFile({ ledger, key: 'hdfc.rupee', content: transfer('event', '1000') });
+			await Ledger.createFile({ ledger, key: 'ibkr.rupee', content: transfer('same-as', '1000') });
+			await Ledger.createFile({ ledger, key: 'a.rupee', content: groceries });
 
-			expect(await Ledger.sync(userId)).toEqual(ok([]));
-			const listed = (await Ledger.getTransactions(userId))._unsafeUnwrap();
+			expect(await Ledger.sync(ledger)).toEqual(ok([]));
+			const listed = (await Ledger.getTransactions(ledger))._unsafeUnwrap();
 			expect(listed.failed).toEqual([]);
 			expect(listed.succeeded.map((t) => [t.location.file, t.counted])).toEqual([
 				['a.rupee', true],
@@ -339,9 +372,9 @@ describe('events across files', () => {
 
 	it('reports a broken event on every sync and counts all of it', ({ context, db }) =>
 		provide(context, async () => {
-			const { userId } = await createUser(db);
-			await Ledger.createFile({ userId, key: 'hdfc.rupee', content: transfer('same-as', '1000') });
-			await Ledger.createFile({ userId, key: 'ibkr.rupee', content: transfer('same-as', '1000') });
+			const ledger = await createLedger(db);
+			await Ledger.createFile({ ledger, key: 'hdfc.rupee', content: transfer('same-as', '1000') });
+			await Ledger.createFile({ ledger, key: 'ibkr.rupee', content: transfer('same-as', '1000') });
 
 			const problem = {
 				type: 'EventWithoutPrimary',
@@ -349,20 +382,20 @@ describe('events across files', () => {
 				location: 'hdfc.rupee:1, ibkr.rupee:1',
 				cause: [],
 			};
-			expect(await Ledger.sync(userId)).toEqual(ok([problem]));
-			expect(await Ledger.sync(userId)).toEqual(ok([problem]));
-			const listed = (await Ledger.getTransactions(userId))._unsafeUnwrap();
+			expect(await Ledger.sync(ledger)).toEqual(ok([problem]));
+			expect(await Ledger.sync(ledger)).toEqual(ok([problem]));
+			const listed = (await Ledger.getTransactions(ledger))._unsafeUnwrap();
 			expect(listed.failed).toEqual([problem]);
 			expect(listed.succeeded.every((t) => t.counted)).toBe(true);
 		}));
 
 	it('reports evidence that disagrees with its primary', ({ context, db }) =>
 		provide(context, async () => {
-			const { userId } = await createUser(db);
-			await Ledger.createFile({ userId, key: 'hdfc.rupee', content: transfer('event', '1000') });
-			await Ledger.createFile({ userId, key: 'ibkr.rupee', content: transfer('same-as', '999') });
+			const ledger = await createLedger(db);
+			await Ledger.createFile({ ledger, key: 'hdfc.rupee', content: transfer('event', '1000') });
+			await Ledger.createFile({ ledger, key: 'ibkr.rupee', content: transfer('same-as', '999') });
 
-			expect((await Ledger.sync(userId))._unsafeUnwrap()).toMatchObject([
+			expect((await Ledger.sync(ledger))._unsafeUnwrap()).toMatchObject([
 				{ type: 'EventDisagreement', location: 'ibkr.rupee:1', account: 'Assets:IBKR' },
 				{ type: 'EventDisagreement', location: 'ibkr.rupee:1', account: 'Assets:HDFC' },
 			]);
@@ -388,19 +421,19 @@ describe('balance assertions', () => {
 
 	it('checks the running balance across days and files', ({ context, db }) =>
 		provide(context, async () => {
-			const { userId } = await createUser(db);
-			await Ledger.createFile({ userId, key: 'opening.rupee', content: opening });
-			await Ledger.createFile({ userId, key: 'hdfc.rupee', content: statement });
+			const ledger = await createLedger(db);
+			await Ledger.createFile({ ledger, key: 'opening.rupee', content: opening });
+			await Ledger.createFile({ ledger, key: 'hdfc.rupee', content: statement });
 
-			expect(await Ledger.sync(userId)).toEqual(ok([]));
+			expect(await Ledger.sync(ledger)).toEqual(ok([]));
 		}));
 
 	it('reports an assertion that does not hold, on every listing', ({ context, db }) =>
 		provide(context, async () => {
-			const { userId } = await createUser(db);
-			await Ledger.createFile({ userId, key: 'opening.rupee', content: opening });
+			const ledger = await createLedger(db);
+			await Ledger.createFile({ ledger, key: 'opening.rupee', content: opening });
 			await Ledger.createFile({
-				userId,
+				ledger,
 				key: 'hdfc.rupee',
 				content: statement.replace('= 850', '= 800'),
 			});
@@ -413,22 +446,22 @@ describe('balance assertions', () => {
 				actual: '850.00',
 				cause: [],
 			};
-			expect(await Ledger.sync(userId)).toEqual(ok([problem]));
-			expect((await Ledger.getTransactions(userId))._unsafeUnwrap().failed).toEqual([problem]);
+			expect(await Ledger.sync(ledger)).toEqual(ok([problem]));
+			expect((await Ledger.getTransactions(ledger))._unsafeUnwrap().failed).toEqual([problem]);
 		}));
 
 	it('orders another file by time, and warns when it cannot', ({ context, db }) =>
 		provide(context, async () => {
-			const { userId } = await createUser(db);
-			await Ledger.createFile({ userId, key: 'opening.rupee', content: opening });
-			await Ledger.createFile({ userId, key: 'hdfc.rupee', content: statement });
+			const ledger = await createLedger(db);
+			await Ledger.createFile({ ledger, key: 'opening.rupee', content: opening });
+			await Ledger.createFile({ ledger, key: 'hdfc.rupee', content: statement });
 			await Ledger.createFile({
-				userId,
+				ledger,
 				key: 'cash.rupee',
 				content: '2026-08-02 ATM\n\tAssets:Bank -10\n\tAssets:Cash\n',
 			});
 
-			expect((await Ledger.sync(userId))._unsafeUnwrap()).toEqual([
+			expect((await Ledger.sync(ledger))._unsafeUnwrap()).toEqual([
 				{
 					type: 'BalanceAssertionAmbiguous',
 					location: 'hdfc.rupee:1',
@@ -443,17 +476,17 @@ describe('balance assertions', () => {
 
 	it('places an event at its primary', ({ context, db }) =>
 		provide(context, async () => {
-			const { userId } = await createUser(db);
-			await Ledger.createFile({ userId, key: 'opening.rupee', content: opening });
+			const ledger = await createLedger(db);
+			await Ledger.createFile({ ledger, key: 'opening.rupee', content: opening });
 			await Ledger.createFile({
-				userId,
+				ledger,
 				key: 'hdfc.rupee',
 				content: statement
 					.replace('2026-08-02 TEA', '2026-08-02 09:00 TEA')
 					.replace('2026-08-02 BOOKS\n', '2026-08-02 10:05 BOOKS\n\t- same-as: books\n'),
 			});
 			await Ledger.createFile({
-				userId,
+				ledger,
 				key: 'amazon.rupee',
 				content: [
 					'2026-08-02 10:00 Amazon order',
@@ -465,12 +498,12 @@ describe('balance assertions', () => {
 				].join('\n'),
 			});
 
-			expect(await Ledger.sync(userId)).toEqual(ok([]));
+			expect(await Ledger.sync(ledger)).toEqual(ok([]));
 		}));
 
 	it('checks each commodity of an account on its own', ({ context, db }) =>
 		provide(context, async () => {
-			const { userId } = await createUser(db);
+			const ledger = await createLedger(db);
 			const ibkr = (aapl: string) =>
 				[
 					'2026-10-01 Fund',
@@ -482,12 +515,12 @@ describe('balance assertions', () => {
 					'\tAssets:IBKR -400 USD = 600 USD',
 					'',
 				].join('\n');
-			await Ledger.createFile({ userId, key: 'ibkr.rupee', content: ibkr('2') });
-			expect(await Ledger.sync(userId)).toEqual(ok([]));
+			await Ledger.createFile({ ledger, key: 'ibkr.rupee', content: ibkr('2') });
+			expect(await Ledger.sync(ledger)).toEqual(ok([]));
 
-			await Ledger.deleteFile(userId, 'ibkr.rupee');
-			await Ledger.createFile({ userId, key: 'ibkr.rupee', content: ibkr('3') });
-			expect(await Ledger.sync(userId)).toEqual(
+			await Ledger.deleteFile(ledger, 'ibkr.rupee');
+			await Ledger.createFile({ ledger, key: 'ibkr.rupee', content: ibkr('3') });
+			expect(await Ledger.sync(ledger)).toEqual(
 				ok([
 					{
 						type: 'BalanceAssertionFailed',

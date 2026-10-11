@@ -1,7 +1,3 @@
-/**
- * The Playwright `test` for e2e specs. Each worker gets its own server, and
- * each test a `signedIn` page for a user of its own.
- */
 import { randomUUID } from 'node:crypto';
 import { test as base, expect, type Page } from '@playwright/test';
 import { withServer, type Server } from './server.ts';
@@ -14,7 +10,7 @@ export const test = base.extend<{ email: string; signedIn: Page }, { server: Ser
 	extraHTTPHeaders: { 'x-forwarded-proto': 'http' },
 	email: ({}, use) => use(`${randomUUID()}@example.test`),
 	signedIn: async ({ page, server, email }, use) => {
-		await signIn(page, server.db, email);
+		await signIn(page, server, email);
 		await use(page);
 	},
 });

@@ -11,16 +11,25 @@
 		renameFile,
 	} from '#lib/endpoints/files.remote.ts';
 	import { checkDraft } from '#lib/endpoints/import.remote.ts';
+	import { getEvents, getSuggestions } from '#lib/endpoints/refinement.remote.ts';
 	import { createEditor } from '#lib/editor/editor.svelte.ts';
 	import FileEditor from '#lib/web/components/file-editor.svelte';
+	import FileEvents from '#lib/web/components/file-events.svelte';
 
 	type TreeNode = { label: string; key: string; children: Map<string, TreeNode> };
+
+	// How many possible matches refinement found after the last save, and for which file.
+	const matches = $state({ key: '', count: 0 });
 
 	const editor = createEditor(
 		{
 			read: readFile,
 			check: checkDraft,
-			save: editFile,
+			save: async (input) => {
+				const saved = await editFile(input);
+				if (saved.ok) await Promise.all([refine(input.key), getEvents(input.key).refresh()]);
+				return saved;
+			},
 			create: createFile,
 			rename: ({ key, to }) => renameFile({ key, to }),
 			remove: deleteFile,
@@ -42,6 +51,11 @@
 		if (!editor.dirty) return;
 		if (navigation.willUnload || !confirm('Discard your unsaved changes?')) navigation.cancel();
 	});
+
+	async function refine(key: string) {
+		const found = await getSuggestions(key);
+		Object.assign(matches, { key, count: found.data?.length ?? 0 });
+	}
 
 	const open = (key: string | null) =>
 		goto(key === null ? page.url.pathname : `?file=${encodeURIComponent(key)}`);
@@ -92,6 +106,18 @@
 <div style="display: flex; gap: 2rem">
 	<nav>{@render branch(tree)}</nav>
 	<section>
+		{#if selected !== null}
+			<p>
+				<a href="/ledger/refine?file={encodeURIComponent(selected)}">
+					{matches.key === selected && matches.count > 0
+						? `${matches.count} possible matches: review`
+						: 'Find matches'}
+				</a>
+			</p>
+		{/if}
 		<FileEditor {editor} onrenamed={open} onremoved={() => open(null)} />
+		{#if selected !== null}
+			<FileEvents file={selected} locked={editor.dirty} onchanged={editor.reload} />
+		{/if}
 	</section>
 </div>

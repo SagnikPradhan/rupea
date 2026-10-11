@@ -1,11 +1,7 @@
-/**
- * Inbound adapter for sign-in: email a code, trade it for a session cookie,
- * and sign out.
- */
 import * as v from 'valibot';
 import { invalid, redirect } from '@sveltejs/kit';
 import { form } from '$app/server';
-import * as Auth from '#lib/server/services/auth/application/auth.ts';
+import * as Auth from '#services/auth/application/auth.ts';
 import { fromResult } from '#lib/server/shared/result.ts';
 
 const Email = v.pipe(
@@ -21,7 +17,7 @@ const VerifyCode = v.object({
 	code: v.pipe(v.string(), v.trim(), v.regex(/^\d{6}$/, 'The code is 6 digits.')),
 });
 
-/** Returns the normalised email so the code step can carry it along. */
+// Returns the normalised email so the code step can carry it.
 export const requestCode = form(RequestCode, async ({ email }) => {
 	return fromResult(await Auth.requestCode(email).map(() => ({ email })));
 });

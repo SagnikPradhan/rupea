@@ -1,14 +1,3 @@
-/**
- * Turns a recognised table into grid rows: the columns TATR found, filled
- * with the words of the page's text layer. Everything is in one coordinate
- * space; the text, not the image, is what ends up in a cell.
- *
- * Rows come from the text, not from TATR: its row boxes are unreliable on
- * the borderless tables statements use, missing the header above a rule
- * and splitting wrapped cells. A text line is a row, except that a line
- * filling only some of the columns the row above it filled (a narration
- * wrapped onto a second line) is merged into that row.
- */
 import { match, P } from 'ts-pattern';
 import type { Box, Detection } from '#lib/server/shared/onnx/runtime.ts';
 import type { Grid } from './types';
@@ -17,9 +6,10 @@ export type Word = Box & { text: string };
 
 type Axis = 'x' | 'y';
 
-/** A row's words, column by column. */
 type Row = Word[][];
 
+// Rows come from the text layer, not TATR: its row boxes miss headers above
+// rules and split wrapped cells on borderless statement tables.
 export const toGrid = (structure: Detection[], words: Word[]): Grid => {
 	const columns = bands({ structure, label: 'table column', axis: 'x' });
 	if (columns.length === 0) return [];
@@ -44,11 +34,7 @@ type BandsOptions = {
 	axis: Axis;
 };
 
-/**
- * The detections labelled `label` as bands along `axis`, left to right or
- * top to bottom. Where two overlap by more than half the smaller, the
- * likelier wins: DETR sometimes finds one column twice.
- */
+// DETR sometimes finds one column twice; of two overlapping, the likelier wins.
 const bands = ({ structure, label, axis }: BandsOptions): Box[] =>
 	structure
 		.filter((d) => d.label === label)
@@ -56,7 +42,6 @@ const bands = ({ structure, label, axis }: BandsOptions): Box[] =>
 		.reduce<Box[]>((k, b) => (k.some((o) => overlap(b, o, axis) > 0.5) ? k : [...k, b]), [])
 		.sort((a, b) => start(a, axis) - start(b, axis));
 
-/** `line`'s words in the column each is centred in, or nearest to. */
 const cells = (columns: Box[], line: Word[]): Row => {
 	const row: Row = columns.map(() => []);
 	for (const word of line) row[nearest(columns, centre(word, 'x'))]?.push(word);
@@ -68,14 +53,12 @@ const nearest = (columns: Box[], x: number): number => {
 	return distances.indexOf(Math.min(...distances));
 };
 
-/** Whether `row` fills fewer than half the columns `above` does, and no others. */
 const continues = (row: Row, above: Row) => {
 	const filled = row.flatMap((w, c) => (w.length > 0 ? [c] : []));
 	const filledAbove = above.filter((w) => w.length > 0).length;
 	return filled.every((c) => (above[c]?.length ?? 0) > 0) && filled.length * 2 < filledAbove;
 };
 
-/** Words grouped into lines, top to bottom: a word whose centre is within the line's last word. */
 const lines = (words: Word[]): Word[][] =>
 	[...words]
 		.sort((a, b) => centre(a, 'y') - centre(b, 'y'))
@@ -92,7 +75,6 @@ const lines = (words: Word[]): Word[][] =>
 			return lines;
 		}, []);
 
-/** A cell's words in reading order: line by line, left to right. */
 const text = (words: Word[]): string =>
 	lines(words)
 		.map((line) =>
@@ -103,7 +85,6 @@ const text = (words: Word[]): string =>
 		)
 		.join(' ');
 
-/** How much of the smaller of `a` and `b` they share along `axis`. */
 const overlap = (a: Box, b: Box, axis: Axis) => {
 	const shared = Math.min(end(a, axis), end(b, axis)) - Math.max(start(a, axis), start(b, axis));
 	const smaller = Math.min(end(a, axis) - start(a, axis), end(b, axis) - start(b, axis));

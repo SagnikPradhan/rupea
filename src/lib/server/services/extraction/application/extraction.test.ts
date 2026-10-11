@@ -1,7 +1,8 @@
 import { describe, expect } from 'vitest';
-import type { Database } from '#lib/server/db/index.ts';
-import * as Ledger from '#lib/server/services/ledger/application/ledger.ts';
+import * as Ledger from '#services/ledger/application/ledger.ts';
 import { provide } from '#lib/server/shared/context.ts';
+import { broken, hashed } from '#tests/shared/embedding.ts';
+import { createUser } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
 import * as Extraction from './extraction';
 import { err, ok } from '#lib/server/shared/result.ts';
@@ -29,16 +30,6 @@ const statement = [
 	'31/08/26,ODD,x,,',
 ].join('\n');
 
-/** A user with a ledger of their own. */
-const createUser = async (db: Database) => {
-	const { id: ledgerId } = await db.orm.Ledger.create({ name: 'Test' });
-	const user = await db.orm.User.create({
-		email: `${ledgerId}@example.com`,
-		ledgerId,
-	});
-	return user.id;
-};
-
 const upload = (name: string, text: string) => ({
 	name,
 	content: new TextEncoder().encode(text),
@@ -46,8 +37,9 @@ const upload = (name: string, text: string) => ({
 
 describe('extracting a statement', () => {
 	it('reads a statement into a draft that parses', ({ context, db }) =>
-		provide(context, async () => {
-			const userId = await createUser(db);
+		// Without the model, lines nobody categorised stay uncategorised.
+		provide({ ...context, models: broken(context.models) }, async () => {
+			const { userId } = await createUser(db);
 			await Extraction.saveSchema({ userId, key: 'bank.yml', content: schema });
 			const draft = await Extraction.extract(userId, {
 				schema: 'bank.yml',
@@ -59,6 +51,8 @@ describe('extracting a statement', () => {
 				ok({
 					key: 'imports/aug.rupee',
 					content: [
+						'- statement: aug.csv',
+						'',
 						'2026-08-29 UPI GROCER',
 						'\tAssets:Bank',
 						'\tExpenses:Food 1250.50',
@@ -80,12 +74,73 @@ describe('extracting a statement', () => {
 				}),
 			);
 			if (draft.isErr()) return;
-			expect(Ledger.check('aug.rupee', draft.value.content).failed).toEqual([]);
+			expect(Ledger.check('aug.rupee', draft.value.content)).toMatchObject({
+				metadata: { statement: ['aug.csv'] },
+				failed: [],
+			});
+		}));
+
+	it('files uncategorised lines under the accounts the ledger shows', ({ context, db }) =>
+		provide({ ...context, models: hashed(context.models) }, async () => {
+			const { userId } = await createUser(db);
+			await Extraction.saveSchema({ userId, key: 'bank.yml', content: schema });
+			await Ledger.createFile({
+				userId,
+				key: 'history.rupee',
+				content: [
+					'2026-07-30 SALARY',
+					'\tAssets:Bank 40000.00',
+					'\tIncome:Pay',
+					'',
+					'2026-06-30 SALARY',
+					'\tAssets:Bank 40000.00',
+					'\tIncome:Pay',
+					'',
+				].join('\n'),
+			});
+			const draft = await Extraction.extract(userId, {
+				schema: 'bank.yml',
+				file: upload('aug.csv', statement),
+				account: 'Assets:Bank',
+			});
+
+			// The tagged line keeps its tag; the salary follows the ledger.
+			expect(draft._unsafeUnwrap().content).toContain(
+				['2026-08-30 SALARY', '\tAssets:Bank 50000.00', '\tIncome:Pay'].join('\n'),
+			);
+			expect(draft._unsafeUnwrap().content).toContain('\tExpenses:Food 1250.50');
+		}));
+
+	it('asserts the running balance a statement prints', ({ context, db }) =>
+		provide({ ...context, models: broken(context.models) }, async () => {
+			const { userId } = await createUser(db);
+			await Extraction.saveSchema({
+				userId,
+				key: 'bank.yml',
+				content: `${schema}  balance: { from: [header: Balance], pipe: [number] }\n`,
+			});
+			const draft = await Extraction.extract(userId, {
+				schema: 'bank.yml',
+				file: upload(
+					'aug.csv',
+					[
+						'Date,Narration,Debit,Credit,Tag,Balance',
+						'29/08/26,UPI GROCER,"1,250.50",,Expenses:Food,"8,749.50"',
+						'30/08/26,SALARY,,"50,000",,',
+					].join('\n'),
+				),
+				account: 'Assets:Bank',
+			});
+
+			expect(draft._unsafeUnwrap().content).toContain(
+				['2026-08-29 UPI GROCER', '\tAssets:Bank = 8749.50', '\tExpenses:Food 1250.50'].join('\n'),
+			);
+			expect(draft._unsafeUnwrap().content).toContain('\tAssets:Bank 50000.00\n');
 		}));
 
 	it('fails without the schema', ({ context, db }) =>
 		provide(context, async () => {
-			const userId = await createUser(db);
+			const { userId } = await createUser(db);
 			expect(
 				await Extraction.extract(userId, {
 					schema: 'missing.yml',
@@ -99,7 +154,7 @@ describe('extracting a statement', () => {
 describe('statement schemas', () => {
 	it('are saved, listed and read back', ({ context, db }) =>
 		provide(context, async () => {
-			const userId = await createUser(db);
+			const { userId } = await createUser(db);
 			await Extraction.saveSchema({ userId, key: 'bank.yml', content: schema });
 			expect(await Extraction.listSchemas(userId)).toMatchObject(ok([{ key: 'bank.yml' }]));
 			expect(await Extraction.readSchema(userId, 'bank.yml')).toMatchObject(
@@ -109,7 +164,7 @@ describe('statement schemas', () => {
 
 	it('are refused when they do not parse', ({ context, db }) =>
 		provide(context, async () => {
-			const userId = await createUser(db);
+			const { userId } = await createUser(db);
 			expect(
 				await Extraction.saveSchema({
 					userId,

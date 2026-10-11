@@ -1,14 +1,14 @@
-/**
- * The app, started for one Playwright worker: the build `setup.ts` made, on a
- * free port, with a throwaway database and data directory of its own.
- */
 import { spawn } from 'node:child_process';
+import { mkdtemp, rm } from 'node:fs/promises';
 import { createServer } from 'node:net';
-import { resolve } from 'node:path';
-import { openDatabase, type Database } from '#lib/server/db/index.ts';
-import { createTemporaryDatabase } from '#tests/shared/database.ts';
+import { tmpdir } from 'node:os';
+import { join, resolve } from 'node:path';
+import { createInterface } from 'node:readline';
+import type { Mail } from '#lib/server/shared/mailer.ts';
 
-export type Server = { url: string; db: Database };
+export type Server = { url: string; codeFor: (email: string) => Promise<string> };
+
+const CODE = /code is (\w+)/;
 
 const freePort = () =>
 	new Promise<number>((done, fail) => {
@@ -30,9 +30,24 @@ const untilUp = async (url: string): Promise<void> => {
 	return untilUp(url);
 };
 
-/** Run `use` against a fresh server, stopping it and removing its data afterwards. */
+// The server logs every mail it sends, one JSON object a line, among other
+// lines that are not JSON.
+const mailIn = (line: string): Mail[] => {
+	if (!line.startsWith('{')) return [];
+
+	const entry: unknown = JSON.parse(line);
+	return typeof entry === 'object' && entry !== null && 'mail' in entry ? [entry.mail as Mail] : [];
+};
+
+const untilMailed = async (mails: Mail[], email: string): Promise<string> => {
+	const code = mails.findLast((m) => m.to === email)?.text.match(CODE)?.[1];
+	if (code) return code;
+	await new Promise((r) => setTimeout(r, 50));
+	return untilMailed(mails, email);
+};
+
 export const withServer = async (use: (server: Server) => Promise<void>) => {
-	const database = await createTemporaryDatabase();
+	const directory = await mkdtemp(join(tmpdir(), 'rupee-e2e-'));
 	const port = await freePort();
 	const url = `http://127.0.0.1:${port}`;
 	const child = spawn('node', ['build'], {
@@ -42,17 +57,18 @@ export const withServer = async (use: (server: Server) => Promise<void>) => {
 			PORT: String(port),
 			// adapter-node assumes https unless a header says otherwise.
 			PROTOCOL_HEADER: 'x-forwarded-proto',
-			DATABASE_PATH: database.path,
-			RUPEE_DATA_DIR: database.directory,
+			RUPEE_DATA_DIR: directory,
 			RUPEE_MODELS: 'verify',
 			RUPEE_MODELS_DIR: resolve('data/models'),
-			RUPEE_LOG_LEVEL: 'warn',
+			RUPEE_LOG_LEVEL: 'info',
 			RUPEE_SIGNUP: 'open',
 		},
-		stdio: ['ignore', 'ignore', 'inherit'],
+		stdio: ['ignore', 'pipe', 'inherit'],
 	});
+	const mails: Mail[] = [];
+	createInterface({ input: child.stdout }).on('line', (l) => mails.push(...mailIn(l)));
 	await untilUp(url);
-	await use({ url, db: openDatabase(database.path) });
+	await use({ url, codeFor: (email) => untilMailed(mails, email) });
 	child.kill();
-	await database.dispose();
+	await rm(directory, { recursive: true, force: true });
 };

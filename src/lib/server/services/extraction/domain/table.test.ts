@@ -14,7 +14,6 @@ const column = (x1: number, x2: number, score = 0.9): Detection => ({
 // Date, Narration, Withdrawal, Deposit.
 const columns = [column(0, 100), column(100, 300), column(300, 400), column(400, 500)];
 
-/** A word on the line whose baseline is `y`, starting at `x`. */
 const word = (text: string, x: number, y: number): Word => ({
 	text,
 	x1: x,

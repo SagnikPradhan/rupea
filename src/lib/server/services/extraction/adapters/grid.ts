@@ -1,10 +1,3 @@
-/**
- * Outbound adapter that reads an uploaded statement into a `Grid`, by its
- * extension: `.csv`, the first sheet of an `.xlsx`, or the tables of a
- * `.pdf` (see `pdf.ts`). Every cell comes out as text. Spreadsheet numbers
- * keep the digits they were stored with, and date cells read as
- * `yyyy-MM-dd`.
- */
 import { unknownError } from '#lib/server/shared/error.ts';
 import { attempt, errAsync, type ResultAsync } from '#lib/server/shared/result.ts';
 import { parse } from 'csv-parse/sync';
@@ -16,11 +9,9 @@ import { readPdf } from './pdf';
 export type Upload = {
 	name: string;
 	content: Uint8Array;
-	/** For a password-protected PDF. */
 	password?: string | undefined;
 };
 
-/** A reader of a format that throws on a file it cannot read. */
 const throwing =
 	(read: (content: Uint8Array) => Promise<Grid>) =>
 	({ name, content }: Upload): ResultAsync<Grid> =>

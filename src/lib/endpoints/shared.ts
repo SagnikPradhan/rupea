@@ -1,15 +1,18 @@
-/** Shared by the remote functions. */
-import { formatAmount, type RupeeTransaction } from '#lib/server/services/ledger/domain/types.ts';
+import { PRICE_SIGN } from '#services/ledger/domain/printer.ts';
+import {
+	AccountRoot,
+	accountRoot,
+	formatQuantity,
+	type RupeeTransaction,
+} from '#services/ledger/domain/types.ts';
 import * as v from 'valibot';
 
-/** A key the ledger indexes: a `.rupee` file. */
 export const Key = v.pipe(
 	v.string(),
 	v.nonEmpty(),
 	v.endsWith('.rupee', 'Ledger files end in .rupee.'),
 );
 
-/** A statement schema's key, under the ledger's `schemas/`. */
 export const SchemaKey = v.pipe(
 	v.string(),
 	v.trim(),
@@ -17,10 +20,16 @@ export const SchemaKey = v.pipe(
 	v.endsWith('.yml', 'Schemas end in .yml.'),
 );
 
-/**
- * A transaction shaped for the wire: dates and times as ISO text and amounts
- * as exact decimal text.
- */
+export const Account = v.pipe(
+	v.string(),
+	v.trim(),
+	v.regex(/^\S+$/, 'An account is one word, like Assets:Bank.'),
+	v.check(
+		(a) => accountRoot(a) !== null,
+		`An account starts with one of ${Object.values(AccountRoot).join(', ')}.`,
+	),
+);
+
 export const viewTransaction = ({
 	location,
 	date,
@@ -33,8 +42,9 @@ export const viewTransaction = ({
 	date: date.toString(),
 	time: time?.toString({ smallestUnit: 'minute' }) ?? null,
 	description,
-	postings: postings.map(({ account, amount }) => ({
-		account,
-		amount: formatAmount(amount),
+	postings: postings.map((p) => ({
+		account: p.account,
+		amount: formatQuantity(p),
+		price: p.price === null ? null : `${PRICE_SIGN[p.price.kind]} ${formatQuantity(p.price)}`,
 	})),
 });

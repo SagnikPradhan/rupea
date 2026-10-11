@@ -1,21 +1,10 @@
-/**
- * Inbound adapter for importing a statement: read an upload into a draft
- * `.rupee` file and check edits to it. Saving the draft is an ordinary
- * `createFile`.
- */
 import * as v from 'valibot';
 import { command, form } from '$app/server';
-import * as Auth from '#lib/server/services/auth/application/auth.ts';
-import * as Extraction from '#lib/server/services/extraction/application/extraction.ts';
-import * as Ledger from '#lib/server/services/ledger/application/ledger.ts';
+import * as Auth from '#services/auth/application/auth.ts';
+import * as Extraction from '#services/extraction/application/extraction.ts';
+import * as Ledger from '#services/ledger/application/ledger.ts';
 import { fromBatch, fromResult, ok, type Response } from '#lib/server/shared/result.ts';
-import { Key, SchemaKey, viewTransaction } from './shared';
-
-const Account = v.pipe(
-	v.string(),
-	v.trim(),
-	v.regex(/^\S+$/, 'An account is one word, like Assets:Bank.'),
-);
+import { Account, Key, SchemaKey, viewTransaction } from './shared';
 
 const ExtractStatement = v.object({
 	file: v.file(),
@@ -26,10 +15,6 @@ const ExtractStatement = v.object({
 
 const CheckDraft = v.object({ key: Key, content: v.string() });
 
-/**
- * The draft for the uploaded statement, under a key named after it. Rows
- * that did not read ride along as errors.
- */
 export const extractStatement = form(
 	ExtractStatement,
 	async ({
@@ -57,7 +42,6 @@ export const extractStatement = form(
 	},
 );
 
-/** The transactions `content` parses to as the file `key`, and its errors. */
 export const checkDraft = command(CheckDraft, async ({ key, content }) => {
 	const checked = Auth.withCurrentUser(() => ok(Ledger.check(key, content)));
 	return fromBatch(

@@ -1,12 +1,12 @@
-/** Inbound adapter for the ledger's transactions. */
 import { query } from '$app/server';
-import * as Auth from '#lib/server/services/auth/application/auth.ts';
-import * as Ledger from '#lib/server/services/ledger/application/ledger.ts';
+import * as Auth from '#services/auth/application/auth.ts';
+import * as Ledger from '#services/ledger/application/ledger.ts';
 import { fromBatch } from '#lib/server/shared/result.ts';
 import { viewTransaction } from './shared';
 
-const view = ({ id, ...transaction }: Ledger.IndexedTransaction) => ({
+const view = ({ id, counted, ...transaction }: Ledger.CountedTransaction) => ({
 	id,
+	counted,
 	...viewTransaction(transaction),
 });
 

@@ -3,15 +3,18 @@
 
 	const response = $derived(await getTransactions());
 	const postings = $derived(
-		(response.data ?? []).flatMap((transaction) =>
-			transaction.postings.map((posting, index) => ({
-				key: `${transaction.id}:${index}`,
-				date: transaction.date,
-				description: transaction.description,
-				source: `${transaction.file}:${transaction.line}`,
-				...posting,
-			})),
-		),
+		// Evidence of an event is kept in the ledger but not counted.
+		(response.data ?? [])
+			.filter((transaction) => transaction.counted)
+			.flatMap((transaction) =>
+				transaction.postings.map((posting, index) => ({
+					key: `${transaction.id}:${index}`,
+					date: transaction.date,
+					description: transaction.description,
+					source: `${transaction.file}:${transaction.line}`,
+					...posting,
+				})),
+			),
 	);
 </script>
 
@@ -33,7 +36,7 @@
 			<tr>
 				<td>{posting.date}</td>
 				<td>{posting.account}</td>
-				<td>{posting.amount}</td>
+				<td>{posting.amount}{posting.price ? ` ${posting.price}` : ''}</td>
 				<td>{posting.description}</td>
 				<td>{posting.source}</td>
 			</tr>

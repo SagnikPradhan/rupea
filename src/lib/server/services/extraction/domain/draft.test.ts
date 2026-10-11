@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { defaultConfiguration as config } from '#lib/server/shared/config.ts';
 import { parse, parseAmount, type Amount } from '#services/ledger/application/shared.ts';
-import { draft, uncategorised } from './draft';
+import { categorised, draft, uncategorised } from './draft';
 import type { RupeeRecord } from './types';
 
 const record = (description: string, amount: string, category: string | null = null) =>
@@ -14,21 +14,34 @@ const record = (description: string, amount: string, category: string | null = n
 		balance: null,
 	}) satisfies RupeeRecord;
 
-const predicted = (account: string) => ({ account, score: 0.9, source: 'history' as const });
+const at = (line: number, account: string, r: RupeeRecord) => ({
+	...r,
+	location: { file: 'hdfc.csv', line },
+	account,
+});
 
 const counterparts = (content: string) =>
 	parse(config, { key: 'imports/hdfc.rupee', content }).succeeded.map(
 		(t) => t.postings[1]?.account,
 	);
 
-describe('uncategorised records', () => {
-	it('are those whose category names no ledger account', () => {
-		const records = [
-			record('a', '-1', 'Expenses:Food'),
-			record('b', '-1', 'Shopping'),
-			record('c', '-1'),
-		];
+describe('categorising records', () => {
+	const records = [
+		record('a', '-1', 'Expenses:Food'),
+		record('b', '-1', 'Shopping'),
+		record('c', '-1'),
+		record('d', '-1', ' Expenses:Eating   Out '),
+	];
+
+	it('leaves uncategorised those whose category names no ledger account', () => {
 		expect(uncategorised(records).map((r) => r.description)).toEqual(['b', 'c']);
+	});
+
+	it("takes the account from the statement's own category, as one word", () => {
+		expect(categorised(records).map((r) => [r.description, r.account])).toEqual([
+			['a', 'Expenses:Food'],
+			['d', 'Expenses:Eating-Out'],
+		]);
 	});
 });
 
@@ -39,45 +52,23 @@ describe('drafting a ledger file', () => {
 			statement: 'hdfc-aug.2026.csv',
 			account: 'Assets:Bank',
 			records: [],
-			predictions: [],
 			failed: [],
 		});
 		expect(drafted.key).toBe('imports/hdfc-aug.2026.rupee');
 	});
 
-	it("prefers the statement's own category, then the prediction, then a fallback", () => {
-		const records = [
-			record('GROCER', '-250', 'Expenses:Food'),
-			record('SALARY', '50000'),
-			record('MYSTERY', '-10'),
-			record('REFUND', '10'),
-		];
+	it("writes each record against its account, in the statement's order", () => {
 		const drafted = draft({
 			config,
 			statement: 'hdfc.csv',
 			account: 'Assets:Bank',
-			records,
-			predictions: [predicted('Income:Salary')],
+			records: [
+				at(3, 'Income:Salary', record('SALARY', '50000')),
+				at(2, 'Expenses:Food', record('GROCER', '-250')),
+			],
 			failed: [],
 		});
-		expect(counterparts(drafted.content)).toEqual([
-			'Expenses:Food',
-			'Income:Salary',
-			'Expenses:Uncategorized',
-			'Income:Uncategorized',
-		]);
-	});
-
-	it('turns a spaced category into one account word', () => {
-		const drafted = draft({
-			config,
-			statement: 'hdfc.csv',
-			account: 'Assets:Bank',
-			records: [record('CAFE', '-80', ' Expenses:Eating   Out ')],
-			predictions: [],
-			failed: [],
-		});
-		expect(counterparts(drafted.content)).toEqual(['Expenses:Eating-Out']);
+		expect(counterparts(drafted.content)).toEqual(['Expenses:Food', 'Income:Salary']);
 	});
 
 	it('writes a balanced transaction per record, on one header line, citing the statement', () => {
@@ -85,8 +76,7 @@ describe('drafting a ledger file', () => {
 			config,
 			statement: 'hdfc.csv',
 			account: 'Assets:Bank',
-			records: [record('UPI  SHOP\nBLR', '-120.50')],
-			predictions: [predicted('Expenses:Shopping')],
+			records: [at(2, 'Expenses:Shopping', record('UPI  SHOP\nBLR', '-120.50'))],
 			failed: [],
 		});
 		const parsed = parse(config, { key: drafted.key, content: drafted.content });

@@ -1,27 +1,80 @@
-import type { Amount, RupeeTransaction } from '#lib/server/services/ledger/domain/types.ts';
-import { predictAccount } from '#lib/server/services/prediction/domain/prediction.ts';
+import { print } from '#services/ledger/domain/printer.ts';
+import {
+	accountRoot,
+	HOME_COMMODITY,
+	type Amount,
+	type RupeeTransaction,
+} from '#services/ledger/domain/types.ts';
+import { fallbackAccount, type Prediction } from '#services/prediction/domain/prediction.ts';
+import type { RupeeConfiguration } from '#lib/server/shared/config.ts';
+import type { RupeeError } from '#lib/server/shared/error.ts';
 import type { RupeeRecord } from './types';
 
-/**
- * A record as a transaction of the statement's own `account`: the amount
- * lands there, and the other side, its negation, goes to the record's
- * category or else a predicted account.
- */
-export const toTransaction =
-	(account: string) =>
+export type Draft = { key: string; content: string; failed: RupeeError[] };
+
+type DraftOptions = {
+	config: RupeeConfiguration;
+	statement: string;
+	account: string;
+	records: RupeeRecord[];
+	// One for each of `uncategorised(records)`, in order.
+	predictions: Prediction[];
+	failed: RupeeError[];
+};
+
+// A statement's own category counts only when it names a ledger account.
+export const uncategorised = (l: RupeeRecord[]) => l.filter((r) => categoryAccount(r) === null);
+
+export const draft = (options: DraftOptions): Draft => {
+	const open = uncategorised(options.records);
+	const predictions = new Map(open.map((r, i) => [r, options.predictions[i]] as const));
+	return {
+		key: `imports/${options.statement.replace(/\.[^.]*$/, '')}.rupee`,
+		content: print(options.config, {
+			metadata: { statement: [options.statement] },
+			transactions: options.records.map(toTransaction(options.account, predictions)),
+		}),
+		failed: options.failed,
+	};
+};
+
+const toTransaction =
+	(account: string, predictions: Map<RupeeRecord, Prediction | undefined>) =>
 	(record: RupeeRecord): RupeeTransaction => ({
 		location: record.location,
 		date: record.date,
 		time: null,
 		description: words(record.description).join(' '),
+		metadata: {},
 		postings: [
-			{ account, amount: record.amount },
 			{
-				account: record.category ? words(record.category).join('-') : predictAccount(record),
+				account,
+				amount: record.amount,
+				commodity: HOME_COMMODITY,
+				price: null,
+				balance: record.balance,
+				metadata: {},
+			},
+			{
+				account:
+					categoryAccount(record) ??
+					predictions.get(record)?.account ??
+					fallbackAccount(record.amount),
 				amount: -record.amount as Amount,
+				commodity: HOME_COMMODITY,
+				price: null,
+				balance: null,
+				metadata: {},
 			},
 		],
 	});
 
-/** A `.rupee` header is one line, and an account a single word. */
+const categoryAccount = (record: RupeeRecord): string | null => {
+	if (!record.category) return null;
+
+	const account = words(record.category).join('-');
+	return accountRoot(account) ? account : null;
+};
+
+// A `.rupee` header is one line, and an account a single word.
 const words = (t: string) => t.trim().split(/\s+/);

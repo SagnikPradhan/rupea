@@ -1,4 +1,3 @@
-/** Builds the app once for every worker's server, and checks the models PDF import needs. */
 import { execFile } from 'node:child_process';
 import { access } from 'node:fs/promises';
 import { join, resolve } from 'node:path';

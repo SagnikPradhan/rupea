@@ -1,4 +1,3 @@
-/** A fake `EditorApi` over an in-memory disk, for the editor's tests. */
 import { vi } from 'vitest';
 import type { RupeeError } from '#lib/server/shared/error.ts';
 import type { Response } from '#lib/server/shared/result.ts';
@@ -26,7 +25,6 @@ export const parseError: RupeeError = {
 	cause: [],
 };
 
-/** Files by key; versions count up with every write. */
 export const fakeApi = (initial: Record<string, string>) => {
 	const disk = new Map(Object.entries(initial).map(([key, content]) => [key, { content, n: 1 }]));
 	const file = (key: string): EditorFile | undefined => {
@@ -62,7 +60,6 @@ export const fakeApi = (initial: Record<string, string>) => {
 			return succeed(undefined);
 		}),
 	} satisfies EditorApi;
-	/** Change a file behind the editor's back. */
 	const touch = (k: string, c: string) => disk.set(k, { content: c, n: (disk.get(k)?.n ?? 0) + 1 });
 	return { api, touch, disk };
 };

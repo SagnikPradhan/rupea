@@ -2,6 +2,7 @@
 	import { goto } from '$app/navigation';
 	import type { RupeeError } from '#lib/server/shared/error.ts';
 	import { createFile } from '#lib/endpoints/files.remote.ts';
+	import { getSuggestions } from '#lib/endpoints/refinement.remote.ts';
 	import { getSchemas } from '#lib/endpoints/schemas.remote.ts';
 	import { checkDraft, extractStatement } from '#lib/endpoints/import.remote.ts';
 
@@ -34,7 +35,15 @@
 	async function save() {
 		const saved = await createFile({ key: draft.key, content: draft.content });
 		draft.errors = saved.errors;
-		if (saved.ok) await goto('/ledger/transactions');
+		if (!saved.ok) return;
+
+		// Refinement runs on every save; review its matches if it found any.
+		const found = await getSuggestions(draft.key);
+		await goto(
+			found.data?.length
+				? `/ledger/refine?file=${encodeURIComponent(draft.key)}`
+				: '/ledger/transactions',
+		);
 	}
 </script>
 
@@ -110,7 +119,10 @@
 						<td>{transaction.description}</td>
 						<td>
 							{#each transaction.postings as posting, index (index)}
-								<div>{posting.account} {posting.amount}</div>
+								<div>
+									{posting.account}
+									{posting.amount}{posting.price ? ` ${posting.price}` : ''}
+								</div>
 							{/each}
 						</td>
 						<td>{transaction.line}</td>

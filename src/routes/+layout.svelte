@@ -1,6 +1,10 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import favicon from '#lib/assets/favicon.svg';
+	import '@fontsource-variable/noto-sans';
+	import '@fontsource-variable/jetbrains-mono';
+	import '#lib/web/styles/reset.css';
+	import '#lib/web/styles/global.css';
 
 	const { children } = $props();
 

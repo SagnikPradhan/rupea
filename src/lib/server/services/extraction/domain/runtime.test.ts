@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatAmount } from '#lib/server/services/ledger/domain/types.ts';
+import { formatAmount } from '#services/ledger/domain/types.ts';
 import { extract } from './runtime';
 import { parseSchema, type RupeeSchema } from './schema';
 import type { Grid } from './types';
@@ -41,7 +41,6 @@ const statement: Grid = [
 	['STATEMENT SUMMARY', '', '', ''],
 ];
 
-/** The records as `line date amount description` lines. */
 const summary = (grid: Grid, using = hdfc) => {
 	const result = extract({ schema: using, file: 'hdfc.csv', grid });
 	if (result.isErr()) return result;
@@ -174,6 +173,95 @@ fields:
 		expect(result).toEqual({
 			failed: [],
 			succeeded: ['3 2026-08-29 -1250.50 UPI-GROCER', '5 2026-08-30 50000.00 SALARY  AUG'],
+		});
+	});
+
+	it('finds the header by a pattern', () => {
+		const patterned = schema(`
+header:
+  regex: '^Txn\\s+Date$'
+fields:
+  date: { from: [col: A], pipe: [date: yyyy-MM-dd] }
+  amount: { from: [col: B], pipe: [number] }
+  description: { from: [col: C] }
+`);
+		expect(
+			summary(
+				[['2026-01-01', '1', 'not a record'], ['Txn  Date'], ['2026-08-29', '5', 'Tea']],
+				patterned,
+			),
+		).toEqual({ failed: [], succeeded: ['3 2026-08-29 5.00 Tea'] });
+	});
+
+	it('reads an optional category and balance, or leaves them out', () => {
+		const full = schema(`
+fields:
+  date: { from: [col: A], pipe: [date: yyyy-MM-dd] }
+  amount: { from: [col: B], pipe: [number] }
+  description: { from: [col: C] }
+  category: { from: [text: Category, right: 1] }
+  balance: { from: [col: D], pipe: [number] }
+`);
+		const result = extract({
+			schema: full,
+			file: 'a.csv',
+			grid: [
+				['Date'],
+				['2026-08-29', '-5', 'Tea', '995', 'Category', 'Food'],
+				['2026-08-30', '-5', 'Tea', ''],
+			],
+		})._unsafeUnwrap();
+		expect(
+			result.succeeded.map((r) => [
+				r.category,
+				r.balance === null ? null : formatAmount(r.balance),
+			]),
+		).toEqual([
+			['Food', '995.00'],
+			[null, null],
+		]);
+	});
+
+	it('reports a category or balance that is there but does not read', () => {
+		const strict = schema(`
+fields:
+  date: { from: [col: A], pipe: [date: yyyy-MM-dd] }
+  amount: { from: [col: B], pipe: [number] }
+  description: { from: [col: C] }
+  category: { from: [col: D], pipe: [number] }
+  balance: { from: [col: E], pipe: [number] }
+`);
+		expect(
+			summary(
+				[['Date'], ['2026-08-29', '1', 'x', '7'], ['2026-08-29', '1', 'x', '', 'lots']],
+				strict,
+			),
+		).toMatchObject({
+			failed: [
+				{ field: 'category', reason: 'expected text, got an amount' },
+				{ field: 'balance', reason: '"lots" is not a number' },
+			],
+		});
+	});
+
+	it('says which kind a step got when it needs text', () => {
+		const twice = schema(`
+fields:
+  date: { from: [col: A], pipe: [date: yyyy-MM-dd, trim] }
+  amount: { from: [col: B], pipe: [number, number] }
+  description: { from: [col: C] }
+`);
+		expect(summary([['Date'], ['2026-08-29', '1', 'x']], twice)).toMatchObject({
+			failed: [{ field: 'date', reason: 'trim needs text, got a date' }],
+		});
+		const amounts = schema(`
+fields:
+  date: { from: [col: A], pipe: [date: yyyy-MM-dd] }
+  amount: { from: [col: B], pipe: [number, number] }
+  description: { from: [col: C] }
+`);
+		expect(summary([['Date'], ['2026-08-29', '1', 'x']], amounts)).toMatchObject({
+			failed: [{ field: 'amount', reason: 'number needs text, got an amount' }],
 		});
 	});
 

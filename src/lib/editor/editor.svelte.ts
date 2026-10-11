@@ -1,12 +1,6 @@
-/**
- * The state of the ledger file editor: the open file, the text being edited,
- * what `check` says about it, and the outcome of saving. The remote functions
- * come in as `EditorApi`, so this runs the same against the server and a test.
- */
 import type { RupeeError } from '#lib/server/shared/error.ts';
 import type { Response } from '#lib/server/shared/result.ts';
 
-/** A file as the editor needs it. */
 export type EditorFile = { key: string; content: string; version: string };
 
 export type EditorApi = {
@@ -42,18 +36,12 @@ const closed = (): EditorState => ({
 export type Editor = {
 	state: EditorState;
 	readonly dirty: boolean;
-	/** Open `key`, or close the editor for `null`. */
 	open: (key: string | null) => Promise<void>;
-	/** Set the text; it is checked once typing pauses. */
 	edit: (content: string) => void;
-	/** Save the edit. A conflict is shown, not thrown away. True if it went through. */
 	save: () => Promise<boolean>;
 	reload: () => Promise<boolean>;
-	/** Save over whatever is on disk now, keeping the edit. */
 	overwrite: () => Promise<boolean>;
-	/** Create `key`, empty, and open it. */
 	create: (key: string) => Promise<boolean>;
-	/** Rename the open file; the edit stays. */
 	rename: (to: string) => Promise<boolean>;
 	remove: () => Promise<boolean>;
 };
@@ -73,7 +61,6 @@ export const createEditor = (api: EditorApi, delay: number): Editor => {
 		Object.assign(state, closed(), { file, content: file.content });
 	};
 
-	/** Use what `response` carries, or else show why it carries nothing. */
 	const accept = <T>(response: Response<T>, use: (data: T) => void): boolean => {
 		if (response.data === null) {
 			state.errors.operation = response.errors;
@@ -84,13 +71,11 @@ export const createEditor = (api: EditorApi, delay: number): Editor => {
 		return true;
 	};
 
-	/** Run `run` on the open file; nothing happens, and nothing went through, without one. */
 	const onFile = (run: (file: EditorFile) => Promise<boolean>) => {
 		const file = state.file;
 		return file === null ? Promise.resolve(false) : run(file);
 	};
 
-	/** Check the text after `wait`, unless an edit or open comes first. */
 	const check = async (wait: number) => {
 		const ticket = ++latest.ticket;
 		const file = state.file;
@@ -101,7 +86,6 @@ export const createEditor = (api: EditorApi, delay: number): Editor => {
 		if (ticket === latest.ticket) state.errors.parse = checked.errors;
 	};
 
-	/** Save the edit over `file`; a conflict is shown, not thrown away. */
 	const saveOver = async (file: EditorFile) => {
 		state.saving = true;
 		const saved = await api.save({ ...file, content: state.content });
@@ -117,7 +101,6 @@ export const createEditor = (api: EditorApi, delay: number): Editor => {
 		if (accept(read, show)) await check(0);
 	};
 
-	// Everything above is internal; everything the page calls is below.
 	return {
 		state,
 		get dirty() {

@@ -1,6 +1,6 @@
+import { err, ok } from '#lib/server/shared/result.ts';
 import { describe, expect, it } from 'vitest';
 import { parseSchema } from './schema';
-import { err, ok } from '#lib/server/shared/result.ts';
 
 const hdfc = `
 version: v1

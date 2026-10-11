@@ -1,3 +1,5 @@
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { readGrid } from './grid';
 import { err, ok } from '#lib/server/shared/result.ts';
@@ -13,6 +15,16 @@ describe('reading a grid from a file', () => {
 				['29/08/26', 'GROCER, BLR', '1,250.50'],
 				[''],
 				['Total'],
+			]),
+		);
+	});
+
+	it('reads a sheet as text: dates as ISO days, numbers as written, empty cells blank', async () => {
+		const content = await readFile(join(import.meta.dirname, 'fixtures/statement.xlsx'));
+		expect(await readGrid({ name: 'a.xlsx', content })).toEqual(
+			ok([
+				['Date', 'Narration', 'Ref', 'Amount'],
+				['2026-08-29', 'GROCER', '', '1250.50'],
 			]),
 		);
 	});

@@ -1,17 +1,42 @@
 <script lang="ts">
+	import type { RupeeError } from '#lib/server/shared/error.ts';
 	import { getTransactions } from '#lib/endpoints/transactions.remote.ts';
 
 	const response = $derived(await getTransactions());
+	// Assertions only check the ledger; nothing is wrong with the data they point at.
+	const isWarning = (e: RupeeError) =>
+		e.type === 'BalanceAssertionFailed' || e.type === 'BalanceAssertionAmbiguous';
+	const problems = $derived(response.errors.filter((e) => !isWarning(e)));
+	const warnings = $derived(response.errors.filter(isWarning));
+
+	const describe = (error: RupeeError) =>
+		[
+			error.type,
+			'location' in error ? ` at ${error.location}` : '',
+			'account' in error && 'expected' in error
+				? `: ${error.account} expected ${error.expected}, got ${error.actual}`
+				: '',
+			'unordered' in error
+				? `: ${error.account} could be either side of ${error.unordered}; add a time to order them`
+				: '',
+		].join('');
 </script>
 
 <h1>Transactions</h1>
-<p><a href="/ledger/files">Files</a></p>
+<p><a href="/ledger/files">Files</a> · <a href="/ledger/refine">Refine</a></p>
 
-{#each response.errors as error, index (index)}
-	<p role="alert">
-		{error.type}{'location' in error ? ` at ${error.location}` : ''}
-	</p>
+{#each problems as error, index (index)}
+	<p role="alert">{describe(error)}</p>
 {/each}
+
+{#if warnings.length > 0}
+	<section aria-label="Warnings">
+		<h2>Warnings</h2>
+		{#each warnings as warning, index (index)}
+			<p role="status">{describe(warning)}</p>
+		{/each}
+	</section>
+{/if}
 
 <table>
 	<thead>
@@ -19,12 +44,12 @@
 	</thead>
 	<tbody>
 		{#each response.data ?? [] as transaction (transaction.id)}
-			<tr>
+			<tr style:opacity={transaction.counted ? 1 : 0.5}>
 				<td>{transaction.date} {transaction.time ?? ''}</td>
-				<td>{transaction.description}</td>
+				<td>{transaction.description}{transaction.counted ? '' : ' (evidence, not counted)'}</td>
 				<td>
 					{#each transaction.postings as posting, index (index)}
-						<div>{posting.account} {posting.amount}</div>
+						<div>{posting.account} {posting.amount}{posting.price ? ` ${posting.price}` : ''}</div>
 					{/each}
 				</td>
 				<td>{transaction.file}:{transaction.line}</td>

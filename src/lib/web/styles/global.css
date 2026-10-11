@@ -1,0 +1,142 @@
+:root {
+	color-scheme: light dark;
+
+	--font-size-0: 0.75rem;
+	--font-size-1: 1rem;
+	--font-size-2: 1.5rem;
+	--font-size-3: 2.25rem;
+	--font-size-4: 3.38rem;
+
+	--size-0: 0.17rem; /* 4px */
+	--size-1: 0.34rem; /* 8px */
+	--size-2: 0.68rem; /* 16px */
+	--size-3: 1rem; /* 24px */
+	--size-4: 1.34rem; /* 32px */
+	--size-5: 2rem; /* 48px */
+	--size-6: 4rem; /* 96px */
+	--size-7: 6rem; /* 144px */
+
+	--font-sans: 'Noto Sans Variable', sans-serif;
+	--font-mono: 'JetBrains Mono Variable', monospace;
+
+	--color-bg: #fff;
+	--color-gray: lightgray;
+	--color-light-gray: #f5f5f5;
+	--color-black: rgba(0, 0, 0, 0.9);
+	--color-blue: rgba(0, 0, 255, 0.9);
+	--color-border: var(--color-gray);
+	--color-positive: #0a7a3d;
+	--color-negative: #c62828;
+}
+
+@media (prefers-color-scheme: dark) {
+	:root {
+		--color-bg: #121212;
+		--color-gray: #3a3a3a;
+		--color-light-gray: #1e1e1e;
+		--color-black: rgba(255, 255, 255, 0.9);
+		--color-blue: #8ab4ff;
+		--color-positive: #4cc47f;
+		--color-negative: #ff7b72;
+	}
+}
+
+html {
+	font-size: 24px;
+	text-wrap: pretty;
+	scroll-behavior: smooth;
+}
+
+@media (min-width: 320px) {
+	/* smartphones, iPhone, portrait 480x320 phones */
+	html {
+		font-size: 18px;
+	}
+}
+
+@media (min-width: 481px) {
+	/* portrait e-readers (Nook/Kindle), smaller tablets @ 600 or @ 640 wide. */
+	html {
+		font-size: 20px;
+	}
+}
+
+@media (min-width: 641px) {
+	/* portrait tablets, portrait iPad, landscape e-readers, landscape 800x480 or 854x480 phones */
+	html {
+		font-size: 24px;
+	}
+}
+
+body {
+	line-height: 1.4;
+	font-size: var(--font-size-1);
+	font-family: var(--font-sans);
+	font-optical-sizing: auto;
+	font-weight: 400;
+	font-style: normal;
+	background: var(--color-bg);
+	color: var(--color-black);
+	margin: 0;
+	min-height: 100dvh;
+}
+
+h1,
+h2,
+h3 {
+	line-height: 1.125;
+	color: var(--color-black);
+	text-wrap: balance;
+	font-weight: 400;
+}
+
+h1 {
+	font-size: var(--font-size-4);
+	margin: var(--size-5) 0 var(--size-2) 0;
+}
+
+h2 {
+	font-size: var(--font-size-3);
+	margin: var(--size-5) 0 var(--size-1) 0;
+}
+
+h3 {
+	font-size: var(--font-size-2);
+	margin: var(--size-2) 0 var(--size-0) 0;
+}
+
+p,
+ul,
+ol {
+	margin: var(--size-2) 0 var(--size-1) 0;
+	color: var(--color-black);
+}
+
+li {
+	margin: var(--size-0) 0;
+	color: var(--color-black);
+}
+
+ol {
+	list-style-type: decimal;
+}
+
+a,
+a:not([class]) {
+	text-decoration: underline;
+	color: var(--color-blue);
+}
+
+code {
+	font-size: var(--font-size-0);
+	font-family: var(--font-mono);
+}
+
+hr {
+	display: block;
+	height: 1px;
+	border: 0;
+	border-top: 1px solid var(--color-border);
+	margin: var(--size-3) 0;
+	padding: 0;
+}

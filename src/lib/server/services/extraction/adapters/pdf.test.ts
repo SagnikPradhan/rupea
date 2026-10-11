@@ -11,7 +11,6 @@ import { err } from '#lib/server/shared/result.ts';
 
 const fixture = (n: string) => readFile(join(import.meta.dirname, 'fixtures', n));
 
-/** Tests never download the models; without them, only the errors are tested. */
 const models = files.every(({ file }) => existsSync(join('data/models', file)));
 
 const header = [

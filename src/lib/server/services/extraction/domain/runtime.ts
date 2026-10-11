@@ -1,27 +1,15 @@
-/**
- * Runs an extraction schema over a statement's grid, reading each record
- * row into a `RupeeRecord`. A row that does not read rides along in the
- * `Batch`; a statement that does not fit the schema at all, with no header
- * row or without a column the schema names, fails as a whole.
- */
-import {
-	displayLocation,
-	parseAmount,
-	parseDate,
-} from '#lib/server/services/ledger/domain/parser.ts';
-import type { Amount } from '#lib/server/services/ledger/domain/types.ts';
+import { displayLocation, parseAmount, parseDate } from '#services/ledger/domain/parser.ts';
+import type { Amount } from '#services/ledger/domain/types.ts';
 import { batch, err, ok, type Batch, type Result } from '#lib/server/shared/result.ts';
 import { match, P } from 'ts-pattern';
 import type { Locator, Path, RupeeSchema, Transform } from './schema';
 import { STATEMENT_ERA, type Grid, type RupeeRecord } from './types';
 
-/** The grid, with its header row's names mapped to their columns. */
 type Sheet = { file: string; grid: Grid; headers: Map<string, number> };
 
-/** Where a path has walked to; no column until a locator picks one. */
-type Cursor = { col: number | null; row: number };
+// `lost` once a search finds nothing, so later offsets cannot land on a cell.
+type Cursor = { col: number | null; row: number; lost: boolean };
 
-/** A value on its way through a pipe, or why there is none. */
 type Read =
 	| { kind: 'text'; text: string }
 	| { kind: 'amount'; amount: Amount }
@@ -72,7 +60,6 @@ const isBlank = (c: string[]) => c.every((c) => c.trim() === '');
 const isHeader = (h: RupeeSchema['header'], c: string) =>
 	h !== undefined && ('text' in h ? c.trim() === h.text : h.regex.test(c));
 
-/** Every column the schema names: header locators and the `where` column. */
 const columns = ({ fields, records }: RupeeSchema): string[] => {
 	const paths = Object.values(fields).flatMap((p) => p ?? []);
 	const headers = paths
@@ -82,7 +69,6 @@ const columns = ({ fields, records }: RupeeSchema): string[] => {
 	return [...new Set([...headers, ...where])];
 };
 
-/** A column by header name or, failing that, by letter: `A`, …, `Z`, `AA`. */
 const column = ({ headers }: Sheet, nm: string): number | null =>
 	headers.get(nm) ??
 	(/^[A-Z]+$/.test(nm) ? [...nm].reduce((n, l) => n * 26 + l.charCodeAt(0) - 64, 0) - 1 : null);
@@ -93,7 +79,6 @@ type RowOptions = {
 	row: number;
 };
 
-/** Whether `row` is a record: always, unless `where` says otherwise. */
 const keeps = ({ schema, sheet, row }: RowOptions) => {
 	const records = schema.records;
 	if (!records.where) return true;
@@ -137,12 +122,17 @@ const record = ({ schema, sheet, row }: RowOptions): Result<RupeeRecord> => {
 	if (category.kind !== 'text' && category.kind !== 'missing')
 		return invalid({ field: 'category', read: category, expected: 'text' });
 
+	const balance = get(fields.balance ?? [], 'amount');
+	if (balance.kind !== 'amount' && balance.kind !== 'missing')
+		return invalid({ field: 'balance', read: balance, expected: 'an amount' });
+
 	return ok({
 		location,
 		date: date.date,
 		amount: amount.amount,
 		description: description.text,
 		category: category.kind === 'text' ? category.text : null,
+		balance: balance.kind === 'amount' ? balance.amount : null,
 	});
 };
 
@@ -153,10 +143,6 @@ type ReadFieldOptions = {
 	kind: Read['kind'];
 };
 
-/**
- * Read a field along each of its paths, taking the first that yields `kind`.
- * Failing that, the first path that got anywhere says why.
- */
 const readField = (options: ReadFieldOptions): Read => {
 	const { sheet, row, paths, kind } = options;
 	const reads = paths.map((p) => readPath({ sheet, row, path: p }));
@@ -172,21 +158,19 @@ type ReadPathOptions = {
 	path: Path;
 };
 
-/** Walk `from` out of `row` and run the cell there through `pipe`. */
 const readPath = ({ sheet, row, path: { from, pipe } }: ReadPathOptions): Read => {
-	const { col, row: at } = from.reduce(move(sheet), { col: null, row });
-	const cell = col === null ? undefined : sheet.grid[at]?.[col];
+	const { col, row: at, lost } = from.reduce(move(sheet), { col: null, row, lost: false });
+	const cell = col === null || lost ? undefined : sheet.grid[at]?.[col];
 	if (cell === undefined || cell.trim() === '') return { kind: 'missing' };
 	return pipe.reduce(apply, { kind: 'text', text: cell });
 };
 
-/** Take one step; `left` / `right` before any column count from column A. */
 const move =
 	(sheet: Sheet) =>
 	(c: Cursor, l: Locator): Cursor => {
 		const find = (match: (cell: string) => boolean) => {
 			const col = (sheet.grid[c.row] ?? []).findIndex(match);
-			return { ...c, col: col < 0 ? null : col };
+			return col < 0 ? { ...c, lost: true } : { ...c, col };
 		};
 		return match(l)
 			.with({ col: P.select() }, (n) => ({ ...c, col: column(sheet, n) }))
@@ -200,7 +184,6 @@ const move =
 			.exhaustive();
 	};
 
-/** Apply one transform; a failure passes through the rest of the pipe. */
 const apply = (read: Read, transform: Transform): Read => {
 	if (read.kind === 'missing' || read.kind === 'failed') return read;
 	return match(transform)

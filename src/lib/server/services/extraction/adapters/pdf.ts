@@ -1,10 +1,3 @@
-/**
- * Outbound adapter that reads the tables of a PDF statement into a `Grid`.
- * Each page is rendered with pdf.js and its tables found by TATR (see
- * `tatr.ts`); the cells are filled from the page's text layer, so
- * nothing is OCRed and a scanned statement reads as empty. Every table on
- * every page, top to bottom, goes into the one grid.
- */
 import { withContext } from '#lib/server/shared/context.ts';
 import { unknownError } from '#lib/server/shared/error.ts';
 import type { Box } from '#lib/server/shared/onnx/runtime.ts';
@@ -23,10 +16,9 @@ import { toGrid, type Word } from '../domain/table';
 import type { Grid } from '../domain/types';
 import { tatr, type Tables } from './tatr';
 
-/** Render at twice 72 dpi: enough for TATR, which works at ~1000 pixels. */
+// TATR works at ~1000 pixels. Text comes from the text layer, so scans read empty.
 const SCALE = 2;
 
-/** Room around a detected table, as TATR's reference crop leaves. */
 const PADDING = 10 * SCALE;
 
 const pdfjs = dirname(createRequire(import.meta.url).resolve('pdfjs-dist/package.json'));
@@ -46,7 +38,6 @@ export const readPdf = (options: PdfOptions): ResultAsync<Grid> =>
 		),
 	);
 
-/** Every page's tables, read one page at a time, top to bottom. */
 const readPages = (tables: Tables, document: PDFDocumentProxy) =>
 	concat(
 		pages(document).map(
@@ -76,7 +67,6 @@ const open = ({ name, content, password }: PdfOptions): ResultAsync<PDFDocumentP
 					},
 	});
 
-/** The page rendered onto a canvas, and the words of its text layer. */
 const render = (page: PDFPageProxy) =>
 	attempt(async () => {
 		const viewport = page.getViewport({ scale: SCALE });
@@ -111,11 +101,6 @@ const readPage = (tables: Tables, page: PDFPageProxy): ResultAsync<Grid> =>
 			),
 		);
 
-/**
- * The page's words in canvas pixels. pdf.js gives runs of text; a run is
- * split at spaces, each word getting its share of the run's width by
- * character count.
- */
 const words = (
 	{ items }: { items: unknown[] },
 	viewport: ReturnType<PDFPageProxy['getViewport']>,

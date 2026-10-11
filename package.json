@@ -2,6 +2,7 @@
 	"name": "rupee",
 	"private": true,
 	"version": "0.0.1",
+	"license": "MIT",
 	"type": "module",
 	"packageManager": "pnpm@11.25.0",
 	"engines": {

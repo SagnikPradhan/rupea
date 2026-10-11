@@ -36,7 +36,7 @@ export const toMetadata = (entries: [string, string][]): RupeeMetadata =>
 	);
 
 // What a bare amount is in.
-export const HOME_COMMODITY = 'INR';
+export const DEFAULT_COMMODITY = 'INR';
 
 export type Quantity = { amount: Amount; commodity: string };
 
@@ -80,7 +80,7 @@ export const formatAmount = (amount: Amount): string => {
 };
 
 export const formatQuantity = ({ amount, commodity }: Quantity): string =>
-	commodity === HOME_COMMODITY ? formatAmount(amount) : `${formatAmount(amount)} ${commodity}`;
+	commodity === DEFAULT_COMMODITY ? formatAmount(amount) : `${formatAmount(amount)} ${commodity}`;
 
 // What a posting weighs in balancing: its price if it has one, else itself.
 export const weight = (p: Pick<RupeePosting, 'amount' | 'commodity' | 'price'>): Quantity => {

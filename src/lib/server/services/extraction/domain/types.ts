@@ -1,4 +1,4 @@
-import type { Amount, RupeeParseLocation } from '#services/ledger/domain/types.ts';
+import type { Amount, RupeeParseLocation } from '#services/ledger/application/shared.ts';
 
 export type Grid = string[][];
 

@@ -4,7 +4,7 @@ import { inOrder, ROWS_PER_STATEMENT } from '#lib/server/db/index.ts';
 import { batches } from '#lib/server/shared/batches.ts';
 import { withContext } from '#lib/server/shared/context.ts';
 import { attempt, okAsync } from '#lib/server/shared/result.ts';
-import type { Amount } from '#services/ledger/domain/types.ts';
+import type { Amount } from '#services/ledger/application/shared.ts';
 import type { History, Neighbour } from '../domain/prediction';
 
 // Transactions searched near each line; the domain keeps the best few postings.

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { EventRole } from '#services/ledger/domain/events.ts';
+import { EventRole } from '#services/ledger/application/shared.ts';
 import { defaultConfiguration } from '#lib/server/shared/config.ts';
 import { insertLinks, rewriteLinks, type LinkEdit } from './edits';
 import { eventId } from './ids';

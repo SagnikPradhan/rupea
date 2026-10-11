@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatAmount } from '#services/ledger/domain/types.ts';
+import { formatAmount } from '#services/ledger/application/shared.ts';
 import { extract } from './runtime';
 import { parseSchema, type RupeeSchema } from './schema';
 import type { Grid } from './types';

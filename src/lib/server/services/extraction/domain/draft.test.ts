@@ -1,7 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defaultConfiguration as config } from '#lib/server/shared/config.ts';
-import { parse, parseAmount } from '#services/ledger/domain/parser.ts';
-import type { Amount } from '#services/ledger/domain/types.ts';
+import { parse, parseAmount, type Amount } from '#services/ledger/application/shared.ts';
 import { draft, uncategorised } from './draft';
 import type { RupeeRecord } from './types';
 

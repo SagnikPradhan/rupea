@@ -1,6 +1,6 @@
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
-import type { Amount, RupeeTransaction } from '#services/ledger/domain/types.ts';
+import type { Amount, RupeeTransaction } from '#services/ledger/application/shared.ts';
 import { defaultConfiguration } from '#lib/server/shared/config.ts';
 import { models as pinned } from '#lib/server/shared/onnx/models.ts';
 import { okAsync } from '#lib/server/shared/result.ts';

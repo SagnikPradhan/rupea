@@ -1,10 +1,10 @@
-import { print } from '#services/ledger/domain/printer.ts';
 import {
 	accountType,
-	HOME_COMMODITY,
+	DEFAULT_COMMODITY,
+	print,
 	type Amount,
 	type RupeeTransaction,
-} from '#services/ledger/domain/types.ts';
+} from '#services/ledger/application/shared.ts';
 import { fallbackAccount, type Prediction } from '#services/prediction/domain/prediction.ts';
 import type { RupeeConfiguration } from '#lib/server/shared/config.ts';
 import type { RupeeError } from '#lib/server/shared/error.ts';
@@ -50,7 +50,7 @@ const toTransaction =
 			{
 				account,
 				amount: record.amount,
-				commodity: HOME_COMMODITY,
+				commodity: DEFAULT_COMMODITY,
 				price: null,
 				balance: record.balance,
 				metadata: {},
@@ -61,7 +61,7 @@ const toTransaction =
 					predictions.get(record)?.account ??
 					fallbackAccount(record.amount),
 				amount: -record.amount as Amount,
-				commodity: HOME_COMMODITY,
+				commodity: DEFAULT_COMMODITY,
 				price: null,
 				balance: null,
 				metadata: {},

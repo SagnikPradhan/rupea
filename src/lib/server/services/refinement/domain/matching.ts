@@ -1,6 +1,10 @@
 import { createHash } from 'node:crypto';
-import { EventRole, linksOf } from '#services/ledger/domain/events.ts';
-import { formatQuantity, type RupeeTransaction } from '#services/ledger/domain/types.ts';
+import {
+	EventRole,
+	formatQuantity,
+	linksOf,
+	type RupeeTransaction,
+} from '#services/ledger/application/shared.ts';
 
 export enum Confidence {
 	Duplicate = 'duplicate',

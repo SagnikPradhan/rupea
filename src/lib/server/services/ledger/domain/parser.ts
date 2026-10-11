@@ -7,7 +7,7 @@ import {
 	accountType,
 	AMOUNT_SCALE,
 	formatQuantity,
-	HOME_COMMODITY,
+	DEFAULT_COMMODITY,
 	PriceKind,
 	toMetadata,
 	weight,
@@ -182,12 +182,12 @@ const balance = (
 	if (implicit.length === 0 && left.length > 0) return unbalanced(location, left);
 	if (left.length > 1) return unbalanced(location, left);
 
-	const [rest = { amount: 0n as Amount, commodity: HOME_COMMODITY }] = left;
+	const [rest = { amount: 0n as Amount, commodity: DEFAULT_COMMODITY }] = left;
 	const postings = written.map(({ account, quantity, price, balance: b, metadata }) => {
 		const filled =
 			quantity === null
 				? { amount: -rest.amount as Amount, commodity: rest.commodity }
-				: { amount: quantity.amount, commodity: quantity.commodity ?? HOME_COMMODITY };
+				: { amount: quantity.amount, commodity: quantity.commodity ?? DEFAULT_COMMODITY };
 		return { account, ...filled, price, balance: b, metadata };
 	});
 	if (
@@ -202,7 +202,7 @@ type KnownPosting = WrittenPosting & { quantity: WrittenQuantity };
 
 const home = (p: KnownPosting) => ({
 	amount: p.quantity.amount,
-	commodity: p.quantity.commodity ?? HOME_COMMODITY,
+	commodity: p.quantity.commodity ?? DEFAULT_COMMODITY,
 	price: p.price,
 });
 
@@ -297,7 +297,7 @@ const readPosting = ({ location, content }: RupeeLine): Result<WrittenPosting> =
 				? null
 				: {
 						amount: cost.amount,
-						commodity: cost.commodity ?? HOME_COMMODITY,
+						commodity: cost.commodity ?? DEFAULT_COMMODITY,
 						kind: priced === '@@' ? PriceKind.Total : PriceKind.Unit,
 					},
 		balance: asserted,

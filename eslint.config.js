@@ -6,6 +6,9 @@ import { defineConfig, globalIgnores } from 'eslint/config';
 import globals from 'globals';
 import ts from 'typescript-eslint';
 import { localNameLength } from './lint/local-name-length.ts';
+import { testLocation } from './lint/test-location.ts';
+
+const rupee = { rules: { 'local-name-length': localNameLength, 'test-location': testLocation } };
 
 export default defineConfig(
 	globalIgnores(['build/', 'data/', '.svelte-kit/', 'drizzle/', 'coverage/']),
@@ -48,8 +51,13 @@ export default defineConfig(
 	},
 	{
 		files: ['**/*.ts'],
-		plugins: { rupee: { rules: { 'local-name-length': localNameLength } } },
+		plugins: { rupee },
 		rules: { 'rupee/local-name-length': 'error' },
 		ignores: ['**/*.test.ts', 'tests/**'],
+	},
+	{
+		files: ['src/**/*.test.ts'],
+		plugins: { rupee },
+		rules: { 'rupee/test-location': 'error' },
 	},
 );

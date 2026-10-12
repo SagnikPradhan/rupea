@@ -2,7 +2,6 @@ import { createCanvas, type Canvas } from '@napi-rs/canvas';
 import type { ModelFile } from './download';
 
 export type Box = { x1: number; y1: number; x2: number; y2: number };
-
 export type Detection = Box & { label: string; score: number };
 
 export type DetrModel = {
@@ -13,7 +12,6 @@ export type DetrModel = {
 };
 
 export type Output = { dims: readonly number[]; data: Float32Array };
-
 export type Pixels = { data: Float32Array; width: number; height: number };
 
 // ImageNet normalisation, from the models' preprocessor config.
@@ -29,15 +27,18 @@ type PreprocessOptions = {
 // Channel-first planes, scaled so the longer side is `longest`.
 export const preprocess = (options: PreprocessOptions): Pixels => {
 	const { canvas, region, longest } = options;
+
 	const width = region.x2 - region.x1;
 	const height = region.y2 - region.y1;
 	const scale = longest / Math.max(width, height);
+
 	const input = createCanvas(
 		Math.max(1, Math.round(width * scale)),
 		Math.max(1, Math.round(height * scale)),
 	);
 	const context = input.getContext('2d');
 	context.drawImage(canvas, region.x1, region.y1, width, height, 0, 0, input.width, input.height);
+
 	const image = context.getImageData(0, 0, input.width, input.height);
 	const plane = image.width * image.height;
 	const data = Float32Array.from({ length: 3 * plane }, (_, index) => {
@@ -59,9 +60,11 @@ type DetectionsOptions = {
 // Boxes come as relative centres and sizes; they go back to page coordinates.
 export const detections = (options: DetectionsOptions): Detection[] => {
 	const { logits, boxes, labels, threshold, region } = options;
+
 	const width = region.x2 - region.x1;
 	const height = region.y2 - region.y1;
 	const [, queries = 0, classes = 0] = logits.dims;
+
 	return Array.from({ length: queries }, (_, q) => q).flatMap((query) => {
 		const probabilities = softmax(logits.data.subarray(query * classes, (query + 1) * classes));
 		// The last class is "no object".

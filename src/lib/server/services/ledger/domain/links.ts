@@ -25,6 +25,7 @@ export const insertLinks = (
 	const headers = Object.fromEntries(
 		parse(config, file).succeeded.map((t) => [t.location.line, t]),
 	);
+
 	const stale = edits.find((e, i) => {
 		const t = headers[e.line];
 		const repeated = edits.findIndex((o) => o.line === e.line) !== i;

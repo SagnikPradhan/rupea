@@ -22,8 +22,10 @@
 	async function rename() {
 		const file = state.file;
 		if (file === null) return;
+
 		const to = prompt('Rename to', file.key);
 		if (to === null || to === file.key) return;
+
 		if (await editor.rename(to)) onrenamed(to);
 	}
 

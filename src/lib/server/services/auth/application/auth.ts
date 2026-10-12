@@ -89,6 +89,7 @@ export const validateSession = (
 
 		const user = found.user;
 		const state = sessionState(found.session.expiresAt, Date.now());
+
 		if (state.type === 'expired') return DB.deleteSession(tokenHash).map(() => null);
 		if (state.type === 'valid') return okAsync({ user, expiresAt: found.session.expiresAt });
 		return DB.extendSession(tokenHash, state.expiresAt).map(() => ({

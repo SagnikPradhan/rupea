@@ -41,6 +41,7 @@ export const extractStatement = form(
 				}),
 		});
 		if (draft.isErr()) return replyFrom(draft);
+
 		const { key, content: text, failed } = draft.value;
 		return {
 			ok: failed.length === 0,

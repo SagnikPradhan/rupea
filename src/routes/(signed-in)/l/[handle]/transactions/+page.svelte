@@ -5,6 +5,7 @@
 	const { data } = $props();
 
 	const response = $derived(await getTransactions(data.ledger.handle));
+
 	// Assertions only check the ledger; nothing is wrong with the data they point at.
 	const isWarning = (e: RupeeError) =>
 		e.type === 'BalanceAssertionFailed' || e.type === 'BalanceAssertionAmbiguous';

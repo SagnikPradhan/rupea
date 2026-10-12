@@ -25,6 +25,7 @@ export const newSession = (now: number) => {
 
 export const codeMatches = (stored: StoredCode | null, code: string, now: number): boolean => {
 	if (!stored || stored.expiresAt.getTime() < now) return false;
+
 	const expected = Buffer.from(stored.codeHash);
 	const actual = Buffer.from(sha256(code));
 	return expected.length === actual.length && timingSafeEqual(expected, actual);

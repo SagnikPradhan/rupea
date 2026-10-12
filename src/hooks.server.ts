@@ -11,7 +11,6 @@ import { createContext, createDatabase } from '#lib/server/shared/environment.ts
 import { withLogger } from '#lib/server/shared/logger.ts';
 
 const database = createDatabase();
-
 const context = createContext(database.orm);
 
 export const init: ServerInit = () => database.migrate();
@@ -30,5 +29,6 @@ export const handle: Handle = ({ event, resolve }) =>
 			},
 			(err) => withLogger('auth')((l) => l.error({ error: err }, 'session validation failed')),
 		);
+
 		return resolve(event);
 	});

@@ -17,10 +17,12 @@
 
 	const handle = $derived(data.ledger.handle);
 	const file = $derived(page.url.searchParams.get('file'));
+
 	const files = $derived(await getFiles(handle));
 	const response = $derived(file === null ? null : await getSuggestions({ handle, file }));
 	const suggestions = $derived(response?.data ?? []);
 	const duplicates = $derived(suggestions.filter((s) => s.confidence === 'duplicate'));
+
 	const failures = $state({ list: [] as RupeeError[] });
 	const swapped = $state<Record<string, boolean>>({});
 

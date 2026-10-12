@@ -76,6 +76,7 @@ export const parseTransactions = (
 ): Batch<RupeeTransaction> => {
 	const lines = input.filter((l) => !isComment(l));
 	const results: Result<RupeeTransaction>[] = [];
+
 	for (const line of drain(lines)) {
 		if (isBlank(line)) continue;
 		if (isMetadata(line)) {
@@ -170,6 +171,7 @@ const balance = (
 ): Result<RupeePosting[]> => {
 	if (written.length < 2)
 		return err(fault('ParseMissingTransactionBody', { location: displayLocation(location) }));
+
 	const implicit = written.filter((p) => p.quantity === null);
 	if (implicit.length > 1)
 		return err(fault('ParseMultipleImplicitPostings', { location: displayLocation(location) }));
@@ -278,6 +280,7 @@ const readPosting = ({ location, content }: RupeeLine): Result<WrittenPosting> =
 	if (!parts?.[1]) return invalid;
 
 	const [, account, amount = '', priced, price = '', balance] = parts;
+
 	const quantity = amount === '' ? null : readQuantity(amount);
 	const cost = priced === undefined ? null : readQuantity(price);
 	const asserted = balance === undefined ? null : readQuantity(balance);
@@ -317,8 +320,10 @@ export const parseAmount = (text: string): Amount | null => {
 	const cleaned = text.replaceAll(',', '').replaceAll('₹', '').trim();
 	const match = /^([+-]?)(\d+)(?:\.(\d+))?$/.exec(cleaned);
 	if (!match?.[2]) return null;
+
 	const [, sign, whole, fraction = ''] = match;
 	if (fraction.length > AMOUNT_SCALE) return null;
+
 	const units = BigInt(whole + fraction.padEnd(AMOUNT_SCALE, '0'));
 	return (sign === '-' ? -units : units) as Amount;
 };

@@ -39,12 +39,14 @@ export const extract = (options: ExtractOptions): Result<Batch<RupeeRecord>> => 
 	const names = (grid[header] ?? []).map((c, i): [string, number] => [c.trim(), i]);
 	// Reversed so that the first of two same-named columns wins.
 	const sheet: Sheet = { file, grid, headers: new Map(names.reverse()) };
+
 	const missing = columns(schema).filter((n) => column(sheet, n) === null);
 	if (missing.length > 0)
 		return err(fault('ExtractionMissingColumns', { path: file, columns: missing }));
 
 	// A statement may repeat its header, as on every page of a PDF.
 	const repeats = (c: string[]) => c.join('\t').trim() === (grid[header] ?? []).join('\t').trim();
+
 	return ok(
 		batch(
 			grid.flatMap((cs, r) =>
@@ -83,6 +85,7 @@ type RowOptions = {
 const keeps = ({ schema, sheet, row }: RowOptions) => {
 	const records = schema.records;
 	if (!records.where) return true;
+
 	const col = column(sheet, records.where.col);
 	const cell = col === null ? undefined : sheet.grid[row]?.[col];
 	return cell !== undefined && records.where.matches.test(cell);
@@ -173,6 +176,7 @@ const move =
 			const col = (sheet.grid[c.row] ?? []).findIndex(match);
 			return col < 0 ? { ...c, lost: true } : { ...c, col };
 		};
+
 		return match(l)
 			.with({ col: P.select() }, (n) => ({ ...c, col: column(sheet, n) }))
 			.with({ header: P.select() }, (h) => ({ ...c, col: sheet.headers.get(h) ?? null }))
@@ -187,6 +191,7 @@ const move =
 
 const apply = (read: Read, transform: Transform): Read => {
 	if (read.kind === 'missing' || read.kind === 'failed') return read;
+
 	return match(transform)
 		.with('trim', () => onText(read, 'trim', (t) => ({ kind: 'text', text: t.trim() })))
 		.with('number', () => onText(read, 'number', toAmount))

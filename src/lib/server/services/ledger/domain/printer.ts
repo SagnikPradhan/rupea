@@ -30,6 +30,7 @@ const printTransaction = (
 		...(time ? [printTime(timeFormats[0], time)] : []),
 		description,
 	].join(' ');
+
 	const outgoing = postings.filter((p) => p.amount < 0n);
 	const plain = postings.every((p) => p.price === null && p.commodity === postings[0]?.commodity);
 	const elided = plain && outgoing.length === 1 ? outgoing[0] : undefined;

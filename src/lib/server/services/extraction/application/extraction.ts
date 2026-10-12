@@ -17,7 +17,6 @@ const userSchemas = (u: string): ResultAsync<Schemas> =>
 	withStorage({ user: u, action: (s) => ok(schemas(scoped(s, 'schemas'))) });
 
 export const listSchemas = (u: string) => userSchemas(u).andThen((s) => s.list());
-
 export const readSchema = (u: string, k: string) => userSchemas(u).andThen((s) => s.read(k));
 
 type SaveSchemaOptions = {
@@ -44,6 +43,7 @@ type ExtractOptions = {
 
 export const extract = (options: ExtractOptions): ResultAsync<Draft> => {
 	const { user, ledger, schema: key, file, account } = options;
+
 	return readSchema(user, key)
 		.andThen((s) => parseSchema(key, s.content))
 		.andThen((s) => readGrid(file).andThen((g) => run({ schema: s, file: file.name, grid: g })))

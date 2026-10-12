@@ -1,5 +1,4 @@
 const NOISE = new Set(['upi', 'neft', 'imps', 'rtgs', 'pos', 'ach', 'nach', 'ecs']);
-
 const WORDS = /[^\p{L}\p{N}]+/u;
 
 export const clean = (description: string): string =>

@@ -35,7 +35,6 @@ export const toMetadata = (entries: [string, string][]): RupeeMetadata =>
 export const DEFAULT_COMMODITY = 'INR';
 
 export type Quantity = { amount: Amount; commodity: string };
-
 export type Price = Quantity & { kind: PriceKind };
 
 export type RupeePosting = {

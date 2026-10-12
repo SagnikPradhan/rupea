@@ -13,6 +13,7 @@ type Row = Word[][];
 export const toGrid = (structure: Detection[], words: Word[]): Grid => {
 	const columns = bands({ structure, label: 'table column', axis: 'x' });
 	if (columns.length === 0) return [];
+
 	return lines(words)
 		.map((l) => cells(columns, l))
 		.reduce<Row[]>((rows, row) => {

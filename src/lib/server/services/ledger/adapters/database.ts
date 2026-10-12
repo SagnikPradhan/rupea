@@ -72,11 +72,13 @@ const put =
 						.returning({ id: ledgerFiles.id })
 						.then(([f]) => f?.id ?? Promise.reject(new Error(`${key} was not saved`)));
 					const embedded = await embeddingsIn(tx, fileId);
+
 					const indexed = file.transactions.map((t) => ({
 						id: uuidv7(),
 						transaction: t,
 						postings: t.postings.map((p) => ({ id: uuidv7(), posting: p })),
 					}));
+
 					const transactionRows = indexed.map(({ id, transaction }) => ({
 						id,
 						ledgerId,
@@ -255,6 +257,7 @@ const readIn = async (db: Database, where: SQL | undefined): Promise<IndexedTran
 		.leftJoin(postings, eq(postings.transactionId, transactionTable.id))
 		.where(where)
 		.orderBy(asc(transactionTable.id), asc(postings.position));
+
 	const owned = byOwner([
 		...(await db
 			.select({
@@ -339,6 +342,7 @@ export type CandidatePair = { ours: string; theirs: string };
 const ourFile = alias(ledgerFiles, 'our_file');
 const ourTransaction = alias(transactionTable, 'our_transaction');
 const ourPosting = alias(postings, 'our_posting');
+
 const theirTransaction = alias(transactionTable, 'their_transaction');
 const theirPosting = alias(postings, 'their_posting');
 

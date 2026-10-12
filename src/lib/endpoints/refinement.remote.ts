@@ -11,7 +11,6 @@ import { Handle, inLedger, Key } from './shared';
 import { getTransactions } from './transactions.remote';
 
 const Line = v.pipe(v.number(), v.integer(), v.minValue(1));
-
 const EventId = v.pipe(v.string(), v.regex(/^\S+$/, 'An event id is one word.'));
 
 const LinkEdit = v.object({
@@ -45,6 +44,7 @@ export const acceptSuggestions = command(
 	v.object({ handle: Handle, edits: v.array(LinkEdit) }),
 	async ({ handle, edits }) => {
 		const accepted = await inLedger({ handle, action: (l) => Ledger.linkEvents(l, edits) });
+
 		void getFiles(handle).refresh();
 		void getTransactions(handle).refresh();
 		for (const file of new Set(edits.map((e) => e.file)))
@@ -88,6 +88,7 @@ type ChangeEventOptions = {
 const changeEvent = async (options: ChangeEventOptions) => {
 	const { handle, file, action } = options;
 	const changed = await inLedger({ handle, action });
+
 	void getFiles(handle).refresh();
 	void getTransactions(handle).refresh();
 	void getEvents({ handle, file }).refresh();

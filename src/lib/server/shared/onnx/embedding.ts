@@ -49,6 +49,7 @@ type PoolOptions = {
 
 const pool = (options: PoolOptions): Float32Array => {
 	const { hidden, offset, mask, size } = options;
+
 	const tokens = mask.filter((m) => m === 1).length || 1;
 	const mean = Float32Array.from({ length: size }, (_, d) =>
 		mask.reduce((s, m, t) => s + m * (hidden[offset + t * size + d] ?? 0), 0),

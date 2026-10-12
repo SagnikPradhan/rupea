@@ -14,5 +14,6 @@ export const load: LayoutServerLoad = async ({ locals, params }) => {
 	});
 	if (found.isErr() && found.error.type === 'LedgerNotFound') error(404, 'No such ledger');
 	if (found.isErr()) error(500, found.error.type);
+
 	return { ledger: found.value };
 };

@@ -43,6 +43,7 @@ type EnsureOptions = ModelOptions & {
 export const ensure = (options: EnsureOptions): ResultAsync<string> => {
 	const { directory, model, mode, logger, fetch } = options;
 	const path = join(directory, model.file);
+
 	return check(path, model.sha256)
 		.orElse((error) => {
 			if (mode === 'verify') return errAsync(error);
@@ -87,10 +88,12 @@ type DownloadOptions = {
 const download = (options: DownloadOptions): ResultAsync<void> => {
 	const { path, model, logger, fetch } = options;
 	const { file, url, sha256 } = model;
+
 	const part = `${path}.${randomUUID()}.part`;
 	const started = performance.now();
 	const log = logger.child({ file });
 	const failed = (t: unknown) => fault('ModelDownloadFailed', { url, cause: [unknownError(t)] });
+
 	log.info({ url }, 'model downloading');
 	return attemptWith({ try: () => fetch(url), catch: failed })
 		.andThen((response) => {

@@ -81,6 +81,7 @@ export const parseSchema = (path: string, text: string): Result<RupeeSchema> => 
 	const document = parseDocument(text);
 	const [syntax] = document.errors;
 	if (syntax) return invalid(path, syntax.message);
+
 	const parsed = v.safeParse(Schema, document.toJS());
 	return parsed.success ? ok(parsed.output) : invalid(path, v.summarize(parsed.issues));
 };

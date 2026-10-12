@@ -34,6 +34,7 @@ export function withContext(...keys: Key[]) {
 		// Reaching here without `provide` is a wiring bug, not a runtime error.
 		// eslint-disable-next-line functional/no-throw-statements -- see above
 		if (!context) throw new Error('withContext called outside provide');
+
 		if (keys.length === 0) return use(context);
 		if (keys.length === 1) return use(context[keys[0] as Key]);
 		return use(Object.fromEntries(keys.map((k) => [k, context[k]])));

@@ -66,6 +66,7 @@ export const createEditor = (api: EditorApi, delay: number): Editor => {
 			state.errors.operation = response.errors;
 			return false;
 		}
+
 		state.errors.operation = [];
 		use(response.data);
 		return true;
@@ -80,8 +81,10 @@ export const createEditor = (api: EditorApi, delay: number): Editor => {
 		const ticket = ++latest.ticket;
 		const file = state.file;
 		if (file === null) return;
+
 		if (wait > 0) await sleep(wait);
 		if (ticket !== latest.ticket) return;
+
 		const checked = await api.check({ key: file.key, content: state.content });
 		if (ticket === latest.ticket) state.errors.parse = checked.errors;
 	};
@@ -90,6 +93,7 @@ export const createEditor = (api: EditorApi, delay: number): Editor => {
 		state.saving = true;
 		const saved = await api.save({ ...file, content: state.content });
 		state.saving = false;
+
 		state.conflict = isConflict(saved.errors);
 		return accept(saved, (f) => (state.file = f));
 	};

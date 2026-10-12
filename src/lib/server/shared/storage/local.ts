@@ -39,6 +39,7 @@ export const localStorage = (root: string): Storage => {
 	const exclusive = <T>(keys: string[], effect: () => ResultAsync<T>): ResultAsync<T> => {
 		const previous = Promise.allSettled(keys.map((k) => locks.get(k)));
 		const current = previous.then(effect);
+
 		for (const key of keys) locks.set(key, current);
 		void current.finally(() => {
 			for (const key of keys) if (locks.get(key) === current) locks.delete(key);
@@ -66,6 +67,7 @@ export const localStorage = (root: string): Storage => {
 	const list: Storage['list'] = (prefix = '') => {
 		const directory = prefix.includes('/') ? prefix.slice(0, prefix.lastIndexOf('/')) : '';
 		const keyOf = (d: Dirent) => relative(root, join(d.parentPath, d.name)).split(sep).join('/');
+
 		return filesystem(directory, () =>
 			Array.fromAsync(glob('**/*', { cwd: path(directory), withFileTypes: true })),
 		)
@@ -100,12 +102,15 @@ export const localStorage = (root: string): Storage => {
 		validateKey(key).asyncAndThen(() =>
 			exclusive([key], () => {
 				const temporary = join(root, TEMPORARY, randomUUID());
+
 				return (ifVersion === undefined ? okAsync() : expectVersion(key, ifVersion)).andThen(() =>
 					attempt(async () => {
 						await mkdir(dirname(temporary), { recursive: true });
 						await writeFile(temporary, content);
+
 						await mkdir(dirname(path(key)), { recursive: true });
 						await rename(temporary, path(key));
+
 						const stats = await stat(path(key));
 						return {
 							key,

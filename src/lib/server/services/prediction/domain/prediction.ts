@@ -7,7 +7,9 @@ import { accountText, clean } from './text';
 const NEIGHBOURS = 5;
 const HALF_LIFE = 365;
 const PRIOR = 0.25;
+
 const GUESSED = /(^|:)Uncategorized$/;
+
 const TYPES: Record<'out' | 'in', AccountType[]> = {
 	in: [AccountType.Income, AccountType.Assets, AccountType.Liabilities, AccountType.Equity],
 	out: [AccountType.Expenses, AccountType.Liabilities, AccountType.Equity, AccountType.Assets],
@@ -41,7 +43,6 @@ export type Neighbour = {
 export type Nearest = (vectors: Float32Array[]) => ResultAsync<Neighbour[][]>;
 
 export type Unembedded = { id: string; description: string };
-
 export type Filled = { id: string; vector: Float32Array | null };
 
 export type History = {
@@ -55,6 +56,7 @@ export type History = {
 export const filling = (rows: Unembedded[]) => {
 	const cleaned = rows.map((r) => clean(r.description));
 	const texts = [...new Set(cleaned)].filter((t) => t !== '');
+
 	const fill = (vectors: Float32Array[]): Filled[] => {
 		const found = lookup(texts, vectors);
 		return rows.map((r, i) => ({ id: r.id, vector: found(cleaned[i] ?? '') }));

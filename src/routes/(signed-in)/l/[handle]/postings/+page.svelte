@@ -4,6 +4,7 @@
 	const { data } = $props();
 
 	const response = $derived(await getTransactions(data.ledger.handle));
+
 	const postings = $derived(
 		// Evidence of an event is kept in the ledger but not counted.
 		(response.data ?? [])

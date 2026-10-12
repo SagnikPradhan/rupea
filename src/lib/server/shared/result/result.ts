@@ -3,14 +3,12 @@ import { type RupeeError, unknownError } from './error';
 
 export type Result<T> = neverthrow.Result<T, RupeeError>;
 export type ResultAsync<T> = neverthrow.ResultAsync<T, RupeeError>;
-
 export const ResultAsync = neverthrow.ResultAsync;
 
 export { ok, okAsync } from 'neverthrow';
 
 // Typed as RupeeError up front so branches unify without annotations.
 export const err = (e: RupeeError): neverthrow.Err<never, RupeeError> => neverthrow.err(e);
-
 export const errAsync = (e: RupeeError): ResultAsync<never> => neverthrow.errAsync(e);
 
 export const attempt = <T>(f: () => PromiseLike<T>): ResultAsync<T> =>

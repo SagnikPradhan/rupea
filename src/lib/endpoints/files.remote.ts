@@ -7,7 +7,6 @@ import { Handle, inLedger, Key } from './shared';
 import { getTransactions } from './transactions.remote';
 
 const ReadFile = v.object({ handle: Handle, key: Key });
-
 const CreateFile = v.object({ handle: Handle, key: Key, content: v.string() });
 
 const EditFile = v.object({

@@ -43,6 +43,7 @@ export const suggest = (options: SuggestOptions): Suggestion[] => {
 		.flatMap((p) => score(byId[p.ours], byId[p.theirs]))
 		.filter((c) => !options.dismissed.has(c.fingerprint))
 		.sort(strongestFirst);
+
 	// An event never takes a second member from the file being refined.
 	const ourEvents = new Set(scored.flatMap((c) => linksOf(c.ours).map((l) => l.event)));
 	const used = new Set<string>();

@@ -23,7 +23,6 @@ import { tatr, type Tables } from './tatr';
 
 // TATR works at ~1000 pixels. Text comes from the text layer, so scans read empty.
 const SCALE = 2;
-
 const PADDING = 10 * SCALE;
 
 const pdfjs = dirname(createRequire(import.meta.url).resolve('pdfjs-dist/package.json'));
@@ -75,10 +74,12 @@ const render = (page: PDFPageProxy) =>
 	attempt(async () => {
 		const viewport = page.getViewport({ scale: SCALE });
 		const canvas = createCanvas(Math.ceil(viewport.width), Math.ceil(viewport.height));
+
 		await page.render({
 			canvas: canvas as unknown as HTMLCanvasElement,
 			viewport,
 		}).promise;
+
 		return { canvas, words: words(await page.getTextContent(), viewport) };
 	});
 
@@ -114,9 +115,11 @@ const words = (
 			viewport.transform,
 			item.transform,
 		);
+
 		const height = Math.hypot(c, d);
 		const width = item.width * viewport.scale;
 		const length = item.str.length;
+
 		return [...item.str.matchAll(/\S+/g)].map((match) => ({
 			text: match[0],
 			x1: x + (width * match.index) / length,

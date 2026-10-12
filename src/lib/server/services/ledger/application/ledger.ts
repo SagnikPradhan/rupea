@@ -295,7 +295,6 @@ const writeLinks = (ledger: Ledger, l: Linked): ResultAsync<RupeeFile> => {
 };
 
 export type EventMember = IndexedTransaction & { role: EventRole; counted: boolean };
-
 export type FileEvent = { event: string; members: EventMember[] };
 
 // Events with a member in the file, with every member wherever it is written.
@@ -306,6 +305,7 @@ export const eventsIn = (l: Ledger, k: string): ResultAsync<FileEvent[]> =>
 
 const grouped = (transactions: IndexedTransaction[]): FileEvent[] => {
 	const evidence = new Set(checkEvents(transactions).evidence);
+
 	const members = transactions.flatMap((t) =>
 		linksOf(t).map((l) => ({
 			event: l.event,
@@ -332,6 +332,7 @@ type MakePrimaryOptions = { ledger: Ledger; event: string; file: string; line: n
 // The member becomes the one that counts; the old primary becomes evidence.
 export const makePrimary = (options: MakePrimaryOptions): ResultAsync<RupeeError[]> => {
 	const { ledger, event, file, line } = options;
+
 	const isTarget = (t: RupeeTransaction) => t.location.file === file && t.location.line === line;
 	const isPrimary = (t: IndexedTransaction) =>
 		linksOf(t).some((l) => l.event === event && l.role === EventRole.Primary);

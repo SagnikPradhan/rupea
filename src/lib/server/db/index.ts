@@ -17,6 +17,7 @@ interface QueryResult extends PgQueryResultHKT {
 }
 
 export type Database = PgDatabase<QueryResult>;
+
 export type DatabaseHandle = {
 	orm: Database;
 	migrate: () => Promise<void>;

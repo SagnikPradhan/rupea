@@ -47,6 +47,7 @@ export const createModels = (models: CreateModelsOptions) => {
 		logger: logger.child({ namespace: 'onnx' satisfies Namespace }),
 		fetch,
 	};
+
 	// A directory that cannot be readied fails each download on its own.
 	const prepared =
 		mode === 'download'
@@ -55,6 +56,7 @@ export const createModels = (models: CreateModelsOptions) => {
 					return okAsync(undefined);
 				})
 			: okAsync<void>(undefined);
+
 	const ready = new Map<string, ResultAsync<string>>();
 	const sure = (model: ModelFile) => {
 		const path =
@@ -79,6 +81,7 @@ export const createModels = (models: CreateModelsOptions) => {
 		tokenizers.set(model.file, loaded);
 		return loaded;
 	};
+
 	const embedders = new Map<string, Embed>();
 	const embedder = (model: EmbeddingModel) => {
 		const kept =
@@ -93,6 +96,7 @@ export const createModels = (models: CreateModelsOptions) => {
 		embedders.set(model.source.file, kept);
 		return kept;
 	};
+
 	return {
 		detect: (o: DetectOptions): ResultAsync<Detection[]> =>
 			session(o.model.source).andThen((l) => detr({ ...o, session: l })),
@@ -108,6 +112,7 @@ const detr = (options: DetrOptions): ResultAsync<Detection[]> => {
 	const { session, model, canvas, region } = options;
 	const { longest, labels, threshold } = model;
 	const pixels = preprocess({ canvas, region, longest });
+
 	return attempt(() =>
 		session.run({
 			pixel_values: new Tensor('float32', pixels.data, [1, 3, pixels.height, pixels.width]),
@@ -128,9 +133,11 @@ type EmbedRunOptions = EmbedOptions & { session: InferenceSession; tokenizer: To
 
 const embed = (options: EmbedRunOptions): ResultAsync<Float32Array[]> => {
 	const { model, session, tokenizer, texts } = options;
+
 	const run = (batch: string[]) => {
 		const encoded = batch.map(encode(tokenizer, model.longest));
 		const { ids, mask, shape } = inputs(encoded);
+
 		return attempt(() =>
 			session.run({
 				input_ids: new Tensor('int64', ids, shape),
@@ -139,6 +146,7 @@ const embed = (options: EmbedRunOptions): ResultAsync<Float32Array[]> => {
 			}),
 		).andThen((o) => output(o, 'last_hidden_state').map((h) => vectors(h, encoded)));
 	};
+
 	return sequence(batches(texts, model.batch).map((b) => () => run(b)));
 };
 

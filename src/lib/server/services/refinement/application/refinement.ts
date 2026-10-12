@@ -44,6 +44,7 @@ const fresh = (
 		date: primary?.date ?? '',
 		description: primary?.description ?? '',
 	});
+
 	const retry = () =>
 		tries > 1
 			? fresh(ledger, suggestion, done, tries - 1)

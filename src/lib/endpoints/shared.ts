@@ -1,5 +1,5 @@
 import { isHandle } from '#lib/server/shared/names.ts';
-import type { ResultAsync } from '#lib/server/shared/result.ts';
+import type { ResultAsync } from '#lib/server/shared/result/result.ts';
 import * as Auth from '#services/auth/application/auth.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import { AccountType, accountType } from '#services/ledger/application/shared.ts';

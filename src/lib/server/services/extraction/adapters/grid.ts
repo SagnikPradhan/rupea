@@ -1,5 +1,5 @@
-import { unknownError } from '#lib/server/shared/error.ts';
-import { attempt, errAsync, type ResultAsync } from '#lib/server/shared/result.ts';
+import { fault, unknownError } from '#lib/server/shared/result/error.ts';
+import { attemptWith, errAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { parse } from 'csv-parse/sync';
 import { extname } from 'node:path';
 import { readSheet } from 'read-excel-file/node';
@@ -15,14 +15,14 @@ export type Upload = {
 const throwing =
 	(read: (content: Uint8Array) => Promise<Grid>) =>
 	({ name, content }: Upload): ResultAsync<Grid> =>
-		attempt({
+		attemptWith({
 			try: () => read(content),
-			catch: (thrown) => ({
-				type: 'CannotReadFile',
-				path: name,
-				reason: 'not a readable statement',
-				cause: [unknownError(thrown)],
-			}),
+			catch: (thrown) =>
+				fault('CannotReadFile', {
+					path: name,
+					reason: 'not a readable statement',
+					cause: [unknownError(thrown)],
+				}),
 		});
 
 const readers: Record<string, (upload: Upload) => ResultAsync<Grid>> = {
@@ -39,11 +39,5 @@ const xlsxToText = (cell: unknown): string => {
 
 export const readGrid = (upload: Upload): ResultAsync<Grid> => {
 	const read = readers[extname(upload.name).toLowerCase()];
-	return read
-		? read(upload)
-		: errAsync({
-				type: 'ExtractionUnsupportedFile',
-				path: upload.name,
-				cause: [],
-			});
+	return read ? read(upload) : errAsync(fault('ExtractionUnsupportedFile', { path: upload.name }));
 };

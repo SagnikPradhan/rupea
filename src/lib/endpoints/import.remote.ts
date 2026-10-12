@@ -1,4 +1,5 @@
-import { fromBatch, fromResult, ok, type Response } from '#lib/server/shared/result.ts';
+import { ok } from '#lib/server/shared/result/result.ts';
+import { type Reply, replyFrom, replyFromBatch } from '#lib/server/shared/result/reply.ts';
 import * as Auth from '#services/auth/application/auth.ts';
 import * as Extraction from '#services/extraction/application/extraction.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
@@ -25,7 +26,7 @@ export const extractStatement = form(
 		password,
 		schema,
 		account,
-	}): Promise<Response<{ key: string; content: string }>> => {
+	}): Promise<Reply<{ key: string; content: string }>> => {
 		const content = new Uint8Array(await file.arrayBuffer());
 		const draft = await inLedger({
 			handle,
@@ -39,7 +40,7 @@ export const extractStatement = form(
 					file: { name: file.name, content, password: password || undefined },
 				}),
 		});
-		if (draft.isErr()) return fromResult(draft);
+		if (draft.isErr()) return replyFrom(draft);
 		const { key, content: text, failed } = draft.value;
 		return {
 			ok: failed.length === 0,
@@ -51,7 +52,7 @@ export const extractStatement = form(
 
 export const checkDraft = command(CheckDraft, async ({ key, content }) => {
 	const checked = Auth.withCurrentUser(() => ok(Ledger.check(key, content)));
-	return fromBatch(
+	return replyFromBatch(
 		await checked.map((batch) => ({
 			...batch,
 			succeeded: batch.succeeded.map(viewTransaction),

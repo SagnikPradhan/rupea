@@ -8,7 +8,7 @@ import {
 } from '#lib/server/db/schema.ts';
 import { provide } from '#lib/server/shared/context.ts';
 import { isHandle, petName } from '#lib/server/shared/names.ts';
-import { err, ok } from '#lib/server/shared/result.ts';
+import { err, ok } from '#lib/server/shared/result/result.ts';
 import { scoped, type Storage } from '#lib/server/shared/storage/storage.ts';
 import { createLedger, createUser } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
@@ -168,7 +168,6 @@ describe('syncing the ledger', () => {
 			const problem = {
 				type: 'ParseInvalidPosting',
 				location: 'a.rupee:5',
-				cause: [],
 			};
 			expect(await Ledger.sync(ledger)).toEqual(ok([problem]));
 			expect(await Ledger.sync(ledger)).toEqual(ok([problem]));
@@ -238,7 +237,7 @@ describe('mutations', () => {
 				content: salary,
 			});
 
-			expect(again).toMatchObject(err({ type: 'StorageConflict' }));
+			expect(again).toMatchObject({ error: { type: 'StorageConflict' } });
 			expect(await summary(ledger.id)).toEqual(['a.rupee:1 Groceries']);
 		}));
 });
@@ -257,9 +256,9 @@ describe('reading a file', () => {
 	it('fails for a file that is not there', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			expect(await Ledger.getFile(ledger, 'a.rupee')).toMatchObject(
-				err({ type: 'CannotReadFile', path: 'a.rupee' }),
-			);
+			expect(await Ledger.getFile(ledger, 'a.rupee')).toMatchObject({
+				error: { type: 'CannotReadFile', path: 'a.rupee' },
+			});
 		}));
 });
 
@@ -326,7 +325,7 @@ describe('reaching a ledger', () => {
 			expect(await reach(ledger.owner)).toEqual(ok(ledger));
 			expect(await reach(member.userId)).toEqual(ok(ledger));
 			expect(await reach(stranger.userId)).toEqual(
-				err({ type: 'LedgerNotFound', handle: ledger.handle, cause: [] }),
+				err({ type: 'LedgerNotFound', handle: ledger.handle }),
 			);
 		}));
 
@@ -364,7 +363,7 @@ describe('reaching a ledger', () => {
 
 			vi.mocked(petName).mockReturnValue('quiet-heron');
 			expect(await Ledger.createLedger({ user: userId, name: 'Away' })).toEqual(
-				err({ type: 'NameTaken', name: 'quiet-heron', cause: [] }),
+				err({ type: 'NameTaken', name: 'quiet-heron' }),
 			);
 		}));
 });
@@ -406,7 +405,6 @@ describe('events across files', () => {
 				type: 'EventWithoutPrimary',
 				event: '2026-10-03-ibkr-otter',
 				location: 'hdfc.rupee:1, ibkr.rupee:1',
-				cause: [],
 			};
 			expect(await Ledger.sync(ledger)).toEqual(ok([problem]));
 			expect(await Ledger.sync(ledger)).toEqual(ok([problem]));
@@ -470,7 +468,6 @@ describe('balance assertions', () => {
 				account: 'Assets:Bank',
 				expected: '800.00',
 				actual: '850.00',
-				cause: [],
 			};
 			expect(await Ledger.sync(ledger)).toEqual(ok([problem]));
 			expect((await Ledger.getTransactions(ledger))._unsafeUnwrap().failed).toEqual([problem]);
@@ -493,7 +490,6 @@ describe('balance assertions', () => {
 					location: 'hdfc.rupee:1',
 					account: 'Assets:Bank',
 					unordered: 'cash.rupee:1',
-					cause: [],
 				},
 				expect.objectContaining({ type: 'BalanceAssertionAmbiguous', location: 'hdfc.rupee:5' }),
 				expect.objectContaining({ type: 'BalanceAssertionFailed', location: 'hdfc.rupee:9' }),
@@ -554,7 +550,6 @@ describe('balance assertions', () => {
 						account: 'Assets:IBKR',
 						expected: '3.00 AAPL',
 						actual: '2.00 AAPL',
-						cause: [],
 					},
 				]),
 			);
@@ -655,7 +650,7 @@ describe('changing an event', () => {
 						line: 6,
 					})
 				)._unsafeUnwrapErr(),
-			).toEqual({ type: 'EventStale', location: 'hdfc.rupee:6', cause: [] });
+			).toEqual({ type: 'EventStale', location: 'hdfc.rupee:6' });
 		}));
 
 	it('renames an event in every file, and refuses a name in use', ({ context, db }) =>
@@ -670,7 +665,7 @@ describe('changing an event', () => {
 			});
 
 			expect(await Ledger.renameEvent(ledger, 'transfer-otter', 'taken')).toEqual(
-				err({ type: 'EventIdTaken', event: 'taken', cause: [] }),
+				err({ type: 'EventIdTaken', event: 'taken' }),
 			);
 			expect(await Ledger.renameEvent(ledger, 'transfer-otter', 'ibkr-funding')).toEqual(ok([]));
 			expect((await Ledger.getFile(ledger, 'hdfc.rupee'))._unsafeUnwrap().content).toBe(

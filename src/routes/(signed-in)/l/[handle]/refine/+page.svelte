@@ -5,7 +5,7 @@
 		dismissSuggestion,
 		getSuggestions,
 	} from '#lib/endpoints/refinement.remote.ts';
-	import type { RupeeError } from '#lib/server/shared/error.ts';
+	import type { RupeeError } from '#lib/server/shared/result/error.ts';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 

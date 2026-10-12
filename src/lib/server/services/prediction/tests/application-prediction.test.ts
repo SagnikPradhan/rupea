@@ -1,6 +1,6 @@
 import { defaultConfiguration } from '#lib/server/shared/config.ts';
 import { models as pinned } from '#lib/server/shared/onnx/models.ts';
-import { okAsync } from '#lib/server/shared/result.ts';
+import { okAsync } from '#lib/server/shared/result/result.ts';
 import type { Amount, RupeeTransaction } from '#services/ledger/application/shared.ts';
 import { hashVector } from '#tests/shared/embedding.ts';
 import { it } from '#tests/shared/vitest.ts';

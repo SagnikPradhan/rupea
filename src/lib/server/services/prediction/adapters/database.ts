@@ -1,7 +1,8 @@
 import { statementChunks } from '#lib/server/db/index.ts';
 import { postings, transactions } from '#lib/server/db/schema.ts';
 import { withContext } from '#lib/server/shared/context.ts';
-import { attempt, inOrder, okAsync } from '#lib/server/shared/result.ts';
+import { attempt, okAsync } from '#lib/server/shared/result/result.ts';
+import { inOrder } from '#lib/server/shared/control.ts';
 import type { Amount } from '#services/ledger/application/shared.ts';
 import { and, desc, eq, sql } from 'drizzle-orm';
 import type { History, Neighbour } from '../domain/prediction';

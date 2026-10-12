@@ -1,7 +1,8 @@
 import { createLogger } from '#lib/server/shared/logger.ts';
 import { ensure, prepare, type ModelFile } from '#lib/server/shared/onnx/download.ts';
 import { models } from '#lib/server/shared/onnx/models.ts';
-import { batchAsync, okAsync } from '#lib/server/shared/result.ts';
+import { batchAsync } from '#lib/server/shared/result/batch.ts';
+import { okAsync } from '#lib/server/shared/result/result.ts';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
 import * as v from 'valibot';

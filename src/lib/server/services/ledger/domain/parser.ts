@@ -1,6 +1,7 @@
 import type { RupeeConfiguration } from '#lib/server/shared/config.ts';
-import type { RupeeError } from '#lib/server/shared/error.ts';
-import { batch, err, ok, type Batch, type Result } from '#lib/server/shared/result.ts';
+import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
+import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
+import { type Batch, batch } from '#lib/server/shared/result/batch.ts';
 import * as dateFns from 'date-fns';
 import { match, P } from 'ts-pattern';
 import {
@@ -78,7 +79,9 @@ export const parseTransactions = (
 	for (const line of drain(lines)) {
 		if (isBlank(line)) continue;
 		if (isMetadata(line)) {
-			results.push(failure(line.location, 'ParseDetachedMetadata'));
+			results.push(
+				err(fault('ParseDetachedMetadata', { location: displayLocation(line.location) })),
+			);
 			continue;
 		}
 
@@ -86,7 +89,7 @@ export const parseTransactions = (
 		if (header.isErr()) return batch([...results, err(header.error)]);
 
 		const body = readBody(takeWhile(lines, (l) => isPosting(l) || isMetadata(l)));
-		results.push(...body.failed.map((e) => err(e)));
+		results.push(...body.failed.map(err));
 		if (body.failed.length > 0) continue;
 
 		results.push(
@@ -138,7 +141,7 @@ const parseMetadata = ({ location, content }: RupeeLine): Result<[string, string
 	const entry = /^\s*-\s+([^\s:]+):\s+(\S.*?)\s*$/.exec(content);
 	return entry?.[1] && entry[2]
 		? ok([entry[1], entry[2]])
-		: failure(location, 'ParseInvalidMetadata');
+		: err(fault('ParseInvalidMetadata', { location: displayLocation(location) }));
 };
 
 function* drain<T>(sk: T[]): Generator<T> {
@@ -159,21 +162,17 @@ const isMetadata = ({ content }: RupeeLine) => /^\s*-(\s|$)/.test(content);
 
 const isPosting = (l: RupeeLine) => /^(\t| {2})/.test(l.content) && !isBlank(l) && !isMetadata(l);
 
-const failure = (
-	l: RupeeParseLocation,
-	t: Extract<RupeeError, { location: string }>['type'],
-	x: { residual?: string } = {},
-): Result<never> => err({ type: t, location: displayLocation(l), ...x, cause: [] } as RupeeError);
-
 // Each commodity sums to zero once priced postings are weighed at their price.
 // A posting without an amount takes what is left, if that is one commodity.
 const balance = (
 	location: RupeeParseLocation,
 	written: MetadataPosting[],
 ): Result<RupeePosting[]> => {
-	if (written.length < 2) return failure(location, 'ParseMissingTransactionBody');
+	if (written.length < 2)
+		return err(fault('ParseMissingTransactionBody', { location: displayLocation(location) }));
 	const implicit = written.filter((p) => p.quantity === null);
-	if (implicit.length > 1) return failure(location, 'ParseMultipleImplicitPostings');
+	if (implicit.length > 1)
+		return err(fault('ParseMultipleImplicitPostings', { location: displayLocation(location) }));
 
 	const known = written.flatMap((p) =>
 		p.quantity === null ? [] : [{ ...p, quantity: p.quantity }],
@@ -193,7 +192,7 @@ const balance = (
 	if (
 		postings.some((p) => p.balance !== null && (p.balance.commodity ?? p.commodity) !== p.commodity)
 	)
-		return failure(location, 'ParseInvalidPosting');
+		return err(fault('ParseInvalidPosting', { location: displayLocation(location) }));
 
 	return ok(postings.map(({ balance: b, ...p }) => ({ ...p, balance: b?.amount ?? null })));
 };
@@ -215,7 +214,12 @@ const residual = (weights: Quantity[]): Quantity[] =>
 		.filter((q) => q.amount !== 0n);
 
 const unbalanced = (l: RupeeParseLocation, q: Quantity[]): Result<never> =>
-	failure(l, 'ParseUnbalancedTransaction', { residual: q.map(formatQuantity).join(', ') });
+	err(
+		fault('ParseUnbalancedTransaction', {
+			location: displayLocation(l),
+			residual: q.map(formatQuantity).join(', '),
+		}),
+	);
 
 export const parseHeader = (
 	{ dateFormats, timeFormats }: RupeeConfiguration,
@@ -231,11 +235,7 @@ export const parseHeader = (
 	const description = (time ?? date)?.rest.join(' ');
 	return date && description
 		? ok({ date: date.value, time: time?.value ?? null, description })
-		: err({
-				type: 'ParseInvalidTransactionHeader',
-				location: displayLocation(location),
-				cause: [],
-			});
+		: err(fault('ParseInvalidTransactionHeader', { location: displayLocation(location) }));
 };
 
 const readWords = <T>(
@@ -261,33 +261,29 @@ const checkAccount = (
 ): Result<WrittenPosting> => {
 	if (accountType(posting.account)) return ok(posting);
 
-	return err({
-		type: 'ParseInvalidAccount',
-		location: displayLocation(location),
-		account: posting.account,
-		cause: [],
-	});
+	return err(
+		fault('ParseInvalidAccount', {
+			location: displayLocation(location),
+			account: posting.account,
+		}),
+	);
 };
 
 // `Account amount [commodity] [@ price | @@ total] [= balance]`.
 const readPosting = ({ location, content }: RupeeLine): Result<WrittenPosting> => {
-	const invalid: RupeeError = {
-		type: 'ParseInvalidPosting',
-		location: displayLocation(location),
-		cause: [],
-	};
+	const invalid = err(fault('ParseInvalidPosting', { location: displayLocation(location) }));
 	const parts = /^\s*([^\s=@]+)(?:\s+([^@=]*?))?\s*(?:(@@?)\s*([^=]*?))?\s*(?:=\s*(.*?))?\s*$/.exec(
 		content,
 	);
-	if (!parts?.[1]) return err(invalid);
+	if (!parts?.[1]) return invalid;
 
 	const [, account, amount = '', priced, price = '', balance] = parts;
 	const quantity = amount === '' ? null : readQuantity(amount);
 	const cost = priced === undefined ? null : readQuantity(price);
 	const asserted = balance === undefined ? null : readQuantity(balance);
-	if (quantity === undefined || cost === undefined || asserted === undefined) return err(invalid);
+	if (quantity === undefined || cost === undefined || asserted === undefined) return invalid;
 	if (priced !== undefined && (quantity === null || cost === null || cost.amount < 0n))
-		return err(invalid);
+		return invalid;
 
 	return ok({
 		account,

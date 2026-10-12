@@ -1,4 +1,6 @@
-import { err, ok, safely, type Result } from '#lib/server/shared/result.ts';
+import { fault } from '#lib/server/shared/result/error.ts';
+import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
+import { safely } from '#lib/server/shared/control.ts';
 import { isDateFormat } from '#services/ledger/application/shared.ts';
 import * as v from 'valibot';
 import { parseDocument } from 'yaml';
@@ -84,4 +86,4 @@ export const parseSchema = (path: string, text: string): Result<RupeeSchema> => 
 };
 
 const invalid = (p: string, r: string): Result<never> =>
-	err({ type: 'ExtractionInvalidSchema', path: p, reason: r, cause: [] });
+	err(fault('ExtractionInvalidSchema', { path: p, reason: r }));

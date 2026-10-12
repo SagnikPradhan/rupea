@@ -5,9 +5,9 @@ import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
-import { unknownError, type RupeeError } from '../error';
+import { fault, unknownError } from '../result/error';
+import { attempt, attemptWith, errAsync, okAsync, type ResultAsync } from '../result/result';
 import type { Logger } from '../logger';
-import { attempt, errAsync, okAsync, type ResultAsync } from '../result';
 
 export type ModelFile = { file: string; url: string; sha256: string };
 
@@ -49,30 +49,24 @@ export const ensure = (options: EnsureOptions): ResultAsync<string> => {
 			return download({ path, model, logger, fetch });
 		})
 		.map(() => path)
-		.mapErr((error): RupeeError => {
+		.mapErr((error) => {
 			logger.error({ file: model.file, error }, 'model unavailable');
-			return { type: 'ExtractionMissingModel', path, cause: [error] };
+			return fault('ExtractionMissingModel', { path, cause: [error] });
 		});
 };
 
 const check = (path: string, expected: string): ResultAsync<void> =>
-	attempt({
+	attemptWith({
 		try: () => digest(path),
-		catch: (thrown): RupeeError => ({
-			type: 'CannotReadFile',
-			path,
-			reason: 'failed to read model',
-			cause: [unknownError(thrown)],
-		}),
+		catch: (thrown) =>
+			fault('CannotReadFile', {
+				path,
+				reason: 'failed to read model',
+				cause: [unknownError(thrown)],
+			}),
 	}).andThen((actual) => {
 		if (actual === expected) return okAsync(undefined);
-		return errAsync<void, RupeeError>({
-			type: 'ModelHashMismatch',
-			path,
-			expected,
-			actual,
-			cause: [],
-		});
+		return errAsync(fault('ModelHashMismatch', { path, expected, actual }));
 	});
 
 const digest = async (path: string) => {
@@ -96,22 +90,13 @@ const download = (options: DownloadOptions): ResultAsync<void> => {
 	const part = `${path}.${randomUUID()}.part`;
 	const started = performance.now();
 	const log = logger.child({ file });
-	const failed = (thrown: unknown): RupeeError => ({
-		type: 'ModelDownloadFailed',
-		url,
-		cause: [unknownError(thrown)],
-	});
+	const failed = (t: unknown) => fault('ModelDownloadFailed', { url, cause: [unknownError(t)] });
 	log.info({ url }, 'model downloading');
-	return attempt({ try: () => fetch(url), catch: failed })
+	return attemptWith({ try: () => fetch(url), catch: failed })
 		.andThen((response) => {
 			if (!response.ok || !response.body)
-				return errAsync<never, RupeeError>({
-					type: 'ModelDownloadFailed',
-					url,
-					status: response.status,
-					cause: [],
-				});
-			return attempt({
+				return errAsync(fault('ModelDownloadFailed', { url, status: response.status }));
+			return attemptWith({
 				try: () => save({ response, part, logger: log }),
 				catch: failed,
 			});
@@ -121,7 +106,7 @@ const download = (options: DownloadOptions): ResultAsync<void> => {
 		.map((n) =>
 			log.info({ bytes: n, ms: Math.round(performance.now() - started) }, 'model downloaded'),
 		)
-		.orElse((err) => attempt(() => rm(part, { force: true })).andThen(() => errAsync(err)));
+		.orElse((e) => attempt(() => rm(part, { force: true })).andThen(() => errAsync(e)));
 };
 
 type SaveOptions = {

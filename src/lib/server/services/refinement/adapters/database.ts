@@ -1,7 +1,7 @@
 import { eq } from 'drizzle-orm';
 import { dismissedMatches as table } from '#lib/server/db/schema.ts';
 import { withContext } from '#lib/server/shared/context.ts';
-import { attempt, type ResultAsync } from '#lib/server/shared/result.ts';
+import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 
 // A ledger has only the few dismissals its user made, so they load whole.
 export const dismissals = (ledgerId: string) => ({

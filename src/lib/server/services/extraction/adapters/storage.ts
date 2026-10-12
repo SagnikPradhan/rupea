@@ -1,5 +1,6 @@
-import type { RupeeError } from '#lib/server/shared/error.ts';
-import { err, ok, safely, type Result, type ResultAsync } from '#lib/server/shared/result.ts';
+import { fault } from '#lib/server/shared/result/error.ts';
+import { err, ok, type Result, type ResultAsync } from '#lib/server/shared/result/result.ts';
+import { safely } from '#lib/server/shared/control.ts';
 import type { Entry, Storage } from '#lib/server/shared/storage/storage.ts';
 
 const EXTENSION = '.yml';
@@ -13,11 +14,7 @@ const list = (storage: Storage) => (): ResultAsync<Entry[]> =>
 	storage
 		.list()
 		.map((e) => e.filter(({ key }) => key.endsWith(EXTENSION)))
-		.mapErr((error): RupeeError => ({
-			type: 'CannotReadDirectory',
-			path: '',
-			cause: [error],
-		}));
+		.mapErr((e) => fault('CannotReadDirectory', { path: '', cause: [e] }));
 
 type DecodeOptions = {
 	key: string;
@@ -28,12 +25,7 @@ type DecodeOptions = {
 const decode = ({ key, entry, content }: DecodeOptions): Result<SchemaFile> => {
 	const text = safely(() => decoder.decode(content));
 	return text === undefined
-		? err({
-				type: 'CannotReadFile',
-				path: key,
-				reason: 'not valid UTF-8',
-				cause: [],
-			})
+		? err(fault('CannotReadFile', { path: key, reason: 'not valid UTF-8' }))
 		: ok({ ...entry, content: text });
 };
 
@@ -42,12 +34,13 @@ const read =
 	(key: string): ResultAsync<SchemaFile> =>
 		storage
 			.read(key)
-			.mapErr((error): RupeeError => ({
-				type: 'CannotReadFile',
-				path: key,
-				reason: 'failed to read schema',
-				cause: [error],
-			}))
+			.mapErr((error) =>
+				fault('CannotReadFile', {
+					path: key,
+					reason: 'failed to read schema',
+					cause: [error],
+				}),
+			)
 			.andThen(({ entry, content }) => decode({ key, entry, content }));
 
 const write =

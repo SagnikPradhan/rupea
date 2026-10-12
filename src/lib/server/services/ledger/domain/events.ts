@@ -1,5 +1,6 @@
-import type { RupeeError } from '#lib/server/shared/error.ts';
-import { batch, err, ok, type Result } from '#lib/server/shared/result.ts';
+import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
+import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
+import { batch } from '#lib/server/shared/result/batch.ts';
 import { displayLocation } from './parser';
 import {
 	accountType,
@@ -65,15 +66,18 @@ type Membership = EventLink & { member: EventMember };
 const membership = (t: EventMember): Result<Membership | null> => {
 	const [only, ...rest] = linksOf(t);
 	if (!only) return ok(null);
-	if (rest.length > 0) return err({ type: 'EventInvalidMembership', location: at(t), cause: [] });
+	if (rest.length > 0) return err(fault('EventInvalidMembership', { location: at(t) }));
 
 	return ok({ ...only, member: t });
 };
 
 const checkEvent = (event: string, members: Membership[]): EventCheck => {
 	const [primary, ...others] = members.filter((m) => m.role === EventRole.Primary);
-	if (!primary) return broken('EventWithoutPrimary', event, members);
-	if (others.length > 0) return broken('EventWithManyPrimaries', event, [primary, ...others]);
+	if (!primary) return broken(fault('EventWithoutPrimary', { event, location: places(members) }));
+	if (others.length > 0) {
+		const location = places([primary, ...others]);
+		return broken(fault('EventWithManyPrimaries', { event, location }));
+	}
 
 	const evidence = members.filter((m) => m.role === EventRole.Evidence).map((m) => m.member);
 	return {
@@ -83,13 +87,10 @@ const checkEvent = (event: string, members: Membership[]): EventCheck => {
 };
 
 const broken = (
-	type: 'EventWithoutPrimary' | 'EventWithManyPrimaries',
-	event: string,
-	members: Membership[],
-): EventCheck => ({
-	evidence: [],
-	failed: [{ type, event, location: members.map((m) => at(m.member)).join(', '), cause: [] }],
-});
+	e: Extract<RupeeError, { type: 'EventWithoutPrimary' | 'EventWithManyPrimaries' }>,
+): EventCheck => ({ evidence: [], failed: [e] });
+
+const places = (l: Membership[]) => l.map((m) => at(m.member)).join(', ');
 
 // Only balance accounts both sides post to are compared; categories are guesses.
 const disagreements = (
@@ -104,15 +105,13 @@ const disagreements = (
 		if (wanted === undefined || wanted.amount === q.amount) return [];
 
 		return [
-			{
-				type: 'EventDisagreement' as const,
+			fault('EventDisagreement', {
 				event,
 				location: at(evidence),
 				account: q.account,
 				expected: formatQuantity(wanted),
 				actual: formatQuantity(q),
-				cause: [],
-			},
+			}),
 		];
 	});
 };

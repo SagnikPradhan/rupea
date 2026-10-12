@@ -1,4 +1,4 @@
-import { err } from '#lib/server/shared/result.ts';
+import { err } from '#lib/server/shared/result/result.ts';
 import { formatAmount } from '#services/ledger/application/shared.ts';
 import { describe, expect, it } from 'vitest';
 import { extract } from '#services/extraction/domain/runtime.ts';
@@ -267,7 +267,7 @@ fields:
 
 	it('fails a statement with no header row', () => {
 		expect(summary([['Something else']])).toEqual(
-			err({ type: 'ExtractionMissingHeader', path: 'hdfc.csv', cause: [] }),
+			err({ type: 'ExtractionMissingHeader', path: 'hdfc.csv' }),
 		);
 	});
 
@@ -277,7 +277,6 @@ fields:
 				type: 'ExtractionMissingColumns',
 				path: 'hdfc.csv',
 				columns: ['Withdrawal Amt.', 'Deposit Amt.'],
-				cause: [],
 			}),
 		);
 	});

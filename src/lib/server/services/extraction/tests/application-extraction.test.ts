@@ -1,5 +1,5 @@
 import { provide } from '#lib/server/shared/context.ts';
-import { err, ok } from '#lib/server/shared/result.ts';
+import { ok } from '#lib/server/shared/result/result.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import { broken, hashed } from '#tests/shared/embedding.ts';
 import { createLedger, createUser } from '#tests/shared/seed.ts';
@@ -70,7 +70,6 @@ describe('extracting a statement', () => {
 							location: 'aug.csv:5',
 							field: 'amount',
 							reason: '"x" is not a number',
-							cause: [],
 						},
 					],
 				}),
@@ -155,7 +154,7 @@ describe('extracting a statement', () => {
 					file: upload('aug.csv', statement),
 					account: 'Assets:Bank',
 				}),
-			).toMatchObject(err({ type: 'CannotReadFile', path: 'missing.yml' }));
+			).toMatchObject({ error: { type: 'CannotReadFile', path: 'missing.yml' } });
 		}));
 });
 
@@ -179,7 +178,7 @@ describe('statement schemas', () => {
 					key: 'bad.yml',
 					content: 'version: v2',
 				}),
-			).toMatchObject(err({ type: 'ExtractionInvalidSchema', path: 'bad.yml' }));
+			).toMatchObject({ error: { type: 'ExtractionInvalidSchema', path: 'bad.yml' } });
 			expect(await Extraction.listSchemas(userId)).toEqual(ok([]));
 		}));
 
@@ -206,8 +205,8 @@ describe('statement schemas', () => {
 				});
 
 			expect((await extract(member.userId)).isOk()).toBe(true);
-			expect(await extract(ledger.owner)).toMatchObject(
-				err({ type: 'CannotReadFile', path: 'bank.yml' }),
-			);
+			expect(await extract(ledger.owner)).toMatchObject({
+				error: { type: 'CannotReadFile', path: 'bank.yml' },
+			});
 		}));
 });

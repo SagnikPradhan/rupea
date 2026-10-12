@@ -1,15 +1,15 @@
-import type { RupeeError } from '#lib/server/shared/error.ts';
-import type { Response } from '#lib/server/shared/result.ts';
+import type { RupeeError } from '#lib/server/shared/result/error.ts';
+import type { Reply } from '#lib/server/shared/result/reply.ts';
 
 export type EditorFile = { key: string; content: string; version: string };
 
 export type EditorApi = {
-	read: (key: string) => Promise<Response<EditorFile>>;
-	check: (input: { key: string; content: string }) => Promise<Response<unknown[]>>;
-	save: (input: EditorFile) => Promise<Response<EditorFile>>;
-	create: (input: { key: string; content: string }) => Promise<Response<EditorFile>>;
-	rename: (input: { key: string; to: string }) => Promise<Response<EditorFile>>;
-	remove: (key: string) => Promise<Response<void>>;
+	read: (key: string) => Promise<Reply<EditorFile>>;
+	check: (input: { key: string; content: string }) => Promise<Reply<unknown[]>>;
+	save: (input: EditorFile) => Promise<Reply<EditorFile>>;
+	create: (input: { key: string; content: string }) => Promise<Reply<EditorFile>>;
+	rename: (input: { key: string; to: string }) => Promise<Reply<EditorFile>>;
+	remove: (key: string) => Promise<Reply<void>>;
 };
 
 const sleep = (t: number) => new Promise<void>((r) => setTimeout(r, t));
@@ -61,7 +61,7 @@ export const createEditor = (api: EditorApi, delay: number): Editor => {
 		Object.assign(state, closed(), { file, content: file.content });
 	};
 
-	const accept = <T>(response: Response<T>, use: (data: T) => void): boolean => {
+	const accept = <T>(response: Reply<T>, use: (data: T) => void): boolean => {
 		if (response.data === null) {
 			state.errors.operation = response.errors;
 			return false;

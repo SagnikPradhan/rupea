@@ -1,7 +1,7 @@
 import { describe, expect } from 'vitest';
 import { it } from '#tests/shared/vitest.ts';
 import { files } from '#services/ledger/adapters/storage.ts';
-import { err, ok } from '#lib/server/shared/result.ts';
+import { ok } from '#lib/server/shared/result/result.ts';
 
 describe('files', () => {
 	it('lists only .rupee files, as text', async ({ storage }) => {
@@ -33,13 +33,13 @@ describe('files', () => {
 	});
 
 	it('reports a missing file as one that cannot be read', async ({ storage }) => {
-		expect(await files(storage).read('missing.rupee')).toMatchObject(
-			err({
+		expect(await files(storage).read('missing.rupee')).toMatchObject({
+			error: {
 				type: 'CannotReadFile',
 				path: 'missing.rupee',
 				cause: [{ type: 'StorageNotFound' }],
-			}),
-		);
+			},
+		});
 	});
 
 	it('renames and reads back the moved file', async ({ storage }) => {

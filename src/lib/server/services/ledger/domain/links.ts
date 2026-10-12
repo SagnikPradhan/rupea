@@ -1,5 +1,6 @@
 import type { RupeeConfiguration } from '#lib/server/shared/config.ts';
-import { err, ok, type Result } from '#lib/server/shared/result.ts';
+import { fault } from '#lib/server/shared/result/error.ts';
+import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
 import { EVENT_KEY, EVENT_KEYS, linksOf, type EventLink, type EventRole } from './events';
 import { parse } from './parser';
 import type { RupeeFile, RupeeTransaction } from './types';
@@ -35,7 +36,7 @@ export const insertLinks = (
 			linksOf(t).length > 0
 		);
 	});
-	if (stale) return err({ type: 'EventStale', location: `${stale.file}:${stale.line}`, cause: [] });
+	if (stale) return err(fault('EventStale', { location: `${stale.file}:${stale.line}` }));
 
 	// Bottom up, so earlier insertions do not move later lines.
 	const lines = [...edits]
@@ -62,7 +63,7 @@ export const rewriteLinks = (
 			.filter((l) => l.event === event)
 			.map((l) => ({ transaction: t, link: l })),
 	);
-	if (members.length === 0) return err({ type: 'EventStale', location: file.key, cause: [] });
+	if (members.length === 0) return err(fault('EventStale', { location: file.key }));
 
 	const lines = members.reduce((l, { transaction, link }) => {
 		const at = linkLine(l, transaction.location.line, event);

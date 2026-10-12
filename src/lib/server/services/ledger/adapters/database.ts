@@ -10,16 +10,16 @@ import {
 	transactions as transactionTable,
 } from '#lib/server/db/schema.ts';
 import { withContext } from '#lib/server/shared/context.ts';
-import { unknownError, type RupeeError } from '#lib/server/shared/error.ts';
+import { fault, type RupeeError, unknownError } from '#lib/server/shared/result/error.ts';
 import {
 	attempt,
+	attemptWith,
 	err,
 	errAsync,
-	inOrder,
 	ok,
 	ResultAsync,
-	type Result,
-} from '#lib/server/shared/result.ts';
+} from '#lib/server/shared/result/result.ts';
+import { inOrder } from '#lib/server/shared/control.ts';
 import { and, asc, eq, inArray, isNotNull, ne, or, sql, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { v7 as uuidv7 } from 'uuid';
@@ -144,12 +144,12 @@ const untypedAccount = (file: RupeeLedgerFile): RupeeError | null =>
 		.flatMap((t) =>
 			t.postings
 				.filter((p) => !accountType(p.account))
-				.map((p): RupeeError => ({
-					type: 'ParseInvalidAccount',
-					location: displayLocation(t.location),
-					account: p.account,
-					cause: [],
-				})),
+				.map((p) =>
+					fault('ParseInvalidAccount', {
+						location: displayLocation(t.location),
+						account: p.account,
+					}),
+				),
 		)
 		.at(0) ?? null;
 
@@ -591,8 +591,8 @@ const reachable = (db: Database, userId: string, where: SQL | undefined) =>
 
 export const findLedger = (userId: string, handle: string): ResultAsync<Ledger> =>
 	withContext('db')((db) =>
-		attempt(() => reachable(db, userId, eq(ledgers.handle, handle)).limit(1)).andThen(
-			([f]): Result<Ledger> => (f ? ok(f) : err({ type: 'LedgerNotFound', handle, cause: [] })),
+		attempt(() => reachable(db, userId, eq(ledgers.handle, handle)).limit(1)).andThen(([f]) =>
+			f ? ok(f) : err(fault('LedgerNotFound', { handle })),
 		),
 	);
 
@@ -609,7 +609,7 @@ type InsertLedgerOptions = {
 export const insertLedger = (options: InsertLedgerOptions): ResultAsync<Ledger> => {
 	const { storage, owner, handle, name } = options;
 	return withContext('db')((db) =>
-		attempt({
+		attemptWith({
 			try: () =>
 				db
 					.insert(ledgers)
@@ -622,7 +622,5 @@ export const insertLedger = (options: InsertLedgerOptions): ResultAsync<Ledger> 
 	);
 };
 
-const handleTaken = (h: string, t: unknown): RupeeError =>
-	violatesUnique(t, 'ledgers_handle_unique')
-		? { type: 'NameTaken', name: h, cause: [] }
-		: unknownError(t);
+const handleTaken = (h: string, t: unknown) =>
+	violatesUnique(t, 'ledgers_handle_unique') ? fault('NameTaken', { name: h }) : unknownError(t);

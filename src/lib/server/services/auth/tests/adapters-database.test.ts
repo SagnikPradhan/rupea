@@ -1,5 +1,5 @@
 import { provide } from '#lib/server/shared/context.ts';
-import { err } from '#lib/server/shared/result.ts';
+import { err } from '#lib/server/shared/result/result.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { describe, expect } from 'vitest';
 import * as Auth from '#services/auth/adapters/database.ts';
@@ -47,7 +47,7 @@ describe('the auth store', () => {
 			await Auth.createUser({ email: 'e@example.com', username: 'e' });
 
 			expect(await Auth.createUser({ email: 'f@example.com', username: 'e' })).toEqual(
-				err({ type: 'NameTaken', name: 'e', cause: [] }),
+				err({ type: 'NameTaken', name: 'e' }),
 			);
 			expect((await Auth.findUserByEmail('f@example.com')).unwrapOr(undefined)).toBeNull();
 		}));

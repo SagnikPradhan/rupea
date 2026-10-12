@@ -1,4 +1,4 @@
-import { err, ok } from '#lib/server/shared/result.ts';
+import { ok } from '#lib/server/shared/result/result.ts';
 import { describe, expect, it } from 'vitest';
 import { parseSchema } from '#services/extraction/domain/schema.ts';
 
@@ -79,8 +79,8 @@ describe('reading a schema', () => {
 		['an unknown date token', minimal(plain.replace('yyyy-MM-dd', '%Y-%m'))],
 		['a bad regex', `${minimal(plain)}header: { regex: '(' }\n`],
 	])('rejects %s', (_, text) => {
-		expect(parseSchema('bad.yml', text)).toMatchObject(
-			err({ type: 'ExtractionInvalidSchema', path: 'bad.yml' }),
-		);
+		expect(parseSchema('bad.yml', text)).toMatchObject({
+			error: { type: 'ExtractionInvalidSchema', path: 'bad.yml' },
+		});
 	});
 });

@@ -1,4 +1,5 @@
-import { errAsync, okAsync } from '#lib/server/shared/result.ts';
+import { fault } from '#lib/server/shared/result/error.ts';
+import { errAsync, okAsync } from '#lib/server/shared/result/result.ts';
 import type { Models } from '#lib/server/shared/onnx/runtime.ts';
 import { EMBEDDING_DIMENSIONS } from '#lib/server/db/schema.ts';
 
@@ -15,8 +16,7 @@ export const hashVector = (text: string): Float32Array => {
 	return counts.map((c) => c / length);
 };
 
-const unavailable = () =>
-	errAsync({ type: 'UnknownError' as const, message: 'no such model', cause: [] });
+const unavailable = () => errAsync(fault('UnknownError', { message: 'no such model' }));
 
 export const hashed = (base: Models): Models => ({
 	...base,

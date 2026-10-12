@@ -1,13 +1,7 @@
-import {
-	batchAsync,
-	err,
-	ok,
-	safely,
-	type Batch,
-	type Result,
-	type ResultAsync,
-} from '#lib/server/shared/result.ts';
-import type { RupeeError } from '#lib/server/shared/error.ts';
+import { fault } from '#lib/server/shared/result/error.ts';
+import { err, ok, type Result, type ResultAsync } from '#lib/server/shared/result/result.ts';
+import { type Batch, batchAsync } from '#lib/server/shared/result/batch.ts';
+import { safely } from '#lib/server/shared/control.ts';
 import type { Entry, Storage } from '#lib/server/shared/storage/storage.ts';
 import type { RupeeFile } from '../domain/types';
 
@@ -19,12 +13,7 @@ const encoder = new TextEncoder();
 const toFile = (entry: Entry, content: Uint8Array): Result<RupeeFile> => {
 	const text = safely(() => decoder.decode(content));
 	return text === undefined
-		? err({
-				type: 'CannotReadFile',
-				path: entry.key,
-				reason: 'not valid UTF-8',
-				cause: [],
-			})
+		? err(fault('CannotReadFile', { path: entry.key, reason: 'not valid UTF-8' }))
 		: ok({ ...entry, content: text });
 };
 
@@ -33,22 +22,15 @@ const read =
 	(key: string): ResultAsync<RupeeFile> =>
 		storage
 			.read(key)
-			.mapErr((error): RupeeError => ({
-				type: 'CannotReadFile',
-				path: key,
-				reason: 'failed to read file',
-				cause: [error],
-			}))
+			.mapErr((e) =>
+				fault('CannotReadFile', { path: key, reason: 'failed to read file', cause: [e] }),
+			)
 			.andThen(({ entry, content }) => toFile(entry, content));
 
 const entries = (storage: Storage) => (): ResultAsync<Entry[]> =>
 	storage
 		.list()
-		.mapErr((error): RupeeError => ({
-			type: 'CannotReadDirectory',
-			path: '',
-			cause: [error],
-		}))
+		.mapErr((e) => fault('CannotReadDirectory', { path: '', cause: [e] }))
 		.map((e) => e.filter(({ key }) => key.endsWith(EXTENSION)));
 
 const list = (st: Storage) => (): ResultAsync<Batch<RupeeFile>> =>

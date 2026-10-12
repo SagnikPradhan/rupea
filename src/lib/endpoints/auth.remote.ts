@@ -2,7 +2,7 @@ import * as v from 'valibot';
 import { invalid, redirect } from '@sveltejs/kit';
 import { form } from '$app/server';
 import * as Auth from '#services/auth/application/auth.ts';
-import { fromResult } from '#lib/server/shared/result.ts';
+import { replyFrom } from '#lib/server/shared/result/reply.ts';
 
 const Email = v.pipe(
 	v.string(),
@@ -19,7 +19,7 @@ const VerifyCode = v.object({
 
 // Returns the normalised email so the code step can carry it.
 export const requestCode = form(RequestCode, async ({ email }) => {
-	return fromResult(await Auth.requestCode(email).map(() => ({ email })));
+	return replyFrom(await Auth.requestCode(email).map(() => ({ email })));
 });
 
 export const verifyCode = form(VerifyCode, async ({ email, code }) => {
@@ -30,7 +30,7 @@ export const verifyCode = form(VerifyCode, async ({ email, code }) => {
 			path: ['code'],
 		});
 
-	if (signedIn.isErr()) return fromResult(signedIn);
+	if (signedIn.isErr()) return replyFrom(signedIn);
 	redirect(303, '/');
 });
 

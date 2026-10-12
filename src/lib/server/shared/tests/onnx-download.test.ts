@@ -3,7 +3,7 @@ import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, vi } from 'vitest';
 import { createLogger } from '#lib/server/shared/logger.ts';
-import { err, ok } from '#lib/server/shared/result.ts';
+import { err, ok } from '#lib/server/shared/result/result.ts';
 import { it } from '#tests/shared/vitest.ts';
 import {
 	ensure,
@@ -55,13 +55,13 @@ describe('making sure of a model', () => {
 			model,
 			...options('download', () => new Response('another model')),
 		});
-		expect(ensured).toMatchObject(
-			err({
+		expect(ensured).toMatchObject({
+			error: {
 				type: 'ExtractionMissingModel',
 				path: join(root, model.file),
 				cause: [{ type: 'ModelHashMismatch', expected: model.sha256 }],
-			}),
-		);
+			},
+		});
 		expect(await readdir(root)).toEqual([]);
 	});
 
@@ -80,7 +80,6 @@ describe('making sure of a model', () => {
 						type: 'ModelDownloadFailed',
 						url: model.url,
 						status: 404,
-						cause: [],
 					},
 				],
 			}),
@@ -90,17 +89,17 @@ describe('making sure of a model', () => {
 
 	it('never downloads when only verifying', async ({ root }) => {
 		const verify = options('verify', () => new Response(bytes));
-		expect(await ensure({ directory: root, model, ...verify })).toMatchObject(
-			err({
+		expect(await ensure({ directory: root, model, ...verify })).toMatchObject({
+			error: {
 				type: 'ExtractionMissingModel',
 				path: join(root, model.file),
 				cause: [{ type: 'CannotReadFile', path: join(root, model.file) }],
-			}),
-		);
+			},
+		});
 		await writeFile(join(root, model.file), 'another model');
-		expect(await ensure({ directory: root, model, ...verify })).toMatchObject(
-			err({ cause: [{ type: 'ModelHashMismatch' }] }),
-		);
+		expect(await ensure({ directory: root, model, ...verify })).toMatchObject({
+			error: { cause: [{ type: 'ModelHashMismatch' }] },
+		});
 		expect(verify.fetch).not.toHaveBeenCalled();
 	});
 });

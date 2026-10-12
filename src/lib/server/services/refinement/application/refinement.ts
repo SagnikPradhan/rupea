@@ -1,5 +1,5 @@
-import type { RupeeError } from '#lib/server/shared/error.ts';
-import { errAsync, okAsync, type ResultAsync } from '#lib/server/shared/result.ts';
+import { fault } from '#lib/server/shared/result/error.ts';
+import { errAsync, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import { EventRole } from '#services/ledger/application/shared.ts';
 import { dismissals } from '../adapters/database';
@@ -47,7 +47,7 @@ const fresh = (
 	const retry = () =>
 		tries > 1
 			? fresh(ledger, suggestion, done, tries - 1)
-			: errAsync<Suggestion, RupeeError>({ type: 'EventIdTaken', event: id, cause: [] });
+			: errAsync(fault('EventIdTaken', { event: id }));
 	if (done.some((d) => d.event === id)) return retry();
 
 	return Ledger.isEventIdTaken(ledger, id).andThen((t) =>

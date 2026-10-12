@@ -1,4 +1,4 @@
-import type { RupeeError } from '#lib/server/shared/error.ts';
+import type { RupeeError } from '#lib/server/shared/result/error.ts';
 
 export type FileVersion = { key: string; version: string | null };
 

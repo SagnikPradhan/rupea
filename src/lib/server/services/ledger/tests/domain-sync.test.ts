@@ -29,6 +29,6 @@ describe('planning a sync', () => {
 describe('the version a file is indexed at', () => {
 	it('is its own when it parsed cleanly, and none otherwise', () => {
 		expect(indexedVersion('v1', [])).toBe('v1');
-		expect(indexedVersion('v1', [{ type: 'UnknownError', message: 'x', cause: [] }])).toBeNull();
+		expect(indexedVersion('v1', [{ type: 'UnknownError', message: 'x' }])).toBeNull();
 	});
 });

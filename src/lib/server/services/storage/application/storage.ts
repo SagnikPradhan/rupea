@@ -1,6 +1,13 @@
 import { StorageKind } from '#lib/server/db/schema.ts';
 import { withContext } from '#lib/server/shared/context.ts';
-import { err, ok, okAsync, type Result, type ResultAsync } from '#lib/server/shared/result.ts';
+import { fault } from '#lib/server/shared/result/error.ts';
+import {
+	err,
+	ok,
+	okAsync,
+	type Result,
+	type ResultAsync,
+} from '#lib/server/shared/result/result.ts';
 import type { Storage } from '#lib/server/shared/storage/storage.ts';
 import { findStorage, insertStorage, type StorageRecord } from '../adapters/database';
 
@@ -25,6 +32,4 @@ export const ensureStorage = (u: string): ResultAsync<StorageRecord> =>
 	);
 
 const found = (u: string): ResultAsync<StorageRecord> =>
-	findStorage(u).andThen((f): Result<StorageRecord> =>
-		f ? ok(f) : err({ type: 'StorageMissing', userId: u, cause: [] }),
-	);
+	findStorage(u).andThen((f) => (f ? ok(f) : err(fault('StorageMissing', { userId: u }))));

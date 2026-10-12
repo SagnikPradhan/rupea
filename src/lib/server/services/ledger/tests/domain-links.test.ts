@@ -63,7 +63,6 @@ describe('inserting links', () => {
 		expect(insert([e])._unsafeUnwrapErr()).toEqual({
 			type: 'EventStale',
 			location: `a.rupee:${e.line}`,
-			cause: [],
 		});
 	});
 
@@ -109,7 +108,6 @@ describe('rewriting links', () => {
 		expect(rewrite(content)._unsafeUnwrapErr()).toEqual({
 			type: 'EventStale',
 			location: 'a.rupee',
-			cause: [],
 		});
 	});
 });

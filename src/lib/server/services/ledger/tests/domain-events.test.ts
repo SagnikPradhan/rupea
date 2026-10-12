@@ -59,7 +59,6 @@ describe('checking events', () => {
 					type: 'EventWithoutPrimary',
 					event: ID,
 					location: 'a.rupee:1, b.rupee:1',
-					cause: [],
 				},
 			],
 		});
@@ -79,7 +78,6 @@ describe('checking events', () => {
 					type: 'EventWithManyPrimaries',
 					event: ID,
 					location: 'a.rupee:1, b.rupee:1',
-					cause: [],
 				},
 			],
 		});
@@ -91,7 +89,7 @@ describe('checking events', () => {
 	])('counts a transaction with %s on its own', (_, metadata) => {
 		expect(checkEvents([member('a', { event: [ID] }), member('b', metadata)])).toEqual({
 			evidence: [],
-			failed: [{ type: 'EventInvalidMembership', location: 'b.rupee:1', cause: [] }],
+			failed: [{ type: 'EventInvalidMembership', location: 'b.rupee:1' }],
 		});
 	});
 
@@ -116,7 +114,6 @@ describe('checking events', () => {
 				account,
 				expected: account === 'Assets:IBKR' ? '1000.00' : '-1000.00',
 				actual: account === 'Assets:IBKR' ? '999.00' : '-999.00',
-				cause: [],
 			})),
 		});
 	});

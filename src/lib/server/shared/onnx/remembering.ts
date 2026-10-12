@@ -1,4 +1,4 @@
-import { okAsync, type ResultAsync } from '../result';
+import { okAsync, type ResultAsync } from '../result/result';
 
 export type Embed = (texts: string[]) => ResultAsync<Float32Array[]>;
 

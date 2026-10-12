@@ -2,7 +2,7 @@ import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { readGrid } from '#services/extraction/adapters/grid.ts';
-import { err, ok } from '#lib/server/shared/result.ts';
+import { err, ok } from '#lib/server/shared/result/result.ts';
 
 const bytes = (t: string) => new TextEncoder().encode(t);
 
@@ -30,17 +30,17 @@ describe('reading a grid from a file', () => {
 	});
 
 	it('reports an unreadable file as one that cannot be read', async () => {
-		expect(await readGrid({ name: 'a.csv', content: bytes('a,"b\n') })).toMatchObject(
-			err({ type: 'CannotReadFile', path: 'a.csv' }),
-		);
-		expect(await readGrid({ name: 'a.xlsx', content: bytes('not a zip') })).toMatchObject(
-			err({ type: 'CannotReadFile', path: 'a.xlsx' }),
-		);
+		expect(await readGrid({ name: 'a.csv', content: bytes('a,"b\n') })).toMatchObject({
+			error: { type: 'CannotReadFile', path: 'a.csv' },
+		});
+		expect(await readGrid({ name: 'a.xlsx', content: bytes('not a zip') })).toMatchObject({
+			error: { type: 'CannotReadFile', path: 'a.xlsx' },
+		});
 	});
 
 	it.each(['a.xls', 'a.txt', 'a'])('refuses %j', async (name) => {
 		expect(await readGrid({ name, content: bytes('') })).toEqual(
-			err({ type: 'ExtractionUnsupportedFile', path: name, cause: [] }),
+			err({ type: 'ExtractionUnsupportedFile', path: name }),
 		);
 	});
 });

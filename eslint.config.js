@@ -56,6 +56,19 @@ export default defineConfig(
 		ignores: ['**/*.test.ts', 'tests/**'],
 	},
 	{
+		files: ['**/*.ts'],
+		ignores: ['src/lib/server/shared/result/result.ts'],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					name: 'neverthrow',
+					message: 'Import from #lib/server/shared/result/result.ts; fault builds errors.',
+				},
+			],
+		},
+	},
+	{
 		files: ['src/**/*.test.ts'],
 		plugins: { rupee },
 		rules: { 'rupee/test-location': 'error' },

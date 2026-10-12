@@ -1,6 +1,7 @@
 import { withContext } from '#lib/server/shared/context.ts';
 import { withLogger } from '#lib/server/shared/logger.ts';
 import { petName } from '#lib/server/shared/names.ts';
+import { fault } from '#lib/server/shared/result/error.ts';
 import {
 	err,
 	errAsync,
@@ -8,7 +9,7 @@ import {
 	okAsync,
 	type Result,
 	type ResultAsync,
-} from '#lib/server/shared/result.ts';
+} from '#lib/server/shared/result/result.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import { deleteSessionCookie, readSessionCookie, setSessionCookie } from '../adapters/cookie';
 import * as DB from '../adapters/database';
@@ -32,7 +33,7 @@ const canSignIn = (email: string): ResultAsync<boolean> =>
 // Succeeds either way, so callers cannot tell which addresses have accounts.
 export const requestCode = (email: string): ResultAsync<void> =>
 	withContext('mailer')((mailer) =>
-		canSignIn(email).andThen((allowed): ResultAsync<void> => {
+		canSignIn(email).andThen((allowed) => {
 			if (!allowed) return okAsync();
 
 			const fresh = newCode(Date.now());
@@ -48,12 +49,10 @@ export const requestCode = (email: string): ResultAsync<void> =>
 
 // Sign-up may have closed since the code was sent.
 const findOrCreateUser = (email: string): ResultAsync<User> =>
-	DB.findUserByEmail(email).andThen((existing) =>
-		existing
-			? okAsync(existing)
-			: canSignIn(email).andThen((a): ResultAsync<User> =>
-					a ? signUp(email) : errAsync({ type: 'AuthInvalidCode', cause: [] }),
-				),
+	DB.findUserByEmail(email).andThen((u) =>
+		u
+			? okAsync(u)
+			: canSignIn(email).andThen((a) => (a ? signUp(email) : errAsync(fault('AuthInvalidCode')))),
 	);
 
 // A new user starts with one ledger of their own.
@@ -70,9 +69,7 @@ const createUser = (a: string, n: number): ResultAsync<User> =>
 // A code works once: it is consumed whether or not it matches.
 export const signIn = (email: string, code: string): ResultAsync<void> =>
 	DB.takeEmailCode(email)
-		.andThen((s): Result<void> =>
-			codeMatches(s, code, Date.now()) ? ok() : err({ type: 'AuthInvalidCode', cause: [] }),
-		)
+		.andThen((s) => (codeMatches(s, code, Date.now()) ? ok() : err(fault('AuthInvalidCode'))))
 		.andThen(() => findOrCreateUser(email))
 		.andThen((user) => {
 			const session = newSession(Date.now());
@@ -119,5 +116,5 @@ export const withCurrentUser = <T>(
 	use: (user: User) => Result<T> | ResultAsync<T>,
 ): ResultAsync<T> => {
 	const user = requestUser();
-	return user ? okAsync(user).andThen(use) : errAsync({ type: 'AuthUnauthenticated', cause: [] });
+	return user ? okAsync(user).andThen(use) : errAsync(fault('AuthUnauthenticated'));
 };

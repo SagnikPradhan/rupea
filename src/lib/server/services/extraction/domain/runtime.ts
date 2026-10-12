@@ -1,4 +1,6 @@
-import { batch, err, ok, type Batch, type Result } from '#lib/server/shared/result.ts';
+import { fault } from '#lib/server/shared/result/error.ts';
+import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
+import { type Batch, batch } from '#lib/server/shared/result/batch.ts';
 import {
 	displayLocation,
 	parseAmount,
@@ -32,19 +34,14 @@ export const extract = (options: ExtractOptions): Result<Batch<RupeeRecord>> => 
 	const header = grid.findIndex((c) =>
 		schema.header ? c.some((l) => isHeader(schema.header, l)) : !isBlank(c),
 	);
-	if (header < 0) return err({ type: 'ExtractionMissingHeader', path: file, cause: [] });
+	if (header < 0) return err(fault('ExtractionMissingHeader', { path: file }));
 
 	const names = (grid[header] ?? []).map((c, i): [string, number] => [c.trim(), i]);
 	// Reversed so that the first of two same-named columns wins.
 	const sheet: Sheet = { file, grid, headers: new Map(names.reverse()) };
 	const missing = columns(schema).filter((n) => column(sheet, n) === null);
 	if (missing.length > 0)
-		return err({
-			type: 'ExtractionMissingColumns',
-			path: file,
-			columns: missing,
-			cause: [],
-		});
+		return err(fault('ExtractionMissingColumns', { path: file, columns: missing }));
 
 	// A statement may repeat its header, as on every page of a PDF.
 	const repeats = (c: string[]) => c.join('\t').trim() === (grid[header] ?? []).join('\t').trim();
@@ -103,13 +100,13 @@ const record = ({ schema, sheet, row }: RowOptions): Result<RupeeRecord> => {
 
 	const get = (p: Path[], k: Read['kind']) => readField({ sheet, row, paths: p, kind: k });
 	const invalid = ({ field, read, expected }: InvalidOptions): Result<RupeeRecord> =>
-		err({
-			type: 'ExtractionInvalidField',
-			location: displayLocation(location),
-			field,
-			reason: reason(read, expected),
-			cause: [],
-		});
+		err(
+			fault('ExtractionInvalidField', {
+				location: displayLocation(location),
+				field,
+				reason: reason(read, expected),
+			}),
+		);
 
 	const date = get(fields.date, 'date');
 	if (date.kind !== 'date') return invalid({ field: 'date', read: date, expected: 'a date' });

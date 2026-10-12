@@ -1,18 +1,17 @@
 import type { RupeeConfiguration } from '#lib/server/shared/config.ts';
 import { withContext } from '#lib/server/shared/context.ts';
-import type { RupeeError } from '#lib/server/shared/error.ts';
-import { petName } from '#lib/server/shared/names.ts';
+import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
 import {
-	batch,
-	concat,
 	err,
 	errAsync,
 	ok,
 	okAsync,
-	ResultAsync,
-	type Batch,
 	type Result,
-} from '#lib/server/shared/result.ts';
+	ResultAsync,
+	sequence,
+} from '#lib/server/shared/result/result.ts';
+import { type Batch, batch } from '#lib/server/shared/result/batch.ts';
+import { petName } from '#lib/server/shared/names.ts';
 import { scoped } from '#lib/server/shared/storage/storage.ts';
 import * as Storage from '#services/storage/application/storage.ts';
 import {
@@ -101,11 +100,11 @@ const syncFiles = (ledger: Ledger): ResultAsync<RupeeError[]> =>
 		ResultAsync.combine([files.entries(), index(ledger.id).files()]).andThen(
 			([stored, indexed]) => {
 				const p = plan(stored, indexed);
-				return concat(
+				return sequence(
 					[
 						...p.changed.map((k) => () => reindex(files, ledger.id, k)),
 						...p.gone.map((k) => () => unindex(ledger.id, k)),
-					].map((s) => () => s().orElse((err) => ok([err]))),
+					].map((s) => () => s().orElse((e) => ok([e]))),
 				);
 			},
 		),
@@ -117,7 +116,7 @@ const checkLedger = (ledgerId: string): ResultAsync<RupeeError[]> =>
 		.eventMembers()
 		.map(checkEvents)
 		.andThen((e) => checkBalances(ledgerId, e.evidence).map((b) => [...e.failed, ...b]))
-		.orElse((err) => ok([err]));
+		.orElse((e) => ok([e]));
 
 // Evidence is not counted: an event's money moves at its primary.
 const checkBalances = (l: string, e: string[]): ResultAsync<RupeeError[]> =>
@@ -128,21 +127,17 @@ const checkBalances = (l: string, e: string[]): ResultAsync<RupeeError[]> =>
 // An assertion that could go either way is not checked; a time on either side settles it.
 const toBalanceError = (c: BalanceCheck): RupeeError =>
 	c.unordered.length > 0
-		? {
-				type: 'BalanceAssertionAmbiguous',
+		? fault('BalanceAssertionAmbiguous', {
 				location: displayLocation(c.location),
 				account: c.account,
 				unordered: c.unordered.join(', '),
-				cause: [],
-			}
-		: {
-				type: 'BalanceAssertionFailed',
+			})
+		: fault('BalanceAssertionFailed', {
 				location: displayLocation(c.location),
 				account: c.account,
 				expected: formatQuantity({ amount: c.expected, commodity: c.commodity }),
 				actual: formatQuantity({ amount: c.actual, commodity: c.commodity }),
-				cause: [],
-			};
+			});
 
 export const sync = (l: Ledger): ResultAsync<RupeeError[]> =>
 	syncFiles(l).andThen((f) => checkLedger(l.id).map((e) => [...f, ...e]));
@@ -262,7 +257,7 @@ export const deleteFile = (l: Ledger, k: string): ResultAsync<void> =>
 // failure, which leaves at worst a primary still without its evidence: a whole
 // event, never evidence without its primary.
 export const linkEvents = (ledger: Ledger, edits: LinkEdit[]): ResultAsync<RupeeError[]> =>
-	concat<Result<Linked>>(
+	sequence<Result<Linked>>(
 		Object.entries(Object.groupBy(edits, (e) => e.file)).map(
 			([key, group = []]) =>
 				() =>
@@ -286,7 +281,7 @@ const linked = (ledger: Ledger, key: string, edits: LinkEdit[]): ResultAsync<Lin
 	);
 
 const writeLinked = (ledger: Ledger, linked: Linked[]): ResultAsync<RupeeError[]> =>
-	concat(
+	sequence(
 		linked
 			.toSorted((a, b) => Number(b.primary) - Number(a.primary))
 			.map((l) => () => writeLinks(ledger, l).map((): RupeeError[] => [])),
@@ -328,9 +323,7 @@ export const renameEvent = (ledger: Ledger, event: string, to: string): ResultAs
 	syncIndex(ledger)
 		.andThen(() => isEventIdTaken(ledger, to))
 		.andThen((t) =>
-			t
-				? errAsync<IndexedTransaction[], RupeeError>({ type: 'EventIdTaken', event: to, cause: [] })
-				: index(ledger.id).membersOf(event),
+			t ? errAsync(fault('EventIdTaken', { event: to })) : index(ledger.id).membersOf(event),
 		)
 		.andThen((m) => relinkFiles(ledger, m, event, (_, l) => ({ ...l, event: to })));
 
@@ -353,11 +346,7 @@ export const makePrimary = (options: MakePrimaryOptions): ResultAsync<RupeeError
 						event,
 						(t, l) => ({ ...l, role: isTarget(t) ? EventRole.Primary : EventRole.Evidence }),
 					)
-				: errAsync<RupeeError[], RupeeError>({
-						type: 'EventStale',
-						location: `${file}:${line}`,
-						cause: [],
-					}),
+				: errAsync(fault('EventStale', { location: `${file}:${line}` })),
 		);
 };
 
@@ -368,7 +357,7 @@ const relinkFiles = (
 	event: string,
 	relink: Relink,
 ): ResultAsync<RupeeError[]> =>
-	concat(
+	sequence(
 		[...new Set(members.map((m) => m.location.file))].map(
 			(k) => () =>
 				editLinks(ledger, k, (c, f) => rewriteLinks(c, f, event, relink)).orElse((e) => ok([e])),

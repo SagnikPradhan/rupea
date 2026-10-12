@@ -7,7 +7,7 @@ import { it } from '#tests/shared/vitest.ts';
 import { models as files } from '#lib/server/shared/onnx/models.ts';
 import { createModels } from '#lib/server/shared/onnx/runtime.ts';
 import { readPdf } from '#services/extraction/adapters/pdf.ts';
-import { err } from '#lib/server/shared/result.ts';
+import { err } from '#lib/server/shared/result/result.ts';
 
 const fixture = (n: string) => readFile(join(import.meta.dirname, 'fixtures', n));
 
@@ -59,11 +59,11 @@ describe('reading a PDF', () => {
 		async ({ context }) => {
 			const content = await fixture('statement-locked.pdf');
 			const locked = await provide(context, () => readPdf({ name: 'locked.pdf', content }));
-			expect(locked).toEqual(err({ type: 'ExtractionPdfPassword', path: 'locked.pdf', cause: [] }));
+			expect(locked).toEqual(err({ type: 'ExtractionPdfPassword', path: 'locked.pdf' }));
 			const wrong = await provide(context, () =>
 				readPdf({ name: 'locked.pdf', content, password: 'wrong' }),
 			);
-			expect(wrong).toMatchObject(err({ type: 'ExtractionPdfPassword' }));
+			expect(wrong).toMatchObject({ error: { type: 'ExtractionPdfPassword' } });
 			const opened = await provide(context, () =>
 				readPdf({ name: 'locked.pdf', content, password: 'secret' }),
 			);
@@ -80,7 +80,7 @@ describe('reading a PDF', () => {
 				password: undefined,
 			}),
 		);
-		expect(read).toMatchObject(err({ type: 'CannotReadFile', path: 'a.pdf' }));
+		expect(read).toMatchObject({ error: { type: 'CannotReadFile', path: 'a.pdf' } });
 	});
 
 	it('says which model is missing', async ({ context }) => {
@@ -101,12 +101,12 @@ describe('reading a PDF', () => {
 					password: undefined,
 				}),
 		);
-		expect(read).toMatchObject(
-			err({
+		expect(read).toMatchObject({
+			error: {
 				type: 'ExtractionMissingModel',
 				path: '/nowhere/table-detection.onnx',
 				cause: [{ type: 'CannotReadFile' }],
-			}),
-		);
+			},
+		});
 	});
 });

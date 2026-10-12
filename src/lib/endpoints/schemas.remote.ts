@@ -1,4 +1,4 @@
-import { fromResult } from '#lib/server/shared/result.ts';
+import { replyFrom } from '#lib/server/shared/result/reply.ts';
 import * as Auth from '#services/auth/application/auth.ts';
 import * as Extraction from '#services/extraction/application/extraction.ts';
 import { command, query } from '$app/server';
@@ -8,11 +8,11 @@ import { SchemaKey } from './shared';
 const SaveSchema = v.object({ key: SchemaKey, content: v.string() });
 
 export const getSchemas = query(async () =>
-	fromResult(await Auth.withCurrentUser(({ id }) => Extraction.listSchemas(id))),
+	replyFrom(await Auth.withCurrentUser(({ id }) => Extraction.listSchemas(id))),
 );
 
 export const getSchema = query(SchemaKey, async (k) =>
-	fromResult(await Auth.withCurrentUser(({ id }) => Extraction.readSchema(id, k))),
+	replyFrom(await Auth.withCurrentUser(({ id }) => Extraction.readSchema(id, k))),
 );
 
 export const saveSchema = command(SaveSchema, async ({ key, content }) => {
@@ -20,5 +20,5 @@ export const saveSchema = command(SaveSchema, async ({ key, content }) => {
 		Extraction.saveSchema({ user: id, key, content }),
 	);
 	void getSchemas().refresh();
-	return fromResult(saved);
+	return replyFrom(saved);
 });

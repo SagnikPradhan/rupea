@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { errAsync, okAsync } from '#lib/server/shared/result.ts';
+import { errAsync, okAsync } from '#lib/server/shared/result/result.ts';
 import { remembering, type Embed } from '#lib/server/shared/onnx/remembering.ts';
 
 const counting = () => {
@@ -37,7 +37,7 @@ describe('an embed that remembers', () => {
 	});
 
 	it('fails when the model does, and remembers nothing', async () => {
-		const failing: Embed = () => errAsync({ type: 'UnknownError', message: 'no model', cause: [] });
+		const failing: Embed = () => errAsync({ type: 'UnknownError', message: 'no model' });
 		const remembered = remembering(failing, 10);
 
 		expect((await remembered(['a'])).isErr()).toBe(true);

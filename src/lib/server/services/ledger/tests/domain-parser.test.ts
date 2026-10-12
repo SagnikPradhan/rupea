@@ -1,5 +1,5 @@
 import { defaultConfiguration } from '#lib/server/shared/config.ts';
-import { err, ok } from '#lib/server/shared/result.ts';
+import { ok } from '#lib/server/shared/result/result.ts';
 import { describe, expect, it } from 'vitest';
 import {
 	displayLocation,
@@ -103,7 +103,7 @@ describe('parse transactions', () => {
 
 	it('reports amounts that do not sum to zero', () => {
 		expect(run(['2026-08-29 Oops', '\tExpenses:Food 100', '\tAssets:Bank -99.5'])).toEqual({
-			failed: [{ type: 'ParseUnbalancedTransaction', location: at, residual: '0.50', cause: [] }],
+			failed: [{ type: 'ParseUnbalancedTransaction', location: at, residual: '0.50' }],
 			succeeded: [],
 		});
 	});
@@ -112,7 +112,7 @@ describe('parse transactions', () => {
 		expect(
 			run(['2026-08-29 Oops', '\tExpenses:Food 100', '\tAssets:Bank', '\tAssets:Cash']),
 		).toEqual({
-			failed: [{ type: 'ParseMultipleImplicitPostings', location: at, cause: [] }],
+			failed: [{ type: 'ParseMultipleImplicitPostings', location: at }],
 			succeeded: [],
 		});
 	});
@@ -121,7 +121,7 @@ describe('parse transactions', () => {
 		'reports a transaction with the single posting %j',
 		(only) => {
 			expect(run(['2026-08-29 Lonely', only])).toEqual({
-				failed: [{ type: 'ParseMissingTransactionBody', location: at, cause: [] }],
+				failed: [{ type: 'ParseMissingTransactionBody', location: at }],
 				succeeded: [],
 			});
 		},
@@ -149,7 +149,6 @@ describe('parse transactions', () => {
 						type: 'ParseInvalidAccount',
 						location: displayLocation({ file, line: 3 }),
 						account: bad.trim().split(/\s+/)[0],
-						cause: [],
 					},
 				],
 				succeeded: [],
@@ -159,14 +158,14 @@ describe('parse transactions', () => {
 
 	it('reports an invalid transaction header', () => {
 		expect(run(['not a transaction'])).toEqual({
-			failed: [{ type: 'ParseInvalidTransactionHeader', location: at, cause: [] }],
+			failed: [{ type: 'ParseInvalidTransactionHeader', location: at }],
 			succeeded: [],
 		});
 	});
 
 	it('reports a transaction with no body', () => {
 		expect(run(['2026-08-29 Groceries'])).toEqual({
-			failed: [{ type: 'ParseMissingTransactionBody', location: at, cause: [] }],
+			failed: [{ type: 'ParseMissingTransactionBody', location: at }],
 			succeeded: [],
 		});
 	});
@@ -202,7 +201,6 @@ describe('parse transactions', () => {
 				{
 					type: 'ParseInvalidPosting',
 					location: displayLocation({ file, line: 2 }),
-					cause: [],
 				},
 			],
 			succeeded: [],
@@ -214,7 +212,6 @@ describe('metadata', () => {
 	const failure = (type: string, line: number) => ({
 		type,
 		location: displayLocation({ file, line }),
-		cause: [],
 	});
 
 	const parseFile = (n: string[]) =>
@@ -364,7 +361,7 @@ describe('balance assertions', () => {
 		'rejects %j',
 		(p) => {
 			expect(run(['2026-08-29 Groceries', p, '\tExpenses:Food']).failed).toEqual([
-				{ type: 'ParseInvalidPosting', location: displayLocation({ file, line: 2 }), cause: [] },
+				{ type: 'ParseInvalidPosting', location: displayLocation({ file, line: 2 }) },
 			]);
 		},
 	);
@@ -420,7 +417,6 @@ describe('commodities', () => {
 				type: 'ParseUnbalancedTransaction',
 				location: at,
 				residual: '10.00 AAPL, -1802.50 USD',
-				cause: [],
 			},
 		]);
 		expect(
@@ -517,11 +513,10 @@ describe('blank lines', () => {
 	it('end the postings above them', () => {
 		expect(run(['2026-08-29 Groceries', '', '\tExpenses:Food 100'])).toEqual({
 			failed: [
-				{ type: 'ParseMissingTransactionBody', location: at, cause: [] },
+				{ type: 'ParseMissingTransactionBody', location: at },
 				{
 					type: 'ParseInvalidTransactionHeader',
 					location: displayLocation({ file, line: 3 }),
-					cause: [],
 				},
 			],
 			succeeded: [],
@@ -657,6 +652,6 @@ describe('reading a transaction header', () => {
 	});
 
 	it.each(['2026-08-29', '2026-08-29 18:45', '08/29/2026 Groceries'])('rejects %j', (content) => {
-		expect(header(content)).toMatchObject(err({ type: 'ParseInvalidTransactionHeader' }));
+		expect(header(content)).toMatchObject({ error: { type: 'ParseInvalidTransactionHeader' } });
 	});
 });

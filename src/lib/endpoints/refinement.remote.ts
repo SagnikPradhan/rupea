@@ -1,5 +1,6 @@
-import type { RupeeError } from '#lib/server/shared/error.ts';
-import { fromResult, type ResultAsync } from '#lib/server/shared/result.ts';
+import type { RupeeError } from '#lib/server/shared/result/error.ts';
+import type { ResultAsync } from '#lib/server/shared/result/result.ts';
+import { replyFrom } from '#lib/server/shared/result/reply.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import { EventRole, viewTransaction } from '#services/ledger/application/shared.ts';
 import * as Refinement from '#services/refinement/application/refinement.ts';
@@ -33,7 +34,7 @@ const view = ({ ours, theirs, ...suggestion }: Refinement.Suggestion) => ({
 });
 
 export const getSuggestions = query(InFile, async ({ handle, file }) =>
-	fromResult(
+	replyFrom(
 		await inLedger({ handle, action: (l) => Refinement.suggestFor(l, file) }).map((s) =>
 			s.map(view),
 		),
@@ -48,7 +49,7 @@ export const acceptSuggestions = command(
 		void getTransactions(handle).refresh();
 		for (const file of new Set(edits.map((e) => e.file)))
 			void getSuggestions({ handle, file }).refresh();
-		return fromResult(accepted);
+		return replyFrom(accepted);
 	},
 );
 
@@ -60,7 +61,7 @@ export const dismissSuggestion = command(
 			action: (l) => Refinement.dismiss(l, fingerprint),
 		});
 		void getSuggestions({ handle, file }).refresh();
-		return fromResult(dismissed);
+		return replyFrom(dismissed);
 	},
 );
 
@@ -70,7 +71,7 @@ const viewEvent = ({ event, members }: Ledger.FileEvent) => ({
 });
 
 export const getEvents = query(InFile, async ({ handle, file }) =>
-	fromResult(
+	replyFrom(
 		await inLedger({ handle, action: (l) => Ledger.eventsIn(l, file) }).map((e) =>
 			e.map(viewEvent),
 		),
@@ -90,7 +91,7 @@ const changeEvent = async (options: ChangeEventOptions) => {
 	void getFiles(handle).refresh();
 	void getTransactions(handle).refresh();
 	void getEvents({ handle, file }).refresh();
-	return fromResult(changed);
+	return replyFrom(changed);
 };
 
 export const renameEvent = command(

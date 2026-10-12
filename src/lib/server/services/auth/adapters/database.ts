@@ -1,8 +1,8 @@
 import { violatesUnique } from '#lib/server/db/errors.ts';
 import { emailCodes, sessions, users } from '#lib/server/db/schema.ts';
 import { withContext } from '#lib/server/shared/context.ts';
-import { unknownError, type RupeeError } from '#lib/server/shared/error.ts';
-import { attempt, type ResultAsync } from '#lib/server/shared/result.ts';
+import { fault, unknownError } from '#lib/server/shared/result/error.ts';
+import { attempt, attemptWith, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { eq } from 'drizzle-orm';
 
 export type User = { id: string; email: string; username: string };
@@ -47,7 +47,7 @@ type CreateUserOptions = {
 
 export const createUser = (options: CreateUserOptions): ResultAsync<User> =>
 	withContext('db')((db) =>
-		attempt({
+		attemptWith({
 			try: () =>
 				db
 					.insert(users)
@@ -58,10 +58,8 @@ export const createUser = (options: CreateUserOptions): ResultAsync<User> =>
 		}),
 	);
 
-const usernameTaken = (u: string, t: unknown): RupeeError =>
-	violatesUnique(t, 'users_username_unique')
-		? { type: 'NameTaken', name: u, cause: [] }
-		: unknownError(t);
+const usernameTaken = (n: string, t: unknown) =>
+	violatesUnique(t, 'users_username_unique') ? fault('NameTaken', { name: n }) : unknownError(t);
 
 type SaveEmailCodeOptions = {
 	email: string;

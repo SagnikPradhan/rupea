@@ -1,9 +1,5 @@
-import {
-	fromBatch,
-	fromResult,
-	type Response,
-	type ResultAsync,
-} from '#lib/server/shared/result.ts';
+import type { ResultAsync } from '#lib/server/shared/result/result.ts';
+import { type Reply, replyFrom, replyFromBatch } from '#lib/server/shared/result/reply.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
@@ -24,22 +20,22 @@ const EditFile = v.object({
 const RenameFile = v.object({ handle: Handle, key: Key, to: Key });
 
 export const getFiles = query(Handle, async (h) =>
-	fromBatch(await inLedger({ handle: h, action: Ledger.listFiles })),
+	replyFromBatch(await inLedger({ handle: h, action: Ledger.listFiles })),
 );
 
 // A command, not a query: never cached, as the file may change behind the app's back.
 export const readFile = command(ReadFile, async ({ handle, key }) =>
-	fromResult(await inLedger({ handle, action: (l) => Ledger.getFile(l, key) })),
+	replyFrom(await inLedger({ handle, action: (l) => Ledger.getFile(l, key) })),
 );
 
 const mutate = async <T>(
 	handle: string,
 	run: (ledger: Ledger.Ledger) => ResultAsync<T>,
-): Promise<Response<T>> => {
+): Promise<Reply<T>> => {
 	const result = await inLedger({ handle, action: run });
 	void getFiles(handle).refresh();
 	void getTransactions(handle).refresh();
-	return fromResult(result);
+	return replyFrom(result);
 };
 
 export const createFile = command(CreateFile, ({ handle, key, content }) =>

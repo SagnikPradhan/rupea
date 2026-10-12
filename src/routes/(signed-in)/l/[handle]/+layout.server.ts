@@ -1,4 +1,4 @@
-import { ok } from '#lib/server/shared/result.ts';
+import { ok } from '#lib/server/shared/result/result.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import { error, redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';

@@ -1,5 +1,5 @@
 import { withContext } from '#lib/server/shared/context.ts';
-import { ok, type ResultAsync } from '#lib/server/shared/result.ts';
+import { ok, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { scoped } from '#lib/server/shared/storage/storage.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
 import { predictAccounts } from '#services/prediction/application/prediction.ts';

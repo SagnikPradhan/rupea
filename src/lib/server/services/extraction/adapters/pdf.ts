@@ -1,7 +1,12 @@
 import { withContext } from '#lib/server/shared/context.ts';
-import { unknownError } from '#lib/server/shared/error.ts';
+import { fault, unknownError } from '#lib/server/shared/result/error.ts';
+import {
+	attempt,
+	attemptWith,
+	sequence,
+	type ResultAsync,
+} from '#lib/server/shared/result/result.ts';
 import type { Box } from '#lib/server/shared/onnx/runtime.ts';
-import { attempt, concat, type ResultAsync } from '#lib/server/shared/result.ts';
 import { createCanvas, type Canvas } from '@napi-rs/canvas';
 import { createRequire } from 'node:module';
 import { dirname, join } from 'node:path';
@@ -39,7 +44,7 @@ export const readPdf = (options: PdfOptions): ResultAsync<Grid> =>
 	);
 
 const readPages = (tables: Tables, document: PDFDocumentProxy) =>
-	concat(
+	sequence(
 		pages(document).map(
 			(n) => () => attempt(() => document.getPage(n)).andThen((p) => readPage(tables, p)),
 		),
@@ -48,7 +53,7 @@ const readPages = (tables: Tables, document: PDFDocumentProxy) =>
 const pages = (d: PDFDocumentProxy) => Array.from({ length: d.numPages }, (_, i) => i + 1);
 
 const open = ({ name, content, password }: PdfOptions): ResultAsync<PDFDocumentProxy> =>
-	attempt({
+	attemptWith({
 		try: () =>
 			getDocument({
 				data: new Uint8Array(content),
@@ -56,15 +61,14 @@ const open = ({ name, content, password }: PdfOptions): ResultAsync<PDFDocumentP
 				standardFontDataUrl: join(pdfjs, 'standard_fonts/'),
 				cMapUrl: join(pdfjs, 'cmaps/'),
 			}).promise,
-		catch: (thrown) =>
-			thrown instanceof Error && thrown.name === 'PasswordException'
-				? { type: 'ExtractionPdfPassword', path: name, cause: [] }
-				: {
-						type: 'CannotReadFile',
+		catch: (t) =>
+			t instanceof Error && t.name === 'PasswordException'
+				? fault('ExtractionPdfPassword', { path: name })
+				: fault('CannotReadFile', {
 						path: name,
 						reason: 'not a readable PDF',
-						cause: [unknownError(thrown)],
-					},
+						cause: [unknownError(t)],
+					}),
 	});
 
 const render = (page: PDFPageProxy) =>
@@ -84,7 +88,7 @@ const readPage = (tables: Tables, page: PDFPageProxy): ResultAsync<Grid> =>
 			tables.detect(canvas, bounds(canvas)).map((f) => ({ canvas, words, found: f })),
 		)
 		.andThen(({ canvas, words, found }) =>
-			concat(
+			sequence(
 				found
 					.filter(({ label }) => label === 'table')
 					.sort((a, b) => a.y1 - b.y1)

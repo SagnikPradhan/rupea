@@ -2,8 +2,17 @@ import type { Dirent } from 'node:fs';
 import { createHash, randomUUID } from 'node:crypto';
 import { glob, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, sep } from 'node:path';
-import { unknownError, type RupeeError } from '../error';
-import { attempt, concat, err, ok, okAsync, type Result, ResultAsync } from '../result';
+import { fault, type RupeeError, unknownError } from '../result/error';
+import {
+	attempt,
+	attemptWith,
+	err,
+	ok,
+	okAsync,
+	type Result,
+	ResultAsync,
+	sequence,
+} from '../result/result';
 import { validateKey, type Entry, type Storage } from './storage';
 
 // Writes land here and are renamed into place, so a crash never leaves half a file.
@@ -14,10 +23,9 @@ const hash = (c: Uint8Array) => createHash('sha256').update(c).digest('hex');
 const isMissing = (t: unknown) => t instanceof Error && 'code' in t && t.code === 'ENOENT';
 
 const filesystem = <T>(key: string, run: () => Promise<T>): ResultAsync<T> =>
-	attempt({
+	attemptWith({
 		try: run,
-		catch: (e): RupeeError =>
-			isMissing(e) ? { type: 'StorageNotFound', key, cause: [] } : unknownError(e),
+		catch: (e) => (isMissing(e) ? fault('StorageNotFound', { key }) : unknownError(e)),
 	});
 
 const whenMissing =
@@ -69,7 +77,7 @@ export const localStorage = (root: string): Storage => {
 					.filter((k) => k.startsWith(prefix) && !k.startsWith(`${TEMPORARY}/`)),
 			)
 			.andThen((keys) =>
-				concat(
+				sequence(
 					keys.map(
 						(key) => () =>
 							current(key)
@@ -84,16 +92,8 @@ export const localStorage = (root: string): Storage => {
 		current(key)
 			.map((s) => s.entry.version)
 			.orElse(whenMissing(null))
-			.andThen((act): Result<void> =>
-				act === expected
-					? ok()
-					: err({
-							type: 'StorageConflict',
-							key,
-							expected,
-							actual: act,
-							cause: [],
-						}),
+			.andThen((a) =>
+				a === expected ? ok() : err(fault('StorageConflict', { key, expected, actual: a })),
 			);
 
 	const write: Storage['write'] = ({ key, content, ifVersion }) =>

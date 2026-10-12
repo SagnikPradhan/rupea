@@ -4,7 +4,8 @@ import { readFile } from 'node:fs/promises';
 import { InferenceSession, Tensor } from 'onnxruntime-node';
 import { batches } from '../batches';
 import type { Namespace } from '../logger';
-import { attempt, concat, err, ok, okAsync, ResultAsync, type Result } from '../result';
+import { fault } from '../result/error';
+import { attempt, err, ok, okAsync, type Result, ResultAsync, sequence } from '../result/result';
 import {
 	detections,
 	preprocess,
@@ -138,13 +139,12 @@ const embed = (options: EmbedRunOptions): ResultAsync<Float32Array[]> => {
 			}),
 		).andThen((o) => output(o, 'last_hidden_state').map((h) => vectors(h, encoded)));
 	};
-	return concat(batches(texts, model.batch).map((b) => () => run(b)));
+	return sequence(batches(texts, model.batch).map((b) => () => run(b)));
 };
 
 const output = (values: InferenceSession.OnnxValueMapType, name: string): Result<Output> => {
 	const value = values[name];
-	if (!value)
-		return err({ type: 'UnknownError', message: `The model returned no ${name}`, cause: [] });
+	if (!value) return err(fault('UnknownError', { message: `The model returned no ${name}` }));
 
 	return ok({ dims: value.dims, data: value.data as Float32Array });
 };

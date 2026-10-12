@@ -1,5 +1,5 @@
 import { withLogger } from './logger';
-import { okAsync, type ResultAsync } from './result';
+import { okAsync, type ResultAsync } from './result/result';
 
 export type Mail = { to: string; subject: string; text: string };
 

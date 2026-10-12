@@ -1,6 +1,6 @@
 import { StorageKind, storages } from '#lib/server/db/schema.ts';
 import { withContext } from '#lib/server/shared/context.ts';
-import { attempt, type ResultAsync } from '#lib/server/shared/result.ts';
+import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { eq } from 'drizzle-orm';
 
 export type StorageRecord = { id: string; kind: StorageKind };

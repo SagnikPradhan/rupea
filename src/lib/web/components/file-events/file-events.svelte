@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { getEvents, makePrimary, renameEvent } from '#lib/endpoints/refinement.remote.ts';
-	import type { RupeeError } from '#lib/server/shared/error.ts';
-	import type { Response } from '#lib/server/shared/result.ts';
+	import type { RupeeError } from '#lib/server/shared/result/error.ts';
+	import type { Reply } from '#lib/server/shared/result/reply.ts';
 
 	type Props = {
 		handle: string;
@@ -19,7 +19,7 @@
 	const describe = (error: RupeeError) =>
 		[error.type, 'location' in error ? `at ${error.location}` : ''].join(' ');
 
-	async function run(change: Promise<Response<RupeeError[]>>) {
+	async function run(change: Promise<Reply<RupeeError[]>>) {
 		const changed = await change;
 		failures.list = [...changed.errors, ...(changed.data ?? [])];
 		onchanged();

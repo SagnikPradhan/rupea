@@ -1,11 +1,11 @@
 import { vi } from 'vitest';
-import type { RupeeError } from '#lib/server/shared/error.ts';
-import type { Response } from '#lib/server/shared/result.ts';
+import type { RupeeError } from '#lib/server/shared/result/error.ts';
+import type { Reply } from '#lib/server/shared/result/reply.ts';
 import type { EditorApi, EditorFile } from '#lib/web/components/file-editor/file-editor.svelte.ts';
 
-export const succeed = <T>(d: T): Response<T> => ({ ok: true, data: d, errors: [] });
+export const succeed = <T>(d: T): Reply<T> => ({ ok: true, data: d, errors: [] });
 
-export const fail = <T>(...errors: RupeeError[]): Response<T> => ({
+export const fail = <T>(...errors: RupeeError[]): Reply<T> => ({
 	ok: false,
 	data: null,
 	errors,
@@ -16,13 +16,11 @@ export const conflict: RupeeError = {
 	key: 'a.rupee',
 	expected: '1',
 	actual: '2',
-	cause: [],
 };
 
 export const parseError: RupeeError = {
 	type: 'ParseInvalidPosting',
 	location: 'a.rupee:2',
-	cause: [],
 };
 
 export const fakeApi = (initial: Record<string, string>) => {

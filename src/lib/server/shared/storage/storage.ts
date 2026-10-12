@@ -1,5 +1,6 @@
 import type { StorageKind } from '../../db/schema';
-import { err, ok, type Result, type ResultAsync } from '../result';
+import { fault } from '../result/error';
+import { err, ok, type Result, type ResultAsync } from '../result/result';
 
 export type Entry = {
 	key: string;
@@ -30,7 +31,7 @@ export type Storages = Record<StorageKind, (userId: string) => Storage>;
 export const validateKey = (key: string): Result<string> => {
 	const segments = key.split('/');
 	const valid = segments.every((s) => s !== '' && s !== '.' && s !== '..' && !s.includes('\\'));
-	return valid ? ok(key) : err({ type: 'StorageInvalidKey', key, cause: [] });
+	return valid ? ok(key) : err(fault('StorageInvalidKey', { key }));
 };
 
 export const scoped = (storage: Storage, prefix: string): Storage => {

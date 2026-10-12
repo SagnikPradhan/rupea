@@ -1,6 +1,6 @@
 import { provide } from '#lib/server/shared/context.ts';
 import { petName } from '#lib/server/shared/names.ts';
-import { err, ok } from '#lib/server/shared/result.ts';
+import { err, ok } from '#lib/server/shared/result/result.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
@@ -102,7 +102,7 @@ describe('refining a saved file', () => {
 			});
 
 			expect(await Ledger.linkEvents(ledger, edits(suggestions))).toEqual(
-				ok([{ type: 'EventStale', location: 'hdfc.rupee:1', cause: [] }]),
+				ok([{ type: 'EventStale', location: 'hdfc.rupee:1' }]),
 			);
 			expect((await Ledger.getFile(ledger, 'ibkr.rupee'))._unsafeUnwrap().content).toBe(ibkr);
 		}));
@@ -201,7 +201,7 @@ describe('refining a saved file', () => {
 			vi.mocked(petName).mockReturnValue('quiet-heron');
 
 			expect(await Refinement.suggestFor(ledger, 'ibkr.rupee')).toEqual(
-				err({ type: 'EventIdTaken', event: taken, cause: [] }),
+				err({ type: 'EventIdTaken', event: taken }),
 			);
 		}));
 

@@ -1,9 +1,5 @@
-import {
-	inOrder,
-	ROWS_PER_STATEMENT,
-	violatesUnique,
-	type Database,
-} from '#lib/server/db/index.ts';
+import { violatesUnique } from '#lib/server/db/errors.ts';
+import { statementChunks, type Database } from '#lib/server/db/index.ts';
 import {
 	ledgerFiles,
 	ledgers,
@@ -13,10 +9,17 @@ import {
 	storages,
 	transactions as transactionTable,
 } from '#lib/server/db/schema.ts';
-import { batches } from '#lib/server/shared/batches.ts';
 import { withContext } from '#lib/server/shared/context.ts';
 import { unknownError, type RupeeError } from '#lib/server/shared/error.ts';
-import { attempt, err, errAsync, ok, ResultAsync, type Result } from '#lib/server/shared/result.ts';
+import {
+	attempt,
+	err,
+	errAsync,
+	inOrder,
+	ok,
+	ResultAsync,
+	type Result,
+} from '#lib/server/shared/result.ts';
 import { and, asc, eq, inArray, isNotNull, ne, or, sql, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { v7 as uuidv7 } from 'uuid';
@@ -37,8 +40,6 @@ import {
 } from '../domain/types';
 
 export type IndexedTransaction = RupeeTransaction & { id: string };
-
-const chunks = <T>(l: T[]): T[][] => batches(l, ROWS_PER_STATEMENT);
 
 const files = (ledgerId: string) => (): ResultAsync<FileVersion[]> =>
 	withContext('db')((db) =>
@@ -124,10 +125,13 @@ const put =
 
 					await tx.delete(metadataTable).where(eq(metadataTable.fileId, fileId));
 					await tx.delete(transactionTable).where(eq(transactionTable.fileId, fileId));
+					// A transaction's statements share one connection, so they go one at a time.
 					await inOrder([
-						...chunks(transactionRows).map((c) => () => tx.insert(transactionTable).values(c)),
-						...chunks(postingRows).map((c) => () => tx.insert(postings).values(c)),
-						...chunks(metadataRows).map((c) => () => tx.insert(metadataTable).values(c)),
+						...statementChunks(transactionRows).map(
+							(c) => () => tx.insert(transactionTable).values(c),
+						),
+						...statementChunks(postingRows).map((c) => () => tx.insert(postings).values(c)),
+						...statementChunks(metadataRows).map((c) => () => tx.insert(metadataTable).values(c)),
 					]);
 				}),
 			),
@@ -326,9 +330,9 @@ const toPrice = ({ priceAmount, priceCommodity, priceKind }: PriceColumns): Pric
 const byIds =
 	(ledgerId: string) =>
 	(l: string[]): ResultAsync<IndexedTransaction[]> =>
-		ResultAsync.combine(chunks(l).map((c) => read(ledgerId, inArray(transactionTable.id, c)))).map(
-			(r) => r.flat(),
-		);
+		ResultAsync.combine(
+			statementChunks(l).map((c) => read(ledgerId, inArray(transactionTable.id, c))),
+		).map((r) => r.flat());
 
 export type CandidatePair = { ours: string; theirs: string };
 

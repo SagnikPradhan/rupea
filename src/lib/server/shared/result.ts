@@ -35,6 +35,10 @@ export const concat = <T>(steps: (() => ResultAsync<T[]>)[]): ResultAsync<T[]> =
 		neverthrow.okAsync([]),
 	);
 
+export const inOrder = async (l: (() => Promise<unknown>)[]): Promise<void> => {
+	for (const f of l) await f();
+};
+
 export type Batch<T> = { succeeded: T[]; failed: RupeeError[] };
 
 export const batch = <T>(results: Result<T>[]): Batch<T> => ({

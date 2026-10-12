@@ -1,4 +1,4 @@
-import { violatesUnique } from '#lib/server/db/index.ts';
+import { violatesUnique } from '#lib/server/db/errors.ts';
 import { emailCodes, sessions, users } from '#lib/server/db/schema.ts';
 import { withContext } from '#lib/server/shared/context.ts';
 import { unknownError, type RupeeError } from '#lib/server/shared/error.ts';

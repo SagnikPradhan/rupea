@@ -1,7 +1,7 @@
 version: v1
 name: HDFC Bank credit card
 match:
-  - text: '^Registered Office Address: HDFC Bank Cards'
+  - text: HDFC
 account: Liabilities:Card:HDFC
 header:
   text: Description

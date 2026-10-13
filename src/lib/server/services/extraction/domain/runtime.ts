@@ -30,6 +30,23 @@ type ExtractOptions = {
 };
 
 export const extract = (options: ExtractOptions): Result<Batch<RupeeRecord>> => {
+	const { schema, grid } = options;
+	return layout(options).map(({ sheet, header }) => {
+		// A statement may repeat its header, as on every page of a PDF.
+		const repeats = (c: string[]) => c.join('\t').trim() === (grid[header] ?? []).join('\t').trim();
+
+		return batch(
+			grid.flatMap((cs, r) =>
+				r > header && !isBlank(cs) && !repeats(cs) && keeps({ schema, sheet, row: r })
+					? [record({ schema, sheet, row: r })]
+					: [],
+			),
+		);
+	});
+};
+
+/** Where a schema's header and columns sit in a grid, which fails unless the grid has them all. */
+export const layout = (options: ExtractOptions): Result<{ sheet: Sheet; header: number }> => {
 	const { schema, file, grid } = options;
 	const header = grid.findIndex((c) =>
 		schema.header ? c.some((l) => isHeader(schema.header, l)) : !isBlank(c),
@@ -44,18 +61,7 @@ export const extract = (options: ExtractOptions): Result<Batch<RupeeRecord>> => 
 	if (missing.length > 0)
 		return err(fault('ExtractionMissingColumns', { path: file, columns: missing }));
 
-	// A statement may repeat its header, as on every page of a PDF.
-	const repeats = (c: string[]) => c.join('\t').trim() === (grid[header] ?? []).join('\t').trim();
-
-	return ok(
-		batch(
-			grid.flatMap((cs, r) =>
-				r > header && !isBlank(cs) && !repeats(cs) && keeps({ schema, sheet, row: r })
-					? [record({ schema, sheet, row: r })]
-					: [],
-			),
-		),
-	);
+	return ok({ sheet, header });
 };
 
 const isBlank = (c: string[]) => c.every((c) => c.trim() === '');

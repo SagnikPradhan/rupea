@@ -1,5 +1,6 @@
 import { fault } from '#lib/server/shared/result/error.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
+import { layout } from './runtime';
 import type { Pattern, RupeeSchema } from './schema';
 import type { Grid } from './types';
 
@@ -19,8 +20,10 @@ export const recognise = (options: RecogniseOptions): Result<Candidate> => {
 
 	const matching = (c: Candidate) =>
 		c.schema.match.some((p) => matches({ pattern: p, statement, grid, text }));
-	const ours = ledger.filter(matching);
-	const found = ours.length > 0 ? ours : builtin.filter(matching);
+	const fits = (c: Candidate) =>
+		matching(c) && layout({ schema: c.schema, file: statement, grid }).isOk();
+	const ours = ledger.filter(fits);
+	const found = ours.length > 0 ? ours : builtin.filter(fits);
 
 	const [only] = found;
 	if (!only) return err(fault('ExtractionUnrecognised', { path: statement }));

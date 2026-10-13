@@ -1,7 +1,7 @@
 version: v1
 name: State Bank of India savings account
 match:
-  - text: 'IFSC Code : SBIN'
+  - text: State Bank of India
 account: Assets:Bank:SBI
 header:
   text: Balance

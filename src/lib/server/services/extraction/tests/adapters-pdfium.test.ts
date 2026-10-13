@@ -1,8 +1,29 @@
+import { err } from '#lib/server/shared/result/result.ts';
 import { openPdf } from '#services/extraction/adapters/pdfium.ts';
 import { PDFDocument } from '@cantoo/pdf-lib';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, onTestFinished, vi } from 'vitest';
+
+const saving = vi.hoisted(() => ({ as: 'usual' as 'usual' | 'refused' | 'thrown' }));
+
+// Pdfium saves any document it opened, so only a stub reaches a failed save.
+vi.mock(import('@embedpdf/pdfium'), async (original) => {
+	const pdfium = await original();
+	return {
+		...pdfium,
+		init: async (options) => {
+			const m = await pdfium.init(options);
+			const real = m.FPDF_SaveAsCopy;
+			return Object.assign(m, {
+				FPDF_SaveAsCopy: (d: number, w: number, f: number) => {
+					if (saving.as === 'thrown') throw new Error('out of memory');
+					return saving.as === 'usual' && real(d, w, f);
+				},
+			});
+		},
+	};
+});
 
 const plain = () => readFile(join(import.meta.dirname, 'fixtures/sbi-savings.pdf'));
 
@@ -108,4 +129,18 @@ describe('reading a page with pdfium', () => {
 		expect(unlocked.isOk() && unlocked.value.count).toBe(2);
 		if (unlocked.isOk()) unlocked.value.close();
 	});
+
+	it.for(['refused', 'thrown'] as const)(
+		'fails to write a locked PDF when saving is %s',
+		async (as) => {
+			saving.as = as;
+			onTestFinished(() => void (saving.as = 'usual'));
+			const document = await opened(await locked(), 'secret');
+
+			expect(document.decrypted()).toEqual(
+				err({ type: 'CannotReadFile', path: 'a.pdf', reason: 'not saved unlocked' }),
+			);
+			document.close();
+		},
+	);
 });

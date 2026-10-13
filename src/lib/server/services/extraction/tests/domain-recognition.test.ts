@@ -22,6 +22,11 @@ const candidate = (key: string, match: string, account = 'Assets:Bank:HDFC'): Ca
 	return { key, content, schema: parseSchema(key, content)._unsafeUnwrap() };
 };
 
+const withHeader = (c: Candidate, text: string): Candidate => ({
+	...c,
+	schema: { ...c.schema, header: { text } },
+});
+
 const recognised = (ledger: Candidate[], builtin: Candidate[] = [], statement = 'aug.xls') =>
 	recognise({ statement, grid, text, ledger, builtin }).map((c) => c.key);
 
@@ -53,6 +58,14 @@ describe('recognising a statement', () => {
 		expect(recognised(both)).toMatchObject({
 			error: { type: 'ExtractionAmbiguous', schemas: ['a.yml', 'b.yml'] },
 		});
+	});
+
+	it('passes over a schema whose header the statement lacks', () => {
+		const both = [
+			candidate('savings.yml', 'text: HDFC'),
+			withHeader(candidate('card.yml', 'text: HDFC'), 'Withdrawal'),
+		];
+		expect(recognised(both)._unsafeUnwrap()).toBe('savings.yml');
 	});
 
 	it("prefers the ledger's schemas, and falls back on built-in ones", () => {

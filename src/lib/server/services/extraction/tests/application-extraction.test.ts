@@ -136,6 +136,16 @@ describe('reading a statement', () => {
 			expect(again._unsafeUnwrap()).toMatchObject({ key: 'aug.xlsx', original: sha256(content) });
 		}));
 
+	it('reads a statement the table does not know yet, and records it', ({ context, db, storage }) =>
+		provide({ ...context, models: broken(context.models) }, async () => {
+			const ledger = await createLedger(db);
+			const content = encode(statement);
+			await storage.write({ key: `${folder(ledger)}/statements/aug.csv`, content });
+			const draft = await Extraction.extract({ ledger, statement: 'aug.csv', schema: bank });
+
+			expect(draft._unsafeUnwrap().content).toContain(`- checksum: ${sha256(content)}`);
+		}));
+
 	it('keeps nothing it cannot read', ({ context, db, storage }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);

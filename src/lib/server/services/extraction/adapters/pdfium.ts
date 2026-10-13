@@ -1,4 +1,5 @@
 import type { Box, Image } from '#lib/server/shared/onnx/runtime.ts';
+import { safely } from '#lib/server/shared/control.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import {
 	attempt,
@@ -85,7 +86,9 @@ const open = (m: Pdfium, options: OpenOptions): Result<PdfDocument> => {
 
 const decrypted = (m: Pdfium, document: number, name: string): Result<Uint8Array> => {
 	const writer = m.PDFiumExt_OpenFileWriter();
-	const bytes = m.FPDF_SaveAsCopy(document, writer, DECRYPTED) ? written(m, writer) : undefined;
+	const bytes = safely(() =>
+		m.FPDF_SaveAsCopy(document, writer, DECRYPTED) ? written(m, writer) : undefined,
+	);
 	m.PDFiumExt_CloseFileWriter(writer);
 
 	return bytes?.length

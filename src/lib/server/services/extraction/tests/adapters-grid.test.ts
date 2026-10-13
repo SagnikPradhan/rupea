@@ -1,5 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { readContents, unlock } from '#services/extraction/adapters/grid.ts';
+import { PDFDocument } from '@cantoo/pdf-lib';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import officeCrypto from 'officecrypto-tool';
 import * as XLSX from 'xlsx';
 import { err, ok } from '#lib/server/shared/result/result.ts';
@@ -11,6 +14,8 @@ const workbook = (type: XLSX.BookType, rows: unknown[][]) => {
 	XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet(rows));
 	return XLSX.write(book, { type: 'buffer', bookType: type }) as Buffer;
 };
+
+const fixture = (name: string) => readFile(join(import.meta.dirname, 'fixtures', name));
 
 const sheet = [
 	['Date', 'Narration', 'Ref', 'Amount'],
@@ -82,12 +87,51 @@ describe('reading the contents of a file', () => {
 		);
 	});
 
+	it('tells a locked .xls apart, and opens it with its password', async () => {
+		// Saved by LibreOffice, as neither SheetJS nor officecrypto-tool can encrypt an .xls.
+		const locked = new Uint8Array(await fixture('locked.xls'));
+
+		expect(await readContents({ name: 'a.xls', content: locked })).toEqual(
+			err({ type: 'ExtractionLocked', path: 'a.xls' }),
+		);
+		expect(await unlock({ name: 'a.xls', content: locked, password: 'wrong' })).toEqual(
+			err({ type: 'ExtractionLocked', path: 'a.xls' }),
+		);
+		const unlocked = await unlock({ name: 'a.xls', content: locked, password: 'secret' });
+		expect(await readContents({ name: 'a.xls', content: unlocked._unsafeUnwrap() })).toEqual(
+			ok({
+				grid: [
+					['Date', 'Amount'],
+					['27/08/26', '8997.35'],
+				],
+				text: [],
+			}),
+		);
+	});
+
+	it('opens a locked PDF with its password', async () => {
+		const document = await PDFDocument.load(await fixture('sbi-savings.pdf'));
+		document.encrypt({ userPassword: 'secret', ownerPassword: 'secret' });
+		const locked = await document.save();
+
+		expect(await unlock({ name: 'a.pdf', content: locked, password: 'wrong' })).toEqual(
+			err({ type: 'ExtractionLocked', path: 'a.pdf' }),
+		);
+		const unlocked = await unlock({ name: 'a.pdf', content: locked, password: 'secret' });
+		expect(new TextDecoder().decode(unlocked._unsafeUnwrap().subarray(0, 5))).toBe('%PDF-');
+	});
+
 	it('reports an unreadable file as one that cannot be read', async () => {
 		expect(await readContents({ name: 'a.csv', content: bytes('a,"b\n') })).toMatchObject({
 			error: { type: 'CannotReadFile', path: 'a.csv' },
 		});
 		expect(await readContents({ name: 'a.xlsx', content: bytes('not a zip') })).toMatchObject({
 			error: { type: 'CannotReadFile', path: 'a.xlsx' },
+		});
+		expect(
+			await readContents({ name: 'a.xlsx', content: bytes('PK\x03\x04 no workbook') }),
+		).toMatchObject({
+			error: { type: 'CannotReadFile', path: 'a.xlsx', reason: 'not a readable statement' },
 		});
 	});
 

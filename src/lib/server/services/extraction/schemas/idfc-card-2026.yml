@@ -1,7 +1,7 @@
 version: v1
 name: IDFC FIRST Bank credit card, until 2026
 match:
-  - text: 'Step1: Add IDFC FIRST Bank'
+  - text: IDFC FIRST Bank
 account: Liabilities:Card:IDFC
 header:
   text: Transaction Details

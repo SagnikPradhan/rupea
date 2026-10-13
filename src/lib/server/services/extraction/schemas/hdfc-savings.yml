@@ -1,7 +1,7 @@
 version: v1
 name: HDFC Bank savings account
 match:
-  - text: '^HDFC BANK Ltd\..*Statement of accounts$'
+  - text: HDFC
 account: Assets:Bank:HDFC
 header:
   text: Narration

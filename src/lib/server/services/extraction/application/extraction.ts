@@ -1,10 +1,11 @@
 import { withContext } from '#lib/server/shared/context.ts';
-import { okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
+import { fault } from '#lib/server/shared/result/error.ts';
+import { errAsync, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { openFolder, type Ledger } from '#services/ledger/application/ledger.ts';
 import { predictAccounts } from '#services/prediction/application/prediction.ts';
 import { findGrid, saveGrid } from '../adapters/database';
-import { READER, readGrid, type Upload } from '../adapters/grid';
-import { statements, type Statements } from '../adapters/statements';
+import { isReadable, READER, readGrid, unlock, type Upload } from '../adapters/grid';
+import { statements, type Statements, type StoredStatement } from '../adapters/statements';
 import { schemas, type SchemaFile, type Schemas } from '../adapters/storage';
 import { categorised, draft, uncategorised, type Draft } from '../domain/draft';
 import { extract as run } from '../domain/runtime';
@@ -37,16 +38,35 @@ export const saveSchema = (options: SaveSchemaOptions): ResultAsync<SchemaFile> 
 export type Statement = {
 	key: string;
 	checksum: string;
+	original: string | null;
 	grid: Grid;
 };
 
-/** Stores an upload in the ledger's statements and caches the grid read from it. */
+/** Stores an upload in the ledger's statements, once per content, and reads it. A locked one is kept to unlock. */
 export const readStatement = (ledger: Ledger, upload: Upload): ResultAsync<Statement> =>
-	readGrid(upload).andThen((g) =>
-		ledgerStatements(ledger)
-			.andThen((s) => s.store(upload.name, upload.content))
-			.andThen(({ key, checksum }) => remember(ledger, { key, checksum, grid: g })),
+	isReadable(upload.name)
+		? ledgerStatements(ledger)
+				.andThen((s) => s.store(upload.name, upload.content))
+				.andThen(gridOf)
+		: errAsync(fault('ExtractionUnsupportedFile', { path: upload.name }));
+
+type UnlockOptions = {
+	ledger: Ledger;
+	statement: string;
+	password: string;
+};
+
+/** Replaces a locked statement with its content unlocked. The password is not kept. */
+export const unlockStatement = (options: UnlockOptions): ResultAsync<Statement> => {
+	const { ledger, statement, password } = options;
+	return ledgerStatements(ledger).andThen((s) =>
+		s
+			.read(statement)
+			.andThen(({ content }) => unlock({ name: statement, content, password }))
+			.andThen((c) => s.replace(statement, c))
+			.andThen(gridOf),
 	);
+};
 
 type ExtractOptions = {
 	ledger: Ledger;
@@ -79,27 +99,38 @@ export const extract = (options: ExtractOptions): ResultAsync<Draft> => {
 };
 
 const ledgerStatements = (l: Ledger): ResultAsync<Statements> =>
-	openFolder(l, 'statements').map(statements);
+	openFolder(l, 'statements').map((s) => statements(s, l.id));
 
 const statementGrid = (l: Ledger, k: string): ResultAsync<Statement> =>
-	findGrid({ ledger: l.id, statement: k, reader: READER }).andThen((f) =>
-		f ? okAsync({ key: k, ...f }) : readAgain(l, k),
+	ledgerStatements(l).andThen((s) =>
+		s
+			.find(k)
+			.andThen(({ checksum, original }) =>
+				findGrid({ checksum, reader: READER }).andThen((g) =>
+					g ? okAsync({ key: k, checksum, original, grid: g }) : s.read(k).andThen(gridOf),
+				),
+			),
 	);
 
-// The cached grid expired. A locked PDF fails here, and the user reads it again with its password.
-const readAgain = (ledger: Ledger, key: string): ResultAsync<Statement> =>
-	ledgerStatements(ledger)
-		.andThen((s) => s.read(key))
-		.andThen(({ checksum, content }) =>
-			readGrid({ name: key, content }).andThen((g) => remember(ledger, { key, checksum, grid: g })),
-		);
+// Grids are cached by content, so the same statement in another ledger is not read twice.
+const gridOf = (s: StoredStatement): ResultAsync<Statement> =>
+	findGrid({ checksum: s.checksum, reader: READER }).andThen((g) =>
+		g
+			? okAsync(statementOf(s, g))
+			: readGrid({ name: s.key, content: s.content }).andThen((r) => remember(statementOf(s, r))),
+	);
 
-const remember = (ledger: Ledger, s: Statement): ResultAsync<Statement> =>
+const statementOf = (s: StoredStatement, grid: Grid): Statement => ({
+	key: s.key,
+	checksum: s.checksum,
+	original: s.original,
+	grid,
+});
+
+const remember = (s: Statement): ResultAsync<Statement> =>
 	saveGrid({
-		ledger: ledger.id,
-		statement: s.key,
-		reader: READER,
 		checksum: s.checksum,
+		reader: READER,
 		grid: s.grid,
 		expiresAt: new Date(Date.now() + GRID_LIFETIME),
 	}).map(() => s);

@@ -84,23 +84,38 @@ export const emailCodes = PG.pgTable('email_codes', (t) => ({
 	expiresAt: t.timestamp({ withTimezone: true }).notNull(),
 }));
 
-// Statements already read, so previewing one again skips the slow PDF table detection.
-export const statementGrids = PG.pgTable(
-	'statement_grids',
+// What the statements folder holds, so a statement is found by its content without hashing the folder.
+// A cache: the folder rebuilds it, losing `original`, which only a draft citing it records for good.
+export const statements = PG.pgTable(
+	'statements',
 	(t) => ({
 		...base,
 		ledgerId: t
 			.uuid()
 			.notNull()
 			.references(() => ledgers.id, { onDelete: 'cascade' }),
-		statement: t.text().notNull(),
+		path: t.text().notNull(),
+		checksum: t.text().notNull(),
+		original: t.text(),
+	}),
+	(t) => [
+		PG.unique('statements_ledger_id_path').on(t.ledgerId, t.path),
+		PG.index('statements_ledger_id_checksum').on(t.ledgerId, t.checksum),
+	],
+);
+
+// Grids already read, so previewing a statement again skips the slow PDF table detection.
+export const statementGrids = PG.pgTable(
+	'statement_grids',
+	(t) => ({
+		...base,
 		checksum: t.text().notNull(),
 		reader: t.text().notNull(),
 		grid: t.jsonb().$type<string[][]>().notNull(),
 		expiresAt: t.timestamp({ withTimezone: true }).notNull(),
 	}),
 	(t) => [
-		PG.unique('statement_grids_ledger_id_statement').on(t.ledgerId, t.statement),
+		PG.unique('statement_grids_checksum_reader').on(t.checksum, t.reader),
 		PG.index('statement_grids_expires_at').on(t.expiresAt),
 	],
 );

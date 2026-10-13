@@ -11,14 +11,28 @@ import { Account, Handle, inLedger, Key } from './shared';
 import { getTransactions } from './transactions.remote';
 
 export const readStatement = form(
-	v.object({ handle: Handle, file: v.file(), password: v.optional(v.string()) }),
-	async ({ handle, file, password }) => {
-		const content = new Uint8Array(await file.arrayBuffer());
-		const upload = { name: file.name, content, password: password || undefined };
+	v.object({ handle: Handle, file: v.file() }),
+	async ({ handle, file }) => {
+		const upload = { name: file.name, content: new Uint8Array(await file.arrayBuffer()) };
 		return replyFrom(
 			await inLedger({ handle, action: (l) => Extraction.readStatement(l, upload) }),
 		);
 	},
+);
+
+export const unlockStatement = form(
+	v.object({
+		handle: Handle,
+		statement: v.pipe(v.string(), v.nonEmpty()),
+		password: v.pipe(v.string(), v.nonEmpty()),
+	}),
+	async ({ handle, ...options }) =>
+		replyFrom(
+			await inLedger({
+				handle,
+				action: (l) => Extraction.unlockStatement({ ...options, ledger: l }),
+			}),
+		),
 );
 
 /** The draft a statement makes with an unsaved schema, checked as the ledger would read it. */

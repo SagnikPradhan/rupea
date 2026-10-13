@@ -3,6 +3,7 @@
 		importStatement,
 		previewStatement,
 		readStatement,
+		unlockStatement,
 	} from '#lib/endpoints/import.remote.ts';
 	import { getSuggestions } from '#lib/endpoints/refinement.remote.ts';
 	import {
@@ -12,6 +13,7 @@
 		saveSchema,
 	} from '#lib/endpoints/schemas.remote.ts';
 	import type { RupeeError } from '#lib/server/shared/result/error.ts';
+	import type { Reply } from '#lib/server/shared/result/reply.ts';
 	import { goto } from '$app/navigation';
 
 	type Preview = Awaited<ReturnType<typeof previewStatement>>;
@@ -54,6 +56,9 @@ fields:
 	});
 	const preview = $state({ ticket: 0, result: null as Preview | null });
 
+	const locked = $derived(
+		statement.errors.flatMap((e) => (e.type === 'ExtractionLocked' ? [e.path] : []))[0],
+	);
 	const width = $derived(Math.max(0, ...statement.grid.map((r) => r.length)));
 	const columns = $derived([...Array(width).keys()].map(letter));
 
@@ -91,6 +96,13 @@ fields:
 		preview.result = result;
 		const suggested = result.data?.key;
 		if (suggested && !importStatement.fields.key.value()) importStatement.fields.key.set(suggested);
+	}
+
+	async function show(result: Reply<{ key: string; grid: string[][] }> | undefined) {
+		Object.assign(statement, { key: '', grid: [], errors: result?.errors ?? [] });
+		if (result?.data) Object.assign(statement, { key: result.data.key, grid: result.data.grid });
+		importStatement.fields.key.set('');
+		await apply(0);
 	}
 
 	function edit(content: string) {
@@ -160,18 +172,10 @@ fields:
 		enctype="multipart/form-data"
 		{...readStatement.enhance(async (form) => {
 			await form.submit();
-			const result = form.result;
-			Object.assign(statement, { key: '', grid: [], errors: result?.errors ?? [] });
-			if (result?.data) Object.assign(statement, { key: result.data.key, grid: result.data.grid });
-			importStatement.fields.key.set('');
-			await apply(0);
+			await show(form.result);
 		})}
 	>
 		<input {...readStatement.fields.handle.as('hidden', handle)} />
-		<label>
-			PDF password, if it has one
-			<input {...readStatement.fields.password.as('password')} autocomplete="off" />
-		</label>
 		<label>
 			Statement (.csv, .xlsx, .pdf)
 			<input
@@ -187,6 +191,23 @@ fields:
 	{#each statement.errors as error, index (index)}
 		<p role="alert">{describe(error)}</p>
 	{/each}
+
+	{#if locked}
+		<form
+			{...unlockStatement.enhance(async (form) => {
+				await form.submit();
+				await show(form.result);
+			})}
+		>
+			<input {...unlockStatement.fields.handle.as('hidden', handle)} />
+			<input {...unlockStatement.fields.statement.as('hidden', locked)} />
+			<label>
+				Password for {locked}
+				<input {...unlockStatement.fields.password.as('password')} autocomplete="off" required />
+			</label>
+			<button disabled={unlockStatement.pending > 0}>Unlock</button>
+		</form>
+	{/if}
 
 	{#if statement.grid.length > 0}
 		<div class="sheet">

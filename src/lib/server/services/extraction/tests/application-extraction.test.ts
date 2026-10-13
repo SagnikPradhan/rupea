@@ -4,8 +4,16 @@ import { ok } from '#lib/server/shared/result/result.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import { broken, hashed } from '#tests/shared/embedding.ts';
 import { createLedger } from '#tests/shared/seed.ts';
+import { models as files } from '#lib/server/shared/onnx/models.ts';
+import { openPdf } from '#services/extraction/adapters/pdfium.ts';
+import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { it } from '#tests/shared/vitest.ts';
-import { eq } from 'drizzle-orm';
+import { scoped, type Storage } from '#lib/server/shared/storage/storage.ts';
+import { statements } from '#services/extraction/adapters/statements.ts';
+import { inArray } from 'drizzle-orm';
 import { describe, expect } from 'vitest';
 import * as Extraction from '#services/extraction/application/extraction.ts';
 
@@ -31,6 +39,10 @@ const statement = [
 	'30/08/26,SALARY,,"50,000",',
 	'31/08/26,ODD,x,,',
 ].join('\n');
+
+const fixtures = join(import.meta.dirname, 'fixtures');
+const models = files.every(({ file }) => existsSync(join('data/models', file)));
+const sha256 = (c: Uint8Array) => `sha256:${createHash('sha256').update(c).digest('hex')}`;
 
 const encode = (text: string) => new TextEncoder().encode(text);
 
@@ -68,6 +80,44 @@ describe('reading a statement', () => {
 			expect(other.checksum).not.toBe(first.checksum);
 		}));
 
+	it('finds content the ledger already has, under any name', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const first = await read(ledger);
+			const renamed = await read(ledger, statement, 'renamed.csv');
+
+			expect(renamed).toEqual(first);
+		}));
+
+	it.skipIf(!models)(
+		'keeps a locked statement, and replaces it with its content unlocked',
+		({ context, db, storage }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				const content = await readFile(join(fixtures, 'statement-locked.pdf'));
+				const locked = await Extraction.readStatement(ledger, { name: 'aug.pdf', content });
+				expect(locked).toMatchObject({ error: { type: 'ExtractionLocked', path: 'aug.pdf' } });
+
+				const unlocked = await Extraction.unlockStatement({
+					ledger,
+					statement: 'aug.pdf',
+					password: 'secret',
+				});
+				const stored = await storage.read(`${folder(ledger)}/statements/aug.pdf`);
+				const reopened = await openPdf({
+					name: 'aug.pdf',
+					content: stored._unsafeUnwrap().content,
+				});
+
+				expect(unlocked._unsafeUnwrap()).toMatchObject({
+					key: 'aug.pdf',
+					original: sha256(content),
+				});
+				expect(unlocked._unsafeUnwrap().grid.length).toBeGreaterThan(0);
+				expect(reopened.isOk()).toBe(true);
+			}),
+	);
+
 	it('keeps nothing it cannot read', ({ context, db, storage }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
@@ -78,6 +128,37 @@ describe('reading a statement', () => {
 
 			expect(unread).toMatchObject({ error: { type: 'ExtractionUnsupportedFile' } });
 			expect((await storage.read(`${folder(ledger)}/statements/aug.txt`)).isErr()).toBe(true);
+		}));
+});
+
+describe("a ledger's statements", () => {
+	const opened = (ledger: Ledger.Ledger, storage: Storage) =>
+		statements(scoped(storage, `${folder(ledger)}/statements`), ledger.id);
+
+	it('are found by content after a rename', ({ context, db, storage }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const { checksum } = await read(ledger);
+			await opened(ledger, storage).rename('aug.csv', 'hdfc/2026-08.csv');
+
+			expect(await opened(ledger, storage).locate(checksum)).toEqual(
+				ok({ path: 'hdfc/2026-08.csv', checksum, original: null }),
+			);
+		}));
+
+	it('are rebuilt from the folder', ({ context, db, storage }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const { checksum } = await read(ledger);
+			await storage.rename(
+				`${folder(ledger)}/statements/aug.csv`,
+				`${folder(ledger)}/statements/moved.csv`,
+			);
+			await opened(ledger, storage).rebuild();
+
+			expect(await opened(ledger, storage).locate(checksum)).toEqual(
+				ok({ path: 'moved.csv', checksum, original: null }),
+			);
 		}));
 });
 
@@ -216,15 +297,15 @@ describe('extracting a statement', () => {
 	it('sweeps expired grids when it caches another', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			await read(ledger);
+			const aug = await read(ledger);
 			await db.update(statementGrids).set({ expiresAt: new Date(0) });
-			await read(ledger, statement, 'sep.csv');
+			const sep = await read(ledger, `${statement}\nsep`, 'sep.csv');
 
 			const cached = await db
-				.select({ statement: statementGrids.statement })
+				.select({ checksum: statementGrids.checksum })
 				.from(statementGrids)
-				.where(eq(statementGrids.ledgerId, ledger.id));
-			expect(cached).toEqual([{ statement: 'sep.csv' }]);
+				.where(inArray(statementGrids.checksum, [aug.checksum, sep.checksum]));
+			expect(cached).toEqual([{ checksum: sep.checksum }]);
 		}));
 });
 

@@ -4,7 +4,7 @@ import { parse } from 'csv-parse/sync';
 import { extname } from 'node:path';
 import { readSheet } from 'read-excel-file/node';
 import type { Grid } from '../domain/types';
-import { readPdf } from './pdf';
+import { readPdf, unlockPdf } from './pdf';
 
 // Grids read by another version are read again; bump it when reading changes.
 export const READER = '1';
@@ -12,7 +12,12 @@ export const READER = '1';
 export type Upload = {
 	name: string;
 	content: Uint8Array;
-	password?: string | undefined;
+};
+
+type LockedUpload = {
+	name: string;
+	content: Uint8Array;
+	password: string;
 };
 
 const throwing =
@@ -40,7 +45,21 @@ const xlsxToText = (cell: unknown): string => {
 	return String(cell);
 };
 
+const unlockers: Record<string, (upload: LockedUpload) => ResultAsync<Uint8Array>> = {
+	'.pdf': (u) => unlockPdf(u),
+};
+
+export const isReadable = (n: string) => extension(n) in readers;
+
 export const readGrid = (upload: Upload): ResultAsync<Grid> => {
-	const read = readers[extname(upload.name).toLowerCase()];
+	const read = readers[extension(upload.name)];
 	return read ? read(upload) : errAsync(fault('ExtractionUnsupportedFile', { path: upload.name }));
 };
+
+/** The upload's content without its password. */
+export const unlock = (upload: LockedUpload): ResultAsync<Uint8Array> => {
+	const open = unlockers[extension(upload.name)];
+	return open ? open(upload) : errAsync(fault('ExtractionUnsupportedFile', { path: upload.name }));
+};
+
+const extension = (n: string) => extname(n).toLowerCase();

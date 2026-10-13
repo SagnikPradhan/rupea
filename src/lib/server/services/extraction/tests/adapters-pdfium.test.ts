@@ -37,10 +37,10 @@ describe('opening a PDF with pdfium', () => {
 
 	it('tells a locked PDF apart from an unreadable one', async () => {
 		expect(await open('statement-locked.pdf')).toMatchObject({
-			error: { type: 'ExtractionPdfPassword', path: 'statement-locked.pdf' },
+			error: { type: 'ExtractionLocked', path: 'statement-locked.pdf' },
 		});
 		expect(await open('statement-locked.pdf', 'wrong')).toMatchObject({
-			error: { type: 'ExtractionPdfPassword' },
+			error: { type: 'ExtractionLocked' },
 		});
 
 		const document = await opened('statement-locked.pdf', 'secret');
@@ -94,5 +94,15 @@ describe('reading a page with pdfium', () => {
 
 		expect([...corner.data]).toEqual(Array.from({ length: 4 * 4 * 4 }, () => 0xff));
 		read.close();
+	});
+
+	it('writes a locked PDF without its password', async () => {
+		const document = await opened('statement-locked.pdf', 'secret');
+		const content = document.decrypted();
+		document.close();
+
+		const unlocked = await openPdf({ name: 'statement.pdf', content });
+		expect(unlocked.isOk() && unlocked.value.count).toBe(2);
+		if (unlocked.isOk()) unlocked.value.close();
 	});
 });

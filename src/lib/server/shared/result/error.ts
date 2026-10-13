@@ -44,7 +44,7 @@ export type RupeeError =
 	| { type: 'ExtractionMissingModel'; path: string; cause?: RupeeError[] }
 	| { type: 'ModelDownloadFailed'; url: string; status?: number; cause?: RupeeError[] }
 	| { type: 'ModelHashMismatch'; path: string; expected: string; actual: string }
-	| { type: 'ExtractionPdfPassword'; path: string }
+	| { type: 'ExtractionLocked'; path: string }
 	| { type: 'ExtractionMissingHeader'; path: string }
 	| { type: 'ExtractionMissingColumns'; path: string; columns: string[] }
 	| { type: 'ExtractionInvalidField'; location: string; field: string; reason: string }

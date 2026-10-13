@@ -14,6 +14,8 @@ import type { Word } from '../domain/table';
 
 // FPDF_ERR_PASSWORD.
 const PASSWORD = 4;
+// FPDF_REMOVE_SECURITY.
+const DECRYPTED = 3;
 
 const WHITE = 0xffffffff;
 const ANNOTATIONS = 0x01;
@@ -31,6 +33,8 @@ export type PdfPage = {
 export type PdfDocument = {
 	count: number;
 	page: (index: number) => Result<PdfPage>;
+	/** The document without its password. */
+	decrypted: () => Uint8Array;
 	close: () => void;
 };
 
@@ -74,8 +78,23 @@ const open = (m: Pdfium, options: OpenOptions): Result<PdfDocument> => {
 	return ok({
 		count: m.FPDF_GetPageCount(document),
 		page: (i) => load({ m, document, index: i, name }),
+		decrypted: () => decrypted(m, document),
 		close,
 	});
+};
+
+const decrypted = (m: Pdfium, document: number): Uint8Array => {
+	const writer = m.PDFiumExt_OpenFileWriter();
+	m.FPDF_SaveAsCopy(document, writer, DECRYPTED);
+
+	const size = m.PDFiumExt_GetFileWriterSize(writer);
+	const data = m.pdfium.wasmExports.malloc(size);
+	m.PDFiumExt_GetFileWriterData(writer, data, size);
+	const bytes = m.pdfium.HEAPU8.slice(data, data + size);
+
+	m.pdfium.wasmExports.free(data);
+	m.PDFiumExt_CloseFileWriter(writer);
+	return bytes;
 };
 
 // Pdfium reads the document from this buffer as it goes, so it stays until close.
@@ -88,7 +107,7 @@ const copy = (m: Pdfium, content: Uint8Array) => {
 // Only meaningful while the load that failed is the last call pdfium made.
 const refusal = (m: Pdfium, p: string) =>
 	m.FPDF_GetLastError() === PASSWORD
-		? fault('ExtractionPdfPassword', { path: p })
+		? fault('ExtractionLocked', { path: p })
 		: fault('CannotReadFile', { path: p, reason: 'not a readable PDF' });
 
 type LoadOptions = {

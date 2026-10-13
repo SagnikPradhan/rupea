@@ -59,11 +59,11 @@ describe('reading a PDF', () => {
 		async ({ context }) => {
 			const content = await fixture('statement-locked.pdf');
 			const locked = await provide(context, () => readPdf({ name: 'locked.pdf', content }));
-			expect(locked).toEqual(err({ type: 'ExtractionPdfPassword', path: 'locked.pdf' }));
+			expect(locked).toEqual(err({ type: 'ExtractionLocked', path: 'locked.pdf' }));
 			const wrong = await provide(context, () =>
 				readPdf({ name: 'locked.pdf', content, password: 'wrong' }),
 			);
-			expect(wrong).toMatchObject({ error: { type: 'ExtractionPdfPassword' } });
+			expect(wrong).toMatchObject({ error: { type: 'ExtractionLocked' } });
 			const opened = await provide(context, () =>
 				readPdf({ name: 'locked.pdf', content, password: 'secret' }),
 			);

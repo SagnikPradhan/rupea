@@ -29,4 +29,5 @@ jobs:
           path: data/models
           key: models-${{ hashFiles('src/lib/server/shared/onnx/models.ts') }}
       - run: pnpm models
-      - run: pnpm test
+      - run: pnpm test:coverage
+      - uses: coverallsapp/github-action@v2

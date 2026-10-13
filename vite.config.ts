@@ -20,7 +20,7 @@ export default defineConfig({
 		coverage: {
 			include: ['src/**/*.{ts,svelte}'],
 			exclude: ['src/**/tests/**', 'src/**/*.d.ts'],
-			reporter: ['text', 'html'],
+			reporter: ['text', 'html', 'lcov'],
 		},
 		projects: [
 			{

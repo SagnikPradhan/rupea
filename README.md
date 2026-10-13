@@ -1,5 +1,7 @@
 # Rupee
 
+[![Coverage](https://coveralls.io/repos/github/SagnikPradhan/rupee/badge.svg?branch=master)](https://coveralls.io/github/SagnikPradhan/rupee?branch=master)
+
 **Know where every rupee went.**
 
 Every account, every statement, one ledger, in files you own.

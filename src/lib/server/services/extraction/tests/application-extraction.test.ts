@@ -4,16 +4,14 @@ import { ok } from '#lib/server/shared/result/result.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import { broken, hashed } from '#tests/shared/embedding.ts';
 import { createLedger } from '#tests/shared/seed.ts';
-import { models as files } from '#lib/server/shared/onnx/models.ts';
-import { openPdf } from '#services/extraction/adapters/pdfium.ts';
 import { createHash } from 'node:crypto';
-import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { it } from '#tests/shared/vitest.ts';
 import { scoped, type Storage } from '#lib/server/shared/storage/storage.ts';
 import { statements } from '#services/extraction/adapters/statements.ts';
 import { inArray } from 'drizzle-orm';
+import officeCrypto from 'officecrypto-tool';
 import { describe, expect } from 'vitest';
 import * as Extraction from '#services/extraction/application/extraction.ts';
 
@@ -44,7 +42,6 @@ const statement = [
 ].join('\n');
 
 const fixtures = join(import.meta.dirname, 'fixtures');
-const models = files.every(({ file }) => existsSync(join('data/models', file)));
 const sha256 = (c: Uint8Array) => `sha256:${createHash('sha256').update(c).digest('hex')}`;
 
 const encode = (text: string) => new TextEncoder().encode(text);
@@ -92,35 +89,32 @@ describe('reading a statement', () => {
 			expect(renamed).toEqual(first);
 		}));
 
-	it.skipIf(!models)(
-		'keeps a locked statement, and replaces it with its content unlocked',
-		({ context, db, storage }) =>
-			provide(context, async () => {
-				const ledger = await createLedger(db);
-				const content = await readFile(join(fixtures, 'statement-locked.pdf'));
-				const locked = await Extraction.readStatement(ledger, { name: 'aug.pdf', content });
-				expect(locked).toMatchObject({ error: { type: 'ExtractionLocked', path: 'aug.pdf' } });
+	it('keeps a locked statement, and replaces it with its content unlocked', ({
+		context,
+		db,
+		storage,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const plain = await readFile(join(fixtures, 'statement.xlsx'));
+			const content = new Uint8Array(await officeCrypto.encrypt(plain, { password: 'secret' }));
+			const locked = await Extraction.readStatement(ledger, { name: 'aug.xlsx', content });
+			expect(locked).toMatchObject({ error: { type: 'ExtractionLocked', path: 'aug.xlsx' } });
 
-				const unlocked = await Extraction.unlockStatement({
-					ledger,
-					statement: 'aug.pdf',
-					password: 'secret',
-				});
-				const stored = await storage.read(`${folder(ledger)}/statements/aug.pdf`);
-				const reopened = await openPdf({
-					name: 'aug.pdf',
-					content: stored._unsafeUnwrap().content,
-				});
+			const unlocked = await Extraction.unlockStatement({
+				ledger,
+				statement: 'aug.xlsx',
+				password: 'secret',
+			});
+			const stored = await storage.read(`${folder(ledger)}/statements/aug.xlsx`);
 
-				expect(unlocked._unsafeUnwrap()).toMatchObject({
-					key: 'aug.pdf',
-					original: sha256(content),
-				});
-				expect(unlocked._unsafeUnwrap().grid.length).toBeGreaterThan(0);
-				expect(reopened.isOk()).toBe(true);
-			}),
-		60_000,
-	);
+			expect(unlocked._unsafeUnwrap()).toMatchObject({
+				key: 'aug.xlsx',
+				original: sha256(content),
+			});
+			expect(unlocked._unsafeUnwrap().grid[0]).toEqual(['Date', 'Narration', 'Ref', 'Amount']);
+			expect([...stored._unsafeUnwrap().content.subarray(0, 2)]).toEqual([0x50, 0x4b]);
+		}));
 
 	it('keeps nothing it cannot read', ({ context, db, storage }) =>
 		provide(context, async () => {

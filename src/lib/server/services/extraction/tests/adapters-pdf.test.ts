@@ -55,26 +55,21 @@ describe('reading a PDF', () => {
 			expect(rows[6]?.slice(4, 6)).toEqual(['', '50,000.00']);
 			expect(rows[39]?.[0]).toBe('12/09/26');
 		},
-		60_000,
 	);
 
-	it.skipIf(!models)(
-		'opens a locked PDF with its password',
-		async ({ context }) => {
-			const content = await fixture('statement-locked.pdf');
-			const locked = await provide(context, () => readPdf({ name: 'locked.pdf', content }));
-			expect(locked).toEqual(err({ type: 'ExtractionLocked', path: 'locked.pdf' }));
-			const wrong = await provide(context, () =>
-				readPdf({ name: 'locked.pdf', content, password: 'wrong' }),
-			);
-			expect(wrong).toMatchObject({ error: { type: 'ExtractionLocked' } });
-			const opened = await provide(context, () =>
-				readPdf({ name: 'locked.pdf', content, password: 'secret' }),
-			);
-			expect(opened.isOk() && opened.value.grid[0]).toEqual(header);
-		},
-		60_000,
-	);
+	it.skipIf(!models)('opens a locked PDF with its password', async ({ context }) => {
+		const content = await fixture('statement-locked.pdf');
+		const locked = await provide(context, () => readPdf({ name: 'locked.pdf', content }));
+		expect(locked).toEqual(err({ type: 'ExtractionLocked', path: 'locked.pdf' }));
+		const wrong = await provide(context, () =>
+			readPdf({ name: 'locked.pdf', content, password: 'wrong' }),
+		);
+		expect(wrong).toMatchObject({ error: { type: 'ExtractionLocked' } });
+		const opened = await provide(context, () =>
+			readPdf({ name: 'locked.pdf', content, password: 'secret' }),
+		);
+		expect(opened.isOk() && opened.value.grid[0]).toEqual(header);
+	});
 
 	it('refuses a file that is not a PDF', async ({ context }) => {
 		const read = await provide(context, () =>
@@ -94,6 +89,7 @@ describe('reading a PDF', () => {
 				models: createModels({
 					directory: '/nowhere',
 					files: files,
+					threads: 1,
 					mode: 'verify',
 					logger: context.logger,
 				}),

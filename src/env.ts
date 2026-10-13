@@ -2,12 +2,21 @@ import { defaultConfiguration } from '#lib/server/shared/config.ts';
 import { safely } from '#lib/server/shared/control.ts';
 import { isDateFormat, isTimeFormat } from '#services/ledger/application/shared.ts';
 import { defineEnvVars } from '@sveltejs/kit/env';
+import { availableParallelism } from 'node:os';
 import * as v from 'valibot';
 
 const text = (fallback: string) =>
 	v.pipe(
 		v.optional(v.string()),
 		v.transform((a) => a || fallback),
+	);
+
+const count = (fallback: number) =>
+	v.pipe(
+		v.optional(v.string()),
+		v.transform((a) => (a ? Number(a) : fallback)),
+		v.integer(),
+		v.minValue(1),
 	);
 
 const choice = <const T extends [string, ...string[]]>(o: T) => v.pipe(text(o[0]), v.picklist(o));
@@ -46,6 +55,11 @@ export const variables = defineEnvVars({
 		description:
 			'`download` (the default) downloads models missing from `RUPEE_MODELS_DIR` or not their pinned revision when the server starts; `verify` only checks them, never connecting out.',
 		schema: choice(['download', 'verify']),
+	},
+	RUPEE_MODEL_THREADS: {
+		description:
+			'Threads each model run may use, so that one import does not take every core from the others. Defaults to a quarter of the cores.',
+		schema: count(Math.max(1, Math.floor(availableParallelism() / 4))),
 	},
 	RUPEE_DATE_FORMATS: {
 		description:

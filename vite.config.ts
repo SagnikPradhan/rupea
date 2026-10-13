@@ -17,6 +17,8 @@ export default defineConfig({
 		}),
 	],
 	test: {
+		// Reading a PDF runs the models on several threads; a worker per core leaves them none.
+		maxWorkers: '50%',
 		coverage: {
 			include: ['src/**/*.{ts,svelte}'],
 			exclude: ['src/**/tests/**', 'src/**/*.d.ts'],

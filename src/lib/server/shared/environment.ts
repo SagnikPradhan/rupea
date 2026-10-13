@@ -7,6 +7,7 @@ import {
 	RUPEE_MIGRATIONS_DIR,
 	RUPEE_MODELS,
 	RUPEE_MODELS_DIR,
+	RUPEE_MODEL_THREADS,
 	RUPEE_SIGNUP,
 	RUPEE_TIME_FORMATS,
 } from '$app/env/private';
@@ -57,6 +58,7 @@ export const createContext = (db: Database): RupeeContext => {
 		models: createModels({
 			directory: resolve(RUPEE_MODELS_DIR),
 			files: models,
+			threads: RUPEE_MODEL_THREADS,
 			mode: RUPEE_MODELS,
 			logger,
 		}),

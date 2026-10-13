@@ -22,6 +22,7 @@ const recording = () => {
 		models: createModels({
 			directory: '/nowhere',
 			files: [],
+			threads: 1,
 			mode: 'verify',
 			logger,
 		}),

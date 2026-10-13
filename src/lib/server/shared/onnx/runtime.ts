@@ -39,10 +39,11 @@ type CreateModelsOptions = Omit<ModelOptions, 'fetch'> &
 	Partial<Pick<ModelOptions, 'fetch'>> & {
 		directory: string;
 		files: ModelFile[];
+		threads: number;
 	};
 
 export const createModels = (models: CreateModelsOptions) => {
-	const { directory, files, mode, logger, fetch = globalThis.fetch } = models;
+	const { directory, files, threads, mode, logger, fetch = globalThis.fetch } = models;
 	const options = {
 		mode,
 		logger: logger.child({ namespace: 'onnx' satisfies Namespace }),
@@ -71,7 +72,9 @@ export const createModels = (models: CreateModelsOptions) => {
 	const session = (model: ModelFile) => {
 		const loaded =
 			sessions.get(model.file) ??
-			sure(model).andThen((p) => attempt(() => InferenceSession.create(p)));
+			sure(model).andThen((p) =>
+				attempt(() => InferenceSession.create(p, { intraOpNumThreads: threads })),
+			);
 		sessions.set(model.file, loaded);
 		return loaded;
 	};

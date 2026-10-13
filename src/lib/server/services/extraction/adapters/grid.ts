@@ -7,7 +7,7 @@ import { readPdf, unlockPdf } from './pdf';
 import { readXls, readXlsx, unlockXlsx } from './sheet';
 
 // Grids read by another version are read again; bump it when reading changes.
-export const READER = '2';
+export const READER = '3';
 
 export type Upload = {
 	name: string;

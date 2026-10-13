@@ -1,7 +1,7 @@
 import { withContext } from '#lib/server/shared/context.ts';
 import type { Box } from '#lib/server/shared/onnx/runtime.ts';
 import { sequence, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { toGrid, type Word } from '../domain/table';
+import { toGrid, widen, type Word } from '../domain/table';
 import type { Grid } from '../domain/types';
 import { openPdf, type PdfDocument, type PdfPage } from './pdfium';
 import { tatr, type Tables } from './tatr';
@@ -44,7 +44,7 @@ const readPage = (tables: Tables, page: PdfPage): ResultAsync<Grid> =>
 			found
 				.filter(({ label }) => label === 'table')
 				.sort((a, b) => a.y1 - b.y1)
-				.map((t) => pad(t, page.bounds))
+				.map((t) => pad(widen(t, page.words), page.bounds))
 				.map(
 					(region) => () =>
 						tables.structure(page.raster, region).map((structure) =>

@@ -31,6 +31,17 @@ export const toGrid = (structure: Detection[], words: Word[]): Grid => {
 		.map((r) => r.map(text));
 };
 
+// The detector sometimes stops short of a table's first or last column, cutting
+// through its words; a table's edge never runs through one.
+export const widen = (box: Box, words: Word[]): Box => {
+	const beside = words.filter((w) => centre(w, 'y') >= box.y1 && centre(w, 'y') <= box.y2);
+	const cut = (x: number) => beside.filter((w) => w.x1 < x && w.x2 > x);
+
+	const x1 = Math.min(box.x1, ...cut(box.x1).map((w) => w.x1));
+	const x2 = Math.max(box.x2, ...cut(box.x2).map((w) => w.x2));
+	return x1 === box.x1 && x2 === box.x2 ? box : widen({ ...box, x1, x2 }, words);
+};
+
 type BandsOptions = {
 	structure: Detection[];
 	label: string;

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import type { Detection } from '#lib/server/shared/onnx/runtime.ts';
-import { toGrid, type Word } from '#services/extraction/domain/table.ts';
+import { toGrid, widen, type Word } from '#services/extraction/domain/table.ts';
 
 const column = (x1: number, x2: number, score = 0.9): Detection => ({
 	label: 'table column',
@@ -155,5 +155,19 @@ describe('laying words out in a grid', () => {
 
 	it('reads nothing from a table with no columns', () => {
 		expect(toGrid([], [word('a', 10, 20)])).toEqual([]);
+	});
+});
+
+describe('widening a detected table', () => {
+	const box = { x1: 76, y1: 100, x2: 500, y2: 200 };
+
+	it('takes in the words its edges cut through', () => {
+		const words = [word('24/05/2026', 46, 150), word('DR', 495, 150)];
+		expect(widen(box, words)).toEqual({ ...box, x1: 46, x2: 507 });
+	});
+
+	it('leaves alone words outside it, above or below it, and words it holds', () => {
+		const words = [word('Page', 10, 150), word('24/05/2026', 46, 90), word('Apollo', 100, 150)];
+		expect(widen(box, words)).toEqual(box);
 	});
 });

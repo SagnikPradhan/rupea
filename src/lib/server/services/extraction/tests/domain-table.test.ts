@@ -66,6 +66,57 @@ describe('laying words out in a grid', () => {
 		]);
 	});
 
+	it('merges a narration wrapped around a vertically centred row into it', () => {
+		const words = [
+			word('UPI-MERCHANT', 110, 34),
+			word('01/08/26', 10, 40),
+			word('120.50', 310, 40),
+			word('ORDER', 110, 45),
+		];
+		expect(toGrid(columns, words)).toEqual([['01/08/26', 'UPI-MERCHANT ORDER', '120.50', '']]);
+	});
+
+	it('merges both halves of a narration centred on an otherwise empty line', () => {
+		const words = [
+			word('UPI-MERCHANT', 110, 35),
+			word('01/08/26', 10, 40),
+			word('120.50', 310, 40),
+			word('ORDER', 110, 46),
+		];
+		expect(toGrid(columns, words)).toEqual([['01/08/26', 'UPI-MERCHANT ORDER', '120.50', '']]);
+	});
+
+	it('keeps a sparse row apart from a row beyond its line spacing', () => {
+		const words = [
+			word('Date', 10, 20),
+			word('Narration', 110, 20),
+			word('Withdrawal', 310, 20),
+			word('Deposit', 410, 20),
+			word('Purchases', 110, 40),
+			word('0.00', 310, 40),
+		];
+		expect(toGrid(columns, words)).toEqual([
+			['Date', 'Narration', 'Withdrawal', 'Deposit'],
+			['', 'Purchases', '0.00', ''],
+		]);
+	});
+
+	it('joins two columns that text runs across more often than not', () => {
+		const split = [column(0, 100), column(100, 150), column(150, 200)];
+		const words = [
+			word('Total Amount', 100, 20),
+			word('01/08/26', 10, 40),
+			word('3,259.13 DR', 100, 40),
+			word('02/08/26', 10, 60),
+			word('0.00', 110, 60),
+		];
+		expect(toGrid(split, words)).toEqual([
+			['', 'Total Amount'],
+			['01/08/26', '3,259.13 DR'],
+			['02/08/26', '0.00'],
+		]);
+	});
+
 	it('keeps a row filling a column the row above left empty', () => {
 		const words = [
 			word('01/08/26', 10, 40),
@@ -81,6 +132,20 @@ describe('laying words out in a grid', () => {
 
 	it('puts a word between columns in the nearest one', () => {
 		expect(toGrid([column(0, 100), column(200, 300)], [word('x', 170, 20)])).toEqual([['', 'x']]);
+	});
+
+	it('keeps two columns apart when text only reaches into the gap between them', () => {
+		const gapped = [column(0, 100), column(150, 200)];
+		const words = [
+			word('EMI', 10, 20),
+			word('FX', 120, 20),
+			word('Convert', 10, 40),
+			word('USD', 120, 40),
+		];
+		expect(toGrid(gapped, words)).toEqual([
+			['EMI', 'FX'],
+			['Convert', 'USD'],
+		]);
 	});
 
 	it('keeps the likelier of two columns found twice', () => {

@@ -120,7 +120,7 @@ const words = (
 		const width = item.width * viewport.scale;
 		const length = item.str.length;
 
-		return [...item.str.matchAll(/\S+/g)].map((match) => ({
+		return [...item.str.matchAll(/\S+(?:\s\S+)*/g)].map((match) => ({
 			text: match[0],
 			x1: x + (width * match.index) / length,
 			x2: x + (width * (match.index + match[0].length)) / length,

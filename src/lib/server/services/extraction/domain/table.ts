@@ -11,19 +11,21 @@ type Row = Word[][];
 // Rows come from the text layer, not TATR: its row boxes miss headers above
 // rules and split wrapped cells on borderless statement tables.
 export const toGrid = (structure: Detection[], words: Word[]): Grid => {
-	const columns = bands({ structure, label: 'table column', axis: 'x' });
-	if (columns.length === 0) return [];
+	const found = bands({ structure, label: 'table column', axis: 'x' });
+	if (found.length === 0) return [];
+
+	const columns = joined(found, lines(words));
 
 	return lines(words)
 		.map((l) => cells(columns, l))
-		.reduce<Row[]>((rows, row) => {
-			const above = rows.at(-1);
-			match(above)
-				.with(
-					P.when((a): a is Row => a !== undefined && continues(row, a)),
-					(a) => row.forEach((w, c) => a[c]?.push(...w)),
-				)
-				.otherwise(() => rows.push(row));
+		.reduce<Row[]>((rows, row, i, all) => {
+			const target = [rows.at(-1), all[i + 1]]
+				.filter((r): r is Row => r !== undefined && continues(row, r))
+				.sort((a, b) => gap(row, a) - gap(row, b))
+				.at(0);
+			if (target === undefined) return [...rows, row];
+
+			row.forEach((w, c) => target[c]?.push(...w));
 			return rows;
 		}, [])
 		.map((r) => r.map(text));
@@ -43,6 +45,26 @@ const bands = ({ structure, label, axis }: BandsOptions): Box[] =>
 		.reduce<Box[]>((k, b) => (k.some((o) => overlap(b, o, axis) > 0.5) ? k : [...k, b]), [])
 		.sort((a, b) => start(a, axis) - start(b, axis));
 
+// TATR sometimes splits one column in two. Text that more lines run
+// across a boundary than keep apart on either side means it isn't one.
+const joined = (columns: Box[], lines: Word[][]): Box[] =>
+	columns.reduce<Box[]>((kept, column) => {
+		const left = kept.at(-1);
+		if (left === undefined || apart(left, column, lines)) return [...kept, column];
+
+		return [...kept.slice(0, -1), { ...left, x2: column.x2 }];
+	}, []);
+
+const apart = (left: Box, right: Box, lines: Word[][]) => {
+	const across = (l: Word[]) => l.some((w) => w.x1 < left.x2 && w.x2 > right.x1);
+	const within = (l: Word[], b: Box) =>
+		l.some((w) => centre(w, 'x') >= b.x1 && centre(w, 'x') <= b.x2);
+
+	const crossing = lines.filter(across).length;
+	const separate = lines.filter((l) => !across(l) && (within(l, left) || within(l, right))).length;
+	return crossing <= separate;
+};
+
 const cells = (columns: Box[], line: Word[]): Row => {
 	const row: Row = columns.map(() => []);
 	for (const word of line) row[nearest(columns, centre(word, 'x'))]?.push(word);
@@ -54,10 +76,25 @@ const nearest = (columns: Box[], x: number): number => {
 	return distances.indexOf(Math.min(...distances));
 };
 
-const continues = (row: Row, above: Row) => {
-	const filled = row.flatMap((w, c) => (w.length > 0 ? [c] : []));
-	const filledAbove = above.filter((w) => w.length > 0).length;
-	return filled.every((c) => (above[c]?.length ?? 0) > 0) && filled.length * 2 < filledAbove;
+// A cell wrapped around a vertically centred row starts above it, and may
+// leave the row's own line empty, so a sparse line joins whichever fuller
+// neighbour sits within its line spacing.
+const continues = (row: Row, other: Row) => {
+	const filled = row.filter((w) => w.length > 0).length;
+	const filledOther = other.filter((w) => w.length > 0).length;
+
+	const own = extent(row);
+	return filled * 2 < filledOther && gap(row, other) < (own.y2 - own.y1) / 2;
+};
+
+const gap = (a: Row, b: Row) => {
+	const [first, second] = [extent(a), extent(b)];
+	return Math.max(second.y1 - first.y2, first.y1 - second.y2);
+};
+
+const extent = (row: Row) => {
+	const words = row.flat();
+	return { y1: Math.min(...words.map((w) => w.y1)), y2: Math.max(...words.map((w) => w.y2)) };
 };
 
 const lines = (words: Word[]): Word[][] =>

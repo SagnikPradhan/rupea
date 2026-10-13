@@ -6,24 +6,12 @@ import * as v from 'valibot';
 import { Handle, inLedger, Key } from './shared';
 import { getTransactions } from './transactions.remote';
 
-const ReadFile = v.object({ handle: Handle, key: Key });
-const CreateFile = v.object({ handle: Handle, key: Key, content: v.string() });
-
-const EditFile = v.object({
-	handle: Handle,
-	key: Key,
-	content: v.string(),
-	version: v.string(),
-});
-
-const RenameFile = v.object({ handle: Handle, key: Key, to: Key });
-
 export const getFiles = query(Handle, async (h) =>
 	replyFromBatch(await inLedger({ handle: h, action: Ledger.listFiles })),
 );
 
-// A command, not a query: never cached, as the file may change behind the app's back.
-export const readFile = command(ReadFile, async ({ handle, key }) =>
+/** A command, not a query: never cached, as the file may change behind the app's back. */
+export const readFile = command(v.object({ handle: Handle, key: Key }), async ({ handle, key }) =>
 	replyFrom(await inLedger({ handle, action: (l) => Ledger.getFile(l, key) })),
 );
 
@@ -37,18 +25,23 @@ const mutate = async <T>(
 	return replyFrom(result);
 };
 
-export const createFile = command(CreateFile, ({ handle, key, content }) =>
-	mutate(handle, (l) => Ledger.createFile({ ledger: l, key, content })),
+export const createFile = command(
+	v.object({ handle: Handle, key: Key, content: v.string() }),
+	({ handle, key, content }) =>
+		mutate(handle, (l) => Ledger.createFile({ ledger: l, key, content })),
 );
 
-export const editFile = command(EditFile, ({ handle, key, content, version }) =>
-	mutate(handle, (l) => Ledger.editFile({ ledger: l, key, content, version })),
+export const editFile = command(
+	v.object({ handle: Handle, key: Key, content: v.string(), version: v.string() }),
+	({ handle, key, content, version }) =>
+		mutate(handle, (l) => Ledger.editFile({ ledger: l, key, content, version })),
 );
 
-export const renameFile = command(RenameFile, ({ handle, key, to }) =>
-	mutate(handle, (l) => Ledger.renameFile({ ledger: l, from: key, to })),
+export const renameFile = command(
+	v.object({ handle: Handle, key: Key, to: Key }),
+	({ handle, key, to }) => mutate(handle, (l) => Ledger.renameFile({ ledger: l, from: key, to })),
 );
 
-export const deleteFile = command(ReadFile, ({ handle, key }) =>
+export const deleteFile = command(v.object({ handle: Handle, key: Key }), ({ handle, key }) =>
 	mutate(handle, (l) => Ledger.deleteFile(l, key)),
 );

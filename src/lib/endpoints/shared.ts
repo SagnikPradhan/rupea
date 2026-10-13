@@ -35,7 +35,7 @@ type InLedgerOptions<T> = {
 	action: (ledger: Ledger.Ledger, user: Auth.User) => ResultAsync<T>;
 };
 
-// The ledger a page is on, if the signed-in user may reach it.
+/** The ledger a page is on, if the signed-in user may reach it. */
 export const inLedger = <T>(options: InLedgerOptions<T>): ResultAsync<T> =>
 	Auth.withCurrentUser((u) =>
 		Ledger.withLedger({

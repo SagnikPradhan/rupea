@@ -1,6 +1,6 @@
 import type { RupeeError } from '#lib/server/shared/result/error.ts';
-import type { ResultAsync } from '#lib/server/shared/result/result.ts';
 import { replyFrom } from '#lib/server/shared/result/reply.ts';
+import type { ResultAsync } from '#lib/server/shared/result/result.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import { EventRole, viewTransaction } from '#services/ledger/application/shared.ts';
 import * as Refinement from '#services/refinement/application/refinement.ts';
@@ -12,18 +12,6 @@ import { getTransactions } from './transactions.remote';
 
 const Line = v.pipe(v.number(), v.integer(), v.minValue(1));
 const EventId = v.pipe(v.string(), v.regex(/^\S+$/, 'An event id is one word.'));
-
-const LinkEdit = v.object({
-	file: Key,
-	line: Line,
-	date: v.string(),
-	description: v.string(),
-	role: v.enum(EventRole),
-	event: EventId,
-});
-
-const InFile = v.object({ handle: Handle, file: Key });
-
 const Fingerprint = v.pipe(v.string(), v.regex(/^[0-9a-f]{64}$/));
 
 const view = ({ ours, theirs, ...suggestion }: Refinement.Suggestion) => ({
@@ -32,16 +20,30 @@ const view = ({ ours, theirs, ...suggestion }: Refinement.Suggestion) => ({
 	theirs: viewTransaction(theirs),
 });
 
-export const getSuggestions = query(InFile, async ({ handle, file }) =>
-	replyFrom(
-		await inLedger({ handle, action: (l) => Refinement.suggestFor(l, file) }).map((s) =>
-			s.map(view),
+export const getSuggestions = query(
+	v.object({ handle: Handle, file: Key }),
+	async ({ handle, file }) =>
+		replyFrom(
+			await inLedger({ handle, action: (l) => Refinement.suggestFor(l, file) }).map((s) =>
+				s.map(view),
+			),
 		),
-	),
 );
 
 export const acceptSuggestions = command(
-	v.object({ handle: Handle, edits: v.array(LinkEdit) }),
+	v.object({
+		handle: Handle,
+		edits: v.array(
+			v.object({
+				file: Key,
+				line: Line,
+				date: v.string(),
+				description: v.string(),
+				role: v.enum(EventRole),
+				event: EventId,
+			}),
+		),
+	}),
 	async ({ handle, edits }) => {
 		const accepted = await inLedger({ handle, action: (l) => Ledger.linkEvents(l, edits) });
 
@@ -70,7 +72,7 @@ const viewEvent = ({ event, members }: Ledger.FileEvent) => ({
 	members: members.map(({ role, counted, ...t }) => ({ role, counted, ...viewTransaction(t) })),
 });
 
-export const getEvents = query(InFile, async ({ handle, file }) =>
+export const getEvents = query(v.object({ handle: Handle, file: Key }), async ({ handle, file }) =>
 	replyFrom(
 		await inLedger({ handle, action: (l) => Ledger.eventsIn(l, file) }).map((e) =>
 			e.map(viewEvent),
@@ -80,7 +82,6 @@ export const getEvents = query(InFile, async ({ handle, file }) =>
 
 type ChangeEventOptions = {
 	handle: string;
-	// The one being viewed, whose events are refreshed.
 	file: string;
 	action: (ledger: Ledger.Ledger) => ResultAsync<RupeeError[]>;
 };

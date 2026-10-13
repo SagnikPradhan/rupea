@@ -104,7 +104,7 @@ export const statements = PG.pgTable(
 	],
 );
 
-// Grids already read, so previewing a statement again skips the slow PDF table detection.
+// Contents already read, so previewing a statement again skips the slow PDF table detection.
 export const statementGrids = PG.pgTable(
 	'statement_grids',
 	(t) => ({
@@ -112,6 +112,7 @@ export const statementGrids = PG.pgTable(
 		checksum: t.text().notNull(),
 		reader: t.text().notNull(),
 		grid: t.jsonb().$type<string[][]>().notNull(),
+		text: t.jsonb().$type<string[]>().notNull().default([]),
 		expiresAt: t.timestamp({ withTimezone: true }).notNull(),
 	}),
 	(t) => [

@@ -61,7 +61,7 @@ const Field = v.pipe(
 const Schema = v.strictObject({
 	version: v.literal('v1'),
 	name: v.string(),
-	// Any one pattern recognises a statement: `file:` its name, `text:` a cell of its grid.
+	// Any one pattern recognises a statement: `file:` its name, `text:` a cell of its grid or a line outside it.
 	match: v.optional(v.array(Pattern), []),
 	account: v.optional(Account),
 	header: v.optional(

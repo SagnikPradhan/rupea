@@ -2,12 +2,12 @@ import { fault, unknownError } from '#lib/server/shared/result/error.ts';
 import { attemptWith, errAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { parse } from 'csv-parse/sync';
 import { extname } from 'node:path';
-import type { Grid } from '../domain/types';
+import type { Contents } from '../domain/types';
 import { readPdf, unlockPdf } from './pdf';
 import { readXls, readXlsx, unlockXlsx } from './sheet';
 
 // Grids read by another version are read again; bump it when reading changes.
-export const READER = '3';
+export const READER = '4';
 
 export type Upload = {
 	name: string;
@@ -21,8 +21,8 @@ type LockedUpload = {
 };
 
 const throwing =
-	(read: (content: Uint8Array) => Promise<Grid>) =>
-	({ name, content }: Upload): ResultAsync<Grid> =>
+	(read: (content: Uint8Array) => Promise<Contents>) =>
+	({ name, content }: Upload): ResultAsync<Contents> =>
 		attemptWith({
 			try: () => read(content),
 			catch: (thrown) =>
@@ -33,9 +33,12 @@ const throwing =
 				}),
 		});
 
-const readers: Record<string, (upload: Upload) => ResultAsync<Grid>> = {
+const readers: Record<string, (upload: Upload) => ResultAsync<Contents>> = {
 	'.pdf': (u) => readPdf(u),
-	'.csv': throwing(async (c) => parse(Buffer.from(c), { bom: true, relax_column_count: true })),
+	'.csv': throwing(async (c) => ({
+		grid: parse(Buffer.from(c), { bom: true, relax_column_count: true }),
+		text: [],
+	})),
 	'.xls': (u) => readXls(u),
 	'.xlsx': (u) => readXlsx(u),
 };
@@ -47,7 +50,7 @@ const unlockers: Record<string, (upload: LockedUpload) => ResultAsync<Uint8Array
 
 export const isReadable = (n: string) => extension(n) in readers;
 
-export const readGrid = (upload: Upload): ResultAsync<Grid> => {
+export const readContents = (upload: Upload): ResultAsync<Contents> => {
 	const read = readers[extension(upload.name)];
 	return read ? read(upload) : errAsync(fault('ExtractionUnsupportedFile', { path: upload.name }));
 };

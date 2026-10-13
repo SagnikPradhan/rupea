@@ -35,8 +35,12 @@ describe('reading a PDF', () => {
 				}),
 			);
 			if (read.isErr()) throw new Error(read.error.type);
-			const rows = read.value.filter((c) => c[0] !== 'Date');
-			expect(read.value[0]).toEqual(header);
+			const grid = read.value.grid;
+			const rows = grid.filter((c) => c[0] !== 'Date');
+			expect(grid[0]).toEqual(header);
+			expect(read.value.text).toContain(
+				'Statement of account for Account No 50100000000000, 01/08/26 to 12/09/26',
+			);
 			expect(rows).toHaveLength(40);
 			expect(rows[0]).toEqual([
 				'01/08/26',
@@ -67,7 +71,7 @@ describe('reading a PDF', () => {
 			const opened = await provide(context, () =>
 				readPdf({ name: 'locked.pdf', content, password: 'secret' }),
 			);
-			expect(opened.isOk() && opened.value[0]).toEqual(header);
+			expect(opened.isOk() && opened.value.grid[0]).toEqual(header);
 		},
 		60_000,
 	);

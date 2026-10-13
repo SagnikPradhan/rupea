@@ -2,7 +2,7 @@ import { statementGrids, statements } from '#lib/server/db/schema.ts';
 import { withContext } from '#lib/server/shared/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { and, eq, gt, lte, sql } from 'drizzle-orm';
-import type { Grid } from '../domain/types';
+import type { Contents } from '../domain/types';
 
 export type StatementRow = { path: string; checksum: string; original: string | null };
 
@@ -90,11 +90,11 @@ type GridKey = {
 	reader: string;
 };
 
-export const findGrid = (k: GridKey): ResultAsync<Grid | null> =>
+export const findContents = (k: GridKey): ResultAsync<Contents | null> =>
 	withContext('db')((db) =>
 		attempt(() =>
 			db
-				.select({ grid: statementGrids.grid })
+				.select({ grid: statementGrids.grid, text: statementGrids.text })
 				.from(statementGrids)
 				.where(
 					and(
@@ -104,28 +104,29 @@ export const findGrid = (k: GridKey): ResultAsync<Grid | null> =>
 					),
 				)
 				.limit(1)
-				.then(([f]) => f?.grid ?? null),
+				.then(([f]) => f ?? null),
 		),
 	);
 
-type SaveGridOptions = {
+type SaveContentsOptions = {
 	checksum: string;
 	reader: string;
-	grid: Grid;
+	contents: Contents;
 	expiresAt: Date;
 };
 
-// Saving is when expired grids are swept, as nothing else runs on a schedule.
-export const saveGrid = (o: SaveGridOptions): ResultAsync<void> =>
+// Saving is when expired contents are swept, as nothing else runs on a schedule.
+export const saveContents = (o: SaveContentsOptions): ResultAsync<void> =>
 	withContext('db')((db) =>
 		attempt(async () => {
 			await db.delete(statementGrids).where(lte(statementGrids.expiresAt, sql`now()`));
+			const read = { ...o.contents, expiresAt: o.expiresAt };
 			await db
 				.insert(statementGrids)
-				.values(o)
+				.values({ checksum: o.checksum, reader: o.reader, ...read })
 				.onConflictDoUpdate({
 					target: [statementGrids.checksum, statementGrids.reader],
-					set: { grid: o.grid, expiresAt: o.expiresAt },
+					set: read,
 				});
 		}),
 	);

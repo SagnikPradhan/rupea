@@ -8,16 +8,17 @@ export type Candidate = { key: string; content: string; schema: RupeeSchema };
 type RecogniseOptions = {
 	statement: string;
 	grid: Grid;
+	text: string[];
 	ledger: Candidate[];
 	builtin: Candidate[];
 };
 
 // Exactly one schema, never the best of several, so adding a schema cannot change how another statement reads.
 export const recognise = (options: RecogniseOptions): Result<Candidate> => {
-	const { statement, grid, ledger, builtin } = options;
+	const { statement, grid, text, ledger, builtin } = options;
 
 	const matching = (c: Candidate) =>
-		c.schema.match.some((p) => matches({ pattern: p, statement, grid }));
+		c.schema.match.some((p) => matches({ pattern: p, statement, grid, text }));
 	const ours = ledger.filter(matching);
 	const found = ours.length > 0 ? ours : builtin.filter(matching);
 
@@ -34,9 +35,10 @@ type MatchesOptions = {
 	pattern: Pattern;
 	statement: string;
 	grid: Grid;
+	text: string[];
 };
 
-const matches = ({ pattern, statement, grid }: MatchesOptions) =>
+const matches = ({ pattern, statement, grid, text }: MatchesOptions) =>
 	'file' in pattern
 		? pattern.file.test(statement)
-		: grid.some((r) => r.some((c) => pattern.text.test(c)));
+		: [...grid.flat(), ...text].some((c) => pattern.text.test(c));

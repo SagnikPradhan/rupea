@@ -42,6 +42,8 @@ export const widen = (box: Box, words: Word[]): Box => {
 	return x1 === box.x1 && x2 === box.x2 ? box : widen({ ...box, x1, x2 }, words);
 };
 
+export const toLines = (w: Word[]): string[] => lines(w).map(text);
+
 type BandsOptions = {
 	structure: Detection[];
 	label: string;

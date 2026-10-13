@@ -6,6 +6,7 @@ const grid = [
 	['HDFC BANK Ltd.', 'Statement of accounts'],
 	['Date', 'Narration'],
 ];
+const text = ['Account Number 00000000000'];
 
 const candidate = (key: string, match: string, account = 'Assets:Bank:HDFC'): Candidate => {
 	const content = [
@@ -22,11 +23,16 @@ const candidate = (key: string, match: string, account = 'Assets:Bank:HDFC'): Ca
 };
 
 const recognised = (ledger: Candidate[], builtin: Candidate[] = [], statement = 'aug.xls') =>
-	recognise({ statement, grid, ledger, builtin }).map((c) => c.key);
+	recognise({ statement, grid, text, ledger, builtin }).map((c) => c.key);
 
 describe('recognising a statement', () => {
 	it('takes the one schema whose pattern matches', () => {
 		const ours = [candidate('hdfc.yml', "text: '^HDFC BANK'"), candidate('sbi.yml', 'text: SBI')];
+		expect(recognised(ours)._unsafeUnwrap()).toBe('hdfc.yml');
+	});
+
+	it('matches a text pattern against the lines outside the tables too', () => {
+		const ours = [candidate('hdfc.yml', "text: '^Account Number'")];
 		expect(recognised(ours)._unsafeUnwrap()).toBe('hdfc.yml');
 	});
 

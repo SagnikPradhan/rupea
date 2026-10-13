@@ -3,7 +3,7 @@ import { fault, unknownError } from '#lib/server/shared/result/error.ts';
 import { attemptWith, errAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import officeCrypto from 'officecrypto-tool';
 import * as XLSX from 'xlsx';
-import type { Grid } from '../domain/types';
+import type { Grid, Contents } from '../domain/types';
 
 // The first bytes of a zip, which an .xlsx is unless it is encrypted.
 const ZIP = [0x50, 0x4b, 0x03, 0x04];
@@ -14,10 +14,10 @@ type SheetOptions = {
 };
 
 /** An .xls, which banks also send as HTML or text; SheetJS reads whichever it is. */
-export const readXls = (o: SheetOptions): ResultAsync<Grid> => readFirstSheet(o);
+export const readXls = (o: SheetOptions): ResultAsync<Contents> => readFirstSheet(o);
 
 // SheetJS reads any bytes as some sheet, so an .xlsx that is not a zip is refused instead.
-export const readXlsx = (o: SheetOptions): ResultAsync<Grid> => {
+export const readXlsx = (o: SheetOptions): ResultAsync<Contents> => {
 	if (isEncrypted(o.content)) return errAsync(fault('ExtractionLocked', { path: o.name }));
 	if (!ZIP.every((b, i) => o.content[i] === b)) return errAsync(unreadable(o.name, 'not a zip'));
 
@@ -40,7 +40,8 @@ export const unlockXlsx = (o: UnlockOptions): ResultAsync<Uint8Array> =>
 const isEncrypted = (c: Uint8Array) =>
 	safely(() => officeCrypto.isEncrypted(Buffer.from(c))) === true;
 
-const readFirstSheet = (o: SheetOptions): ResultAsync<Grid> =>
+// A sheet's every cell is in its grid, so no text is left outside it.
+const readFirstSheet = (o: SheetOptions): ResultAsync<Contents> =>
 	attemptWith({
 		try: async () => {
 			const book = XLSX.read(o.content, {
@@ -50,7 +51,7 @@ const readFirstSheet = (o: SheetOptions): ResultAsync<Grid> =>
 				dense: true,
 			});
 			const sheet = book.Sheets[book.SheetNames[0] ?? ''];
-			return sheet ? rows(sheet) : [];
+			return { grid: sheet ? rows(sheet) : [], text: [] };
 		},
 		catch: (t) => unreadable(o.name, 'not a readable statement', t),
 	});

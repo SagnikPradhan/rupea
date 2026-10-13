@@ -1,8 +1,8 @@
 import { withContext } from '#lib/server/shared/context.ts';
 import type { Box } from '#lib/server/shared/onnx/runtime.ts';
 import { sequence, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { toGrid, widen, type Word } from '../domain/table';
-import type { Grid } from '../domain/types';
+import { toGrid, toLines, widen, type Word } from '../domain/table';
+import type { Grid, Contents } from '../domain/types';
 import { openPdf, type PdfDocument, type PdfPage } from './pdfium';
 import { tatr, type Tables } from './tatr';
 
@@ -16,7 +16,7 @@ type PdfOptions = {
 };
 
 // Words come from the text layer, so scans read empty.
-export const readPdf = (o: PdfOptions): ResultAsync<Grid> =>
+export const readPdf = (o: PdfOptions): ResultAsync<Contents> =>
 	withContext('models')((m) =>
 		openPdf(o).andThen((d) => readPages(tatr(m), d).andTee(d.close).orTee(d.close)),
 	);
@@ -28,32 +28,38 @@ export const unlockPdf = (o: PdfOptions): ResultAsync<Uint8Array> =>
 		return bytes;
 	});
 
-const readPages = (tables: Tables, document: PdfDocument): ResultAsync<Grid> =>
+const readPages = (tables: Tables, document: PdfDocument): ResultAsync<Contents> =>
 	sequence(
 		pages(document).map(
 			(n) => () =>
-				document.page(n).asyncAndThen((p) => readPage(tables, p).andTee(p.close).orTee(p.close)),
+				document
+					.page(n)
+					.asyncAndThen((p) => readPage(tables, p).andTee(p.close).orTee(p.close))
+					.map((r) => [r]),
 		),
-	);
+	).map((c) => ({ grid: c.flatMap((r) => r.grid), text: c.flatMap((r) => r.text) }));
 
 const pages = (d: PdfDocument) => Array.from({ length: d.count }, (_, i) => i);
 
-const readPage = (tables: Tables, page: PdfPage): ResultAsync<Grid> =>
-	tables.detect(page.raster, page.bounds).andThen((found) =>
-		sequence(
-			found
-				.filter(({ label }) => label === 'table')
-				.sort((a, b) => a.y1 - b.y1)
-				.map((t) => pad(widen(t, page.words), page.bounds))
-				.map(
-					(region) => () =>
-						tables.structure(page.raster, region).map((structure) =>
-							toGrid(
-								structure,
-								page.words.filter((w) => contains(region, w)),
-							),
-						),
-				),
+const readPage = (tables: Tables, page: PdfPage): ResultAsync<Contents> =>
+	tables.detect(page.raster, page.bounds).andThen((found) => {
+		const regions = found
+			.filter(({ label }) => label === 'table')
+			.sort((a, b) => a.y1 - b.y1)
+			.map((t) => pad(widen(t, page.words), page.bounds));
+		const outside = page.words.filter((w) => !regions.some((r) => contains(r, w)));
+
+		return sequence(regions.map((r) => () => readTable(tables, page, r))).map((g) => ({
+			grid: g,
+			text: toLines(outside),
+		}));
+	});
+
+const readTable = (tables: Tables, page: PdfPage, region: Box): ResultAsync<Grid> =>
+	tables.structure(page.raster, region).map((structure) =>
+		toGrid(
+			structure,
+			page.words.filter((w) => contains(region, w)),
 		),
 	);
 

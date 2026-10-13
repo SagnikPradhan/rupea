@@ -57,6 +57,13 @@
       "when": 1791904914351,
       "tag": "0007_statements_updated_at",
       "breakpoints": true
+    },
+    {
+      "idx": 8,
+      "version": "7",
+      "when": 1791906572514,
+      "tag": "0008_statement_text",
+      "breakpoints": true
     }
   ]
 }

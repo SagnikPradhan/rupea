@@ -2,6 +2,9 @@ import type { Amount, RupeeParseLocation } from '#services/ledger/application/sh
 
 export type Grid = string[][];
 
+/** What a statement holds: its tables as one grid, and the lines of text outside them. */
+export type Contents = { grid: Grid; text: string[] };
+
 export type RupeeRecord = {
 	location: RupeeParseLocation;
 	date: Temporal.PlainDate;

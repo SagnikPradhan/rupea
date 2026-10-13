@@ -5,20 +5,20 @@ import { err, errAsync, ok, okAsync, type ResultAsync } from '#lib/server/shared
 import { openFolder, type Ledger } from '#services/ledger/application/ledger.ts';
 import { predictAccounts } from '#services/prediction/application/prediction.ts';
 import { builtinSchemas } from '../adapters/builtin';
-import { findGrid, saveGrid } from '../adapters/database';
-import { isReadable, READER, readGrid, unlock, type Upload } from '../adapters/grid';
+import { findContents, saveContents } from '../adapters/database';
+import { isReadable, READER, readContents, unlock, type Upload } from '../adapters/grid';
 import { statements, type Statements, type StoredStatement } from '../adapters/statements';
 import { schemas, type SchemaFile, type Schemas } from '../adapters/storage';
 import { categorised, draft, uncategorised, type Draft } from '../domain/draft';
 import { recognise, type Candidate } from '../domain/recognition';
 import { extract as run } from '../domain/runtime';
 import { parseSchema } from '../domain/schema';
-import type { Grid, RupeeRecord } from '../domain/types';
+import type { Contents, Grid, RupeeRecord } from '../domain/types';
 import { basename } from 'node:path';
 
 export type { Draft };
 
-const GRID_LIFETIME = 24 * 60 * 60 * 1000;
+const CONTENTS_LIFETIME = 24 * 60 * 60 * 1000;
 
 const ledgerSchemas = (l: Ledger): ResultAsync<Schemas> => openFolder(l, 'schemas').map(schemas);
 
@@ -44,6 +44,7 @@ export type Statement = {
 	checksum: string;
 	original: string | null;
 	grid: Grid;
+	text: string[];
 };
 
 /** Stores an upload in the ledger's statements, once per content, and reads it. A locked one is kept to unlock. */
@@ -51,7 +52,7 @@ export const readStatement = (ledger: Ledger, upload: Upload): ResultAsync<State
 	isReadable(upload.name)
 		? ledgerStatements(ledger)
 				.andThen((s) => s.store(upload.name, upload.content))
-				.andThen(gridOf)
+				.andThen(contentsOf)
 		: errAsync(fault('ExtractionUnsupportedFile', { path: upload.name }));
 
 type UnlockOptions = {
@@ -68,7 +69,7 @@ export const unlockStatement = (options: UnlockOptions): ResultAsync<Statement> 
 			.read(statement)
 			.andThen(({ content }) => unlock({ name: statement, content, password }))
 			.andThen((c) => s.replace(statement, c))
-			.andThen(gridOf),
+			.andThen(contentsOf),
 	);
 };
 
@@ -76,9 +77,9 @@ type SchemaText = { key: string; content: string };
 
 /** The schema that reads a statement: one of the ledger's, or a built-in one when none of the ledger's match. */
 export const recogniseStatement = (ledger: Ledger, statement: string): ResultAsync<Recognised> =>
-	statementGrid(ledger, statement).andThen(({ grid }) =>
+	statementContents(ledger, statement).andThen(({ grid, text }) =>
 		ledgerCandidates(ledger).andThen((l) =>
-			recognise({ statement: basename(statement), grid, ledger: l, builtin: builtins() }).map(
+			recognise({ statement: basename(statement), grid, text, ledger: l, builtin: builtins() }).map(
 				(c) => ({ key: c.key, content: c.content, builtin: !l.includes(c) }),
 			),
 		),
@@ -96,7 +97,7 @@ export const extract = (options: ExtractOptions): ResultAsync<Draft> => {
 	const { ledger, statement, schema } = options;
 
 	return withAccount(schema).asyncAndThen(({ parsed, account }) =>
-		statementGrid(ledger, statement).andThen((s) =>
+		statementContents(ledger, statement).andThen((s) =>
 			run({ schema: parsed, file: statement, grid: s.grid }).asyncAndThen((r) =>
 				drafted({ ledger, statement: s, account, records: r }),
 			),
@@ -152,36 +153,38 @@ const candidates = (texts: SchemaText[]): Candidate[] =>
 const ledgerStatements = (l: Ledger): ResultAsync<Statements> =>
 	openFolder(l, 'statements').map((s) => statements(s, l.id));
 
-const statementGrid = (l: Ledger, k: string): ResultAsync<Statement> =>
+const statementContents = (l: Ledger, k: string): ResultAsync<Statement> =>
 	ledgerStatements(l).andThen((s) =>
 		s
 			.find(k)
 			.andThen(({ checksum, original }) =>
-				findGrid({ checksum, reader: READER }).andThen((g) =>
-					g ? okAsync({ key: k, checksum, original, grid: g }) : s.read(k).andThen(gridOf),
+				findContents({ checksum, reader: READER }).andThen((c) =>
+					c ? okAsync({ key: k, checksum, original, ...c }) : s.read(k).andThen(contentsOf),
 				),
 			),
 	);
 
-// Grids are cached by content, so the same statement in another ledger is not read twice.
-const gridOf = (s: StoredStatement): ResultAsync<Statement> =>
-	findGrid({ checksum: s.checksum, reader: READER }).andThen((g) =>
-		g
-			? okAsync(statementOf(s, g))
-			: readGrid({ name: s.key, content: s.content }).andThen((r) => remember(statementOf(s, r))),
+// Contents are cached by checksum, so the same statement in another ledger is not read twice.
+const contentsOf = (s: StoredStatement): ResultAsync<Statement> =>
+	findContents({ checksum: s.checksum, reader: READER }).andThen((c) =>
+		c
+			? okAsync(statementOf(s, c))
+			: readContents({ name: s.key, content: s.content }).andThen((r) =>
+					remember(statementOf(s, r)),
+				),
 	);
 
-const statementOf = (s: StoredStatement, grid: Grid): Statement => ({
+const statementOf = (s: StoredStatement, c: Contents): Statement => ({
 	key: s.key,
 	checksum: s.checksum,
 	original: s.original,
-	grid,
+	...c,
 });
 
 const remember = (s: Statement): ResultAsync<Statement> =>
-	saveGrid({
+	saveContents({
 		checksum: s.checksum,
 		reader: READER,
-		grid: s.grid,
-		expiresAt: new Date(Date.now() + GRID_LIFETIME),
+		contents: { grid: s.grid, text: s.text },
+		expiresAt: new Date(Date.now() + CONTENTS_LIFETIME),
 	}).map(() => s);

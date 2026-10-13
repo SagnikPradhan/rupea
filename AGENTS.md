@@ -46,13 +46,13 @@ await eventBus.publish('user.updated', updated);
 A blank line marks a shift in thinking. Lines that belong to one thought stay together, and a new thought starts after a blank line.
 
 ```ts
-const SCALE = 2;
-const PADDING = 10 * SCALE;
+const WHITE = 0xffffffff;
+const ANNOTATIONS = 0x01;
 
-const pdfjs = dirname(createRequire(import.meta.url).resolve('pdfjs-dist/package.json'));
+const wasm = createRequire(import.meta.url).resolve('@embedpdf/pdfium/pdfium.wasm');
 ```
 
-- Group by the role a line plays, not where its value comes from: sources, then what's derived from them, then the result. In `words` (`pdf.ts`), the transform destructure is the source, `height`, `width` and `length` are the dimensions, and the mapped words are the result.
+- Group by the role a line plays, not where its value comes from: sources, then what's derived from them, then the result. In `raster` (`pdfium.ts`), `scale` is the source, `width` and `height` are derived from it, and the bitmap below is what they build.
 - Top-level multi-line declarations get a blank line between them. Inside a function, a matching pair (two predicates, two lookups) stays together even when one spans several lines. Single-line constants group by concept.
 - A guard gets a blank line after it.
 - In a longer body, a `return` gets a blank line before it when it does something different from the lines above. It stays attached when it just hands back what the line above built.

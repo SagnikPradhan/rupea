@@ -48,14 +48,18 @@ const write =
 	(k: string, c: string): ResultAsync<SchemaFile> =>
 		st.write({ key: k, content: encoder.encode(c) }).map((e) => ({ ...e, content: c }));
 
+const remove = (s: Storage) => (k: string) => s.delete(k);
+
 export type Schemas = {
 	list: () => ResultAsync<Entry[]>;
 	read: (key: string) => ResultAsync<SchemaFile>;
 	write: (key: string, content: string) => ResultAsync<SchemaFile>;
+	delete: (key: string) => ResultAsync<void>;
 };
 
 export const schemas = (storage: Storage): Schemas => ({
 	list: list(storage),
 	read: read(storage),
 	write: write(storage),
+	delete: remove(storage),
 });

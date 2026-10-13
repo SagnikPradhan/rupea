@@ -6,6 +6,9 @@ import { readSheet } from 'read-excel-file/node';
 import type { Grid } from '../domain/types';
 import { readPdf } from './pdf';
 
+// Grids read by another version are read again; bump it when reading changes.
+export const READER = '1';
+
 export type Upload = {
 	name: string;
 	content: Uint8Array;

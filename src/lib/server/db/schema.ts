@@ -84,6 +84,27 @@ export const emailCodes = PG.pgTable('email_codes', (t) => ({
 	expiresAt: t.timestamp({ withTimezone: true }).notNull(),
 }));
 
+// Statements already read, so previewing one again skips the slow PDF table detection.
+export const statementGrids = PG.pgTable(
+	'statement_grids',
+	(t) => ({
+		...base,
+		userId: t
+			.uuid()
+			.notNull()
+			.references(() => users.id, { onDelete: 'cascade' }),
+		statement: t.text().notNull(),
+		checksum: t.text().notNull(),
+		reader: t.text().notNull(),
+		grid: t.jsonb().$type<string[][]>().notNull(),
+		expiresAt: t.timestamp({ withTimezone: true }).notNull(),
+	}),
+	(t) => [
+		PG.unique('statement_grids_user_id_statement').on(t.userId, t.statement),
+		PG.index('statement_grids_expires_at').on(t.expiresAt),
+	],
+);
+
 export const memberships = PG.pgTable(
 	'memberships',
 	(t) => ({

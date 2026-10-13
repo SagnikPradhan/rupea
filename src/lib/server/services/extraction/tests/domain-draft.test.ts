@@ -50,6 +50,7 @@ describe('drafting a ledger file', () => {
 		const drafted = draft({
 			config,
 			statement: 'hdfc-aug.2026.csv',
+			checksum: 'sha256:abc',
 			account: 'Assets:Bank',
 			records: [],
 			failed: [],
@@ -61,6 +62,7 @@ describe('drafting a ledger file', () => {
 		const drafted = draft({
 			config,
 			statement: 'hdfc.csv',
+			checksum: 'sha256:abc',
 			account: 'Assets:Bank',
 			records: [
 				at(3, 'Income:Salary', record('SALARY', '50000')),
@@ -71,17 +73,18 @@ describe('drafting a ledger file', () => {
 		expect(counterparts(drafted.content)).toEqual(['Expenses:Food', 'Income:Salary']);
 	});
 
-	it('writes a balanced transaction per record, on one header line, citing the statement', () => {
+	it('writes a balanced transaction per record, on one header line, citing the statement and its checksum', () => {
 		const drafted = draft({
 			config,
 			statement: 'hdfc.csv',
+			checksum: 'sha256:abc',
 			account: 'Assets:Bank',
 			records: [at(2, 'Expenses:Shopping', record('UPI  SHOP\nBLR', '-120.50'))],
 			failed: [],
 		});
 		const parsed = parse(config, { key: drafted.key, content: drafted.content });
 		expect(parsed.failed).toEqual([]);
-		expect(parsed.metadata).toEqual({ statement: ['hdfc.csv'] });
+		expect(parsed.metadata).toEqual({ statement: ['hdfc.csv'], checksum: ['sha256:abc'] });
 		expect(parsed.succeeded[0]?.description).toBe('UPI SHOP BLR');
 		expect(parsed.succeeded[0]?.postings.map((p) => [p.account, p.amount])).toEqual([
 			['Assets:Bank', parseAmount('-120.50')],

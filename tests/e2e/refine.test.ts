@@ -8,19 +8,20 @@ const data = (name: string) => resolve('tests/e2e/data', name);
 
 const importAs = async (page: Page, ledger: string, key: string) => {
 	await visit(page, `${ledger}/import`);
+	await page.getByRole('button', { name: 'bank.yml', exact: true }).click();
+	await expect(page.getByLabel('Schema', { exact: true })).toHaveValue(/name: Bank/);
 	await page.getByLabel('Statement').setInputFiles(data('statement.csv'));
-	await page.getByRole('combobox').selectOption('bank.yml');
 	await page.getByLabel('Account').fill('Assets:Bank');
-	await page.getByRole('button', { name: 'Read statement' }).click();
+	await expect(page.getByRole('table', { name: 'Draft' })).toContainText('UPI GROCER');
 	await page.getByLabel('Save as').fill(key);
-	await page.getByRole('button', { name: 'Save' }).click();
+	await page.getByRole('button', { name: 'Save', exact: true }).click();
 };
 
 test('reviews the duplicates of a statement imported twice', async ({ signedIn: page, ledger }) => {
-	await visit(page, '/schemas');
+	await visit(page, `${ledger}/import`);
 	await page.getByLabel('Name', { exact: true }).fill('bank.yml');
 	await page.getByLabel('Schema', { exact: true }).fill(await readFile(data('bank.yml'), 'utf8'));
-	await page.getByRole('button', { name: 'Save' }).click();
+	await page.getByRole('button', { name: 'Save schema' }).click();
 	await expect(page.getByText('Saved.')).toBeVisible();
 
 	await importAs(page, ledger, 'imports/aug.rupee');

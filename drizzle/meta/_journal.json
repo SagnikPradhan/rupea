@@ -22,6 +22,20 @@
       "when": 1791741266403,
       "tag": "0002_updated_at",
       "breakpoints": true
+    },
+    {
+      "idx": 3,
+      "version": "7",
+      "when": 1791866481542,
+      "tag": "0003_statement_grids",
+      "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1791866482267,
+      "tag": "0004_statement_grids_updated_at",
+      "breakpoints": true
     }
   ]
 }

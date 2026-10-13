@@ -1,62 +1,78 @@
+import { replyFrom, replyFromBatch } from '#lib/server/shared/result/reply.ts';
 import { ok } from '#lib/server/shared/result/result.ts';
-import { type Reply, replyFrom, replyFromBatch } from '#lib/server/shared/result/reply.ts';
 import * as Auth from '#services/auth/application/auth.ts';
 import * as Extraction from '#services/extraction/application/extraction.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import { viewTransaction } from '#services/ledger/application/shared.ts';
 import { command, form } from '$app/server';
 import * as v from 'valibot';
-import { Account, Handle, inLedger, Key, SchemaKey } from './shared';
+import { getFiles } from './files.remote';
+import { Account, Handle, inLedger, Key } from './shared';
+import { getTransactions } from './transactions.remote';
 
-const ExtractStatement = v.object({
-	handle: Handle,
-	file: v.file(),
-	password: v.optional(v.string()),
-	schema: SchemaKey,
-	account: Account,
-});
-
-const CheckDraft = v.object({ key: Key, content: v.string() });
-
-export const extractStatement = form(
-	ExtractStatement,
-	async ({
-		handle,
-		file,
-		password,
-		schema,
-		account,
-	}): Promise<Reply<{ key: string; content: string }>> => {
+export const readStatement = form(
+	v.object({ file: v.file(), password: v.optional(v.string()) }),
+	async ({ file, password }) => {
 		const content = new Uint8Array(await file.arrayBuffer());
-		const draft = await inLedger({
-			handle,
-			action: (ledger, user) =>
-				Extraction.extract({
-					user: user.id,
-					ledger,
-					schema,
-					account,
-					// An empty password field means no password.
-					file: { name: file.name, content, password: password || undefined },
-				}),
-		});
-		if (draft.isErr()) return replyFrom(draft);
-
-		const { key, content: text, failed } = draft.value;
-		return {
-			ok: failed.length === 0,
-			data: { key, content: text },
-			errors: failed,
-		};
+		const upload = { name: file.name, content, password: password || undefined };
+		return replyFrom(await Auth.withCurrentUser(({ id }) => Extraction.readStatement(id, upload)));
 	},
 );
 
-export const checkDraft = command(CheckDraft, async ({ key, content }) => {
-	const checked = Auth.withCurrentUser(() => ok(Ledger.check(key, content)));
-	return replyFromBatch(
-		await checked.map((batch) => ({
-			...batch,
-			succeeded: batch.succeeded.map(viewTransaction),
-		})),
-	);
-});
+/** The draft a statement makes with an unsaved schema, checked as the ledger would read it. */
+export const previewStatement = command(
+	v.object({
+		handle: Handle,
+		statement: v.pipe(v.string(), v.nonEmpty()),
+		schema: v.object({ key: v.string(), content: v.string() }),
+		account: v.string(),
+	}),
+	async ({ handle, ...options }) => {
+		const draft = await inLedger({
+			handle,
+			action: (l, u) => Extraction.extract({ ...options, user: u.id, ledger: l }),
+		});
+		if (draft.isErr()) return { ok: false, data: null, errors: [draft.error] };
+
+		const { key, content, failed } = draft.value;
+		const checked = Ledger.check(key, content);
+		const errors = [...failed, ...checked.failed];
+		const transactions = checked.succeeded.map(viewTransaction);
+		return { ok: errors.length === 0, data: { key, transactions }, errors };
+	},
+);
+
+export const importStatement = form(
+	v.object({
+		handle: Handle,
+		statement: v.pipe(v.string(), v.nonEmpty()),
+		schema: v.object({ key: v.string(), content: v.string() }),
+		account: Account,
+		key: Key,
+	}),
+	async ({ handle, key, ...options }) => {
+		const created = await inLedger({
+			handle,
+			action: (l, u) =>
+				Extraction.extract({ ...options, user: u.id, ledger: l }).andThen((d) =>
+					Ledger.createFile({ ledger: l, key, content: d.content }),
+				),
+		});
+		void getFiles(handle).refresh();
+		void getTransactions(handle).refresh();
+		return replyFrom(created.map((f) => ({ key: f.key })));
+	},
+);
+
+export const checkDraft = command(
+	v.object({ key: Key, content: v.string() }),
+	async ({ key, content }) => {
+		const checked = Auth.withCurrentUser(() => ok(Ledger.check(key, content)));
+		return replyFromBatch(
+			await checked.map((batch) => ({
+				...batch,
+				succeeded: batch.succeeded.map(viewTransaction),
+			})),
+		);
+	},
+);

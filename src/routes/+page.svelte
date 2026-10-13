@@ -17,7 +17,6 @@
 				</li>
 			{/each}
 		</ul>
-		<a href="/schemas">Statement schemas</a>
 	</nav>
 	<form {...signOut}>
 		<button>Sign out</button>

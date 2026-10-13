@@ -10,8 +10,7 @@
 	<a href="{base}/transactions">Transactions</a> ·
 	<a href="{base}/postings">Postings</a> ·
 	<a href="{base}/refine">Refine</a> ·
-	<a href="{base}/import">Import a statement</a> ·
-	<a href="/schemas">Schemas</a>
+	<a href="{base}/import">Import a statement</a>
 </nav>
 
 <!-- Pages keep what they made for one ledger, so another ledger starts them afresh. -->

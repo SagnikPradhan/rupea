@@ -17,6 +17,7 @@ export type Categorised = RupeeRecord & { account: string };
 type DraftOptions = {
 	config: RupeeConfiguration;
 	statement: string;
+	checksum: string;
 	account: string;
 	// In any order; they are written in the statement's.
 	records: Categorised[];
@@ -35,7 +36,7 @@ export const categorised = (records: RupeeRecord[]): Categorised[] =>
 export const draft = (options: DraftOptions): Draft => ({
 	key: `imports/${options.statement.replace(/\.[^.]*$/, '')}.rupee`,
 	content: print(options.config, {
-		metadata: { statement: [options.statement] },
+		metadata: { statement: [options.statement], checksum: [options.checksum] },
 		transactions: options.records
 			.toSorted((a, b) => a.location.line - b.location.line)
 			.map(toTransaction(options.account)),

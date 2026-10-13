@@ -193,10 +193,10 @@ fields:
 	>
 		<input {...readStatement.fields.handle.as('hidden', handle)} />
 		<label>
-			Statement (.csv, .xlsx, .pdf)
+			Statement (.csv, .xls, .xlsx, .pdf)
 			<input
 				{...readStatement.fields.file.as('file')}
-				accept=".csv,.xlsx,.pdf"
+				accept=".csv,.xls,.xlsx,.pdf"
 				onchange={(e) => e.currentTarget.form?.requestSubmit()}
 				required
 			/>

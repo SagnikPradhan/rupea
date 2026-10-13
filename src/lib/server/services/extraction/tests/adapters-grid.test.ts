@@ -1,7 +1,9 @@
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
-import { readGrid } from '#services/extraction/adapters/grid.ts';
+import { readGrid, unlock } from '#services/extraction/adapters/grid.ts';
+import officeCrypto from 'officecrypto-tool';
+import * as XLSX from 'xlsx';
 import { err, ok } from '#lib/server/shared/result/result.ts';
 
 const bytes = (t: string) => new TextEncoder().encode(t);
@@ -29,6 +31,44 @@ describe('reading a grid from a file', () => {
 		);
 	});
 
+	it('reads a legacy .xls, and one that banks send as HTML', async () => {
+		const book = XLSX.utils.book_new();
+		XLSX.utils.book_append_sheet(
+			book,
+			XLSX.utils.aoa_to_sheet([
+				['Date', 'Amount'],
+				['27/08/26', 8997.35],
+			]),
+		);
+		const xls = XLSX.write(book, { type: 'buffer', bookType: 'biff8' }) as Uint8Array;
+		const html = bytes(
+			'<table><tr><td>Date</td><td>Amount</td></tr><tr><td>27/08/26</td><td>8997.35</td></tr></table>',
+		);
+
+		const expected = ok([
+			['Date', 'Amount'],
+			['27/08/26', '8997.35'],
+		]);
+		expect(await readGrid({ name: 'a.xls', content: xls })).toEqual(expected);
+		expect(await readGrid({ name: 'a.xls', content: html })).toEqual(expected);
+	});
+
+	it('tells a locked .xlsx apart, and opens it with its password', async () => {
+		const content = await readFile(join(import.meta.dirname, 'fixtures/statement.xlsx'));
+		const locked = new Uint8Array(await officeCrypto.encrypt(content, { password: 'secret' }));
+
+		expect(await readGrid({ name: 'a.xlsx', content: locked })).toEqual(
+			err({ type: 'ExtractionLocked', path: 'a.xlsx' }),
+		);
+		expect(await unlock({ name: 'a.xlsx', content: locked, password: 'wrong' })).toEqual(
+			err({ type: 'ExtractionLocked', path: 'a.xlsx' }),
+		);
+		const unlocked = await unlock({ name: 'a.xlsx', content: locked, password: 'secret' });
+		expect(await readGrid({ name: 'a.xlsx', content: unlocked._unsafeUnwrap() })).toMatchObject(
+			ok([['Date', 'Narration', 'Ref', 'Amount'], expect.anything()]),
+		);
+	});
+
 	it('reports an unreadable file as one that cannot be read', async () => {
 		expect(await readGrid({ name: 'a.csv', content: bytes('a,"b\n') })).toMatchObject({
 			error: { type: 'CannotReadFile', path: 'a.csv' },
@@ -38,7 +78,7 @@ describe('reading a grid from a file', () => {
 		});
 	});
 
-	it.each(['a.xls', 'a.txt', 'a'])('refuses %j', async (name) => {
+	it.each(['a.txt', 'a'])('refuses %j', async (name) => {
 		expect(await readGrid({ name, content: bytes('') })).toEqual(
 			err({ type: 'ExtractionUnsupportedFile', path: name }),
 		);

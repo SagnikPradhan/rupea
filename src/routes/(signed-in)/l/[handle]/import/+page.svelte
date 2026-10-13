@@ -3,6 +3,7 @@
 		importStatement,
 		previewStatement,
 		readStatement,
+		recogniseStatement,
 		unlockStatement,
 	} from '#lib/endpoints/import.remote.ts';
 	import { getSuggestions } from '#lib/endpoints/refinement.remote.ts';
@@ -21,6 +22,9 @@
 	/** A starting point: a statement with separate debit and credit columns. */
 	const example = `version: v1
 name: My bank
+match:
+  - text: My Bank Ltd
+account: Assets:Bank
 header:
   text: Narration
 records:
@@ -82,14 +86,12 @@ fields:
 		const ticket = ++preview.ticket;
 		await sleep(wait);
 
-		const account = importStatement.fields.account.value()?.trim() ?? '';
-		if (ticket !== preview.ticket || !statement.key || !account) return;
+		if (ticket !== preview.ticket || !statement.key) return;
 
 		const result = await previewStatement({
 			handle,
 			statement: statement.key,
 			schema: { key: editor.key, content: editor.content },
-			account,
 		});
 		if (ticket !== preview.ticket) return;
 
@@ -102,7 +104,21 @@ fields:
 		Object.assign(statement, { key: '', grid: [], errors: result?.errors ?? [] });
 		if (result?.data) Object.assign(statement, { key: result.data.key, grid: result.data.grid });
 		importStatement.fields.key.set('');
+		if (result?.data) await recognise(result.data.key);
 		await apply(0);
+	}
+
+	// A statement no schema recognises keeps the schema being written.
+	async function recognise(key: string) {
+		const recognised = await recogniseStatement({ handle, statement: key });
+		statement.errors = recognised.errors;
+		if (recognised.data)
+			Object.assign(editor, {
+				key: recognised.data.key,
+				content: recognised.data.content,
+				errors: [],
+				saved: false,
+			});
 	}
 
 	function edit(content: string) {
@@ -274,16 +290,6 @@ fields:
 			<input {...importStatement.fields.statement.as('hidden', statement.key)} />
 			<input {...importStatement.fields.schema.key.as('hidden', editor.key)} />
 			<input {...importStatement.fields.schema.content.as('hidden', editor.content)} />
-			<label>
-				Account
-				<input
-					{...importStatement.fields.account.as('text')}
-					oninput={() => apply(300)}
-					placeholder="Assets:Bank"
-					required
-				/>
-			</label>
-
 			{#if preview.result}
 				{#each preview.result.errors as error, index (index)}
 					<p role="alert">{describe(error)}</p>

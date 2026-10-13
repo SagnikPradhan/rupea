@@ -11,7 +11,6 @@ const importAs = async (page: Page, ledger: string, key: string) => {
 	await page.getByRole('button', { name: 'bank.yml', exact: true }).click();
 	await expect(page.getByLabel('Schema', { exact: true })).toHaveValue(/name: Bank/);
 	await page.getByLabel('Statement').setInputFiles(data('statement.csv'));
-	await page.getByLabel('Account').fill('Assets:Bank');
 	await expect(page.getByRole('table', { name: 'Draft' })).toContainText('UPI GROCER');
 	await page.getByLabel('Save as').fill(key);
 	await page.getByRole('button', { name: 'Save', exact: true }).click();

@@ -1,5 +1,8 @@
 version: v1
 name: Bank
+match:
+  - text: ^Date$
+account: Assets:Bank
 header:
   text: Narration
 fields:

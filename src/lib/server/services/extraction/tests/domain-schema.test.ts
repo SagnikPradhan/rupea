@@ -39,6 +39,7 @@ describe('reading a schema', () => {
 		expect(parsed).toMatchObject(
 			ok({
 				name: 'HDFC savings',
+				match: [],
 				header: { text: 'Narration' },
 				records: { each: 'row', where: { col: 'Date' } },
 				fields: {
@@ -54,6 +55,16 @@ describe('reading a schema', () => {
 			}),
 		);
 		if (parsed.isOk()) expect(parsed.value.records.where?.matches.test('29/08/26')).toBe(true);
+	});
+
+	it('reads what recognises a statement and the account it imports into', () => {
+		const parsed = parseSchema(
+			'hdfc.yml',
+			`version: v1\nname: HDFC\nmatch:\n  - file: '\\.xls$'\n  - text: HDFC BANK\naccount: Assets:Bank:HDFC\nfields:\n${plain}`,
+		);
+		expect(parsed).toMatchObject(ok({ account: 'Assets:Bank:HDFC' }));
+		if (parsed.isOk())
+			expect(parsed.value.match.map((p) => Object.keys(p)[0])).toEqual(['file', 'text']);
 	});
 
 	it('defaults records and pipes', () => {
@@ -78,6 +89,9 @@ describe('reading a schema', () => {
 		['a bad date format', minimal(plain.replace('yyyy-MM-dd', 'yyyy-MM'))],
 		['an unknown date token', minimal(plain.replace('yyyy-MM-dd', '%Y-%m'))],
 		['a bad regex', `${minimal(plain)}header: { regex: '(' }\n`],
+		['an account of no type', `${minimal(plain)}account: Bank:HDFC\n`],
+		['an account of several words', `${minimal(plain)}account: Assets:My Bank\n`],
+		['an unknown pattern', `${minimal(plain)}match: [{ sheet: HDFC }]\n`],
 	])('rejects %s', (_, text) => {
 		expect(parseSchema('bad.yml', text)).toMatchObject({
 			error: { type: 'ExtractionInvalidSchema', path: 'bad.yml' },

@@ -1,16 +1,20 @@
 import { withContext } from '#lib/server/shared/context.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
-import { errAsync, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
+import { batchAsync, type Batch } from '#lib/server/shared/result/batch.ts';
+import { err, errAsync, ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { openFolder, type Ledger } from '#services/ledger/application/ledger.ts';
 import { predictAccounts } from '#services/prediction/application/prediction.ts';
+import { builtinSchemas } from '../adapters/builtin';
 import { findGrid, saveGrid } from '../adapters/database';
 import { isReadable, READER, readGrid, unlock, type Upload } from '../adapters/grid';
 import { statements, type Statements, type StoredStatement } from '../adapters/statements';
 import { schemas, type SchemaFile, type Schemas } from '../adapters/storage';
 import { categorised, draft, uncategorised, type Draft } from '../domain/draft';
+import { recognise, type Candidate } from '../domain/recognition';
 import { extract as run } from '../domain/runtime';
 import { parseSchema } from '../domain/schema';
-import type { Grid } from '../domain/types';
+import type { Grid, RupeeRecord } from '../domain/types';
+import { basename } from 'node:path';
 
 export type { Draft };
 
@@ -68,36 +72,82 @@ export const unlockStatement = (options: UnlockOptions): ResultAsync<Statement> 
 	);
 };
 
+type SchemaText = { key: string; content: string };
+
+/** The schema that reads a statement: one of the ledger's, or a built-in one when none of the ledger's match. */
+export const recogniseStatement = (ledger: Ledger, statement: string): ResultAsync<Recognised> =>
+	statementGrid(ledger, statement).andThen(({ grid }) =>
+		ledgerCandidates(ledger).andThen((l) =>
+			recognise({ statement: basename(statement), grid, ledger: l, builtin: builtins() }).map(
+				(c) => ({ key: c.key, content: c.content, builtin: !l.includes(c) }),
+			),
+		),
+	);
+
+export type Recognised = { key: string; content: string; builtin: boolean };
+
 type ExtractOptions = {
 	ledger: Ledger;
 	statement: string;
-	schema: { key: string; content: string };
-	account: string;
+	schema: SchemaText;
 };
 
 export const extract = (options: ExtractOptions): ResultAsync<Draft> => {
-	const { ledger, statement, schema, account } = options;
+	const { ledger, statement, schema } = options;
 
-	return statementGrid(ledger, statement).andThen(({ checksum, original, grid }) =>
-		parseSchema(schema.key, schema.content)
-			.andThen((s) => run({ schema: s, file: statement, grid }))
-			.asyncAndThen(({ succeeded, failed }) =>
-				predictAccounts({ ledger, account, lines: uncategorised(succeeded) }).map((p) =>
-					withContext('config')((c) =>
-						draft({
-							config: c,
-							statement,
-							checksum,
-							original,
-							account,
-							records: [...categorised(succeeded), ...p],
-							failed,
-						}),
-					),
-				),
+	return withAccount(schema).asyncAndThen(({ parsed, account }) =>
+		statementGrid(ledger, statement).andThen((s) =>
+			run({ schema: parsed, file: statement, grid: s.grid }).asyncAndThen((r) =>
+				drafted({ ledger, statement: s, account, records: r }),
 			),
+		),
 	);
 };
+
+const withAccount = (s: SchemaText) =>
+	parseSchema(s.key, s.content).andThen((p) =>
+		p.account
+			? ok({ parsed: p, account: p.account })
+			: err(fault('ExtractionWithoutAccount', { path: s.key })),
+	);
+
+type DraftedOptions = {
+	ledger: Ledger;
+	statement: Statement;
+	account: string;
+	records: Batch<RupeeRecord>;
+};
+
+const drafted = (options: DraftedOptions): ResultAsync<Draft> => {
+	const { ledger, statement, account, records } = options;
+	return predictAccounts({ ledger, account, lines: uncategorised(records.succeeded) }).map((p) =>
+		withContext('config')((c) =>
+			draft({
+				config: c,
+				statement: statement.key,
+				checksum: statement.checksum,
+				original: statement.original,
+				account,
+				records: [...categorised(records.succeeded), ...p],
+				failed: records.failed,
+			}),
+		),
+	);
+};
+
+// A schema that does not parse cannot recognise anything, and does not stop the others.
+const ledgerCandidates = (l: Ledger): ResultAsync<Candidate[]> =>
+	ledgerSchemas(l)
+		.andThen((s) => s.list().andThen((e) => batchAsync(e.map((f) => s.read(f.key)))))
+		.map((b) => candidates(b.succeeded));
+
+const builtins = (): Candidate[] => candidates(builtinSchemas());
+
+const candidates = (texts: SchemaText[]): Candidate[] =>
+	texts.flatMap((t) => {
+		const parsed = parseSchema(t.key, t.content);
+		return parsed.isOk() ? [{ key: t.key, content: t.content, schema: parsed.value }] : [];
+	});
 
 const ledgerStatements = (l: Ledger): ResultAsync<Statements> =>
 	openFolder(l, 'statements').map((s) => statements(s, l.id));

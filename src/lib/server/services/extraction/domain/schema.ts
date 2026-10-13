@@ -1,7 +1,7 @@
 import { fault } from '#lib/server/shared/result/error.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
 import { safely } from '#lib/server/shared/control.ts';
-import { isDateFormat } from '#services/ledger/application/shared.ts';
+import { accountType, isDateFormat } from '#services/ledger/application/shared.ts';
 import * as v from 'valibot';
 import { parseDocument } from 'yaml';
 import { STATEMENT_ERA } from './types';
@@ -19,6 +19,15 @@ const DateFormat = v.pipe(
 		'must be a date-fns format that pins down a year, month and day',
 	),
 );
+
+// A string for now; an object form that looks the account up can join it without breaking schemas.
+const Account = v.pipe(
+	v.string(),
+	v.regex(/^\S+$/, 'is one word, like Assets:Bank:HDFC'),
+	v.check((a) => accountType(a) !== null, 'starts with an account type, like Assets'),
+);
+
+const Pattern = v.union([v.strictObject({ file: Regex }), v.strictObject({ text: Regex })]);
 
 const Count = v.pipe(v.number(), v.integer(), v.minValue(0));
 
@@ -52,6 +61,9 @@ const Field = v.pipe(
 const Schema = v.strictObject({
 	version: v.literal('v1'),
 	name: v.string(),
+	// Any one pattern recognises a statement: `file:` its name, `text:` a cell of its grid.
+	match: v.optional(v.array(Pattern), []),
+	account: v.optional(Account),
 	header: v.optional(
 		v.union([v.strictObject({ text: v.string() }), v.strictObject({ regex: Regex })]),
 	),
@@ -74,6 +86,7 @@ const Schema = v.strictObject({
 
 export type RupeeSchema = v.InferOutput<typeof Schema>;
 export type Path = v.InferOutput<typeof Path>;
+export type Pattern = v.InferOutput<typeof Pattern>;
 export type Locator = v.InferOutput<typeof Locator>;
 export type Transform = v.InferOutput<typeof Transform>;
 

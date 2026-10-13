@@ -11,7 +11,6 @@ test('imports a statement into the ledger', async ({ signedIn: page, ledger }) =
 	await expect(page.getByRole('table', { name: 'Grid' })).toContainText('UPI GROCER');
 
 	await page.getByLabel('Schema', { exact: true }).fill(await readFile(data('bank.yml'), 'utf8'));
-	await page.getByLabel('Account').fill('Assets:Bank');
 	const draft = page.getByRole('table', { name: 'Draft' });
 	await expect(draft.getByRole('row').filter({ hasText: 'UPI GROCER' })).toContainText('-1250.50');
 	await expect(page.getByLabel('Save as')).toHaveValue('imports/statement.rupee');

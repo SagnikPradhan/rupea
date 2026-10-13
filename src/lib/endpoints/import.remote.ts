@@ -7,7 +7,7 @@ import { viewTransaction } from '#services/ledger/application/shared.ts';
 import { command, form } from '$app/server';
 import * as v from 'valibot';
 import { getFiles } from './files.remote';
-import { Account, Handle, inLedger, Key } from './shared';
+import { Handle, inLedger, Key } from './shared';
 import { getTransactions } from './transactions.remote';
 
 export const readStatement = form(
@@ -35,13 +35,21 @@ export const unlockStatement = form(
 		),
 );
 
+/** The schema that reads a statement, for the editor to start from. */
+export const recogniseStatement = command(
+	v.object({ handle: Handle, statement: v.pipe(v.string(), v.nonEmpty()) }),
+	async ({ handle, statement }) =>
+		replyFrom(
+			await inLedger({ handle, action: (l) => Extraction.recogniseStatement(l, statement) }),
+		),
+);
+
 /** The draft a statement makes with an unsaved schema, checked as the ledger would read it. */
 export const previewStatement = command(
 	v.object({
 		handle: Handle,
 		statement: v.pipe(v.string(), v.nonEmpty()),
 		schema: v.object({ key: v.string(), content: v.string() }),
-		account: v.string(),
 	}),
 	async ({ handle, ...options }) => {
 		const draft = await inLedger({
@@ -63,7 +71,6 @@ export const importStatement = form(
 		handle: Handle,
 		statement: v.pipe(v.string(), v.nonEmpty()),
 		schema: v.object({ key: v.string(), content: v.string() }),
-		account: Account,
 		key: Key,
 	}),
 	async ({ handle, key, ...options }) => {

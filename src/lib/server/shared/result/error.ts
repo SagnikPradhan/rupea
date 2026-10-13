@@ -45,6 +45,9 @@ export type RupeeError =
 	| { type: 'ModelDownloadFailed'; url: string; status?: number; cause?: RupeeError[] }
 	| { type: 'ModelHashMismatch'; path: string; expected: string; actual: string }
 	| { type: 'ExtractionLocked'; path: string }
+	| { type: 'ExtractionUnrecognised'; path: string }
+	| { type: 'ExtractionAmbiguous'; path: string; schemas: string[] }
+	| { type: 'ExtractionWithoutAccount'; path: string }
 	| { type: 'ExtractionMissingHeader'; path: string }
 	| { type: 'ExtractionMissingColumns'; path: string; columns: string[] }
 	| { type: 'ExtractionInvalidField'; location: string; field: string; reason: string }

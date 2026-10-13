@@ -19,6 +19,9 @@ import * as Extraction from '#services/extraction/application/extraction.ts';
 
 const schema = `version: v1
 name: Bank
+match:
+  - text: ^Account statement$
+account: Assets:Bank
 header:
   text: Narration
 fields:
@@ -173,7 +176,6 @@ describe('extracting a statement', () => {
 				ledger,
 				statement: key,
 				schema: bank,
-				account: 'Assets:Bank',
 			});
 
 			expect(draft).toEqual(
@@ -230,7 +232,6 @@ describe('extracting a statement', () => {
 				ledger,
 				statement: (await read(ledger)).key,
 				schema: bank,
-				account: 'Assets:Bank',
 			});
 
 			// The tagged line keeps its tag; the salary follows the ledger.
@@ -255,13 +256,24 @@ describe('extracting a statement', () => {
 					key: 'bank.yml',
 					content: `${schema}  balance: { from: [header: Balance], pipe: [number] }\n`,
 				},
-				account: 'Assets:Bank',
 			});
 
 			expect(draft._unsafeUnwrap().content).toContain(
 				['2026-08-29 UPI GROCER', '\tAssets:Bank = 8749.50', '\tExpenses:Food 1250.50'].join('\n'),
 			);
 			expect(draft._unsafeUnwrap().content).toContain('\tAssets:Bank 50000.00\n');
+		}));
+
+	it('needs the schema to name its account', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			expect(
+				await Extraction.extract({
+					ledger,
+					statement: (await read(ledger)).key,
+					schema: { key: 'bank.yml', content: schema.replace('account: Assets:Bank\n', '') },
+				}),
+			).toMatchObject({ error: { type: 'ExtractionWithoutAccount', path: 'bank.yml' } });
 		}));
 
 	it('names the schema when it does not parse', ({ context, db }) =>
@@ -272,7 +284,6 @@ describe('extracting a statement', () => {
 					ledger,
 					statement: (await read(ledger)).key,
 					schema: { key: 'bank.yml', content: 'version: v2' },
-					account: 'Assets:Bank',
 				}),
 			).toMatchObject({ error: { type: 'ExtractionInvalidSchema', path: 'bank.yml' } });
 		}));
@@ -287,7 +298,6 @@ describe('extracting a statement', () => {
 				ledger,
 				statement: key,
 				schema: bank,
-				account: 'Assets:Bank',
 			});
 
 			expect(draft._unsafeUnwrap().content).toContain('UPI GROCER');
@@ -307,6 +317,31 @@ describe('extracting a statement', () => {
 				.from(statementGrids)
 				.where(inArray(statementGrids.checksum, [aug.checksum, sep.checksum]));
 			expect(cached).toEqual([{ checksum: sep.checksum }]);
+		}));
+});
+
+describe('recognising a statement', () => {
+	it("finds the ledger's schema that matches it", ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Extraction.saveSchema({ ledger, ...bank });
+			await Extraction.saveSchema({
+				ledger,
+				key: 'other.yml',
+				content: schema.replace('^Account statement$', '^Other bank$'),
+			});
+
+			expect(await Extraction.recogniseStatement(ledger, (await read(ledger)).key)).toEqual(
+				ok({ ...bank, builtin: false }),
+			);
+		}));
+
+	it('says so when none does', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			expect(await Extraction.recogniseStatement(ledger, (await read(ledger)).key)).toMatchObject({
+				error: { type: 'ExtractionUnrecognised', path: 'aug.csv' },
+			});
 		}));
 });
 

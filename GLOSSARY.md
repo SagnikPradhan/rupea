@@ -56,7 +56,7 @@ _Avoid_: Tag (a tag is one kind of metadata value), annotation, attribute
 ## Storage and access
 
 **Storage**:
-The place one user's files live, such as a local directory or a Drive folder. It holds that user's schemas and every ledger they own.
+The place one user's files live, such as a local directory or a Drive folder. It holds every ledger that user owns.
 _Avoid_: Root, drive, bucket, vault
 
 **Owner**:
@@ -77,14 +77,22 @@ Anything that reports money movements: a bank or card statement, a broker report
 _Avoid_: Provider, feed
 
 **Statement**:
-A file from a source that is imported into the ledger.
+A file from a source, kept in the ledger it is imported into.
+
+**Inbox**:
+A ledger's statements that no ledger file cites yet.
+_Avoid_: Queue, pending, unfiled
 
 **Schema**:
-A description of how to read one kind of statement into records. It belongs to the user who imports with it, not to a ledger.
+A description of one kind of statement: how to recognise it, how to read it into records, and the account they belong to. It belongs to a ledger.
 _Avoid_: Template, parser
 
+**Built-in schema**:
+A schema Rupee ships for a common source, copied into a ledger the first time an import with it is saved.
+_Avoid_: Template, default schema
+
 **Draft**:
-The ledger file an import produces, reviewed and edited before it is saved.
+The ledger file an import produces from a statement, reviewed and edited before it is saved.
 _Avoid_: Preview
 
 ## Events

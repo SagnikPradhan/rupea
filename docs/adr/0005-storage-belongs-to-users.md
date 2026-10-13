@@ -1,5 +1,7 @@
 # Storage belongs to users
 
+Where schemas and statements live is superseded by [ADR 0008](0008-statements-and-schemas-belong-to-the-ledger.md).
+
 A user owns one **storage**: a place the files live, such as a local directory today and a Google Drive folder later. The storage holds everything the user writes: their schemas in `schemas/` and each ledger they own in `ledgers/<handle>/`. The database only records which storage a ledger lives in and who may reach it, and it caches what is derived from the files, such as the index. The files stay the truth.
 
 Schemas belong to the user, not to a ledger. A schema describes how a bank lays out its statements, and the person importing is the one who writes and uses it, so one schema serves every ledger they import into.

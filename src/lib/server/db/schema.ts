@@ -85,7 +85,6 @@ export const emailCodes = PG.pgTable('email_codes', (t) => ({
 }));
 
 // What the statements folder holds, so a statement is found by its content without hashing the folder.
-// A cache: the folder rebuilds it, losing `original`, which only a draft citing it records for good.
 export const statements = PG.pgTable(
 	'statements',
 	(t) => ({
@@ -101,6 +100,7 @@ export const statements = PG.pgTable(
 	(t) => [
 		PG.unique('statements_ledger_id_path').on(t.ledgerId, t.path),
 		PG.index('statements_ledger_id_checksum').on(t.ledgerId, t.checksum),
+		PG.index('statements_ledger_id_original').on(t.ledgerId, t.original),
 	],
 );
 

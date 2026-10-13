@@ -1,18 +1,8 @@
-import { err, okAsync, sequence, type ResultAsync } from '#lib/server/shared/result/result.ts';
+import { err, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import type { Storage } from '#lib/server/shared/storage/storage.ts';
 import { createHash } from 'node:crypto';
 import { extname } from 'node:path';
-import {
-	findStatement,
-	listStatements,
-	locateStatement,
-	moveStatement,
-	replaceStatements,
-	saveStatement,
-	type StatementRow,
-} from './database';
-
-export type { StatementRow };
+import { findStatement, locateStatement, saveStatement, type StatementRow } from './database';
 
 export type StoredStatement = {
 	key: string;
@@ -23,15 +13,12 @@ export type StoredStatement = {
 
 /** A ledger's statements folder, found by content through the `statements` table. */
 export type Statements = {
-	/** Content the ledger already has comes back where it is, under any name. */
+	/** Content the ledger already has comes back where it is, under any name, unlocked if it was. */
 	store: (name: string, content: Uint8Array) => ResultAsync<StoredStatement>;
 	read: (key: string) => ResultAsync<StoredStatement>;
 	find: (key: string) => ResultAsync<StatementRow>;
-	locate: (checksum: string) => ResultAsync<StatementRow | null>;
 	/** New content in place of the old, such as a PDF once unlocked. */
 	replace: (key: string, content: Uint8Array) => ResultAsync<StoredStatement>;
-	rename: (from: string, to: string) => ResultAsync<void>;
-	rebuild: () => ResultAsync<void>;
 };
 
 export const statements = (storage: Storage, ledger: string): Statements => {
@@ -41,10 +28,7 @@ export const statements = (storage: Storage, ledger: string): Statements => {
 		store: (n, c) => store(folder, n, c),
 		read: (k) => read(folder, k),
 		find: (k) => find(folder, k),
-		locate: (c) => locateStatement(ledger, c),
 		replace: (k, c) => replace(folder, k, c),
-		rename: (f, t) => storage.rename(f, t).andThen(() => moveStatement({ ledger, from: f, to: t })),
-		rebuild: () => rebuild(folder),
 	};
 };
 
@@ -55,20 +39,20 @@ const checksum = (c: Uint8Array) => `sha256:${createHash('sha256').update(c).dig
 const store = (f: Folder, name: string, content: Uint8Array): ResultAsync<StoredStatement> => {
 	const sum = checksum(content);
 	return locateStatement(f.ledger, sum).andThen((r) =>
-		r
-			? okAsync({ key: r.path, checksum: sum, original: r.original, content })
-			: write(f, { key: name, checksum: sum, original: null, content }, 1),
+		r ? read(f, r.path) : write(f, { key: name, checksum: sum, original: null, content }),
 	);
 };
 
+const write = (f: Folder, s: StoredStatement): ResultAsync<StoredStatement> =>
+	place(f, s, 1).andThen((k) => record(f, { ...s, key: k }));
+
 // The same name with other content goes in as `name (2)`, and so on.
-const write = (f: Folder, s: StoredStatement, n: number): ResultAsync<StoredStatement> => {
+const place = (f: Folder, s: StoredStatement, n: number): ResultAsync<string> => {
 	const key = numbered(s.key, n);
 	return f.storage
 		.write({ key, content: s.content, ifVersion: null })
-		.map(() => ({ ...s, key }))
-		.orElse((e) => (e.type === 'StorageConflict' ? write(f, s, n + 1) : err(e)))
-		.andThen((w) => record(f, w));
+		.map(() => key)
+		.orElse((e) => (e.type === 'StorageConflict' ? place(f, s, n + 1) : err(e)));
 };
 
 const numbered = (name: string, n: number) => {
@@ -109,21 +93,3 @@ const replace = (f: Folder, key: string, content: Uint8Array): ResultAsync<Store
 			}),
 		),
 	);
-
-// Every file is read and hashed, so this runs only when the folder may have changed behind Rupee's back.
-const rebuild = (f: Folder): ResultAsync<void> =>
-	listStatements(f.ledger).andThen((before) => {
-		const known = Object.fromEntries(before.map((r) => [r.path, r]));
-		const hashed = (key: string, content: Uint8Array): StatementRow => {
-			const sum = checksum(content);
-			const original = known[key]?.checksum === sum ? known[key].original : null;
-			return { path: key, checksum: sum, original };
-		};
-
-		return f.storage
-			.list()
-			.andThen((l) =>
-				sequence(l.map((e) => () => f.storage.read(e.key).map((r) => [hashed(e.key, r.content)]))),
-			)
-			.andThen((r) => replaceStatements(f.ledger, r));
-	});

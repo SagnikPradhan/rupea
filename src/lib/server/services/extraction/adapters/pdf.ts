@@ -22,11 +22,7 @@ export const readPdf = (o: PdfOptions): ResultAsync<Contents> =>
 	);
 
 export const unlockPdf = (o: PdfOptions): ResultAsync<Uint8Array> =>
-	openPdf(o).map((d) => {
-		const bytes = d.decrypted();
-		d.close();
-		return bytes;
-	});
+	openPdf(o).andThen((d) => d.decrypted().andTee(d.close).orTee(d.close));
 
 const readPages = (tables: Tables, document: PdfDocument): ResultAsync<Contents> =>
 	sequence(

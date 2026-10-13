@@ -1,7 +1,7 @@
 version: v1
 name: IDFC FIRST Bank credit card, until 2026
 match:
-  - text: '^\d{2}/[A-Z][a-z]{2}/\d{4} - \d{2}/[A-Z][a-z]{2}/\d{4}$'
+  - text: 'Step1: Add IDFC FIRST Bank'
 account: Liabilities:Card:IDFC
 header:
   text: Transaction Details

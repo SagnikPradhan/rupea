@@ -101,7 +101,7 @@ describe('reading a page with pdfium', () => {
 
 	it('writes a locked PDF without its password', async () => {
 		const document = await opened(await locked(), 'secret');
-		const content = document.decrypted();
+		const content = document.decrypted()._unsafeUnwrap();
 		document.close();
 
 		const unlocked = await openPdf({ name: 'a.pdf', content });

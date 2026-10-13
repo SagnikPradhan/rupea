@@ -2,6 +2,7 @@ import { safely } from '#lib/server/shared/control.ts';
 import { fault, unknownError } from '#lib/server/shared/result/error.ts';
 import { attemptWith, errAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import officeCrypto from 'officecrypto-tool';
+import { parse } from 'csv-parse/sync';
 import * as XLSX from 'xlsx';
 import type { Grid, Contents } from '../domain/types';
 
@@ -13,8 +14,21 @@ type SheetOptions = {
 	content: Uint8Array;
 };
 
+export const readCsv = (o: SheetOptions): ResultAsync<Contents> =>
+	attemptWith({
+		try: async () => ({
+			grid: parse(Buffer.from(o.content), { bom: true, relax_column_count: true }),
+			text: [],
+		}),
+		catch: (t) => unreadable(o.name, 'not a readable statement', t),
+	});
+
 /** An .xls, which banks also send as HTML or text; SheetJS reads whichever it is. */
-export const readXls = (o: SheetOptions): ResultAsync<Contents> => readFirstSheet(o);
+export const readXls = (o: SheetOptions): ResultAsync<Contents> => {
+	if (isEncrypted(o.content)) return errAsync(fault('ExtractionLocked', { path: o.name }));
+
+	return readFirstSheet(o);
+};
 
 // SheetJS reads any bytes as some sheet, so an .xlsx that is not a zip is refused instead.
 export const readXlsx = (o: SheetOptions): ResultAsync<Contents> => {
@@ -30,7 +44,7 @@ type UnlockOptions = {
 	password: string;
 };
 
-export const unlockXlsx = (o: UnlockOptions): ResultAsync<Uint8Array> =>
+export const unlockSheet = (o: UnlockOptions): ResultAsync<Uint8Array> =>
 	attemptWith({
 		try: () => officeCrypto.decrypt(Buffer.from(o.content), { password: o.password }),
 		catch: () => fault('ExtractionLocked', { path: o.name }),

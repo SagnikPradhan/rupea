@@ -78,9 +78,11 @@ export const importStatement = form(
 		const created = await inLedger({
 			handle,
 			action: (l) =>
-				Extraction.extract({ ...options, ledger: l })
-					.andThen((d) => Ledger.createFile({ ledger: l, key, content: d.content }))
-					.andThen((f) => Extraction.keepSchema(l, options.schema).map(() => f)),
+				Extraction.extract({ ...options, ledger: l }).andThen((d) =>
+					Extraction.keepSchema(l, options.schema).andThen(() =>
+						Ledger.createFile({ ledger: l, key, content: d.content }),
+					),
+				),
 		});
 		void getFiles(handle).refresh();
 		void getSchemas(handle).refresh();

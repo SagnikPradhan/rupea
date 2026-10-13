@@ -43,9 +43,7 @@ type SchemaText = { key: string; content: string };
 
 /** Copies the built-in schema an import used into the ledger, which then reads such statements its own way. */
 export const keepSchema = (ledger: Ledger, schema: SchemaText): ResultAsync<void> => {
-	const builtin = builtinSchemas().some(
-		(b) => b.key === schema.key && b.content === schema.content,
-	);
+	const builtin = builtins.some((b) => b.key === schema.key && b.content === schema.content);
 	if (!builtin) return okAsync(undefined);
 
 	return ledgerSchemas(ledger).andThen((s) =>
@@ -98,7 +96,7 @@ export const unlockStatement = (options: UnlockOptions): ResultAsync<Statement> 
 export const recogniseStatement = (ledger: Ledger, statement: string): ResultAsync<Recognised> =>
 	statementContents(ledger, statement).andThen(({ grid, text }) =>
 		ledgerCandidates(ledger).andThen((l) =>
-			recognise({ statement: basename(statement), grid, text, ledger: l, builtin: builtins() }).map(
+			recognise({ statement: basename(statement), grid, text, ledger: l, builtin: builtins }).map(
 				(c) => ({ key: c.key, content: c.content, builtin: !l.includes(c) }),
 			),
 		),
@@ -161,13 +159,13 @@ const ledgerCandidates = (l: Ledger): ResultAsync<Candidate[]> =>
 		.andThen((s) => s.list().andThen((e) => batchAsync(e.map((f) => s.read(f.key)))))
 		.map((b) => candidates(b.succeeded));
 
-const builtins = (): Candidate[] => candidates(builtinSchemas());
-
 const candidates = (texts: SchemaText[]): Candidate[] =>
 	texts.flatMap((t) => {
 		const parsed = parseSchema(t.key, t.content);
 		return parsed.isOk() ? [{ key: t.key, content: t.content, schema: parsed.value }] : [];
 	});
+
+const builtins = candidates(builtinSchemas());
 
 const ledgerStatements = (l: Ledger): ResultAsync<Statements> =>
 	openFolder(l, 'statements').map((s) => statements(s, l.id));
@@ -178,7 +176,7 @@ const statementContents = (l: Ledger, k: string): ResultAsync<Statement> =>
 			.find(k)
 			.andThen(({ checksum, original }) =>
 				findContents({ checksum, reader: READER }).andThen((c) =>
-					c ? okAsync({ key: k, checksum, original, ...c }) : s.read(k).andThen(contentsOf),
+					c ? okAsync({ key: k, checksum, original, ...c }) : s.read(k).andThen(readFresh),
 				),
 			),
 	);
@@ -186,12 +184,11 @@ const statementContents = (l: Ledger, k: string): ResultAsync<Statement> =>
 // Contents are cached by checksum, so the same statement in another ledger is not read twice.
 const contentsOf = (s: StoredStatement): ResultAsync<Statement> =>
 	findContents({ checksum: s.checksum, reader: READER }).andThen((c) =>
-		c
-			? okAsync(statementOf(s, c))
-			: readContents({ name: s.key, content: s.content }).andThen((r) =>
-					remember(statementOf(s, r)),
-				),
+		c ? okAsync(statementOf(s, c)) : readFresh(s),
 	);
+
+const readFresh = (s: StoredStatement): ResultAsync<Statement> =>
+	readContents({ name: s.key, content: s.content }).andThen((r) => remember(statementOf(s, r)));
 
 const statementOf = (s: StoredStatement, c: Contents): Statement => ({
 	key: s.key,

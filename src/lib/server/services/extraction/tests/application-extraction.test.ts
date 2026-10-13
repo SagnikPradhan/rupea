@@ -9,8 +9,6 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { it } from '#tests/shared/vitest.ts';
-import { scoped, type Storage } from '#lib/server/shared/storage/storage.ts';
-import { statements } from '#services/extraction/adapters/statements.ts';
 import { builtinSchemas } from '#services/extraction/adapters/builtin.ts';
 import { inArray } from 'drizzle-orm';
 import officeCrypto from 'officecrypto-tool';
@@ -50,6 +48,13 @@ const models = files.every(({ file }) => existsSync(join('data/models', file)));
 const sha256 = (c: Uint8Array) => `sha256:${createHash('sha256').update(c).digest('hex')}`;
 
 const encode = (text: string) => new TextEncoder().encode(text);
+
+const lockedSheet = async () => {
+	const book = XLSX.utils.book_new();
+	XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([['Date', 'Narration']]));
+	const plain = XLSX.write(book, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+	return new Uint8Array(await officeCrypto.encrypt(plain, { password: 'secret' }));
+};
 
 const read = async (ledger: Ledger.Ledger, text = statement, name = 'aug.csv') =>
 	(await Extraction.readStatement(ledger, { name, content: encode(text) }))._unsafeUnwrap();
@@ -101,10 +106,7 @@ describe('reading a statement', () => {
 	}) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			const book = XLSX.utils.book_new();
-			XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([['Date', 'Narration']]));
-			const plain = XLSX.write(book, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
-			const content = new Uint8Array(await officeCrypto.encrypt(plain, { password: 'secret' }));
+			const content = await lockedSheet();
 			const locked = await Extraction.readStatement(ledger, { name: 'aug.xlsx', content });
 			expect(locked).toMatchObject({ error: { type: 'ExtractionLocked', path: 'aug.xlsx' } });
 
@@ -123,6 +125,17 @@ describe('reading a statement', () => {
 			expect([...stored._unsafeUnwrap().content.subarray(0, 2)]).toEqual([0x50, 0x4b]);
 		}));
 
+	it('finds a statement it unlocked when the locked one comes again', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = await lockedSheet();
+			await Extraction.readStatement(ledger, { name: 'aug.xlsx', content });
+			await Extraction.unlockStatement({ ledger, statement: 'aug.xlsx', password: 'secret' });
+			const again = await Extraction.readStatement(ledger, { name: 'sep.xlsx', content });
+
+			expect(again._unsafeUnwrap()).toMatchObject({ key: 'aug.xlsx', original: sha256(content) });
+		}));
+
 	it('keeps nothing it cannot read', ({ context, db, storage }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
@@ -133,37 +146,6 @@ describe('reading a statement', () => {
 
 			expect(unread).toMatchObject({ error: { type: 'ExtractionUnsupportedFile' } });
 			expect((await storage.read(`${folder(ledger)}/statements/aug.txt`)).isErr()).toBe(true);
-		}));
-});
-
-describe("a ledger's statements", () => {
-	const opened = (ledger: Ledger.Ledger, storage: Storage) =>
-		statements(scoped(storage, `${folder(ledger)}/statements`), ledger.id);
-
-	it('are found by content after a rename', ({ context, db, storage }) =>
-		provide(context, async () => {
-			const ledger = await createLedger(db);
-			const { checksum } = await read(ledger);
-			await opened(ledger, storage).rename('aug.csv', 'hdfc/2026-08.csv');
-
-			expect(await opened(ledger, storage).locate(checksum)).toEqual(
-				ok({ path: 'hdfc/2026-08.csv', checksum, original: null }),
-			);
-		}));
-
-	it('are rebuilt from the folder', ({ context, db, storage }) =>
-		provide(context, async () => {
-			const ledger = await createLedger(db);
-			const { checksum } = await read(ledger);
-			await storage.rename(
-				`${folder(ledger)}/statements/aug.csv`,
-				`${folder(ledger)}/statements/moved.csv`,
-			);
-			await opened(ledger, storage).rebuild();
-
-			expect(await opened(ledger, storage).locate(checksum)).toEqual(
-				ok({ path: 'moved.csv', checksum, original: null }),
-			);
 		}));
 });
 

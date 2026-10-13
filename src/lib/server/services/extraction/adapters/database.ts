@@ -1,7 +1,7 @@
 import { statementGrids, statements } from '#lib/server/db/schema.ts';
 import { withContext } from '#lib/server/shared/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { and, eq, gt, lte, sql } from 'drizzle-orm';
+import { and, eq, gt, lte, or, sql } from 'drizzle-orm';
 import type { Contents } from '../domain/types';
 
 export type StatementRow = { path: string; checksum: string; original: string | null };
@@ -33,16 +33,16 @@ export const locateStatement = (
 			db
 				.select(row)
 				.from(statements)
-				.where(and(eq(statements.ledgerId, ledger), eq(statements.checksum, checksum)))
+				.where(
+					and(
+						eq(statements.ledgerId, ledger),
+						or(eq(statements.checksum, checksum), eq(statements.original, checksum)),
+					),
+				)
 				.orderBy(statements.path)
 				.limit(1)
 				.then(([f]) => f ?? null),
 		),
-	);
-
-export const listStatements = (l: string): ResultAsync<StatementRow[]> =>
-	withContext('db')((db) =>
-		attempt(() => db.select(row).from(statements).where(eq(statements.ledgerId, l))),
 	);
 
 export const saveStatement = (ledger: string, r: StatementRow): ResultAsync<void> =>
@@ -56,33 +56,6 @@ export const saveStatement = (ledger: string, r: StatementRow): ResultAsync<void
 					set: { checksum: r.checksum, original: r.original },
 				});
 		}),
-	);
-
-type MoveStatementOptions = {
-	ledger: string;
-	from: string;
-	to: string;
-};
-
-export const moveStatement = (o: MoveStatementOptions): ResultAsync<void> =>
-	withContext('db')((db) =>
-		attempt(async () => {
-			await db
-				.update(statements)
-				.set({ path: o.to })
-				.where(and(eq(statements.ledgerId, o.ledger), eq(statements.path, o.from)));
-		}),
-	);
-
-export const replaceStatements = (ledger: string, rows: StatementRow[]): ResultAsync<void> =>
-	withContext('db')((db) =>
-		attempt(() =>
-			db.transaction(async (tx) => {
-				await tx.delete(statements).where(eq(statements.ledgerId, ledger));
-				if (rows.length > 0)
-					await tx.insert(statements).values(rows.map((r) => ({ ledgerId: ledger, ...r })));
-			}),
-		),
 	);
 
 type GridKey = {

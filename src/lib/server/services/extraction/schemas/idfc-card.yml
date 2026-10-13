@@ -1,7 +1,7 @@
 version: v1
 name: IDFC FIRST Bank credit card
 match:
-  - text: '^Statement Date \d{2}/[A-Z][a-z]{2}/\d{4} to \d{2}/[A-Z][a-z]{2}/\d{4}$'
+  - text: 'Step 1: Add IDFC FIRST Bank'
 account: Liabilities:Card:IDFC
 header:
   text: Details

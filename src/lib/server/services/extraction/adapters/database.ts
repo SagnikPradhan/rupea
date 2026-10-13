@@ -5,7 +5,7 @@ import { and, eq, gt, lte, sql } from 'drizzle-orm';
 import type { Grid } from '../domain/types';
 
 type FindGridOptions = {
-	user: string;
+	ledger: string;
 	statement: string;
 	reader: string;
 };
@@ -20,7 +20,7 @@ export const findGrid = (
 				.from(statementGrids)
 				.where(
 					and(
-						eq(statementGrids.userId, o.user),
+						eq(statementGrids.ledgerId, o.ledger),
 						eq(statementGrids.statement, o.statement),
 						eq(statementGrids.reader, o.reader),
 						gt(statementGrids.expiresAt, sql`now()`),
@@ -32,7 +32,7 @@ export const findGrid = (
 	);
 
 type SaveGridOptions = {
-	user: string;
+	ledger: string;
 	statement: string;
 	reader: string;
 	checksum: string;
@@ -44,13 +44,13 @@ type SaveGridOptions = {
 export const saveGrid = (o: SaveGridOptions): ResultAsync<void> =>
 	withContext('db')((db) =>
 		attempt(async () => {
-			const { user, statement, ...cached } = o;
+			const { ledger, statement, ...cached } = o;
 			await db.delete(statementGrids).where(lte(statementGrids.expiresAt, sql`now()`));
 			await db
 				.insert(statementGrids)
-				.values({ userId: user, statement, ...cached })
+				.values({ ledgerId: ledger, statement, ...cached })
 				.onConflictDoUpdate({
-					target: [statementGrids.userId, statementGrids.statement],
+					target: [statementGrids.ledgerId, statementGrids.statement],
 					set: cached,
 				});
 		}),

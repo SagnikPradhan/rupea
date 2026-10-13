@@ -43,7 +43,7 @@ fields:
 	const { data } = $props();
 
 	const handle = $derived(data.ledger.handle);
-	const schemas = $derived(await getSchemas());
+	const schemas = $derived(await getSchemas(handle));
 
 	const statement = $state({ key: '', grid: [] as string[][], errors: [] as RupeeError[] });
 	const editor = $state({
@@ -99,7 +99,7 @@ fields:
 	}
 
 	async function open(key: string) {
-		const schema = await getSchema(key);
+		const schema = await getSchema({ handle, key });
 		Object.assign(editor, { errors: schema.errors, saved: false });
 		if (schema.data) Object.assign(editor, { key, content: schema.data.content });
 		await apply(0);
@@ -111,13 +111,13 @@ fields:
 	}
 
 	async function save() {
-		const saved = await saveSchema({ key: editor.key, content: editor.content });
+		const saved = await saveSchema({ handle, key: editor.key, content: editor.content });
 		Object.assign(editor, { errors: saved.errors, saved: saved.ok });
 	}
 
 	async function remove(key: string) {
 		if (!confirm(`Delete ${key}?`)) return;
-		const deleted = await deleteSchema(key);
+		const deleted = await deleteSchema({ handle, key });
 		editor.errors = deleted.errors;
 		if (!deleted.ok || key !== editor.key) return;
 
@@ -167,6 +167,7 @@ fields:
 			await apply(0);
 		})}
 	>
+		<input {...readStatement.fields.handle.as('hidden', handle)} />
 		<label>
 			PDF password, if it has one
 			<input {...readStatement.fields.password.as('password')} autocomplete="off" />

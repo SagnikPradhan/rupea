@@ -12,8 +12,8 @@ import {
 } from '#lib/server/shared/result/result.ts';
 import { type Batch, batch } from '#lib/server/shared/result/batch.ts';
 import { petName } from '#lib/server/shared/names.ts';
-import { scoped } from '#lib/server/shared/storage/storage.ts';
-import * as Storage from '#services/storage/application/storage.ts';
+import { scoped, type Storage } from '#lib/server/shared/storage/storage.ts';
+import { ensureStorage, withStorage } from '#services/storage/application/storage.ts';
 import {
 	findLedger,
 	findLedgers,
@@ -58,7 +58,7 @@ type CreateLedgerOptions = {
 };
 
 export const createLedger = (o: CreateLedgerOptions): ResultAsync<Ledger> =>
-	Storage.ensureStorage(o.user).andThen((s) => insertNamed({ ...o, storage: s.id }, TRIES));
+	ensureStorage(o.user).andThen((s) => insertNamed({ ...o, storage: s.id }, TRIES));
 
 const insertNamed = (
 	o: CreateLedgerOptions & { storage: string },
@@ -68,11 +68,13 @@ const insertNamed = (
 		e.type === 'NameTaken' && n > 1 ? insertNamed(o, n - 1) : errAsync(e),
 	);
 
-const ledgerFiles = (l: Ledger): ResultAsync<Files> =>
-	Storage.withStorage({
-		user: l.owner,
-		action: (s) => ok(files(scoped(s, `ledgers/${l.handle}`))),
-	});
+type Folder = 'files' | 'statements' | 'schemas';
+
+/** One of a ledger's folders in its owner's storage, for a caller that reached the ledger through `withLedger`. */
+export const openFolder = (l: Ledger, f: Folder): ResultAsync<Storage> =>
+	withStorage({ user: l.owner, action: (s) => ok(scoped(s, `ledgers/${l.handle}/${f}`)) });
+
+const ledgerFiles = (l: Ledger): ResultAsync<Files> => openFolder(l, 'files').map(files);
 
 const indexFile = (ledgerId: string, file: RupeeFile): ResultAsync<RupeeError[]> =>
 	withContext('config')((config) => {

@@ -89,10 +89,10 @@ export const statementGrids = PG.pgTable(
 	'statement_grids',
 	(t) => ({
 		...base,
-		userId: t
+		ledgerId: t
 			.uuid()
 			.notNull()
-			.references(() => users.id, { onDelete: 'cascade' }),
+			.references(() => ledgers.id, { onDelete: 'cascade' }),
 		statement: t.text().notNull(),
 		checksum: t.text().notNull(),
 		reader: t.text().notNull(),
@@ -100,7 +100,7 @@ export const statementGrids = PG.pgTable(
 		expiresAt: t.timestamp({ withTimezone: true }).notNull(),
 	}),
 	(t) => [
-		PG.unique('statement_grids_user_id_statement').on(t.userId, t.statement),
+		PG.unique('statement_grids_ledger_id_statement').on(t.ledgerId, t.statement),
 		PG.index('statement_grids_expires_at').on(t.expiresAt),
 	],
 );

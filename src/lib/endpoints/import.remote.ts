@@ -11,11 +11,13 @@ import { Account, Handle, inLedger, Key } from './shared';
 import { getTransactions } from './transactions.remote';
 
 export const readStatement = form(
-	v.object({ file: v.file(), password: v.optional(v.string()) }),
-	async ({ file, password }) => {
+	v.object({ handle: Handle, file: v.file(), password: v.optional(v.string()) }),
+	async ({ handle, file, password }) => {
 		const content = new Uint8Array(await file.arrayBuffer());
 		const upload = { name: file.name, content, password: password || undefined };
-		return replyFrom(await Auth.withCurrentUser(({ id }) => Extraction.readStatement(id, upload)));
+		return replyFrom(
+			await inLedger({ handle, action: (l) => Extraction.readStatement(l, upload) }),
+		);
 	},
 );
 
@@ -30,7 +32,7 @@ export const previewStatement = command(
 	async ({ handle, ...options }) => {
 		const draft = await inLedger({
 			handle,
-			action: (l, u) => Extraction.extract({ ...options, user: u.id, ledger: l }),
+			action: (l) => Extraction.extract({ ...options, ledger: l }),
 		});
 		if (draft.isErr()) return { ok: false, data: null, errors: [draft.error] };
 
@@ -53,8 +55,8 @@ export const importStatement = form(
 	async ({ handle, key, ...options }) => {
 		const created = await inLedger({
 			handle,
-			action: (l, u) =>
-				Extraction.extract({ ...options, user: u.id, ledger: l }).andThen((d) =>
+			action: (l) =>
+				Extraction.extract({ ...options, ledger: l }).andThen((d) =>
 					Ledger.createFile({ ledger: l, key, content: d.content }),
 				),
 		});

@@ -55,7 +55,7 @@ const fileMetadata = async (db: Database, ledgerId: string) =>
 
 // Where the ledger's files are, in a storage holding every user's.
 const stored = (storage: Storage, ledger: Ledger.Ledger) =>
-	scoped(storage, `users/${ledger.owner}/ledgers/${ledger.handle}`);
+	scoped(storage, `users/${ledger.owner}/ledgers/${ledger.handle}/files`);
 
 const put = (storage: Storage, ledger: Ledger.Ledger, key: string, text: string) =>
 	stored(storage, ledger).write({

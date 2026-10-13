@@ -1,20 +1,20 @@
 :root {
 	color-scheme: light dark;
 
-	--font-size-0: 0.75rem;
+	--font-size-0: 0.8rem;
 	--font-size-1: 1rem;
-	--font-size-2: 1.5rem;
-	--font-size-3: 2.25rem;
-	--font-size-4: 3.38rem;
+	--font-size-2: 1.25rem;
+	--font-size-3: 1.56rem;
+	--font-size-4: 1.95rem;
 
-	--size-0: 0.17rem; /* 4px */
-	--size-1: 0.34rem; /* 8px */
-	--size-2: 0.68rem; /* 16px */
-	--size-3: 1rem; /* 24px */
-	--size-4: 1.34rem; /* 32px */
-	--size-5: 2rem; /* 48px */
-	--size-6: 4rem; /* 96px */
-	--size-7: 6rem; /* 144px */
+	--size-0: 0.25rem; /* 4px */
+	--size-1: 0.5rem; /* 8px */
+	--size-2: 1rem; /* 16px */
+	--size-3: 1.5rem; /* 24px */
+	--size-4: 2rem; /* 32px */
+	--size-5: 3rem; /* 48px */
+	--size-6: 6rem; /* 96px */
+	--size-7: 9rem; /* 144px */
 
 	--font-sans: 'Noto Sans Variable', sans-serif;
 	--font-mono: 'JetBrains Mono Variable', monospace;
@@ -42,30 +42,8 @@
 }
 
 html {
-	font-size: 24px;
 	text-wrap: pretty;
 	scroll-behavior: smooth;
-}
-
-@media (min-width: 320px) {
-	/* smartphones, iPhone, portrait 480x320 phones */
-	html {
-		font-size: 18px;
-	}
-}
-
-@media (min-width: 481px) {
-	/* portrait e-readers (Nook/Kindle), smaller tablets @ 600 or @ 640 wide. */
-	html {
-		font-size: 20px;
-	}
-}
-
-@media (min-width: 641px) {
-	/* portrait tablets, portrait iPad, landscape e-readers, landscape 800x480 or 854x480 phones */
-	html {
-		font-size: 24px;
-	}
 }
 
 body {

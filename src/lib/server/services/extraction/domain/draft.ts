@@ -18,6 +18,8 @@ type DraftOptions = {
 	config: RupeeConfiguration;
 	statement: string;
 	checksum: string;
+	// The upload's checksum, when unlocking it changed the content.
+	original: string | null;
 	account: string;
 	// In any order; they are written in the statement's.
 	records: Categorised[];
@@ -36,12 +38,19 @@ export const categorised = (records: RupeeRecord[]): Categorised[] =>
 export const draft = (options: DraftOptions): Draft => ({
 	key: `imports/${options.statement.replace(/\.[^.]*$/, '')}.rupee`,
 	content: print(options.config, {
-		metadata: { statement: [options.statement], checksum: [options.checksum] },
+		metadata: citation(options),
 		transactions: options.records
 			.toSorted((a, b) => a.location.line - b.location.line)
 			.map(toTransaction(options.account)),
 	}),
 	failed: options.failed,
+});
+
+// The checksum finds the statement wherever it has moved; the path is only what it was called.
+const citation = ({ statement, checksum, original }: DraftOptions) => ({
+	statement: [statement],
+	checksum: [checksum],
+	...(original ? { original: [original] } : {}),
 });
 
 const toTransaction =

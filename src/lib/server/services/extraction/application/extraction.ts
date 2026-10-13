@@ -78,7 +78,7 @@ type ExtractOptions = {
 export const extract = (options: ExtractOptions): ResultAsync<Draft> => {
 	const { ledger, statement, schema, account } = options;
 
-	return statementGrid(ledger, statement).andThen(({ checksum, grid }) =>
+	return statementGrid(ledger, statement).andThen(({ checksum, original, grid }) =>
 		parseSchema(schema.key, schema.content)
 			.andThen((s) => run({ schema: s, file: statement, grid }))
 			.asyncAndThen(({ succeeded, failed }) =>
@@ -88,6 +88,7 @@ export const extract = (options: ExtractOptions): ResultAsync<Draft> => {
 							config: c,
 							statement,
 							checksum,
+							original,
 							account,
 							records: [...categorised(succeeded), ...p],
 							failed,

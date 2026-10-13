@@ -51,6 +51,7 @@ describe('drafting a ledger file', () => {
 			config,
 			statement: 'hdfc-aug.2026.csv',
 			checksum: 'sha256:abc',
+			original: null,
 			account: 'Assets:Bank',
 			records: [],
 			failed: [],
@@ -63,6 +64,7 @@ describe('drafting a ledger file', () => {
 			config,
 			statement: 'hdfc.csv',
 			checksum: 'sha256:abc',
+			original: null,
 			account: 'Assets:Bank',
 			records: [
 				at(3, 'Income:Salary', record('SALARY', '50000')),
@@ -78,6 +80,7 @@ describe('drafting a ledger file', () => {
 			config,
 			statement: 'hdfc.csv',
 			checksum: 'sha256:abc',
+			original: null,
 			account: 'Assets:Bank',
 			records: [at(2, 'Expenses:Shopping', record('UPI  SHOP\nBLR', '-120.50'))],
 			failed: [],
@@ -90,5 +93,22 @@ describe('drafting a ledger file', () => {
 			['Assets:Bank', parseAmount('-120.50')],
 			['Expenses:Shopping', parseAmount('120.50')],
 		]);
+	});
+
+	it('cites the upload too, when unlocking changed its content', () => {
+		const drafted = draft({
+			config,
+			statement: 'hdfc.pdf',
+			checksum: 'sha256:abc',
+			original: 'sha256:def',
+			account: 'Assets:Bank',
+			records: [],
+			failed: [],
+		});
+		expect(parse(config, { key: drafted.key, content: drafted.content }).metadata).toEqual({
+			statement: ['hdfc.pdf'],
+			checksum: ['sha256:abc'],
+			original: ['sha256:def'],
+		});
 	});
 });

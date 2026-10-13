@@ -1,29 +1,30 @@
 import { openPdf } from '#services/extraction/adapters/pdfium.ts';
+import { PDFDocument } from '@cantoo/pdf-lib';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
-const fixture = (n: string) => readFile(join(import.meta.dirname, 'fixtures', n));
+const plain = () => readFile(join(import.meta.dirname, 'fixtures/sbi-savings.pdf'));
 
-const open = async (name: string, password?: string) => {
-	const content = await fixture(name);
-	return openPdf({ name, content, password });
+const locked = async () => {
+	const document = await PDFDocument.load(await plain());
+	document.encrypt({ userPassword: 'secret', ownerPassword: 'secret' });
+	return document.save();
 };
 
-const opened = async (name: string, password?: string) => {
-	const document = await open(name, password);
+const opened = async (content: Uint8Array, password?: string) => {
+	const document = await openPdf({ name: 'a.pdf', content, password });
 	if (document.isErr()) throw new Error(document.error.type);
 	return document.value;
 };
 
 describe('opening a PDF with pdfium', () => {
 	it('counts its pages and measures them in points', async () => {
-		const document = await opened('statement.pdf');
+		const document = await opened(await plain());
 		expect(document.count).toBe(2);
 
 		const page = document.page(0);
-		expect(page.isOk() && page.value.bounds.x2).toBeCloseTo(595.28, 1);
-		expect(page.isOk() && page.value.bounds.y2).toBeCloseTo(841.89, 1);
+		expect(page.isOk() && page.value.bounds).toEqual({ x1: 0, y1: 0, x2: 595, y2: 842 });
 		document.close();
 	});
 
@@ -36,14 +37,15 @@ describe('opening a PDF with pdfium', () => {
 	});
 
 	it('tells a locked PDF apart from an unreadable one', async () => {
-		expect(await open('statement-locked.pdf')).toMatchObject({
-			error: { type: 'ExtractionLocked', path: 'statement-locked.pdf' },
+		const content = await locked();
+		expect(await openPdf({ name: 'a.pdf', content })).toMatchObject({
+			error: { type: 'ExtractionLocked', path: 'a.pdf' },
 		});
-		expect(await open('statement-locked.pdf', 'wrong')).toMatchObject({
+		expect(await openPdf({ name: 'a.pdf', content, password: 'wrong' })).toMatchObject({
 			error: { type: 'ExtractionLocked' },
 		});
 
-		const document = await opened('statement-locked.pdf', 'secret');
+		const document = await opened(content, 'secret');
 		expect(document.count).toBe(2);
 		document.close();
 	});
@@ -51,7 +53,7 @@ describe('opening a PDF with pdfium', () => {
 
 describe('reading a page with pdfium', () => {
 	const page = async () => {
-		const document = await opened('statement.pdf');
+		const document = await opened(await plain());
 		const first = document.page(0);
 		if (first.isErr()) throw new Error(first.error.type);
 		return first.value;
@@ -61,8 +63,8 @@ describe('reading a page with pdfium', () => {
 		const read = await page();
 		const words = read.words;
 
-		expect(words.slice(0, 3).map((w) => w.text)).toEqual(['HDFC', 'BANK', 'Ltd.']);
-		expect(words.map((w) => w.text)).toContain('Chq./Ref.No.');
+		expect(words.slice(0, 3).map((w) => w.text)).toEqual(['Account', 'Summary', 'Welcome:']);
+		expect(words.map((w) => w.text)).toContain('Balance');
 
 		const [first] = words;
 		expect(first?.y1).toBeLessThan(first?.y2 ?? 0);
@@ -74,8 +76,8 @@ describe('reading a page with pdfium', () => {
 		const read = await page();
 		const whole = read.raster(read.bounds, 800);
 
-		expect([whole.width, whole.height]).toEqual([566, 800]);
-		expect(whole.data).toHaveLength(566 * 800 * 4);
+		expect([whole.width, whole.height]).toEqual([565, 800]);
+		expect(whole.data).toHaveLength(565 * 800 * 4);
 		expect(whole.data.some((b) => b !== 0xff)).toBe(true);
 		read.close();
 	});
@@ -90,18 +92,19 @@ describe('reading a page with pdfium', () => {
 
 	it('leaves the paper around the page white and opaque', async () => {
 		const read = await page();
-		const corner = read.raster({ x1: 0, y1: 0, x2: 20, y2: 20 }, 4);
+		const right = read.bounds.x2;
+		const corner = read.raster({ x1: right, y1: 0, x2: right + 20, y2: 20 }, 4);
 
 		expect([...corner.data]).toEqual(Array.from({ length: 4 * 4 * 4 }, () => 0xff));
 		read.close();
 	});
 
 	it('writes a locked PDF without its password', async () => {
-		const document = await opened('statement-locked.pdf', 'secret');
+		const document = await opened(await locked(), 'secret');
 		const content = document.decrypted();
 		document.close();
 
-		const unlocked = await openPdf({ name: 'statement.pdf', content });
+		const unlocked = await openPdf({ name: 'a.pdf', content });
 		expect(unlocked.isOk() && unlocked.value.count).toBe(2);
 		if (unlocked.isOk()) unlocked.value.close();
 	});

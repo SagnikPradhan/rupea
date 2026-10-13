@@ -14,6 +14,7 @@ import { statements } from '#services/extraction/adapters/statements.ts';
 import { builtinSchemas } from '#services/extraction/adapters/builtin.ts';
 import { inArray } from 'drizzle-orm';
 import officeCrypto from 'officecrypto-tool';
+import * as XLSX from 'xlsx';
 import { describe, expect } from 'vitest';
 import * as Extraction from '#services/extraction/application/extraction.ts';
 import { models as files } from '#lib/server/shared/onnx/models.ts';
@@ -100,7 +101,9 @@ describe('reading a statement', () => {
 	}) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			const plain = await readFile(join(fixtures, 'statement.xlsx'));
+			const book = XLSX.utils.book_new();
+			XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet([['Date', 'Narration']]));
+			const plain = XLSX.write(book, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
 			const content = new Uint8Array(await officeCrypto.encrypt(plain, { password: 'secret' }));
 			const locked = await Extraction.readStatement(ledger, { name: 'aug.xlsx', content });
 			expect(locked).toMatchObject({ error: { type: 'ExtractionLocked', path: 'aug.xlsx' } });
@@ -116,7 +119,7 @@ describe('reading a statement', () => {
 				key: 'aug.xlsx',
 				original: sha256(content),
 			});
-			expect(unlocked._unsafeUnwrap().grid[0]).toEqual(['Date', 'Narration', 'Ref', 'Amount']);
+			expect(unlocked._unsafeUnwrap().grid[0]).toEqual(['Date', 'Narration']);
 			expect([...stored._unsafeUnwrap().content.subarray(0, 2)]).toEqual([0x50, 0x4b]);
 		}));
 
@@ -345,11 +348,11 @@ describe('recognising a statement', () => {
 
 describe('a statement a built-in schema reads', () => {
 	const banks = [
-		{ file: 'hdfc-savings.xls', schema: 'hdfc-savings.yml', records: 4 },
-		{ file: 'hdfc-card.xls', schema: 'hdfc-card.yml', records: 4 },
-		{ file: 'idfc-card.pdf', schema: 'idfc-card.yml', records: 4 },
+		{ file: 'hdfc-savings.xls', schema: 'hdfc-savings.yml', records: 20 },
+		{ file: 'hdfc-card.xls', schema: 'hdfc-card.yml', records: 9 },
+		{ file: 'idfc-card.pdf', schema: 'idfc-card.yml', records: 3 },
 		{ file: 'idfc-card-2026.pdf', schema: 'idfc-card-2026.yml', records: 3 },
-		{ file: 'sbi-savings.pdf', schema: 'sbi-savings.yml', records: 5 },
+		{ file: 'sbi-savings.pdf', schema: 'sbi-savings.yml', records: 12 },
 	];
 
 	it.for(banks)(
@@ -359,7 +362,7 @@ describe('a statement a built-in schema reads', () => {
 
 			await provide(context, async () => {
 				const ledger = await createLedger(db);
-				const content = await readFile(join(fixtures, 'banks', file));
+				const content = await readFile(join(fixtures, file));
 				const read = await Extraction.readStatement(ledger, { name: file, content });
 				const key = read._unsafeUnwrap().key;
 

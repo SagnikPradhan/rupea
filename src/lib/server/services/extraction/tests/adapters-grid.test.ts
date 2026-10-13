@@ -1,5 +1,3 @@
-import { readFile } from 'node:fs/promises';
-import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 import { readContents, unlock } from '#services/extraction/adapters/grid.ts';
 import officeCrypto from 'officecrypto-tool';
@@ -7,6 +5,17 @@ import * as XLSX from 'xlsx';
 import { err, ok } from '#lib/server/shared/result/result.ts';
 
 const bytes = (t: string) => new TextEncoder().encode(t);
+
+const workbook = (type: XLSX.BookType, rows: unknown[][]) => {
+	const book = XLSX.utils.book_new();
+	XLSX.utils.book_append_sheet(book, XLSX.utils.aoa_to_sheet(rows));
+	return XLSX.write(book, { type: 'buffer', bookType: type }) as Buffer;
+};
+
+const sheet = [
+	['Date', 'Narration', 'Ref', 'Amount'],
+	[new Date(2026, 7, 29), 'GROCER', null, 1250.5],
+];
 
 describe('reading the contents of a file', () => {
 	it('reads a CSV row per line, quotes, BOM, ragged rows and all', async () => {
@@ -25,7 +34,7 @@ describe('reading the contents of a file', () => {
 	});
 
 	it('reads a sheet as text: dates as ISO days, numbers as their values, empty cells blank', async () => {
-		const content = await readFile(join(import.meta.dirname, 'fixtures/statement.xlsx'));
+		const content = workbook('xlsx', sheet);
 		expect(await readContents({ name: 'a.xlsx', content })).toEqual(
 			ok({
 				grid: [
@@ -38,15 +47,10 @@ describe('reading the contents of a file', () => {
 	});
 
 	it('reads a legacy .xls, and one that banks send as HTML', async () => {
-		const book = XLSX.utils.book_new();
-		XLSX.utils.book_append_sheet(
-			book,
-			XLSX.utils.aoa_to_sheet([
-				['Date', 'Amount'],
-				['27/08/26', 8997.35],
-			]),
-		);
-		const xls = XLSX.write(book, { type: 'buffer', bookType: 'biff8' }) as Uint8Array;
+		const xls = workbook('biff8', [
+			['Date', 'Amount'],
+			['27/08/26', 8997.35],
+		]);
 		const html = bytes(
 			'<table><tr><td>Date</td><td>Amount</td></tr><tr><td>27/08/26</td><td>8997.35</td></tr></table>',
 		);
@@ -63,7 +67,7 @@ describe('reading the contents of a file', () => {
 	});
 
 	it('tells a locked .xlsx apart, and opens it with its password', async () => {
-		const content = await readFile(join(import.meta.dirname, 'fixtures/statement.xlsx'));
+		const content = workbook('xlsx', sheet);
 		const locked = new Uint8Array(await officeCrypto.encrypt(content, { password: 'secret' }));
 
 		expect(await readContents({ name: 'a.xlsx', content: locked })).toEqual(

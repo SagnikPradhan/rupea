@@ -8,19 +8,26 @@ import { models as files } from '#lib/server/shared/onnx/models.ts';
 import { createModels } from '#lib/server/shared/onnx/runtime.ts';
 import { readPdf } from '#services/extraction/adapters/pdf.ts';
 import { err } from '#lib/server/shared/result/result.ts';
-
-const fixture = (n: string) => readFile(join(import.meta.dirname, 'fixtures', n));
+import { PDFDocument } from '@cantoo/pdf-lib';
 
 const models = files.every(({ file }) => existsSync(join('data/models', file)));
 
-const header = [
-	'Date',
-	'Narration',
-	'Chq./Ref.No.',
-	'Value Dt',
-	'Withdrawal Amt.',
-	'Deposit Amt.',
-	'Closing Balance',
+const plain = () => readFile(join(import.meta.dirname, 'fixtures/sbi-savings.pdf'));
+
+const locked = async () => {
+	const document = await PDFDocument.load(await plain());
+	document.encrypt({ userPassword: 'secret', ownerPassword: 'secret' });
+	return document.save();
+};
+
+const first = [
+	'16/02/2026',
+	'16/02/2026',
+	'DEP TFR UPI/CR/510000000001/ARUN',
+	'-',
+	'-',
+	'64,000.00',
+	'2,46,340.55',
 ];
 
 describe('reading a PDF', () => {
@@ -28,39 +35,25 @@ describe('reading a PDF', () => {
 		'reads every page’s table, wrapped narrations and all',
 		async ({ context }) => {
 			const read = await provide(context, async () =>
-				readPdf({
-					name: 'statement.pdf',
-					content: await fixture('statement.pdf'),
-					password: undefined,
-				}),
+				readPdf({ name: 'a.pdf', content: await plain(), password: undefined }),
 			);
 			if (read.isErr()) throw new Error(read.error.type);
 			const grid = read.value.grid;
-			const rows = grid.filter((c) => c[0] !== 'Date');
-			expect(grid[0]).toEqual(header);
-			expect(read.value.text).toContain(
-				'Statement of account for Account No 50100000000000, 01/08/26 to 12/09/26',
-			);
-			expect(rows).toHaveLength(40);
-			expect(rows[0]).toEqual([
-				'01/08/26',
-				'UPI-SHOP 1',
-				'000000400001',
-				'01/08/26',
-				'120.50',
-				'',
-				'99,879.50',
-			]);
-			expect(rows[4]?.[1]).toBe('UPI-MERCHANT NUMBER 5-OKAXIS-PAYMENT FOR ORDER 1005');
-			expect(rows[6]?.slice(4, 6)).toEqual(['', '50,000.00']);
-			expect(rows[39]?.[0]).toBe('12/09/26');
+			const dated = grid.filter((c) => /^\d{2}\/\d{2}\/\d{4}$/.test(c[0] ?? ''));
+			expect(grid.filter((c) => c[6] === 'Balance')).toHaveLength(2);
+			expect(read.value.text).toContain('STATEMENT OF ACCOUNT');
+
+			expect(dated).toHaveLength(12);
+			expect(dated[0]).toEqual(first);
+			expect(grid[2]?.[2]).toBe('P/HDFC/arun.kumar/Self');
+			expect(dated[11]?.[0]).toBe('27/04/2026');
 		},
 	);
 
 	it.skipIf(!models)('opens a locked PDF with its password', async ({ context }) => {
-		const content = await fixture('statement-locked.pdf');
-		const locked = await provide(context, () => readPdf({ name: 'locked.pdf', content }));
-		expect(locked).toEqual(err({ type: 'ExtractionLocked', path: 'locked.pdf' }));
+		const content = await locked();
+		const unasked = await provide(context, () => readPdf({ name: 'locked.pdf', content }));
+		expect(unasked).toEqual(err({ type: 'ExtractionLocked', path: 'locked.pdf' }));
 		const wrong = await provide(context, () =>
 			readPdf({ name: 'locked.pdf', content, password: 'wrong' }),
 		);
@@ -68,7 +61,7 @@ describe('reading a PDF', () => {
 		const opened = await provide(context, () =>
 			readPdf({ name: 'locked.pdf', content, password: 'secret' }),
 		);
-		expect(opened.isOk() && opened.value.grid[0]).toEqual(header);
+		expect(opened.isOk() && opened.value.grid[1]).toEqual(first);
 	});
 
 	it('refuses a file that is not a PDF', async ({ context }) => {
@@ -94,12 +87,7 @@ describe('reading a PDF', () => {
 					logger: context.logger,
 				}),
 			},
-			async () =>
-				readPdf({
-					name: 'statement.pdf',
-					content: await fixture('statement.pdf'),
-					password: undefined,
-				}),
+			async () => readPdf({ name: 'a.pdf', content: await plain(), password: undefined }),
 		);
 		expect(read).toMatchObject({
 			error: {

@@ -28,6 +28,7 @@
 		"test:e2e": "playwright test"
 	},
 	"devDependencies": {
+		"@cantoo/pdf-lib": "2.11.1",
 		"@commitlint/cli": "21.2.3",
 		"@commitlint/config-conventional": "21.2.3",
 		"@eslint/js": "10.0.1",

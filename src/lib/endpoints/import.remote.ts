@@ -7,6 +7,7 @@ import { viewTransaction } from '#services/ledger/application/shared.ts';
 import { command, form } from '$app/server';
 import * as v from 'valibot';
 import { getFiles } from './files.remote';
+import { getSchemas } from './schemas.remote';
 import { Handle, inLedger, Key } from './shared';
 import { getTransactions } from './transactions.remote';
 
@@ -77,11 +78,12 @@ export const importStatement = form(
 		const created = await inLedger({
 			handle,
 			action: (l) =>
-				Extraction.extract({ ...options, ledger: l }).andThen((d) =>
-					Ledger.createFile({ ledger: l, key, content: d.content }),
-				),
+				Extraction.extract({ ...options, ledger: l })
+					.andThen((d) => Ledger.createFile({ ledger: l, key, content: d.content }))
+					.andThen((f) => Extraction.keepSchema(l, options.schema).map(() => f)),
 		});
 		void getFiles(handle).refresh();
+		void getSchemas(handle).refresh();
 		void getTransactions(handle).refresh();
 		return replyFrom(created.map((f) => ({ key: f.key })));
 	},

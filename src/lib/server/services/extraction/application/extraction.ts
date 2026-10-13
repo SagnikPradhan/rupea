@@ -39,6 +39,27 @@ export const saveSchema = (options: SaveSchemaOptions): ResultAsync<SchemaFile> 
 	);
 };
 
+type SchemaText = { key: string; content: string };
+
+/** Copies the built-in schema an import used into the ledger, which then reads such statements its own way. */
+export const keepSchema = (ledger: Ledger, schema: SchemaText): ResultAsync<void> => {
+	const builtin = builtinSchemas().some(
+		(b) => b.key === schema.key && b.content === schema.content,
+	);
+	if (!builtin) return okAsync(undefined);
+
+	return ledgerSchemas(ledger).andThen((s) =>
+		s
+			.list()
+			.andThen((e) =>
+				e.some((f) => f.key === schema.key)
+					? okAsync(undefined)
+					: s.write(schema.key, schema.content),
+			)
+			.map(() => undefined),
+	);
+};
+
 export type Statement = {
 	key: string;
 	checksum: string;
@@ -72,8 +93,6 @@ export const unlockStatement = (options: UnlockOptions): ResultAsync<Statement> 
 			.andThen(contentsOf),
 	);
 };
-
-type SchemaText = { key: string; content: string };
 
 /** The schema that reads a statement: one of the ledger's, or a built-in one when none of the ledger's match. */
 export const recogniseStatement = (ledger: Ledger, statement: string): ResultAsync<Recognised> =>

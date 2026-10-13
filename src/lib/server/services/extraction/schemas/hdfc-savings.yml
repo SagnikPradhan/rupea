@@ -1,0 +1,19 @@
+version: v1
+name: HDFC Bank savings account
+match:
+  - text: '^HDFC BANK Ltd\..*Statement of accounts$'
+account: Assets:Bank:HDFC
+header:
+  text: Narration
+records:
+  each: row
+  where: { col: Date, matches: '^\d{2}/\d{2}/\d{2}$' }
+fields:
+  date: { from: [header: Date], pipe: [date: dd/MM/yy] }
+  description: { from: [header: Narration] }
+  amount:
+    - from: [header: Withdrawal Amt.]
+      pipe: [number, negate]
+    - from: [header: Deposit Amt.]
+      pipe: [number]
+  balance: { from: [header: Closing Balance], pipe: [number] }

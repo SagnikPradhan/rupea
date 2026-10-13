@@ -1,0 +1,18 @@
+version: v1
+name: IDFC FIRST Bank credit card, until 2026
+match:
+  - text: '^\d{2}/[A-Z][a-z]{2}/\d{4} - \d{2}/[A-Z][a-z]{2}/\d{4}$'
+account: Liabilities:Card:IDFC
+header:
+  text: Transaction Details
+records:
+  each: row
+  where: { col: A, matches: '^\d{2} [A-Z][a-z]{2} \d{2}$' }
+fields:
+  date: { from: [col: A], pipe: [date: dd MMM yy] }
+  description: { from: [header: Transaction Details] }
+  amount:
+    - from: [header: Amount]
+      pipe: [replace: { from: ' DR', to: '' }, number, negate]
+    - from: [header: Amount]
+      pipe: [replace: { from: ' CR', to: '' }, number]

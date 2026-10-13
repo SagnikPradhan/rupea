@@ -1,0 +1,19 @@
+version: v1
+name: HDFC Bank credit card
+match:
+  - text: '^Registered Office Address: HDFC Bank Cards'
+account: Liabilities:Card:HDFC
+header:
+  text: Description
+records:
+  each: row
+  where: { col: Date & Time, matches: '^\d{2}/\d{2}/\d{4}' }
+fields:
+  date: { from: [header: Date & Time], pipe: [date: dd/MM/yyyy / HH:mm] }
+  description: { from: [header: Description] }
+  amount:
+    # A credit is marked Cr three columns right of its amount; an unmarked amount is spent.
+    - from: [text: Cr, left: 3]
+      pipe: [number]
+    - from: [header: AMT]
+      pipe: [number, negate]

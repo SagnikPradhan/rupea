@@ -5,15 +5,18 @@ import * as Ledger from '#services/ledger/application/ledger.ts';
 import { broken, hashed } from '#tests/shared/embedding.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { createHash } from 'node:crypto';
+import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { it } from '#tests/shared/vitest.ts';
 import { scoped, type Storage } from '#lib/server/shared/storage/storage.ts';
 import { statements } from '#services/extraction/adapters/statements.ts';
+import { builtinSchemas } from '#services/extraction/adapters/builtin.ts';
 import { inArray } from 'drizzle-orm';
 import officeCrypto from 'officecrypto-tool';
 import { describe, expect } from 'vitest';
 import * as Extraction from '#services/extraction/application/extraction.ts';
+import { models as files } from '#lib/server/shared/onnx/models.ts';
 
 const schema = `version: v1
 name: Bank
@@ -42,6 +45,7 @@ const statement = [
 ].join('\n');
 
 const fixtures = join(import.meta.dirname, 'fixtures');
+const models = files.every(({ file }) => existsSync(join('data/models', file)));
 const sha256 = (c: Uint8Array) => `sha256:${createHash('sha256').update(c).digest('hex')}`;
 
 const encode = (text: string) => new TextEncoder().encode(text);
@@ -336,6 +340,72 @@ describe('recognising a statement', () => {
 			expect(await Extraction.recogniseStatement(ledger, (await read(ledger)).key)).toMatchObject({
 				error: { type: 'ExtractionUnrecognised', path: 'aug.csv' },
 			});
+		}));
+});
+
+describe('a statement a built-in schema reads', () => {
+	const banks = [
+		{ file: 'hdfc-savings.xls', schema: 'hdfc-savings.yml', records: 4 },
+		{ file: 'hdfc-card.xls', schema: 'hdfc-card.yml', records: 4 },
+		{ file: 'idfc-card.pdf', schema: 'idfc-card.yml', records: 4 },
+		{ file: 'idfc-card-2026.pdf', schema: 'idfc-card-2026.yml', records: 3 },
+		{ file: 'sbi-savings.pdf', schema: 'sbi-savings.yml', records: 5 },
+	];
+
+	it.for(banks)(
+		'$file imports into a fresh ledger with no edits',
+		async ({ file, schema, records }, { context, db, skip }) => {
+			if (file.endsWith('.pdf') && !models) skip();
+
+			await provide(context, async () => {
+				const ledger = await createLedger(db);
+				const content = await readFile(join(fixtures, 'banks', file));
+				const read = await Extraction.readStatement(ledger, { name: file, content });
+				const key = read._unsafeUnwrap().key;
+
+				const recognised = (await Extraction.recogniseStatement(ledger, key))._unsafeUnwrap();
+				const draft = (
+					await Extraction.extract({ ledger, statement: key, schema: recognised })
+				)._unsafeUnwrap();
+				const checked = Ledger.check(draft.key, draft.content);
+
+				expect(recognised).toMatchObject({ key: schema, builtin: true });
+				expect(draft.failed).toEqual([]);
+				expect(checked.failed).toEqual([]);
+				expect(checked.succeeded).toHaveLength(records);
+			});
+		},
+	);
+
+	const builtin = (key: string) => ({
+		key,
+		content: builtinSchemas().find((s) => s.key === key)?.content ?? '',
+	});
+
+	it('keeps its schema in the ledger once imported, as it was', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const hdfc = builtin('hdfc-card.yml');
+			const sbi = builtin('sbi-savings.yml');
+			await Extraction.keepSchema(ledger, hdfc);
+			await Extraction.keepSchema(ledger, { key: sbi.key, content: `${sbi.content}# edited\n` });
+			await Extraction.keepSchema(ledger, bank);
+
+			const kept = (await Extraction.listSchemas(ledger))._unsafeUnwrap().map((e) => e.key);
+			expect(kept).toEqual(['hdfc-card.yml']);
+			expect(await Extraction.readSchema(ledger, hdfc.key)).toMatchObject(
+				ok({ content: hdfc.content }),
+			);
+		}));
+
+	it("leaves the ledger's own schema of the same name alone", ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const hdfc = builtin('hdfc-card.yml');
+			await Extraction.saveSchema({ ledger, key: hdfc.key, content: schema });
+			await Extraction.keepSchema(ledger, hdfc);
+
+			expect(await Extraction.readSchema(ledger, hdfc.key)).toMatchObject(ok({ content: schema }));
 		}));
 });
 

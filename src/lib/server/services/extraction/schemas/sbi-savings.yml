@@ -1,0 +1,19 @@
+version: v1
+name: State Bank of India savings account
+match:
+  - text: State Bank of India
+account: Assets:Bank:SBI
+header:
+  text: Balance
+records:
+  each: row
+  where: { col: A, matches: '^\d{2}/\d{2}/\d{4}$' }
+fields:
+  date: { from: [col: A], pipe: [date: dd/MM/yyyy] }
+  description: { from: [col: C] }
+  amount:
+    - from: [col: E]
+      pipe: [number, negate]
+    - from: [col: F]
+      pipe: [number]
+  balance: { from: [col: G], pipe: [number] }

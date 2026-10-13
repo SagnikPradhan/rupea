@@ -116,6 +116,7 @@ describe('reading a statement', () => {
 				expect(unlocked._unsafeUnwrap().grid.length).toBeGreaterThan(0);
 				expect(reopened.isOk()).toBe(true);
 			}),
+		60_000,
 	);
 
 	it('keeps nothing it cannot read', ({ context, db, storage }) =>

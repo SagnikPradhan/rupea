@@ -1,5 +1,4 @@
 import { Tokenizer } from '@huggingface/tokenizers';
-import type { Canvas } from '@napi-rs/canvas';
 import { readFile } from 'node:fs/promises';
 import { InferenceSession, Tensor } from 'onnxruntime-node';
 import { batches } from '../batches';
@@ -12,17 +11,19 @@ import {
 	type Box,
 	type Detection,
 	type DetrModel,
+	type Image,
 	type Output,
+	type Raster,
 } from './detr';
 import { ensure, prepare, type ModelFile, type ModelOptions } from './download';
 import { encode, inputs, vectors, type EmbeddingModel } from './embedding';
 import { remembering, type Embed } from './remembering';
 
-export type { Box, Detection, DetrModel, EmbeddingModel };
+export type { Box, Detection, DetrModel, EmbeddingModel, Image, Raster };
 
 type DetectOptions = {
 	model: DetrModel;
-	canvas: Canvas;
+	raster: Raster;
 	region: Box;
 };
 
@@ -109,15 +110,17 @@ export type Models = ReturnType<typeof createModels>;
 type DetrOptions = DetectOptions & { session: InferenceSession };
 
 const detr = (options: DetrOptions): ResultAsync<Detection[]> => {
-	const { session, model, canvas, region } = options;
+	const { session, model, raster, region } = options;
 	const { longest, labels, threshold } = model;
-	const pixels = preprocess({ canvas, region, longest });
 
-	return attempt(() =>
-		session.run({
+	const run = () => {
+		const pixels = preprocess(raster(region, longest));
+		return session.run({
 			pixel_values: new Tensor('float32', pixels.data, [1, 3, pixels.height, pixels.width]),
-		}),
-	).andThen((o) =>
+		});
+	};
+
+	return attempt(run).andThen((o) =>
 		output(o, 'logits').andThen((l) =>
 			output(o, 'pred_boxes').map((b) =>
 				detections({ logits: l, boxes: b, labels, threshold, region }),

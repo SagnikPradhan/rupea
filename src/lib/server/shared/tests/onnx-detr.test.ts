@@ -1,6 +1,5 @@
-import { createCanvas } from '@napi-rs/canvas';
 import { describe, expect, it } from 'vitest';
-import { detections, preprocess, type Output } from '#lib/server/shared/onnx/detr.ts';
+import { detections, preprocess, type Image, type Output } from '#lib/server/shared/onnx/detr.ts';
 
 const output = (dims: number[], values: number[]): Output => ({
 	dims,
@@ -8,50 +7,32 @@ const output = (dims: number[], values: number[]): Output => ({
 });
 
 // Red on the left half, blue on the right.
-const halves = () => {
-	const canvas = createCanvas(200, 100);
-	const context = canvas.getContext('2d');
-	context.fillStyle = '#ff0000';
-	context.fillRect(0, 0, 100, 100);
-	context.fillStyle = '#0000ff';
-	context.fillRect(100, 0, 100, 100);
-	return canvas;
-};
+const halves = (width: number, height: number): Image => ({
+	width,
+	height,
+	data: Uint8Array.from({ length: width * height * 4 }, (_, i) => {
+		const left = (i >> 2) % width < width / 2;
+		return [left ? 255 : 0, 0, left ? 0 : 255, 255][i & 3] ?? 0;
+	}),
+});
 
 const normalised = (value: number, channel: number) =>
 	Math.fround((value - [0.485, 0.456, 0.406][channel]!) / [0.229, 0.224, 0.225][channel]!);
 
-describe('preprocessing a region', () => {
-	it('scales the longer side to the model size, keeping the aspect ratio', () => {
-		const pixels = preprocess({
-			canvas: halves(),
-			region: { x1: 0, y1: 0, x2: 200, y2: 100 },
-			longest: 50,
-		});
+describe('preprocessing an image', () => {
+	it('keeps the image size and lays channels out as planes', () => {
+		const pixels = preprocess(halves(50, 25));
 		expect([pixels.width, pixels.height]).toEqual([50, 25]);
 		expect(pixels.data).toHaveLength(3 * 50 * 25);
 	});
 
-	it('crops to the region and lays channels out as planes', () => {
-		const pixels = preprocess({
-			canvas: halves(),
-			region: { x1: 120, y1: 10, x2: 180, y2: 90 },
-			longest: 8,
-		});
-		const plane = pixels.width * pixels.height;
+	it('normalises each channel by its own mean and deviation', () => {
+		const pixels = preprocess(halves(2, 1));
+		const plane = 2;
 		const channel = (c: number) => [...pixels.data.subarray(c * plane, (c + 1) * plane)];
-		expect(new Set(channel(0))).toEqual(new Set([normalised(0, 0)]));
-		expect(new Set(channel(1))).toEqual(new Set([normalised(0, 1)]));
-		expect(new Set(channel(2))).toEqual(new Set([normalised(1, 2)]));
-	});
-
-	it('keeps at least one pixel for a sliver of a region', () => {
-		const pixels = preprocess({
-			canvas: halves(),
-			region: { x1: 0, y1: 0, x2: 200, y2: 0.1 },
-			longest: 10,
-		});
-		expect([pixels.width, pixels.height]).toEqual([10, 1]);
+		expect(channel(0)).toEqual([normalised(1, 0), normalised(0, 0)]);
+		expect(channel(1)).toEqual([normalised(0, 1), normalised(0, 1)]);
+		expect(channel(2)).toEqual([normalised(0, 2), normalised(1, 2)]);
 	});
 });
 

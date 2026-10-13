@@ -1,6 +1,5 @@
 import { tableDetection, tableStructure } from '#lib/server/shared/onnx/models.ts';
-import type { Box, DetrModel, Models } from '#lib/server/shared/onnx/runtime.ts';
-import type { Canvas } from '@napi-rs/canvas';
+import type { Box, DetrModel, Models, Raster } from '#lib/server/shared/onnx/runtime.ts';
 
 // As in TATR's reference inference.
 const threshold = 0.5;
@@ -27,8 +26,8 @@ const structure: DetrModel = {
 };
 
 export const tatr = (models: Models) => ({
-	detect: (c: Canvas, r: Box) => models.detect({ model: detection, canvas: c, region: r }),
-	structure: (c: Canvas, r: Box) => models.detect({ model: structure, canvas: c, region: r }),
+	detect: (r: Raster, b: Box) => models.detect({ model: detection, raster: r, region: b }),
+	structure: (r: Raster, b: Box) => models.detect({ model: structure, raster: r, region: b }),
 });
 
 export type Tables = ReturnType<typeof tatr>;

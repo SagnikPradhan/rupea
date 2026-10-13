@@ -1,4 +1,3 @@
-import { createCanvas, type Canvas } from '@napi-rs/canvas';
 import type { ModelFile } from './download';
 
 export type Box = { x1: number; y1: number; x2: number; y2: number };
@@ -14,32 +13,18 @@ export type DetrModel = {
 export type Output = { dims: readonly number[]; data: Float32Array };
 export type Pixels = { data: Float32Array; width: number; height: number };
 
+/** Packed RGBA, four bytes a pixel, rows top to bottom. */
+export type Image = { data: Uint8Array; width: number; height: number };
+
+/** Pixels of a region, scaled so its longer side is `longest`. */
+export type Raster = (region: Box, longest: number) => Image;
+
 // ImageNet normalisation, from the models' preprocessor config.
 const MEAN = [0.485, 0.456, 0.406];
 const STD = [0.229, 0.224, 0.225];
 
-type PreprocessOptions = {
-	canvas: Canvas;
-	region: Box;
-	longest: number;
-};
-
-// Channel-first planes, scaled so the longer side is `longest`.
-export const preprocess = (options: PreprocessOptions): Pixels => {
-	const { canvas, region, longest } = options;
-
-	const width = region.x2 - region.x1;
-	const height = region.y2 - region.y1;
-	const scale = longest / Math.max(width, height);
-
-	const input = createCanvas(
-		Math.max(1, Math.round(width * scale)),
-		Math.max(1, Math.round(height * scale)),
-	);
-	const context = input.getContext('2d');
-	context.drawImage(canvas, region.x1, region.y1, width, height, 0, 0, input.width, input.height);
-
-	const image = context.getImageData(0, 0, input.width, input.height);
+// Channel-first planes.
+export const preprocess = (image: Image): Pixels => {
 	const plane = image.width * image.height;
 	const data = Float32Array.from({ length: 3 * plane }, (_, index) => {
 		const channel = Math.floor(index / plane);

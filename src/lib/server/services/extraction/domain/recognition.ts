@@ -1,5 +1,7 @@
 import { fault } from '#lib/server/shared/result/error.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
+import { matchesGlob } from 'node:path';
+import { match, P } from 'ts-pattern';
 import { layout } from './runtime';
 import type { Pattern, RupeeSchema } from './schema';
 import type { Grid } from './types';
@@ -41,7 +43,11 @@ type MatchesOptions = {
 	text: string[];
 };
 
-const matches = ({ pattern, statement, grid, text }: MatchesOptions) =>
-	'file' in pattern
-		? pattern.file.test(statement)
-		: [...grid.flat(), ...text].some((c) => pattern.text.test(c));
+const matches = ({ pattern, statement, grid, text }: MatchesOptions) => {
+	const lines = [...grid.flat(), ...text];
+	return match(pattern)
+		.with({ file: P.select() }, (f) => matchesGlob(statement.toLowerCase(), f.toLowerCase()))
+		.with({ text: P.select() }, (t) => lines.some((l) => l.toLowerCase().includes(t.toLowerCase())))
+		.with({ regex: P.select() }, (r) => lines.some((l) => r.test(l)))
+		.exhaustive();
+};

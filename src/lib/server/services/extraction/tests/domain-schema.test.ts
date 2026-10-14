@@ -60,11 +60,11 @@ describe('reading a schema', () => {
 	it('reads what recognises a statement and the account it imports into', () => {
 		const parsed = parseSchema(
 			'hdfc.yml',
-			`version: v1\nname: HDFC\nmatch:\n  - file: '\\.xls$'\n  - text: HDFC BANK\naccount: Assets:Bank:HDFC\nfields:\n${plain}`,
+			`version: v1\nname: HDFC\nmatch:\n  - file: '*.xls'\n  - text: HDFC BANK\n  - regex: '^HDFC'\naccount: Assets:Bank:HDFC\nfields:\n${plain}`,
 		);
 		expect(parsed).toMatchObject(ok({ account: 'Assets:Bank:HDFC' }));
 		if (parsed.isOk())
-			expect(parsed.value.match.map((p) => Object.keys(p)[0])).toEqual(['file', 'text']);
+			expect(parsed.value.match.map((p) => Object.keys(p)[0])).toEqual(['file', 'text', 'regex']);
 	});
 
 	it('defaults records and pipes', () => {

@@ -20,7 +20,7 @@ import { models as files } from '#lib/server/shared/onnx/models.ts';
 const schema = `version: v1
 name: Bank
 match:
-  - text: ^Account statement$
+  - regex: ^Account statement$
 account: Assets:Bank
 header:
   text: Narration

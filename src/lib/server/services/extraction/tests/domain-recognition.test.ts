@@ -32,24 +32,42 @@ const recognised = (ledger: Candidate[], builtin: Candidate[] = [], statement = 
 
 describe('recognising a statement', () => {
 	it('takes the one schema whose pattern matches', () => {
-		const ours = [candidate('hdfc.yml', "text: '^HDFC BANK'"), candidate('sbi.yml', 'text: SBI')];
+		const ours = [candidate('hdfc.yml', 'text: HDFC BANK'), candidate('sbi.yml', 'text: SBI')];
 		expect(recognised(ours)._unsafeUnwrap()).toBe('hdfc.yml');
 	});
 
 	it('matches a text pattern against the lines outside the tables too', () => {
-		const ours = [candidate('hdfc.yml', "text: '^Account Number'")];
+		const ours = [candidate('hdfc.yml', 'text: Account Number')];
 		expect(recognised(ours)._unsafeUnwrap()).toBe('hdfc.yml');
 	});
 
-	it('matches a file pattern against the statement name', () => {
-		expect(recognised([candidate('xls.yml', "file: '\\.xls$'")])._unsafeUnwrap()).toBe('xls.yml');
-		expect(recognised([candidate('xls.yml', "file: '\\.xls$'")], [], 'aug.pdf')).toMatchObject({
+	it('matches text anywhere in a cell, whatever its case and punctuation', () => {
+		expect(recognised([candidate('hdfc.yml', 'text: bank ltd.')])._unsafeUnwrap()).toBe('hdfc.yml');
+		expect(recognised([candidate('hdfc.yml', 'text: bank ltd?')])).toMatchObject({
+			error: { type: 'ExtractionUnrecognised' },
+		});
+	});
+
+	it('matches a regex pattern against the cells', () => {
+		const ours = [
+			candidate('hdfc.yml', "regex: '^HDFC BANK'"),
+			candidate('sbi.yml', "regex: '^BANK'"),
+		];
+		expect(recognised(ours)._unsafeUnwrap()).toBe('hdfc.yml');
+	});
+
+	it('matches a file pattern against the statement name as a glob, whatever its case', () => {
+		expect(recognised([candidate('xls.yml', "file: '*.xls'")])._unsafeUnwrap()).toBe('xls.yml');
+		expect(recognised([candidate('xls.yml', "file: '*.xls'")], [], 'AUG.XLS')._unsafeUnwrap()).toBe(
+			'xls.yml',
+		);
+		expect(recognised([candidate('xls.yml', "file: '*.xls'")], [], 'aug.pdf')).toMatchObject({
 			error: { type: 'ExtractionUnrecognised', path: 'aug.pdf' },
 		});
 	});
 
 	it('matches when any one pattern does', () => {
-		const either = candidate('hdfc.yml', "file: '\\.pdf$', text: Narration");
+		const either = candidate('hdfc.yml', "file: '*.pdf', text: Narration");
 		expect(recognised([either])._unsafeUnwrap()).toBe('hdfc.yml');
 	});
 

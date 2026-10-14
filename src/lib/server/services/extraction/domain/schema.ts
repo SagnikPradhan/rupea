@@ -27,7 +27,11 @@ const Account = v.pipe(
 	v.check((a) => accountType(a) !== null, 'starts with an account type, like Assets'),
 );
 
-const Pattern = v.union([v.strictObject({ file: Regex }), v.strictObject({ text: Regex })]);
+const Pattern = v.union([
+	v.strictObject({ file: v.string() }),
+	v.strictObject({ text: v.string() }),
+	v.strictObject({ regex: Regex }),
+]);
 
 const Count = v.pipe(v.number(), v.integer(), v.minValue(0));
 
@@ -61,7 +65,7 @@ const Field = v.pipe(
 const Schema = v.strictObject({
 	version: v.literal('v1'),
 	name: v.string(),
-	// Any one pattern recognises a statement: `file:` its name, `text:` a cell of its grid or a line outside it.
+	// Any one pattern recognises a statement: `file:` globs its name; `text:` and `regex:` search the cells of its grid and the lines outside it.
 	match: v.optional(v.array(Pattern), []),
 	account: v.optional(Account),
 	header: v.optional(

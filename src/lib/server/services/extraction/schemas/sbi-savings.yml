@@ -5,9 +5,6 @@ match:
 account: Assets:Bank:SBI
 header:
   text: Balance
-records:
-  each: row
-  where: { col: A, matches: '^\d{2}/\d{2}/\d{4}$' }
 fields:
   date: { from: [col: A], pipe: [date: dd/MM/yyyy] }
   description: { from: [col: C] }

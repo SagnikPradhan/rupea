@@ -35,13 +35,11 @@ export const extract = (options: ExtractOptions): Result<Batch<RupeeRecord>> => 
 		// A statement may repeat its header, as on every page of a PDF.
 		const repeats = (c: string[]) => c.join('\t').trim() === (grid[header] ?? []).join('\t').trim();
 
-		return batch(
-			grid.flatMap((cs, r) =>
-				r > header && !isBlank(cs) && !repeats(cs) && keeps({ schema, sheet, row: r })
-					? [record({ schema, sheet, row: r })]
-					: [],
-			),
-		);
+		const rows = grid.flatMap((c, r) => (r > header && !isBlank(c) && !repeats(c) ? [r] : []));
+		const kept = rows.filter((r) => keeps({ schema, sheet, row: r }));
+
+		// Keeping no row means the schema reads it wrong, so every row says why.
+		return batch((kept.length > 0 ? kept : rows).map((r) => record({ schema, sheet, row: r })));
 	});
 };
 
@@ -90,7 +88,8 @@ type RowOptions = {
 
 const keeps = ({ schema, sheet, row }: RowOptions) => {
 	const records = schema.records;
-	if (!records.where) return true;
+	if (!records.where)
+		return readField({ sheet, row, paths: schema.fields.date, kind: 'date' }).kind === 'date';
 
 	const col = column(sheet, records.where.col);
 	const cell = col === null ? undefined : sheet.grid[row]?.[col];

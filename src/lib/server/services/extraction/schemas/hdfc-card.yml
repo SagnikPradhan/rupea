@@ -5,9 +5,6 @@ match:
 account: Liabilities:Card:HDFC
 header:
   text: Description
-records:
-  each: row
-  where: { col: Date & Time, matches: '^\d{2}/\d{2}/\d{4}' }
 fields:
   date: { from: [header: Date & Time], pipe: [date: dd/MM/yyyy / HH:mm] }
   description: { from: [header: Description] }

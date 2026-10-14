@@ -5,9 +5,6 @@ match:
 account: Liabilities:Card:IDFC
 header:
   text: Transaction Details
-records:
-  each: row
-  where: { col: A, matches: '^\d{2} [A-Z][a-z]{2} \d{2}$' }
 fields:
   date: { from: [col: A], pipe: [date: dd MMM yy] }
   description: { from: [header: Transaction Details] }

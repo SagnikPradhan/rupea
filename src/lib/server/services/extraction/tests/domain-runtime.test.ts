@@ -14,11 +14,6 @@ const schema = (text: string): RupeeSchema => {
 const hdfc = schema(`
 header:
   text: Narration
-records:
-  each: row
-  where:
-    col: Date
-    matches: '^\\d{2}/\\d{2}/\\d{2}$'
 fields:
   date: { from: [header: Date], pipe: [date: dd/MM/yy] }
   description: { from: [header: Narration] }
@@ -63,6 +58,42 @@ describe('reading rows against a schema', () => {
 		expect(summary(statement)).toEqual({
 			failed: [],
 			succeeded: ['6 2026-08-29 -1250.50 UPI-GROCER', '7 2026-08-30 50000.00 SALARY  AUG'],
+		});
+	});
+
+	it('reads only the rows a `where` picks', () => {
+		const picky = schema(`
+header:
+  text: Narration
+records:
+  each: row
+  where: { col: Narration, matches: '^SALARY' }
+fields:
+  date: { from: [header: Date], pipe: [date: dd/MM/yy] }
+  description: { from: [header: Narration] }
+  amount: { from: [header: Deposit Amt.], pipe: [number] }
+`);
+		expect(summary(statement, picky)).toEqual({
+			failed: [],
+			succeeded: ['7 2026-08-30 50000.00 SALARY  AUG'],
+		});
+	});
+
+	it('reports every row when no date reads, as with the wrong format', () => {
+		const misdated = schema(`
+header:
+  text: Narration
+fields:
+  date: { from: [header: Date], pipe: [date: dd/MM/yyyy] }
+  description: { from: [header: Narration] }
+  amount: { from: [header: Deposit Amt.], pipe: [number] }
+`);
+		const grid = [statement[3] ?? [], statement[5] ?? []];
+		expect(summary(grid, misdated)).toMatchObject({
+			failed: [
+				{ location: 'hdfc.csv:2', field: 'date', reason: '"29/08/26" is not a dd/MM/yyyy date' },
+			],
+			succeeded: [],
 		});
 	});
 
@@ -136,8 +167,8 @@ fields:
 			['29 Aug 2026'],
 			['Paid to Grocer', 'Amount', '-100', 'Food and Drink'],
 		];
-		expect(summary(grid, walk)).toMatchObject({
-			failed: [{ location: 'hdfc.csv:2', field: 'date' }],
+		expect(summary(grid, walk)).toEqual({
+			failed: [],
 			succeeded: ['3 2026-08-29 -100.00 Grocer Food and Drink'],
 		});
 	});
@@ -156,10 +187,13 @@ fields:
 
 	it('skips the header where it repeats, as on each page of a PDF', () => {
 		const [title = [], , , header = [], , groceries = [], salary = []] = statement;
-		// No `where`, so only the repeat check keeps the second header out.
+		// A `where` that lets the header through, so only the repeat check keeps it out.
 		const unfiltered = schema(`
 header:
   text: Narration
+records:
+  each: row
+  where: { col: Narration, matches: '.' }
 fields:
   date: { from: [header: Date], pipe: [date: dd/MM/yy] }
   description: { from: [header: Narration] }

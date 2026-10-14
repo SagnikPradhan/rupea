@@ -16,7 +16,7 @@ cp .env.example .env
 pnpm dev
 ```
 
-The first run downloads the ML models for statement import into `data/models`.
+The first run downloads the ML models for statement import into `data/models`. How to use Rupee is in the [manual](docs/manual/README.md).
 
 ## Development
 

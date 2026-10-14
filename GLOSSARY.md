@@ -91,6 +91,22 @@ _Avoid_: Template, parser
 A schema Rupee ships for a common source, copied into a ledger the first time an import with it is saved.
 _Avoid_: Template, default schema
 
+**Pattern**:
+One of a schema's `match:` entries, recognising a statement by text in it (`text:` or `regex:`) or by its name (`file:`).
+_Avoid_: Matcher, rule
+
+**Path**:
+Where a schema reads one value of a record: locators to find the cell, then transforms to read it.
+_Avoid_: Selector, mapping
+
+**Locator**:
+One step of a path towards a cell, by column (`header:`, `col:`), by content (`text:`, `regex:`) or by an offset (`left:`, `below:`).
+_Avoid_: Selector
+
+**Transform**:
+One step of a path turning the text of a cell into a value, like `date:` or `number`.
+_Avoid_: Filter, converter
+
 **Draft**:
 The ledger file an import produces from a statement, reviewed and edited before it is saved.
 _Avoid_: Preview

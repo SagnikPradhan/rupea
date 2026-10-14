@@ -19,31 +19,23 @@
 
 	type Preview = Awaited<ReturnType<typeof previewStatement>>;
 
-	/** A starting point: a statement with separate debit and credit columns. */
+	/** A starting point: Rupee's built-in HDFC savings schema, which the manual walks through. */
 	const example = `version: v1
-name: My bank
+name: HDFC Bank savings account
 match:
-  - text: My Bank Ltd
-account: Assets:Bank
+  - text: HDFC
+account: Assets:Bank:HDFC
 header:
   text: Narration
-records:
-  each: row
-  where:
-    col: Date
-    matches: '^\\d{2}/\\d{2}/\\d{2}$'
 fields:
-  date:
-    from: [header: Date]
-    pipe: [date: dd/MM/yy]
-  description:
-    from: [header: Narration]
-    pipe: [trim]
+  date: { from: [header: Date], pipe: [date: dd/MM/yy] }
+  description: { from: [header: Narration] }
   amount:
     - from: [header: Withdrawal Amt.]
       pipe: [number, negate]
     - from: [header: Deposit Amt.]
       pipe: [number]
+  balance: { from: [header: Closing Balance], pipe: [number] }
 `;
 
 	const { data } = $props();

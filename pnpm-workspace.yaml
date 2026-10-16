@@ -10,4 +10,4 @@ allowBuilds:
   workerd: false
 
 minimumReleaseAgeExclude:
-  - portable-pg@0.180600.2
+  - portable-pg

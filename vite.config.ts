@@ -35,6 +35,7 @@ export default defineConfig({
 						'tests/shared/**/*.test.ts',
 					],
 					environment: 'node',
+					globalSetup: ['tests/shared/postgres.ts'],
 					// Starting the embedded Postgres compiles it, see `tests/shared/vitest.ts`.
 					hookTimeout: 30_000,
 				},

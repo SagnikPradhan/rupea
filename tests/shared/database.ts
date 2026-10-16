@@ -1,20 +1,18 @@
-import { openDatabase, type DatabaseHandle } from '#lib/server/db/index.ts';
+import { connectDatabase, type DatabaseHandle } from '#lib/server/db/index.ts';
 import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { inject } from 'vitest';
 
 export const MIGRATIONS = 'drizzle';
+// Migrated once per run by `postgres.ts`; every test file gets a copy.
 export const TEMPLATE = 'rupee_template';
-
-// Migrated once per run by `postgres.ts`; every database after is a copy of it.
-export const template = Promise.resolve();
 
 export const createTemporaryDatabase = async (): Promise<DatabaseHandle> => {
 	const server = inject('postgres');
 	const name = `test_${randomUUID().replaceAll('-', '')}`;
 	await admin(server, `create database ${name} template ${TEMPLATE}`);
 
-	const handle = openDatabase({ url: at(server, name), directory: '', migrations: MIGRATIONS });
+	const handle = await connectDatabase(at(server, name), MIGRATIONS);
 	const close = async () => {
 		await handle.close();
 		await admin(server, `drop database ${name}`);

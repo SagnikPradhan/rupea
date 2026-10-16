@@ -7,7 +7,7 @@ Domain terms are in [GLOSSARY.md](GLOSSARY.md), decisions in [docs/adr](docs/adr
 ## Project constraints
 
 - **Scale.** Rupee should run as a hosted service: many users, decades of transactions per ledger. Never load a whole ledger per request or scan unbounded history in app code. Push selection, filtering and search into indexed queries.
-- **Postgres, served or embedded.** `pg` when `DATABASE_URL` is set, PGlite otherwise ([ADR 0004](docs/adr/0004-postgres-embedded-or-served.md)). Only use extensions PGlite also ships (pgvector, pg_trgm, contrib).
+- **Postgres, served or embedded.** The server connects to `DATABASE_URL` when it is set, and starts its own Postgres from portable-pg otherwise ([ADR 0004](docs/adr/0004-postgres-embedded-or-served.md)). Only use extensions portable-pg ships (pgvector, contrib).
 - **Licensing.** Prefer MIT, BSD or Apache dependencies. Flag GPL and AGPL before suggesting one.
 - **Pinned dependencies.** Add runtime dependencies with exact versions (`pnpm add -E`).
 

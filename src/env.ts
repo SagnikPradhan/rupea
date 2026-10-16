@@ -34,7 +34,7 @@ const formats = (defaults: string[], check: (format: string) => boolean, pinned:
 export const variables = defineEnvVars({
 	DATABASE_URL: {
 		description:
-			'Postgres to connect to. Without one, the server runs Postgres in-process from `RUPEE_DATA_DIR/postgres`.',
+			'Postgres to connect to. Without one, the server starts its own Postgres on `RUPEE_DATA_DIR/postgres`.',
 		schema: v.optional(v.string()),
 	},
 	RUPEE_MIGRATIONS_DIR: {

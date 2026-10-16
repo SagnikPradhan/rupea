@@ -8,3 +8,6 @@ allowBuilds:
   # CPU binaries ship in the package; the script only fetches CUDA extras.
   onnxruntime-node: false
   workerd: false
+
+minimumReleaseAgeExclude:
+  - portable-pg

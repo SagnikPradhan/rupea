@@ -86,7 +86,7 @@
 		"onnxruntime-node": "1.30.0",
 		"pg": "8.23.1",
 		"pino": "10.4.0",
-		"portable-pg": "https://github.com/SagnikPradhan/portable-pg/releases/download/v0.180600.0/portable-pg-0.180600.0.tgz",
+		"portable-pg": "0.180600.2",
 		"ts-pattern": "5.9.0",
 		"unique-names-generator": "4.7.1",
 		"uuid": "14.0.2",

@@ -1,4 +1,4 @@
-import { openDatabase } from '#lib/server/db/index.ts';
+import { connectDatabase } from '#lib/server/db/index.ts';
 import { startServer } from 'portable-pg';
 import type { TestProject } from 'vitest/node';
 import { MIGRATIONS, TEMPLATE, admin, at } from './database.ts';
@@ -17,7 +17,7 @@ export default async (project: TestProject) => {
 	await admin(server.url, `create database ${TEMPLATE}`);
 
 	const url = at(server.url, TEMPLATE);
-	const template = openDatabase({ url, directory: '', migrations: MIGRATIONS });
+	const template = await connectDatabase(url, MIGRATIONS);
 	await template.migrate();
 	await template.close();
 

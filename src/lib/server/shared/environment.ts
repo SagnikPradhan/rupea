@@ -28,9 +28,9 @@ const createStorages = (): Storages => {
 	return { local: (u) => scoped(data, `users/${u}`) };
 };
 
-// Kept across dev reloads: two embedded instances on one directory corrupt it.
-export const createDatabase = (): DatabaseHandle => {
-	const kept: DatabaseHandle | undefined = import.meta.hot?.data.database;
+// Kept across dev reloads: a second embedded server on the same directory fails to start.
+export const createDatabase = (): Promise<DatabaseHandle> => {
+	const kept: Promise<DatabaseHandle> | undefined = import.meta.hot?.data.database;
 	if (kept) return kept;
 
 	const handle = openDatabase({

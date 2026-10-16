@@ -10,7 +10,7 @@ import { provide } from '#lib/server/shared/context.ts';
 import { createContext, createDatabase } from '#lib/server/shared/environment.ts';
 import { withLogger } from '#lib/server/shared/logger.ts';
 
-const database = createDatabase();
+const database = await createDatabase();
 const context = createContext(database.orm);
 
 export const init: ServerInit = () => database.migrate();

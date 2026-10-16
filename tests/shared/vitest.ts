@@ -10,11 +10,8 @@ import { scoped, type Storage } from '#lib/server/shared/storage/storage.ts';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
-import { it as base, beforeAll } from 'vitest';
-import { createTemporaryDatabase, template } from './database.ts';
-
-// Starting Postgres compiles it first, slower than a test may take.
-beforeAll(() => template.then(() => undefined));
+import { it as base } from 'vitest';
+import { createTemporaryDatabase } from './database.ts';
 
 export const it = base.extend<{
 	root: string;

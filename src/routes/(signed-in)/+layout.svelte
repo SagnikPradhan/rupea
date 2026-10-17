@@ -7,6 +7,7 @@
 
 	const SECTIONS = [
 		{ path: 'files', label: 'Files' },
+		{ path: 'accounts', label: 'Accounts' },
 		{ path: 'transactions', label: 'Transactions' },
 		{ path: 'postings', label: 'Postings' },
 		{ path: 'refine', label: 'Refine' },

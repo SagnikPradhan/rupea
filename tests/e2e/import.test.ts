@@ -17,7 +17,7 @@ test('imports a statement into the ledger', async ({ signedIn: page, ledger }) =
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
 
 	await page.waitForURL(`**${ledger}/transactions`);
-	const rows = page.getByRole('row');
-	await expect(rows.filter({ hasText: 'UPI GROCER' })).toContainText('-1250.50');
-	await expect(rows.filter({ hasText: 'SALARY' })).toContainText('50000');
+	const transactions = page.getByRole('rowgroup');
+	await expect(transactions.filter({ hasText: 'UPI GROCER' })).toContainText('-1,250.50');
+	await expect(transactions.filter({ hasText: 'SALARY' })).toContainText('50,000.00');
 });

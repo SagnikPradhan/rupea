@@ -46,7 +46,7 @@ export const parse = (
 	};
 };
 
-const lines = (file: string, content: string): RupeeLine[] =>
+export const lines = (file: string, content: string): RupeeLine[] =>
 	content
 		.split('\n')
 		.slice(0, content.endsWith('\n') ? -1 : undefined)
@@ -154,14 +154,15 @@ const takeWhile = <T>(stack: T[], keep: (item: T) => boolean): T[] => {
 	return stack.splice(0, end < 0 ? stack.length : end);
 };
 
-const isBlank = ({ content }: RupeeLine) => content.trim() === '';
+export const isBlank = ({ content }: RupeeLine) => content.trim() === '';
 
-const isComment = ({ content }: RupeeLine) => content.startsWith(';');
+export const isComment = ({ content }: RupeeLine) => content.startsWith(';');
 
 // Indentation means nothing to a metadata line; the dash does.
-const isMetadata = ({ content }: RupeeLine) => /^\s*-(\s|$)/.test(content);
+export const isMetadata = ({ content }: RupeeLine) => /^\s*-(\s|$)/.test(content);
 
-const isPosting = (l: RupeeLine) => /^(\t| {2})/.test(l.content) && !isBlank(l) && !isMetadata(l);
+export const isPosting = (l: RupeeLine) =>
+	/^(\t| {2})/.test(l.content) && !isBlank(l) && !isMetadata(l);
 
 // Each commodity sums to zero once priced postings are weighed at their price.
 // A posting without an amount takes what is left, if that is one commodity.

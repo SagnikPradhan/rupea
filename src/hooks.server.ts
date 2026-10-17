@@ -1,6 +1,6 @@
 import { dev } from '$app/env';
 import { randomUUID } from 'node:crypto';
-import type { Handle, ServerInit } from '@sveltejs/kit/hooks';
+import { sequence, type Handle, type ServerInit } from '@sveltejs/kit/hooks';
 import { validateSession } from '#services/auth/application/auth.ts';
 import {
 	deleteSessionCookie,
@@ -11,6 +11,7 @@ import { provide } from '#lib/server/shared/context/context.ts';
 import { createContext, createDatabase } from '#lib/server/shared/context/environment.ts';
 import { withLogger } from '#lib/server/shared/context/logger.ts';
 import { readConfiguration } from '#lib/server/shared/context/config.ts';
+import { readTheme } from '#lib/server/shared/theme.ts';
 import { startServerWorkers } from '#lib/server/workers.ts';
 
 const config = readConfiguration(process.env);
@@ -24,7 +25,7 @@ export const init: ServerInit = async () => {
 		process.once('sveltekit:shutdown', () => workers.stop().then(database.close));
 };
 
-export const handle: Handle = ({ event, resolve }) =>
+const session: Handle = ({ event, resolve }) =>
 	provide({ ...context, logger: context.logger.child({ request_id: randomUUID() }) }, async () => {
 		const token = readSessionCookie();
 		event.locals.user = null;
@@ -41,3 +42,12 @@ export const handle: Handle = ({ event, resolve }) =>
 
 		return resolve(event);
 	});
+
+const theme: Handle = ({ event, resolve }) => {
+	const chosen = readTheme();
+	return resolve(event, {
+		transformPageChunk: ({ html }) => html.replace('%rupee.theme%', chosen),
+	});
+};
+
+export const handle = sequence(theme, session);

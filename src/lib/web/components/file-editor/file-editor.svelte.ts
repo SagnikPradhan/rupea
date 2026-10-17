@@ -6,6 +6,7 @@ export type EditorFile = { key: string; content: string; version: string };
 export type EditorApi = {
 	read: (key: string) => Promise<Reply<EditorFile>>;
 	check: (input: { key: string; content: string }) => Promise<Reply<unknown[]>>;
+	format: (content: string) => Promise<Reply<string>>;
 	save: (input: EditorFile) => Promise<Reply<EditorFile>>;
 	create: (input: { key: string; content: string }) => Promise<Reply<EditorFile>>;
 	rename: (input: { key: string; to: string }) => Promise<Reply<EditorFile>>;
@@ -38,6 +39,7 @@ export type Editor = {
 	readonly dirty: boolean;
 	open: (key: string | null) => Promise<void>;
 	edit: (content: string) => void;
+	format: () => Promise<boolean>;
 	save: () => Promise<boolean>;
 	reload: () => Promise<boolean>;
 	overwrite: () => Promise<boolean>;
@@ -98,6 +100,11 @@ export const createEditor = (api: EditorApi, delay: number): Editor => {
 		return accept(saved, (f) => (state.file = f));
 	};
 
+	const edit = (content: string) => {
+		state.content = content;
+		void check(delay);
+	};
+
 	const open = async (key: string | null) => {
 		if (key === null) return close();
 		const read = await api.read(key);
@@ -112,10 +119,11 @@ export const createEditor = (api: EditorApi, delay: number): Editor => {
 		},
 
 		open,
+		edit,
 
-		edit: (content: string) => {
-			state.content = content;
-			void check(delay);
+		format: async () => {
+			const formatted = await api.format(state.content);
+			return accept(formatted, edit);
 		},
 
 		save: () => onFile(saveOver),

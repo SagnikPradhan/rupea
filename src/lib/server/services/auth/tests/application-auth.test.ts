@@ -46,7 +46,7 @@ const codeIn = (mail: Mail | undefined) => mail?.subject.match(/(\d{6})$/)?.[1] 
 
 const signup = (context: RupeeContext, signup: 'open' | 'closed') => ({
 	...context,
-	config: { ...context.config, signup },
+	config: { ...context.config, accounts: { signup } },
 });
 
 const later = (ms: number) => vi.setSystemTime(Date.now() + ms);

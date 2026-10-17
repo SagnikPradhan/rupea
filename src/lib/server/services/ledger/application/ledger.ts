@@ -1,4 +1,4 @@
-import type { RupeeConfiguration } from '#lib/server/shared/context/config.ts';
+import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
 import {
@@ -78,7 +78,7 @@ const ledgerFiles = (l: Ledger): ResultAsync<Files> => openFolder(l, 'files').ma
 
 const indexFile = (ledgerId: string, file: RupeeFile): ResultAsync<RupeeError[]> =>
 	withContext('config')((config) => {
-		const parsed = parse(config, file);
+		const parsed = parse(config.ledger, file);
 		return index(ledgerId)
 			.put(file.key, indexedVersion(file.version, parsed.failed), {
 				metadata: parsed.metadata,
@@ -201,7 +201,7 @@ export const getFile = (l: Ledger, k: string): ResultAsync<RupeeFile> =>
 	ledgerFiles(l).andThen((f) => f.read(k));
 
 export const check = (k: string, c: string): Batch<RupeeTransaction> =>
-	withContext('config')((f) => parse(f, { key: k, content: c }));
+	withContext('config')((f) => parse(f.ledger, { key: k, content: c }));
 
 type WriteFileOptions = {
 	ledger: Ledger;
@@ -275,7 +275,7 @@ type Linked = { file: RupeeFile; content: string; primary: boolean };
 
 const linked = (ledger: Ledger, key: string, edits: LinkEdit[]): ResultAsync<Linked> =>
 	getFile(ledger, key).andThen((file) =>
-		withContext('config')((c) => insertLinks(c, file, edits)).map((content) => ({
+		withContext('config')((c) => insertLinks(c.ledger, file, edits)).map((content) => ({
 			file,
 			content,
 			primary: edits.some((e) => e.role === EventRole.Primary),
@@ -367,12 +367,12 @@ const relinkFiles = (
 		),
 	);
 
-type LinkWriter = (c: RupeeConfiguration, f: RupeeFile) => Result<string>;
+type LinkWriter = (c: LedgerConfiguration, f: RupeeFile) => Result<string>;
 
 const editLinks = (ledger: Ledger, key: string, write: LinkWriter): ResultAsync<RupeeError[]> =>
 	getFile(ledger, key)
 		.andThen((f) =>
-			withContext('config')((c) => write(c, f)).asyncAndThen((t) =>
+			withContext('config')((c) => write(c.ledger, f)).asyncAndThen((t) =>
 				t === f.content ? okAsync(f) : editFile({ ledger, key, content: t, version: f.version }),
 			),
 		)

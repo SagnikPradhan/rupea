@@ -1,4 +1,3 @@
-import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
 import { models as pinned } from '#lib/server/shared/onnx/models.ts';
 import { okAsync } from '#lib/server/shared/result/result.ts';
 import type { Amount, RupeeTransaction } from '#services/ledger/application/shared.ts';
@@ -8,7 +7,7 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it as plain } from 'vitest';
 import { embedder } from '#services/prediction/adapters/onnx.ts';
-import type { Embed, Nearest } from '#services/prediction/domain/prediction.ts';
+import { THRESHOLDS, type Embed, type Nearest } from '#services/prediction/domain/prediction.ts';
 import { clean } from '#services/prediction/domain/text.ts';
 import { classify as classifyNear } from '#services/prediction/application/prediction.ts';
 
@@ -158,7 +157,7 @@ describe('classifying with the real model', () => {
 		}));
 		const guesses = await classify(embedder(context.models), {
 			...options,
-			thresholds: defaultConfiguration.prediction,
+			thresholds: THRESHOLDS,
 			lines,
 			transactions: habits,
 		});

@@ -9,6 +9,7 @@ import {
 	fallback,
 	fallbackAccount,
 	filling,
+	THRESHOLDS,
 	type ClassifierOptions,
 	type Embed,
 	type History,
@@ -57,10 +58,7 @@ export const predictAccounts = <L extends Line>(
 	const predicted = (p: Prediction[]) =>
 		lines.map((l, i) => ({ ...l, account: p[i]?.account ?? fallbackAccount(l.amount) }));
 
-	return withContext(
-		'config',
-		'models',
-	)(({ config, models }) =>
+	return withContext('models')((models) =>
 		withLogger('prediction')((logger) =>
 			syncIndex(ledger)
 				.andThen(() => {
@@ -70,7 +68,7 @@ export const predictAccounts = <L extends Line>(
 						.andThen(h.accounts)
 						.andThen((accounts) =>
 							classify(embed, h.nearest, {
-								thresholds: config.prediction,
+								thresholds: THRESHOLDS,
 								account,
 								lines,
 								accounts,

@@ -1,4 +1,4 @@
-import type { RupeeConfiguration } from '#lib/server/shared/context/config.ts';
+import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
 import * as dateFns from 'date-fns';
 import {
 	formatQuantity,
@@ -14,7 +14,10 @@ export const PRICE_SIGN: Record<PriceKind, string> = {
 	[PriceKind.Total]: '@@',
 };
 
-export const print = (c: RupeeConfiguration, { metadata, transactions }: RupeeLedgerFile): string =>
+export const print = (
+	c: LedgerConfiguration,
+	{ metadata, transactions }: RupeeLedgerFile,
+): string =>
 	[printMetadata('', metadata), ...transactions.map((t) => printTransaction(c, t))]
 		.filter(Boolean)
 		.join('\n');
@@ -22,7 +25,7 @@ export const print = (c: RupeeConfiguration, { metadata, transactions }: RupeeLe
 // A single outgoing posting leaves its amount out; it is whatever balances.
 // With prices or several commodities every amount is spelled out.
 const printTransaction = (
-	{ dateFormats, timeFormats }: RupeeConfiguration,
+	{ dateFormats, timeFormats }: LedgerConfiguration,
 	{ date, time, description, metadata, postings }: RupeeTransaction,
 ): string => {
 	const header = [

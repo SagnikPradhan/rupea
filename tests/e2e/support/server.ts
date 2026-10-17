@@ -57,11 +57,11 @@ export const withServer = async (use: (server: Server) => Promise<void>) => {
 			PORT: String(port),
 			// adapter-node assumes https unless a header says otherwise.
 			PROTOCOL_HEADER: 'x-forwarded-proto',
-			RUPEE_DATA_DIR: directory,
-			RUPEE_MODELS: 'verify',
+			RUPEE_STORAGE_FILES: directory,
+			RUPEE_MODELS_MODE: 'verify',
 			RUPEE_MODELS_DIR: resolve('data/models'),
 			RUPEE_LOG_LEVEL: 'info',
-			RUPEE_SIGNUP: 'open',
+			RUPEE_ACCOUNTS_SIGNUP: 'open',
 		},
 		stdio: ['ignore', 'pipe', 'inherit'],
 	});

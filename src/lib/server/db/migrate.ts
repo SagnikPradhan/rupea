@@ -5,10 +5,12 @@ import type { Pool } from 'pg';
 // Any number, as long as every instance uses the same one.
 const MIGRATION_LOCK = 7_265_783;
 
-export const migrate = async (p: Pool, m: string) => {
+const MIGRATIONS = 'drizzle';
+
+export const migrate = async (p: Pool) => {
 	await using lock = await withLock(p, MIGRATION_LOCK);
 	await migrateNodePostgres(drizzle({ client: lock.client, casing: 'snake_case' }), {
-		migrationsFolder: m,
+		migrationsFolder: MIGRATIONS,
 	});
 };
 

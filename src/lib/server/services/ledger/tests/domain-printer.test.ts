@@ -107,7 +107,7 @@ const annotated: RupeeLedgerFile = {
 
 describe('printing a ledger', () => {
 	it('writes .rupee text in the first configured formats', () => {
-		expect(print(defaultConfiguration, ledger(transactions))).toBe(
+		expect(print(defaultConfiguration.ledger, ledger(transactions))).toBe(
 			[
 				'2026-08-29 18:45 Groceries',
 				'\tExpenses:Food 100.50',
@@ -124,7 +124,7 @@ describe('printing a ledger', () => {
 	it('spells every amount unless exactly one posting is outgoing', () => {
 		const spelled = (postings: [string, string][]) =>
 			print(
-				defaultConfiguration,
+				defaultConfiguration.ledger,
 				ledger([
 					{
 						...transactions[0]!,
@@ -157,8 +157,8 @@ describe('printing a ledger', () => {
 	});
 
 	it('reads back as what it wrote', () => {
-		const content = print(defaultConfiguration, ledger(transactions));
-		expect(parse(defaultConfiguration, { key: 'a.rupee', content })).toEqual({
+		const content = print(defaultConfiguration.ledger, ledger(transactions));
+		expect(parse(defaultConfiguration.ledger, { key: 'a.rupee', content })).toEqual({
 			metadata: {},
 			succeeded: transactions,
 			failed: [],
@@ -166,7 +166,7 @@ describe('printing a ledger', () => {
 	});
 
 	it('writes metadata under what it belongs to, posting metadata a level deeper', () => {
-		expect(print(defaultConfiguration, annotated)).toBe(
+		expect(print(defaultConfiguration.ledger, annotated)).toBe(
 			[
 				'- statement: hdfc-card-oct-2026.pdf',
 				'',
@@ -184,8 +184,8 @@ describe('printing a ledger', () => {
 	});
 
 	it('reads metadata back as what it wrote', () => {
-		const content = print(defaultConfiguration, annotated);
-		expect(parse(defaultConfiguration, { key: 'a.rupee', content })).toEqual({
+		const content = print(defaultConfiguration.ledger, annotated);
+		expect(parse(defaultConfiguration.ledger, { key: 'a.rupee', content })).toEqual({
 			metadata: annotated.metadata,
 			succeeded: annotated.transactions,
 			failed: [],
@@ -201,13 +201,13 @@ describe('printing a ledger', () => {
 			},
 			salary!,
 		]);
-		const content = print(defaultConfiguration, asserted);
+		const content = print(defaultConfiguration.ledger, asserted);
 
 		expect(content.split('\n').slice(1, 3)).toEqual([
 			'\tExpenses:Food 100.50 = 1899.50',
 			'\tAssets:Bank = 1899.50',
 		]);
-		expect(parse(defaultConfiguration, { key: 'a.rupee', content }).succeeded).toEqual(
+		expect(parse(defaultConfiguration.ledger, { key: 'a.rupee', content }).succeeded).toEqual(
 			asserted.transactions,
 		);
 	});
@@ -223,25 +223,21 @@ describe('printing a ledger', () => {
 			'\tAssets:HDFC -8350.00',
 			'',
 		].join('\n');
-		const parsed = parse(defaultConfiguration, { key: 'a.rupee', content });
+		const parsed = parse(defaultConfiguration.ledger, { key: 'a.rupee', content });
 
 		expect(parsed.failed).toEqual([]);
-		expect(print(defaultConfiguration, ledger(parsed.succeeded))).toBe(content);
+		expect(print(defaultConfiguration.ledger, ledger(parsed.succeeded))).toBe(content);
 	});
 
 	it('follows the configuration', () => {
-		const cfg = {
-			...defaultConfiguration,
-			dateFormats: ['d MMM yyyy'],
-			timeFormats: ['h:mm a'],
-		};
+		const cfg = { dateFormats: ['d MMM yyyy'], timeFormats: ['h:mm a'] };
 		expect(print(cfg, ledger(transactions.slice(0, 1)))).toMatch(
 			/^29 Aug 2026 6:45 PM Groceries\n/,
 		);
 	});
 
 	it('writes nothing for no transactions', () => {
-		expect(print(defaultConfiguration, ledger([]))).toBe('');
+		expect(print(defaultConfiguration.ledger, ledger([]))).toBe('');
 	});
 });
 

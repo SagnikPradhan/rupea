@@ -27,7 +27,7 @@ const line = (content: string, index: number): RupeeLine => ({
 	content,
 });
 
-const run = (n: string[]) => parseTransactions(defaultConfiguration, n.map(line));
+const run = (n: string[]) => parseTransactions(defaultConfiguration.ledger, n.map(line));
 
 const transaction = (
 	header: number,
@@ -215,7 +215,7 @@ describe('metadata', () => {
 	});
 
 	const parseFile = (n: string[]) =>
-		parse(defaultConfiguration, { key: file, content: `${n.join('\n')}\n` });
+		parse(defaultConfiguration.ledger, { key: file, content: `${n.join('\n')}\n` });
 
 	it('belongs to the nearest line above it, whatever its indentation', () => {
 		const { succeeded, failed } = run([
@@ -602,7 +602,7 @@ describe('reading a time', () => {
 });
 
 describe('date formats', () => {
-	it.each([...defaultConfiguration.dateFormats, 'yyyy-MM-dd HH:mm'])('accepts %j', (ft) => {
+	it.each([...defaultConfiguration.ledger.dateFormats, 'yyyy-MM-dd HH:mm'])('accepts %j', (ft) => {
 		expect(isDateFormat(ft)).toBe(true);
 	});
 
@@ -616,7 +616,7 @@ describe('date formats', () => {
 });
 
 describe('time formats', () => {
-	it.each(defaultConfiguration.timeFormats)('accepts %j', (ft) => {
+	it.each(defaultConfiguration.ledger.timeFormats)('accepts %j', (ft) => {
 		expect(isTimeFormat(ft)).toBe(true);
 	});
 
@@ -626,7 +626,7 @@ describe('time formats', () => {
 });
 
 describe('reading a transaction header', () => {
-	const header = (c: string) => parseHeader(defaultConfiguration, line(c, 0));
+	const header = (c: string) => parseHeader(defaultConfiguration.ledger, line(c, 0));
 
 	it.each([
 		['2026-08-29 Groceries at the shop', null],

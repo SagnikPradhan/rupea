@@ -1,3 +1,4 @@
+import { readConfiguration } from '#lib/server/shared/context/config.ts';
 import { createLogger } from '#lib/server/shared/context/logger.ts';
 import { ensure, prepare, type ModelFile } from '#lib/server/shared/onnx/download.ts';
 import { models } from '#lib/server/shared/onnx/models.ts';
@@ -5,16 +6,13 @@ import { batchAsync } from '#lib/server/shared/result/batch.ts';
 import { okAsync } from '#lib/server/shared/result/result.ts';
 import { resolve } from 'node:path';
 import { parseArgs } from 'node:util';
-import * as v from 'valibot';
-import { variables } from '../src/env.ts';
 
 const flags = parseArgs({ options: { verify: { type: 'boolean', default: false } } }).values;
+const config = readConfiguration(process.env);
+
 const mode = flags.verify ? 'verify' : 'download';
-const directory = resolve(
-	v.parse(variables.RUPEE_MODELS_DIR.schema, process.env['RUPEE_MODELS_DIR']),
-);
-const level = v.parse(variables.RUPEE_LOG_LEVEL.schema, process.env['RUPEE_LOG_LEVEL']);
-const logger = createLogger(level, process.stdout.isTTY);
+const directory = resolve(config.models.dir);
+const logger = createLogger(config.log.level, process.stdout.isTTY);
 
 const prepared = mode === 'download' ? prepare(directory) : okAsync<void>(undefined);
 const ready = (m: ModelFile) => ensure({ directory, model: m, mode, logger, fetch });

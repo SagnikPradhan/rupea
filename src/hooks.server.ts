@@ -1,3 +1,4 @@
+import { dev } from '$app/env';
 import { randomUUID } from 'node:crypto';
 import type { Handle, ServerInit } from '@sveltejs/kit/hooks';
 import { validateSession } from '#services/auth/application/auth.ts';
@@ -9,9 +10,11 @@ import {
 import { provide } from '#lib/server/shared/context/context.ts';
 import { createContext, createDatabase } from '#lib/server/shared/context/environment.ts';
 import { withLogger } from '#lib/server/shared/context/logger.ts';
+import { readConfiguration } from '#lib/server/shared/context/config.ts';
 
-const database = await createDatabase();
-const context = createContext(database.orm);
+const config = readConfiguration(process.env);
+const database = await createDatabase(config);
+const context = createContext(config, database.orm, dev);
 
 export const init: ServerInit = () => database.migrate();
 

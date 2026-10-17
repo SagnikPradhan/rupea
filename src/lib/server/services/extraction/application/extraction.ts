@@ -141,7 +141,7 @@ const drafted = (options: DraftedOptions): ResultAsync<Draft> => {
 	return predictAccounts({ ledger, account, lines: uncategorised(records.succeeded) }).map((p) =>
 		withContext('config')((c) =>
 			draft({
-				config: c,
+				config: c.ledger,
 				statement: statement.key,
 				checksum: statement.checksum,
 				original: statement.original,

@@ -78,6 +78,7 @@ const wasm = createRequire(import.meta.url).resolve('@embedpdf/pdfium/pdfium.was
 
 - Inference is fine. Name a type only when it's a contract someone has to follow: a port, a handle, or options callers pass.
 - Prefer built-in or narrower types. Don't derive types (`ReturnType<typeof fn>`, `Omit<...> & {...}`).
+- A type a schema describes is inferred from it (`v.InferOutput<typeof schema>`), so the schema stays its one definition.
 - No type inheritance or intersections unless a library forces it.
 
 ### Comments

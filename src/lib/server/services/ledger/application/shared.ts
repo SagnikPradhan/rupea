@@ -5,7 +5,6 @@ export { format } from '../domain/format';
 export { print, viewTransaction } from '../domain/printer';
 export {
 	AccountType,
-	CURRENCIES,
 	DEFAULT_COMMODITY,
 	accountType,
 	formatAmount,

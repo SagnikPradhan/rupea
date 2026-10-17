@@ -208,7 +208,7 @@ const balance = (
 		const filled =
 			quantity === null
 				? { amount: -rest.amount as Amount, commodity: rest.commodity }
-				: { amount: quantity.amount, commodity: quantity.commodity ?? DEFAULT_COMMODITY };
+				: toQuantity(quantity);
 		return { account, ...filled, price, cost, balance: b, metadata };
 	});
 	if (
@@ -221,11 +221,11 @@ const balance = (
 
 type KnownPosting = WrittenPosting & { quantity: WrittenQuantity };
 
-const home = (p: KnownPosting) => ({
-	amount: p.quantity.amount,
-	commodity: p.quantity.commodity ?? DEFAULT_COMMODITY,
-	price: p.price,
-	cost: p.cost,
+const home = (p: KnownPosting) => ({ ...toQuantity(p.quantity), price: p.price, cost: p.cost });
+
+const toQuantity = (q: WrittenQuantity): Quantity => ({
+	amount: q.amount,
+	commodity: q.commodity ?? DEFAULT_COMMODITY,
 });
 
 const inKind = (quantities: Quantity[]): Set<string> => {
@@ -295,7 +295,7 @@ const parsePriceLine = (
 		location,
 		date: date.value,
 		commodity: commodity.toUpperCase(),
-		price: { amount: quantity.amount, commodity: quantity.commodity ?? DEFAULT_COMMODITY },
+		price: toQuantity(quantity),
 	});
 };
 
@@ -343,11 +343,7 @@ const readPosting = (
 		account,
 		quantity,
 		price: paid
-			? {
-					amount: paid.amount,
-					commodity: paid.commodity ?? DEFAULT_COMMODITY,
-					kind: priced === '@@' ? PriceKind.Total : PriceKind.Unit,
-				}
+			? { ...toQuantity(paid), kind: priced === '@@' ? PriceKind.Total : PriceKind.Unit }
 			: null,
 		cost,
 		balance: asserted,
@@ -361,7 +357,7 @@ const readLotCost = (formats: string[], text: string): LotCost | undefined => {
 	const date = day === undefined ? null : readDate(formats, day);
 	if (cost === undefined || cost.amount < 0n || date === undefined) return undefined;
 
-	return { amount: cost.amount, commodity: cost.commodity ?? DEFAULT_COMMODITY, date };
+	return { ...toQuantity(cost), date };
 };
 
 const readDate = (formats: string[], text: string): Temporal.PlainDate | undefined => {

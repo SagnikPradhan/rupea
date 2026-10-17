@@ -138,3 +138,21 @@ _Avoid_: Match (before it is accepted)
 
 **Broken event**:
 An event whose members contradict each other, such as no primary or two primaries.
+
+## Background work
+
+**Job**:
+A piece of work Rupee does for a user outside a request, like reading a statement they uploaded. Its user can see whether it is waiting, running, done or failed, and why.
+_Avoid_: Task, queue item, message
+
+**Partition**:
+The jobs of one name that run one at a time, like the statements one user uploaded. A job names its partition with a key, its user's by default.
+_Avoid_: Queue, lane, group
+
+**Orchestrator**:
+The part of the server that claims due jobs, dispatches each to a worker and settles how it ended: succeeded, retried or failed. A claim holds a lease the orchestrator renews until the job settles; a claim whose lease runs out is released, since its worker died.
+_Avoid_: Scheduler, supervisor, dispatcher
+
+**Worker**:
+A child process of the server that runs the jobs the server claims, one at a time. Every replica runs up to `RUPEE_JOBS_WORKERS` of them, and one left idle for a while exits.
+_Avoid_: Consumer, runner

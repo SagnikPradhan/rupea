@@ -1,8 +1,8 @@
-import { violatesUnique } from '#lib/server/db/errors.ts';
+import { attemptWrite, violates } from '#lib/server/db/errors.ts';
 import { emailCodes, sessions, users } from '#lib/server/db/schema.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
-import { fault, unknownError } from '#lib/server/shared/result/error.ts';
-import { attempt, attemptWith, type ResultAsync } from '#lib/server/shared/result/result.ts';
+import { fault } from '#lib/server/shared/result/error.ts';
+import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { eq } from 'drizzle-orm';
 
 export type User = { id: string; email: string; username: string };
@@ -47,19 +47,16 @@ type CreateUserOptions = {
 
 export const createUser = (options: CreateUserOptions): ResultAsync<User> =>
 	withContext('db')((db) =>
-		attemptWith({
-			try: () =>
-				db
-					.insert(users)
-					.values(options)
-					.returning(userColumns)
-					.then(([u]) => u ?? Promise.reject(new Error(`${options.email} was not saved`))),
-			catch: (t) => usernameTaken(options.username, t),
-		}),
+		attemptWrite(() =>
+			db
+				.insert(users)
+				.values(options)
+				.returning(userColumns)
+				.then(([u]) => u ?? Promise.reject(new Error(`${options.email} was not saved`))),
+		).mapErr((e) =>
+			violates(e, 'users_username_unique') ? fault('NameTaken', { name: options.username }) : e,
+		),
 	);
-
-const usernameTaken = (n: string, t: unknown) =>
-	violatesUnique(t, 'users_username_unique') ? fault('NameTaken', { name: n }) : unknownError(t);
 
 type SaveEmailCodeOptions = {
 	email: string;

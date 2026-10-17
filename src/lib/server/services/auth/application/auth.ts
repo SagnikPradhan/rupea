@@ -1,4 +1,5 @@
 import { withContext } from '#lib/server/shared/context/context.ts';
+import { sha256 } from '#lib/server/shared/hash.ts';
 import { withLogger } from '#lib/server/shared/context/logger.ts';
 import { petName } from '#lib/server/shared/names.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
@@ -14,7 +15,7 @@ import * as Ledger from '#services/ledger/application/ledger.ts';
 import { deleteSessionCookie, readSessionCookie, setSessionCookie } from '../adapters/cookie';
 import * as DB from '../adapters/database';
 import { requestUser } from '../adapters/locals';
-import { codeMatches, newCode, newSession, sessionState, sha256 } from '../domain/credentials';
+import { codeMatches, newCode, newSession, sessionState } from '../domain/credentials';
 
 export { normalizeEmail } from '../domain/credentials';
 

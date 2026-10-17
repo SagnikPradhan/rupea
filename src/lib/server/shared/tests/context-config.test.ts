@@ -9,12 +9,14 @@ describe('the configuration', () => {
 	it('reads each variable into the field it names', () => {
 		const env = {
 			RUPEE_MODELS_THREADS: '3',
+			RUPEE_JOBS_WORKERS: '0',
 			RUPEE_LEDGER_DATE_FORMATS: 'yyyy-MM-dd | d MMM yyyy',
 			RUPEE_ACCOUNTS_SIGNUP: 'open',
 		};
 
 		expect(readConfiguration(env)).toMatchObject({
 			models: { threads: 3 },
+			jobs: { workers: 0 },
 			ledger: { dateFormats: ['yyyy-MM-dd', 'd MMM yyyy'] },
 			accounts: { signup: 'open' },
 		});

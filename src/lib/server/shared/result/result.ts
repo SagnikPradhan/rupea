@@ -14,6 +14,10 @@ export const errAsync = (e: RupeeError): ResultAsync<never> => neverthrow.errAsy
 export const attempt = <T>(f: () => PromiseLike<T>): ResultAsync<T> =>
 	attemptWith({ try: f, catch: unknownError });
 
+/** Like `attempt`, for a function that returns a result rather than a promise. */
+export const attemptResult = <T>(f: () => ResultAsync<T>): ResultAsync<T> =>
+	attempt(f).andThen((r) => r);
+
 export type Attempt<T> = {
 	try: () => PromiseLike<T>;
 	catch: (thrown: unknown) => RupeeError;

@@ -11,6 +11,8 @@ export type Database = NodePgDatabase;
 
 export type DatabaseHandle = {
 	orm: Database;
+	/** Where other processes reach the same database. */
+	url: string;
 	migrate: () => Promise<void>;
 	close: () => Promise<void>;
 };
@@ -24,6 +26,7 @@ export const connectDatabase = async (url: string): Promise<DatabaseHandle> => {
 	const pool = new Pool({ connectionString: url });
 	return {
 		orm: drizzle({ client: pool, casing: 'snake_case' }),
+		url,
 		migrate: () => migrate(pool),
 		close: () => pool.end(),
 	};

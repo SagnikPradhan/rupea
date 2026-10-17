@@ -10,6 +10,7 @@ export type RupeeError =
 	| { type: 'StorageMissing'; userId: string }
 	| { type: 'LedgerNotFound'; handle: string }
 	| { type: 'NameTaken'; name: string }
+	| { type: 'UniqueViolation'; constraint: string }
 	| { type: 'ParseInvalidTransactionHeader'; location: string }
 	| { type: 'ParseMissingTransactionBody'; location: string }
 	| { type: 'ParseInvalidPosting'; location: string }
@@ -51,6 +52,10 @@ export type RupeeError =
 	| { type: 'ExtractionMissingHeader'; path: string }
 	| { type: 'ExtractionMissingColumns'; path: string; columns: string[] }
 	| { type: 'ExtractionInvalidField'; location: string; field: string; reason: string }
+	| { type: 'JobUnknown'; name: string }
+	| { type: 'JobOutdated'; name: string; version: number }
+	| { type: 'JobInvalidPayload'; name: string; reason: string }
+	| { type: 'JobTimedOut'; name: string; timeout: number }
 	| { type: 'UnknownError'; message: string };
 
 type Variant<T extends RupeeError['type']> = Extract<RupeeError, { type: T }>;

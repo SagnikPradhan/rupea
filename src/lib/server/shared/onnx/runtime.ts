@@ -42,6 +42,7 @@ type CreateModelsOptions = Omit<ModelOptions, 'fetch'> &
 		threads: number;
 	};
 
+/** Loads each model on first use. */
 export const createModels = (models: CreateModelsOptions) => {
 	const { directory, files, threads, mode, logger, fetch = globalThis.fetch } = models;
 	const options = {
@@ -59,32 +60,24 @@ export const createModels = (models: CreateModelsOptions) => {
 				})
 			: okAsync<void>(undefined);
 
-	const ready = new Map<string, ResultAsync<string>>();
-	const sure = (model: ModelFile) => {
-		const path =
-			ready.get(model.file) ?? prepared.andThen(() => ensure({ directory, model, ...options }));
-		ready.set(model.file, path);
-		return path;
-	};
+	const paths = new Map<string, ResultAsync<string>>();
+	const sure = (m: ModelFile) =>
+		remembered(paths, m.file, () =>
+			prepared.andThen(() => ensure({ directory, model: m, ...options })),
+		);
 	if (mode === 'download') files.forEach(sure);
 
 	const sessions = new Map<string, ResultAsync<InferenceSession>>();
-	const session = (model: ModelFile) => {
-		const loaded =
-			sessions.get(model.file) ??
+	const session = (model: ModelFile) =>
+		remembered(sessions, model.file, () =>
 			sure(model).andThen((p) =>
 				attempt(() => InferenceSession.create(p, { intraOpNumThreads: threads })),
-			);
-		sessions.set(model.file, loaded);
-		return loaded;
-	};
+			),
+		);
 
 	const tokenizers = new Map<string, ResultAsync<Tokenizer>>();
-	const tokenizer = (model: ModelFile) => {
-		const loaded = tokenizers.get(model.file) ?? sure(model).andThen(loadTokenizer);
-		tokenizers.set(model.file, loaded);
-		return loaded;
-	};
+	const tokenizer = (m: ModelFile) =>
+		remembered(tokenizers, m.file, () => sure(m).andThen(loadTokenizer));
 
 	const embedders = new Map<string, Embed>();
 	const embedder = (model: EmbeddingModel) => {
@@ -102,6 +95,8 @@ export const createModels = (models: CreateModelsOptions) => {
 	};
 
 	return {
+		/** Settles once every model is downloaded and checked. */
+		ready: (): ResultAsync<void> => ResultAsync.combine(files.map(sure)).map(() => undefined),
 		detect: (o: DetectOptions): ResultAsync<Detection[]> =>
 			session(o.model.source).andThen((l) => detr({ ...o, session: l })),
 		embed: (o: EmbedOptions): ResultAsync<Float32Array[]> => embedder(o.model)(o.texts),
@@ -109,6 +104,17 @@ export const createModels = (models: CreateModelsOptions) => {
 };
 
 export type Models = ReturnType<typeof createModels>;
+
+/** Loads once per key; a failed load is forgotten, so the next use tries again. */
+const remembered = <T>(
+	m: Map<string, ResultAsync<T>>,
+	key: string,
+	load: () => ResultAsync<T>,
+): ResultAsync<T> => {
+	const kept = m.get(key) ?? load().orTee(() => m.delete(key));
+	m.set(key, kept);
+	return kept;
+};
 
 type DetrOptions = DetectOptions & { session: InferenceSession };
 

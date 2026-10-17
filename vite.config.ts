@@ -15,7 +15,30 @@ export default defineConfig({
 			experimental: { remoteFunctions: true },
 			adapter: adapter(),
 		}),
+		{
+			// SvelteKit builds only its own environments.
+			name: 'rupee:worker',
+			buildApp: {
+				order: 'post',
+				handler: async (b) => {
+					const worker = b.environments['worker'];
+					if (worker) await b.build(worker);
+				},
+			},
+		},
 	],
+	builder: {},
+	environments: {
+		worker: {
+			consumer: 'server',
+			build: {
+				outDir: 'build/worker',
+				emptyOutDir: true,
+				copyPublicDir: false,
+				rolldownOptions: { input: { worker: 'src/worker.ts' } },
+			},
+		},
+	},
 	test: {
 		// Reading a PDF runs the models on several threads; a worker per core leaves them none.
 		maxWorkers: '50%',

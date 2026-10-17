@@ -1,5 +1,5 @@
 import { resolve } from 'node:path';
-import { openDatabase, type Database, type DatabaseHandle } from '../../db';
+import { openDatabase, type Database, type DatabaseHandle } from '../../db/index';
 import type { RupeeConfiguration } from './config';
 import type { RupeeContext } from './context';
 import { createLogger } from './logger';

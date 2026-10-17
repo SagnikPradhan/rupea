@@ -27,7 +27,7 @@ const edit = (line: number, description: string, date: string, role: EventRole):
 });
 
 const insert = (e: LinkEdit[], text = content) =>
-	insertLinks(defaultConfiguration, { key: 'a.rupee', content: text }, e);
+	insertLinks(defaultConfiguration.ledger, { key: 'a.rupee', content: text }, e);
 
 describe('inserting links', () => {
 	it('puts each link under its header and leaves the rest alone', () => {
@@ -93,10 +93,15 @@ describe('rewriting links', () => {
 	].join('\n');
 
 	const rewrite = (text: string) =>
-		rewriteLinks(defaultConfiguration, { key: 'a.rupee', content: text }, 'tea-otter', () => ({
-			event: 'tea-cat',
-			role: EventRole.Primary,
-		}));
+		rewriteLinks(
+			defaultConfiguration.ledger,
+			{ key: 'a.rupee', content: text },
+			'tea-otter',
+			() => ({
+				event: 'tea-cat',
+				role: EventRole.Primary,
+			}),
+		);
 
 	it('changes only the link to the event, keeping its indentation', () => {
 		expect(rewrite(linked)._unsafeUnwrap()).toBe(

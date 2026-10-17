@@ -3,7 +3,6 @@ import { randomUUID } from 'node:crypto';
 import pg from 'pg';
 import { inject } from 'vitest';
 
-export const MIGRATIONS = 'drizzle';
 // Migrated once per run by `postgres.ts`; every test file gets a copy.
 export const TEMPLATE = 'rupee_template';
 
@@ -12,7 +11,7 @@ export const createTemporaryDatabase = async (): Promise<DatabaseHandle> => {
 	const name = `test_${randomUUID().replaceAll('-', '')}`;
 	await admin(server, `create database ${name} template ${TEMPLATE}`);
 
-	const handle = await connectDatabase(at(server, name), MIGRATIONS);
+	const handle = await connectDatabase(at(server, name));
 	const close = async () => {
 		await handle.close();
 		await admin(server, `drop database ${name}`);

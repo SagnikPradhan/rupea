@@ -1,4 +1,4 @@
-import type { RupeeConfiguration } from '#lib/server/shared/context/config.ts';
+import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
 import { EVENT_KEY, EVENT_KEYS, linksOf, type EventLink, type EventRole } from './events';
@@ -18,7 +18,7 @@ export type LinkEdit = {
 // A link goes right under its header, so it is transaction metadata. Each
 // header must still be the one suggested, with no link of its own.
 export const insertLinks = (
-	config: RupeeConfiguration,
+	config: LedgerConfiguration,
 	file: Pick<RupeeFile, 'key' | 'content'>,
 	edits: LinkEdit[],
 ): Result<string> => {
@@ -54,7 +54,7 @@ export type Relink = (t: RupeeTransaction, l: EventLink) => EventLink;
 // Rewrites, in place, each link a transaction in the file has to the event;
 // formatting, comments and other metadata stay as they were.
 export const rewriteLinks = (
-	config: RupeeConfiguration,
+	config: LedgerConfiguration,
 	file: Pick<RupeeFile, 'key' | 'content'>,
 	event: string,
 	relink: Relink,

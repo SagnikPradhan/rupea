@@ -1,8 +1,10 @@
-import { defaultConfiguration as config } from '#lib/server/shared/context/config.ts';
+import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
 import { parse, parseAmount, type Amount } from '#services/ledger/application/shared.ts';
 import { describe, expect, it } from 'vitest';
 import { categorised, draft, uncategorised } from '#services/extraction/domain/draft.ts';
 import type { RupeeRecord } from '#services/extraction/domain/types.ts';
+
+const config = defaultConfiguration.ledger;
 
 const record = (description: string, amount: string, category: string | null = null) =>
 	({

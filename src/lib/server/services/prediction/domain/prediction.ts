@@ -1,4 +1,3 @@
-import type { RupeeConfiguration } from '#lib/server/shared/context/config.ts';
 import type { ResultAsync } from '#lib/server/shared/result/result.ts';
 import { accountType, AccountType, type Amount } from '#services/ledger/application/shared.ts';
 import { taxonomy } from './taxonomy';
@@ -7,6 +6,9 @@ import { accountText, clean } from './text';
 const NEIGHBOURS = 5;
 const HALF_LIFE = 365;
 const PRIOR = 0.25;
+
+/** How alike a line must be to past spending, or to an account's name, to be guessed from it. */
+export const THRESHOLDS: Thresholds = { history: 0.15, name: 0.35 };
 
 const GUESSED = /(^|:)Uncategorized$/;
 
@@ -65,8 +67,10 @@ export const filling = (rows: Unembedded[]) => {
 	return { texts, fill };
 };
 
+export type Thresholds = { history: number; name: number };
+
 export type ClassifierOptions = {
-	thresholds: RupeeConfiguration['prediction'];
+	thresholds: Thresholds;
 	account: string;
 	lines: Line[];
 	accounts: string[];
@@ -137,7 +141,7 @@ const lookup = (texts: string[], vectors: Float32Array[]) => {
 export type Named = { account: string; vector: Float32Array };
 
 export type Knowledge = {
-	thresholds: RupeeConfiguration['prediction'];
+	thresholds: Thresholds;
 	account: string;
 	today: Temporal.PlainDate;
 	names: Named[];

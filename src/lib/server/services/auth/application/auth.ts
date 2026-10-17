@@ -26,7 +26,7 @@ const TRIES = 5;
 const canSignIn = (email: string): ResultAsync<boolean> =>
 	withContext('config')((c) =>
 		DB.findUserByEmail(email).andThen((u) =>
-			u || c.signup === 'open' ? okAsync(true) : DB.countUsers().map((n) => n === 0),
+			u || c.accounts.signup === 'open' ? okAsync(true) : DB.countUsers().map((n) => n === 0),
 		),
 	);
 

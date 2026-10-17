@@ -1,7 +1,7 @@
 import { connectDatabase } from '#lib/server/db/index.ts';
 import { startServer } from 'portable-pg';
 import type { TestProject } from 'vitest/node';
-import { MIGRATIONS, TEMPLATE, admin, at } from './database.ts';
+import { TEMPLATE, admin, at } from './database.ts';
 
 declare module 'vitest' {
 	export interface ProvidedContext {
@@ -17,7 +17,7 @@ export default async (project: TestProject) => {
 	await admin(server.url, `create database ${TEMPLATE}`);
 
 	const url = at(server.url, TEMPLATE);
-	const template = await connectDatabase(url, MIGRATIONS);
+	const template = await connectDatabase(url);
 	await template.migrate();
 	await template.close();
 

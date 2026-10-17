@@ -1,4 +1,4 @@
-import type { RupeeConfiguration } from '#lib/server/shared/context/config.ts';
+import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
 import type { RupeeError } from '#lib/server/shared/result/error.ts';
 import {
 	accountType,
@@ -15,7 +15,7 @@ export type Draft = { key: string; content: string; failed: RupeeError[] };
 export type Categorised = RupeeRecord & { account: string };
 
 type DraftOptions = {
-	config: RupeeConfiguration;
+	config: LedgerConfiguration;
 	statement: string;
 	checksum: string;
 	// The upload's checksum, when unlocking it changed the content.

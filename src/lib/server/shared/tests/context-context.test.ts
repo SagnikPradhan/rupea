@@ -51,7 +51,7 @@ describe('the runtime context', () => {
 	it('follows the context across awaits', async () => {
 		const read = await provide(context, async () => {
 			await new Promise((res) => setTimeout(res, 1));
-			return withContext('config')((c) => c.signup);
+			return withContext('config')((c) => c.accounts.signup);
 		});
 		expect(read).toBe('closed');
 	});

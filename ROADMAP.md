@@ -91,3 +91,4 @@
 - [ ] Keep statements and schemas in the ledger
       ([ADR 0008](docs/adr/0008-statements-and-schemas-belong-to-the-ledger.md))
 - [ ] Pick a chart library
+- [ ] Bundle the migrations into the build, so the server starts from any directory

@@ -15,23 +15,23 @@ export type DatabaseHandle = {
 	close: () => Promise<void>;
 };
 
-type OpenOptions = { url: string | undefined; directory: string; migrations: string };
+type OpenOptions = { url: string | null; directory: string };
 
 export const openDatabase = (o: OpenOptions): Promise<DatabaseHandle> =>
-	o.url ? connectDatabase(o.url, o.migrations) : embedDatabase(o.directory, o.migrations);
+	o.url ? connectDatabase(o.url) : embedDatabase(o.directory);
 
-export const connectDatabase = async (url: string, migrations: string): Promise<DatabaseHandle> => {
+export const connectDatabase = async (url: string): Promise<DatabaseHandle> => {
 	const pool = new Pool({ connectionString: url });
 	return {
 		orm: drizzle({ client: pool, casing: 'snake_case' }),
-		migrate: () => migrate(pool, migrations),
+		migrate: () => migrate(pool),
 		close: () => pool.end(),
 	};
 };
 
-const embedDatabase = async (directory: string, migrations: string): Promise<DatabaseHandle> => {
+const embedDatabase = async (directory: string): Promise<DatabaseHandle> => {
 	const server = await startServer({ directory });
-	const handle = await connectDatabase(server.url, migrations);
+	const handle = await connectDatabase(server.url);
 	const close = async () => {
 		await handle.close();
 		await server.stop();

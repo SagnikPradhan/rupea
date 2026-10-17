@@ -1,4 +1,4 @@
-import type { RupeeConfiguration } from '#lib/server/shared/context/config.ts';
+import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
 import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
 import { type Batch, batch } from '#lib/server/shared/result/batch.ts';
@@ -30,7 +30,7 @@ export type RupeeParsedFile = Batch<RupeeTransaction> & { metadata: RupeeMetadat
 
 // Metadata above the first transaction belongs to the file.
 export const parse = (
-	c: RupeeConfiguration,
+	c: LedgerConfiguration,
 	{ key, content }: Pick<RupeeFile, 'key' | 'content'>,
 ): RupeeParsedFile => {
 	const input = lines(key, content).filter((l) => !isComment(l));
@@ -71,7 +71,7 @@ type MetadataPosting = WrittenPosting & { metadata: RupeeMetadata };
 // A bad posting or metadata line drops its transaction; a bad header stops the
 // parse, since there is no telling where the next transaction starts.
 export const parseTransactions = (
-	configuration: RupeeConfiguration,
+	configuration: LedgerConfiguration,
 	input: RupeeLine[],
 ): Batch<RupeeTransaction> => {
 	const lines = input.filter((l) => !isComment(l));
@@ -224,7 +224,7 @@ const unbalanced = (l: RupeeParseLocation, q: Quantity[]): Result<never> =>
 	);
 
 export const parseHeader = (
-	{ dateFormats, timeFormats }: RupeeConfiguration,
+	{ dateFormats, timeFormats }: LedgerConfiguration,
 	{ location, content }: RupeeLine,
 ): Result<{
 	date: Temporal.PlainDate;

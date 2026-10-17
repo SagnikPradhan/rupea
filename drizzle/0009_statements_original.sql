@@ -1,1 +1,0 @@
-CREATE INDEX "statements_ledger_id_original" ON "statements" USING btree ("ledger_id","original");

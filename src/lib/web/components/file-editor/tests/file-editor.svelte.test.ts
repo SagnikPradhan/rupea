@@ -49,6 +49,14 @@ describe('editing', () => {
 		expect(disk.get('a.rupee')?.content).toBe('bad');
 		expect(editor.dirty).toBe(false);
 	});
+
+	it('formats without saving', async () => {
+		const { editor, disk } = await opened({ 'a.rupee': '  one  ' });
+		await editor.format();
+		expect(editor.state.content).toBe('one');
+		expect(editor.dirty).toBe(true);
+		expect(disk.get('a.rupee')?.content).toBe('  one  ');
+	});
 });
 
 describe('a conflict', () => {

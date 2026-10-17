@@ -37,6 +37,7 @@ export const fakeApi = (initial: Record<string, string>) => {
 		check: vi.fn(async ({ content }: { key: string; content: string }) =>
 			content.includes('bad') ? { ...fail<unknown[]>(parseError), data: [] } : succeed([]),
 		),
+		format: vi.fn(async (c: string) => succeed(c.trim())),
 		save: vi.fn(async (input: EditorFile) => {
 			const stored = disk.get(input.key);
 			if (stored === undefined || String(stored.n) !== input.version)

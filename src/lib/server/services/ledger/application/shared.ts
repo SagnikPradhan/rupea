@@ -1,6 +1,7 @@
 export { EventRole, linksOf } from '../domain/events';
 export type { LinkEdit } from '../domain/links';
 export { displayLocation, parse, parseAmount } from '../domain/parser';
+export { format } from '../domain/format';
 export { print, viewTransaction } from '../domain/printer';
 export {
 	AccountType,

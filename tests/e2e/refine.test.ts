@@ -45,10 +45,10 @@ test('reviews the duplicates of a statement imported twice', async ({ signedIn: 
 
 	await salary.getByRole('button', { name: 'Make primary' }).click();
 	await expect(salary.getByText('Evidence, not counted: imports/aug-again.rupee')).toBeVisible();
-	await expect(page.getByLabel('Ledger file')).toHaveValue(/SALARY\n\t- event: /);
+	await expect(page.getByLabel('Ledger file')).toContainText(/SALARY\s*- event: /);
 
 	page.once('dialog', (d) => void d.accept('august-salary'));
 	await salary.getByRole('button', { name: 'Rename event' }).click();
 	await expect(events.getByRole('article', { name: 'Event august-salary' })).toBeVisible();
-	await expect(page.getByLabel('Ledger file')).toHaveValue(/- event: august-salary/);
+	await expect(page.getByLabel('Ledger file')).toContainText('- event: august-salary');
 });

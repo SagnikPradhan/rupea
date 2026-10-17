@@ -1,6 +1,8 @@
-import type { ResultAsync } from '#lib/server/shared/result/result.ts';
+import { ok, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { type Reply, replyFrom, replyFromBatch } from '#lib/server/shared/result/reply.ts';
+import * as Auth from '#services/auth/application/auth.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
+import { format } from '#services/ledger/application/shared.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
 import { Handle, inLedger, Key } from './shared';
@@ -13,6 +15,11 @@ export const getFiles = query(Handle, async (h) =>
 /** A command, not a query: never cached, as the file may change behind the app's back. */
 export const readFile = command(v.object({ handle: Handle, key: Key }), async ({ handle, key }) =>
 	replyFrom(await inLedger({ handle, action: (l) => Ledger.getFile(l, key) })),
+);
+
+/** Tidies a draft's whitespace without saving it. */
+export const formatDraft = command(v.object({ content: v.string() }), async ({ content }) =>
+	replyFrom(await Auth.withCurrentUser(() => ok(format(content)))),
 );
 
 const mutate = async <T>(

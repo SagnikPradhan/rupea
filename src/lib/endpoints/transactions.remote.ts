@@ -15,7 +15,7 @@ export const getTransactions = query(Handle, async (h) => {
 	return replyFromBatch(
 		await transactions.map((batch) => ({
 			...batch,
-			succeeded: batch.succeeded.map(view),
+			succeeded: batch.succeeded.map(view).toReversed(),
 		})),
 	);
 });

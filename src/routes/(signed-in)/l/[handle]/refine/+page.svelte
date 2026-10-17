@@ -6,6 +6,7 @@
 		getSuggestions,
 	} from '#lib/endpoints/refinement.remote.ts';
 	import type { RupeeError } from '#lib/server/shared/result/error.ts';
+	import { fileHref } from '#lib/web/links.ts';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 
@@ -55,7 +56,7 @@
 
 {#snippet side(t: Suggestion['ours'], role: string | undefined, event: string | null)}
 	<div>
-		<p><a href="/l/{handle}/files?file={encodeURIComponent(t.file)}">{t.file}:{t.line}</a></p>
+		<p><a href={fileHref(handle, t.file, t.line)}>{t.file}:{t.line}</a></p>
 		<pre>{[
 				`${t.date} ${t.description}`,
 				...(role ? [`\t- ${KEYS[role]}: ${event}   ← added`] : []),

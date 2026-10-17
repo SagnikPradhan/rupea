@@ -359,7 +359,7 @@ fields:
 
 	.sheet th {
 		position: sticky;
-		background: var(--color-light-gray);
+		background: var(--color-subtle);
 		font-weight: 400;
 	}
 

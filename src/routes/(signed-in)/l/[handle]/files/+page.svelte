@@ -4,6 +4,7 @@
 		createFile,
 		deleteFile,
 		editFile,
+		formatDraft,
 		getFiles,
 		readFile,
 		renameFile,
@@ -12,11 +13,10 @@
 	import { getEvents, getSuggestions } from '#lib/endpoints/refinement.remote.ts';
 	import FileEditor from '#lib/web/components/file-editor/file-editor.svelte';
 	import FileEvents from '#lib/web/components/file-events/file-events.svelte';
+	import Issues from '#lib/web/components/issues/issues.svelte';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { untrack } from 'svelte';
-
-	type TreeNode = { label: string; key: string; children: Map<string, TreeNode> };
 
 	const { data } = $props();
 
@@ -30,6 +30,7 @@
 		{
 			read: (key) => readFile({ handle, key }),
 			check: checkDraft,
+			format: (content) => formatDraft({ content }),
 			save: async (input) => {
 				const saved = await editFile({ handle, ...input });
 				if (saved.ok)
@@ -44,8 +45,8 @@
 	);
 
 	const response = $derived(await getFiles(handle));
-	const tree = $derived(toTree((response.data ?? []).map((f) => f.key)));
 	const selected = $derived(page.url.searchParams.get('file'));
+	const line = $derived(Number(page.url.searchParams.get('line')) || null);
 
 	// Untracked: a command updates its own pending state, which would re-run this effect.
 	$effect(() => {
@@ -65,65 +66,22 @@
 
 	const open = (key: string | null) =>
 		goto(key === null ? page.url.pathname : `?file=${encodeURIComponent(key)}`);
-
-	async function create() {
-		if (editor.dirty && !confirm('Discard your unsaved changes?')) return;
-		const key = prompt('New file', 'new.rupee');
-		if (key === null) return;
-		if (await editor.create(key)) await open(key);
-	}
-
-	function toTree(keys: string[]): TreeNode[] {
-		const root = new Map<string, TreeNode>();
-		for (const key of keys) insert(root, key.split('/').filter(Boolean), key);
-		return [...root.values()];
-	}
-
-	function insert(nodes: Map<string, TreeNode>, [segment, ...rest]: string[], key: string) {
-		if (segment === undefined) return;
-		const node = nodes.get(segment) ?? { label: segment, key, children: new Map() };
-		nodes.set(segment, node);
-		insert(node.children, rest, key);
-	}
 </script>
 
-{#snippet branch(nodes: TreeNode[])}
-	<ul>
-		{#each nodes as node (node.label)}
-			<li>
-				{#if node.children.size === 0}
-					<a href="?file={encodeURIComponent(node.key)}">{node.label}</a>
-				{:else}
-					<span>{node.label}</span>
-					{@render branch([...node.children.values()])}
-				{/if}
-			</li>
-		{/each}
-	</ul>
-{/snippet}
-
-<h1>Files</h1>
-<p><button onclick={create}>New file</button></p>
-
-{#each response.errors as error, i (i)}
-	<p role="alert">{error.type}</p>
-{/each}
-
-<div style="display: flex; gap: 2rem">
-	<nav>{@render branch(tree)}</nav>
-	<section>
+<FileEditor {handle} {editor} {line} onopen={open} onremoved={() => open(null)}>
+	{#snippet links()}
 		{#if selected !== null}
-			<p>
-				<a href="/l/{handle}/refine?file={encodeURIComponent(selected)}">
-					{matches.key === selected && matches.count > 0
-						? `${matches.count} possible matches: review`
-						: 'Find matches'}
-				</a>
-			</p>
+			<a href="/l/{handle}/refine?file={encodeURIComponent(selected)}">
+				{matches.key === selected && matches.count > 0
+					? `${matches.count} possible matches: review`
+					: 'Find matches'}
+			</a>
 		{/if}
-		<FileEditor {editor} onrenamed={open} onremoved={() => open(null)} />
-		{#if selected !== null}
-			<FileEvents {handle} file={selected} locked={editor.dirty} onchanged={editor.reload} />
-		{/if}
-	</section>
-</div>
+	{/snippet}
+</FileEditor>
+
+<Issues {handle} errors={response.errors} />
+
+{#if selected !== null}
+	<FileEvents {handle} file={selected} locked={editor.dirty} onchanged={editor.reload} />
+{/if}

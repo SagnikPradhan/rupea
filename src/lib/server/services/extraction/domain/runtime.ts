@@ -1,12 +1,8 @@
 import { fault } from '#lib/server/shared/result/error.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
 import { type Batch, batch } from '#lib/server/shared/result/batch.ts';
-import {
-	displayLocation,
-	parseAmount,
-	parseDate,
-	type Amount,
-} from '#services/ledger/application/shared.ts';
+import { parseDate } from '#lib/server/shared/dates.ts';
+import { displayLocation, parseAmount, type Amount } from '#services/ledger/application/shared.ts';
 import { match, P } from 'ts-pattern';
 import type { Locator, Path, RupeeSchema, Transform } from './schema';
 import { STATEMENT_ERA, type Grid, type RupeeRecord } from './types';

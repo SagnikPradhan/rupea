@@ -1,5 +1,5 @@
 import { storages } from '#lib/server/db/schema.ts';
-import { provide } from '#lib/server/shared/context.ts';
+import { provide } from '#lib/server/shared/context/context.ts';
 import { createUser } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { eq } from 'drizzle-orm';

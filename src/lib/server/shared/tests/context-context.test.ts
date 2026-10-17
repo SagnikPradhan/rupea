@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { defaultConfiguration } from '#lib/server/shared/config.ts';
-import { provide, withContext, type RupeeContext } from '#lib/server/shared/context.ts';
-import { createLogger } from '#lib/server/shared/logger.ts';
-import { logMailer } from '#lib/server/shared/mailer.ts';
+import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
+import { provide, withContext, type RupeeContext } from '#lib/server/shared/context/context.ts';
+import { createLogger } from '#lib/server/shared/context/logger.ts';
+import { logMailer } from '#lib/server/shared/context/mailer.ts';
 import { createModels } from '#lib/server/shared/onnx/runtime.ts';
 import { localStorage } from '#lib/server/shared/storage/local.ts';
 

@@ -1,5 +1,5 @@
 import { statementGrids } from '#lib/server/db/schema.ts';
-import { provide } from '#lib/server/shared/context.ts';
+import { provide } from '#lib/server/shared/context/context.ts';
 import { ok } from '#lib/server/shared/result/result.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import { broken, hashed } from '#tests/shared/embedding.ts';

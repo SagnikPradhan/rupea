@@ -1,10 +1,10 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import type { Database } from '../db';
+import type { Database } from '../../db/index';
 import type { RupeeConfiguration } from './config';
 import type { Logger } from './logger';
 import type { Mailer } from './mailer';
-import type { Models } from './onnx/runtime';
-import type { Storages } from './storage/storage';
+import type { Models } from '../onnx/runtime';
+import type { Storages } from '../storage/storage';
 
 export type RupeeContext = {
 	config: RupeeConfiguration;

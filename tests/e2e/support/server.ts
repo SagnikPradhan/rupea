@@ -4,7 +4,7 @@ import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
 import { createInterface } from 'node:readline';
-import type { Mail } from '#lib/server/shared/mailer.ts';
+import type { Mail } from '#lib/server/shared/context/mailer.ts';
 
 export type Server = { url: string; codeFor: (email: string) => Promise<string> };
 

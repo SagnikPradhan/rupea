@@ -1,4 +1,4 @@
-import type { RupeeConfiguration } from '#lib/server/shared/config.ts';
+import type { RupeeConfiguration } from '#lib/server/shared/context/config.ts';
 import * as dateFns from 'date-fns';
 import {
 	formatQuantity,

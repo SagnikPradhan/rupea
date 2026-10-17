@@ -1,4 +1,4 @@
-import { defaultConfiguration } from '#lib/server/shared/config.ts';
+import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
 import { describe, expect, it } from 'vitest';
 import { parse, parseAmount } from '#services/ledger/domain/parser.ts';
 import { print, viewTransaction } from '#services/ledger/domain/printer.ts';

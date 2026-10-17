@@ -1,4 +1,4 @@
-import { defaultConfiguration } from '#lib/server/shared/config.ts';
+import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
 import { models as pinned } from '#lib/server/shared/onnx/models.ts';
 import { okAsync } from '#lib/server/shared/result/result.ts';
 import type { Amount, RupeeTransaction } from '#services/ledger/application/shared.ts';

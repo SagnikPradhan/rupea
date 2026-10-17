@@ -1,4 +1,4 @@
-import type { RupeeConfiguration } from '#lib/server/shared/config.ts';
+import type { RupeeConfiguration } from '#lib/server/shared/context/config.ts';
 import type { ResultAsync } from '#lib/server/shared/result/result.ts';
 import { accountType, AccountType, type Amount } from '#services/ledger/application/shared.ts';
 import { taxonomy } from './taxonomy';

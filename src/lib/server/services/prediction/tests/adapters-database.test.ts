@@ -1,6 +1,6 @@
 import type { Database } from '#lib/server/db/index.ts';
 import { EMBEDDING_DIMENSIONS } from '#lib/server/db/schema.ts';
-import { provide } from '#lib/server/shared/context.ts';
+import { provide } from '#lib/server/shared/context/context.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';

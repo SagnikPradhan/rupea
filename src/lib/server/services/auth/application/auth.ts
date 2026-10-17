@@ -1,5 +1,5 @@
-import { withContext } from '#lib/server/shared/context.ts';
-import { withLogger } from '#lib/server/shared/logger.ts';
+import { withContext } from '#lib/server/shared/context/context.ts';
+import { withLogger } from '#lib/server/shared/context/logger.ts';
 import { petName } from '#lib/server/shared/names.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import {

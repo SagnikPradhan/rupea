@@ -7,7 +7,7 @@ import { pipeline } from 'node:stream/promises';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import { fault, unknownError } from '../result/error';
 import { attempt, attemptWith, errAsync, okAsync, type ResultAsync } from '../result/result';
-import type { Logger } from '../logger';
+import type { Logger } from '../context/logger';
 
 export type ModelFile = { file: string; url: string; sha256: string };
 

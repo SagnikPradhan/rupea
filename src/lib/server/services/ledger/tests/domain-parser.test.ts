@@ -1,4 +1,4 @@
-import { defaultConfiguration } from '#lib/server/shared/config.ts';
+import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
 import { ok } from '#lib/server/shared/result/result.ts';
 import { describe, expect, it } from 'vitest';
 import {

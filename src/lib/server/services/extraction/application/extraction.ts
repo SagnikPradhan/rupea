@@ -1,4 +1,4 @@
-import { withContext } from '#lib/server/shared/context.ts';
+import { withContext } from '#lib/server/shared/context/context.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { batchAsync, type Batch } from '#lib/server/shared/result/batch.ts';
 import { err, errAsync, ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';

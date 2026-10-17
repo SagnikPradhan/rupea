@@ -6,7 +6,7 @@ import {
 	metadata,
 	transactions,
 } from '#lib/server/db/schema.ts';
-import { provide } from '#lib/server/shared/context.ts';
+import { provide } from '#lib/server/shared/context/context.ts';
 import { isHandle, petName } from '#lib/server/shared/names.ts';
 import { err, ok } from '#lib/server/shared/result/result.ts';
 import { scoped, type Storage } from '#lib/server/shared/storage/storage.ts';

@@ -1,6 +1,6 @@
 import { violatesUnique } from '#lib/server/db/errors.ts';
 import { emailCodes, sessions, users } from '#lib/server/db/schema.ts';
-import { withContext } from '#lib/server/shared/context.ts';
+import { withContext } from '#lib/server/shared/context/context.ts';
 import { fault, unknownError } from '#lib/server/shared/result/error.ts';
 import { attempt, attemptWith, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { eq } from 'drizzle-orm';

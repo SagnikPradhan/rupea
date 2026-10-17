@@ -1,5 +1,5 @@
 import { statementGrids, statements } from '#lib/server/db/schema.ts';
-import { withContext } from '#lib/server/shared/context.ts';
+import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { and, eq, gt, lte, or, sql } from 'drizzle-orm';
 import type { Contents } from '../domain/types';

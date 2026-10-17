@@ -1,5 +1,5 @@
-import type { RupeeConfiguration } from '#lib/server/shared/config.ts';
-import { withContext } from '#lib/server/shared/context.ts';
+import type { RupeeConfiguration } from '#lib/server/shared/context/config.ts';
+import { withContext } from '#lib/server/shared/context/context.ts';
 import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
 import {
 	err,

@@ -1,4 +1,4 @@
-import { withContext } from '#lib/server/shared/context.ts';
+import { withContext } from '#lib/server/shared/context/context.ts';
 import type { Box } from '#lib/server/shared/onnx/runtime.ts';
 import { sequence, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { toGrid, toLines, widen, type Word } from '../domain/table';

@@ -2,7 +2,7 @@ import { Tokenizer } from '@huggingface/tokenizers';
 import { readFile } from 'node:fs/promises';
 import { InferenceSession, Tensor } from 'onnxruntime-node';
 import { batches } from '../batches';
-import type { Namespace } from '../logger';
+import type { Namespace } from '../context/logger';
 import { fault } from '../result/error';
 import { attempt, err, ok, okAsync, type Result, ResultAsync, sequence } from '../result/result';
 import {

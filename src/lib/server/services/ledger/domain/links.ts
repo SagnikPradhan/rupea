@@ -1,4 +1,4 @@
-import type { RupeeConfiguration } from '#lib/server/shared/config.ts';
+import type { RupeeConfiguration } from '#lib/server/shared/context/config.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
 import { EVENT_KEY, EVENT_KEYS, linksOf, type EventLink, type EventRole } from './events';

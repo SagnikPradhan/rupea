@@ -1,4 +1,4 @@
-import { createLogger } from '#lib/server/shared/logger.ts';
+import { createLogger } from '#lib/server/shared/context/logger.ts';
 import { ensure, prepare, type ModelFile } from '#lib/server/shared/onnx/download.ts';
 import { models } from '#lib/server/shared/onnx/models.ts';
 import { batchAsync } from '#lib/server/shared/result/batch.ts';

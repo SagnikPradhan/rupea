@@ -2,7 +2,7 @@ import { createHash } from 'node:crypto';
 import { readdir, readFile, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect, vi } from 'vitest';
-import { createLogger } from '#lib/server/shared/logger.ts';
+import { createLogger } from '#lib/server/shared/context/logger.ts';
 import { err, ok } from '#lib/server/shared/result/result.ts';
 import { it } from '#tests/shared/vitest.ts';
 import {

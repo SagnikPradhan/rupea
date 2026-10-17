@@ -1,4 +1,4 @@
-import { provide } from '#lib/server/shared/context.ts';
+import { provide } from '#lib/server/shared/context/context.ts';
 import { err } from '#lib/server/shared/result/result.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { describe, expect } from 'vitest';

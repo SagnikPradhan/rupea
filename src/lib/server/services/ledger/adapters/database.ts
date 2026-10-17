@@ -9,7 +9,7 @@ import {
 	storages,
 	transactions as transactionTable,
 } from '#lib/server/db/schema.ts';
-import { withContext } from '#lib/server/shared/context.ts';
+import { withContext } from '#lib/server/shared/context/context.ts';
 import { fault, type RupeeError, unknownError } from '#lib/server/shared/result/error.ts';
 import {
 	attempt,

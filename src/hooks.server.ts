@@ -6,9 +6,9 @@ import {
 	readSessionCookie,
 	setSessionCookie,
 } from '#services/auth/adapters/cookie.ts';
-import { provide } from '#lib/server/shared/context.ts';
-import { createContext, createDatabase } from '#lib/server/shared/environment.ts';
-import { withLogger } from '#lib/server/shared/logger.ts';
+import { provide } from '#lib/server/shared/context/context.ts';
+import { createContext, createDatabase } from '#lib/server/shared/context/environment.ts';
+import { withLogger } from '#lib/server/shared/context/logger.ts';
 
 const database = await createDatabase();
 const context = createContext(database.orm);

@@ -2,7 +2,7 @@ import { existsSync } from 'node:fs';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect } from 'vitest';
-import { provide } from '#lib/server/shared/context.ts';
+import { provide } from '#lib/server/shared/context/context.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { models as files } from '#lib/server/shared/onnx/models.ts';
 import { createModels } from '#lib/server/shared/onnx/runtime.ts';

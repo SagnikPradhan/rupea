@@ -1,8 +1,8 @@
 import type { Database } from '#lib/server/db/index.ts';
-import { defaultConfiguration } from '#lib/server/shared/config.ts';
-import type { RupeeContext } from '#lib/server/shared/context.ts';
-import { createLogger } from '#lib/server/shared/logger.ts';
-import { logMailer } from '#lib/server/shared/mailer.ts';
+import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
+import type { RupeeContext } from '#lib/server/shared/context/context.ts';
+import { createLogger } from '#lib/server/shared/context/logger.ts';
+import { logMailer } from '#lib/server/shared/context/mailer.ts';
 import { models as files } from '#lib/server/shared/onnx/models.ts';
 import { createModels, type Models } from '#lib/server/shared/onnx/runtime.ts';
 import { localStorage } from '#lib/server/shared/storage/local.ts';

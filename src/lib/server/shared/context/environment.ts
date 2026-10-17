@@ -12,15 +12,15 @@ import {
 	RUPEE_TIME_FORMATS,
 } from '$app/env/private';
 import { resolve } from 'node:path';
-import { openDatabase, type Database, type DatabaseHandle } from '../db';
+import { openDatabase, type Database, type DatabaseHandle } from '../../db/index';
 import { defaultConfiguration } from './config';
 import type { RupeeContext } from './context';
 import { createLogger } from './logger';
 import { logMailer } from './mailer';
-import { models } from './onnx/models';
-import { createModels } from './onnx/runtime';
-import { localStorage } from './storage/local';
-import { scoped, type Storages } from './storage/storage';
+import { models } from '../onnx/models';
+import { createModels } from '../onnx/runtime';
+import { localStorage } from '../storage/local';
+import { scoped, type Storages } from '../storage/storage';
 
 // One for every user, so writes to the same file wait for each other.
 const createStorages = (): Storages => {

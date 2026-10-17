@@ -13,7 +13,7 @@ Domain terms are in [GLOSSARY.md](GLOSSARY.md), decisions in [docs/adr](docs/adr
 
 ## Architecture
 
-- **No singletons.** The context is built once by `createContext()` in `shared/environment.ts` and provided per request in `hooks.server.ts`. Functions declare what they need with `withContext('db')((db) => ...)` or `withContext('db', 'mailer')(({ db, mailer }) => ...)`. Callers don't thread `db` through parameters. Callback parameters use the key name verbatim.
+- **No singletons.** The context is built once by `createContext()` in `shared/context/environment.ts` and provided per request in `hooks.server.ts`. Functions declare what they need with `withContext('db')((db) => ...)` or `withContext('db', 'mailer')(({ db, mailer }) => ...)`. Callers don't thread `db` through parameters. Callback parameters use the key name verbatim.
 - **Schema.** Drizzle with `casing: 'snake_case'` and plural table names. Every table spreads `base`: a uuidv7 `id`, plus `created_at` and `updated_at`. A new table needs `select attach_updated_at()` in a custom migration. Natural keys are unique constraints, not the primary key. Fixed value sets use `pgEnum`.
 - **Generic helpers go in `src/lib/server/shared/`**, not in the module that first needed them. If a helper would make sense without its module, it belongs in `shared/`.
 - **Modules export only what's used outside them.** Values and functions get no `rupee` prefix.

@@ -38,7 +38,7 @@ describe('the auth store', () => {
 
 			expect(
 				(await Auth.createUser({ email: 'c@example.com', username: 'c2' }))._unsafeUnwrapErr(),
-			).toMatchObject({ type: 'UnknownError' });
+			).toEqual({ type: 'UniqueViolation', constraint: 'users_email_unique' });
 			expect((await Auth.countUsers()).unwrapOr(-1)).toBe(users);
 		}));
 

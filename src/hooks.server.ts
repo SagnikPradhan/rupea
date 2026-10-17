@@ -11,12 +11,18 @@ import { provide } from '#lib/server/shared/context/context.ts';
 import { createContext, createDatabase } from '#lib/server/shared/context/environment.ts';
 import { withLogger } from '#lib/server/shared/context/logger.ts';
 import { readConfiguration } from '#lib/server/shared/context/config.ts';
+import { startServerWorkers } from '#lib/server/workers.ts';
 
 const config = readConfiguration(process.env);
 const database = await createDatabase(config);
 const context = createContext(config, database.orm, dev);
 
-export const init: ServerInit = () => database.migrate();
+export const init: ServerInit = async () => {
+	await database.migrate();
+	const workers = await startServerWorkers({ database: database.url, context, dev });
+	if (!import.meta.hot)
+		process.once('sveltekit:shutdown', () => workers.stop().then(database.close));
+};
 
 export const handle: Handle = ({ event, resolve }) =>
 	provide({ ...context, logger: context.logger.child({ request_id: randomUUID() }) }, async () => {

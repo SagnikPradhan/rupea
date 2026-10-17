@@ -12,6 +12,7 @@ export type LedgerConfiguration = RupeeConfiguration['ledger'];
 export const defaultConfiguration: RupeeConfiguration = {
 	storage: { database: null, files: 'data' },
 	models: { dir: 'data/models', mode: 'download', threads: QUARTER_OF_CORES },
+	jobs: { workers: 1 },
 	ledger: { dateFormats: DATE_FORMATS, timeFormats: TIME_FORMATS },
 	accounts: { signup: 'closed' },
 	log: { level: 'info' },
@@ -36,6 +37,7 @@ const fromEnv = (env: NodeJS.ProcessEnv) => {
 			mode: read('RUPEE_MODELS_MODE'),
 			threads: number('RUPEE_MODELS_THREADS'),
 		},
+		jobs: { workers: number('RUPEE_JOBS_WORKERS') },
 		ledger: {
 			dateFormats: list('RUPEE_LEDGER_DATE_FORMATS'),
 			timeFormats: list('RUPEE_LEDGER_TIME_FORMATS'),
@@ -75,6 +77,7 @@ const formats = (check: (format: string) => boolean, pinned: string) =>
 const configuration = v.object({
 	storage: v.object({ database: v.nullable(v.string()), files: text }),
 	models: v.object({ dir: text, mode: v.picklist(['download', 'verify']), threads: count(1) }),
+	jobs: v.object({ workers: count(0) }),
 	ledger: v.object({
 		dateFormats: formats(isDateFormat, 'a year, month and day'),
 		timeFormats: formats(isTimeFormat, 'an hour and minute'),

@@ -4,7 +4,7 @@ import { withContext } from './context';
 
 export type { Logger };
 
-export type Namespace = 'auth' | 'ledger' | 'mailer' | 'onnx' | 'prediction';
+export type Namespace = 'auth' | 'jobs' | 'ledger' | 'mailer' | 'onnx' | 'prediction';
 
 export const createLogger = (level: LevelWithSilent, pretty: boolean) =>
 	pino({

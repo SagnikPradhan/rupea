@@ -1,4 +1,5 @@
-import { createHash, randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
+import { sha256 } from '#lib/server/shared/hash.ts';
+import { randomBytes, randomInt, timingSafeEqual } from 'node:crypto';
 
 const CODE_LIFETIME = 10 * 60 * 1000;
 const SESSION_LIFETIME = 30 * 24 * 60 * 60 * 1000;
@@ -8,8 +9,6 @@ export type StoredCode = { codeHash: string; expiresAt: Date };
 
 export type SessionState =
 	{ type: 'expired' } | { type: 'valid' } | { type: 'renew'; expiresAt: Date };
-
-export const sha256 = (t: string) => createHash('sha256').update(t).digest('hex');
 
 export const normalizeEmail = (e: string) => e.trim().toLowerCase();
 

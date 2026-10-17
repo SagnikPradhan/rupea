@@ -5,8 +5,8 @@ import {
 	newSession,
 	normalizeEmail,
 	sessionState,
-	sha256,
 } from '#services/auth/domain/credentials.ts';
+import { sha256 } from '#lib/server/shared/hash.ts';
 
 const DAY = 24 * 60 * 60 * 1000;
 const now = Date.parse('2026-10-01T00:00:00Z');

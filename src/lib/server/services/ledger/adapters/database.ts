@@ -1,4 +1,4 @@
-import { violatesUnique } from '#lib/server/db/errors.ts';
+import { attemptWrite, violates } from '#lib/server/db/errors.ts';
 import { statementChunks, type Database } from '#lib/server/db/index.ts';
 import {
 	ledgerFiles,
@@ -10,15 +10,8 @@ import {
 	transactions as transactionTable,
 } from '#lib/server/db/schema.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
-import { fault, type RupeeError, unknownError } from '#lib/server/shared/result/error.ts';
-import {
-	attempt,
-	attemptWith,
-	err,
-	errAsync,
-	ok,
-	ResultAsync,
-} from '#lib/server/shared/result/result.ts';
+import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
+import { attempt, err, errAsync, ok, ResultAsync } from '#lib/server/shared/result/result.ts';
 import { inOrder } from '#lib/server/shared/control.ts';
 import { and, asc, eq, inArray, isNotNull, ne, or, sql, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
@@ -613,18 +606,15 @@ type InsertLedgerOptions = {
 export const insertLedger = (options: InsertLedgerOptions): ResultAsync<Ledger> => {
 	const { storage, owner, handle, name } = options;
 	return withContext('db')((db) =>
-		attemptWith({
-			try: () =>
-				db
-					.insert(ledgers)
-					.values({ storageId: storage, handle, name })
-					.returning({ id: ledgers.id })
-					.then(([i]) => i ?? Promise.reject(new Error(`${handle} was not saved`)))
-					.then((i) => ({ id: i.id, handle, name, owner })),
-			catch: (t) => handleTaken(handle, t),
-		}),
+		attemptWrite(() =>
+			db
+				.insert(ledgers)
+				.values({ storageId: storage, handle, name })
+				.returning({ id: ledgers.id })
+				.then(([i]) => i ?? Promise.reject(new Error(`${handle} was not saved`)))
+				.then((i) => ({ id: i.id, handle, name, owner })),
+		).mapErr((e) =>
+			violates(e, 'ledgers_handle_unique') ? fault('NameTaken', { name: handle }) : e,
+		),
 	);
 };
-
-const handleTaken = (h: string, t: unknown) =>
-	violatesUnique(t, 'ledgers_handle_unique') ? fault('NameTaken', { name: h }) : unknownError(t);

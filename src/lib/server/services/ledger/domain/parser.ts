@@ -2,7 +2,7 @@ import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
 import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
 import { type Batch, batch } from '#lib/server/shared/result/batch.ts';
-import * as dateFns from 'date-fns';
+import { parseDate, parseTime, type ReadOptions } from '#lib/server/shared/dates.ts';
 import { match, P } from 'ts-pattern';
 import {
 	accountType,
@@ -243,7 +243,7 @@ export const parseHeader = (
 const readWords = <T>(
 	formats: string[],
 	words: string[],
-	read: (options: ParseOptions) => T | null,
+	read: (options: ReadOptions) => T | null,
 ): { value: T; rest: string[] } | undefined =>
 	formats
 		.flatMap((format) => {
@@ -327,61 +327,3 @@ export const parseAmount = (text: string): Amount | null => {
 	const units = BigInt(whole + fraction.padEnd(AMOUNT_SCALE, '0'));
 	return (sign === '-' ? -units : units) as Amount;
 };
-
-type ParseOptions = {
-	format: string;
-	text: string;
-};
-
-// Strict, so a list of formats never reads one text two ways.
-const read = ({
-	format,
-	text,
-	reference = new Date(0),
-}: ParseOptions & { reference?: Date | undefined }): Date | null => {
-	const date = dateFns.parse(text, format, reference);
-	return dateFns.isValid(date) && dateFns.format(date, format).toLowerCase() === text.toLowerCase()
-		? date
-		: null;
-};
-
-type ParseDateOptions = ParseOptions & {
-	reference?: Date | undefined;
-};
-
-export const parseDate = (options: ParseDateOptions): Temporal.PlainDate | null => {
-	const date = read(options);
-	return date
-		? Temporal.PlainDate.from({
-				year: date.getFullYear(),
-				month: date.getMonth() + 1,
-				day: date.getDate(),
-			})
-		: null;
-};
-
-export const parseTime = (options: ParseOptions): Temporal.PlainTime | null => {
-	const time = read(options);
-	return time
-		? Temporal.PlainTime.from({
-				hour: time.getHours(),
-				minute: time.getMinutes(),
-				second: time.getSeconds(),
-			})
-		: null;
-};
-
-// date-fns fills fields a format leaves out with the 1st, January or 1970, so
-// the sample date avoids all three.
-export const isDateFormat = (format: string, reference?: Date): boolean =>
-	parseDate({
-		format,
-		text: dateFns.format(new Date(2026, 7, 29), format),
-		reference,
-	})?.equals('2026-08-29') === true;
-
-export const isTimeFormat = (format: string): boolean =>
-	parseTime({
-		format,
-		text: dateFns.format(new Date(2026, 7, 29, 14, 30), format),
-	})?.equals('14:30') === true;

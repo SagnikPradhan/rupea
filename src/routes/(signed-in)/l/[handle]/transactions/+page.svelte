@@ -60,6 +60,7 @@
 					</td>
 					<td class="amount" class:negative={posting.amount.startsWith('-')}>
 						{formatAmount(posting.amount)}
+						{#if posting.cost}<span>{posting.cost}</span>{/if}
 						{#if posting.price}<span>{posting.price}</span>{/if}
 					</td>
 				</tr>

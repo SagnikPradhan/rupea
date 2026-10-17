@@ -5,85 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1791523293150,
-      "tag": "0000_extensions",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1791741265821,
-      "tag": "0001_baseline",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1791741266403,
-      "tag": "0002_updated_at",
-      "breakpoints": true
-    },
-    {
-      "idx": 3,
-      "version": "7",
-      "when": 1791866481542,
-      "tag": "0003_statement_grids",
-      "breakpoints": true
-    },
-    {
-      "idx": 4,
-      "version": "7",
-      "when": 1791866482267,
-      "tag": "0004_statement_grids_updated_at",
-      "breakpoints": true
-    },
-    {
-      "idx": 5,
-      "version": "7",
-      "when": 1791904703836,
-      "tag": "0005_statement_grids_per_ledger",
-      "breakpoints": true
-    },
-    {
-      "idx": 6,
-      "version": "7",
-      "when": 1791904902233,
-      "tag": "0006_statements",
-      "breakpoints": true
-    },
-    {
-      "idx": 7,
-      "version": "7",
-      "when": 1791904914351,
-      "tag": "0007_statements_updated_at",
-      "breakpoints": true
-    },
-    {
-      "idx": 8,
-      "version": "7",
-      "when": 1791906572514,
-      "tag": "0008_statement_text",
-      "breakpoints": true
-    },
-    {
-      "idx": 9,
-      "version": "7",
-      "when": 1791922830428,
-      "tag": "0009_statements_original",
-      "breakpoints": true
-    },
-    {
-      "idx": 10,
-      "version": "7",
-      "when": 1792255882830,
-      "tag": "0010_jobs",
-      "breakpoints": true
-    },
-    {
-      "idx": 11,
-      "version": "7",
-      "when": 1792255883602,
-      "tag": "0011_jobs_updated_at",
+      "when": 1792256607230,
+      "tag": "0000_baseline",
       "breakpoints": true
     }
   ]

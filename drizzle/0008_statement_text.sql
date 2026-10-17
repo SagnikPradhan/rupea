@@ -1,1 +1,0 @@
-ALTER TABLE "statement_grids" ADD COLUMN "text" jsonb DEFAULT '[]'::jsonb NOT NULL;

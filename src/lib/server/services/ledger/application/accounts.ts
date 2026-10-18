@@ -1,17 +1,29 @@
 import type { Batch } from '#lib/server/shared/result/batch.ts';
 import { okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { index, type LotHistory } from '../adapters/database';
+import { index, type LotHistory, type Worth } from '../adapters/database';
 import type { Quantity } from '../domain/amounts';
 import { byAccount, HOPS, pricedIn, valued, type Account } from '../domain/holdings';
 import type { Ledger } from '../domain/types';
 import { checkLots, syncIndex, uncountedIn } from './sync';
 
-export type { Account, LotHistory };
+export type { Account, LotHistory, Worth };
 
 export const getAccounts = (l: Ledger, d: Temporal.PlainDate): ResultAsync<Batch<Account>> =>
 	syncIndex(l).andThen((f) =>
 		listValued(l.id, d).map((b) => ({ ...b, failed: [...f, ...b.failed] })),
 	);
+
+type GetWorthOptions = { ledger: Ledger; from: Temporal.PlainDate; to: Temporal.PlainDate };
+
+/** What balance accounts were worth in rupees at the end of each day, from the ledger's first day at the earliest. */
+export const getWorth = (options: GetWorthOptions): ResultAsync<Batch<Worth>> => {
+	const { ledger, from, to } = options;
+	return syncIndex(ledger).andThen((f) =>
+		uncountedIn(ledger.id)
+			.andThen((e) => index(ledger.id).worth(e, from, to))
+			.map((w) => ({ succeeded: w, failed: f })),
+	);
+};
 
 type GetLotsOptions = { ledger: Ledger; account: string; commodity: string };
 

@@ -47,7 +47,7 @@
 		'.cm-gutter': { minHeight: '50dvh' },
 		'.cm-scroller': {
 			fontFamily: 'var(--font-mono)',
-			fontSize: 'var(--font-size-0)',
+			fontSize: 'var(--font-size-1)',
 		},
 		'.cm-gutters': {
 			border: 'none',

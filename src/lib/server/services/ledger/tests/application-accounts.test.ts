@@ -123,3 +123,57 @@ describe('accounts', () => {
 			]);
 		}));
 });
+
+describe('net worth', () => {
+	const from = Temporal.PlainDate.from('2026-10-01');
+	const to = Temporal.PlainDate.from('2026-10-03');
+
+	it('values each day at the prices known by then, owing liabilities', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = [
+				'2026-01-05 Salary',
+				'\tAssets:Bank 100000',
+				'\tIncome:Salary',
+				'',
+				'2026-02-01 Dinner',
+				'\tExpenses:Food 2000',
+				'\tLiabilities:Card',
+				'',
+				'2026-10-01 Fund',
+				'\tAssets:IBKR 100 USD @ 83',
+				'\tAssets:Bank',
+				'',
+				'2026-10-02 Buy',
+				'\tAssets:IBKR 2 AAPL @ 40 USD',
+				'\tAssets:IBKR -80 USD',
+				'',
+				'2026-10-02 Bonus',
+				'\tAssets:Zerodha 1 TCS',
+				'\tIncome:Bonus -1 TCS',
+				'',
+				'P 2026-10-03 AAPL 50 USD',
+				'',
+			].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupee', content });
+
+			const worth = (await Accounts.getWorth({ ledger, from, to }))._unsafeUnwrap().succeeded;
+			expect(worth.map((w) => [w.day.toString(), w.assets, w.liabilities, w.unpriced])).toEqual([
+				['2026-10-01', 100000_0000000000n, 2000_0000000000n, 0],
+				['2026-10-02', 100000_0000000000n, 2000_0000000000n, 1],
+				['2026-10-03', 101660_0000000000n, 2000_0000000000n, 1],
+			]);
+		}));
+
+	it('starts on the first day the ledger has, and is empty without one', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const empty = (await Accounts.getWorth({ ledger, from, to }))._unsafeUnwrap().succeeded;
+			const content = ['2026-10-02 Salary', '\tAssets:Bank 500', '\tIncome:Salary', ''].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupee', content });
+
+			const worth = (await Accounts.getWorth({ ledger, from, to }))._unsafeUnwrap().succeeded;
+			expect(empty).toEqual([]);
+			expect(worth.map((w) => w.day.toString())).toEqual(['2026-10-02', '2026-10-03']);
+		}));
+});

@@ -71,7 +71,7 @@
 - [ ] View a balance sheet and an income statement
 - [ ] Summarise a month or a year
 - [ ] Report in one currency
-- [ ] Chart spending, income, net worth and budgets over time
+- [ ] Chart spending, income, net worth and budgets over time (net worth done)
 - [ ] Export as CSV
 
 ### Sharing
@@ -91,5 +91,5 @@
 - [x] Enforce member access
 - [ ] Keep statements and schemas in the ledger
       ([ADR 0008](docs/adr/0008-statements-and-schemas-belong-to-the-ledger.md))
-- [ ] Pick a chart library
+- [x] Pick a chart library ([ADR 0013](docs/adr/0013-charts-with-uplot.md))
 - [ ] Bundle the migrations into the build, so the server starts from any directory

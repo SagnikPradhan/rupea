@@ -16,7 +16,7 @@
 	--size-6: 6rem; /* 96px */
 	--size-7: 9rem; /* 144px */
 
-	--measure: 48rem;
+	--measure: 64rem;
 	--sidebar: 12rem;
 	--inset: max(var(--size-3), (100% - var(--measure)) / 2);
 	--radius: 8px;
@@ -33,6 +33,13 @@
 	--color-accent: light-dark(#6b7a2a, #b5c46a);
 	--color-positive: light-dark(#0a7a3d, #4cc47f);
 	--color-negative: light-dark(#c62828, #ff7b72);
+}
+
+/* The signed-in sidebar sits beside the content from this width, so the content gives way to it. */
+@media (width >= 80rem) {
+	:root {
+		--inset: max(var(--size-3) + var(--sidebar) + var(--size-5), (100% - var(--measure)) / 2);
+	}
 }
 
 :root[data-theme='light'] {

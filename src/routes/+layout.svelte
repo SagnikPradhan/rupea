@@ -2,8 +2,10 @@
 	import { onMount } from 'svelte';
 	import favicon from '#lib/assets/favicon.svg';
 	import ThemeToggle from '#lib/web/components/theme-toggle/theme-toggle.svelte';
-	import '@fontsource-variable/noto-sans';
-	import '@fontsource-variable/jetbrains-mono';
+	import '@fontsource/poppins/400.css';
+	import '@fontsource/poppins/500.css';
+	import '@fontsource-variable/google-sans';
+	import '@fontsource-variable/geist-mono';
 	import '#lib/web/styles/reset.css';
 	import '#lib/web/styles/global.css';
 
@@ -47,6 +49,7 @@
 
 	header a {
 		color: var(--color-ink);
+		font-family: var(--font-heading);
 		font-size: var(--font-size-2);
 		text-decoration: none;
 	}

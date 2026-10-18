@@ -10,6 +10,8 @@ Rupee reads like a sharp accountant's working paper: numbers first, structure on
 
 **Lists are tables.** Anything listed, from transactions and accounts to lots and files, is the same table: a large lead row for the thing itself, muted rows under it for its parts, and whitespace between groups. Files list by their full path, with a storage listing's columns: last change and size. Shared cells, such as an amount or a link to its source line, are one component each.
 
+**Graphs are drawn like tables.** A graph sits on the page with no frame or grid: thin lines, muted axis labels in the data type, no tick marks, and the plot flush with the text column, its value axis on the right. The line a page exists to show is ink; context lines are faint, and dashed when two would otherwise look alike, so colour keeps its meaning. A graph belongs to a figure: a small capital label, with the graph's range links across from it, then the figure in display type and one muted line of context. Hovering moves the figure to that day, and a key under the graph gives the context lines' amounts. The axis fits the data, and zero is drawn only when a line crosses it.
+
 **Two tiers of type.** Display type is huge and rare: the page title, and the one figure a page exists to show. Everything else is data type, at one compact size with a tight line height. Headings under the title step down towards data size rather than through a scale. Each face has a role: a geometric sans for text (Poppins), a display face for titles (Google Sans), and a monospace for numbers and code (Geist Mono).
 
 **Hierarchy is exaggerated.** Extreme scale, stark colour and generous whitespace are there to steer the eye, not to decorate. Every screen, and every group on it, has one thing to read first, such as a transaction's description or an account and its total, then its figures, then its context (dates, sources, accounts) in small muted type. Groups are set apart by whitespace. Column labels are small, muted capitals over an ink rule.
@@ -34,5 +36,6 @@ Rupee reads like a sharp accountant's working paper: numbers first, structure on
 - Ledger tables share one component, so the density and alignment rules live in one place.
 - The muted colour is tuned to sit just above 4.5:1 in both themes.
 - Files are a table on their own page rather than a tree beside the editor, and an open file has the full width.
+- Net worth leads the accounts page: its figure in display type, then a graph of it, then the accounts that make it up.
 - Lots are one table, each lot a lead row with its sales under it, rather than a heading and a table per lot.
 - File keys are meant to be case-insensitive. The backend still matches them by case, until it changes.

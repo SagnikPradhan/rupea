@@ -36,10 +36,6 @@
 		padding-inline: var(--inset);
 	}
 
-	header {
-		border-bottom: 1px solid var(--color-border);
-	}
-
 	header div {
 		display: flex;
 		align-items: center;

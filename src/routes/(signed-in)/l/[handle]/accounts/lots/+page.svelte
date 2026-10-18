@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { getLots } from '#lib/endpoints/accounts.remote.ts';
+	import Amount from '#lib/web/components/ledger-table/amount.svelte';
+	import LedgerTable from '#lib/web/components/ledger-table/ledger-table.svelte';
+	import { formatDate } from '#lib/web/format.ts';
 	import { page } from '$app/state';
 
 	const { data } = $props();
@@ -25,30 +28,29 @@
 			{lot.origin}{lot.from ? ` from ${lot.from}` : ''} at {lot.location}, {lot.remaining} left
 		</p>
 		{#if lot.disposals.length > 0}
-			<table>
-				<thead>
-					<tr>
-						<th>Date</th>
-						<th>Kind</th>
-						<th>Units</th>
-						<th>Price</th>
-						<th>Gain</th>
-						<th>Source</th>
-					</tr>
-				</thead>
+			<LedgerTable
+				columns={[
+					{ label: 'Date', kind: 'date' },
+					{ label: 'Kind' },
+					{ label: 'Units', kind: 'amount' },
+					{ label: 'Price', kind: 'amount', optional: true },
+					{ label: 'Gain', kind: 'amount' },
+					{ label: 'Source', optional: true },
+				]}
+			>
 				<tbody>
 					{#each lot.disposals as disposal, i (i)}
 						<tr>
-							<td>{disposal.date}</td>
+							<td class="date">{formatDate(disposal.date)}</td>
 							<td>{disposal.kind}</td>
-							<td>{disposal.units}</td>
-							<td>{disposal.price ?? ''}</td>
-							<td>{disposal.gain ?? ''}</td>
-							<td>{disposal.location}</td>
+							<Amount value={disposal.units} />
+							<Amount value={disposal.price} optional />
+							<Amount value={disposal.gain} gain />
+							<td class="truncate optional">{disposal.location}</td>
 						</tr>
 					{/each}
 				</tbody>
-			</table>
+			</LedgerTable>
 		{/if}
 	</article>
 {:else}

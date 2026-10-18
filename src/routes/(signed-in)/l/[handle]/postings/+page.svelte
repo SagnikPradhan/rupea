@@ -1,5 +1,8 @@
 <script lang="ts">
 	import { getTransactions } from '#lib/endpoints/transactions.remote.ts';
+	import Amount from '#lib/web/components/ledger-table/amount.svelte';
+	import LedgerTable from '#lib/web/components/ledger-table/ledger-table.svelte';
+	import { formatDate } from '#lib/web/format.ts';
 
 	const { data } = $props();
 
@@ -29,19 +32,24 @@
 	</p>
 {/each}
 
-<table>
-	<thead>
-		<tr><th>Date</th><th>Account</th><th>Amount</th><th>Description</th><th>Source</th></tr>
-	</thead>
+<LedgerTable
+	columns={[
+		{ label: 'Date', kind: 'date' },
+		{ label: 'Account' },
+		{ label: 'Amount', kind: 'amount' },
+		{ label: 'Description' },
+		{ label: 'Source', optional: true },
+	]}
+>
 	<tbody>
 		{#each postings as posting (posting.key)}
 			<tr>
-				<td>{posting.date}</td>
-				<td>{posting.account}</td>
-				<td>{posting.quantity}</td>
-				<td>{posting.description}</td>
-				<td>{posting.source}</td>
+				<td class="date">{formatDate(posting.date)}</td>
+				<td class="truncate">{posting.account}</td>
+				<Amount value={posting.quantity} />
+				<td class="truncate">{posting.description}</td>
+				<td class="truncate optional">{posting.source}</td>
 			</tr>
 		{/each}
 	</tbody>
-</table>
+</LedgerTable>

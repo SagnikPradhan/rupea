@@ -21,8 +21,15 @@ const ledgerFile = [
 
 test('shows what each account holds and what it is worth', async ({ signedIn: page, ledger }) => {
 	await visit(page, `${ledger}/files`);
-	page.once('dialog', (d) => void d.accept('shares.rupee'));
 	await page.getByRole('button', { name: 'New file' }).click();
+	await page.getByLabel('New file').fill('shares.rupee');
+	await page.getByRole('button', { name: 'Create' }).click();
+	await expect(page.getByRole('heading', { name: 'shares.rupee' })).toBeVisible();
+	await page
+		.getByRole('navigation', { name: 'Breadcrumb' })
+		.getByRole('link', { name: 'Files' })
+		.click();
+	await page.getByRole('link', { name: 'shares.rupee' }).click();
 	await page.getByLabel('Ledger file').fill(ledgerFile);
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
 	await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
@@ -33,6 +40,13 @@ test('shows what each account holds and what it is worth', async ({ signedIn: pa
 	for (const cell of ['6.00 INFY', '9,000.00', '1,800.00', '10,800.00', '1,800.00'])
 		await expect(infy).toContainText(cell);
 	await expect(page.getByRole('row').filter({ hasText: 'TCS' })).toContainText('unpriced');
+
+	const worth = page.getByRole('region', { name: 'Net worth' });
+	await expect(worth).toContainText('2,600.00');
+	await expect(worth).toContainText('excludes 1 unpriced');
+	await page.getByRole('link', { name: '1Y' }).click();
+	await expect(page).toHaveURL(/range=1y/);
+	await expect(worth.getByRole('img', { name: /^Net worth from 2 Jan 2026/ })).toBeVisible();
 
 	await page.getByRole('link', { name: 'INFY' }).click();
 	await expect(page.getByRole('heading', { name: 'INFY in Assets:Zerodha' })).toBeVisible();

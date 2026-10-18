@@ -80,6 +80,9 @@ importers:
       unique-names-generator:
         specifier: 4.7.1
         version: 4.7.1
+      uplot:
+        specifier: 1.6.32
+        version: 1.6.32
       uuid:
         specifier: 14.0.2
         version: 14.0.2
@@ -2713,6 +2716,9 @@ packages:
     resolution: {integrity: sha512-lMx9dX+KRmG8sq6gulYYpKWZc9RlGsgBR6aoO8Qsm3qvkSJ+3rAymr+TnV8EDMrIrwuFJ4kruzMWM/OpYzPoow==}
     engines: {node: '>=8'}
 
+  uplot@1.6.32:
+    resolution: {integrity: sha512-KIMVnG68zvu5XXUbC4LQEPnhwOxBuLyW1AHtpm6IKTXImkbLgkMy+jabjLgSLMasNuGGzQm/ep3tOkyTxpiQIw==}
+
   uri-js@4.4.1:
     resolution: {integrity: sha512-7rKUyy33Q1yc98pQ1DAmLtwX109F7TIfWlW1Ydo8Wl1ii1SeHieeh0HHfPeL2fMXK6z0s8ecKs9frCuLJvndBg==}
 
@@ -5052,6 +5058,8 @@ snapshots:
   undici-types@8.9.0: {}
 
   unique-names-generator@4.7.1: {}
+
+  uplot@1.6.32: {}
 
   uri-js@4.4.1:
     dependencies:

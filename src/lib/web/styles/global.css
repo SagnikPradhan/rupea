@@ -21,8 +21,9 @@
 	--inset: max(var(--size-3), (100% - var(--measure)) / 2);
 	--radius: 8px;
 
-	--font-sans: 'Noto Sans Variable', sans-serif;
-	--font-mono: 'JetBrains Mono Variable', monospace;
+	--font-body: 'Poppins', sans-serif;
+	--font-heading: 'Google Sans Variable', sans-serif;
+	--font-mono: 'Geist Mono Variable', monospace;
 
 	--color-surface: light-dark(#fff, #121212);
 	--color-subtle: light-dark(#f5f5f5, #1e1e1e);
@@ -58,7 +59,7 @@ html {
 body {
 	line-height: 1.4;
 	font-size: var(--font-size-1);
-	font-family: var(--font-sans);
+	font-family: var(--font-body);
 	font-optical-sizing: auto;
 	font-weight: 400;
 	font-style: normal;
@@ -70,10 +71,12 @@ body {
 
 h1,
 h2,
-h3 {
+h3,
+h4 {
 	line-height: 1.125;
 	color: var(--color-ink);
 	text-wrap: balance;
+	font-family: var(--font-heading);
 	font-weight: 400;
 }
 

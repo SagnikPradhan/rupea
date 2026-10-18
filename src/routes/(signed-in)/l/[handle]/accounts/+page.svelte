@@ -1,54 +1,82 @@
 <script lang="ts">
 	import { getAccounts } from '#lib/endpoints/accounts.remote.ts';
+	import Issues from '#lib/web/components/issues/issues.svelte';
+	import Amount from '#lib/web/components/ledger-table/amount.svelte';
+	import LedgerTable from '#lib/web/components/ledger-table/ledger-table.svelte';
+	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
+	import { ledgerCrumb } from '#lib/web/links.ts';
 
 	const { data } = $props();
 
-	const response = $derived(await getAccounts(data.ledger.handle));
+	const handle = $derived(data.ledger.handle);
+	const response = $derived(await getAccounts(handle));
 
 	const lotsOf = (account: string, commodity: string) =>
-		`/l/${data.ledger.handle}/accounts/lots?${new URLSearchParams({ account, commodity })}`;
+		`/l/${handle}/accounts/lots?${new URLSearchParams({ account, commodity })}`;
 </script>
 
-<h1>Accounts</h1>
+<PageHeader trail={[ledgerCrumb(data.ledger)]}>Accounts</PageHeader>
 
-{#each response.errors as error, index (index)}
-	<p role="alert">
-		{error.type}{'location' in error ? ` at ${error.location}` : ''}
-	</p>
-{/each}
+<Issues {handle} errors={response.errors} />
 
-<table>
-	<thead>
-		<tr>
-			<th>Account</th><th>Units</th><th>Cost</th><th>Price</th><th>Value</th><th>Gain</th>
-		</tr>
-	</thead>
-	<tbody>
-		{#each response.data ?? [] as account (account.account)}
+<LedgerTable
+	columns={[
+		{ label: 'Account' },
+		{ label: 'Units', kind: 'amount', optional: true },
+		{ label: 'Cost', kind: 'amount', optional: true },
+		{ label: 'Price', kind: 'amount', optional: true },
+		{ label: 'Value', kind: 'amount' },
+		{ label: 'Gain', kind: 'amount' },
+	]}
+>
+	{#each response.data ?? [] as account (account.account)}
+		<tbody>
 			<tr>
-				<th scope="row" style:padding-left="{account.depth}em">{account.account}</th>
-				<td colspan="3"></td>
-				<td>
-					{account.total}{account.unpriced > 0 ? ` (excludes ${account.unpriced} unpriced)` : ''}
-				</td>
-				<td></td>
+				<th scope="row" class="truncate">
+					{account.account}
+					{#if account.unpriced > 0}<span class="tag">{account.unpriced} unpriced</span>{/if}
+				</th>
+				<Amount value={null} optional />
+				<Amount value={null} optional />
+				<Amount value={null} optional />
+				<Amount value={account.total} />
+				<Amount value={null} />
 			</tr>
 			{#each account.holdings as holding (holding.commodity)}
-				<tr>
-					<td style:padding-left="{account.depth + 1}em">
+				<tr class="child">
+					<td>
 						{#if holding.hasLots}
 							<a href={lotsOf(account.account, holding.commodity)}>{holding.commodity}</a>
 						{:else}
 							{holding.commodity}
 						{/if}
 					</td>
-					<td>{holding.units}</td>
-					<td>{holding.cost ?? ''}</td>
-					<td>{holding.price ?? ''}</td>
-					<td>{holding.value ?? 'unpriced'}</td>
-					<td>{holding.gain ?? ''}</td>
+					<Amount value={holding.units} optional />
+					<Amount value={holding.cost} optional />
+					<Amount value={holding.price} optional />
+					<Amount value={holding.value}><span class="unpriced">unpriced</span></Amount>
+					<Amount value={holding.gain} gain />
 				</tr>
 			{/each}
-		{/each}
-	</tbody>
-</table>
+		</tbody>
+	{/each}
+</LedgerTable>
+
+<style>
+	th .tag {
+		margin: 0 0 0 var(--size-1);
+	}
+
+	.unpriced {
+		color: var(--color-muted);
+	}
+
+	a {
+		color: inherit;
+		text-decoration: none;
+	}
+
+	a:hover {
+		text-decoration: underline;
+	}
+</style>

@@ -14,6 +14,8 @@
 		saveSchema,
 	} from '#lib/endpoints/schemas.remote.ts';
 	import type { RupeeError } from '#lib/server/shared/result/error.ts';
+	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
+	import { ledgerCrumb } from '#lib/web/links.ts';
 	import type { Reply } from '#lib/server/shared/result/reply.ts';
 	import { goto } from '$app/navigation';
 
@@ -156,7 +158,7 @@ fields:
 	}
 </script>
 
-<h1>Import a statement</h1>
+<PageHeader trail={[ledgerCrumb(data.ledger)]}>Import a statement</PageHeader>
 
 <section>
 	<h2>Schemas</h2>

@@ -2,7 +2,7 @@ import type { Batch } from '#lib/server/shared/result/batch.ts';
 import { okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { index, type LotHistory } from '../adapters/database';
 import type { Quantity } from '../domain/amounts';
-import { accountTree, HOPS, pricedIn, valued, type Account } from '../domain/holdings';
+import { byAccount, HOPS, pricedIn, valued, type Account } from '../domain/holdings';
 import type { Ledger } from '../domain/types';
 import { checkLots, syncIndex, uncountedIn } from './sync';
 
@@ -32,7 +32,7 @@ const listValued = (ledgerId: string, day: Temporal.PlainDate): ResultAsync<Batc
 				hs.map((h) => valued(h, p)),
 			),
 		)
-		.andThen((v) => checkLots(ledgerId).map((u) => ({ succeeded: accountTree(v), failed: u })));
+		.andThen((v) => checkLots(ledgerId).map((u) => ({ succeeded: byAccount(v), failed: u })));
 
 type PricesOnOptions = {
 	ledgerId: string;

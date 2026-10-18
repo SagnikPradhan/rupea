@@ -1,7 +1,6 @@
 <script lang="ts">
 	import { page } from '$app/state';
 	import { signOut } from '#lib/endpoints/auth.remote.ts';
-	import FileTree from '#lib/web/components/file-tree/file-tree.svelte';
 
 	const { data, children } = $props();
 
@@ -23,17 +22,14 @@
 			<ul role="list">
 				{#each data.ledgers as ledger (ledger.handle)}
 					<li>
-						<a href="/l/{ledger.handle}/transactions">{ledger.name}</a>
-						{#if !ledger.owned}<span>shared</span>{/if}
+						<p class="label">
+							<a href="/l/{ledger.handle}/transactions">{ledger.name}</a>
+							{#if !ledger.owned}· shared{/if}
+						</p>
 						<ul role="list">
 							{#each SECTIONS as section (section.path)}
 								{@const href = `/l/${ledger.handle}/${section.path}`}
-								<li>
-									<a {href} aria-current={current(href)}>{section.label}</a>
-									{#if section.path === 'files' && current(href)}
-										<FileTree handle={ledger.handle} />
-									{/if}
-								</li>
+								<li><a {href} aria-current={current(href)}>{section.label}</a></li>
 							{/each}
 						</ul>
 					</li>
@@ -67,15 +63,28 @@
 		padding-top: var(--size-5);
 	}
 
+	.content {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-5);
+		padding-top: var(--size-5);
+	}
+
+	.content > :global(*) {
+		margin-block: 0;
+	}
+
 	ul {
 		margin: 0;
 		padding: 0;
 	}
 
-	ul ul {
-		margin-top: var(--size-1);
-		padding-left: var(--size-2);
-		border-left: 1px solid var(--color-border);
+	nav > ul > li {
+		margin: 0;
+	}
+
+	nav > ul > li + li {
+		margin-top: var(--size-4);
 	}
 
 	a {
@@ -90,7 +99,14 @@
 		color: var(--color-accent);
 	}
 
-	span,
+	.label {
+		margin-bottom: var(--size-1);
+	}
+
+	.label a {
+		color: inherit;
+	}
+
 	form p {
 		color: var(--color-muted);
 		font-size: var(--font-size-0);
@@ -110,8 +126,12 @@
 
 		aside {
 			gap: var(--size-2);
-			padding-block: var(--size-2);
-			border-bottom: 1px solid var(--color-border);
+			padding-top: var(--size-2);
+		}
+
+		.content {
+			gap: var(--size-4);
+			padding-top: var(--size-4);
 		}
 
 		ul,
@@ -120,15 +140,6 @@
 			flex-wrap: wrap;
 			gap: var(--size-1) var(--size-2);
 			align-items: center;
-		}
-
-		ul ul {
-			padding-left: 0;
-			border-left: none;
-		}
-
-		li:has(:global(nav)) {
-			flex-basis: 100%;
 		}
 
 		form p {

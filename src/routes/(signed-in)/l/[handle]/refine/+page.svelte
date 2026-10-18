@@ -6,7 +6,8 @@
 		getSuggestions,
 	} from '#lib/endpoints/refinement.remote.ts';
 	import type { RupeeError } from '#lib/server/shared/result/error.ts';
-	import { fileHref } from '#lib/web/links.ts';
+	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
+	import { fileHref, ledgerCrumb } from '#lib/web/links.ts';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 
@@ -65,7 +66,7 @@
 	</div>
 {/snippet}
 
-<h1>Refine</h1>
+<PageHeader trail={[ledgerCrumb(data.ledger)]}>Refine</PageHeader>
 
 <label>
 	Find matches for

@@ -1,5 +1,5 @@
 import { HighlightStyle, StreamLanguage, syntaxHighlighting } from '@codemirror/language';
-import { tags } from '@lezer/highlight';
+import { Tag, tags } from '@lezer/highlight';
 
 type Line = { kind: 'header' | 'posting' | 'metadata' | 'comment' | 'other'; account: boolean };
 
@@ -8,9 +8,12 @@ const TIME = /^\d{2}:\d{2}(:\d{2})?/;
 const NUMBER = /^[+-]?[\d,]+(\.\d+)?/;
 const KEY = /^-\s+[^\s:]+:/;
 
+const negative = Tag.define();
+
 /** Mirrors the line kinds the ledger parser tells apart; it only colours, never validates. */
 const language = StreamLanguage.define<Line>({
 	startState: () => ({ kind: 'other', account: false }),
+	tokenTable: { negative },
 	token: (stream, line) => {
 		if (stream.sol()) Object.assign(line, { kind: kindOf(stream.string), account: false });
 		if (stream.eatSpace()) return null;
@@ -24,18 +27,21 @@ const language = StreamLanguage.define<Line>({
 			return stream.match(/^\S+/) ? 'variableName' : null;
 		}
 
+		if (stream.match(DATE)) return 'keyword';
 		if (stream.match(/^@@?|^=/)) return 'operator';
-		if (stream.match(NUMBER)) return 'number';
+		if (stream.match(NUMBER)) return stream.current().startsWith('-') ? 'negative' : 'number';
 		stream.match(/^\S+/);
 		return 'atom';
 	},
 });
 
 const style = HighlightStyle.define([
-	{ tag: tags.keyword, color: 'var(--color-accent)' },
-	{ tag: tags.number, color: 'var(--color-ink)' },
-	{ tag: tags.variableName, color: 'var(--color-ink)' },
-	{ tag: [tags.atom, tags.operator, tags.meta, tags.string], color: 'var(--color-muted)' },
+	{ tag: [tags.keyword, tags.number], color: 'var(--color-ink)' },
+	{ tag: negative, color: 'var(--color-negative)' },
+	{
+		tag: [tags.variableName, tags.atom, tags.operator, tags.meta, tags.string],
+		color: 'var(--color-muted)',
+	},
 	{ tag: tags.comment, color: 'var(--color-muted)', fontStyle: 'italic' },
 ]);
 

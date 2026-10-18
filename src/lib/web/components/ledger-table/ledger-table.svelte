@@ -13,7 +13,7 @@
 		<thead>
 			<tr>
 				{#each columns as column (column.label)}
-					<th class={[column.kind, { optional: column.optional }]}>{column.label}</th>
+					<th class={['label', column.kind, { optional: column.optional }]}>{column.label}</th>
 				{/each}
 			</tr>
 		</thead>
@@ -23,7 +23,6 @@
 
 <style>
 	div {
-		margin-top: var(--size-3);
 		overflow-x: auto;
 	}
 
@@ -31,6 +30,7 @@
 		width: 100%;
 		border-collapse: collapse;
 		font-size: var(--font-size-1);
+		line-height: 1.3;
 	}
 
 	table :global(:is(th, td)) {
@@ -42,22 +42,29 @@
 		padding-left: 0;
 	}
 
-	th {
-		padding-bottom: var(--size-1);
-		color: var(--color-muted);
-		font-weight: 400;
-		text-align: left;
+	thead th {
+		padding-bottom: var(--size-2);
+		border-bottom: 1px solid var(--color-ink);
 	}
 
 	table :global(th[scope='row']) {
 		color: var(--color-ink);
+		font-size: var(--font-size-2);
 		font-weight: 500;
 		text-align: left;
+	}
+
+	table :global(th[scope='row'] ~ .amount) {
+		font-size: var(--font-size-2);
 	}
 
 	table :global(:is(.date, .amount)) {
 		width: 1%;
 		white-space: nowrap;
+	}
+
+	table :global(td.date) {
+		color: var(--color-muted);
 	}
 
 	table :global(.amount) {
@@ -72,11 +79,11 @@
 	}
 
 	table :global(tbody tr:first-child > *) {
-		padding-top: var(--size-1);
+		padding-top: var(--size-2);
 	}
 
 	table :global(tbody tr:last-child > *) {
-		padding-bottom: var(--size-1);
+		padding-bottom: var(--size-2);
 	}
 
 	table :global(tr.child > *) {
@@ -93,7 +100,9 @@
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius);
 		color: var(--color-muted);
+		font-size: var(--font-size-0);
 		font-weight: 400;
+		vertical-align: middle;
 	}
 
 	@media (width < 40rem) {

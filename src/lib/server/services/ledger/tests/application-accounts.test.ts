@@ -37,11 +37,10 @@ describe('accounts', () => {
 
 			const accounts = (await Accounts.getAccounts(ledger, day))._unsafeUnwrap().succeeded;
 			expect(accounts.map((a) => [a.account, a.total, a.unpriced])).toEqual([
-				['Assets', 2500_0000000000n, 1],
 				['Assets:Bank', -10100_0000000000n, 0],
 				['Assets:Zerodha', 12600_0000000000n, 1],
 			]);
-			expect(accounts[2]?.holdings).toMatchObject([
+			expect(accounts[1]?.holdings).toMatchObject([
 				{
 					commodity: 'INFY',
 					units: 7_0000000000n,

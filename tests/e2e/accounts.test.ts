@@ -28,18 +28,14 @@ test('shows what each account holds and what it is worth', async ({ signedIn: pa
 	await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
 
 	await visit(page, `${ledger}/accounts`);
-	await expect(page.getByRole('row', { name: 'Assets:Zerodha' })).toContainText(
-		'10800.00 (excludes 1 unpriced)',
-	);
+	await expect(page.getByRole('row', { name: 'Assets:Zerodha' })).toContainText('10,800.00');
 	const infy = page.getByRole('row').filter({ hasText: 'INFY' });
-	for (const cell of ['6.00 INFY', '9000.00', '1800.00', '10800.00', '1800.00'])
+	for (const cell of ['6.00 INFY', '9,000.00', '1,800.00', '10,800.00', '1,800.00'])
 		await expect(infy).toContainText(cell);
 	await expect(page.getByRole('row').filter({ hasText: 'TCS' })).toContainText('unpriced');
 
 	await page.getByRole('link', { name: 'INFY' }).click();
 	await expect(page.getByRole('heading', { name: 'INFY in Assets:Zerodha' })).toBeVisible();
-	await expect(page.getByRole('article', { name: 'Lot of 2026-01-02' })).toContainText(
-		'buy at shares.rupee:1, 6.00 left',
-	);
+	await expect(page.getByRole('row', { name: /buy/i })).toContainText('6.00 left');
 	await expect(page.getByRole('row').filter({ hasText: 'sale' })).toContainText('800.00');
 });

@@ -10,11 +10,12 @@ test('creates a file, edits it, and saves with the keyboard', async ({
 	await page.getByLabel('New file').fill('cash.rupee');
 	await page.getByRole('button', { name: 'Create' }).click();
 
-	const files = page.getByRole('navigation', { name: 'Files' });
-	await expect(files.getByRole('link', { name: 'cash.rupee' })).toHaveAttribute(
-		'aria-current',
-		'page',
-	);
+	await expect(page.getByRole('heading', { name: 'cash.rupee' })).toBeVisible();
+	await page
+		.getByRole('navigation', { name: 'Breadcrumb' })
+		.getByRole('link', { name: 'Files' })
+		.click();
+	await page.getByRole('link', { name: 'cash.rupee' }).click();
 
 	await page.getByLabel('Ledger file').click();
 	await page.keyboard.type('2026-09-01 TEA\n\tExpenses:Food 20\n\tAssets:Cash\n');
@@ -47,7 +48,6 @@ test('renames and deletes a file in place', async ({ signedIn: page, ledger }) =
 		.getByRole('group', { name: 'Confirm delete' })
 		.getByRole('button', { name: 'Delete' })
 		.click();
-	await expect(page.getByText('Pick a file from the list, or make a new one.')).toBeVisible();
 	await expect(page.getByText('No files yet.')).toBeVisible();
 });
 

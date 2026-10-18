@@ -1,58 +1,88 @@
 <script lang="ts">
 	import { getLots } from '#lib/endpoints/accounts.remote.ts';
+	import Issues from '#lib/web/components/issues/issues.svelte';
 	import Amount from '#lib/web/components/ledger-table/amount.svelte';
 	import LedgerTable from '#lib/web/components/ledger-table/ledger-table.svelte';
+	import Source from '#lib/web/components/ledger-table/source.svelte';
+	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
 	import { formatDate } from '#lib/web/format.ts';
+	import { fileHref, ledgerCrumb } from '#lib/web/links.ts';
 	import { page } from '$app/state';
 
 	const { data } = $props();
 
+	const handle = $derived(data.ledger.handle);
 	const account = $derived(page.url.searchParams.get('account') ?? '');
 	const commodity = $derived(page.url.searchParams.get('commodity') ?? '');
-	const response = $derived(await getLots({ handle: data.ledger.handle, account, commodity }));
+	const response = $derived(await getLots({ handle, account, commodity }));
+
+	const trail = $derived([
+		ledgerCrumb(data.ledger),
+		{ href: `/l/${handle}/accounts`, label: 'Accounts' },
+	]);
 </script>
 
-<h1>{commodity} in {account}</h1>
-<p><a href="/l/{data.ledger.handle}/accounts">All accounts</a></p>
+<PageHeader {trail}>{commodity} in {account}</PageHeader>
 
-{#each response.errors as error, index (index)}
-	<p role="alert">
-		{error.type}{'location' in error ? ` at ${error.location}` : ''}
-	</p>
-{/each}
+<Issues {handle} errors={response.errors} />
 
-{#each response.data ?? [] as lot, index (index)}
-	<article aria-label="Lot of {lot.date}">
-		<h2>{lot.units} {commodity} at {lot.cost} on {lot.date}</h2>
-		<p>
-			{lot.origin}{lot.from ? ` from ${lot.from}` : ''} at {lot.location}, {lot.remaining} left
-		</p>
-		{#if lot.disposals.length > 0}
-			<LedgerTable
-				columns={[
-					{ label: 'Date', kind: 'date' },
-					{ label: 'Kind' },
-					{ label: 'Units', kind: 'amount' },
-					{ label: 'Price', kind: 'amount', optional: true },
-					{ label: 'Gain', kind: 'amount' },
-					{ label: 'Source', optional: true },
-				]}
-			>
-				<tbody>
-					{#each lot.disposals as disposal, i (i)}
-						<tr>
-							<td class="date">{formatDate(disposal.date)}</td>
-							<td>{disposal.kind}</td>
-							<Amount value={disposal.units} />
-							<Amount value={disposal.price} optional />
-							<Amount value={disposal.gain} gain />
-							<td class="truncate optional">{disposal.location}</td>
-						</tr>
-					{/each}
-				</tbody>
-			</LedgerTable>
-		{/if}
-	</article>
-{:else}
+{#if response.data?.length === 0}
 	<p>No lots of {commodity} in {account}.</p>
-{/each}
+{:else}
+	<LedgerTable
+		columns={[
+			{ label: 'Date', kind: 'date' },
+			{ label: 'Lot' },
+			{ label: 'Units', kind: 'amount' },
+			{ label: 'Price', kind: 'amount', optional: true },
+			{ label: 'Gain', kind: 'amount' },
+		]}
+	>
+		{#each response.data ?? [] as lot (`${lot.file}:${lot.line}`)}
+			<tbody>
+				<tr>
+					<td class="date">{formatDate(lot.date)}</td>
+					<th scope="row" class="truncate">
+						{lot.origin}{lot.from ? ` from ${lot.from}` : ''}
+						<span class="tag">{lot.remaining} left</span>
+					</th>
+					<Amount value={lot.units} />
+					<Amount value={lot.cost} optional />
+					<Source {handle} file={lot.file} line={lot.line} />
+				</tr>
+				{#each lot.disposals as disposal, i (i)}
+					<tr class="child">
+						<td class="date">{formatDate(disposal.date)}</td>
+						<td><a href={fileHref(handle, disposal.file, disposal.line)}>{disposal.kind}</a></td>
+						<Amount value={disposal.units} />
+						<Amount value={disposal.price} optional />
+						<Amount value={disposal.gain} gain />
+					</tr>
+				{/each}
+			</tbody>
+		{/each}
+	</LedgerTable>
+{/if}
+
+<style>
+	th::first-letter {
+		text-transform: uppercase;
+	}
+
+	th .tag {
+		margin: 0 0 0 var(--size-1);
+	}
+
+	a {
+		color: inherit;
+		text-decoration: none;
+	}
+
+	a:hover {
+		text-decoration: underline;
+	}
+
+	p {
+		color: var(--color-muted);
+	}
+</style>

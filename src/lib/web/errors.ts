@@ -62,3 +62,7 @@ const toPlace = (text: string): Place => {
 	const found = /^(.*):(\d+)$/.exec(text);
 	return found?.[1] && found[2] ? { file: found[1], line: found[2] } : { file: text, line: null };
 };
+
+/** Assertions only check the ledger; nothing is wrong with the data they point at. */
+export const isWarning = (e: RupeeError) =>
+	e.type === 'BalanceAssertionFailed' || e.type === 'BalanceAssertionAmbiguous';

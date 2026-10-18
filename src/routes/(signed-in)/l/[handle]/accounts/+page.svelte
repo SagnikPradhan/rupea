@@ -36,7 +36,7 @@
 			{#each account.holdings as holding (holding.commodity)}
 				<tr>
 					<td style:padding-left="{account.depth + 1}em">
-						{#if holding.lots}
+						{#if holding.hasLots}
 							<a href={lotsOf(account.account, holding.commodity)}>{holding.commodity}</a>
 						{:else}
 							{holding.commodity}

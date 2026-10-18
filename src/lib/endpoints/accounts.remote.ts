@@ -9,55 +9,54 @@ import { query } from '$app/server';
 import * as v from 'valibot';
 import { Handle, inLedger } from './shared';
 
-export const getAccounts = query(Handle, async (h) => {
+const LotsQuery = v.object({ handle: Handle, account: v.string(), commodity: v.string() });
+
+export const getAccounts = query(Handle, async (handle) => {
 	const today = Temporal.Now.plainDateISO();
-	const accounts = inLedger({ handle: h, action: (l) => Ledger.getAccounts(l, today) });
+	const accounts = inLedger({ handle, action: (l) => Ledger.getAccounts(l, today) });
 
 	return replyFromBatch(
-		await accounts.map((b) => ({
-			...b,
-			succeeded: b.succeeded.map((a) => ({
-				...a,
-				total: formatAmount(a.total),
-				holdings: a.holdings.map((x) => ({
-					commodity: x.commodity,
-					lots: x.lots,
-					units: formatQuantity({ amount: x.units, commodity: x.commodity }),
-					cost: x.cost && formatQuantity(x.cost),
-					price: x.price && formatQuantity(x.price),
-					value: x.value === null ? null : formatAmount(x.value),
-					gain: x.gain === null ? null : formatAmount(x.gain),
-				})),
-			})),
-		})),
+		await accounts.map((b) => ({ ...b, succeeded: b.succeeded.map(viewAccount) })),
 	);
 });
 
-const Holding = v.object({ handle: Handle, account: v.string(), commodity: v.string() });
+export const getLots = query(LotsQuery, async ({ handle, account, commodity }) => {
+	const lots = inLedger({
+		handle,
+		action: (l) => Ledger.getLots({ ledger: l, account, commodity }),
+	});
 
-export const getLots = query(Holding, async ({ handle, account, commodity }) => {
-	const lots = inLedger({ handle, action: (l) => Ledger.getLots(l, account, commodity) });
+	return replyFromBatch(await lots.map((b) => ({ ...b, succeeded: b.succeeded.map(viewLot) })));
+});
 
-	return replyFromBatch(
-		await lots.map((b) => ({
-			...b,
-			succeeded: b.succeeded.map((l) => ({
-				location: displayLocation(l.location),
-				date: l.date.toString(),
-				origin: l.origin,
-				from: l.from,
-				units: formatAmount(l.units),
-				remaining: formatAmount(l.remaining),
-				cost: formatQuantity(l.cost),
-				disposals: l.disposals.map((d) => ({
-					location: displayLocation(d.location),
-					date: d.date.toString(),
-					kind: d.kind,
-					units: formatAmount(d.units),
-					price: d.price && formatQuantity(d.price),
-					gain: d.gain && formatQuantity(d.gain),
-				})),
-			})),
-		})),
-	);
+const viewAccount = (account: Ledger.Account) => ({
+	...account,
+	total: formatAmount(account.total),
+	holdings: account.holdings.map((holding) => ({
+		commodity: holding.commodity,
+		hasLots: holding.hasLots,
+		units: formatQuantity({ amount: holding.units, commodity: holding.commodity }),
+		cost: holding.cost && formatQuantity(holding.cost),
+		price: holding.price && formatQuantity(holding.price),
+		value: holding.value === null ? null : formatAmount(holding.value),
+		gain: holding.gain === null ? null : formatAmount(holding.gain),
+	})),
+});
+
+const viewLot = (lot: Ledger.LotHistory) => ({
+	location: displayLocation(lot.location),
+	date: lot.date.toString(),
+	origin: lot.origin,
+	from: lot.from,
+	units: formatAmount(lot.units),
+	remaining: formatAmount(lot.remaining),
+	cost: formatQuantity(lot.cost),
+	disposals: lot.disposals.map((disposal) => ({
+		location: displayLocation(disposal.location),
+		date: disposal.date.toString(),
+		kind: disposal.kind,
+		units: formatAmount(disposal.units),
+		price: disposal.price && formatQuantity(disposal.price),
+		gain: disposal.gain && formatQuantity(disposal.gain),
+	})),
 });

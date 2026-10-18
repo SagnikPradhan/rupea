@@ -16,24 +16,12 @@ import { withContext } from '#lib/server/shared/context/context.ts';
 import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
 import { attempt, err, errAsync, ok, ResultAsync } from '#lib/server/shared/result/result.ts';
 import { inOrder } from '#lib/server/shared/control.ts';
-import {
-	and,
-	asc,
-	eq,
-	inArray,
-	isNotNull,
-	isNull,
-	ne,
-	notInArray,
-	or,
-	sql,
-	type SQL,
-} from 'drizzle-orm';
+import { and, asc, eq, inArray, isNotNull, isNull, ne, or, sql, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { v7 as uuidv7 } from 'uuid';
 import { BALANCE_TYPES, EVENT_KEYS } from '../domain/events';
 import type { Holding } from '../domain/holdings';
-import { book, type BookedPosting, type Booking } from '../domain/lots';
+import { book, realised, type BookedPosting, type Booking } from '../domain/lots';
 import { displayLocation } from '../domain/parser';
 import { marketPrices } from '../domain/prices';
 import type { FileVersion } from '../domain/sync';
@@ -42,6 +30,7 @@ import {
 	AMOUNT_UNIT,
 	CURRENCIES,
 	DisposalKind,
+	LotOrigin,
 	PriceKind,
 	PriceSource,
 	toMetadata,
@@ -72,7 +61,7 @@ const files = (ledgerId: string) => (): ResultAsync<FileVersion[]> =>
 // keeps its embedding through a reindex, so saving a file never re-embeds it.
 const put =
 	(ledgerId: string) =>
-	(key: string, version: string | null, file: RupeeLedgerFile): ResultAsync<void> => {
+	(key: string, version: string | null, file: RupeeLedgerFile): ResultAsync<string[]> => {
 		const untyped = untypedAccount(file);
 		if (untyped) return errAsync(untyped);
 
@@ -155,6 +144,7 @@ const put =
 						),
 					];
 
+					const before = await lotCommoditiesOf(tx, fileId);
 					await tx.delete(metadataTable).where(eq(metadataTable.fileId, fileId));
 					await tx.delete(transactionTable).where(eq(transactionTable.fileId, fileId));
 					await tx.delete(priceTable).where(eq(priceTable.fileId, fileId));
@@ -167,6 +157,9 @@ const put =
 						...statementChunks(priceRows).map((c) => () => tx.insert(priceTable).values(c)),
 						...statementChunks(metadataRows).map((c) => () => tx.insert(metadataTable).values(c)),
 					]);
+					const after = await lotCommoditiesOf(tx, fileId);
+
+					return [...before, ...after];
 				}),
 			),
 		);
@@ -211,26 +204,34 @@ const ownedBy = (o: MetadataOwner, m: RupeeMetadata) =>
 
 const remove =
 	(ledgerId: string) =>
-	(key: string): ResultAsync<void> =>
+	(key: string): ResultAsync<string[]> =>
 		withContext('db')((db) =>
 			attempt(() =>
-				db
-					.delete(ledgerFiles)
-					.where(and(eq(ledgerFiles.ledgerId, ledgerId), eq(ledgerFiles.key, key)))
-					.then(() => undefined),
+				db.transaction(async (tx) => {
+					const [file] = await tx
+						.select({ id: ledgerFiles.id })
+						.from(ledgerFiles)
+						.where(and(eq(ledgerFiles.ledgerId, ledgerId), eq(ledgerFiles.key, key)));
+					if (!file) return [];
+
+					const touched = await lotCommoditiesOf(tx, file.id);
+					await tx.delete(ledgerFiles).where(eq(ledgerFiles.id, file.id));
+					return touched;
+				}),
 			),
 		);
 
 const rename =
 	(ledgerId: string) =>
-	(from: string, to: string): ResultAsync<void> =>
+	(from: string, to: string): ResultAsync<string[]> =>
 		withContext('db')((db) =>
 			attempt(() =>
 				db
 					.update(ledgerFiles)
 					.set({ key: to })
 					.where(and(eq(ledgerFiles.ledgerId, ledgerId), eq(ledgerFiles.key, from)))
-					.then(() => undefined),
+					.returning({ id: ledgerFiles.id })
+					.then(([file]) => (file ? lotCommoditiesOf(db, file.id) : [])),
 			),
 		);
 
@@ -380,6 +381,11 @@ const toCost = ({ costAmount, costCommodity, costDate }: CostColumns): LotCost |
 				commodity: costCommodity,
 				date: costDate === null ? null : Temporal.PlainDate.from(costDate),
 			};
+
+type QuantityColumns = { amount: bigint | null; commodity: string | null };
+
+const toQuantity = ({ amount, commodity }: QuantityColumns): Quantity | null =>
+	amount === null || commodity === null ? null : { amount: amount as Amount, commodity };
 
 const byIds =
 	(ledgerId: string) =>
@@ -598,47 +604,44 @@ const balanceChecks =
 			),
 		);
 
-// Currencies are money, so they have no lots.
-const lotCommodities =
-	(ledgerId: string) =>
-	(keys: string[]): ResultAsync<string[]> =>
-		withContext('db')((db) =>
-			attempt(() =>
-				db
-					.selectDistinct({ commodity: postings.commodity })
-					.from(postings)
-					.innerJoin(transactionTable, eq(transactionTable.id, postings.transactionId))
-					.innerJoin(ledgerFiles, eq(ledgerFiles.id, transactionTable.fileId))
-					.where(
-						and(
-							eq(postings.ledgerId, ledgerId),
-							inArray(ledgerFiles.key, keys),
-							inArray(postings.accountType, BALANCE_TYPES),
-							notInArray(postings.commodity, CURRENCIES),
-						),
-					)
-					.then((r) => r.map((c) => c.commodity)),
-			),
-		);
+const LEDGER_ORDER = [
+	asc(transactionTable.date),
+	sql`${transactionTable.time} asc nulls first`,
+	asc(ledgerFiles.key),
+	asc(transactionTable.line),
+];
 
-// A commodity's lots are booked again from every counted posting in it, and
-// replace what was there in one transaction.
+const lotCommoditiesOf = (db: Database, fileId: string): Promise<string[]> =>
+	db
+		.selectDistinct({ commodity: postings.commodity })
+		.from(postings)
+		.innerJoin(transactionTable, eq(transactionTable.id, postings.transactionId))
+		.where(
+			and(
+				eq(transactionTable.fileId, fileId),
+				inArray(postings.accountType, BALANCE_TYPES),
+				sql`${postings.commodity} <> all(${sql.param(CURRENCIES)}::text[])`,
+			),
+		)
+		.then((r) => r.map((c) => c.commodity));
+
 const rebook =
 	(ledgerId: string) =>
-	(commodity: string, evidence: string[]): ResultAsync<void> =>
+	(commodities: string[], evidence: string[]): ResultAsync<void> =>
 		withContext('db')((db) =>
 			attempt(() =>
 				db.transaction(async (tx) => {
-					const booking = book(await bookedPostings(tx, { ledgerId, commodity, evidence }));
-					await replaceLots(tx, { ledgerId, commodity }, booking);
+					for (const commodity of commodities) {
+						const booking = book(await bookedPostings(tx, { ledgerId, commodity, evidence }));
+						await replaceLots(tx, { ledgerId, commodity, booking });
+					}
 				}),
 			),
 		);
 
-const bookedPostings = (
-	db: Database,
-	q: { ledgerId: string; commodity: string; evidence: string[] },
-): Promise<BookedPosting[]> =>
+type BookedPostingsOptions = { ledgerId: string; commodity: string; evidence: string[] };
+
+const bookedPostings = (db: Database, options: BookedPostingsOptions): Promise<BookedPosting[]> =>
 	db
 		.select({
 			id: postings.id,
@@ -659,44 +662,36 @@ const bookedPostings = (
 		.innerJoin(ledgerFiles, eq(ledgerFiles.id, transactionTable.fileId))
 		.where(
 			and(
-				eq(postings.ledgerId, q.ledgerId),
-				eq(postings.commodity, q.commodity),
-				notInArray(transactionTable.id, q.evidence),
+				eq(postings.ledgerId, options.ledgerId),
+				eq(postings.commodity, options.commodity),
+				sql`${transactionTable.id} <> all(${sql.param(options.evidence)}::uuid[])`,
 			),
 		)
-		.orderBy(
-			asc(transactionTable.date),
-			sql`${transactionTable.time} asc nulls first`,
-			asc(ledgerFiles.key),
-			asc(transactionTable.line),
-			asc(postings.position),
-		)
+		.orderBy(...LEDGER_ORDER, asc(postings.position))
 		.then((rows) =>
-			rows.map((r) => ({
-				id: r.id,
-				transaction: r.transactionId,
-				account: r.account,
-				held: BALANCE_TYPES.some((t) => t === r.accountType),
-				date: Temporal.PlainDate.from(r.date),
-				amount: r.amount as Amount,
-				price: toPrice(r),
-				cost: toCost(r),
+			rows.map((row) => ({
+				id: row.id,
+				transaction: row.transactionId,
+				account: row.account,
+				held: BALANCE_TYPES.some((t) => t === row.accountType),
+				date: Temporal.PlainDate.from(row.date),
+				amount: row.amount as Amount,
+				price: toPrice(row),
+				cost: toCost(row),
 			})),
 		);
 
-const replaceLots = async (
-	db: Database,
-	o: { ledgerId: string; commodity: string },
-	booking: Booking,
-) => {
-	const ids = booking.lots.map(() => uuidv7());
-	const idOf = (k: number | null) => (k === null ? null : (ids[k] ?? null));
+type ReplaceLotsOptions = { ledgerId: string; commodity: string; booking: Booking };
+
+const replaceLots = async (db: Database, options: ReplaceLotsOptions) => {
+	const { ledgerId, commodity, booking } = options;
 
 	const lotRows = booking.lots.map((lot) => ({
-		...o,
-		id: ids[lot.key],
+		id: lot.id,
+		ledgerId,
+		commodity,
 		postingId: lot.posting,
-		sourceId: idOf(lot.source),
+		sourceId: lot.source,
 		account: lot.account,
 		origin: lot.origin,
 		date: lot.date.toString(),
@@ -705,22 +700,23 @@ const replaceLots = async (
 		costAmount: lot.cost.amount,
 		costCommodity: lot.cost.commodity,
 	}));
-	const disposalRows = booking.disposals.map((d) => ({
-		...o,
-		lotId: idOf(d.lot),
-		postingId: d.posting,
-		kind: d.kind,
-		units: d.units,
-		priceAmount: d.price?.amount ?? null,
-		priceCommodity: d.price?.commodity ?? null,
+	const disposalRows = booking.disposals.map((disposal) => ({
+		ledgerId,
+		commodity,
+		lotId: disposal.lot,
+		postingId: disposal.posting,
+		kind: disposal.kind,
+		units: disposal.units,
+		priceAmount: disposal.price?.amount ?? null,
+		priceCommodity: disposal.price?.commodity ?? null,
 	}));
 
 	await db
 		.delete(disposalTable)
-		.where(and(eq(disposalTable.ledgerId, o.ledgerId), eq(disposalTable.commodity, o.commodity)));
+		.where(and(eq(disposalTable.ledgerId, ledgerId), eq(disposalTable.commodity, commodity)));
 	await db
 		.delete(lotTable)
-		.where(and(eq(lotTable.ledgerId, o.ledgerId), eq(lotTable.commodity, o.commodity)));
+		.where(and(eq(lotTable.ledgerId, ledgerId), eq(lotTable.commodity, commodity)));
 	await inOrder([
 		...statementChunks(lotRows).map((c) => () => db.insert(lotTable).values(c)),
 		...statementChunks(disposalRows).map((c) => () => db.insert(disposalTable).values(c)),
@@ -756,24 +752,22 @@ const unmatched = (ledgerId: string) => (): ResultAsync<UnmatchedDisposal[]> =>
 				.where(and(eq(disposalTable.ledgerId, ledgerId), isNull(disposalTable.lotId)))
 				.orderBy(asc(ledgerFiles.key), asc(transactionTable.line)),
 		).map((rows) =>
-			rows.map((r) => ({
-				location: { file: r.file, line: r.line },
-				account: r.account,
-				commodity: r.commodity,
-				kind: r.kind,
-				units: r.units as Amount,
-				named: r.costAmount !== null,
+			rows.map((row) => ({
+				location: { file: row.file, line: row.line },
+				account: row.account,
+				commodity: row.commodity,
+				kind: row.kind,
+				units: row.units as Amount,
+				named: row.costAmount !== null,
 			})),
 		),
 	);
 
-// What every balance account holds now, counting no evidence. A holding's
-// cost is only known when all its open lots cost the same commodity.
 const holdings =
 	(ledgerId: string) =>
 	(evidence: string[]): ResultAsync<Holding[]> =>
 		withContext('db')((db) => {
-			const held = db
+			const balances = db
 				.select({
 					account: postings.account,
 					commodity: postings.commodity,
@@ -784,24 +778,24 @@ const holdings =
 					and(
 						eq(postings.ledgerId, ledgerId),
 						inArray(postings.accountType, BALANCE_TYPES),
-						notInArray(postings.transactionId, evidence),
+						sql`${postings.transactionId} <> all(${sql.param(evidence)}::uuid[])`,
 					),
 				)
 				.groupBy(postings.account, postings.commodity)
 				.having(sql`sum(${postings.amount}) <> 0`)
-				.as('held');
+				.as('balances');
 			const costs = db
 				.select({
 					account: lotTable.account,
 					commodity: lotTable.commodity,
-					amount:
-						sql<string>`round(sum(${lotTable.remaining}::numeric * ${lotTable.costAmount} / ${sql.raw(AMOUNT_UNIT.toString())}))::text`.as(
-							'amount',
+					costAmount:
+						sql<string>`sum(round(${lotTable.remaining}::numeric * ${lotTable.costAmount} / ${sql.raw(AMOUNT_UNIT.toString())}))::text`.as(
+							'cost_amount',
 						),
-					currency: sql<
+					costCommodity: sql<
 						string | null
 					>`case when count(distinct ${lotTable.costCommodity}) = 1 then min(${lotTable.costCommodity}) end`.as(
-						'currency',
+						'cost_commodity',
 					),
 				})
 				.from(lotTable)
@@ -812,41 +806,40 @@ const holdings =
 			return attempt(() =>
 				db
 					.select({
-						account: held.account,
-						commodity: held.commodity,
-						units: held.units,
-						cost: costs.amount,
-						currency: costs.currency,
+						account: balances.account,
+						commodity: balances.commodity,
+						units: balances.units,
+						costAmount: costs.costAmount,
+						costCommodity: costs.costCommodity,
 					})
-					.from(held)
+					.from(balances)
 					.leftJoin(
 						costs,
-						and(eq(costs.account, held.account), eq(costs.commodity, held.commodity)),
+						and(eq(costs.account, balances.account), eq(costs.commodity, balances.commodity)),
 					)
-					.orderBy(asc(held.account), asc(held.commodity)),
+					.orderBy(asc(balances.account), asc(balances.commodity)),
 			).map((rows) =>
-				rows.map((r) => ({
-					account: r.account,
-					commodity: r.commodity,
-					units: BigInt(r.units) as Amount,
-					cost:
-						r.cost === null || r.currency === null
-							? null
-							: { amount: BigInt(r.cost) as Amount, commodity: r.currency },
+				rows.map((row) => ({
+					account: row.account,
+					commodity: row.commodity,
+					units: BigInt(row.units) as Amount,
+					cost: toQuantity({
+						amount: row.costAmount === null ? null : BigInt(row.costAmount),
+						commodity: row.costCommodity,
+					}),
 				})),
 			);
 		});
 
-type LatestPriceRow = { commodity: string; amount: string; currency: string };
+type LatestPriceRow = { commodity: string; priceAmount: string; priceCommodity: string };
 
-// The latest price of each commodity on or before a day; that day, a `P` line beats an `@`.
 const latestPrices =
 	(ledgerId: string) =>
 	(commodities: string[], day: Temporal.PlainDate): ResultAsync<Record<string, Quantity>> =>
 		withContext('db')((db) =>
 			attempt(() =>
 				db.execute<LatestPriceRow>(sql`
-					select c.commodity, p.price_amount::text as amount, p.price_commodity as currency
+					select c.commodity, p.price_amount::text as "priceAmount", p.price_commodity as "priceCommodity"
 					from unnest(${sql.param(commodities)}::text[]) as c(commodity)
 					cross join lateral (
 						select price_amount, price_commodity
@@ -856,93 +849,117 @@ const latestPrices =
 						limit 1
 					) p
 				`),
-			).map((r) =>
+			).map((result) =>
 				Object.fromEntries(
-					r.rows.map((p) => [
-						p.commodity,
-						{ amount: BigInt(p.amount) as Amount, commodity: p.currency },
+					result.rows.map((row) => [
+						row.commodity,
+						{ amount: BigInt(row.priceAmount) as Amount, commodity: row.priceCommodity },
 					]),
 				),
 			),
 		);
 
+export type LotHistory = {
+	location: RupeeParseLocation;
+	date: Temporal.PlainDate;
+	origin: LotOrigin;
+	from: string | null;
+	units: Amount;
+	remaining: Amount;
+	cost: Quantity;
+	disposals: {
+		location: RupeeParseLocation;
+		date: Temporal.PlainDate;
+		kind: DisposalKind;
+		units: Amount;
+		price: Quantity | null;
+		gain: Quantity | null;
+	}[];
+};
+
+type LotsInOptions = { account: string; commodity: string };
+
 const sourceLot = alias(lotTable, 'source_lot');
 
-// Every lot an account has held of a commodity, open or not, with what was taken from it.
-const lotsIn = (ledgerId: string) => (account: string, commodity: string) =>
-	withContext('db')((db) =>
-		attempt(async () => {
-			const lots = await db
-				.select({
-					id: lotTable.id,
-					file: ledgerFiles.key,
-					line: transactionTable.line,
-					date: lotTable.date,
-					origin: lotTable.origin,
-					from: sourceLot.account,
-					units: lotTable.units,
-					remaining: lotTable.remaining,
-					costAmount: lotTable.costAmount,
-					costCommodity: lotTable.costCommodity,
-				})
-				.from(lotTable)
-				.innerJoin(postings, eq(postings.id, lotTable.postingId))
-				.innerJoin(transactionTable, eq(transactionTable.id, postings.transactionId))
-				.innerJoin(ledgerFiles, eq(ledgerFiles.id, transactionTable.fileId))
-				.leftJoin(sourceLot, eq(sourceLot.id, lotTable.sourceId))
-				.where(
-					and(
-						eq(lotTable.ledgerId, ledgerId),
-						eq(lotTable.account, account),
-						eq(lotTable.commodity, commodity),
-					),
-				)
-				.orderBy(asc(lotTable.date), asc(ledgerFiles.key), asc(transactionTable.line));
-			const taken = await db
-				.select({
-					lot: disposalTable.lotId,
-					file: ledgerFiles.key,
-					line: transactionTable.line,
-					date: transactionTable.date,
-					kind: disposalTable.kind,
-					units: disposalTable.units,
-					priceAmount: disposalTable.priceAmount,
-					priceCommodity: disposalTable.priceCommodity,
-				})
-				.from(disposalTable)
-				.innerJoin(postings, eq(postings.id, disposalTable.postingId))
-				.innerJoin(transactionTable, eq(transactionTable.id, postings.transactionId))
-				.innerJoin(ledgerFiles, eq(ledgerFiles.id, transactionTable.fileId))
-				.where(
-					inArray(
-						disposalTable.lotId,
-						lots.map((l) => l.id),
-					),
-				)
-				.orderBy(asc(transactionTable.date), asc(ledgerFiles.key), asc(transactionTable.line));
+const lotsIn =
+	(ledgerId: string) =>
+	(options: LotsInOptions): ResultAsync<LotHistory[]> =>
+		withContext('db')((db) =>
+			attempt(async () => {
+				const inHolding = and(
+					eq(lotTable.ledgerId, ledgerId),
+					eq(lotTable.account, options.account),
+					eq(lotTable.commodity, options.commodity),
+				);
 
-			const byLot = Object.groupBy(taken, (d) => d.lot ?? '');
-			return lots.map((l) => ({
-				location: { file: l.file, line: l.line },
-				date: Temporal.PlainDate.from(l.date),
-				origin: l.origin,
-				from: l.from,
-				units: l.units as Amount,
-				remaining: l.remaining as Amount,
-				cost: { amount: l.costAmount as Amount, commodity: l.costCommodity },
-				disposals: (byLot[l.id] ?? []).map((d) => ({
-					location: { file: d.file, line: d.line },
-					date: Temporal.PlainDate.from(d.date),
-					kind: d.kind,
-					units: d.units as Amount,
-					price: toQuantity(d.priceAmount, d.priceCommodity),
-				})),
-			}));
-		}),
-	);
+				const lots = await db
+					.select({
+						id: lotTable.id,
+						file: ledgerFiles.key,
+						line: transactionTable.line,
+						date: lotTable.date,
+						origin: lotTable.origin,
+						from: sourceLot.account,
+						units: lotTable.units,
+						remaining: lotTable.remaining,
+						costAmount: lotTable.costAmount,
+						costCommodity: lotTable.costCommodity,
+					})
+					.from(lotTable)
+					.innerJoin(postings, eq(postings.id, lotTable.postingId))
+					.innerJoin(transactionTable, eq(transactionTable.id, postings.transactionId))
+					.innerJoin(ledgerFiles, eq(ledgerFiles.id, transactionTable.fileId))
+					.leftJoin(sourceLot, eq(sourceLot.id, lotTable.sourceId))
+					.where(inHolding)
+					.orderBy(asc(lotTable.date), ...LEDGER_ORDER.slice(2));
+				const disposals = await db
+					.select({
+						lot: lotTable.id,
+						file: ledgerFiles.key,
+						line: transactionTable.line,
+						date: transactionTable.date,
+						kind: disposalTable.kind,
+						units: disposalTable.units,
+						priceAmount: disposalTable.priceAmount,
+						priceCommodity: disposalTable.priceCommodity,
+					})
+					.from(disposalTable)
+					.innerJoin(lotTable, eq(lotTable.id, disposalTable.lotId))
+					.innerJoin(postings, eq(postings.id, disposalTable.postingId))
+					.innerJoin(transactionTable, eq(transactionTable.id, postings.transactionId))
+					.innerJoin(ledgerFiles, eq(ledgerFiles.id, transactionTable.fileId))
+					.where(inHolding)
+					.orderBy(...LEDGER_ORDER);
 
-const toQuantity = (a: bigint | null, c: string | null): Quantity | null =>
-	a === null || c === null ? null : { amount: a as Amount, commodity: c };
+				const byLot = Object.groupBy(disposals, (d) => d.lot);
+				return lots.map((lot) => ({
+					location: { file: lot.file, line: lot.line },
+					date: Temporal.PlainDate.from(lot.date),
+					origin: lot.origin,
+					from: lot.from,
+					units: lot.units as Amount,
+					remaining: lot.remaining as Amount,
+					cost: { amount: lot.costAmount as Amount, commodity: lot.costCommodity },
+					disposals: (byLot[lot.id] ?? []).map((disposal) => {
+						const units = disposal.units as Amount;
+						const price = toQuantity({
+							amount: disposal.priceAmount,
+							commodity: disposal.priceCommodity,
+						});
+						const cost = { amount: lot.costAmount as Amount, commodity: lot.costCommodity };
+
+						return {
+							location: { file: disposal.file, line: disposal.line },
+							date: Temporal.PlainDate.from(disposal.date),
+							kind: disposal.kind,
+							units,
+							price,
+							gain: realised(units, price, cost),
+						};
+					}),
+				}));
+			}),
+		);
 
 type MetadataRow = { owner: string | null; key: string; value: string };
 
@@ -967,7 +984,6 @@ export const index = (ledgerId: string) => ({
 	eventsIn: eventsIn(ledgerId),
 	membersOf: membersOf(ledgerId),
 	balanceChecks: balanceChecks(ledgerId),
-	lotCommodities: lotCommodities(ledgerId),
 	rebook: rebook(ledgerId),
 	holdings: holdings(ledgerId),
 	latestPrices: latestPrices(ledgerId),

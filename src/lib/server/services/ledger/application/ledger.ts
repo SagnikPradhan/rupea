@@ -22,12 +22,12 @@ import {
 	type BalanceCheck,
 	type CandidatePair,
 	type IndexedTransaction,
+	type LotHistory,
 	type UnmatchedDisposal,
 } from '../adapters/database';
 import { files, type Files } from '../adapters/storage';
 import { checkEvents, EventRole, linksOf } from '../domain/events';
-import { accountTree, HOPS, value, type Holding } from '../domain/holdings';
-import { realised } from '../domain/lots';
+import { accountTree, HOPS, valued, type Account, type Holding } from '../domain/holdings';
 import { insertLinks, rewriteLinks, type LinkEdit, type Relink } from '../domain/links';
 import { displayLocation, parse } from '../domain/parser';
 import { indexedVersion, plan, type SyncPlan } from '../domain/sync';
@@ -41,7 +41,7 @@ import {
 	type RupeeTransaction,
 } from '../domain/types';
 
-export type { IndexedTransaction, Ledger, LinkEdit };
+export type { Account, IndexedTransaction, Ledger, LinkEdit, LotHistory };
 
 // A random handle clashes rarely enough that a few tries settle it.
 const TRIES = 5;
@@ -82,7 +82,9 @@ export const openFolder = (l: Ledger, f: Folder): ResultAsync<Storage> =>
 
 const ledgerFiles = (l: Ledger): ResultAsync<Files> => openFolder(l, 'files').map(files);
 
-const indexFile = (ledgerId: string, file: RupeeFile): ResultAsync<RupeeError[]> =>
+type Indexed = { failed: RupeeError[]; touched: string[] };
+
+const indexFile = (ledgerId: string, file: RupeeFile): ResultAsync<Indexed> =>
 	withContext('config')((config) => {
 		const parsed = parse(config.ledger, file);
 		return index(ledgerId)
@@ -91,80 +93,58 @@ const indexFile = (ledgerId: string, file: RupeeFile): ResultAsync<RupeeError[]>
 				transactions: parsed.succeeded,
 				prices: parsed.prices,
 			})
-			.map(() => parsed.failed);
+			.map((t) => ({ failed: parsed.failed, touched: t }));
 	});
 
-const reindex = (f: Files, l: string, k: string): ResultAsync<RupeeError[]> =>
+const reindex = (f: Files, l: string, k: string): ResultAsync<Indexed> =>
 	f.read(k).andThen((r) => indexFile(l, r));
 
-const unindex = (li: string, k: string): ResultAsync<RupeeError[]> =>
+const unindex = (li: string, k: string): ResultAsync<Indexed> =>
 	index(li)
 		.remove(k)
-		.map((): RupeeError[] => []);
+		.map((t) => ({ failed: [], touched: t }));
 
-// Failing to list either side is fatal; anything after is reported instead.
+// One file at a time, since embedded Postgres has one connection. A failed
+// step is reported, not fatal; failing to list either side is.
 const syncFiles = (ledger: Ledger): ResultAsync<RupeeError[]> =>
-	ledgerFiles(ledger).andThen((files) =>
-		ResultAsync.combine([files.entries(), index(ledger.id).files()]).andThen(
-			([stored, indexed]) => {
-				const p = plan(stored, indexed);
-				const keys = { before: [...p.changed, ...p.gone], after: p.changed };
-				return rebooking(ledger.id, keys, () => applyPlan(files, ledger.id, p));
-			},
-		),
+	ledgerFiles(ledger).andThen((f) =>
+		ResultAsync.combine([f.entries(), index(ledger.id).files()])
+			.andThen(([stored, indexed]) => applyPlan(f, ledger.id, plan(stored, indexed)))
+			.andThen((a) => rebook(ledger.id, a)),
 	);
 
-// One file at a time, since embedded Postgres has one connection.
-const applyPlan = (files: Files, ledgerId: string, p: SyncPlan): ResultAsync<RupeeError[]> =>
+const applyPlan = (files: Files, ledgerId: string, p: SyncPlan): ResultAsync<Indexed> =>
 	sequence(
 		[
 			...p.changed.map((k) => () => reindex(files, ledgerId, k)),
 			...p.gone.map((k) => () => unindex(ledgerId, k)),
-		].map((s) => () => s().orElse((e) => ok([e]))),
-	);
+		].map(
+			(s) => () =>
+				s()
+					.map((i) => [i])
+					.orElse((e) => ok([{ failed: [e], touched: [] }])),
+		),
+	).map((steps) => ({
+		failed: steps.flatMap((s) => s.failed),
+		touched: steps.flatMap((s) => s.touched),
+	}));
 
-// Lots span files, so a change books again every commodity its files held,
-// before or after it, once the change is in place.
-const rebooking = (
-	ledgerId: string,
-	keys: { before: string[]; after: string[] },
-	change: () => ResultAsync<RupeeError[]>,
-): ResultAsync<RupeeError[]> => {
-	if (keys.before.length === 0 && keys.after.length === 0) return change();
+const rebook = (ledgerId: string, indexed: Indexed): ResultAsync<RupeeError[]> => {
+	const commodities = [...new Set(indexed.touched)];
+	if (commodities.length === 0) return okAsync(indexed.failed);
 
-	return index(ledgerId)
-		.lotCommodities(keys.before)
-		.andThen((h) =>
-			change().andThen((f) => rebookLots(ledgerId, h, keys.after).map((e) => [...f, ...e])),
-		);
+	return evidence(ledgerId)
+		.andThen((e) => index(ledgerId).rebook(commodities, e))
+		.map(() => indexed.failed)
+		.orElse((e) => ok([...indexed.failed, e]));
 };
 
-const rebookLots = (ledgerId: string, held: string[], after: string[]) =>
-	index(ledgerId)
-		.lotCommodities(after)
-		.map((n) => [...new Set([...held, ...n])])
-		.andThen((touched) =>
-			touched.length === 0
-				? okAsync([])
-				: evidence(ledgerId).andThen((e) =>
-						sequence(touched.map((c) => () => rebookCommodity(ledgerId, c, e))),
-					),
-		)
-		.orElse((e) => ok([e]));
-
-const rebookCommodity = (l: string, c: string, e: string[]): ResultAsync<RupeeError[]> =>
-	index(l)
-		.rebook(c, e)
-		.map((): RupeeError[] => [])
-		.orElse((x) => ok([x]));
-
-// Evidence is kept in the ledger but not counted.
 const evidence = (l: string): ResultAsync<string[]> =>
 	index(l)
 		.eventMembers()
 		.map((m) => checkEvents(m).evidence);
 
-// Events, balances and lots span files, so they are checked after every file is in place.
+// Events and balances span files, so they are checked after every file is in place.
 const checkLedger = (ledgerId: string): ResultAsync<RupeeError[]> =>
 	index(ledgerId)
 		.eventMembers()
@@ -199,14 +179,16 @@ const checkLots = (l: string): ResultAsync<RupeeError[]> =>
 		.unmatched()
 		.map((u) => u.map(toLotError));
 
-// A sale from a holding must name its lot; anything else unmatched took more than was open.
-const toLotError = (u: UnmatchedDisposal): RupeeError =>
-	u.kind === DisposalKind.Sale && !u.named
-		? fault('LotCostMissing', { location: displayLocation(u.location), account: u.account })
+const toLotError = (disposal: UnmatchedDisposal): RupeeError =>
+	disposal.kind === DisposalKind.Sale && !disposal.named
+		? fault('LotCostMissing', {
+				location: displayLocation(disposal.location),
+				account: disposal.account,
+			})
 		: fault('LotNotOpen', {
-				location: displayLocation(u.location),
-				account: u.account,
-				units: formatQuantity({ amount: -u.units as Amount, commodity: u.commodity }),
+				location: displayLocation(disposal.location),
+				account: disposal.account,
+				units: formatQuantity({ amount: -disposal.units as Amount, commodity: disposal.commodity }),
 			});
 
 export const sync = (l: Ledger): ResultAsync<RupeeError[]> =>
@@ -231,59 +213,61 @@ export const getTransactions = (l: Ledger): ResultAsync<Batch<CountedTransaction
 			),
 	);
 
-// Balance accounts as they stand on a day, valued in rupees.
-export const getAccounts = (l: Ledger, day: Temporal.PlainDate) =>
-	syncFiles(l).andThen((f) =>
-		valuedAccounts(l.id, day).andThen((a) =>
-			checkLots(l.id).map((u) => ({ succeeded: a, failed: [...f, ...u] })),
+export const getAccounts = (ledger: Ledger, day: Temporal.PlainDate) =>
+	syncFiles(ledger).andThen((failed) =>
+		valuedAccounts(ledger.id, day).andThen((accounts) =>
+			checkLots(ledger.id).map((unmatched) => ({
+				succeeded: accounts,
+				failed: [...failed, ...unmatched],
+			})),
 		),
 	);
 
 const valuedAccounts = (ledgerId: string, day: Temporal.PlainDate) =>
 	evidence(ledgerId)
 		.andThen((e) => index(ledgerId).holdings(e))
-		.andThen((h) =>
-			pricesOn(ledgerId, priced(h), day, HOPS).map((p) => accountTree(h.map((x) => value(x, p)))),
+		.andThen((hs) =>
+			pricesOn({ ledgerId, day, commodities: pricedIn(hs) }).map((p) =>
+				accountTree(hs.map((h) => valued(h, p))),
+			),
 		);
 
-const priced = (h: Holding[]) => [
-	...new Set(h.flatMap((x) => (x.cost ? [x.commodity, x.cost.commodity] : [x.commodity]))),
+const pricedIn = (hs: Holding[]) => [
+	...new Set(hs.flatMap((h) => (h.cost ? [h.commodity, h.cost.commodity] : [h.commodity]))),
 ];
 
-// Prices of the commodities, then of the commodities those are priced in, a hop at a time.
-const pricesOn = (
-	ledgerId: string,
-	commodities: string[],
-	day: Temporal.PlainDate,
-	hops: number,
-): ResultAsync<Record<string, Quantity>> => {
+type PricesOnOptions = {
+	ledgerId: string;
+	day: Temporal.PlainDate;
+	commodities: string[];
+	hops?: number;
+};
+
+const pricesOn = (options: PricesOnOptions): ResultAsync<Record<string, Quantity>> => {
+	const { ledgerId, day, commodities, hops = HOPS } = options;
 	if (hops === 0 || commodities.length === 0) return okAsync({});
 
 	return index(ledgerId)
 		.latestPrices(commodities, day)
-		.andThen((p) =>
-			pricesOn(ledgerId, [...new Set(Object.values(p).map((q) => q.commodity))], day, hops - 1).map(
-				(r) => ({ ...r, ...p }),
-			),
-		);
+		.andThen((prices) => {
+			const currencies = [...new Set(Object.values(prices).map((p) => p.commodity))];
+			return pricesOn({ ledgerId, day, commodities: currencies, hops: hops - 1 }).map((f) => ({
+				...f,
+				...prices,
+			}));
+		});
 };
 
-// The lots an account has held of a commodity, and the gain each disposal realised.
-export const getLots = (l: Ledger, account: string, commodity: string) =>
-	syncFiles(l).andThen((f) =>
-		index(l.id)
-			.lotsIn(account, commodity)
-			.map((lots) => ({
-				succeeded: lots.map((lot) => ({
-					...lot,
-					disposals: lot.disposals.map((d) => ({
-						...d,
-						gain: realised(d.units, d.price, lot.cost),
-					})),
-				})),
-				failed: f,
-			})),
+type GetLotsOptions = { ledger: Ledger; account: string; commodity: string };
+
+export const getLots = (options: GetLotsOptions) => {
+	const { ledger, account, commodity } = options;
+	return syncFiles(ledger).andThen((f) =>
+		index(ledger.id)
+			.lotsIn({ account, commodity })
+			.map((l) => ({ succeeded: l, failed: f })),
 	);
+};
 
 type Counting = { batch: Batch<CountedTransaction>; evidence: string[] };
 
@@ -337,9 +321,7 @@ const writeFile = (options: WriteFileOptions): ResultAsync<RupeeFile> => {
 	const { ledger, key, content, ifVersion } = options;
 	return ledgerFiles(ledger)
 		.andThen((f) => f.write({ key, content, ifVersion }))
-		.andTee((w) =>
-			rebooking(ledger.id, { before: [key], after: [key] }, () => indexFile(ledger.id, w)),
-		);
+		.andTee((w) => indexFile(ledger.id, w).andThen((i) => rebook(ledger.id, i)));
 };
 
 type CreateFileOptions = {
@@ -371,18 +353,16 @@ export const renameFile = (options: RenameFileOptions): ResultAsync<RupeeFile> =
 	return ledgerFiles(ledger)
 		.andThen((f) => f.rename(from, to))
 		.andTee(() =>
-			rebooking(ledger.id, { before: [from], after: [to] }, () =>
-				index(ledger.id)
-					.rename(from, to)
-					.map((): RupeeError[] => []),
-			),
+			index(ledger.id)
+				.rename(from, to)
+				.andThen((t) => rebook(ledger.id, { failed: [], touched: t })),
 		);
 };
 
 export const deleteFile = (l: Ledger, k: string): ResultAsync<void> =>
 	ledgerFiles(l)
 		.andThen((f) => f.delete(k))
-		.andTee(() => rebooking(l.id, { before: [k], after: [] }, () => unindex(l.id, k)));
+		.andTee(() => unindex(l.id, k).andThen((i) => rebook(l.id, i)));
 
 // Every file is checked before any is written, and files holding a primary go
 // first, each only if unchanged since it was read. Writing stops at the first

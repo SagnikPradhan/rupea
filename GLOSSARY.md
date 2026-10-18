@@ -39,6 +39,10 @@ _Avoid_: Rate, cost basis (that is a lot cost)
 An Assets or Liabilities account, where real money sits.
 _Avoid_: Real account
 
+**Net worth**:
+What every balance account holds on a day, in rupees at the latest prices known by then: assets less what is owed. A holding with no price yet is left out and counted as unpriced.
+_Avoid_: Equity (an account type), wealth
+
 **Balance assertion**:
 A posting's claim of what its account holds at that point in time, counting everything before it in any file. A file is ordered by line; other files on the same day only by time.
 _Avoid_: Balance check, closing balance

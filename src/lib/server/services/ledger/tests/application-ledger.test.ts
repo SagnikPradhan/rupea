@@ -935,7 +935,9 @@ describe('accounts', () => {
 			].join('\n');
 			await Ledger.createFile({ ledger, key: 'a.rupee', content });
 
-			const zerodha = (await Ledger.getLots(ledger, 'Assets:Zerodha', 'INFY'))._unsafeUnwrap();
+			const zerodha = (
+				await Ledger.getLots({ ledger, account: 'Assets:Zerodha', commodity: 'INFY' })
+			)._unsafeUnwrap();
 			expect(zerodha.succeeded).toMatchObject([
 				{
 					location: { file: 'a.rupee', line: 1 },
@@ -952,7 +954,9 @@ describe('accounts', () => {
 				},
 			]);
 
-			const groww = (await Ledger.getLots(ledger, 'Assets:Groww', 'INFY'))._unsafeUnwrap();
+			const groww = (
+				await Ledger.getLots({ ledger, account: 'Assets:Groww', commodity: 'INFY' })
+			)._unsafeUnwrap();
 			expect(groww.succeeded).toMatchObject([
 				{ origin: 'transfer', from: 'Assets:Zerodha', remaining: 6_000_000n, disposals: [] },
 			]);

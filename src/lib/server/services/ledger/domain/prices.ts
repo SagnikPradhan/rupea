@@ -9,7 +9,6 @@ import {
 	type RupeeTransaction,
 } from './types';
 
-// Every price a file writes, `P` lines and postings alike, each for one unit.
 export const marketPrices = (file: RupeeLedgerFile) => [
 	...file.prices.map((p) => ({ ...p, source: PriceSource.Line })),
 	...file.transactions.flatMap(postingPrices),
@@ -29,6 +28,6 @@ const postingPrices = (t: RupeeTransaction) =>
 		const price = unitPrice(p);
 		if (price === null) return [];
 
-		const at = { location: t.location, date: t.date, commodity: p.commodity };
-		return [{ ...at, price, source: PriceSource.Posting }];
+		const source = PriceSource.Posting;
+		return [{ location: t.location, date: t.date, commodity: p.commodity, price, source }];
 	});

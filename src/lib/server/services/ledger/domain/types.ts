@@ -44,12 +44,10 @@ export const DEFAULT_COMMODITY = 'INR';
 /** ISO 4217 codes, which are held as money rather than in lots. */
 export const CURRENCIES = Intl.supportedValuesOf('currency');
 
-// Currencies are money, so they have no lots.
 export const hasLots = (c: string) => !CURRENCIES.includes(c);
 
 export type Quantity = { amount: Amount; commodity: string };
 export type Price = Quantity & { kind: PriceKind };
-// Names a lot by what one unit cost, and the day it was bought when the cost alone is ambiguous.
 export type LotCost = Quantity & { date: Temporal.PlainDate | null };
 
 export type RupeePosting = {
@@ -125,6 +123,9 @@ export const divide = (a: Amount, b: Amount): Amount =>
 export const sum = (a: Amount[]): Amount => a.reduce((t, x) => t + x, 0n) as Amount;
 
 export const min = (a: Amount, b: Amount): Amount => (a < b ? a : b);
+
+/** A commodity moves in kind when its units in a transaction net to zero, so lot costs only pick lots. */
+export const movesInKind = (u: Amount[]) => sum(u) === 0n;
 
 export const accountType = (a: string): AccountType | null =>
 	Object.values(AccountType).find((r) => r === a.split(':')[0]) ?? null;

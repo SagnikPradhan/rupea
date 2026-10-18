@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { accountTree, value } from '#services/ledger/domain/holdings.ts';
+import { accountTree, valued } from '#services/ledger/domain/holdings.ts';
 import { parseAmount } from '#services/ledger/domain/parser.ts';
 import type { Amount, Quantity } from '#services/ledger/domain/types.ts';
 
@@ -18,25 +18,25 @@ const holding = (account: string, units: string, commodity: string, cost: Quanti
 
 const prices = { INFY: quantity('1800'), AAPL: quantity('250', 'USD'), USD: quantity('85') };
 
-describe('value', () => {
+describe('valued', () => {
 	it('values units at their price, and the gain over what they cost', () => {
-		expect(value(holding('Assets:Zerodha', '10', 'INFY', quantity('15000')), prices)).toMatchObject(
-			{
-				price: quantity('1800'),
-				value: amount('18000'),
-				gain: amount('3000'),
-			},
-		);
+		expect(
+			valued(holding('Assets:Zerodha', '10', 'INFY', quantity('15000')), prices),
+		).toMatchObject({
+			price: quantity('1800'),
+			value: amount('18000'),
+			gain: amount('3000'),
+		});
 	});
 
 	it('follows a price in another commodity to rupees', () => {
 		expect(
-			value(holding('Assets:IBKR', '2', 'AAPL', quantity('400', 'USD')), prices),
+			valued(holding('Assets:IBKR', '2', 'AAPL', quantity('400', 'USD')), prices),
 		).toMatchObject({ value: amount('42500'), gain: amount('8500') });
 	});
 
 	it('leaves what has no price unvalued', () => {
-		expect(value(holding('Assets:Zerodha', '3', 'TCS', quantity('9000')), prices)).toMatchObject({
+		expect(valued(holding('Assets:Zerodha', '3', 'TCS', quantity('9000')), prices)).toMatchObject({
 			price: null,
 			value: null,
 			gain: null,
@@ -44,7 +44,7 @@ describe('value', () => {
 	});
 
 	it('values rupees as themselves, with no gain', () => {
-		expect(value(holding('Assets:Bank', '500', 'INR', null), prices)).toMatchObject({
+		expect(valued(holding('Assets:Bank', '500', 'INR', null), prices)).toMatchObject({
 			value: amount('500'),
 			gain: null,
 		});
@@ -52,14 +52,15 @@ describe('value', () => {
 });
 
 describe('accountTree', () => {
-	const valued = (account: string, worth: Amount | null) => ({ account, value: worth });
+	const worth = (account: string, units: string, commodity = 'INR') =>
+		valued(holding(account, units, commodity, null), prices);
 
 	it('lists every account above a holding, in tree order, with totals', () => {
 		const tree = accountTree([
-			valued('Assets:Zerodha', amount('18000')),
-			valued('Assets:Bank-2', amount('100')),
-			valued('Assets:Bank:Savings', amount('500')),
-			valued('Assets:Zerodha', null),
+			worth('Assets:Zerodha', '18000'),
+			worth('Assets:Bank-2', '100'),
+			worth('Assets:Bank:Savings', '500'),
+			worth('Assets:Zerodha', '3', 'TCS'),
 		]);
 
 		expect(tree.map((a) => [a.account, a.depth, a.total, a.unpriced])).toEqual([

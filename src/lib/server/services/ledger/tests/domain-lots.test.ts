@@ -11,7 +11,6 @@ import {
 	type Quantity,
 } from '#services/ledger/domain/types.ts';
 
-// Each posting is named `line.position` after its transaction's header line.
 const booked = (lines: string[], commodity = 'INFY') => {
 	const content = `${lines.join('\n')}\n`;
 	const parsed = parse(defaultConfiguration.ledger, { key: 'a.rupee', content });
@@ -36,15 +35,16 @@ const booked = (lines: string[], commodity = 'INFY') => {
 		),
 	);
 	const { lots, disposals } = book(postings);
+	const position = (id: string | null) => (id === null ? null : lots.findIndex((l) => l.id === id));
 
 	return {
 		lots: lots.map(
-			(l) =>
-				`${l.key} ${l.account} ${formatAmount(l.units)} {${formatQuantity(l.cost)}, ${l.date.toString()}} ${l.origin} left ${formatAmount(l.remaining)}${l.source === null ? '' : ` from ${l.source}`}`,
+			(l, i) =>
+				`${i} ${l.account} ${formatAmount(l.units)} {${formatQuantity(l.cost)}, ${l.date.toString()}} ${l.origin} left ${formatAmount(l.remaining)}${l.source === null ? '' : ` from ${position(l.source)}`}`,
 		),
 		disposals: disposals.map(
 			(d) =>
-				`${d.posting} ${d.kind} ${formatAmount(d.units)} from ${d.lot ?? 'nothing'}${d.price ? ` @ ${formatQuantity(d.price)}` : ''}`,
+				`${d.posting} ${d.kind} ${formatAmount(d.units)} from ${position(d.lot) ?? 'nothing'}${d.price ? ` @ ${formatQuantity(d.price)}` : ''}`,
 		),
 	};
 };

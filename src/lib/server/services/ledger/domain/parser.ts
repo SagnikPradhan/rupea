@@ -11,6 +11,7 @@ import {
 	formatQuantity,
 	PriceKind,
 	toMetadata,
+	movesInKind,
 	weight,
 	type Amount,
 	type LotCost,
@@ -177,9 +178,7 @@ export const isPosting = (l: RupeeLine) =>
 
 const isPriceLine = ({ content }: RupeeLine) => /^P\s/.test(content);
 
-// Each commodity sums to zero once priced postings are weighed at their price,
-// and postings naming a lot at its cost. A commodity whose units already sum to
-// zero moves in kind, so its lot costs only pick lots.
+// Each commodity sums to zero once priced postings are weighed at their price.
 // A posting without an amount takes what is left, if that is one commodity.
 const balance = (
 	location: RupeeParseLocation,
@@ -196,10 +195,10 @@ const balance = (
 		p.quantity === null ? [] : [{ ...p, quantity: p.quantity }],
 	);
 	const held = known.map(home);
-	const moving = inKind(held);
-	const left = residual(
-		held.map((p) => weight(moving.has(p.commodity) ? { ...p, cost: null } : p)),
-	);
+	const byCommodity = Object.groupBy(held, (p) => p.commodity);
+	const inKind = (p: Quantity) =>
+		movesInKind((byCommodity[p.commodity] ?? []).map((q) => q.amount));
+	const left = residual(held.map((p) => weight(inKind(p) ? { ...p, cost: null } : p)));
 	if (implicit.length === 0 && left.length > 0) return unbalanced(location, left);
 	if (left.length > 1) return unbalanced(location, left);
 
@@ -208,7 +207,7 @@ const balance = (
 		const filled =
 			quantity === null
 				? { amount: -rest.amount as Amount, commodity: rest.commodity }
-				: toQuantity(quantity);
+				: withDefaultCommodity(quantity);
 		return { account, ...filled, price, cost, balance: b, metadata };
 	});
 	if (
@@ -221,17 +220,16 @@ const balance = (
 
 type KnownPosting = WrittenPosting & { quantity: WrittenQuantity };
 
-const home = (p: KnownPosting) => ({ ...toQuantity(p.quantity), price: p.price, cost: p.cost });
+const home = (p: KnownPosting) => ({
+	...withDefaultCommodity(p.quantity),
+	price: p.price,
+	cost: p.cost,
+});
 
-const toQuantity = (q: WrittenQuantity): Quantity => ({
+const withDefaultCommodity = (q: WrittenQuantity): Quantity => ({
 	amount: q.amount,
 	commodity: q.commodity ?? DEFAULT_COMMODITY,
 });
-
-const inKind = (quantities: Quantity[]): Set<string> => {
-	const unbalanced = new Set(residual(quantities).map((q) => q.commodity));
-	return new Set(quantities.map((q) => q.commodity).filter((c) => !unbalanced.has(c)));
-};
 
 const residual = (weights: Quantity[]): Quantity[] =>
 	Object.entries(Object.groupBy(weights, (w) => w.commodity))
@@ -295,7 +293,7 @@ const parsePriceLine = (
 		location,
 		date: date.value,
 		commodity: commodity.toUpperCase(),
-		price: toQuantity(quantity),
+		price: withDefaultCommodity(quantity),
 	});
 };
 
@@ -343,7 +341,7 @@ const readPosting = (
 		account,
 		quantity,
 		price: paid
-			? { ...toQuantity(paid), kind: priced === '@@' ? PriceKind.Total : PriceKind.Unit }
+			? { ...withDefaultCommodity(paid), kind: priced === '@@' ? PriceKind.Total : PriceKind.Unit }
 			: null,
 		cost,
 		balance: asserted,
@@ -357,7 +355,7 @@ const readLotCost = (formats: string[], text: string): LotCost | undefined => {
 	const date = day === undefined ? null : readDate(formats, day);
 	if (cost === undefined || cost.amount < 0n || date === undefined) return undefined;
 
-	return { ...toQuantity(cost), date };
+	return { ...withDefaultCommodity(cost), date };
 };
 
 const readDate = (formats: string[], text: string): Temporal.PlainDate | undefined => {

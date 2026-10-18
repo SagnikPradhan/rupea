@@ -1,9 +1,11 @@
+import { v7 as uuidv7 } from 'uuid';
 import { unitPrice } from './prices';
 import {
 	DEFAULT_COMMODITY,
 	DisposalKind,
 	LotOrigin,
 	min,
+	movesInKind,
 	multiply,
 	sum,
 	type Amount,
@@ -12,10 +14,7 @@ import {
 	type Quantity,
 } from './types';
 
-const LONG = 1n;
-const SHORT = -1n;
-
-const UNPRICED: Quantity = { amount: 0n as Amount, commodity: DEFAULT_COMMODITY };
+const FREE: Quantity = { amount: 0n as Amount, commodity: DEFAULT_COMMODITY };
 
 /** A posting in the commodity being booked, in ledger order; `held` when its account is a balance account. */
 export type BookedPosting = {
@@ -29,11 +28,11 @@ export type BookedPosting = {
 	cost: LotCost | null;
 };
 
-/** `key` stands in for an id until the lot is stored; `source` is the key of the lot a transfer moved. */
+/** `source` is the lot a transfer moved this one from. */
 export type Lot = {
-	key: number;
+	id: string;
 	posting: string;
-	source: number | null;
+	source: string | null;
 	account: string;
 	origin: LotOrigin;
 	date: Temporal.PlainDate;
@@ -42,9 +41,9 @@ export type Lot = {
 	cost: Quantity;
 };
 
-/** `lot` is null for units no open lot covers; `units` is what the lot changes by. */
+/** `lot` is null for units no open lot covers. */
 export type Disposal = {
-	lot: number | null;
+	lot: string | null;
 	posting: string;
 	kind: DisposalKind;
 	units: Amount;
@@ -57,13 +56,20 @@ type Piece = { lot: Lot; units: Amount };
 
 export const book = (postings: BookedPosting[]): Booking => {
 	const booking: Booking = { lots: [], disposals: [] };
-	for (const group of Map.groupBy(postings, (p) => p.transaction).values())
-		bookTransaction(booking, group);
+
+	for (const transaction of Map.groupBy(postings, (p) => p.transaction).values()) {
+		const held = transaction.filter((p) => p.held);
+		const kind = disposalKind(transaction);
+
+		const moving = held
+			.filter((p) => p.amount < 0n)
+			.flatMap((p) => takeOut({ booking, posting: p, kind }));
+		for (const posting of held.filter((p) => p.amount > 0n)) bringIn({ booking, posting, moving });
+	}
 
 	return booking;
 };
 
-// A sale or cover realises its price over the lot's cost, for every unit it takes.
 export const realised = (units: Amount, price: Quantity | null, cost: Quantity): Quantity | null =>
 	price === null || price.commodity !== cost.commodity
 		? null
@@ -72,150 +78,136 @@ export const realised = (units: Amount, price: Quantity | null, cost: Quantity):
 				commodity: cost.commodity,
 			};
 
-// Units leave before any arrive, so the lots a transfer moves are there to receive.
-const bookTransaction = (b: Booking, group: BookedPosting[]) => {
-	const held = group.filter((p) => p.held);
-	const transfer = held.some((p) => p.amount > 0n && movesInKind(p) && inKind(p, group));
+const disposalKind = (transaction: BookedPosting[]) => {
+	if (!movesInKind(transaction.map((p) => p.amount))) return DisposalKind.Sale;
 
-	const moved = held
-		.filter((p) => p.amount < 0n)
-		.flatMap((p) => takeOut(b, p, !inKind(p, group), transfer));
-	for (const p of held.filter((q) => q.amount > 0n)) takeIn(b, p, moved);
+	const arriving = transaction.some((p) => p.held && p.amount > 0n);
+	return arriving ? DisposalKind.Transfer : DisposalKind.Gift;
 };
 
-// A sale names its lot; a transfer or gift may, and takes the oldest otherwise.
-const takeOut = (b: Booking, p: BookedPosting, traded: boolean, transfer: boolean): Piece[] => {
-	if (traded && p.cost === null) return sellUnnamed(b, p);
+type TakeOut = { booking: Booking; posting: BookedPosting; kind: DisposalKind };
 
-	const moved = transfer ? DisposalKind.Transfer : DisposalKind.Gift;
-	const disposal = traded ? DisposalKind.Sale : moved;
-	const pieces = take(open(b.lots, p.account, LONG, p.cost), -p.amount as Amount, LONG);
-	dispose(b, p, disposal, pieces);
+const takeOut = ({ booking, posting, kind }: TakeOut): Piece[] => {
+	const lots = openLotsFor(booking, posting);
+	const unnamedSale = kind === DisposalKind.Sale && posting.cost === null;
 
-	return disposal === DisposalKind.Transfer ? pieces : [];
+	if (unnamedSale && lots.length === 0) {
+		openLot({ booking, posting, origin: LotOrigin.Short, cost: unitPrice(posting) ?? FREE });
+		return [];
+	}
+
+	const pieces = takeFromLots({ booking, posting, kind, lots: unnamedSale ? [] : lots });
+	return kind === DisposalKind.Transfer ? pieces : [];
 };
 
-// Selling what the account does not hold opens a short.
-const sellUnnamed = (b: Booking, p: BookedPosting): Piece[] => {
-	const holding = open(b.lots, p.account, LONG, null).length > 0;
-	if (holding) dispose(b, p, DisposalKind.Sale, []);
-	if (!holding) openLot(b, p, { origin: LotOrigin.Short, units: p.amount, cost: costOf(p) });
+type BringIn = { booking: Booking; posting: BookedPosting; moving: Piece[] };
 
-	return [];
-};
-
-// A buy covering a short names its lot like a sale.
-const takeIn = (b: Booking, p: BookedPosting, moved: Piece[]) => {
-	if (p.cost !== null) {
-		dispose(
-			b,
-			p,
-			DisposalKind.Cover,
-			take(open(b.lots, p.account, SHORT, p.cost), p.amount, SHORT),
-		);
+const bringIn = ({ booking, posting, moving }: BringIn) => {
+	if (posting.cost !== null) {
+		const lots = openLotsFor(booking, posting);
+		takeFromLots({ booking, posting, kind: DisposalKind.Cover, lots });
 		return;
 	}
-	if (p.price !== null) {
-		openLot(b, p, { origin: LotOrigin.Buy, units: p.amount, cost: costOf(p) });
+	if (posting.price !== null) {
+		openLot({ booking, posting, origin: LotOrigin.Buy, cost: unitPrice(posting) ?? FREE });
 		return;
 	}
 
-	receive(b, p, moved);
+	receiveTransfer({ booking, posting, moving });
 };
 
-// A transfer's lots arrive with their date and cost; units from nowhere tracked cost nothing.
-const receive = (b: Booking, p: BookedPosting, moved: Piece[]) => {
+const receiveTransfer = ({ booking, posting, moving }: BringIn) => {
 	const received: Amount[] = [];
-	for (const piece of moved) {
-		const units = min(piece.units, (p.amount - sum(received)) as Amount);
+
+	for (const piece of [...moving]) {
+		const units = min(piece.units, (posting.amount - sum(received)) as Amount);
 		if (units === 0n) break;
 
-		const source = piece.lot;
-		openLot(b, p, {
+		openLot({
+			booking,
+			posting,
 			origin: LotOrigin.Transfer,
-			date: source.date,
+			cost: piece.lot.cost,
 			units,
-			cost: source.cost,
-			source: source.key,
+			from: piece.lot,
 		});
 		received.push(units);
 		piece.units = (piece.units - units) as Amount;
+		if (piece.units === 0n) moving.shift();
 	}
-	moved.splice(0, moved.length, ...moved.filter((m) => m.units > 0n));
 
-	const rest = (p.amount - sum(received)) as Amount;
-	if (rest > 0n) openLot(b, p, { origin: LotOrigin.Unpriced, units: rest, cost: UNPRICED });
+	const rest = (posting.amount - sum(received)) as Amount;
+	if (rest > 0n) openLot({ booking, posting, origin: LotOrigin.Unpriced, cost: FREE, units: rest });
 };
 
-// Units no open lot covers are disposed of from no lot, which reports them.
-const dispose = (b: Booking, p: BookedPosting, kind: DisposalKind, pieces: Piece[]) => {
-	const sign = p.amount < 0n ? -1n : 1n;
-	const price = kind === DisposalKind.Sale || kind === DisposalKind.Cover ? unitPrice(p) : null;
-	const rest = (sign * p.amount - sum(pieces.map((c) => c.units))) as Amount;
+type Taking = { booking: Booking; posting: BookedPosting; kind: DisposalKind; lots: Lot[] };
 
-	b.disposals.push(
-		...pieces.map((c) => ({
-			lot: c.lot.key,
-			posting: p.id,
+const takeFromLots = ({ booking, posting, kind, lots }: Taking): Piece[] => {
+	const sign = posting.amount < 0n ? -1n : 1n;
+	const wanted = (sign * posting.amount) as Amount;
+	const traded = kind === DisposalKind.Sale || kind === DisposalKind.Cover;
+	const price = traded ? unitPrice(posting) : null;
+
+	const pieces: Piece[] = [];
+	for (const lot of lots) {
+		const units = min(
+			(wanted - sum(pieces.map((p) => p.units))) as Amount,
+			(sign * -lot.remaining) as Amount,
+		);
+		if (units === 0n) break;
+
+		lot.remaining = (lot.remaining + sign * units) as Amount;
+		pieces.push({ lot, units });
+	}
+
+	const uncovered = (wanted - sum(pieces.map((p) => p.units))) as Amount;
+	const taken = [...pieces, ...(uncovered > 0n ? [{ lot: null, units: uncovered }] : [])];
+	booking.disposals.push(
+		...taken.map((p) => ({
+			lot: p.lot?.id ?? null,
+			posting: posting.id,
 			kind,
-			units: (sign * c.units) as Amount,
+			units: (sign * p.units) as Amount,
 			price,
 		})),
-		...(rest > 0n
-			? [{ lot: null, posting: p.id, kind, units: (sign * rest) as Amount, price }]
-			: []),
 	);
+
+	return pieces;
 };
 
 type Opening = {
+	booking: Booking;
+	posting: BookedPosting;
 	origin: LotOrigin;
-	units: Amount;
 	cost: Quantity;
-	date?: Temporal.PlainDate;
-	source?: number;
+	units?: Amount;
+	from?: Lot;
 };
 
-// A lot opens on its posting's day, from no other lot, unless a transfer brought it.
-const openLot = (b: Booking, p: BookedPosting, o: Opening) =>
-	b.lots.push({
-		date: p.date,
-		source: null,
-		...o,
-		key: b.lots.length,
-		posting: p.id,
-		account: p.account,
-		remaining: o.units,
+const openLot = ({ booking, posting, origin, cost, units = posting.amount, from }: Opening) =>
+	booking.lots.push({
+		id: uuidv7(),
+		posting: posting.id,
+		source: from?.id ?? null,
+		account: posting.account,
+		origin,
+		date: from?.date ?? posting.date,
+		units,
+		remaining: units,
+		cost,
 	});
 
-// Takes units from each lot in turn, oldest first, until it has them all.
-const take = (lots: Lot[], units: Amount, side: bigint): Piece[] =>
-	lots.reduce<Piece[]>((pieces, lot) => {
-		const taken = min(
-			(units - sum(pieces.map((c) => c.units))) as Amount,
-			(lot.remaining * side) as Amount,
-		);
-		if (taken === 0n) return pieces;
-
-		lot.remaining = (lot.remaining - side * taken) as Amount;
-		return [...pieces, { lot, units: taken }];
-	}, []);
-
-const open = (lots: Lot[], account: string, side: bigint, cost: LotCost | null): Lot[] =>
-	lots
+const openLotsFor = (booking: Booking, posting: BookedPosting): Lot[] =>
+	booking.lots
 		.filter(
-			(l) => l.account === account && l.remaining * side > 0n && (cost === null || names(cost, l)),
+			(l) =>
+				l.account === posting.account &&
+				l.remaining * posting.amount < 0n &&
+				(posting.cost === null || isNamedBy(l, posting.cost)),
 		)
-		.toSorted((a, b) => Temporal.PlainDate.compare(a.date, b.date) || a.key - b.key);
+		.toSorted((a, b) => Temporal.PlainDate.compare(a.date, b.date));
 
-const names = (c: LotCost, l: Lot) =>
-	c.amount === l.cost.amount &&
-	c.commodity === l.cost.commodity &&
+const isNamedBy = (l: Lot, c: LotCost) =>
+	l.cost.amount === c.amount &&
+	l.cost.commodity === c.commodity &&
 	(c.date === null || c.date.equals(l.date));
-
-// The other side of a transaction moving the same commodity, not trading it.
-const inKind = (p: BookedPosting, g: BookedPosting[]) =>
-	g.some((q) => q !== p && q.amount * p.amount < 0n && movesInKind(q));
-
-const movesInKind = (p: BookedPosting) => p.price === null && (p.amount < 0n || p.cost === null);
-
-const costOf = (p: BookedPosting): Quantity => unitPrice(p) ?? UNPRICED;

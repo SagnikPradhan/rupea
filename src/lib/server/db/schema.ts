@@ -26,7 +26,6 @@ export enum PriceKind {
 
 export const priceKind = PG.pgEnum('price_kind', PriceKind);
 
-// Where an indexed price was written: a `P` line, or a posting's `@`.
 export enum PriceSource {
 	Line = 'line',
 	Posting = 'posting',

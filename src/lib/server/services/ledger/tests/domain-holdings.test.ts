@@ -1,5 +1,5 @@
 import { parseAmount, type Amount, type Quantity } from '#services/ledger/domain/amounts.ts';
-import { accountTree, valued } from '#services/ledger/domain/holdings.ts';
+import { byAccount, valued } from '#services/ledger/domain/holdings.ts';
 import { describe, expect, it } from 'vitest';
 
 const amount = (text: string) => parseAmount(text) ?? (0n as Amount);
@@ -50,24 +50,22 @@ describe('valued', () => {
 	});
 });
 
-describe('accountTree', () => {
+describe('byAccount', () => {
 	const worth = (account: string, units: string, commodity = 'INR') =>
 		valued(holding(account, units, commodity, null), prices);
 
-	it('lists every account above a holding, in tree order, with totals', () => {
-		const tree = accountTree([
-			worth('Assets:Zerodha', '18000'),
-			worth('Assets:Bank-2', '100'),
-			worth('Assets:Bank:Savings', '500'),
+	it('lists each account once, in order, with its total and what it holds besides rupees', () => {
+		const accounts = byAccount([
+			worth('Assets:Zerodha', '10', 'INFY'),
+			worth('Assets:Bank', '500'),
+			worth('Assets:Zerodha', '100'),
 			worth('Assets:Zerodha', '3', 'TCS'),
 		]);
 
-		expect(tree.map((a) => [a.account, a.depth, a.total, a.unpriced])).toEqual([
-			['Assets', 0, amount('18600'), 1],
-			['Assets:Bank', 1, amount('500'), 0],
-			['Assets:Bank:Savings', 2, amount('500'), 0],
-			['Assets:Bank-2', 1, amount('100'), 0],
-			['Assets:Zerodha', 1, amount('18000'), 1],
+		expect(accounts.map((a) => [a.account, a.total, a.unpriced])).toEqual([
+			['Assets:Bank', amount('500'), 0],
+			['Assets:Zerodha', amount('18100'), 1],
 		]);
+		expect(accounts.map((a) => a.holdings.map((h) => h.commodity))).toEqual([[], ['INFY', 'TCS']]);
 	});
 });

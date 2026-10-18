@@ -1,10 +1,6 @@
 import { replyFromBatch } from '#lib/server/shared/result/reply.ts';
 import * as Accounts from '#services/ledger/application/accounts.ts';
-import {
-	displayLocation,
-	formatAmount,
-	formatQuantity,
-} from '#services/ledger/application/shared.ts';
+import { formatAmount, formatQuantity } from '#services/ledger/application/shared.ts';
 import { query } from '$app/server';
 import * as v from 'valibot';
 import { Handle, inLedger } from './shared';
@@ -44,7 +40,8 @@ const viewAccount = (account: Accounts.Account) => ({
 });
 
 const viewLot = (lot: Accounts.LotHistory) => ({
-	location: displayLocation(lot.location),
+	file: lot.location.file,
+	line: lot.location.line,
 	date: lot.date.toString(),
 	origin: lot.origin,
 	from: lot.from,
@@ -52,7 +49,8 @@ const viewLot = (lot: Accounts.LotHistory) => ({
 	remaining: formatAmount(lot.remaining),
 	cost: formatQuantity(lot.cost),
 	disposals: lot.disposals.map((disposal) => ({
-		location: displayLocation(disposal.location),
+		file: disposal.location.file,
+		line: disposal.location.line,
 		date: disposal.date.toString(),
 		kind: disposal.kind,
 		units: formatAmount(disposal.units),

@@ -34,8 +34,8 @@ test('reviews the duplicates of a statement imported twice', async ({ signedIn: 
 	await expect(page.getByText('No possible matches for imports/aug-again.rupee.')).toBeVisible();
 
 	await visit(page, `${ledger}/postings`);
-	await expect(page.getByRole('row').filter({ hasText: 'UPI GROCER' })).toHaveCount(2);
-	await expect(page.getByRole('row').filter({ hasText: 'SALARY' })).toHaveCount(2);
+	await expect(page.getByRole('rowgroup').filter({ hasText: 'UPI GROCER' })).toHaveCount(2);
+	await expect(page.getByRole('rowgroup').filter({ hasText: 'SALARY' })).toHaveCount(2);
 
 	await visit(page, `${ledger}/files?file=imports/aug.rupee`);
 	const events = page.getByRole('region', { name: 'Events' });

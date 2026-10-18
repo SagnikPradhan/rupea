@@ -37,27 +37,21 @@ export const valued = (holding: Holding, prices: Record<string, Quantity>): Valu
 
 export type Account = {
 	account: string;
-	depth: number;
 	holdings: ValuedHolding[];
 	total: Amount;
 	unpriced: number;
 };
 
-export const accountTree = (holdings: ValuedHolding[]): Account[] =>
-	[...new Set(holdings.flatMap((h) => ancestors(h.account)))]
-		.toSorted(inTreeOrder)
-		.map((account) => {
-			const within = holdings.filter(
-				(h) => h.account === account || h.account.startsWith(`${account}:`),
-			);
-			return {
-				account,
-				depth: account.split(':').length - 1,
-				holdings: within.filter((h) => h.account === account),
-				total: sum(within.map((h) => h.value ?? (0n as Amount))),
-				unpriced: within.filter((h) => h.value === null).length,
-			};
-		});
+/** Each account holding something, what it holds besides rupees, and its worth in rupees. */
+export const byAccount = (holdings: ValuedHolding[]): Account[] =>
+	Object.entries(Object.groupBy(holdings, (h) => h.account))
+		.toSorted(([a], [b]) => a.localeCompare(b))
+		.map(([account, held = []]) => ({
+			account,
+			holdings: held.filter((h) => h.commodity !== DEFAULT_COMMODITY),
+			total: sum(held.map((h) => h.value ?? (0n as Amount))),
+			unpriced: held.filter((h) => h.value === null).length,
+		}));
 
 const inRupees = (
 	quantity: Quantity,
@@ -69,15 +63,4 @@ const inRupees = (
 	const price = prices[quantity.commodity];
 	const rate = price && hops > 0 ? inRupees(price, prices, hops - 1) : null;
 	return rate === null ? null : multiply(quantity.amount, rate);
-};
-
-const ancestors = (a: string) => a.split(':').map((_, i, s) => s.slice(0, i + 1).join(':'));
-
-const inTreeOrder = (a: string, b: string) => {
-	const left = a.split(':');
-	const right = b.split(':');
-	const differs = left.findIndex((s, i) => s !== right[i]);
-	if (differs === -1) return left.length - right.length;
-
-	return (left[differs] ?? '').localeCompare(right[differs] ?? '');
 };

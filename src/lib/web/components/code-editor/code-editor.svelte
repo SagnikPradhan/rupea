@@ -37,24 +37,26 @@
 
 	const theme = EditorView.theme({
 		'&': {
-			border: '1px solid var(--color-border)',
-			borderRadius: 'var(--radius)',
-			backgroundColor: 'var(--color-surface)',
+			borderTop: '1px solid var(--color-ink)',
 			color: 'var(--color-ink)',
 		},
-		'&.cm-focused': { outline: 'none', borderColor: 'var(--color-accent)' },
-		'.cm-content': { minHeight: '50dvh', caretColor: 'var(--color-ink)' },
-		'.cm-gutter': { minHeight: '50dvh' },
+		'&.cm-focused': { outline: 'none', borderTopColor: 'var(--color-accent)' },
+		'.cm-content': {
+			minHeight: '16rem',
+			padding: 'var(--size-1) 0',
+			caretColor: 'var(--color-ink)',
+		},
 		'.cm-scroller': {
 			fontFamily: 'var(--font-mono)',
 			fontSize: 'var(--font-size-1)',
+			lineHeight: '1.5',
 		},
 		'.cm-gutters': {
 			border: 'none',
-			borderRadius: 'var(--radius) 0 0 var(--radius)',
-			backgroundColor: 'var(--color-subtle)',
+			backgroundColor: 'transparent',
 			color: 'var(--color-muted)',
 		},
+		'.cm-lineNumbers .cm-gutterElement': { paddingRight: 'var(--size-2)' },
 		'.cm-linked': { backgroundColor: 'color-mix(in srgb, var(--color-accent) 15%, transparent)' },
 		'.cm-problem': {
 			backgroundColor: 'color-mix(in srgb, var(--color-negative) 10%, transparent)',

@@ -1,6 +1,6 @@
 import { withContext } from '#lib/server/shared/context/context.ts';
-import { sha256 } from '#lib/server/shared/hash.ts';
 import { withLogger } from '#lib/server/shared/context/logger.ts';
+import { sha256 } from '#lib/server/shared/hash.ts';
 import { petName } from '#lib/server/shared/names.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import {
@@ -48,26 +48,23 @@ export const requestCode = (email: string): ResultAsync<void> =>
 		}),
 	);
 
-// Sign-up may have closed since the code was sent.
 const findOrCreateUser = (email: string): ResultAsync<User> =>
 	DB.findUserByEmail(email).andThen((u) =>
 		u
 			? okAsync(u)
-			: canSignIn(email).andThen((a) => (a ? signUp(email) : errAsync(fault('AuthInvalidCode')))),
+			: canSignIn(email).andThen((y) => (y ? signUp(email) : errAsync(fault('AuthInvalidCode')))),
 	);
 
-// A new user starts with one ledger of their own.
 const signUp = (e: string): ResultAsync<User> =>
 	createUser(e, TRIES).andThen((u) =>
 		Ledger.createLedger({ user: u.id, name: 'Personal' }).map(() => u),
 	);
 
-const createUser = (a: string, n: number): ResultAsync<User> =>
-	DB.createUser({ email: a, username: petName() }).orElse((e) =>
-		e.type === 'NameTaken' && n > 1 ? createUser(a, n - 1) : errAsync(e),
+const createUser = (v: string, n: number): ResultAsync<User> =>
+	DB.createUser({ email: v, username: petName() }).orElse((e) =>
+		e.type === 'NameTaken' && n > 1 ? createUser(v, n - 1) : errAsync(e),
 	);
 
-// A code works once: it is consumed whether or not it matches.
 export const signIn = (email: string, code: string): ResultAsync<void> =>
 	DB.takeEmailCode(email)
 		.andThen((s) => (codeMatches(s, code, Date.now()) ? ok() : err(fault('AuthInvalidCode'))))
@@ -100,7 +97,6 @@ export const validateSession = (
 	});
 };
 
-// The cookie goes whether or not the session could be deleted.
 export const signOut = (): ResultAsync<void> => {
 	const token = readSessionCookie();
 	const deleted = token ? DB.deleteSession(sha256(token)) : okAsync();

@@ -1,30 +1,30 @@
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { and, eq, gt, lte, or, sql } from 'drizzle-orm';
-import { statementGrids, statements } from './database-schema';
+import { statementContents, statements } from './database-schema';
 import type { Contents } from '../domain/types';
 
-export type StatementRow = { path: string; checksum: string; original: string | null };
+export type StatementRow = { key: string; checksum: string; originalChecksum: string | null };
 
 const row = {
-	path: statements.path,
+	key: statements.key,
 	checksum: statements.checksum,
-	original: statements.original,
+	originalChecksum: statements.originalChecksum,
 };
 
-export const findStatement = (ledger: string, path: string): ResultAsync<StatementRow | null> =>
+export const findStatementByKey = (ledger: string, key: string): ResultAsync<StatementRow | null> =>
 	withContext('db')((db) =>
 		attempt(() =>
 			db
 				.select(row)
 				.from(statements)
-				.where(and(eq(statements.ledgerId, ledger), eq(statements.path, path)))
+				.where(and(eq(statements.ledgerId, ledger), eq(statements.key, key)))
 				.limit(1)
 				.then(([f]) => f ?? null),
 		),
 	);
 
-export const locateStatement = (
+export const findStatementByChecksum = (
 	ledger: string,
 	checksum: string,
 ): ResultAsync<StatementRow | null> =>
@@ -36,10 +36,10 @@ export const locateStatement = (
 				.where(
 					and(
 						eq(statements.ledgerId, ledger),
-						or(eq(statements.checksum, checksum), eq(statements.original, checksum)),
+						or(eq(statements.checksum, checksum), eq(statements.originalChecksum, checksum)),
 					),
 				)
-				.orderBy(statements.path)
+				.orderBy(statements.key)
 				.limit(1)
 				.then(([f]) => f ?? null),
 		),
@@ -52,28 +52,28 @@ export const saveStatement = (ledger: string, r: StatementRow): ResultAsync<void
 				.insert(statements)
 				.values({ ledgerId: ledger, ...r })
 				.onConflictDoUpdate({
-					target: [statements.ledgerId, statements.path],
-					set: { checksum: r.checksum, original: r.original },
+					target: [statements.ledgerId, statements.key],
+					set: { checksum: r.checksum, originalChecksum: r.originalChecksum },
 				});
 		}),
 	);
 
-type GridKey = {
+type StatementContentsKey = {
 	checksum: string;
 	reader: string;
 };
 
-export const findContents = (k: GridKey): ResultAsync<Contents | null> =>
+export const findStatementContents = (k: StatementContentsKey): ResultAsync<Contents | null> =>
 	withContext('db')((db) =>
 		attempt(() =>
 			db
-				.select({ grid: statementGrids.grid, text: statementGrids.text })
-				.from(statementGrids)
+				.select({ grid: statementContents.grid, text: statementContents.text })
+				.from(statementContents)
 				.where(
 					and(
-						eq(statementGrids.checksum, k.checksum),
-						eq(statementGrids.reader, k.reader),
-						gt(statementGrids.expiresAt, sql`now()`),
+						eq(statementContents.checksum, k.checksum),
+						eq(statementContents.reader, k.reader),
+						gt(statementContents.expiresAt, sql`now()`),
 					),
 				)
 				.limit(1)
@@ -81,7 +81,7 @@ export const findContents = (k: GridKey): ResultAsync<Contents | null> =>
 		),
 	);
 
-type SaveContentsOptions = {
+type SaveStatementContentsOptions = {
 	checksum: string;
 	reader: string;
 	contents: Contents;
@@ -89,16 +89,16 @@ type SaveContentsOptions = {
 };
 
 // Saving is when expired contents are swept, as nothing else runs on a schedule.
-export const saveContents = (o: SaveContentsOptions): ResultAsync<void> =>
+export const saveStatementContents = (o: SaveStatementContentsOptions): ResultAsync<void> =>
 	withContext('db')((db) =>
 		attempt(async () => {
-			await db.delete(statementGrids).where(lte(statementGrids.expiresAt, sql`now()`));
+			await db.delete(statementContents).where(lte(statementContents.expiresAt, sql`now()`));
 			const read = { ...o.contents, expiresAt: o.expiresAt };
 			await db
-				.insert(statementGrids)
+				.insert(statementContents)
 				.values({ checksum: o.checksum, reader: o.reader, ...read })
 				.onConflictDoUpdate({
-					target: [statementGrids.checksum, statementGrids.reader],
+					target: [statementContents.checksum, statementContents.reader],
 					set: read,
 				});
 		}),

@@ -51,9 +51,7 @@ describe('drafting a ledger file', () => {
 	it('names the file after the statement, under imports', () => {
 		const drafted = draft({
 			config,
-			statement: 'hdfc-aug.2026.csv',
-			checksum: 'sha256:abc',
-			original: null,
+			statement: { key: 'hdfc-aug.2026.csv', checksum: 'sha256:abc', originalChecksum: null },
 			account: 'Assets:Bank',
 			records: [],
 			failed: [],
@@ -64,9 +62,7 @@ describe('drafting a ledger file', () => {
 	it("writes each record against its account, in the statement's order", () => {
 		const drafted = draft({
 			config,
-			statement: 'hdfc.csv',
-			checksum: 'sha256:abc',
-			original: null,
+			statement: { key: 'hdfc.csv', checksum: 'sha256:abc', originalChecksum: null },
 			account: 'Assets:Bank',
 			records: [
 				at(3, 'Income:Salary', record('SALARY', '50000')),
@@ -80,9 +76,7 @@ describe('drafting a ledger file', () => {
 	it('writes a balanced transaction per record, on one header line, citing the statement and its checksum', () => {
 		const drafted = draft({
 			config,
-			statement: 'hdfc.csv',
-			checksum: 'sha256:abc',
-			original: null,
+			statement: { key: 'hdfc.csv', checksum: 'sha256:abc', originalChecksum: null },
 			account: 'Assets:Bank',
 			records: [at(2, 'Expenses:Shopping', record('UPI  SHOP\nBLR', '-120.50'))],
 			failed: [],
@@ -100,9 +94,7 @@ describe('drafting a ledger file', () => {
 	it('cites the upload too, when unlocking changed its content', () => {
 		const drafted = draft({
 			config,
-			statement: 'hdfc.pdf',
-			checksum: 'sha256:abc',
-			original: 'sha256:def',
+			statement: { key: 'hdfc.pdf', checksum: 'sha256:abc', originalChecksum: 'sha256:def' },
 			account: 'Assets:Bank',
 			records: [],
 			failed: [],
@@ -110,7 +102,7 @@ describe('drafting a ledger file', () => {
 		expect(parse(config, { key: drafted.key, content: drafted.content }).metadata).toEqual({
 			statement: ['hdfc.pdf'],
 			checksum: ['sha256:abc'],
-			original: ['sha256:def'],
+			'original-checksum': ['sha256:def'],
 		});
 	});
 });

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { readContents, unlock } from '#services/extraction/adapters/grid.ts';
+import { readContents, unlock } from '#services/extraction/adapters/reader.ts';
 import { PDFDocument } from '@cantoo/pdf-lib';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';

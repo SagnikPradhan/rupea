@@ -3,8 +3,8 @@ import type { Box } from '#lib/server/shared/onnx/runtime.ts';
 import { sequence, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { toGrid, toLines, widen, type Word } from '../domain/table';
 import type { Grid, Contents } from '../domain/types';
-import { openPdf, type PdfDocument, type PdfPage } from './pdfium';
-import { tatr, type Tables } from './tatr';
+import { openPdf, type PdfDocument, type PdfPage } from './reader-pdf-pdfium';
+import { tatr, type Tables } from './reader-pdf-tatr';
 
 // Points, so a table's edge rules sit inside the region TATR reads.
 const PADDING = 10;

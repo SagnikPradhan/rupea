@@ -2,11 +2,19 @@ import { fault } from '#lib/server/shared/result/error.ts';
 import { err, ok, type Result, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { safely } from '#lib/server/shared/control.ts';
 import type { Entry, Storage } from '#lib/server/shared/storage/storage.ts';
+import { basename } from 'node:path';
 
 const EXTENSION = '.yml';
 
 const decoder = new TextDecoder('utf-8', { fatal: true });
 const encoder = new TextEncoder();
+
+// Bundled into the build, so they ship without reading files at runtime.
+const files = import.meta.glob<string>('../schemas/*.yml', {
+	query: '?raw',
+	import: 'default',
+	eager: true,
+});
 
 export type SchemaFile = Entry & { content: string };
 
@@ -63,3 +71,7 @@ export const schemas = (storage: Storage): Schemas => ({
 	write: write(storage),
 	delete: remove(storage),
 });
+
+/** The schemas Rupee ships for common sources. */
+export const builtinSchemas = () =>
+	Object.entries(files).map(([path, content]) => ({ key: basename(path), content }));

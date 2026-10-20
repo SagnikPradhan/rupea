@@ -1,0 +1,202 @@
+import { provide } from '#lib/server/shared/context/context.ts';
+import { ok } from '#lib/server/shared/result/result.ts';
+import * as Ledger from '#services/ledger/application/ledger.ts';
+import { broken, hashed } from '#tests/shared/embedding.ts';
+import { createLedger } from '#tests/shared/seed.ts';
+import { existsSync } from 'node:fs';
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
+import { it } from '#tests/shared/vitest.ts';
+import { describe, expect } from 'vitest';
+import * as Drafts from '#services/extraction/application/drafts.ts';
+import * as Schemas from '#services/extraction/application/schemas.ts';
+import * as Statements from '#services/extraction/application/statements.ts';
+import { models as files } from '#lib/server/shared/onnx/models.ts';
+import { bank, schema, upload } from './fixtures/bank';
+
+const fixtures = join(import.meta.dirname, 'fixtures');
+const models = files.every(({ file }) => existsSync(join('data/models', file)));
+
+describe('extracting a statement', () => {
+	it('drafts a ledger file that parses, citing the statement', ({ context, db }) =>
+		// Without the model, lines nobody categorised stay uncategorised.
+		provide({ ...context, models: broken(context.models) }, async () => {
+			const ledger = await createLedger(db);
+			const { key, checksum } = await upload(ledger);
+			const draft = await Drafts.extract({
+				ledger,
+				statement: key,
+				schema: bank,
+			});
+
+			expect(draft).toEqual(
+				ok({
+					key: 'imports/aug.rupee',
+					content: [
+						'- statement: aug.csv',
+						`- checksum: ${checksum}`,
+						'',
+						'2026-08-29 UPI GROCER',
+						'\tAssets:Bank',
+						'\tExpenses:Food 1250.50',
+						'',
+						'2026-08-30 SALARY',
+						'\tAssets:Bank 50000.00',
+						'\tIncome:Uncategorized',
+						'',
+					].join('\n'),
+					failed: [
+						{
+							type: 'ExtractionInvalidField',
+							location: 'aug.csv:5',
+							field: 'amount',
+							reason: '"x" is not a number',
+						},
+					],
+				}),
+			);
+			if (draft.isErr()) return;
+			expect(Ledger.check('aug.rupee', draft.value.content)).toMatchObject({
+				metadata: { statement: ['aug.csv'], checksum: [checksum] },
+				failed: [],
+			});
+		}));
+
+	it('files uncategorised lines under the accounts the ledger shows', ({ context, db }) =>
+		provide({ ...context, models: hashed(context.models) }, async () => {
+			const ledger = await createLedger(db);
+			await Ledger.createFile({
+				ledger,
+				key: 'history.rupee',
+				content: [
+					'2026-07-30 SALARY',
+					'\tAssets:Bank 40000.00',
+					'\tIncome:Pay',
+					'',
+					'2026-06-30 SALARY',
+					'\tAssets:Bank 40000.00',
+					'\tIncome:Pay',
+					'',
+				].join('\n'),
+			});
+			const draft = await Drafts.extract({
+				ledger,
+				statement: (await upload(ledger)).key,
+				schema: bank,
+			});
+
+			// The tagged line keeps its tag; the salary follows the ledger.
+			expect(draft._unsafeUnwrap().content).toContain(
+				['2026-08-30 SALARY', '\tAssets:Bank 50000.00', '\tIncome:Pay'].join('\n'),
+			);
+			expect(draft._unsafeUnwrap().content).toContain('\tExpenses:Food 1250.50');
+		}));
+
+	it('asserts the running balance a statement prints', ({ context, db }) =>
+		provide({ ...context, models: broken(context.models) }, async () => {
+			const ledger = await createLedger(db);
+			const balances = [
+				'Date,Narration,Debit,Credit,Tag,Balance',
+				'29/08/26,UPI GROCER,"1,250.50",,Expenses:Food,"8,749.50"',
+				'30/08/26,SALARY,,"50,000",,',
+			].join('\n');
+			const draft = await Drafts.extract({
+				ledger,
+				statement: (await upload(ledger, balances)).key,
+				schema: {
+					key: 'bank.yml',
+					content: `${schema}  balance: { from: [header: Balance], pipe: [number] }\n`,
+				},
+			});
+
+			expect(draft._unsafeUnwrap().content).toContain(
+				['2026-08-29 UPI GROCER', '\tAssets:Bank = 8749.50', '\tExpenses:Food 1250.50'].join('\n'),
+			);
+			expect(draft._unsafeUnwrap().content).toContain('\tAssets:Bank 50000.00\n');
+		}));
+
+	it('needs the schema to name its account', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			expect(
+				await Drafts.extract({
+					ledger,
+					statement: (await upload(ledger)).key,
+					schema: { key: 'bank.yml', content: schema.replace('account: Assets:Bank\n', '') },
+				}),
+			).toMatchObject({ error: { type: 'ExtractionWithoutAccount', path: 'bank.yml' } });
+		}));
+
+	it('names the schema when it does not parse', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			expect(
+				await Drafts.extract({
+					ledger,
+					statement: (await upload(ledger)).key,
+					schema: { key: 'bank.yml', content: 'version: v2' },
+				}),
+			).toMatchObject({ error: { type: 'ExtractionInvalidSchema', path: 'bank.yml' } });
+		}));
+});
+
+describe('saving a draft', () => {
+	it('files it and keeps the built-in schema that read it', ({ context, db }) =>
+		provide({ ...context, models: broken(context.models) }, async () => {
+			const ledger = await createLedger(db);
+			const content = await readFile(join(fixtures, 'hdfc-card.xls'));
+			const statement = (
+				await Statements.uploadStatement(ledger, { name: 'hdfc-card.xls', content })
+			)._unsafeUnwrap().key;
+			const recognised = (await Schemas.recogniseStatement(ledger, statement))._unsafeUnwrap();
+			await Drafts.save({ ledger, statement, schema: recognised, key: 'card.rupee' });
+
+			expect(await Ledger.getFile(ledger, 'card.rupee')).toMatchObject(ok({ key: 'card.rupee' }));
+			expect(await Schemas.listSchemas(ledger)).toMatchObject(ok([{ key: 'hdfc-card.yml' }]));
+		}));
+
+	it('keeps no schema that Rupee does not ship', ({ context, db }) =>
+		provide({ ...context, models: broken(context.models) }, async () => {
+			const ledger = await createLedger(db);
+			const statement = (await upload(ledger)).key;
+			await Drafts.save({ ledger, statement, schema: bank, key: 'aug.rupee' });
+
+			expect(await Ledger.getFile(ledger, 'aug.rupee')).toMatchObject(ok({ key: 'aug.rupee' }));
+			expect(await Schemas.listSchemas(ledger)).toEqual(ok([]));
+		}));
+});
+
+describe('a statement a built-in schema reads', () => {
+	const banks = [
+		{ file: 'hdfc-savings.xls', schema: 'hdfc-savings.yml', records: 20 },
+		{ file: 'hdfc-card.xls', schema: 'hdfc-card.yml', records: 9 },
+		{ file: 'idfc-card.pdf', schema: 'idfc-card.yml', records: 3 },
+		{ file: 'idfc-card-2026.pdf', schema: 'idfc-card-2026.yml', records: 3 },
+		{ file: 'sbi-savings.pdf', schema: 'sbi-savings.yml', records: 12 },
+	];
+
+	it.for(banks)(
+		'$file imports into a fresh ledger with no edits',
+		async ({ file, schema, records }, { context, db, skip }) => {
+			if (file.endsWith('.pdf') && !models) skip();
+
+			await provide(context, async () => {
+				const ledger = await createLedger(db);
+				const content = await readFile(join(fixtures, file));
+				const uploaded = await Statements.uploadStatement(ledger, { name: file, content });
+				const key = uploaded._unsafeUnwrap().key;
+
+				const recognised = (await Schemas.recogniseStatement(ledger, key))._unsafeUnwrap();
+				const draft = (
+					await Drafts.extract({ ledger, statement: key, schema: recognised })
+				)._unsafeUnwrap();
+				const checked = Ledger.check(draft.key, draft.content);
+
+				expect(recognised).toMatchObject({ key: schema, builtin: true });
+				expect(draft.failed).toEqual([]);
+				expect(checked.failed).toEqual([]);
+				expect(checked.succeeded).toHaveLength(records);
+			});
+		},
+	);
+});

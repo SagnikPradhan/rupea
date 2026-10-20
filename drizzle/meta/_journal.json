@@ -5,22 +5,8 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1792256607230,
+      "when": 1792510688853,
       "tag": "0000_baseline",
-      "breakpoints": true
-    },
-    {
-      "idx": 1,
-      "version": "7",
-      "when": 1792261032489,
-      "tag": "0001_investments",
-      "breakpoints": true
-    },
-    {
-      "idx": 2,
-      "version": "7",
-      "when": 1792480161334,
-      "tag": "0002_ledger_owners",
       "breakpoints": true
     }
   ]

@@ -2,7 +2,7 @@
 	import {
 		importStatement,
 		previewStatement,
-		readStatement,
+		uploadStatement,
 		recogniseStatement,
 		unlockStatement,
 	} from '#lib/endpoints/import.remote.ts';
@@ -178,22 +178,22 @@ fields:
 	<h2>Statement</h2>
 	<form
 		enctype="multipart/form-data"
-		{...readStatement.enhance(async (form) => {
+		{...uploadStatement.enhance(async (form) => {
 			await form.submit();
 			await show(form.result);
 		})}
 	>
-		<input {...readStatement.fields.handle.as('hidden', handle)} />
+		<input {...uploadStatement.fields.handle.as('hidden', handle)} />
 		<label>
 			Statement (.csv, .xls, .xlsx, .pdf)
 			<input
-				{...readStatement.fields.file.as('file')}
+				{...uploadStatement.fields.file.as('file')}
 				accept=".csv,.xls,.xlsx,.pdf"
 				onchange={(e) => e.currentTarget.form?.requestSubmit()}
 				required
 			/>
 		</label>
-		<button disabled={readStatement.pending > 0}>Read again</button>
+		<button disabled={uploadStatement.pending > 0}>Read again</button>
 	</form>
 
 	{#each statement.errors as error, index (index)}

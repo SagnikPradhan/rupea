@@ -95,13 +95,13 @@ export type Pattern = v.InferOutput<typeof Pattern>;
 export type Locator = v.InferOutput<typeof Locator>;
 export type Transform = v.InferOutput<typeof Transform>;
 
-export const parseSchema = (path: string, text: string): Result<RupeeSchema> => {
-	const document = parseDocument(text);
+export const parseSchema = (key: string, content: string): Result<RupeeSchema> => {
+	const document = parseDocument(content);
 	const [syntax] = document.errors;
-	if (syntax) return invalid(path, syntax.message);
+	if (syntax) return invalid(key, syntax.message);
 
 	const parsed = v.safeParse(Schema, document.toJS());
-	return parsed.success ? ok(parsed.output) : invalid(path, v.summarize(parsed.issues));
+	return parsed.success ? ok(parsed.output) : invalid(key, v.summarize(parsed.issues));
 };
 
 const invalid = (p: string, r: string): Result<never> =>

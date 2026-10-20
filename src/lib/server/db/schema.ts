@@ -87,19 +87,19 @@ export const storages = PG.pgTable('storages', (t) => ({
 	kind: storageKind().notNull(),
 }));
 
-// The owner is the storage's user. The handle also names the ledger's folder, so it never changes.
+// The handle also names the ledger's folder in its owner's storage, so it never changes.
 export const ledgers = PG.pgTable(
 	'ledgers',
 	(t) => ({
 		...base,
-		storageId: t
+		ownerId: t
 			.uuid()
 			.notNull()
-			.references(() => storages.id, { onDelete: 'cascade' }),
+			.references(() => users.id, { onDelete: 'cascade' }),
 		handle: t.text().notNull().unique('ledgers_handle_unique'),
 		name: t.text().notNull(),
 	}),
-	(t) => [PG.index('ledgers_storage_id').on(t.storageId)],
+	(t) => [PG.index('ledgers_owner_id').on(t.ownerId)],
 );
 
 export const sessions = PG.pgTable('sessions', (t) => ({

@@ -6,17 +6,14 @@ import { v7 as uuidv7 } from 'uuid';
 export const createUser = async (db: Database) => {
 	const userId = uuidv7();
 	await db.insert(users).values({ id: userId, email: `${userId}@example.com`, username: userId });
-	const [storage] = await db
-		.insert(storages)
-		.values({ userId, kind: StorageKind.Local })
-		.returning({ id: storages.id });
-	return { userId, storageId: storage?.id ?? '' };
+	await db.insert(storages).values({ userId, kind: StorageKind.Local });
+	return { userId };
 };
 
-// In a storage of its own, so its owner is a new user.
+// Owned by a new user, so no other ledger shares its storage.
 export const createLedger = async (db: Database): Promise<Ledger> => {
-	const { userId, storageId } = await createUser(db);
+	const userId = (await createUser(db)).userId;
 	const id = uuidv7();
-	await db.insert(ledgers).values({ id, storageId, handle: id, name: 'Test' });
+	await db.insert(ledgers).values({ id, ownerId: userId, handle: id, name: 'Test' });
 	return { id, handle: id, name: 'Test', owner: userId };
 };

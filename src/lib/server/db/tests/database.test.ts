@@ -126,7 +126,7 @@ describe('the database', () => {
 		expect(await db.$count(ledgerFiles, eq(ledgerFiles.ledgerId, ledgerId))).toBe(0);
 	});
 
-	it("takes a user's storage and the ledgers in it with them", async ({ db }) => {
+	it("takes a user's storage and ledgers with them", async ({ db }) => {
 		const ledger = await createLedger(db);
 		await db.insert(ledgerFiles).values({ ledgerId: ledger.id, key: 'a' });
 		await db.delete(users).where(eq(users.id, ledger.owner));

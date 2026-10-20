@@ -1,4 +1,5 @@
-import { jobs, JobStatus } from '#lib/server/db/schema.ts';
+import { jobs } from '#services/jobs/adapters/database-schema.ts';
+import { JobStatus } from '#services/jobs/domain/jobs.ts';
 import { atomically } from '#lib/server/db/atomically.ts';
 import { provide, withContext, type RupeeContext } from '#lib/server/shared/context/context.ts';
 import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';

@@ -1,5 +1,8 @@
 import type { Database } from '#lib/server/db/index.ts';
-import { ledgers, StorageKind, storages, users } from '#lib/server/db/schema.ts';
+import { ledgers } from '#services/ledger/adapters/database-schema.ts';
+import { StorageKind } from '#lib/server/shared/storage/storage.ts';
+import { storages } from '#services/storage/adapters/database-schema.ts';
+import { users } from '#services/auth/adapters/database-schema.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
 import { v7 as uuidv7 } from 'uuid';
 

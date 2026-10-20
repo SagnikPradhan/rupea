@@ -1,4 +1,4 @@
-import { storages } from '#lib/server/db/schema.ts';
+import { storages } from '#services/storage/adapters/database-schema.ts';
 import { provide } from '#lib/server/shared/context/context.ts';
 import { createUser } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';

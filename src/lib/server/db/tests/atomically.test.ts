@@ -1,4 +1,4 @@
-import { users } from '#lib/server/db/schema.ts';
+import { users } from '#services/auth/adapters/database-schema.ts';
 import { atomically } from '#lib/server/db/atomically.ts';
 import { provide, withContext } from '#lib/server/shared/context/context.ts';
 import { fault } from '#lib/server/shared/result/error.ts';

@@ -1,4 +1,4 @@
-import { statementGrids } from '#lib/server/db/schema.ts';
+import { statementGrids } from '#services/extraction/adapters/database-schema.ts';
 import { provide } from '#lib/server/shared/context/context.ts';
 import { ok } from '#lib/server/shared/result/result.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';

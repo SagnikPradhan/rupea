@@ -1,12 +1,35 @@
-import {
-	AccountType,
-	DisposalKind,
-	LotOrigin,
-	PriceKind,
-	PriceSource,
-} from '#lib/server/db/schema.ts';
+export enum AccountType {
+	Assets = 'Assets',
+	Liabilities = 'Liabilities',
+	Income = 'Income',
+	Expenses = 'Expenses',
+	Equity = 'Equity',
+}
 
-export { AccountType, DisposalKind, LotOrigin, PriceKind, PriceSource };
+// `@` prices one unit, `@@` the whole posting; kept as written so it prints back.
+export enum PriceKind {
+	Unit = 'unit',
+	Total = 'total',
+}
+
+export enum PriceSource {
+	Line = 'line',
+	Posting = 'posting',
+}
+
+export enum LotOrigin {
+	Buy = 'buy',
+	Transfer = 'transfer',
+	Short = 'short',
+	Unpriced = 'unpriced',
+}
+
+export enum DisposalKind {
+	Sale = 'sale',
+	Transfer = 'transfer',
+	Gift = 'gift',
+	Cover = 'cover',
+}
 
 // `owner` is the user whose storage holds the ledger.
 export type Ledger = { id: string; handle: string; name: string; owner: string };

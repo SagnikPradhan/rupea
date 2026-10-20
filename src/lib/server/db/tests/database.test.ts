@@ -4,16 +4,16 @@ import { eq } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import { describe, expect } from 'vitest';
 import type { Database } from '#lib/server/db/index.ts';
+import { AccountType } from '#services/ledger/domain/types.ts';
 import {
-	AccountType,
 	ledgerFiles,
 	ledgers,
 	metadata,
 	postings,
-	storages,
 	transactions,
-	users,
-} from '#lib/server/db/schema.ts';
+} from '#services/ledger/adapters/database-schema.ts';
+import { storages } from '#services/storage/adapters/database-schema.ts';
+import { users } from '#services/auth/adapters/database-schema.ts';
 
 const findLedger = (db: Database, id: string) =>
 	db

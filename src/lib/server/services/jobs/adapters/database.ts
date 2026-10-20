@@ -1,11 +1,12 @@
 import { attemptWrite, violates } from '#lib/server/db/errors.ts';
-import { jobs, JobStatus } from '#lib/server/db/schema.ts';
 import { atomically } from '#lib/server/db/atomically.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import type { RupeeError } from '#lib/server/shared/result/error.ts';
 import { attempt, errAsync, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { and, eq, inArray, lte, notExists, notInArray, or, sql, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
+import { jobs } from './database-schema';
+import { JobStatus } from '../domain/jobs';
 
 const DAY = 24 * 60 * 60 * 1000;
 const UNKNOWN_KEPT = DAY;

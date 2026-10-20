@@ -1,7 +1,7 @@
 import { fault } from '#lib/server/shared/result/error.ts';
 import { errAsync, okAsync } from '#lib/server/shared/result/result.ts';
 import type { Models } from '#lib/server/shared/onnx/runtime.ts';
-import { EMBEDDING_DIMENSIONS } from '#lib/server/db/schema.ts';
+import { EMBEDDING_DIMENSIONS } from '#lib/server/shared/onnx/models.ts';
 
 const SIZE = EMBEDDING_DIMENSIONS;
 

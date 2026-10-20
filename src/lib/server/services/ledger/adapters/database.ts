@@ -1,5 +1,12 @@
 import { attemptWrite, violates } from '#lib/server/db/errors.ts';
 import { statementChunks, type Database } from '#lib/server/db/index.ts';
+import { withContext } from '#lib/server/shared/context/context.ts';
+import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
+import { attempt, err, errAsync, ok, ResultAsync } from '#lib/server/shared/result/result.ts';
+import { inOrder } from '#lib/server/shared/control.ts';
+import { and, asc, eq, inArray, isNotNull, isNull, ne, or, sql, type SQL } from 'drizzle-orm';
+import { alias } from 'drizzle-orm/pg-core';
+import { v7 as uuidv7 } from 'uuid';
 import {
 	disposals as disposalTable,
 	ledgerFiles,
@@ -10,14 +17,7 @@ import {
 	postings,
 	prices as priceTable,
 	transactions as transactionTable,
-} from '#lib/server/db/schema.ts';
-import { withContext } from '#lib/server/shared/context/context.ts';
-import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
-import { attempt, err, errAsync, ok, ResultAsync } from '#lib/server/shared/result/result.ts';
-import { inOrder } from '#lib/server/shared/control.ts';
-import { and, asc, eq, inArray, isNotNull, isNull, ne, or, sql, type SQL } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
-import { v7 as uuidv7 } from 'uuid';
+} from './database-schema';
 import { BALANCE_TYPES, EVENT_KEYS } from '../domain/events';
 import type { Holding } from '../domain/holdings';
 import { book, realised, type BookedPosting, type Booking } from '../domain/lots';

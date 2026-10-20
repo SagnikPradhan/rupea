@@ -1,5 +1,8 @@
 import type { ModelFile } from './download';
 
+/** The length of the vectors `textEmbedding` makes. */
+export const EMBEDDING_DIMENSIONS = 384;
+
 export const tableDetection: ModelFile = {
 	file: 'table-detection.onnx',
 	url: 'https://huggingface.co/Xenova/table-transformer-detection/resolve/187ac355617c8fee3d69c00d461ecf8eb8a4a5b7/onnx/model.onnx',

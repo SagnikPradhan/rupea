@@ -1,6 +1,9 @@
-import type { StorageKind } from '../../db/schema';
 import { fault } from '../result/error';
 import { err, ok, type Result, type ResultAsync } from '../result/result';
+
+export enum StorageKind {
+	Local = 'local',
+}
 
 export type Entry = {
 	key: string;

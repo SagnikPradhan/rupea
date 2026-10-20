@@ -1,6 +1,6 @@
 # Services meet only through their application layer
 
-A service's `application/` is its only public surface; no service imports another's `domain/` or `adapters/`. Orchestrators stay in `application/<service>.ts`. A part that reads plainly on its own but is too coupled to the service's data to be a service gets its own orchestrator, `application/<part>.ts`, and its adapters may split the same way. The types and pure functions other services need are re-exported from `application/shared.ts`, while the code itself stays in `domain/`. One application may call another's.
+A service's `application/` is its only public surface; no service imports another's `domain/` or `adapters/`. `application/` holds one orchestrator per thing the service owns, named after it: extraction has `statements.ts`, `schemas.ts` and `drafts.ts`. None is the service's main one, and they may call each other. A part that reads plainly on its own but is too coupled to the service's data to be a service is one of these orchestrators, and its adapters may split the same way. The types and pure functions other services need are re-exported from `application/shared.ts`, while the code itself stays in `domain/`. One application may call another's.
 
 Extraction turns arbitrary input into ledger input, so the ledger owns what that input looks like and how it is written: its `shared.ts` exports `Amount`, `RupeeTransaction`, `accountType`, `DEFAULT_COMMODITY`, date parsing, `print` and `parse`. Extraction builds transactions and calls the ledger's `print`. Choosing an account, fallback included, is the ledger's `application/prediction.ts`, which exposes only `predictAccounts`: it searches the ledger's own transactions and postings, so it can't be a service of its own ([ADR 0012](0012-services-own-their-tables.md)).
 
@@ -8,6 +8,7 @@ Extraction turns arbitrary input into ledger input, so the ledger owns what that
 
 - **Moving amounts and dates to `shared/`**: they are the ledger's input, not general utilities, and `shared/` would grow into a place for anything used twice.
 - **Extraction returns transactions and the route prints them**: the route would compose two services that one call can hide.
+- **One `application/<service>.ts` per service, parts beside it**: what we had. Extraction's grew to hold reading statements, its schemas and its drafts, and its adapters read as one flat list.
 - **Prediction as a service**: what we had. It wrote embeddings onto the ledger's transactions and joined its postings, so its tables were the ledger's.
 
 ## Consequences

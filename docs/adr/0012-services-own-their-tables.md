@@ -7,7 +7,7 @@ Each service defines its tables in `adapters/database-schema.ts`, and only that 
 | auth       | `users`, `sessions`, `email_codes`                                                                              |
 | storage    | `storages`                                                                                                      |
 | ledger     | `ledgers`, `memberships`, `ledger_files`, `transactions`, `postings`, `prices`, `lots`, `disposals`, `metadata` |
-| extraction | `statements`, `statement_grids`                                                                                 |
+| extraction | `statements`, `statement_contents`                                                                              |
 | refinement | `dismissed_matches`                                                                                             |
 | jobs       | `jobs`                                                                                                          |
 

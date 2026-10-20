@@ -6,7 +6,7 @@ import { provide } from '#lib/server/shared/context/context.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { models as files } from '#lib/server/shared/onnx/models.ts';
 import { createModels } from '#lib/server/shared/onnx/runtime.ts';
-import { readPdf } from '#services/extraction/adapters/pdf.ts';
+import { readPdf } from '#services/extraction/adapters/reader-pdf.ts';
 import { err } from '#lib/server/shared/result/result.ts';
 import { PDFDocument } from '@cantoo/pdf-lib';
 

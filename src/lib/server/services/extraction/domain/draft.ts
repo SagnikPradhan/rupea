@@ -12,31 +12,29 @@ import type { RupeeRecord } from './types';
 export type Draft = { key: string; content: string; failed: RupeeError[] };
 
 // A record with the account its money came from or went to.
-export type Categorised = RupeeRecord & { account: string };
+export type CategorisedRupeeRecord = RupeeRecord & { account: string };
 
 type DraftOptions = {
 	config: LedgerConfiguration;
-	statement: string;
-	checksum: string;
-	// The upload's checksum, when unlocking it changed the content.
-	original: string | null;
+	// `originalChecksum` is the upload's, set when unlocking it changed the content.
+	statement: { key: string; checksum: string; originalChecksum: string | null };
 	account: string;
 	// In any order; they are written in the statement's.
-	records: Categorised[];
+	records: CategorisedRupeeRecord[];
 	failed: RupeeError[];
 };
 
 // A statement's own category counts only when it names a ledger account.
 export const uncategorised = (l: RupeeRecord[]) => l.filter((r) => categoryAccount(r) === null);
 
-export const categorised = (records: RupeeRecord[]): Categorised[] =>
+export const categorised = (records: RupeeRecord[]): CategorisedRupeeRecord[] =>
 	records.flatMap((r) => {
 		const account = categoryAccount(r);
 		return account ? [{ ...r, account }] : [];
 	});
 
 export const draft = (options: DraftOptions): Draft => ({
-	key: `imports/${options.statement.replace(/\.[^.]*$/, '')}.rupee`,
+	key: `imports/${options.statement.key.replace(/\.[^.]*$/, '')}.rupee`,
 	content: print(options.config, {
 		metadata: citation(options),
 		transactions: options.records
@@ -48,15 +46,15 @@ export const draft = (options: DraftOptions): Draft => ({
 });
 
 // The checksum finds the statement wherever it has moved; the path is only what it was called.
-const citation = ({ statement, checksum, original }: DraftOptions) => ({
-	statement: [statement],
-	checksum: [checksum],
-	...(original ? { original: [original] } : {}),
+const citation = ({ statement }: DraftOptions) => ({
+	statement: [statement.key],
+	checksum: [statement.checksum],
+	...(statement.originalChecksum ? { 'original-checksum': [statement.originalChecksum] } : {}),
 });
 
 const toTransaction =
 	(account: string) =>
-	(record: Categorised): RupeeTransaction => ({
+	(record: CategorisedRupeeRecord): RupeeTransaction => ({
 		location: record.location,
 		date: record.date,
 		time: null,

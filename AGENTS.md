@@ -52,7 +52,7 @@ const ANNOTATIONS = 0x01;
 const wasm = createRequire(import.meta.url).resolve('@embedpdf/pdfium/pdfium.wasm');
 ```
 
-- Group by the role a line plays, not where its value comes from: sources, then what's derived from them, then the result. In `raster` (`pdfium.ts`), `scale` is the source, `width` and `height` are derived from it, and the bitmap below is what they build.
+- Group by the role a line plays, not where its value comes from: sources, then what's derived from them, then the result. In `raster` (`reader-pdf-pdfium.ts`), `scale` is the source, `width` and `height` are derived from it, and the bitmap below is what they build.
 - Top-level multi-line declarations get a blank line between them. Inside a function, a matching pair (two predicates, two lookups) stays together even when one spans several lines. Single-line constants group by concept.
 - A guard gets a blank line after it.
 - In a longer body, a `return` gets a blank line before it when it does something different from the lines above. It stays attached when it just hands back what the line above built.

@@ -1,7 +1,7 @@
+import { parseDate } from '#lib/server/shared/dates.ts';
+import { batch, type Batch } from '#lib/server/shared/result/batch.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
-import { type Batch, batch } from '#lib/server/shared/result/batch.ts';
-import { parseDate } from '#lib/server/shared/dates.ts';
 import { displayLocation, parseAmount, type Amount } from '#services/ledger/application/shared.ts';
 import { match, P } from 'ts-pattern';
 import type { Locator, Path, RupeeSchema, Transform } from './schema';
@@ -19,15 +19,18 @@ type Read =
 	| { kind: 'missing' }
 	| { kind: 'failed'; reason: string };
 
-type ExtractOptions = {
+type ReadRecordsOptions = {
 	schema: RupeeSchema;
 	file: string;
 	grid: Grid;
 };
 
-export const extract = (options: ExtractOptions): Result<Batch<RupeeRecord>> => {
-	const { schema, grid } = options;
-	return layout(options).map(({ sheet, header }) => {
+export const readRecords = ({
+	schema,
+	grid,
+	file,
+}: ReadRecordsOptions): Result<Batch<RupeeRecord>> =>
+	layout({ schema, grid, file }).map(({ sheet, header }) => {
 		// A statement may repeat its header, as on every page of a PDF.
 		const repeats = (c: string[]) => c.join('\t').trim() === (grid[header] ?? []).join('\t').trim();
 
@@ -37,11 +40,13 @@ export const extract = (options: ExtractOptions): Result<Batch<RupeeRecord>> => 
 		// Keeping no row means the schema reads it wrong, so every row says why.
 		return batch((kept.length > 0 ? kept : rows).map((r) => record({ schema, sheet, row: r })));
 	});
-};
 
 /** Where a schema's header and columns sit in a grid, which fails unless the grid has them all. */
-export const layout = (options: ExtractOptions): Result<{ sheet: Sheet; header: number }> => {
-	const { schema, file, grid } = options;
+export const layout = ({
+	schema,
+	file,
+	grid,
+}: ReadRecordsOptions): Result<{ sheet: Sheet; header: number }> => {
 	const header = grid.findIndex((c) =>
 		schema.header ? c.some((l) => isHeader(schema.header, l)) : !isBlank(c),
 	);
@@ -148,8 +153,7 @@ type ReadFieldOptions = {
 	kind: Read['kind'];
 };
 
-const readField = (options: ReadFieldOptions): Read => {
-	const { sheet, row, paths, kind } = options;
+const readField = ({ sheet, row, paths, kind }: ReadFieldOptions): Read => {
 	const reads = paths.map((p) => readPath({ sheet, row, path: p }));
 	return (
 		reads.find((r) => r.kind === kind) ??

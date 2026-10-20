@@ -6,31 +6,35 @@ import { layout } from './runtime';
 import type { Pattern, RupeeSchema } from './schema';
 import type { Grid } from './types';
 
-export type Candidate = { key: string; content: string; schema: RupeeSchema };
+export type ParsedSchema = { key: string; content: string; schema: RupeeSchema };
 
 type RecogniseOptions = {
 	statement: string;
 	grid: Grid;
 	text: string[];
-	ledger: Candidate[];
-	builtin: Candidate[];
+	schemas: { ledger: ParsedSchema[]; builtin: ParsedSchema[] };
 };
 
 // Exactly one schema, never the best of several, so adding a schema cannot change how another statement reads.
-export const recognise = (options: RecogniseOptions): Result<Candidate> => {
-	const { statement, grid, text, ledger, builtin } = options;
+export const recognise = ({
+	statement,
+	grid,
+	text,
+	schemas,
+}: RecogniseOptions): Result<ParsedSchema> => {
+	const recognises = (s: ParsedSchema) =>
+		s.schema.match.some((p) => matches({ pattern: p, statement, grid, text }));
+	const matchesStructure = (s: ParsedSchema) =>
+		layout({ schema: s.schema, file: statement, grid }).isOk();
+	const readable = (l: ParsedSchema[]) => l.filter(recognises).filter(matchesStructure);
 
-	const matching = (c: Candidate) =>
-		c.schema.match.some((p) => matches({ pattern: p, statement, grid, text }));
-	const fits = (c: Candidate) =>
-		matching(c) && layout({ schema: c.schema, file: statement, grid }).isOk();
-	const ours = ledger.filter(fits);
-	const found = ours.length > 0 ? ours : builtin.filter(fits);
+	const ours = readable(schemas.ledger);
+	const found = ours.length > 0 ? ours : readable(schemas.builtin);
 
 	const [only] = found;
 	if (!only) return err(fault('ExtractionUnrecognised', { path: statement }));
 	if (found.length > 1)
-		return err(fault('ExtractionAmbiguous', { path: statement, schemas: found.map((c) => c.key) }));
+		return err(fault('ExtractionAmbiguous', { path: statement, schemas: found.map((s) => s.key) }));
 	if (!only.schema.account) return err(fault('ExtractionWithoutAccount', { path: only.key }));
 
 	return ok(only);

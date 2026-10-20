@@ -2,11 +2,11 @@ import { fault } from '#lib/server/shared/result/error.ts';
 import { errAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { extname } from 'node:path';
 import type { Contents } from '../domain/types';
-import { readPdf, unlockPdf } from './pdf';
-import { readCsv, readXls, readXlsx, unlockSheet } from './sheet';
+import { readPdf, unlockPdf } from './reader-pdf';
+import { readCsv, readXls, readXlsx, unlockSheet } from './reader-sheet';
 
 // Grids read by another version are read again; bump it when reading changes.
-export const READER = '4';
+export const READER_VERSION = '4';
 
 export type Upload = {
 	name: string;

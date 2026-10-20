@@ -11,20 +11,20 @@ export const statements = PG.pgTable(
 			.uuid()
 			.notNull()
 			.references(() => ledgers.id, { onDelete: 'cascade' }),
-		path: t.text().notNull(),
+		key: t.text().notNull(),
 		checksum: t.text().notNull(),
-		original: t.text(),
+		originalChecksum: t.text(),
 	}),
 	(t) => [
-		PG.unique('statements_ledger_id_path').on(t.ledgerId, t.path),
+		PG.unique('statements_ledger_id_key').on(t.ledgerId, t.key),
 		PG.index('statements_ledger_id_checksum').on(t.ledgerId, t.checksum),
-		PG.index('statements_ledger_id_original').on(t.ledgerId, t.original),
+		PG.index('statements_ledger_id_original_checksum').on(t.ledgerId, t.originalChecksum),
 	],
 );
 
 // Contents already read, so previewing a statement again skips the slow PDF table detection.
-export const statementGrids = PG.pgTable(
-	'statement_grids',
+export const statementContents = PG.pgTable(
+	'statement_contents',
 	(t) => ({
 		...base,
 		checksum: t.text().notNull(),
@@ -34,7 +34,7 @@ export const statementGrids = PG.pgTable(
 		expiresAt: t.timestamp({ withTimezone: true }).notNull(),
 	}),
 	(t) => [
-		PG.unique('statement_grids_checksum_reader').on(t.checksum, t.reader),
-		PG.index('statement_grids_expires_at').on(t.expiresAt),
+		PG.unique('statement_contents_checksum_reader').on(t.checksum, t.reader),
+		PG.index('statement_contents_expires_at').on(t.expiresAt),
 	],
 );

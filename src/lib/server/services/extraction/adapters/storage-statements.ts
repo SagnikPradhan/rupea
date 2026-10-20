@@ -2,12 +2,17 @@ import { err, okAsync, type ResultAsync } from '#lib/server/shared/result/result
 import type { Storage } from '#lib/server/shared/storage/storage.ts';
 import { createHash } from 'node:crypto';
 import { extname } from 'node:path';
-import { findStatement, locateStatement, saveStatement, type StatementRow } from './database';
+import {
+	findStatementByKey,
+	findStatementByChecksum,
+	saveStatement,
+	type StatementRow,
+} from './database';
 
 export type StoredStatement = {
 	key: string;
 	checksum: string;
-	original: string | null;
+	originalChecksum: string | null;
 	content: Uint8Array;
 };
 
@@ -38,8 +43,8 @@ const checksum = (c: Uint8Array) => `sha256:${createHash('sha256').update(c).dig
 
 const store = (f: Folder, name: string, content: Uint8Array): ResultAsync<StoredStatement> => {
 	const sum = checksum(content);
-	return locateStatement(f.ledger, sum).andThen((r) =>
-		r ? read(f, r.path) : write(f, { key: name, checksum: sum, original: null, content }),
+	return findStatementByChecksum(f.ledger, sum).andThen((r) =>
+		r ? read(f, r.key) : write(f, { key: name, checksum: sum, originalChecksum: null, content }),
 	);
 };
 
@@ -61,25 +66,33 @@ const numbered = (name: string, n: number) => {
 };
 
 const record = (f: Folder, s: StoredStatement): ResultAsync<StoredStatement> =>
-	saveStatement(f.ledger, { path: s.key, checksum: s.checksum, original: s.original }).map(() => s);
+	saveStatement(f.ledger, {
+		key: s.key,
+		checksum: s.checksum,
+		originalChecksum: s.originalChecksum,
+	}).map(() => s);
 
 // A file the table does not know yet, such as one copied into the folder, is recorded as it is read.
 const read = (f: Folder, key: string): ResultAsync<StoredStatement> =>
 	f.storage.read(key).andThen(({ content }) =>
-		findStatement(f.ledger, key).andThen((r) => {
+		findStatementByKey(f.ledger, key).andThen((r) => {
 			const sum = checksum(content);
 			if (r?.checksum === sum)
-				return okAsync({ key, checksum: sum, original: r.original, content });
+				return okAsync({ key, checksum: sum, originalChecksum: r.originalChecksum, content });
 
-			return record(f, { key, checksum: sum, original: null, content });
+			return record(f, { key, checksum: sum, originalChecksum: null, content });
 		}),
 	);
 
 const find = (f: Folder, key: string): ResultAsync<StatementRow> =>
-	findStatement(f.ledger, key).andThen((r) =>
+	findStatementByKey(f.ledger, key).andThen((r) =>
 		r
 			? okAsync(r)
-			: read(f, key).map((s) => ({ path: s.key, checksum: s.checksum, original: s.original })),
+			: read(f, key).map((s) => ({
+					key: s.key,
+					checksum: s.checksum,
+					originalChecksum: s.originalChecksum,
+				})),
 	);
 
 const replace = (f: Folder, key: string, content: Uint8Array): ResultAsync<StoredStatement> =>
@@ -88,7 +101,7 @@ const replace = (f: Folder, key: string, content: Uint8Array): ResultAsync<Store
 			record(f, {
 				key,
 				checksum: checksum(content),
-				original: r.original ?? r.checksum,
+				originalChecksum: r.originalChecksum ?? r.checksum,
 				content,
 			}),
 		),

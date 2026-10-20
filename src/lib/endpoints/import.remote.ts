@@ -1,7 +1,9 @@
 import { replyFrom, replyFromBatch } from '#lib/server/shared/result/reply.ts';
 import { ok } from '#lib/server/shared/result/result.ts';
 import * as Auth from '#services/auth/application/auth.ts';
-import * as Extraction from '#services/extraction/application/extraction.ts';
+import * as Drafts from '#services/extraction/application/drafts.ts';
+import * as Schemas from '#services/extraction/application/schemas.ts';
+import * as Statements from '#services/extraction/application/statements.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import { viewTransaction } from '#services/ledger/application/shared.ts';
 import { command, form } from '$app/server';
@@ -11,12 +13,12 @@ import { getSchemas } from './schemas.remote';
 import { Handle, inLedger, Key } from './shared';
 import { getTransactions } from './transactions.remote';
 
-export const readStatement = form(
+export const uploadStatement = form(
 	v.object({ handle: Handle, file: v.file() }),
 	async ({ handle, file }) => {
 		const upload = { name: file.name, content: new Uint8Array(await file.arrayBuffer()) };
 		return replyFrom(
-			await inLedger({ handle, action: (l) => Extraction.readStatement(l, upload) }),
+			await inLedger({ handle, action: (l) => Statements.uploadStatement(l, upload) }),
 		);
 	},
 );
@@ -31,7 +33,7 @@ export const unlockStatement = form(
 		replyFrom(
 			await inLedger({
 				handle,
-				action: (l) => Extraction.unlockStatement({ ...options, ledger: l }),
+				action: (l) => Statements.unlockStatement({ ...options, ledger: l }),
 			}),
 		),
 );
@@ -40,9 +42,7 @@ export const unlockStatement = form(
 export const recogniseStatement = command(
 	v.object({ handle: Handle, statement: v.pipe(v.string(), v.nonEmpty()) }),
 	async ({ handle, statement }) =>
-		replyFrom(
-			await inLedger({ handle, action: (l) => Extraction.recogniseStatement(l, statement) }),
-		),
+		replyFrom(await inLedger({ handle, action: (l) => Schemas.recogniseStatement(l, statement) })),
 );
 
 /** The draft a statement makes with an unsaved schema, checked as the ledger would read it. */
@@ -53,17 +53,15 @@ export const previewStatement = command(
 		schema: v.object({ key: v.string(), content: v.string() }),
 	}),
 	async ({ handle, ...options }) => {
-		const draft = await inLedger({
+		const previewed = await inLedger({
 			handle,
-			action: (l) => Extraction.extract({ ...options, ledger: l }),
+			action: (l) => Drafts.preview({ ...options, ledger: l }),
 		});
-		if (draft.isErr()) return { ok: false, data: null, errors: [draft.error] };
+		if (previewed.isErr()) return { ok: false, data: null, errors: [previewed.error] };
 
-		const { key, content, failed } = draft.value;
-		const checked = Ledger.check(key, content);
-		const errors = [...failed, ...checked.failed];
-		const transactions = checked.succeeded.map(viewTransaction);
-		return { ok: errors.length === 0, data: { key, transactions }, errors };
+		const { key, transactions, failed } = previewed.value;
+		const data = { key, transactions: transactions.map(viewTransaction) };
+		return { ok: failed.length === 0, data, errors: failed };
 	},
 );
 
@@ -74,15 +72,10 @@ export const importStatement = form(
 		schema: v.object({ key: v.string(), content: v.string() }),
 		key: Key,
 	}),
-	async ({ handle, key, ...options }) => {
+	async ({ handle, ...options }) => {
 		const created = await inLedger({
 			handle,
-			action: (l) =>
-				Extraction.extract({ ...options, ledger: l }).andThen((d) =>
-					Extraction.keepSchema(l, options.schema).andThen(() =>
-						Ledger.createFile({ ledger: l, key, content: d.content }),
-					),
-				),
+			action: (l) => Drafts.save({ ...options, ledger: l }),
 		});
 		void getFiles(handle).refresh();
 		void getSchemas(handle).refresh();

@@ -1,13 +1,13 @@
 import { formatAmount } from '#services/ledger/application/shared.ts';
 import { describe, expect, it } from 'vitest';
-import { builtinSchemas } from '#services/extraction/adapters/builtin.ts';
-import { extract } from '#services/extraction/domain/runtime.ts';
+import { builtinSchemas } from '#services/extraction/adapters/storage-schemas.ts';
+import { readRecords } from '#services/extraction/domain/runtime.ts';
 import { parseSchema } from '#services/extraction/domain/schema.ts';
 
 const builtin = (key: string) => builtinSchemas().find((s) => s.key === key)?.content ?? '';
 
 const amounts = (content: string) =>
-	extract({
+	readRecords({
 		schema: parseSchema('hdfc-card.yml', content)._unsafeUnwrap(),
 		file: 'card.xls',
 		grid: [

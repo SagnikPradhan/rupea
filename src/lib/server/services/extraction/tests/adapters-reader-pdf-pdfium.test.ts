@@ -1,5 +1,5 @@
 import { err } from '#lib/server/shared/result/result.ts';
-import { openPdf } from '#services/extraction/adapters/pdfium.ts';
+import { openPdf } from '#services/extraction/adapters/reader-pdf-pdfium.ts';
 import { PDFDocument } from '@cantoo/pdf-lib';
 import { readFile } from 'node:fs/promises';
 import { join } from 'node:path';

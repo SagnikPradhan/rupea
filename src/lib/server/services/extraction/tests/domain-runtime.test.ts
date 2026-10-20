@@ -1,7 +1,7 @@
 import { err } from '#lib/server/shared/result/result.ts';
 import { formatAmount } from '#services/ledger/application/shared.ts';
 import { describe, expect, it } from 'vitest';
-import { extract } from '#services/extraction/domain/runtime.ts';
+import { readRecords } from '#services/extraction/domain/runtime.ts';
 import { parseSchema, type RupeeSchema } from '#services/extraction/domain/schema.ts';
 import type { Grid } from '#services/extraction/domain/types.ts';
 
@@ -37,7 +37,7 @@ const statement: Grid = [
 ];
 
 const summary = (grid: Grid, using = hdfc) => {
-	const result = extract({ schema: using, file: 'hdfc.csv', grid });
+	const result = readRecords({ schema: using, file: 'hdfc.csv', grid });
 	if (result.isErr()) return result;
 	return {
 		failed: result.value.failed,
@@ -236,7 +236,7 @@ fields:
   category: { from: [text: Category, right: 1] }
   balance: { from: [col: D], pipe: [number] }
 `);
-		const result = extract({
+		const result = readRecords({
 			schema: full,
 			file: 'a.csv',
 			grid: [

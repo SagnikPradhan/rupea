@@ -6,10 +6,10 @@ import { it } from '#tests/shared/vitest.ts';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it as plain } from 'vitest';
-import { embedder } from '#services/prediction/adapters/onnx.ts';
-import { THRESHOLDS, type Embed, type Nearest } from '#services/prediction/domain/prediction.ts';
-import { clean } from '#services/prediction/domain/text.ts';
-import { classify as classifyNear } from '#services/prediction/application/prediction.ts';
+import { embedder } from '#services/ledger/adapters/onnx.ts';
+import { THRESHOLDS, type Embed, type Nearest } from '#services/ledger/domain/prediction.ts';
+import { clean } from '#services/ledger/domain/text.ts';
+import { classify as classifyNear } from '#services/ledger/application/prediction.ts';
 
 const amount = (n: bigint) => n as Amount;
 const hashed: Embed = (texts) => okAsync(texts.map(hashVector));

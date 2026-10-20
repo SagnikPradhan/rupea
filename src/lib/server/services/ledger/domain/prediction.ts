@@ -1,5 +1,5 @@
 import type { ResultAsync } from '#lib/server/shared/result/result.ts';
-import { accountType, AccountType, type Amount } from '#services/ledger/application/shared.ts';
+import { accountType, AccountType, type Amount } from './types';
 import { taxonomy } from './taxonomy';
 import { accountText, clean } from './text';
 

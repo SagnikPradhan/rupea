@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { accountText, clean } from '#services/prediction/domain/text.ts';
+import { accountText, clean } from '#services/ledger/domain/text.ts';
 
 describe('clean', () => {
 	it('lowercases and drops references and payment-rail words', () => {

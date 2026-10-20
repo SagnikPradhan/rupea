@@ -5,7 +5,7 @@ import * as Ledger from '#services/ledger/application/ledger.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { describe, expect } from 'vitest';
-import { history } from '#services/prediction/adapters/database.ts';
+import { history } from '#services/ledger/adapters/prediction.ts';
 
 // The column holds full-width vectors; the rest of these stay zero.
 const vector = (...l: number[]) => {

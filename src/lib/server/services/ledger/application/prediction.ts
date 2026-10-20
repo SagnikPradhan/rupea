@@ -1,8 +1,8 @@
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { withLogger } from '#lib/server/shared/context/logger.ts';
 import { okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { syncIndex, type Ledger } from '#services/ledger/application/ledger.ts';
-import { history } from '../adapters/database';
+import { syncIndex, type Ledger } from './ledger';
+import { history } from '../adapters/prediction';
 import { embedder, MODEL } from '../adapters/onnx';
 import {
 	classifier,

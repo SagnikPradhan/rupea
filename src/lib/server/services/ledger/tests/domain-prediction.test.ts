@@ -3,7 +3,6 @@ import { describe, expect, it } from 'vitest';
 import {
 	classifier,
 	fallback,
-	filling,
 	predict,
 	type Embedded,
 	type Knowledge,
@@ -144,26 +143,6 @@ describe('leaving a line uncategorised', () => {
 	it('files money out under expenses and money in under income', () => {
 		expect(fallback(amount(-1n)).account).toBe('Expenses:Uncategorized');
 		expect(fallback(amount(1n)).account).toBe('Income:Uncategorized');
-	});
-});
-
-describe('filling in history', () => {
-	it('embeds each description once, by its words', () => {
-		const f = filling([
-			{ id: 'a', description: 'UPI/123456/SWIGGY' },
-			{ id: 'b', description: 'UPI/654321/SWIGGY' },
-		]);
-		expect(f.texts).toEqual(['swiggy']);
-		expect(f.fill([axis(1)])).toEqual([
-			{ id: 'a', vector: axis(1) },
-			{ id: 'b', vector: axis(1) },
-		]);
-	});
-
-	it('marks a description with no words done, with no vector', () => {
-		const f = filling([{ id: 'a', description: 'UPI/123456789/' }]);
-		expect(f.texts).toEqual([]);
-		expect(f.fill([])).toEqual([{ id: 'a', vector: null }]);
 	});
 });
 

@@ -1,20 +1,17 @@
 import { v7 as uuidv7 } from 'uuid';
+import { DEFAULT_COMMODITY, min, multiply, sum, type Amount, type Quantity } from './amounts';
 import { unitPrice } from './prices';
-import {
-	DEFAULT_COMMODITY,
-	DisposalKind,
-	LotOrigin,
-	min,
-	movesInKind,
-	multiply,
-	sum,
-	type Amount,
-	type LotCost,
-	type Price,
-	type Quantity,
-} from './types';
+import { DisposalKind, LotOrigin, type LotCost, type Price } from './types';
 
 const FREE: Quantity = { amount: 0n as Amount, commodity: DEFAULT_COMMODITY };
+
+/** ISO 4217 codes, which are held as money rather than in lots. */
+export const CURRENCIES = Intl.supportedValuesOf('currency');
+
+export const hasLots = (c: string) => !CURRENCIES.includes(c);
+
+/** A commodity moves in kind when its units in a transaction net to zero, so lot costs only pick lots. */
+export const movesInKind = (u: Amount[]) => sum(u) === 0n;
 
 /** A posting in the commodity being booked, in ledger order; `held` when its account is a balance account. */
 export type BookedPosting = {
@@ -88,15 +85,16 @@ const disposalKind = (transaction: BookedPosting[]) => {
 type TakeOut = { booking: Booking; posting: BookedPosting; kind: DisposalKind };
 
 const takeOut = ({ booking, posting, kind }: TakeOut): Piece[] => {
-	const lots = openLotsFor(booking, posting);
+	const openLots = openLotsFor(booking, posting);
 	const unnamedSale = kind === DisposalKind.Sale && posting.cost === null;
 
-	if (unnamedSale && lots.length === 0) {
+	// No existing lots to sell, we open a short position
+	if (unnamedSale && openLots.length === 0) {
 		openLot({ booking, posting, origin: LotOrigin.Short, cost: unitPrice(posting) ?? FREE });
 		return [];
 	}
 
-	const pieces = takeFromLots({ booking, posting, kind, lots: unnamedSale ? [] : lots });
+	const pieces = takeFromLots({ booking, posting, kind, lots: unnamedSale ? [] : openLots });
 	return kind === DisposalKind.Transfer ? pieces : [];
 };
 
@@ -119,6 +117,12 @@ const bringIn = ({ booking, posting, moving }: BringIn) => {
 const receiveTransfer = ({ booking, posting, moving }: BringIn) => {
 	const received: Amount[] = [];
 
+	// You send 8 shares out: 5 bought in January and 3 bought in March. Two accounts get 4 each.
+	// The first gets 4 January shares. The second gets the last January share and the 3 March
+	// shares. Each new lot keeps the date and cost of the shares it came from.
+	// Each pass takes min(what the piece still carries, what the account still needs):
+	// the first account gets min(5, 4) = 4, the second min(1, 4) = 1 and then min(3, 3) = 3.
+	// An empty piece leaves moving, so the next account starts where this one stopped.
 	for (const piece of [...moving]) {
 		const units = min(piece.units, (posting.amount - sum(received)) as Amount);
 		if (units === 0n) break;
@@ -149,6 +153,12 @@ const takeFromLots = ({ booking, posting, kind, lots }: Taking): Piece[] => {
 	const price = traded ? unitPrice(posting) : null;
 
 	const pieces: Piece[] = [];
+	// Oldest shares go first. You bought 5 in January and 10 in March, and now sell 8:
+	// the January lot gives all 5, the March lot gives 3 and keeps 7.
+	// Each pass takes min(what the sale still needs, what the lot has left):
+	// min(8, 5) = 5 from January, then min(3, 10) = 3 from March, and lowers the lot's remaining.
+	// Buying back a short sale works the same way, but short lots hold negative units,
+	// so sign flips them positive before they are compared.
 	for (const lot of lots) {
 		const units = min(
 			(wanted - sum(pieces.map((p) => p.units))) as Amount,

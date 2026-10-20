@@ -1,6 +1,7 @@
 import type { RupeeError } from '#lib/server/shared/result/error.ts';
 import { replyFrom } from '#lib/server/shared/result/reply.ts';
 import type { ResultAsync } from '#lib/server/shared/result/result.ts';
+import * as Events from '#services/ledger/application/events.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import { EventRole, viewTransaction } from '#services/ledger/application/shared.ts';
 import * as Refinement from '#services/refinement/application/refinement.ts';
@@ -45,7 +46,7 @@ export const acceptSuggestions = command(
 		),
 	}),
 	async ({ handle, edits }) => {
-		const accepted = await inLedger({ handle, action: (l) => Ledger.linkEvents(l, edits) });
+		const accepted = await inLedger({ handle, action: (l) => Events.linkEvents(l, edits) });
 
 		void getFiles(handle).refresh();
 		void getTransactions(handle).refresh();
@@ -67,14 +68,14 @@ export const dismissSuggestion = command(
 	},
 );
 
-const viewEvent = ({ event, members }: Ledger.FileEvent) => ({
+const viewEvent = ({ event, members }: Events.FileEvent) => ({
 	event,
 	members: members.map(({ role, counted, ...t }) => ({ role, counted, ...viewTransaction(t) })),
 });
 
 export const getEvents = query(v.object({ handle: Handle, file: Key }), async ({ handle, file }) =>
 	replyFrom(
-		await inLedger({ handle, action: (l) => Ledger.eventsIn(l, file) }).map((e) =>
+		await inLedger({ handle, action: (l) => Events.eventsIn(l, file) }).map((e) =>
 			e.map(viewEvent),
 		),
 	),
@@ -99,7 +100,7 @@ const changeEvent = async (options: ChangeEventOptions) => {
 export const renameEvent = command(
 	v.object({ handle: Handle, file: Key, event: EventId, to: EventId }),
 	({ handle, file, event, to }) =>
-		changeEvent({ handle, file, action: (l) => Ledger.renameEvent(l, event, to) }),
+		changeEvent({ handle, file, action: (l) => Events.renameEvent(l, event, to) }),
 );
 
 export const makePrimary = command(
@@ -113,6 +114,6 @@ export const makePrimary = command(
 		changeEvent({
 			handle,
 			file,
-			action: (l) => Ledger.makePrimary({ ledger: l, event, ...member }),
+			action: (l) => Events.makePrimary({ ledger: l, event, ...member }),
 		}),
 );

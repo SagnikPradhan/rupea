@@ -1,7 +1,7 @@
 import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
 import * as dateFns from 'date-fns';
+import { formatQuantity } from './amounts';
 import {
-	formatQuantity,
 	PriceKind,
 	type LotCost,
 	type RupeeLedgerFile,

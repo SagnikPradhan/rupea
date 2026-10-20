@@ -45,7 +45,7 @@ export const suggest = (options: SuggestOptions): Suggestion[] => {
 		.sort(strongestFirst);
 
 	// An event never takes a second member from the file being refined.
-	const ourEvents = new Set(scored.flatMap((c) => linksOf(c.ours).map((l) => l.event)));
+	const ourEvents = new Set(scored.flatMap((c) => linksOf(c.ours.metadata).map((l) => l.event)));
 	const used = new Set<string>();
 
 	return scored.flatMap((c) => {
@@ -86,8 +86,8 @@ const strongestFirst = (a: Scored, b: Scored) =>
 // Joins an existing event when one side has it; otherwise the side with more
 // postings is the primary, and on a tie the one being refined, as the latest.
 const link = (c: Scored, ourEvents: Set<string>): Suggestion | null => {
-	const ourLinks = linksOf(c.ours);
-	const theirLinks = linksOf(c.theirs);
+	const ourLinks = linksOf(c.ours.metadata);
+	const theirLinks = linksOf(c.theirs.metadata);
 	if (ourLinks.length + theirLinks.length > 1) return null;
 
 	const [ourLink] = ourLinks;

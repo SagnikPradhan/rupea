@@ -1,7 +1,10 @@
 import { provide } from '#lib/server/shared/context/context.ts';
 import { petName } from '#lib/server/shared/names.ts';
 import { err, ok } from '#lib/server/shared/result/result.ts';
-import * as Ledger from '#services/ledger/application/ledger.ts';
+import * as Events from '#services/ledger/application/events.ts';
+import * as Files from '#services/ledger/application/files.ts';
+import * as Sync from '#services/ledger/application/sync.ts';
+import * as Transactions from '#services/ledger/application/transactions.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { afterEach, describe, expect, vi } from 'vitest';
@@ -49,8 +52,8 @@ describe('refining a saved file', () => {
 	it('suggests an event across files, and accepting it counts the money once', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			await Ledger.createFile({ ledger, key: 'hdfc.rupee', content: hdfc });
-			await Ledger.createFile({ ledger, key: 'ibkr.rupee', content: ibkr });
+			await Files.createFile({ ledger, key: 'hdfc.rupee', content: hdfc });
+			await Files.createFile({ ledger, key: 'ibkr.rupee', content: ibkr });
 
 			const suggestions = (await Refinement.suggestFor(ledger, 'ibkr.rupee'))._unsafeUnwrap();
 			expect(suggestions).toHaveLength(1);
@@ -61,12 +64,12 @@ describe('refining a saved file', () => {
 				['hdfc.rupee', 1, 'evidence'],
 			]);
 
-			expect(await Ledger.linkEvents(ledger, edits(suggestions))).toEqual(ok([]));
-			expect((await Ledger.getFile(ledger, 'hdfc.rupee'))._unsafeUnwrap().content).toContain(
+			expect(await Events.linkEvents(ledger, edits(suggestions))).toEqual(ok([]));
+			expect((await Files.getFile(ledger, 'hdfc.rupee'))._unsafeUnwrap().content).toContain(
 				`2026-10-03 NEFT TO INTERACTIVE BROKERS\n\t- same-as: ${transfer?.event}\n`,
 			);
-			expect(await Ledger.sync(ledger)).toEqual(ok([]));
-			const listed = (await Ledger.getTransactions(ledger))._unsafeUnwrap().succeeded;
+			expect(await Sync.sync(ledger)).toEqual(ok([]));
+			const listed = (await Transactions.getTransactions(ledger))._unsafeUnwrap().succeeded;
 			expect(listed.filter((t) => !t.counted).map((t) => t.description)).toEqual([
 				'NEFT TO INTERACTIVE BROKERS',
 			]);
@@ -76,8 +79,8 @@ describe('refining a saved file', () => {
 	it('stops suggesting a pair once it is dismissed', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			await Ledger.createFile({ ledger, key: 'hdfc.rupee', content: hdfc });
-			await Ledger.createFile({ ledger, key: 'ibkr.rupee', content: ibkr });
+			await Files.createFile({ ledger, key: 'hdfc.rupee', content: hdfc });
+			await Files.createFile({ ledger, key: 'ibkr.rupee', content: ibkr });
 
 			const [transfer] = (await Refinement.suggestFor(ledger, 'hdfc.rupee'))._unsafeUnwrap();
 			await Refinement.dismiss(ledger, transfer?.fingerprint ?? '');
@@ -89,49 +92,49 @@ describe('refining a saved file', () => {
 	it('reports a file that changed since the suggestion, and writes no file', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			await Ledger.createFile({ ledger, key: 'hdfc.rupee', content: hdfc });
-			await Ledger.createFile({ ledger, key: 'ibkr.rupee', content: ibkr });
+			await Files.createFile({ ledger, key: 'hdfc.rupee', content: hdfc });
+			await Files.createFile({ ledger, key: 'ibkr.rupee', content: ibkr });
 			const suggestions = (await Refinement.suggestFor(ledger, 'ibkr.rupee'))._unsafeUnwrap();
 
-			const file = (await Ledger.getFile(ledger, 'hdfc.rupee'))._unsafeUnwrap();
-			await Ledger.editFile({
+			const file = (await Files.getFile(ledger, 'hdfc.rupee'))._unsafeUnwrap();
+			await Files.editFile({
 				ledger,
 				key: 'hdfc.rupee',
 				content: `; moved\n${hdfc}`,
 				version: file.version,
 			});
 
-			expect(await Ledger.linkEvents(ledger, edits(suggestions))).toEqual(
+			expect(await Events.linkEvents(ledger, edits(suggestions))).toEqual(
 				ok([{ type: 'EventStale', location: 'hdfc.rupee:1' }]),
 			);
-			expect((await Ledger.getFile(ledger, 'ibkr.rupee'))._unsafeUnwrap().content).toBe(ibkr);
+			expect((await Files.getFile(ledger, 'ibkr.rupee'))._unsafeUnwrap().content).toBe(ibkr);
 		}));
 
 	it('reports a file deleted since the suggestion, and writes no file', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			await Ledger.createFile({ ledger, key: 'hdfc.rupee', content: hdfc });
-			await Ledger.createFile({ ledger, key: 'ibkr.rupee', content: ibkr });
+			await Files.createFile({ ledger, key: 'hdfc.rupee', content: hdfc });
+			await Files.createFile({ ledger, key: 'ibkr.rupee', content: ibkr });
 			const suggestions = (await Refinement.suggestFor(ledger, 'ibkr.rupee'))._unsafeUnwrap();
-			await Ledger.deleteFile(ledger, 'hdfc.rupee');
+			await Files.deleteFile(ledger, 'hdfc.rupee');
 
-			const failed = (await Ledger.linkEvents(ledger, edits(suggestions)))._unsafeUnwrap();
+			const failed = (await Events.linkEvents(ledger, edits(suggestions)))._unsafeUnwrap();
 
 			expect(failed).toMatchObject([{ type: 'CannotReadFile', path: 'hdfc.rupee' }]);
-			expect((await Ledger.getFile(ledger, 'ibkr.rupee'))._unsafeUnwrap().content).toBe(ibkr);
+			expect((await Files.getFile(ledger, 'ibkr.rupee'))._unsafeUnwrap().content).toBe(ibkr);
 		}));
 
 	it('picks another name when one is taken', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			const taken = '2026-10-03-deposit-quiet-heron';
-			await Ledger.createFile({
+			await Files.createFile({
 				ledger,
 				key: 'cash.rupee',
 				content: `2026-01-01 ATM\n\t- event: ${taken}\n\tAssets:Cash 5\n\tAssets:HDFC\n`,
 			});
-			await Ledger.createFile({ ledger, key: 'hdfc.rupee', content: hdfc });
-			await Ledger.createFile({ ledger, key: 'ibkr.rupee', content: ibkr });
+			await Files.createFile({ ledger, key: 'hdfc.rupee', content: hdfc });
+			await Files.createFile({ ledger, key: 'ibkr.rupee', content: ibkr });
 			naming('quiet-heron', 'brave-otter');
 
 			const [transfer] = (await Refinement.suggestFor(ledger, 'ibkr.rupee'))._unsafeUnwrap();
@@ -142,7 +145,7 @@ describe('refining a saved file', () => {
 	it('never gives two new events in one go the same name', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			await Ledger.createFile({
+			await Files.createFile({
 				ledger,
 				key: 'hdfc.rupee',
 				content: [
@@ -150,7 +153,7 @@ describe('refining a saved file', () => {
 					'2026-10-03 NEFT TO IBKR\n\tAssets:HDFC -2000\n\tAssets:IBKR\n',
 				].join('\n'),
 			});
-			await Ledger.createFile({
+			await Files.createFile({
 				ledger,
 				key: 'ibkr.rupee',
 				content: [
@@ -171,8 +174,8 @@ describe('refining a saved file', () => {
 	it('adds a transaction to the event its partner is already in', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			await Ledger.createFile({ ledger, key: 'hdfc.rupee', content: hdfc });
-			await Ledger.createFile({
+			await Files.createFile({ ledger, key: 'hdfc.rupee', content: hdfc });
+			await Files.createFile({
 				ledger,
 				key: 'ibkr.rupee',
 				content: ibkr.replace('Deposit\n', 'Deposit\n\t- event: ibkr-funding\n'),
@@ -181,8 +184,8 @@ describe('refining a saved file', () => {
 			const suggestions = (await Refinement.suggestFor(ledger, 'hdfc.rupee'))._unsafeUnwrap();
 			expect(suggestions.map((x) => x.event)).toEqual(['ibkr-funding']);
 
-			expect(await Ledger.linkEvents(ledger, edits(suggestions))).toEqual(ok([]));
-			expect((await Ledger.getFile(ledger, 'hdfc.rupee'))._unsafeUnwrap().content).toContain(
+			expect(await Events.linkEvents(ledger, edits(suggestions))).toEqual(ok([]));
+			expect((await Files.getFile(ledger, 'hdfc.rupee'))._unsafeUnwrap().content).toContain(
 				'NEFT TO INTERACTIVE BROKERS\n\t- same-as: ibkr-funding\n',
 			);
 		}));
@@ -191,13 +194,13 @@ describe('refining a saved file', () => {
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			const taken = '2026-10-03-deposit-quiet-heron';
-			await Ledger.createFile({
+			await Files.createFile({
 				ledger,
 				key: 'cash.rupee',
 				content: `2026-01-01 ATM\n\t- event: ${taken}\n\tAssets:Cash 5\n\tAssets:HDFC\n`,
 			});
-			await Ledger.createFile({ ledger, key: 'hdfc.rupee', content: hdfc });
-			await Ledger.createFile({ ledger, key: 'ibkr.rupee', content: ibkr });
+			await Files.createFile({ ledger, key: 'hdfc.rupee', content: hdfc });
+			await Files.createFile({ ledger, key: 'ibkr.rupee', content: ibkr });
 			vi.mocked(petName).mockReturnValue('quiet-heron');
 
 			expect(await Refinement.suggestFor(ledger, 'ibkr.rupee')).toEqual(
@@ -212,12 +215,12 @@ describe('refining a saved file', () => {
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			const tea = '2026-10-03 TEA\n\tAssets:Bank -10\n\tExpenses:Food\n\n';
-			await Ledger.createFile({ ledger, key: 'a.rupee', content: `${tea}${tea}` });
-			await Ledger.createFile({ ledger, key: 'hdfc.rupee', content: hdfc });
-			await Ledger.createFile({ ledger, key: 'ibkr.rupee', content: ibkr });
+			await Files.createFile({ ledger, key: 'a.rupee', content: `${tea}${tea}` });
+			await Files.createFile({ ledger, key: 'hdfc.rupee', content: hdfc });
+			await Files.createFile({ ledger, key: 'ibkr.rupee', content: ibkr });
 
 			expect(await Refinement.suggestFor(ledger, 'a.rupee')).toEqual(ok([]));
-			await Ledger.createFile({
+			await Files.createFile({
 				ledger,
 				key: 'usd.rupee',
 				content: '2026-10-03 Deposit\n\tAssets:IBKR 1000 USD @ 83\n\tAssets:HDFC\n',

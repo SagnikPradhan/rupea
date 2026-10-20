@@ -1,10 +1,11 @@
 import type { Database } from '#lib/server/db/index.ts';
 import { EMBEDDING_DIMENSIONS } from '#lib/server/shared/onnx/models.ts';
 import { provide } from '#lib/server/shared/context/context.ts';
-import * as Ledger from '#services/ledger/application/ledger.ts';
+import * as Files from '#services/ledger/application/files.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { describe, expect } from 'vitest';
+import { index } from '#services/ledger/adapters/database.ts';
 import { history } from '#services/ledger/adapters/prediction.ts';
 
 // The column holds full-width vectors; the rest of these stay zero.
@@ -19,7 +20,7 @@ const spend = (date: string, description: string, account: string) =>
 
 const ledgerWith = async (db: Database, ...transactions: string[]) => {
 	const ledger = await createLedger(db);
-	await Ledger.createFile({ ledger, key: 'a.rupee', content: transactions.join('\n') });
+	await Files.createFile({ ledger, key: 'a.rupee', content: transactions.join('\n') });
 	return ledger.id;
 };
 
@@ -29,10 +30,12 @@ const embedAll = async (
 	model: string,
 	of: (d: string) => Float32Array | null,
 ) => {
-	const h = history(ledgerId, model);
-	const rows = (await h.unembedded(1000))._unsafeUnwrap();
-	await h.fill(rows.map((r) => ({ id: r.id, vector: of(r.description) })));
-	return h;
+	const rows = (await index(ledgerId).unembedded(model, 1000))._unsafeUnwrap();
+	await index(ledgerId).fill(
+		model,
+		rows.map((r) => ({ id: r.id, vector: of(r.description) })),
+	);
+	return history(ledgerId, model);
 };
 
 describe('the history of a ledger', () => {
@@ -44,9 +47,7 @@ describe('the history of a ledger', () => {
 				spend('2026-03-01', 'NEW', 'Expenses:Food'),
 				spend('2026-02-01', 'MID', 'Expenses:Food'),
 			);
-			const h = history(ledgerId, 'm1');
-
-			const rows = (await h.unembedded(2))._unsafeUnwrap();
+			const rows = (await index(ledgerId).unembedded('m1', 2))._unsafeUnwrap();
 			expect(rows.map((r) => r.description)).toEqual(['NEW', 'MID']);
 		}));
 
@@ -62,8 +63,8 @@ describe('the history of a ledger', () => {
 			);
 			await embedAll(ledgerId, 'm1', (d) => (d === 'SWIGGY' ? vector(1) : null));
 
-			expect((await history(ledgerId, 'm1').unembedded(10))._unsafeUnwrap()).toEqual([]);
-			expect((await history(ledgerId, 'm2').unembedded(10))._unsafeUnwrap()).toHaveLength(2);
+			expect((await index(ledgerId).unembedded('m1', 10))._unsafeUnwrap()).toEqual([]);
+			expect((await index(ledgerId).unembedded('m2', 10))._unsafeUnwrap()).toHaveLength(2);
 		}));
 
 	it('finds the postings of the nearest transactions, for each vector in order', ({

@@ -1,7 +1,7 @@
+import { parseAmount, type Amount } from '#services/ledger/domain/amounts.ts';
+import { checkEvents, counted, type EventMember } from '#services/ledger/domain/events.ts';
+import type { RupeeMetadata } from '#services/ledger/domain/types.ts';
 import { describe, expect, it } from 'vitest';
-import { checkEvents, type EventMember } from '#services/ledger/domain/events.ts';
-import { parseAmount } from '#services/ledger/domain/parser.ts';
-import type { Amount, RupeeMetadata } from '#services/ledger/domain/types.ts';
 
 const member = (
 	id: string,
@@ -40,12 +40,12 @@ describe('checking events', () => {
 				member('pdf', { 'same-as': [ID] }),
 				member('cash', {}),
 			]),
-		).toEqual({ evidence: ['card', 'pdf'], failed: [] });
+		).toEqual({ uncounted: ['card', 'pdf'], failed: [] });
 	});
 
 	it('accepts a primary whose evidence has gone', () => {
 		expect(checkEvents([member('order', { event: [ID] })])).toEqual({
-			evidence: [],
+			uncounted: [],
 			failed: [],
 		});
 	});
@@ -54,7 +54,7 @@ describe('checking events', () => {
 		expect(
 			checkEvents([member('a', { 'same-as': [ID] }), member('b', { 'same-as': [ID] })]),
 		).toEqual({
-			evidence: [],
+			uncounted: [],
 			failed: [
 				{
 					type: 'EventWithoutPrimary',
@@ -73,7 +73,7 @@ describe('checking events', () => {
 				member('c', { 'same-as': [ID] }),
 			]),
 		).toEqual({
-			evidence: [],
+			uncounted: [],
 			failed: [
 				{
 					type: 'EventWithManyPrimaries',
@@ -89,7 +89,7 @@ describe('checking events', () => {
 		['two events', { 'same-as': [ID, 'other'] }],
 	])('counts a transaction with %s on its own', (_, metadata) => {
 		expect(checkEvents([member('a', { event: [ID] }), member('b', metadata)])).toEqual({
-			evidence: [],
+			uncounted: [],
 			failed: [{ type: 'EventInvalidMembership', location: 'b.rupee:1' }],
 		});
 	});
@@ -107,7 +107,7 @@ describe('checking events', () => {
 				]),
 			]),
 		).toEqual({
-			evidence: ['ibkr'],
+			uncounted: ['ibkr'],
 			failed: ['Assets:IBKR', 'Assets:HDFC'].map((account) => ({
 				type: 'EventDisagreement',
 				event: ID,
@@ -133,5 +133,29 @@ describe('checking events', () => {
 				]),
 			]).failed,
 		).toEqual([]);
+	});
+});
+
+describe('counting transactions', () => {
+	it('marks evidence as not counted, and everything else as counted', () => {
+		const c = counted([
+			member('order', { event: [ID] }),
+			member('card', { 'same-as': [ID] }),
+			member('cash', {}),
+		]);
+
+		expect(c.transactions.map((t) => [t.id, t.counted])).toEqual([
+			['order', true],
+			['card', false],
+			['cash', true],
+		]);
+		expect(c.uncounted).toEqual(['card']);
+	});
+
+	it('counts every member of a broken event, and says why', () => {
+		const c = counted([member('a', { 'same-as': [ID] }), member('b', { 'same-as': [ID] })]);
+
+		expect(c.transactions.every((t) => t.counted)).toBe(true);
+		expect(c.failed).toMatchObject([{ type: 'EventWithoutPrimary' }]);
 	});
 });

@@ -1,7 +1,8 @@
 import type { ResultAsync } from '#lib/server/shared/result/result.ts';
-import { accountType, AccountType, type Amount } from './types';
-import { taxonomy } from './taxonomy';
-import { accountText, clean } from './text';
+import { type Amount } from './amounts';
+import { taxonomy, accountType } from './taxonomy';
+import { accountText, clean, lookup } from './text';
+import { AccountType } from './types';
 
 const NEIGHBOURS = 5;
 const HALF_LIFE = 365;
@@ -10,6 +11,7 @@ const PRIOR = 0.25;
 /** How alike a line must be to past spending, or to an account's name, to be guessed from it. */
 export const THRESHOLDS: Thresholds = { history: 0.15, name: 0.35 };
 
+/** Uncategorised postings are unsettled guesses; learning from them would only make the guess surer. */
 const GUESSED = /(^|:)Uncategorized$/;
 
 const TYPES: Record<'out' | 'in', AccountType[]> = {
@@ -25,15 +27,15 @@ export type Prediction = {
 	source: Source;
 };
 
-// `amount` is money into the statement's account; negative when it went out.
 export type Line = {
+	/** Money into the statement's account; negative when it went out. */
 	amount: Amount;
 	description: string;
 };
 
 export type Embed = (texts: string[]) => ResultAsync<Float32Array[]>;
 
-// A posting of a past transaction whose description is near a line's.
+/** A posting of a past transaction whose description is near a line's. */
 export type Neighbour = {
 	account: string;
 	amount: Amount;
@@ -41,30 +43,12 @@ export type Neighbour = {
 	similarity: number;
 };
 
-// The postings of the transactions nearest each vector, in the vectors' order.
+/** The postings of the transactions nearest each vector, in the vectors' order. */
 export type Nearest = (vectors: Float32Array[]) => ResultAsync<Neighbour[][]>;
 
-export type Unembedded = { id: string; description: string };
-export type Filled = { id: string; vector: Float32Array | null };
-
 export type History = {
-	unembedded: (limit: number) => ResultAsync<Unembedded[]>;
-	fill: (rows: Filled[]) => ResultAsync<void>;
 	nearest: Nearest;
 	accounts: () => ResultAsync<string[]>;
-};
-
-// A description with no words gets no vector, but counts as done all the same.
-export const filling = (rows: Unembedded[]) => {
-	const cleaned = rows.map((r) => clean(r.description));
-	const texts = [...new Set(cleaned)].filter((t) => t !== '');
-
-	const fill = (vectors: Float32Array[]): Filled[] => {
-		const found = lookup(texts, vectors);
-		return rows.map((r, i) => ({ id: r.id, vector: found(cleaned[i] ?? '') }));
-	};
-
-	return { texts, fill };
 };
 
 export type Thresholds = { history: number; name: number };
@@ -77,31 +61,20 @@ export type ClassifierOptions = {
 	today: Temporal.PlainDate;
 };
 
-// `texts` are embedded first; `asked` takes their vectors to the ones to
-// search near, and `classify` takes the vectors and what was found near them.
 export type Classifier = {
+	/** Embedded first. */
 	texts: string[];
+	/** From the vectors of the texts to the ones to search near. */
 	asked: (vectors: Float32Array[]) => Float32Array[];
+	/** From the vectors of the texts and what was found near them. */
 	classify: (vectors: Float32Array[], nearest: Neighbour[][]) => Prediction[];
 };
 
 export const classifier = (options: ClassifierOptions): Classifier => {
 	const cleaned = options.lines.map((l) => clean(l.description));
 	const searched = [...new Set(cleaned)].filter((t) => t !== '');
-
-	// The user's own accounts, by name; the global ones only where they have none.
-	const accounts = options.accounts.filter((a) => !GUESSED.test(a));
-	const ours = new Set(accounts);
-	const candidates = [
-		...accounts.map((a) => ({ account: a, text: accountText(a) })),
-		...Object.entries(taxonomy)
-			.filter(([a]) => !ours.has(a))
-			.map(([a, about]) => ({ account: a, text: `${accountText(a)} ${about}` })),
-	];
-
-	const texts = [...new Set([...searched, ...candidates.map((c) => c.text)])].filter(
-		(t) => t !== '',
-	);
+	const named = candidates(options.accounts);
+	const texts = [...new Set([...searched, ...named.map((c) => c.text)])].filter((t) => t !== '');
 
 	const asked = (vectors: Float32Array[]) => {
 		const found = lookup(texts, vectors);
@@ -116,7 +89,7 @@ export const classifier = (options: ClassifierOptions): Classifier => {
 		const near = Object.fromEntries(
 			searched.filter((t) => found(t)).map((t, i) => [t, nearest[i] ?? []]),
 		);
-		const names = candidates.flatMap((c) => {
+		const names = named.flatMap((c) => {
 			const vector = found(c.text);
 			return vector ? [{ account: c.account, vector }] : [];
 		});
@@ -131,13 +104,6 @@ export const classifier = (options: ClassifierOptions): Classifier => {
 	return { texts, asked, classify };
 };
 
-const lookup = (texts: string[], vectors: Float32Array[]) => {
-	const vectorOf: Record<string, Float32Array | undefined> = Object.fromEntries(
-		texts.map((t, i) => [t, vectors[i]]),
-	);
-	return (t: string): Float32Array | null => vectorOf[t] ?? null;
-};
-
 export type Named = { account: string; vector: Float32Array };
 
 export type Knowledge = {
@@ -149,8 +115,6 @@ export type Knowledge = {
 
 export type Embedded = Line & { vector: Float32Array | null; neighbours: Neighbour[] };
 
-// Uncategorised postings are unsettled guesses; learning from them would only
-// make the guess surer.
 export const predict =
 	(knowledge: Knowledge) =>
 	(line: Embedded): Prediction => {
@@ -200,11 +164,17 @@ export const fallback = (amount: Amount): Prediction => ({
 	source: 'fallback',
 });
 
-const similarity = (a: Float32Array, b: Float32Array) =>
-	Math.max(
-		0,
-		a.reduce((s, v, i) => s + v * (b[i] ?? 0), 0),
-	);
+/** The user's own accounts, by name, and the global ones only where they have none. */
+const candidates = (accounts: string[]) => {
+	const ours = accounts.filter((a) => !GUESSED.test(a));
+	const owned = new Set(ours);
+	return [
+		...ours.map((a) => ({ account: a, text: accountText(a) })),
+		...Object.entries(taxonomy)
+			.filter(([a]) => !owned.has(a))
+			.map(([a, about]) => ({ account: a, text: `${accountText(a)} ${about}` })),
+	];
+};
 
 const allowed = (account: string, amount: Amount) => {
 	if (amount === 0n) return true;
@@ -214,6 +184,10 @@ const allowed = (account: string, amount: Amount) => {
 };
 
 const opposite = (l: Amount, p: Amount) => l === 0n || (l < 0n ? p > 0n : p < 0n);
+
+const dot = (a: Float32Array, b: Float32Array) => a.reduce((s, v, i) => s + v * (b[i] ?? 0), 0);
+
+const similarity = (a: Float32Array, b: Float32Array) => Math.max(0, dot(a, b));
 
 const age = (t: Temporal.PlainDate, d: Temporal.PlainDate) =>
 	Math.max(0, t.since(d, { largestUnit: 'days' }).days);

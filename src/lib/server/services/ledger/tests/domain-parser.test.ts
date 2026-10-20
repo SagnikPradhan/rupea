@@ -1,29 +1,18 @@
 import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
-import { ok } from '#lib/server/shared/result/result.ts';
+import { parseAmount, formatAmount, type Amount } from '#services/ledger/domain/amounts.ts';
+import { displayLocation, parse } from '#services/ledger/domain/parser.ts';
+import { PriceKind, type RupeePosting } from '#services/ledger/domain/types.ts';
 import { describe, expect, it } from 'vitest';
-import {
-	displayLocation,
-	parse,
-	parseAmount,
-	parseHeader,
-	parseTransactions,
-	type RupeeLine,
-} from '#services/ledger/domain/parser.ts';
-import {
-	formatAmount,
-	PriceKind,
-	type Amount,
-	type RupeePosting,
-} from '#services/ledger/domain/types.ts';
 
 const file = 'random.rupee';
 const at = displayLocation({ file, line: 1 });
-const line = (content: string, index: number): RupeeLine => ({
-	location: { file, line: index + 1 },
-	content,
-});
-
-const run = (n: string[]) => parseTransactions(defaultConfiguration.ledger, n.map(line));
+const run = (n: string[]) => {
+	const { succeeded, failed } = parse(defaultConfiguration.ledger, {
+		key: file,
+		content: `${n.join('\n')}\n`,
+	});
+	return { succeeded, failed };
+};
 
 const transaction = (
 	header: number,
@@ -677,7 +666,7 @@ describe('writing an amount', () => {
 });
 
 describe('reading a transaction header', () => {
-	const header = (c: string) => parseHeader(defaultConfiguration.ledger, line(c, 0));
+	const header = (c: string) => run([c, '\tAssets:Bank 1', '\tAssets:Cash']);
 
 	it.each([
 		['2026-08-29 Groceries at the shop', null],
@@ -687,22 +676,22 @@ describe('reading a transaction header', () => {
 		['2026-08-29 18:45 Groceries at the shop', '18:45'],
 		['29 August 2026 6:45 pm Groceries at the shop', '18:45'],
 	])('reads %j', (content, time) => {
-		expect(header(content)).toEqual(
-			ok({
+		expect(header(content).succeeded).toMatchObject([
+			{
 				date: Temporal.PlainDate.from('2026-08-29'),
 				time: time === null ? null : Temporal.PlainTime.from(time),
 				description: 'Groceries at the shop',
-			}),
-		);
+			},
+		]);
 	});
 
 	it('keeps a word that is not a time in the description', () => {
-		expect(header('2026-08-29 24:00 madness')).toMatchObject({
-			value: { time: null, description: '24:00 madness' },
-		});
+		expect(header('2026-08-29 24:00 madness').succeeded).toMatchObject([
+			{ time: null, description: '24:00 madness' },
+		]);
 	});
 
 	it.each(['2026-08-29', '2026-08-29 18:45', '08/29/2026 Groceries'])('rejects %j', (content) => {
-		expect(header(content)).toMatchObject({ error: { type: 'ParseInvalidTransactionHeader' } });
+		expect(header(content).failed).toMatchObject([{ type: 'ParseInvalidTransactionHeader' }]);
 	});
 });

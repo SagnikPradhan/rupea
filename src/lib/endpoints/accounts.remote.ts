@@ -1,5 +1,5 @@
 import { replyFromBatch } from '#lib/server/shared/result/reply.ts';
-import * as Ledger from '#services/ledger/application/ledger.ts';
+import * as Accounts from '#services/ledger/application/accounts.ts';
 import {
 	displayLocation,
 	formatAmount,
@@ -13,7 +13,7 @@ const LotsQuery = v.object({ handle: Handle, account: v.string(), commodity: v.s
 
 export const getAccounts = query(Handle, async (handle) => {
 	const today = Temporal.Now.plainDateISO();
-	const accounts = inLedger({ handle, action: (l) => Ledger.getAccounts(l, today) });
+	const accounts = inLedger({ handle, action: (l) => Accounts.getAccounts(l, today) });
 
 	return replyFromBatch(
 		await accounts.map((b) => ({ ...b, succeeded: b.succeeded.map(viewAccount) })),
@@ -23,13 +23,13 @@ export const getAccounts = query(Handle, async (handle) => {
 export const getLots = query(LotsQuery, async ({ handle, account, commodity }) => {
 	const lots = inLedger({
 		handle,
-		action: (l) => Ledger.getLots({ ledger: l, account, commodity }),
+		action: (l) => Accounts.getLots({ ledger: l, account, commodity }),
 	});
 
 	return replyFromBatch(await lots.map((b) => ({ ...b, succeeded: b.succeeded.map(viewLot) })));
 });
 
-const viewAccount = (account: Ledger.Account) => ({
+const viewAccount = (account: Accounts.Account) => ({
 	...account,
 	total: formatAmount(account.total),
 	holdings: account.holdings.map((holding) => ({
@@ -43,7 +43,7 @@ const viewAccount = (account: Ledger.Account) => ({
 	})),
 });
 
-const viewLot = (lot: Ledger.LotHistory) => ({
+const viewLot = (lot: Accounts.LotHistory) => ({
 	location: displayLocation(lot.location),
 	date: lot.date.toString(),
 	origin: lot.origin,

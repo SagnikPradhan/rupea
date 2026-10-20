@@ -1,4 +1,5 @@
-import { DEFAULT_COMMODITY, hasLots, multiply, sum, type Amount, type Quantity } from './types';
+import { DEFAULT_COMMODITY, multiply, sum, type Amount, type Quantity } from './amounts';
+import { hasLots } from './lots';
 
 export const HOPS = 2;
 
@@ -15,6 +16,11 @@ export type ValuedHolding = {
 	value: Amount | null;
 	gain: Amount | null;
 };
+
+/** The commodities holdings need a price for: their own, and what their lots cost in. */
+export const pricedIn = (hs: Holding[]) => [
+	...new Set(hs.flatMap((h) => (h.cost ? [h.commodity, h.cost.commodity] : [h.commodity]))),
+];
 
 export const valued = (holding: Holding, prices: Record<string, Quantity>): ValuedHolding => {
 	const worth = inRupees({ amount: holding.units, commodity: holding.commodity }, prices, HOPS);

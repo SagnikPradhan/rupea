@@ -97,14 +97,22 @@ export const postings = PG.pgTable(
 		position: t.integer().notNull(),
 		account: t.text().notNull(),
 		accountType: accountType().notNull(),
-		amount: t.bigint({ mode: 'bigint' }).notNull(), // signed millionths
+
+		// What moves into the account, or out when negative, in signed millionths.
+		amount: t.bigint({ mode: 'bigint' }).notNull(),
 		commodity: t.text().notNull(),
-		priceAmount: t.bigint({ mode: 'bigint' }), // price fields: all or none
+
+		// What the commodity is worth in another: `@` per unit or `@@` in total. All or none.
+		priceAmount: t.bigint({ mode: 'bigint' }),
 		priceCommodity: t.text(),
 		priceKind: priceKind(),
-		costAmount: t.bigint({ mode: 'bigint' }), // lot cost of one unit; with its commodity, all or none
+
+		// The `{cost, date}` per unit of the lot this takes from; balances in place of the price.
+		costAmount: t.bigint({ mode: 'bigint' }),
 		costCommodity: t.text(),
 		costDate: t.date(),
+
+		// What the account holds of this commodity after this posting, when the file asserts it.
 		balance: t.bigint({ mode: 'bigint' }),
 	}),
 	(t) => [

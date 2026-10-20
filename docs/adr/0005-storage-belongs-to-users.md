@@ -1,6 +1,6 @@
 # Storage belongs to users
 
-Where schemas and statements live is superseded by [ADR 0008](0008-statements-and-schemas-belong-to-the-ledger.md).
+Where schemas and statements live is superseded by [ADR 0008](0008-statements-and-schemas-belong-to-the-ledger.md). A ledger records its owner rather than its storage, per [ADR 0012](0012-services-own-their-tables.md).
 
 A user owns one **storage**: a place the files live, such as a local directory today and a Google Drive folder later. The storage holds everything the user writes: their schemas in `schemas/` and each ledger they own in `ledgers/<handle>/`. The database only records which storage a ledger lives in and who may reach it, and it caches what is derived from the files, such as the index. The files stay the truth.
 

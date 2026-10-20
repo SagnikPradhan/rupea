@@ -13,7 +13,7 @@ import {
 import { type Batch, batch } from '#lib/server/shared/result/batch.ts';
 import { petName } from '#lib/server/shared/names.ts';
 import { scoped, type Storage } from '#lib/server/shared/storage/storage.ts';
-import { ensureStorage, withStorage } from '#services/storage/application/storage.ts';
+import { withStorage } from '#services/storage/application/storage.ts';
 import {
 	findLedger,
 	findLedgers,
@@ -63,13 +63,9 @@ type CreateLedgerOptions = {
 	name: string;
 };
 
-export const createLedger = (o: CreateLedgerOptions): ResultAsync<Ledger> =>
-	ensureStorage(o.user).andThen((s) => insertNamed({ ...o, storage: s.id }, TRIES));
+export const createLedger = (o: CreateLedgerOptions): ResultAsync<Ledger> => insertNamed(o, TRIES);
 
-const insertNamed = (
-	o: CreateLedgerOptions & { storage: string },
-	n: number,
-): ResultAsync<Ledger> =>
+const insertNamed = (o: CreateLedgerOptions, n: number): ResultAsync<Ledger> =>
 	insertLedger({ ...o, owner: o.user, handle: petName() }).orElse((e) =>
 		e.type === 'NameTaken' && n > 1 ? insertNamed(o, n - 1) : errAsync(e),
 	);

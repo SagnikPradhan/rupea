@@ -9,7 +9,6 @@ import {
 	metadata as metadataTable,
 	postings,
 	prices as priceTable,
-	storages,
 	transactions as transactionTable,
 } from '#lib/server/db/schema.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
@@ -996,20 +995,19 @@ const ledgerColumns = {
 	id: ledgers.id,
 	handle: ledgers.handle,
 	name: ledgers.name,
-	owner: storages.userId,
+	owner: ledgers.ownerId,
 };
 
-// A user reaches the ledgers in their storage and those they are a member of.
+// A user reaches the ledgers they own and those they are a member of.
 const reachable = (db: Database, userId: string, where: SQL | undefined) =>
 	db
 		.select(ledgerColumns)
 		.from(ledgers)
-		.innerJoin(storages, eq(storages.id, ledgers.storageId))
 		.leftJoin(
 			memberships,
 			and(eq(memberships.ledgerId, ledgers.id), eq(memberships.userId, userId)),
 		)
-		.where(and(where, or(eq(storages.userId, userId), isNotNull(memberships.id))))
+		.where(and(where, or(eq(ledgers.ownerId, userId), isNotNull(memberships.id))))
 		.orderBy(asc(ledgers.createdAt));
 
 export const findLedger = (userId: string, handle: string): ResultAsync<Ledger> =>
@@ -1023,19 +1021,18 @@ export const findLedgers = (u: string): ResultAsync<Ledger[]> =>
 	withContext('db')((db) => attempt(() => reachable(db, u, undefined)));
 
 type InsertLedgerOptions = {
-	storage: string;
 	owner: string;
 	handle: string;
 	name: string;
 };
 
 export const insertLedger = (options: InsertLedgerOptions): ResultAsync<Ledger> => {
-	const { storage, owner, handle, name } = options;
+	const { owner, handle, name } = options;
 	return withContext('db')((db) =>
 		attemptWrite(() =>
 			db
 				.insert(ledgers)
-				.values({ storageId: storage, handle, name })
+				.values({ ownerId: owner, handle, name })
 				.returning({ id: ledgers.id })
 				.then(([i]) => i ?? Promise.reject(new Error(`${handle} was not saved`)))
 				.then((i) => ({ id: i.id, handle, name, owner })),

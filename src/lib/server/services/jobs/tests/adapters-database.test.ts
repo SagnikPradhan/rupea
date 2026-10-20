@@ -1,6 +1,7 @@
 import { atomically } from '#lib/server/db/atomically.ts';
 import { attemptWrite } from '#lib/server/db/errors.ts';
-import { jobs, JobStatus } from '#lib/server/db/schema.ts';
+import { jobs } from '#services/jobs/adapters/database-schema.ts';
+import { JobStatus } from '#services/jobs/domain/jobs.ts';
 import { provide, withContext } from '#lib/server/shared/context/context.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { ResultAsync } from '#lib/server/shared/result/result.ts';

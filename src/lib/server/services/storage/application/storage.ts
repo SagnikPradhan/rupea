@@ -1,4 +1,4 @@
-import { StorageKind } from '#lib/server/db/schema.ts';
+import { StorageKind } from '#lib/server/shared/storage/storage.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import {

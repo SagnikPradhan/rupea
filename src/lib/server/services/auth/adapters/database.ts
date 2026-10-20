@@ -1,9 +1,9 @@
 import { attemptWrite, violates } from '#lib/server/db/errors.ts';
-import { emailCodes, sessions, users } from '#lib/server/db/schema.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { eq } from 'drizzle-orm';
+import { emailCodes, sessions, users } from './database-schema';
 
 export type User = { id: string; email: string; username: string };
 

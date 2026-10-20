@@ -8,6 +8,13 @@ const FIRST_DELAY = 10_000;
 const TIMEOUT = 5 * 60 * 1000;
 const RETRIED: RupeeError['type'][] = ['UnknownError'];
 
+export enum JobStatus {
+	Queued = 'queued',
+	Running = 'running',
+	Succeeded = 'succeeded',
+	Failed = 'failed',
+}
+
 /**
  * Work a service runs outside a request. It may run more than once, so running it again must be
  * harmless. Its callbacks are methods, so a list of `Job<unknown>` holds a job of any payload.

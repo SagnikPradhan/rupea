@@ -1,14 +1,14 @@
 import type { Database } from '#lib/server/db/index.ts';
+import { EMBEDDING_DIMENSIONS } from '#lib/server/shared/onnx/models.ts';
 import {
-	EMBEDDING_DIMENSIONS,
 	ledgerFiles,
 	lots,
 	memberships,
 	metadata,
 	prices,
-	PriceSource,
 	transactions,
-} from '#lib/server/db/schema.ts';
+} from '#services/ledger/adapters/database-schema.ts';
+import { PriceSource } from '#services/ledger/domain/types.ts';
 import { provide } from '#lib/server/shared/context/context.ts';
 import { isHandle, petName } from '#lib/server/shared/names.ts';
 import { err, ok } from '#lib/server/shared/result/result.ts';

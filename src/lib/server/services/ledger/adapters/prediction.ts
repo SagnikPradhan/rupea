@@ -1,10 +1,10 @@
 import { statementChunks } from '#lib/server/db/index.ts';
-import { postings, transactions } from '#lib/server/db/schema.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, okAsync } from '#lib/server/shared/result/result.ts';
 import { inOrder } from '#lib/server/shared/control.ts';
-import type { Amount } from '../domain/types';
 import { and, desc, eq, sql } from 'drizzle-orm';
+import { postings, transactions } from './database-schema';
+import type { Amount } from '../domain/types';
 import type { History, Neighbour } from '../domain/prediction';
 
 // Transactions searched near each line; the domain keeps the best few postings.

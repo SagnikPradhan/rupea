@@ -1,91 +1,15 @@
 import { sql } from 'drizzle-orm';
 import * as PG from 'drizzle-orm/pg-core';
-import type { RupeeError } from '../shared/result/error';
-
-export const EMBEDDING_DIMENSIONS = 384;
-
-const base = {
-	id: PG.uuid()
-		.primaryKey()
-		.default(sql`uuidv7()`),
-	createdAt: PG.timestamp({ withTimezone: true }).notNull().defaultNow(),
-	updatedAt: PG.timestamp({ withTimezone: true }).notNull().defaultNow(),
-};
-
-export enum StorageKind {
-	Local = 'local',
-}
-
-export const storageKind = PG.pgEnum('storage_kind', StorageKind);
-
-// `@` prices one unit, `@@` the whole posting; kept as written so it prints back.
-export enum PriceKind {
-	Unit = 'unit',
-	Total = 'total',
-}
-
-export const priceKind = PG.pgEnum('price_kind', PriceKind);
-
-export enum PriceSource {
-	Line = 'line',
-	Posting = 'posting',
-}
-
-export const priceSource = PG.pgEnum('price_source', PriceSource);
-
-export enum LotOrigin {
-	Buy = 'buy',
-	Transfer = 'transfer',
-	Short = 'short',
-	Unpriced = 'unpriced',
-}
-
-export const lotOrigin = PG.pgEnum('lot_origin', LotOrigin);
-
-export enum DisposalKind {
-	Sale = 'sale',
-	Transfer = 'transfer',
-	Gift = 'gift',
-	Cover = 'cover',
-}
-
-export const disposalKind = PG.pgEnum('disposal_kind', DisposalKind);
-
-export enum AccountType {
-	Assets = 'Assets',
-	Liabilities = 'Liabilities',
-	Income = 'Income',
-	Expenses = 'Expenses',
-	Equity = 'Equity',
-}
+import { base } from '#lib/server/db/columns.ts';
+import { EMBEDDING_DIMENSIONS } from '#lib/server/shared/onnx/models.ts';
+import { users } from '#services/auth/adapters/database-schema.ts';
+import { AccountType, DisposalKind, LotOrigin, PriceKind, PriceSource } from '../domain/types';
 
 export const accountType = PG.pgEnum('account_type', AccountType);
-
-export enum JobStatus {
-	Queued = 'queued',
-	Running = 'running',
-	Succeeded = 'succeeded',
-	Failed = 'failed',
-}
-
-export const jobStatus = PG.pgEnum('job_status', JobStatus);
-
-export const users = PG.pgTable('users', (t) => ({
-	...base,
-	email: t.text().notNull().unique(),
-	username: t.text().notNull().unique('users_username_unique'),
-}));
-
-// One per user for now: where their schemas and the ledgers they own live.
-export const storages = PG.pgTable('storages', (t) => ({
-	...base,
-	userId: t
-		.uuid()
-		.notNull()
-		.unique('storages_user_id_unique')
-		.references(() => users.id, { onDelete: 'cascade' }),
-	kind: storageKind().notNull(),
-}));
+export const priceKind = PG.pgEnum('price_kind', PriceKind);
+export const priceSource = PG.pgEnum('price_source', PriceSource);
+export const lotOrigin = PG.pgEnum('lot_origin', LotOrigin);
+export const disposalKind = PG.pgEnum('disposal_kind', DisposalKind);
 
 // The handle also names the ledger's folder in its owner's storage, so it never changes.
 export const ledgers = PG.pgTable(
@@ -100,60 +24,6 @@ export const ledgers = PG.pgTable(
 		name: t.text().notNull(),
 	}),
 	(t) => [PG.index('ledgers_owner_id').on(t.ownerId)],
-);
-
-export const sessions = PG.pgTable('sessions', (t) => ({
-	...base,
-	expiresAt: t.timestamp({ withTimezone: true }).notNull(),
-	tokenHash: t.text().notNull().unique('sessions_token_hash_unique'),
-	userId: t
-		.uuid()
-		.notNull()
-		.references(() => users.id, { onDelete: 'cascade' }),
-}));
-
-export const emailCodes = PG.pgTable('email_codes', (t) => ({
-	...base,
-	email: t.text().notNull().unique(),
-	codeHash: t.text().notNull(),
-	expiresAt: t.timestamp({ withTimezone: true }).notNull(),
-}));
-
-// What the statements folder holds, so a statement is found by its content without hashing the folder.
-export const statements = PG.pgTable(
-	'statements',
-	(t) => ({
-		...base,
-		ledgerId: t
-			.uuid()
-			.notNull()
-			.references(() => ledgers.id, { onDelete: 'cascade' }),
-		path: t.text().notNull(),
-		checksum: t.text().notNull(),
-		original: t.text(),
-	}),
-	(t) => [
-		PG.unique('statements_ledger_id_path').on(t.ledgerId, t.path),
-		PG.index('statements_ledger_id_checksum').on(t.ledgerId, t.checksum),
-		PG.index('statements_ledger_id_original').on(t.ledgerId, t.original),
-	],
-);
-
-// Contents already read, so previewing a statement again skips the slow PDF table detection.
-export const statementGrids = PG.pgTable(
-	'statement_grids',
-	(t) => ({
-		...base,
-		checksum: t.text().notNull(),
-		reader: t.text().notNull(),
-		grid: t.jsonb().$type<string[][]>().notNull(),
-		text: t.jsonb().$type<string[]>().notNull().default([]),
-		expiresAt: t.timestamp({ withTimezone: true }).notNull(),
-	}),
-	(t) => [
-		PG.unique('statement_grids_checksum_reader').on(t.checksum, t.reader),
-		PG.index('statement_grids_expires_at').on(t.expiresAt),
-	],
 );
 
 export const memberships = PG.pgTable(
@@ -354,56 +224,5 @@ export const metadata = PG.pgTable(
 			'metadata_one_owner',
 			sql`num_nonnulls(${t.fileId}, ${t.transactionId}, ${t.postingId}) = 1`,
 		),
-	],
-);
-
-export const dismissedMatches = PG.pgTable(
-	'dismissed_matches',
-	(t) => ({
-		...base,
-		ledgerId: t
-			.uuid()
-			.notNull()
-			.references(() => ledgers.id, { onDelete: 'cascade' }),
-		fingerprint: t.text().notNull(), // declined suggestion pair
-	}),
-	(t) => [PG.unique('dismissed_matches_ledger_id_fingerprint').on(t.ledgerId, t.fingerprint)],
-);
-
-/** Jobs of one name and partition run one at a time, which `jobs_name_partition_running` enforces. */
-export const jobs = PG.pgTable(
-	'jobs',
-	(t) => ({
-		...base,
-		userId: t
-			.uuid()
-			.notNull()
-			.references(() => users.id, { onDelete: 'cascade' }),
-		name: t.text().notNull(),
-		partition: t.text().notNull(),
-		version: t.integer().notNull(),
-		payload: t.jsonb().notNull(),
-		dedupe: t.text().notNull(),
-		status: jobStatus().notNull().default(JobStatus.Queued),
-		attempts: t.integer().notNull().default(0),
-		runAt: t.timestamp({ withTimezone: true }).notNull().defaultNow(),
-		leasedUntil: t.timestamp({ withTimezone: true }),
-		error: t.jsonb().$type<RupeeError>(),
-	}),
-	(t) => [
-		PG.uniqueIndex('jobs_user_id_name_dedupe_queued')
-			.on(t.userId, t.name, t.dedupe)
-			.where(sql`${t.status} = 'queued'`),
-		PG.uniqueIndex('jobs_name_partition_running')
-			.on(t.name, t.partition)
-			.where(sql`${t.status} = 'running'`),
-		PG.index('jobs_run_at_queued')
-			.on(t.runAt)
-			.where(sql`${t.status} = 'queued'`),
-		PG.index('jobs_leased_until_running')
-			.on(t.leasedUntil)
-			.where(sql`${t.status} = 'running'`),
-		PG.index('jobs_status_updated_at').on(t.status, t.updatedAt),
-		PG.index('jobs_user_id_created_at').on(t.userId, t.createdAt),
 	],
 );

@@ -3,7 +3,7 @@ import { fault } from '#lib/server/shared/result/error.ts';
 import { batchAsync, type Batch } from '#lib/server/shared/result/batch.ts';
 import { err, errAsync, ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { openFolder, type Ledger } from '#services/ledger/application/ledger.ts';
-import { predictAccounts } from '#services/prediction/application/prediction.ts';
+import { predictAccounts } from '#services/ledger/application/prediction.ts';
 import { builtinSchemas } from '../adapters/builtin';
 import { findContents, saveContents } from '../adapters/database';
 import { isReadable, READER, readContents, unlock, type Upload } from '../adapters/grid';

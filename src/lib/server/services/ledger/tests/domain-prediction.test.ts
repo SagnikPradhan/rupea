@@ -8,7 +8,7 @@ import {
 	type Embedded,
 	type Knowledge,
 	type Neighbour,
-} from '#services/prediction/domain/prediction.ts';
+} from '#services/ledger/domain/prediction.ts';
 
 const amount = (n: bigint) => n as Amount;
 const axis = (i: number) => Float32Array.from({ length: 4 }, (_, d) => (d === i ? 1 : 0));

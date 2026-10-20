@@ -4,7 +4,7 @@ import * as Auth from '#services/auth/application/auth.ts';
 import * as Drafts from '#services/extraction/application/drafts.ts';
 import * as Schemas from '#services/extraction/application/schemas.ts';
 import * as Statements from '#services/extraction/application/statements.ts';
-import * as Ledger from '#services/ledger/application/ledger.ts';
+import * as Files from '#services/ledger/application/files.ts';
 import { viewTransaction } from '#services/ledger/application/shared.ts';
 import { command, form } from '$app/server';
 import * as v from 'valibot';
@@ -87,7 +87,7 @@ export const importStatement = form(
 export const checkDraft = command(
 	v.object({ key: Key, content: v.string() }),
 	async ({ key, content }) => {
-		const checked = Auth.withCurrentUser(() => ok(Ledger.check(key, content)));
+		const checked = Auth.withCurrentUser(() => ok(Files.parseFile(key, content)));
 		return replyFromBatch(
 			await checked.map((batch) => ({
 				...batch,

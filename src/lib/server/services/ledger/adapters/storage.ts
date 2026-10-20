@@ -1,7 +1,7 @@
+import { safely } from '#lib/server/shared/control.ts';
+import { type Batch, batchAsync } from '#lib/server/shared/result/batch.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { err, ok, type Result, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { type Batch, batchAsync } from '#lib/server/shared/result/batch.ts';
-import { safely } from '#lib/server/shared/control.ts';
 import type { Entry, Storage } from '#lib/server/shared/storage/storage.ts';
 import type { RupeeFile } from '../domain/types';
 
@@ -46,11 +46,7 @@ const write =
 	(storage: Storage) =>
 	({ key, content, ifVersion }: LedgerWriteOptions): ResultAsync<RupeeFile> =>
 		storage
-			.write({
-				key,
-				content: encoder.encode(content),
-				...(ifVersion === undefined ? {} : { ifVersion }),
-			})
+			.write({ key, content: encoder.encode(content), ifVersion: ifVersion ?? null })
 			.map((e) => ({ ...e, content }));
 
 const rename =

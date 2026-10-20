@@ -1,98 +1,105 @@
 import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
-import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
-import { batch } from '#lib/server/shared/result/batch.ts';
+import { formatQuantity, sum } from './amounts';
 import { displayLocation } from './parser';
-import {
-	accountType,
-	AccountType,
-	formatQuantity,
-	type Amount,
-	type Quantity,
-	type RupeeTransaction,
-} from './types';
+import { accountType, BALANCE_TYPES } from './taxonomy';
+import { type RupeeMetadata, type RupeeParseLocation, type RupeePosting } from './types';
 
 export enum EventRole {
 	Primary = 'primary',
 	Evidence = 'evidence',
 }
 
-const ROLES: Record<string, EventRole> = {
-	event: EventRole.Primary,
-	'same-as': EventRole.Evidence,
-};
-
-export const EVENT_KEYS = Object.keys(ROLES);
-
+/** The metadata key that links a transaction to an event in each role. */
 export const EVENT_KEY: Record<EventRole, string> = {
 	[EventRole.Primary]: 'event',
 	[EventRole.Evidence]: 'same-as',
 };
 
-// Where real money sits; Income and Expenses only say what it was for.
-export const BALANCE_TYPES = [AccountType.Assets, AccountType.Liabilities];
+export const EVENT_KEYS = Object.values(EVENT_KEY);
 
-export type EventMember = Pick<RupeeTransaction, 'location' | 'metadata' | 'postings'> & {
+export type EventMember = {
 	id: string;
+	location: RupeeParseLocation;
+	metadata: RupeeMetadata;
+	postings: RupeePosting[];
 };
 
-// `evidence` holds the ids of members that are not counted.
-export type EventCheck = { evidence: string[]; failed: RupeeError[] };
+export type EventCheck = { uncounted: string[]; failed: RupeeError[] };
 
-// A broken event counts all its members, so a mistake shows as a double count
-// rather than as money gone missing.
+export type EventLink = { event: string; role: EventRole };
+
+/** A broken event counts all its members, so a mistake shows as a double count rather than as money gone missing. */
 export const checkEvents = (transactions: EventMember[]): EventCheck => {
-	const memberships = batch(transactions.map(membership));
-	const members = memberships.succeeded.flatMap((m) => (m ? [m] : []));
+	const linked = transactions.map((t) => ({ transaction: t, links: linksOf(t.metadata) }));
+	const tangled = linked.filter((l) => l.links.length > 1);
+	const members = linked.flatMap((l) =>
+		l.links.length === 1
+			? l.links.map(({ event, role }) => ({ event, role, transaction: l.transaction }))
+			: [],
+	);
+
 	const checked = Object.entries(Object.groupBy(members, (m) => m.event)).map(
 		([event, group = []]) => checkEvent(event, group),
 	);
 
 	return {
-		evidence: checked.flatMap((c) => c.evidence),
-		failed: [...memberships.failed, ...checked.flatMap((c) => c.failed)],
+		uncounted: checked.flatMap((c) => c.uncounted),
+		failed: [
+			...checked.flatMap((c) => c.failed),
+			...tangled.map((l) =>
+				fault('EventInvalidMembership', { location: displayLocations([l.transaction]) }),
+			),
+		],
 	};
 };
 
-export type EventLink = { event: string; role: EventRole };
-
-// More than one link is a mistake `checkEvents` reports.
-export const linksOf = (t: Pick<RupeeTransaction, 'metadata'>): EventLink[] =>
-	Object.entries(ROLES).flatMap(([key, role]) =>
-		(t.metadata[key] ?? []).map((e) => ({ event: e, role })),
+/** More than one link is a mistake `checkEvents` reports. */
+export const linksOf = (m: RupeeMetadata): EventLink[] =>
+	Object.values(EventRole).flatMap((r) =>
+		(m[EVENT_KEY[r]] ?? []).map((e) => ({ event: e, role: r })),
 	);
 
-type Membership = EventLink & { member: EventMember };
+/** Each transaction marked with whether it counts, beside what `checkEvents` found. */
+export const counted = <T extends EventMember>(transactions: T[]) => {
+	const events = checkEvents(transactions);
+	const uncounted = new Set(events.uncounted);
 
-const membership = (t: EventMember): Result<Membership | null> => {
-	const [only, ...rest] = linksOf(t);
-	if (!only) return ok(null);
-	if (rest.length > 0) return err(fault('EventInvalidMembership', { location: at(t) }));
-
-	return ok({ ...only, member: t });
-};
-
-const checkEvent = (event: string, members: Membership[]): EventCheck => {
-	const [primary, ...others] = members.filter((m) => m.role === EventRole.Primary);
-	if (!primary) return broken(fault('EventWithoutPrimary', { event, location: places(members) }));
-	if (others.length > 0) {
-		const location = places([primary, ...others]);
-		return broken(fault('EventWithManyPrimaries', { event, location }));
-	}
-
-	const evidence = members.filter((m) => m.role === EventRole.Evidence).map((m) => m.member);
 	return {
-		evidence: evidence.map((e) => e.id),
-		failed: evidence.flatMap((e) => disagreements(event, primary.member, e)),
+		...events,
+		transactions: transactions.map((t) => ({ ...t, counted: !uncounted.has(t.id) })),
 	};
 };
 
-const broken = (
-	e: Extract<RupeeError, { type: 'EventWithoutPrimary' | 'EventWithManyPrimaries' }>,
-): EventCheck => ({ evidence: [], failed: [e] });
+const checkEvent = (
+	event: string,
+	members: { role: EventRole; transaction: EventMember }[],
+): EventCheck => {
+	const primaries = members.filter((m) => m.role === EventRole.Primary).map((m) => m.transaction);
+	const evidence = members.filter((m) => m.role === EventRole.Evidence).map((m) => m.transaction);
 
-const places = (l: Membership[]) => l.map((m) => at(m.member)).join(', ');
+	const [primary, ...others] = primaries;
+	if (!primary) {
+		const failed = fault('EventWithoutPrimary', {
+			event,
+			location: displayLocations(evidence),
+		});
+		return { uncounted: [], failed: [failed] };
+	}
+	if (others.length > 0) {
+		const failed = fault('EventWithManyPrimaries', {
+			event,
+			location: displayLocations(primaries),
+		});
+		return { uncounted: [], failed: [failed] };
+	}
 
-// Only balance accounts both sides post to are compared; categories are guesses.
+	return {
+		uncounted: evidence.map((e) => e.id),
+		failed: evidence.flatMap((e) => disagreements(event, primary, e)),
+	};
+};
+
+/** Only balance accounts both sides post to are compared; categories are guesses. */
 const disagreements = (
 	event: string,
 	primary: EventMember,
@@ -100,40 +107,38 @@ const disagreements = (
 ): RupeeError[] => {
 	const expected = balances(primary);
 
-	return balances(evidence).flatMap((q) => {
-		const wanted = expected.find((e) => e.account === q.account && e.commodity === q.commodity);
-		if (wanted === undefined || wanted.amount === q.amount) return [];
+	return balances(evidence).flatMap((actual) => {
+		const differs = expected.find(
+			(e) =>
+				e.account === actual.account &&
+				e.commodity === actual.commodity &&
+				e.amount !== actual.amount,
+		);
+		if (!differs) return [];
 
 		return [
 			fault('EventDisagreement', {
 				event,
-				location: at(evidence),
-				account: q.account,
-				expected: formatQuantity(wanted),
-				actual: formatQuantity(q),
+				location: displayLocations([evidence]),
+				account: actual.account,
+				expected: formatQuantity(differs),
+				actual: formatQuantity(actual),
 			}),
 		];
 	});
 };
 
-type Holding = Quantity & { account: string };
+const balances = (t: EventMember) => {
+	const held = t.postings.filter((p) => BALANCE_TYPES.some((b) => b === accountType(p.account)));
+	const groups = Object.values(Object.groupBy(held, (p) => `${p.account} ${p.commodity}`));
 
-const balances = (t: EventMember): Holding[] =>
-	Object.values(
-		Object.groupBy(
-			t.postings.filter((p) => BALANCE_TYPES.some((r) => r === accountType(p.account))),
-			(p) => `${p.account} ${p.commodity}`,
-		),
-	).flatMap(([first, ...rest] = []) =>
-		first
-			? [
-					{
-						account: first.account,
-						commodity: first.commodity,
-						amount: [first, ...rest].reduce((s, p) => s + p.amount, 0n) as Amount,
-					},
-				]
-			: [],
-	);
+	return groups.flatMap((same = []) => {
+		const [first] = same;
+		if (!first) return [];
 
-const at = (t: EventMember) => displayLocation(t.location);
+		const amount = sum(same.map((p) => p.amount));
+		return [{ account: first.account, commodity: first.commodity, amount }];
+	});
+};
+
+const displayLocations = (l: EventMember[]) => l.map((m) => displayLocation(m.location)).join(', ');

@@ -1,3 +1,8 @@
+import { AccountType } from './types';
+
+/** Where real money sits; Income and Expenses only say what it was for. */
+export const BALANCE_TYPES = [AccountType.Assets, AccountType.Liabilities];
+
 export const taxonomy: Record<string, string> = {
 	'Expenses:Food:Groceries': 'groceries, supermarket, vegetables, milk, kirana',
 	'Expenses:Food:Restaurants': 'restaurants, cafe, coffee, food delivery, swiggy, zomato',
@@ -29,3 +34,6 @@ export const taxonomy: Record<string, string> = {
 	'Income:Reimbursements': 'reimbursement, expense claim, settled, split',
 	'Income:Gifts': 'gift received, birthday, family transfer',
 };
+
+export const accountType = (a: string): AccountType | null =>
+	Object.values(AccountType).find((r) => r === a.split(':')[0]) ?? null;

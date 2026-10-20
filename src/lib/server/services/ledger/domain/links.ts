@@ -34,7 +34,7 @@ export const insertLinks = (
 			repeated ||
 			t.date.toString() !== e.date ||
 			t.description !== e.description ||
-			linksOf(t).length > 0
+			linksOf(t.metadata).length > 0
 		);
 	});
 	if (stale) return err(fault('EventStale', { location: `${stale.file}:${stale.line}` }));
@@ -60,7 +60,7 @@ export const rewriteLinks = (
 	relink: Relink,
 ): Result<string> => {
 	const members = parse(config, file).succeeded.flatMap((t) =>
-		linksOf(t)
+		linksOf(t.metadata)
 			.filter((l) => l.event === event)
 			.map((l) => ({ transaction: t, link: l })),
 	);

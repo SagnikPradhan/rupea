@@ -1,12 +1,34 @@
 import { attemptWrite, violates } from '#lib/server/db/errors.ts';
-import { statementChunks, type Database } from '#lib/server/db/index.ts';
+import { statementChunks, vectorText, type Database } from '#lib/server/db/index.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
+import { inOrder } from '#lib/server/shared/control.ts';
 import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
 import { attempt, err, errAsync, ok, ResultAsync } from '#lib/server/shared/result/result.ts';
-import { inOrder } from '#lib/server/shared/control.ts';
-import { and, asc, eq, inArray, isNotNull, isNull, ne, or, sql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, or, sql, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { v7 as uuidv7 } from 'uuid';
+import { AMOUNT_UNIT, type Amount, type Quantity } from '../domain/amounts';
+import { EVENT_KEYS } from '../domain/events';
+import type { Holding } from '../domain/holdings';
+import { book, realised, type BookedPosting, type Booking, CURRENCIES } from '../domain/lots';
+import { displayLocation, toMetadata } from '../domain/parser';
+import { marketPrices } from '../domain/prices';
+import type { FileVersion } from '../domain/sync';
+import { accountType, BALANCE_TYPES } from '../domain/taxonomy';
+import type { Filled, Unembedded } from '../domain/text';
+import {
+	DisposalKind,
+	LotOrigin,
+	PriceKind,
+	PriceSource,
+	type Ledger,
+	type LotCost,
+	type Price,
+	type RupeeLedgerFile,
+	type RupeeMetadata,
+	type RupeeParseLocation,
+	type RupeeTransaction,
+} from '../domain/types';
 import {
 	disposals as disposalTable,
 	ledgerFiles,
@@ -18,31 +40,6 @@ import {
 	prices as priceTable,
 	transactions as transactionTable,
 } from './database-schema';
-import { BALANCE_TYPES, EVENT_KEYS } from '../domain/events';
-import type { Holding } from '../domain/holdings';
-import { book, realised, type BookedPosting, type Booking } from '../domain/lots';
-import { displayLocation } from '../domain/parser';
-import { marketPrices } from '../domain/prices';
-import type { FileVersion } from '../domain/sync';
-import {
-	accountType,
-	AMOUNT_UNIT,
-	CURRENCIES,
-	DisposalKind,
-	LotOrigin,
-	PriceKind,
-	PriceSource,
-	toMetadata,
-	type Amount,
-	type Ledger,
-	type LotCost,
-	type Price,
-	type Quantity,
-	type RupeeLedgerFile,
-	type RupeeMetadata,
-	type RupeeParseLocation,
-	type RupeeTransaction,
-} from '../domain/types';
 
 export type IndexedTransaction = RupeeTransaction & { id: string };
 
@@ -545,7 +542,7 @@ type BalanceRow = {
 // ordered by line; another file's are ordered only when both sides have a time.
 const balanceChecks =
 	(ledgerId: string) =>
-	(evidence: string[]): ResultAsync<BalanceCheck[]> =>
+	(uncounted: string[]): ResultAsync<BalanceCheck[]> =>
 		withContext('db')((db) =>
 			attempt(() =>
 				db.execute<BalanceRow>(sql`
@@ -556,7 +553,7 @@ const balanceChecks =
 					),
 					entries as (
 						select f.key as file, t.line, t.date, t.time, p.position, p.account, p.commodity, p.amount, p.balance,
-							t.id <> all(${sql.param(evidence)}::uuid[]) as counted
+							t.id <> all(${sql.param(uncounted)}::uuid[]) as counted
 						from ${postings} p
 						join ${transactionTable} t on t.id = p.transaction_id
 						join ${ledgerFiles} f on f.id = t.file_id
@@ -626,19 +623,19 @@ const lotCommoditiesOf = (db: Database, fileId: string): Promise<string[]> =>
 
 const rebook =
 	(ledgerId: string) =>
-	(commodities: string[], evidence: string[]): ResultAsync<void> =>
+	(commodities: string[], uncounted: string[]): ResultAsync<void> =>
 		withContext('db')((db) =>
 			attempt(() =>
 				db.transaction(async (tx) => {
 					for (const commodity of commodities) {
-						const booking = book(await bookedPostings(tx, { ledgerId, commodity, evidence }));
+						const booking = book(await bookedPostings(tx, { ledgerId, commodity, uncounted }));
 						await replaceLots(tx, { ledgerId, commodity, booking });
 					}
 				}),
 			),
 		);
 
-type BookedPostingsOptions = { ledgerId: string; commodity: string; evidence: string[] };
+type BookedPostingsOptions = { ledgerId: string; commodity: string; uncounted: string[] };
 
 const bookedPostings = (db: Database, options: BookedPostingsOptions): Promise<BookedPosting[]> =>
 	db
@@ -663,7 +660,7 @@ const bookedPostings = (db: Database, options: BookedPostingsOptions): Promise<B
 			and(
 				eq(postings.ledgerId, options.ledgerId),
 				eq(postings.commodity, options.commodity),
-				sql`${transactionTable.id} <> all(${sql.param(options.evidence)}::uuid[])`,
+				sql`${transactionTable.id} <> all(${sql.param(options.uncounted)}::uuid[])`,
 			),
 		)
 		.orderBy(...LEDGER_ORDER, asc(postings.position))
@@ -764,7 +761,7 @@ const unmatched = (ledgerId: string) => (): ResultAsync<UnmatchedDisposal[]> =>
 
 const holdings =
 	(ledgerId: string) =>
-	(evidence: string[]): ResultAsync<Holding[]> =>
+	(uncounted: string[]): ResultAsync<Holding[]> =>
 		withContext('db')((db) => {
 			const balances = db
 				.select({
@@ -777,7 +774,7 @@ const holdings =
 					and(
 						eq(postings.ledgerId, ledgerId),
 						inArray(postings.accountType, BALANCE_TYPES),
-						sql`${postings.transactionId} <> all(${sql.param(evidence)}::uuid[])`,
+						sql`${postings.transactionId} <> all(${sql.param(uncounted)}::uuid[])`,
 					),
 				)
 				.groupBy(postings.account, postings.commodity)
@@ -960,6 +957,46 @@ const lotsIn =
 			}),
 		);
 
+const unembedded =
+	(ledgerId: string) =>
+	(model: string, limit: number): ResultAsync<Unembedded[]> =>
+		withContext('db')((db) =>
+			attempt(() =>
+				db
+					.select({ id: transactionTable.id, description: transactionTable.description })
+					.from(transactionTable)
+					.where(
+						and(
+							eq(transactionTable.ledgerId, ledgerId),
+							sql`${transactionTable.embeddingModel} is distinct from ${model}`,
+						),
+					)
+					.orderBy(desc(transactionTable.date))
+					.limit(limit),
+			),
+		);
+
+const fillChunk = (ledgerId: string, model: string, rows: Filled[]) => sql`
+	update ${transactionTable} t
+	set embedding = f.embedding::vector, embedding_model = ${model}
+	from unnest(
+		${sql.param(rows.map((r) => r.id))}::uuid[],
+		${sql.param(rows.map((r) => (r.vector ? vectorText(r.vector) : null)))}::text[]
+	) as f(id, embedding)
+	where t.id = f.id and t.ledger_id = ${ledgerId}
+`;
+
+const fill =
+	(ledgerId: string) =>
+	(model: string, rows: Filled[]): ResultAsync<void> =>
+		withContext('db')((db) =>
+			attempt(() =>
+				db.transaction((t) =>
+					inOrder(statementChunks(rows).map((c) => () => t.execute(fillChunk(ledgerId, model, c)))),
+				),
+			),
+		);
+
 type MetadataRow = { owner: string | null; key: string; value: string };
 
 // Rows come in written order, which `toMetadata` keeps.
@@ -989,6 +1026,8 @@ export const index = (ledgerId: string) => ({
 	lotsIn: lotsIn(ledgerId),
 	unmatched: unmatched(ledgerId),
 	transactions: transactions(ledgerId),
+	unembedded: unembedded(ledgerId),
+	fill: fill(ledgerId),
 });
 
 const ledgerColumns = {

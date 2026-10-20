@@ -43,3 +43,6 @@ const embedDatabase = async (directory: string): Promise<DatabaseHandle> => {
 };
 
 export const statementChunks = <T>(l: T[]): T[][] => batches(l, ROWS_PER_STATEMENT);
+
+/** A vector as pgvector reads it from text. */
+export const vectorText = (v: Float32Array) => `[${v.join(',')}]`;

@@ -1,8 +1,8 @@
-import { sql } from 'drizzle-orm';
-import * as PG from 'drizzle-orm/pg-core';
 import { base } from '#lib/server/db/columns.ts';
 import { EMBEDDING_DIMENSIONS } from '#lib/server/shared/onnx/models.ts';
 import { users } from '#services/auth/adapters/database-schema.ts';
+import { sql } from 'drizzle-orm';
+import * as PG from 'drizzle-orm/pg-core';
 import { AccountType, DisposalKind, LotOrigin, PriceKind, PriceSource } from '../domain/types';
 
 export const accountType = PG.pgEnum('account_type', AccountType);

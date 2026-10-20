@@ -1,6 +1,6 @@
 import { provide } from '#lib/server/shared/context/context.ts';
 import { ok } from '#lib/server/shared/result/result.ts';
-import * as Ledger from '#services/ledger/application/ledger.ts';
+import * as Files from '#services/ledger/application/files.ts';
 import { broken, hashed } from '#tests/shared/embedding.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { existsSync } from 'node:fs';
@@ -56,7 +56,7 @@ describe('extracting a statement', () => {
 				}),
 			);
 			if (draft.isErr()) return;
-			expect(Ledger.check('aug.rupee', draft.value.content)).toMatchObject({
+			expect(Files.parseFile('aug.rupee', draft.value.content)).toMatchObject({
 				metadata: { statement: ['aug.csv'], checksum: [checksum] },
 				failed: [],
 			});
@@ -65,7 +65,7 @@ describe('extracting a statement', () => {
 	it('files uncategorised lines under the accounts the ledger shows', ({ context, db }) =>
 		provide({ ...context, models: hashed(context.models) }, async () => {
 			const ledger = await createLedger(db);
-			await Ledger.createFile({
+			await Files.createFile({
 				ledger,
 				key: 'history.rupee',
 				content: [
@@ -151,7 +151,7 @@ describe('saving a draft', () => {
 			const recognised = (await Schemas.recogniseStatement(ledger, statement))._unsafeUnwrap();
 			await Drafts.save({ ledger, statement, schema: recognised, key: 'card.rupee' });
 
-			expect(await Ledger.getFile(ledger, 'card.rupee')).toMatchObject(ok({ key: 'card.rupee' }));
+			expect(await Files.getFile(ledger, 'card.rupee')).toMatchObject(ok({ key: 'card.rupee' }));
 			expect(await Schemas.listSchemas(ledger)).toMatchObject(ok([{ key: 'hdfc-card.yml' }]));
 		}));
 
@@ -161,7 +161,7 @@ describe('saving a draft', () => {
 			const statement = (await upload(ledger)).key;
 			await Drafts.save({ ledger, statement, schema: bank, key: 'aug.rupee' });
 
-			expect(await Ledger.getFile(ledger, 'aug.rupee')).toMatchObject(ok({ key: 'aug.rupee' }));
+			expect(await Files.getFile(ledger, 'aug.rupee')).toMatchObject(ok({ key: 'aug.rupee' }));
 			expect(await Schemas.listSchemas(ledger)).toEqual(ok([]));
 		}));
 });
@@ -190,7 +190,7 @@ describe('a statement a built-in schema reads', () => {
 				const draft = (
 					await Drafts.extract({ ledger, statement: key, schema: recognised })
 				)._unsafeUnwrap();
-				const checked = Ledger.check(draft.key, draft.content);
+				const checked = Files.parseFile(draft.key, draft.content);
 
 				expect(recognised).toMatchObject({ key: schema, builtin: true });
 				expect(draft.failed).toEqual([]);

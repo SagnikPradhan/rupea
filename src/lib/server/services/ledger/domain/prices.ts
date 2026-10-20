@@ -1,10 +1,8 @@
+import { divide, type Amount, type Quantity } from './amounts';
 import {
-	divide,
 	PriceKind,
 	PriceSource,
-	type Amount,
 	type Price,
-	type Quantity,
 	type RupeeLedgerFile,
 	type RupeeTransaction,
 } from './types';

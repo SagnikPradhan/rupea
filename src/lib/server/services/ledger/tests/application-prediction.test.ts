@@ -6,7 +6,7 @@ import { it } from '#tests/shared/vitest.ts';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it as plain } from 'vitest';
-import { embedder } from '#services/ledger/adapters/onnx.ts';
+import { embedder } from '#services/ledger/adapters/prediction-onnx.ts';
 import { THRESHOLDS, type Embed, type Nearest } from '#services/ledger/domain/prediction.ts';
 import { clean } from '#services/ledger/domain/text.ts';
 import { classify as classifyNear } from '#services/ledger/application/prediction.ts';

@@ -2,7 +2,8 @@ import { withContext } from '#lib/server/shared/context/context.ts';
 import type { Batch } from '#lib/server/shared/result/batch.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { err, ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { check, createFile, type Ledger } from '#services/ledger/application/ledger.ts';
+import { createFile, parseFile } from '#services/ledger/application/files.ts';
+import type { Ledger } from '#services/ledger/application/ledger.ts';
 import { predictAccounts } from '#services/ledger/application/prediction.ts';
 import { categorised, draft, uncategorised, type Draft } from '../domain/draft';
 import { readRecords } from '../domain/runtime';
@@ -29,7 +30,7 @@ export const extract = ({ ledger, statement, schema }: ExtractOptions): ResultAs
 /** A draft checked as the ledger would read it, with the errors of both steps. */
 export const preview = (options: ExtractOptions) =>
 	extract(options).map((d) => {
-		const checked = check(d.key, d.content);
+		const checked = parseFile(d.key, d.content);
 		const failed = [...d.failed, ...checked.failed];
 		return { key: d.key, transactions: checked.succeeded, failed };
 	});

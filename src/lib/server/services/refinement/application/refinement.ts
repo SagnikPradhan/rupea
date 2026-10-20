@@ -1,6 +1,8 @@
 import { fault } from '#lib/server/shared/result/error.ts';
 import { errAsync, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
+import * as Events from '#services/ledger/application/events.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
+import * as Sync from '#services/ledger/application/sync.ts';
 import { EventRole } from '#services/ledger/application/shared.ts';
 import { dismissals } from '../adapters/database';
 import { eventId } from '../domain/ids';
@@ -14,8 +16,8 @@ const TRIES = 5;
 // Runs after a file is saved, and on request: only that file's transactions
 // look for partners, so the work grows with the file, not the ledger.
 export const suggestFor = (ledger: Ledger.Ledger, key: string): ResultAsync<Suggestion[]> =>
-	Ledger.syncIndex(ledger)
-		.andThen(() => Ledger.findCandidates(ledger, key))
+	Sync.syncIndex(ledger)
+		.andThen(() => Events.findCandidates(ledger, key))
 		.andThen((c) =>
 			dismissals(ledger.id)
 				.all()
@@ -51,7 +53,7 @@ const fresh = (
 			: errAsync(fault('EventIdTaken', { event: id }));
 	if (done.some((d) => d.event === id)) return retry();
 
-	return Ledger.isEventIdTaken(ledger, id).andThen((t) =>
+	return Events.isEventIdTaken(ledger, id).andThen((t) =>
 		t ? retry() : okAsync({ ...suggestion, event: id }),
 	);
 };

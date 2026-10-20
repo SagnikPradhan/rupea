@@ -1,0 +1,25 @@
+import { scoped, type Storage } from '#lib/server/shared/storage/storage.ts';
+import { index } from '#services/ledger/adapters/database.ts';
+import type { Ledger } from '#services/ledger/application/ledger.ts';
+
+export const groceries = '2026-08-29 Groceries\n\tExpenses:Food 100.5\n\tAssets:Bank\n';
+export const salary = '2026-08-01 Salary\n\tAssets:Bank 50000\n\tIncome:Salary\n';
+
+// Where the ledger's files are, in a storage holding every user's.
+export const stored = (s: Storage, l: Ledger) =>
+	scoped(s, `users/${l.owner}/ledgers/${l.handle}/files`);
+
+export const put = (storage: Storage, ledger: Ledger, key: string, text: string) =>
+	stored(storage, ledger).write({
+		key,
+		content: new TextEncoder().encode(text),
+	});
+
+export const summary = async (ledgerId: string) => {
+	const indexed = await index(ledgerId).transactions();
+	return indexed.isOk()
+		? indexed.value.map(
+				({ location, description }) => `${location.file}:${location.line} ${description}`,
+			)
+		: indexed;
+};

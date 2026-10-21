@@ -10,7 +10,7 @@ export type EditorApi = {
 	save: (input: EditorFile) => Promise<Reply<EditorFile>>;
 	create: (input: { key: string; content: string }) => Promise<Reply<EditorFile>>;
 	rename: (input: { key: string; to: string }) => Promise<Reply<EditorFile>>;
-	remove: (key: string) => Promise<Reply<void>>;
+	remove: (key: string) => Promise<Reply<string>>;
 };
 
 const sleep = (t: number) => new Promise<void>((r) => setTimeout(r, t));

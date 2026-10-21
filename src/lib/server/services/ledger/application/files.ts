@@ -1,12 +1,12 @@
 import { withContext } from '#lib/server/shared/context/context.ts';
-import type { Batch } from '#lib/server/shared/result/batch.ts';
-import { okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
+import { batchInOrder, type Batch } from '#lib/server/shared/result/batch.ts';
+import { ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { index } from '../adapters/database';
 import { isCounted } from '../domain/folders';
 import { parse } from '../domain/parser';
 import type { Ledger, RupeeFile, RupeeTransaction } from '../domain/types';
 import { ledgerFiles } from './ledger';
-import { indexFile, rebook, unindex } from './sync';
+import { indexFile, rebook, unindex, type Indexed } from './sync';
 
 export const listFiles = (l: Ledger): ResultAsync<Batch<RupeeFile>> =>
 	ledgerFiles(l).andThen((f) => f.list());
@@ -46,31 +46,27 @@ export const editFile = (options: EditFileOptions): ResultAsync<RupeeFile> => {
 	return writeFile({ ledger, key, content, ifVersion: version });
 };
 
-type RenameFileOptions = {
-	ledger: Ledger;
+type Move = {
 	from: string;
 	to: string;
 };
 
-export const renameFile = (options: RenameFileOptions): ResultAsync<RupeeFile> => {
-	const { ledger, from, to } = options;
-	return ledgerFiles(ledger)
-		.andThen((f) => f.rename(from, to))
-		.andTee((r) =>
-			index(ledger.id)
-				.rename(from, to)
-				.andThen((t) =>
-					isCounted(from) === isCounted(to)
-						? rebook(ledger.id, { failed: [], touched: t })
-						: reindex(ledger.id, r),
-				),
-		);
-};
+/** Moves each file on its own, so a name already taken skips only that file. */
+export const renameFiles = (l: Ledger, moves: Move[]): ResultAsync<Batch<RupeeFile>> =>
+	ledgerFiles(l).andThen((f) =>
+		changeEach(
+			l.id,
+			moves.map((m) => () => f.rename(m.from, m.to).andThen((r) => indexed(r, move(l.id, m, r)))),
+		),
+	);
 
-export const deleteFile = (l: Ledger, k: string): ResultAsync<void> =>
-	ledgerFiles(l)
-		.andThen((f) => f.delete(k))
-		.andTee(() => unindex(l.id, k).andThen((i) => rebook(l.id, i)));
+export const deleteFiles = (l: Ledger, keys: string[]): ResultAsync<Batch<string>> =>
+	ledgerFiles(l).andThen((f) =>
+		changeEach(
+			l.id,
+			keys.map((k) => () => f.delete(k).andThen(() => indexed(k, unindex(l.id, k)))),
+		),
+	);
 
 type WriteFileOptions = {
 	ledger: Ledger;
@@ -88,3 +84,31 @@ const writeFile = (options: WriteFileOptions): ResultAsync<RupeeFile> => {
 };
 
 const reindex = (id: string, f: RupeeFile) => indexFile(id, f).andThen((i) => rebook(id, i));
+
+type Changed<T> = { value: T; indexed: Indexed };
+
+// If indexing fails, the next sync picks the file up.
+const indexed = <T>(v: T, i: ResultAsync<Indexed>): ResultAsync<Changed<T>> =>
+	i.orElse((e) => ok({ failed: [e], touched: [] })).map((x) => ({ value: v, indexed: x }));
+
+const move = (id: string, m: Move, r: RupeeFile): ResultAsync<Indexed> =>
+	index(id)
+		.rename(m.from, m.to)
+		.andThen((t) =>
+			isCounted(m.from) === isCounted(m.to)
+				? okAsync({ failed: [], touched: t })
+				: indexFile(id, r),
+		);
+
+// One file at a time, since embedded Postgres has one connection, and
+// lots rebooked once for them all.
+const changeEach = <T>(id: string, steps: (() => ResultAsync<Changed<T>>)[]) =>
+	batchInOrder(steps).andThen((b) => {
+		const changed = b.succeeded;
+		const failed = [...b.failed, ...changed.flatMap((c) => c.indexed.failed)];
+		const touched = changed.flatMap((c) => c.indexed.touched);
+		return rebook(id, { failed, touched }).map((f) => ({
+			succeeded: changed.map((c) => c.value),
+			failed: f,
+		}));
+	});

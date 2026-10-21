@@ -30,7 +30,7 @@ export const syncIndex = (ledger: Ledger): ResultAsync<RupeeError[]> =>
 			.andThen((e) => embed(ledger.id, e)),
 	);
 
-type Indexed = { failed: RupeeError[]; touched: string[] };
+export type Indexed = { failed: RupeeError[]; touched: string[] };
 
 // One file at a time, since embedded Postgres has one connection. A failed
 // step is reported, not fatal; failing to list either side is.

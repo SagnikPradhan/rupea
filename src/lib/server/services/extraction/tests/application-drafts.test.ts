@@ -176,8 +176,8 @@ describe('saving a draft', () => {
 			expect(again).toMatchObject(ok({ key: `_/imports/${day()}/aug-02.rupee` }));
 			expect(await Transactions.getTransactions(ledger)).toMatchObject(ok({ succeeded: [] }));
 
-			await Files.deleteFile(ledger, `_/imports/${day()}/aug-02.rupee`);
-			await Files.renameFile({ ledger, from: key, to: 'bank/aug.rupee' });
+			await Files.deleteFiles(ledger, [`_/imports/${day()}/aug-02.rupee`]);
+			await Files.renameFiles(ledger, [{ from: key, to: 'bank/aug.rupee' }]);
 			expect(await Transactions.getTransactions(ledger)).toMatchObject(
 				ok({ succeeded: [{ description: 'UPI GROCER' }, { description: 'SALARY' }] }),
 			);

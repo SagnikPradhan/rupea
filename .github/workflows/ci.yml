@@ -47,11 +47,7 @@ jobs:
           key: models-${{ hashFiles('src/lib/server/shared/onnx/models.ts') }}
       - run: pnpm models
       - run: pnpm playwright install --with-deps chromium
-      - run: pnpm test:e2e
-        env:
-          E2E_COVERAGE: coverage/e2e-raw
-      - if: ${{ !cancelled() }}
-        run: node --experimental-strip-types scripts/coverage-e2e.ts
+      - run: pnpm test:e2e:coverage
       - if: ${{ !cancelled() }}
         uses: coverallsapp/github-action@v2
         with:

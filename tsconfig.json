@@ -7,6 +7,7 @@
 		"tests",
 		"vite.config.ts",
 		"playwright.config.ts",
-		"drizzle.config.ts"
+		"drizzle.config.ts",
+		"mcr.config.ts"
 	]
 }

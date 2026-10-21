@@ -37,5 +37,6 @@ Rupee reads like a sharp accountant's working paper: numbers first, structure on
 - The muted colour is tuned to sit just above 4.5:1 in both themes.
 - Files are a table on their own page rather than a tree beside the editor, and an open file has the full width.
 - Net worth leads the accounts page: its figure in display type, then a graph of it, then the accounts that make it up.
+- A list's filters are rows above it, each a muted name beside its choices as plain links, the chosen one in the accent, so filtering is following links rather than filling in a form. Every choice is always in view; nothing opens to show them. An account's row reads as a path, from All down through its parents to it, then the accounts under it, each with its parents' first letters faded before its name, as on the accounts page. The choices line up with the table's second column, so the filters and the table share one edge. Only the search is typed, into a full-width field above the rows, named by its placeholder.
 - Lots are one table, each lot a lead row with its sales under it, rather than a heading and a table per lot.
 - File keys are meant to be case-insensitive. The backend still matches them by case, until it changes.

@@ -14,6 +14,7 @@ import {
 	inArray,
 	isNotNull,
 	isNull,
+	lte,
 	ne,
 	or,
 	sql,
@@ -414,6 +415,7 @@ const byIds =
 /** What a list is narrowed to; a null side is left open. */
 export type ListFilter = {
 	from: Temporal.PlainDate;
+	to: Temporal.PlainDate;
 	account: string | null;
 	description: string | null;
 };
@@ -553,6 +555,7 @@ const listed = (ledgerId: string, filter: ListFilter) =>
 	and(
 		eq(transactionTable.ledgerId, ledgerId),
 		gte(transactionTable.date, filter.from.toString()),
+		lte(transactionTable.date, filter.to.toString()),
 		filter.description === null
 			? undefined
 			: ilike(transactionTable.description, `%${literalLike(filter.description)}%`),

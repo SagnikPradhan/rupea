@@ -28,6 +28,7 @@ export const summary = async (ledgerId: string) => {
 /** A filter that leaves every side open. */
 export const everything = {
 	from: Temporal.PlainDate.from('0001-01-01'),
+	to: Temporal.PlainDate.from('9999-12-31'),
 	account: null,
 	description: null,
 };

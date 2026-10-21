@@ -161,14 +161,16 @@ describe('filtering', () => {
 			.transactionPage({ filter, after: null, limit: 10 })
 			.map((p) => p.rows.map((t) => t.description));
 
-	it('keeps transactions on or after a day', ({ context, db }) =>
+	it('keeps transactions between two days, both included', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({ ledger, key: 'a.rupee', content });
 
-			expect(
-				(await descriptions(ledger, { ...everything, from: day('2026-08-03') }))._unsafeUnwrap(),
-			).toEqual(['Market', 'SWIGGY lunch']);
+			const between = { ...everything, from: day('2026-08-02'), to: day('2026-08-03') };
+			expect((await descriptions(ledger, between))._unsafeUnwrap()).toEqual([
+				'SWIGGY lunch',
+				'Swiggy dinner',
+			]);
 		}));
 
 	it('finds a description by any part of it, whatever its case, wildcards included', ({

@@ -54,6 +54,7 @@ export const getAccountNames = query(Handle, async (h) =>
 
 const listed = (filter: Filter, day: Temporal.PlainDate): Transactions.ListFilter => ({
 	from: startOf[filter.range](day),
+	to: day,
 	account: filter.account || null,
 	description: filter.description || null,
 });

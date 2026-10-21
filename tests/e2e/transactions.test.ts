@@ -43,17 +43,26 @@ test('loads older transactions on scrolling, and narrows them by filter', async 
 		await expect(rows.filter({ hasText: 'Shop 001' })).toBeVisible({ timeout: 500 });
 	}).toPass();
 
-	await page.getByLabel('Description').fill('rent');
+	await page.getByLabel('Search').fill('rent');
 	await expect(page).toHaveURL(/description=rent/);
 	await expect(rows.filter({ hasText: 'Rent' })).toBeVisible();
 	await expect(rows.filter({ hasText: 'Shop' })).toHaveCount(0);
 
-	await page.getByLabel('Description').fill('');
-	await page.getByLabel('Account').fill('expenses:food');
-	await page.getByLabel('Account').press('Enter');
-	await expect(page).toHaveURL(/account=expenses%3Afood/);
+	await page.getByLabel('Search').fill('');
+	await expect(page).not.toHaveURL(/description=rent/);
+	const accounts = page.getByRole('navigation', { name: 'Account' });
+	await accounts.getByRole('link', { name: 'Expenses' }).click();
+	await accounts.getByRole('link', { name: 'Expenses:Food' }).click();
+	await expect(page).toHaveURL(/account=Expenses%3AFood/);
 	await expect(rows.filter({ hasText: 'Shop 150' })).toBeVisible();
 	await expect(rows.filter({ hasText: 'Rent' })).toHaveCount(0);
+
+	await page.getByRole('link', { name: '1Y', exact: true }).click();
+	await expect(page).toHaveURL(/range=1y/);
+	await expect(page.getByRole('link', { name: '1Y', exact: true })).toHaveAttribute(
+		'aria-current',
+		'page',
+	);
 });
 
 test('lists counted postings, narrowed to an account', async ({ signedIn: page, ledger }) => {
@@ -63,5 +72,6 @@ test('lists counted postings, narrowed to an account', async ({ signedIn: page, 
 	const rows = page.getByRole('rowgroup');
 	await expect(rows.filter({ hasText: 'Assets:Bank' })).toContainText('-9,000.00');
 	await expect(rows.filter({ hasText: 'Expenses:Housing' })).toHaveCount(0);
-	await expect(page.getByRole('link', { name: 'All' })).toHaveAttribute('aria-current', 'page');
+	const dates = page.getByRole('navigation', { name: 'Date' });
+	await expect(dates.getByRole('link', { name: 'All' })).toHaveAttribute('aria-current', 'page');
 });

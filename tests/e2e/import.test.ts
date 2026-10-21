@@ -36,7 +36,7 @@ test('unlocks a statement with its password', async ({ signedIn: page, ledger })
 	await page.getByLabel('Statements').setInputFiles(data('locked.xls'));
 	await expect(page.getByRole('alert')).toContainText('ExtractionLocked');
 
-	await page.getByLabel('Password for locked.xls').fill('secret');
+	await page.getByLabel(/Password for \d{8}\/locked\.xls/).fill('secret');
 	await page.getByRole('button', { name: 'Unlock' }).click();
 	await expect(page.getByRole('table', { name: 'Grid' })).toContainText('8997.35');
 });

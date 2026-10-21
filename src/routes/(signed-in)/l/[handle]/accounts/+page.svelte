@@ -150,7 +150,7 @@
 
 	tr.leaf .name,
 	th.nested .name {
-		font-size: 1.125rem;
+		font-size: var(--font-size-2);
 	}
 
 	.prefix {

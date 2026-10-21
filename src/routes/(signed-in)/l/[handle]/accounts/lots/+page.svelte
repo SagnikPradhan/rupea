@@ -60,7 +60,7 @@
 						</td>
 						<Amount value={disposal.units} />
 						<Amount value={disposal.price} optional />
-						<Amount value={disposal.gain} gain />
+						<Amount value={disposal.gain} signed />
 					</tr>
 				{/each}
 			</tbody>

@@ -51,10 +51,10 @@ describe('moving files', () => {
 			expect(moved).toMatchObject(
 				ok({ succeeded: [{ key: 'bank/a.rupee' }], failed: [{ type: 'StorageConflict' }] }),
 			);
-			expect((await summary(ledger.id)).toSorted()).toEqual([
+			expect(await summary(ledger.id)).toEqual([
 				'b.rupee:1 Salary',
-				'bank/a.rupee:1 Groceries',
 				'bank/b.rupee:1 Salary',
+				'bank/a.rupee:1 Groceries',
 			]);
 		}));
 

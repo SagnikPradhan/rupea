@@ -85,91 +85,103 @@
 	/>
 {/snippet}
 
-<Issues {handle} errors={step.errors} />
+<section>
+	<Issues {handle} errors={step.errors} />
 
-{#if files.length === 0}
-	<p class="empty">No files yet.</p>
-{:else}
-	<div class="toolbar">
-		{#if step.now === 'choosing'}
-			<label>
-				{@render checkbox(
-					files.map((f) => f.key),
-					'Select all files',
-					null,
-				)}
-				{chosen.length === 0 ? 'Select all' : `${chosen.length} selected`}
-			</label>
-			{#if chosen.length > 0}
-				<Button onclick={() => (step.now = 'moving')}>Move</Button>
-				<Button onclick={() => (step.now = 'deleting')}>Delete</Button>
+	{#if files.length === 0}
+		<p class="empty">No files yet.</p>
+	{:else}
+		<div class="toolbar">
+			{#if step.now === 'choosing'}
+				<label>
+					{@render checkbox(
+						files.map((f) => f.key),
+						'Select all files',
+						null,
+					)}
+					{chosen.length === 0 ? 'Select all' : `${chosen.length} selected`}
+				</label>
+				{#if chosen.length > 0}
+					<Button onclick={() => (step.now = 'moving')}>Move</Button>
+					<Button onclick={() => (step.now = 'deleting')}>Delete</Button>
+				{/if}
 			{/if}
-		{/if}
 
-		{#if step.now === 'moving'}
-			<form class="toolbar" onsubmit={move}>
-				<Field label={`Move ${chosen.length} files to folder`}>
-					<input bind:value={step.folder} placeholder="bank/2026" />
-				</Field>
-				<Button primary>Move</Button>
-				<Button type="button" onclick={() => (step.now = 'choosing')}>Cancel</Button>
-			</form>
-		{/if}
+			{#if step.now === 'moving'}
+				<form class="toolbar" onsubmit={move}>
+					<Field label={`Move ${chosen.length} files to folder`}>
+						<input bind:value={step.folder} placeholder="bank/2026" />
+					</Field>
+					<Button primary>Move</Button>
+					<Button type="button" onclick={() => (step.now = 'choosing')}>Cancel</Button>
+				</form>
+			{/if}
 
-		{#if step.now === 'deleting'}
-			<div class="toolbar" role="group" aria-label="Confirm delete">
-				<p>Delete {chosen.length} files?</p>
-				<Button primary onclick={remove}>Delete</Button>
-				<Button onclick={() => (step.now = 'choosing')}>Cancel</Button>
-			</div>
-		{/if}
-	</div>
+			{#if step.now === 'deleting'}
+				<div class="toolbar" role="group" aria-label="Confirm delete">
+					<p>Delete {chosen.length} files?</p>
+					<Button primary onclick={remove}>Delete</Button>
+					<Button onclick={() => (step.now = 'choosing')}>Cancel</Button>
+				</div>
+			{/if}
+		</div>
 
-	<LedgerTable
-		columns={[
-			{ label: 'File' },
-			{ label: 'Modified', kind: 'date' },
-			{ label: 'Size', kind: 'amount' },
-		]}
-	>
-		<tbody>
-			{#each rows as row (row.path)}
-				<tr>
-					<th scope="row" class="truncate">
-						<span class="entry" style:--depth={row.depth}>
-							{#if row.file}
-								{@render checkbox([row.path], `Select ${row.path}`, row.path)}
-								<a href={fileHref(handle, row.path)} class="plain">{row.name}</a>
-							{:else}
-								{@const Chevron = collapsed.has(row.path) ? IconCollapsed : IconExpanded}
-								{@render checkbox(keysUnder(files, row.path), `Select ${row.path}`, null)}
-								<button
-									class="folder"
-									aria-expanded={!collapsed.has(row.path)}
-									onclick={() => fold(row.path)}
-								>
-									<Chevron size={16} />
-									{row.name}/
-								</button>
-							{/if}
-							{#if row.depth === 0 && !isCounted(row.path)}<span class="tag">not counted</span>{/if}
-						</span>
-					</th>
-					<td class="date">{row.file ? formatMoment(row.file.modified) : ''}</td>
-					<td class="amount size">{row.file ? formatSize(row.file.size) : ''}</td>
-				</tr>
-			{/each}
-		</tbody>
-	</LedgerTable>
-{/if}
+		<LedgerTable
+			columns={[
+				{ label: 'File' },
+				{ label: 'Modified', kind: 'date' },
+				{ label: 'Size', kind: 'amount' },
+			]}
+		>
+			<tbody>
+				{#each rows as row (row.path)}
+					<tr>
+						<th scope="row" class="truncate">
+							<span class="entry" style:--depth={row.depth}>
+								{#if row.file}
+									{@render checkbox([row.path], `Select ${row.path}`, row.path)}
+									<a href={fileHref(handle, row.path)} class="plain">{row.name}</a>
+								{:else}
+									{@const Chevron = collapsed.has(row.path) ? IconCollapsed : IconExpanded}
+									{@render checkbox(keysUnder(files, row.path), `Select ${row.path}`, null)}
+									<button
+										class="folder"
+										aria-expanded={!collapsed.has(row.path)}
+										onclick={() => fold(row.path)}
+									>
+										<Chevron size={16} />
+										{row.name}/
+									</button>
+								{/if}
+								{#if row.depth === 0 && !isCounted(row.path)}<span class="tag">not counted</span
+									>{/if}
+							</span>
+						</th>
+						<td class="date">{row.file ? formatMoment(row.file.modified) : ''}</td>
+						<td class="amount size">{row.file ? formatSize(row.file.size) : ''}</td>
+					</tr>
+				{/each}
+			</tbody>
+		</LedgerTable>
+	{/if}
+</section>
 
 <style>
+	section {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-2);
+	}
+
 	.toolbar {
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--size-1);
 		align-items: end;
-		min-height: var(--size-5);
+	}
+
+	form.toolbar {
+		flex: 1;
 	}
 
 	form.toolbar > :global(:first-child) {

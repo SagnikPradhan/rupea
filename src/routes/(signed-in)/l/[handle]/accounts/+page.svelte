@@ -32,13 +32,12 @@
 		{ label: 'Cost', kind: 'amount', optional: true },
 		{ label: 'Price', kind: 'amount', optional: true },
 		{ label: 'Value', kind: 'amount' },
-		{ label: 'Gain', kind: 'amount' },
 	]}
 >
 	{#each response.data ?? [] as account (account.account)}
 		<tbody>
 			<tr>
-				<th scope="row" class="truncate">
+				<th scope="row">
 					<Account account={account.account} />
 					{#if account.unpriced > 0}<span class="tag">{account.unpriced} unpriced</span>{/if}
 				</th>
@@ -46,7 +45,6 @@
 				<Amount value={null} optional />
 				<Amount value={null} optional />
 				<Amount value={account.total} />
-				<Amount value={null} />
 			</tr>
 			{#each account.holdings as holding (holding.commodity)}
 				<tr class="child">
@@ -62,8 +60,9 @@
 					<Amount value={holding.units} optional />
 					<Amount value={holding.cost} optional />
 					<Amount value={holding.price} optional />
-					<Amount value={holding.value}><span class="unpriced">unpriced</span></Amount>
-					<Amount value={holding.gain} gain />
+					<Amount value={holding.value} gain={holding.gain}
+						><span class="unpriced">unpriced</span></Amount
+					>
 				</tr>
 			{/each}
 		</tbody>

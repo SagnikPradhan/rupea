@@ -10,7 +10,7 @@ import { it as base } from '#tests/shared/vitest.ts';
 import { processes, type Processes } from '#services/jobs/adapters/processes.ts';
 import { eq, sql } from 'drizzle-orm';
 import { fileURLToPath } from 'node:url';
-import { describe, expect } from 'vitest';
+import { describe, expect, vi } from 'vitest';
 import * as v from 'valibot';
 import * as Jobs from '#services/jobs/application/jobs.ts';
 import * as Orchestrator from '#services/jobs/application/orchestrator.ts';
@@ -337,6 +337,20 @@ describe('workers', () => {
 
 		await workers.stop();
 		await handle.close();
+	});
+
+	it('stop at once, with a warning, when there are none', async ({ context }) => {
+		const warn = vi.spyOn(context.logger, 'warn');
+		const workers = Orchestrator.orchestrate({
+			context,
+			jobs: [],
+			dispatch: inProcess([]),
+			count: 0,
+			ready: Promise.resolve(),
+		});
+
+		expect(warn).toHaveBeenCalledWith('jobs stopped, since there are no workers');
+		await expect(workers.stop()).resolves.toBeUndefined();
 	});
 });
 

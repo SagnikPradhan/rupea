@@ -31,6 +31,12 @@ describe('an amount', () => {
 		expect(cell().querySelector('.commodity')?.textContent).toBe('CSPX');
 	});
 
+	it('shortens a compact amount, with every digit in its tooltip', () => {
+		render(Amount, { value: '7639574.02', compact: true });
+		expect(textOf(cell())).toBe('76.4L');
+		expect(cell().title).toBe('76,39,574.02');
+	});
+
 	it('adds a note to its tooltip', () => {
 		render(Amount, { value: '1250.5', note: '@ 21.39' });
 		expect(cell().title).toBe('@ 21.39');

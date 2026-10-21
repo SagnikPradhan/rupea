@@ -36,11 +36,11 @@ test('shows what each account holds and what it is worth', async ({ signedIn: pa
 
 	await visit(page, `${ledger}/accounts`);
 	const zerodha = page.getByRole('row').filter({ hasText: 'Zerodha' });
-	for (const cell of ['1 unpriced', '9,000.00', '10,800.00', '1,800.00', '+20%'])
+	for (const cell of ['1 unpriced', '9K', '10,800.00', '1.8K', '+20%'])
 		await expect(zerodha).toContainText(cell);
 	const infy = page.getByRole('row').filter({ hasText: 'INFY' });
-	for (const cell of ['6.00 INFY', '9,000.00', '10,800.00', '1,800.00', '+20%'])
-		await expect(infy).toContainText(cell);
+	for (const cell of ['6', '9K', '10,800.00', '1.8K', '+20%'])
+		await expect(infy.getByRole('cell', { name: cell, exact: true })).toBeVisible();
 	await expect(infy.getByTitle('@ 1,800.00')).toHaveText('10,800.00');
 	await expect(page.getByRole('row').filter({ hasText: 'TCS' })).toContainText('unpriced');
 

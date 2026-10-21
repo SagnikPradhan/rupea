@@ -62,6 +62,9 @@ export const withServer = async (use: (server: Server) => Promise<void>) => {
 			RUPEE_MODELS_DIR: resolve('data/models'),
 			RUPEE_LOG_LEVEL: 'info',
 			RUPEE_ACCOUNTS_SIGNUP: 'open',
+			...(process.env['E2E_COVERAGE'] && {
+				NODE_V8_COVERAGE: resolve(process.env['E2E_COVERAGE'], 'server'),
+			}),
 		},
 		stdio: ['ignore', 'pipe', 'inherit'],
 	});
@@ -69,6 +72,9 @@ export const withServer = async (use: (server: Server) => Promise<void>) => {
 	createInterface({ input: child.stdout }).on('line', (l) => mails.push(...mailIn(l)));
 	await untilUp(url);
 	await use({ url, codeFor: (email) => untilMailed(mails, email) });
+	// Node writes NODE_V8_COVERAGE only once the server has exited.
+	const exited = new Promise((r) => child.once('exit', r));
 	child.kill();
+	await exited;
 	await rm(directory, { recursive: true, force: true });
 };

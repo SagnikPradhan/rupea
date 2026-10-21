@@ -31,3 +31,39 @@ jobs:
       - run: pnpm models
       - run: pnpm test:coverage
       - uses: coverallsapp/github-action@v2
+        with:
+          file: coverage/lcov.info
+          flag-name: unit
+          parallel: true
+
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+      - uses: ./.github/actions/setup
+      - uses: actions/cache@v6
+        with:
+          path: data/models
+          key: models-${{ hashFiles('src/lib/server/shared/onnx/models.ts') }}
+      - run: pnpm models
+      - run: pnpm playwright install --with-deps chromium
+      - run: pnpm test:e2e
+        env:
+          E2E_COVERAGE: coverage/e2e-raw
+      - if: ${{ !cancelled() }}
+        run: node --experimental-strip-types scripts/coverage-e2e.ts
+      - if: ${{ !cancelled() }}
+        uses: coverallsapp/github-action@v2
+        with:
+          file: coverage/e2e/lcov.info
+          flag-name: e2e
+          parallel: true
+
+  coverage:
+    needs: [test, e2e]
+    if: ${{ !cancelled() }}
+    runs-on: ubuntu-latest
+    steps:
+      - uses: coverallsapp/github-action@v2
+        with:
+          parallel-finished: true

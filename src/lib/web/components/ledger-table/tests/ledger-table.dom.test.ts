@@ -25,10 +25,15 @@ describe('an amount', () => {
 		expect(cell().classList.contains('positive')).toBe(false);
 	});
 
-	it('shows a gain beneath its value, by its sign', () => {
-		render(Amount, { value: '1800', gain: '-300' });
-		expect(textOf(cell())).toBe('1,800.00 -300.00');
-		expect(cell().querySelector('small')?.classList.contains('negative')).toBe(true);
+	it('mutes the commodity after the number', () => {
+		render(Amount, { value: '16.53391 CSPX' });
+		expect(textOf(cell())).toBe('16.5339 CSPX');
+		expect(cell().querySelector('.commodity')?.textContent).toBe('CSPX');
+	});
+
+	it('adds a note to its tooltip', () => {
+		render(Amount, { value: '1250.5', note: '@ 21.39' });
+		expect(cell().title).toBe('@ 21.39');
 	});
 
 	it('rounds to two places, with every digit in its tooltip', () => {

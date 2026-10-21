@@ -14,6 +14,7 @@ export type ValuedHolding = {
 	hasLots: boolean;
 	price: Quantity | null;
 	value: Amount | null;
+	paid: Amount | null;
 	gain: Amount | null;
 };
 
@@ -31,27 +32,39 @@ export const valued = (holding: Holding, prices: Record<string, Quantity>): Valu
 		hasLots: hasLots(holding.commodity),
 		price: prices[holding.commodity] ?? null,
 		value: worth,
+		paid,
 		gain: worth === null || paid === null ? null : ((worth - paid) as Amount),
 	};
 };
 
 export type Account = {
 	account: string;
+	/** What the account holds itself, rupees included; a parent may hold nothing of its own. */
 	holdings: ValuedHolding[];
 	total: Amount;
+	/** What the holdings under it with both a cost and a price cost in rupees, and gained since. */
+	cost: Amount | null;
+	gain: Amount | null;
 	unpriced: number;
 };
 
-/** Each account holding something, what it holds besides rupees, and its worth in rupees. */
+/** Each account holding something and every parent of one, a parent first, totalling all held under it. */
 export const byAccount = (holdings: ValuedHolding[]): Account[] =>
-	Object.entries(Object.groupBy(holdings, (h) => h.account))
-		.toSorted(([a], [b]) => a.localeCompare(b))
-		.map(([account, held = []]) => ({
+	[...new Set(holdings.flatMap((h) => parentsOf(h.account)))].toSorted(byPath).map((account) => {
+		const under = holdings.filter(
+			(h) => h.account === account || h.account.startsWith(`${account}:`),
+		);
+		const gained = under.filter((h) => h.gain !== null);
+
+		return {
 			account,
-			holdings: held.filter((h) => h.commodity !== DEFAULT_COMMODITY),
-			total: sum(held.map((h) => h.value ?? (0n as Amount))),
-			unpriced: held.filter((h) => h.value === null).length,
-		}));
+			holdings: under.filter((h) => h.account === account),
+			total: sum(under.map((h) => h.value ?? (0n as Amount))),
+			cost: gained.length === 0 ? null : sum(gained.map((h) => h.paid ?? (0n as Amount))),
+			gain: gained.length === 0 ? null : sum(gained.map((h) => h.gain ?? (0n as Amount))),
+			unpriced: under.filter((h) => h.value === null).length,
+		};
+	});
 
 const inRupees = (
 	quantity: Quantity,
@@ -63,4 +76,15 @@ const inRupees = (
 	const price = prices[quantity.commodity];
 	const rate = price && hops > 0 ? inRupees(price, prices, hops - 1) : null;
 	return rate === null ? null : multiply(quantity.amount, rate);
+};
+
+const parentsOf = (a: string) => a.split(':').map((_, i, p) => p.slice(0, i + 1).join(':'));
+
+/** Compares part by part, so a parent sorts right before its own sub-accounts. */
+const byPath = (a: string, b: string) => {
+	const x = a.split(':');
+	const y = b.split(':');
+	const i = x.findIndex((p, n) => p !== y[n]);
+
+	return i === -1 ? x.length - y.length : (x[i] ?? '').localeCompare(y[i] ?? '');
 };

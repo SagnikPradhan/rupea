@@ -36,11 +36,12 @@ describe('accounts', () => {
 			await Files.createFile({ ledger, key: 'a.rupee', content });
 
 			const accounts = (await Accounts.getAccounts(ledger, day))._unsafeUnwrap().succeeded;
-			expect(accounts.map((a) => [a.account, a.total, a.unpriced])).toEqual([
-				['Assets:Bank', -10100_0000000000n, 0],
-				['Assets:Zerodha', 12600_0000000000n, 1],
+			expect(accounts.map((a) => [a.account, a.total, a.cost, a.gain, a.unpriced])).toEqual([
+				['Assets', 2500_0000000000n, 10900_0000000000n, 1700_0000000000n, 1],
+				['Assets:Bank', -10100_0000000000n, null, null, 0],
+				['Assets:Zerodha', 12600_0000000000n, 10900_0000000000n, 1700_0000000000n, 1],
 			]);
-			expect(accounts[1]?.holdings).toMatchObject([
+			expect(accounts[2]?.holdings).toMatchObject([
 				{
 					commodity: 'INFY',
 					units: 7_0000000000n,

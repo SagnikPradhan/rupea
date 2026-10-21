@@ -82,6 +82,10 @@ export const formatCompact = (n: number) => compacts.format(n);
 /** Formats a ratio like `0.251` as a signed percent, `+25.1%`. */
 export const formatPercent = (r: number) => percents.format(r);
 
+/** A gain as a signed share of what it cost, like +25.1%, or nothing without a positive cost. */
+export const formatReturn = (g: string | null, c: string | null) =>
+	g === null || c === null || Number(c) <= 0 ? null : formatPercent(Number(g) / Number(c));
+
 /** How far an amount moved from a start; no percent without a positive start. */
 export const formatChange = (start: string, end: string) => {
 	const from = Number(start);

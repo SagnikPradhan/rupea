@@ -7,6 +7,7 @@ import {
 	formatExact,
 	formatIsoDate,
 	formatMoment,
+	formatReturn,
 	formatShortDate,
 	formatSize,
 } from '#lib/web/format.ts';
@@ -33,6 +34,18 @@ describe('formatExact', () => {
 		expect(formatExact('1250.5678')).toBe('1,250.5678');
 		expect(formatExact('0.123456789 USD')).toBe('0.123456789 USD');
 		expect(formatExact('1250.5')).toBeUndefined();
+	});
+});
+
+describe('formatReturn', () => {
+	it('gives a gain as a share of its cost', () => {
+		expect(formatReturn('250', '1000')).toBe('+25%');
+		expect(formatReturn('-74.58', '399972.56')).toBe('0%');
+	});
+
+	it('gives nothing without a gain or a positive cost', () => {
+		expect(formatReturn(null, '1000')).toBeNull();
+		expect(formatReturn('10', '0')).toBeNull();
 	});
 });
 

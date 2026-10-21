@@ -7,9 +7,8 @@
 	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
 	import { formatAmount, formatDate } from '#lib/web/format.ts';
 	import { ledgerCrumb } from '#lib/web/links.ts';
+	import { changeOf, RANGES, rangeOf } from '#lib/web/worth.ts';
 	import { page } from '$app/state';
-
-	const RANGES = { '1m': '1M', ytd: 'YTD', '1y': '1Y' };
 
 	const { data } = $props();
 
@@ -22,23 +21,7 @@
 
 	const first = $derived(worth[0]);
 	const last = $derived(worth[cursor.index ?? -1] ?? worth.at(-1));
-	const change = $derived(first && last ? Number(last.worth) - Number(first.worth) : 0);
-	const percent = $derived(first && Number(first.worth) > 0 ? change / Number(first.worth) : null);
-
-	const signed = new Intl.NumberFormat('en-IN', {
-		signDisplay: 'exceptZero',
-		minimumFractionDigits: 2,
-		maximumFractionDigits: 2,
-	});
-	const percents = new Intl.NumberFormat('en-IN', {
-		style: 'percent',
-		signDisplay: 'exceptZero',
-		maximumFractionDigits: 1,
-	});
-
-	function rangeOf(r: string | null) {
-		return r === '1m' || r === '1y' ? r : 'ytd';
-	}
+	const change = $derived(first && last ? changeOf(first, last) : null);
 
 	const lotsOf = (account: string, commodity: string) =>
 		`/l/${handle}/accounts/lots?${new URLSearchParams({ account, commodity })}`;
@@ -48,7 +31,7 @@
 
 <Issues {handle} errors={response.errors} />
 
-{#if first && last}
+{#if first && last && change}
 	<section aria-labelledby="worth" class="worth">
 		<div class="summary">
 			<div class="heading">
@@ -63,8 +46,8 @@
 			</div>
 			<p class="figure">{formatAmount(last.worth)}</p>
 			<p>
-				<span class={change < 0 ? 'negative' : 'positive'}>
-					{signed.format(change)}{#if percent !== null}&nbsp;({percents.format(percent)}){/if}
+				<span class={change.negative ? 'negative' : 'positive'}>
+					{change.amount}{#if change.percent !== null}&nbsp;({change.percent}){/if}
 				</span>
 				{formatDate(first.day)} – {formatDate(last.day)}
 				{#if last.unpriced > 0}<span class="nowrap">· excludes {last.unpriced} unpriced</span>{/if}

@@ -1,17 +1,17 @@
-import { render, screen } from '@testing-library/svelte';
+import { render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { createEditor } from '#lib/web/components/file-editor/file-editor.svelte.ts';
 import FileEditor from '#lib/web/components/file-editor/file-editor.svelte';
 import { fakeApi } from '#lib/web/components/file-editor/tests/fixture.ts';
 
-const rendered = async () => {
+const rendered = async (key: string | null = 'a.rupee') => {
 	const fake = fakeApi({ 'a.rupee': 'one' });
 	const editor = createEditor(fake.api, 0);
-	await editor.open('a.rupee');
+	await editor.open(key);
 	const onopen = vi.fn();
 	const onremoved = vi.fn();
-	render(FileEditor, { handle: 'h', editor, line: null, onopen, onremoved });
+	render(FileEditor, { handle: 'h', trail: [], editor, line: null, onopen, onremoved });
 	return { ...fake, editor, onopen, onremoved, user: userEvent.setup() };
 };
 
@@ -50,5 +50,24 @@ describe('the file editor', () => {
 		await user.click(screen.getByRole('button', { name: 'Delete' }));
 		expect(api.remove).toHaveBeenCalledWith('a.rupee');
 		expect(onremoved).toHaveBeenCalled();
+	});
+
+	it('creates a file when none is open', async () => {
+		const { user, api, onopen } = await rendered(null);
+		await user.click(screen.getByRole('button', { name: 'New file' }));
+		await user.clear(screen.getByLabelText('New file'));
+		await user.type(screen.getByLabelText('New file'), 'b.rupee');
+		await user.click(screen.getByRole('button', { name: 'Create' }));
+
+		expect(api.create).toHaveBeenCalledWith({ key: 'b.rupee', content: '' });
+		expect(onopen).toHaveBeenCalledWith('b.rupee');
+	});
+
+	it('marks the line a parse error points at', async () => {
+		const { editor } = await rendered();
+		editor.edit('one\nbad');
+
+		await waitFor(() => expect(document.querySelectorAll('.cm-problem')).toHaveLength(1));
+		expect(document.querySelector('.cm-problem')?.textContent).toBe('bad');
 	});
 });

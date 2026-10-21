@@ -18,7 +18,7 @@ const fixtures = join(import.meta.dirname, 'fixtures');
 const models = files.every(({ file }) => existsSync(join('data/models', file)));
 
 describe('extracting a statement', () => {
-	it('drafts a ledger file that parses, citing the statement', ({ context, db }) =>
+	it('drafts a ledger file that parses, naming the statement', ({ context, db }) =>
 		// Without the model, lines nobody categorised stay uncategorised.
 		provide({ ...context, models: broken(context.models) }, async () => {
 			const ledger = await createLedger(db);

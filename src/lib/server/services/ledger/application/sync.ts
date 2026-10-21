@@ -54,7 +54,7 @@ const attempt = (s: () => ResultAsync<Indexed>): ResultAsync<Indexed[]> =>
 const reindex = (f: Files, l: string, k: string): ResultAsync<Indexed> =>
 	f.read(k).andThen((r) => indexFile(l, r));
 
-/** A file waiting for review keeps only its metadata: what it cites is known, but nothing in it counts or fails. */
+/** A file waiting for review keeps only its metadata, so where it came from is known, but nothing in it counts or fails. */
 export const indexFile = (ledgerId: string, file: RupeeFile): ResultAsync<Indexed> =>
 	withContext('config')((config) => {
 		const parsed = parse(config.ledger, file);

@@ -30,7 +30,7 @@ export const uploadStatements = form(
 	},
 );
 
-/** Statements uploaded lately that no file cites yet. */
+/** Statements uploaded lately that nothing was imported from yet. */
 export const getInbox = query(Handle, async (h) =>
 	replyFrom(await inLedger({ handle: h, action: Uploads.listInbox })),
 );

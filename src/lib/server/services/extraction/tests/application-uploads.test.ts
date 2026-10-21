@@ -4,7 +4,7 @@ import * as Drafts from '#services/extraction/application/drafts.ts';
 import { importStatement } from '#services/extraction/adapters/jobs.ts';
 import * as Uploads from '#services/extraction/application/uploads.ts';
 import { jobs } from '#services/jobs/adapters/database-schema.ts';
-import { listJobs } from '#services/jobs/application/jobs.ts';
+import { findJobs } from '#services/jobs/application/jobs.ts';
 import { JobStatus } from '#services/jobs/domain/jobs.ts';
 import { metadata } from '#services/ledger/adapters/database-schema.ts';
 import { runJob } from '#services/jobs/application/worker.ts';
@@ -29,7 +29,7 @@ const uploads = (l: Ledger, files: Record<string, string>) =>
 /** Runs each queued import as a worker would, oldest first. */
 const runImports = async (l: Ledger) => {
 	const queued = (
-		await listJobs({ userId: l.owner, name: importStatement.name, payload: {}, limit: 50 })
+		await findJobs({ userId: l.owner, name: importStatement.name, payload: {}, limit: 50 })
 	)._unsafeUnwrap();
 	for (const job of queued.toReversed().filter((j) => j.status === 'queued'))
 		await runJob([importStatement], {
@@ -76,7 +76,7 @@ describe('uploading statements', () => {
 });
 
 describe('importing a ledger file', () => {
-	it('files it for review as written, citing its statement, and counts none of it', ({
+	it('files it for review as written, naming its statement, and counts none of it', ({
 		context,
 		db,
 	}) =>
@@ -117,7 +117,7 @@ describe('importing a ledger file', () => {
 			expect(listed.map((f) => f.key)).toEqual([`_/imports/${day()}/books.rupee`]);
 		}));
 
-	it('leaves only statements to read that no file cites in the inbox', ({ context, db }) =>
+	it('leaves only statements nothing was imported from in the inbox', ({ context, db }) =>
 		provide({ ...context, models: broken(context.models) }, async () => {
 			const ledger = await createLedger(db);
 			await uploads(ledger, { 'books.ledger': books, 'aug.csv': statement });

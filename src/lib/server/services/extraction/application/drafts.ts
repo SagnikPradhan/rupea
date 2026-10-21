@@ -2,7 +2,7 @@ import { withContext } from '#lib/server/shared/context/context.ts';
 import type { Batch } from '#lib/server/shared/result/batch.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { err, ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { findCited, importFile, parseFile } from '#services/ledger/application/files.ts';
+import { findImported, importFile, parseFile } from '#services/ledger/application/files.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
 import { predictAccounts } from '#services/ledger/application/prediction.ts';
 import { categorised, copy, draft, uncategorised, type Draft } from '../domain/draft';
@@ -43,17 +43,18 @@ export const save = ({ ledger, statement, schema }: ExtractOptions) =>
 		),
 	);
 
-/** Files a statement that is a ledger file already, as written, unless a file cites it; so running it again is harmless. */
-export const importText = (l: Ledger, cs: string): ResultAsync<void> =>
-	findCited(l, [cs])
-		.andThen((c) => (c.length > 0 ? okAsync(null) : findByChecksum(l, cs)))
-		.andThen((s) => (s ? copied(l, s) : okAsync(undefined)));
+/** Files an uploaded ledger file for review as written, unless it was imported already. */
+export const importLedgerFile = (ledger: Ledger, cs: string): ResultAsync<void> =>
+	findImported(ledger, [cs])
+		.andThen((i) => (i.length > 0 ? okAsync(null) : findByChecksum(ledger, cs)))
+		.andThen((s) => {
+			if (!s) return okAsync(undefined);
 
-const copied = (ledger: Ledger, s: Statement): ResultAsync<void> =>
-	withContext('config')((c) => {
-		const d = copy({ config: c.ledger, statement: s, text: s.text });
-		return importFile({ ledger, key: d.key, content: d.content }).map(() => undefined);
-	});
+			const d = withContext('config')((c) =>
+				copy({ config: c.ledger, statement: s, text: s.text }),
+			);
+			return importFile({ ledger, key: d.key, content: d.content }).map(() => undefined);
+		});
 
 const withAccount = ({ key, content }: SchemaText) =>
 	parseSchema(key, content).andThen((p) =>

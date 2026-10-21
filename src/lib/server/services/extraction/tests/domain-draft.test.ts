@@ -63,7 +63,7 @@ describe('drafting a ledger file', () => {
 		expect(drafted.key).toBe('_/imports/20260829/hdfc-aug.2026.rupee');
 	});
 
-	it('copies a ledger file as written, citing it above its own metadata', () => {
+	it('copies a ledger file as written, below the metadata of where it came from', () => {
 		const copied = copy({
 			config,
 			statement: { key: '20260829/books.ledger', checksum: 'sha256:abc', originalChecksum: null },
@@ -99,7 +99,7 @@ describe('drafting a ledger file', () => {
 		expect(counterparts(drafted.content)).toEqual(['Expenses:Food', 'Income:Salary']);
 	});
 
-	it('writes a balanced transaction per record, on one header line, citing the statement and its checksum', () => {
+	it('writes a balanced transaction per record, on one header line, naming the statement and its checksum', () => {
 		const drafted = draft({
 			config,
 			statement: { key: 'hdfc.csv', checksum: 'sha256:abc', originalChecksum: null },
@@ -117,7 +117,7 @@ describe('drafting a ledger file', () => {
 		]);
 	});
 
-	it('cites the upload too, when unlocking changed its content', () => {
+	it('names the upload too, when unlocking changed its content', () => {
 		const drafted = draft({
 			config,
 			statement: { key: 'hdfc.pdf', checksum: 'sha256:abc', originalChecksum: 'sha256:def' },

@@ -58,23 +58,22 @@ export const scoped = (storage: Storage, prefix: string): Storage => {
 
 /** Writes a new key, or the first of `name-02.ext`, `name-03.ext` and on that is free or holds this content already, so writing again is harmless. */
 export const writeNumbered = (s: Storage, k: string, c: Uint8Array): ResultAsync<Entry> =>
-	writeAt(s, { key: k, content: c, n: 1 });
+	writeAt(s, k, c, 1);
 
-type WriteAtOptions = { key: string; content: Uint8Array; n: number };
-
-const writeAt = (s: Storage, o: WriteAtOptions): ResultAsync<Entry> => {
-	const key = numbered(o.key, o.n);
+const writeAt = (s: Storage, k: string, c: Uint8Array, n: number): ResultAsync<Entry> => {
+	const key = numbered(k, n);
 	return s
-		.write({ key, content: o.content, ifVersion: null })
-		.orElse((e) => (e.type === 'StorageConflict' ? written(s, key, o) : err(e)));
-};
-
-const written = (s: Storage, key: string, o: WriteAtOptions): ResultAsync<Entry> =>
-	s
-		.read(key)
-		.andThen((r) =>
-			Buffer.from(r.content).equals(o.content) ? ok(r.entry) : writeAt(s, { ...o, n: o.n + 1 }),
+		.write({ key, content: c, ifVersion: null })
+		.orElse((e) =>
+			e.type === 'StorageConflict'
+				? s
+						.read(key)
+						.andThen((r) =>
+							Buffer.from(r.content).equals(c) ? ok(r.entry) : writeAt(s, k, c, n + 1),
+						)
+				: err(e),
 		);
+};
 
 const numbered = (key: string, n: number) => {
 	const extension = extname(key);

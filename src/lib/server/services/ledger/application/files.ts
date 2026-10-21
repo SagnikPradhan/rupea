@@ -14,9 +14,9 @@ export const listFiles = (l: Ledger): ResultAsync<Batch<RupeeFile>> =>
 export const getFile = (l: Ledger, k: string): ResultAsync<RupeeFile> =>
 	ledgerFiles(l).andThen((f) => f.read(k));
 
-/** Of these statement checksums, those some file cites. */
-export const findCited = (l: Ledger, c: string[]): ResultAsync<string[]> =>
-	c.length === 0 ? okAsync([]) : index(l.id).cited(c);
+/** Of these statement checksums, those a file was imported from. */
+export const findImported = (l: Ledger, c: string[]): ResultAsync<string[]> =>
+	c.length === 0 ? okAsync([]) : index(l.id).imported(c);
 
 /** What a file would hold, without storing it. */
 export const parseFile = (k: string, c: string): Batch<RupeeTransaction> =>
@@ -56,7 +56,9 @@ export const renameFiles = (l: Ledger, moves: Move[]): ResultAsync<Batch<RupeeFi
 	ledgerFiles(l).andThen((f) =>
 		changeEach(
 			l.id,
-			moves.map((m) => () => f.rename(m.from, m.to).andThen((r) => indexed(r, move(l.id, m, r)))),
+			moves.map(
+				(m) => () => f.rename(m.from, m.to).andThen((r) => indexed(r, indexMove(l.id, m, r))),
+			),
 		),
 	);
 
@@ -91,7 +93,7 @@ type Changed<T> = { value: T; indexed: Indexed };
 const indexed = <T>(v: T, i: ResultAsync<Indexed>): ResultAsync<Changed<T>> =>
 	i.orElse((e) => ok({ failed: [e], touched: [] })).map((x) => ({ value: v, indexed: x }));
 
-const move = (id: string, m: Move, r: RupeeFile): ResultAsync<Indexed> =>
+const indexMove = (id: string, m: Move, r: RupeeFile): ResultAsync<Indexed> =>
 	index(id)
 		.rename(m.from, m.to)
 		.andThen((t) =>

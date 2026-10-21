@@ -1101,8 +1101,8 @@ const byOwner = (rows: MetadataRow[]): Record<string, RupeeMetadata> =>
 		]),
 	);
 
-/** Of these checksums, those a file's metadata cites, unlocked or as uploaded. */
-const cited =
+/** Of these checksums, those in a file's metadata, unlocked or as uploaded. */
+const imported =
 	(ledgerId: string) =>
 	(checksums: string[]): ResultAsync<string[]> =>
 		withContext('db')((db) =>
@@ -1124,7 +1124,7 @@ const cited =
 
 export const index = (ledgerId: string) => ({
 	files: files(ledgerId),
-	cited: cited(ledgerId),
+	imported: imported(ledgerId),
 	put: put(ledgerId),
 	remove: remove(ledgerId),
 	rename: rename(ledgerId),

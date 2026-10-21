@@ -45,14 +45,14 @@ export const unlockStatement = (options: UnlockOptions): ResultAsync<Statement> 
 /** The statement stored with this content, wherever it was moved, or null once deleted. */
 export const findByChecksum = (l: Ledger, c: string): ResultAsync<Statement | null> =>
 	ledgerStatements(l)
-		.andThen((s) => s.locate(c))
+		.andThen((s) => s.findByChecksum(c))
 		.andThen((s) => (s ? cached(s) : okAsync(null)));
 
 /** A statement the ledger already has, read from the cache while it lasts. */
 export const findStatement = (l: Ledger, k: string): ResultAsync<Statement> =>
 	ledgerStatements(l).andThen((s) =>
 		s
-			.find(k)
+			.findByKey(k)
 			.andThen(({ checksum, originalChecksum }) =>
 				findStatementContents({ checksum, reader: READER_VERSION }).andThen((c) =>
 					c ? okAsync({ key: k, checksum, originalChecksum, ...c }) : s.read(k).andThen(readFresh),
@@ -60,9 +60,9 @@ export const findStatement = (l: Ledger, k: string): ResultAsync<Statement> =>
 			),
 	);
 
-/** Of these statements, those still stored; the rest are forgotten. */
-export const keepStored = (l: Ledger, k: string[]): ResultAsync<string[]> =>
-	ledgerStatements(l).andThen((s) => s.present(k));
+/** Forgets the statements whose file is gone, and returns the keys still stored. */
+export const dropMissing = (l: Ledger, k: string[]): ResultAsync<string[]> =>
+	ledgerStatements(l).andThen((s) => s.dropMissing(k));
 
 const ledgerStatements = (l: Ledger): ResultAsync<Statements> =>
 	openFolder(l, 'statements').map((s) => statements(s, l.id));

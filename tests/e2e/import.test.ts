@@ -59,7 +59,7 @@ test('saves, opens and deletes schemas', async ({ signedIn: page, ledger }) => {
 	await expect(page.getByLabel('Name', { exact: true })).toHaveValue('');
 });
 
-test('imports a ledger file as written, citing its upload', async ({ signedIn: page, ledger }) => {
+test('imports a ledger file as written, naming its upload', async ({ signedIn: page, ledger }) => {
 	await visit(page, `${ledger}/import`);
 	await page
 		.getByLabel('Statements')

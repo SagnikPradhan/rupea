@@ -983,73 +983,72 @@ const unmatched = (ledgerId: string) => (): ResultAsync<UnmatchedDisposal[]> =>
 		),
 	);
 
-const holdings =
-	(ledgerId: string) =>
-	(uncounted: string[]): ResultAsync<Holding[]> =>
-		withContext('db')((db) => {
-			const balances = db
-				.select({
-					account: postings.account,
-					commodity: postings.commodity,
-					units: sql<string>`sum(${postings.amount})::text`.as('units'),
-				})
-				.from(postings)
-				.where(
-					and(
-						eq(postings.ledgerId, ledgerId),
-						inArray(postings.accountType, BALANCE_TYPES),
-						sql`${postings.transactionId} <> all(${sql.param(uncounted)}::uuid[])`,
+const holdings = (ledgerId: string) => (): ResultAsync<Holding[]> =>
+	withContext('db')((db) => {
+		const balances = db
+			.select({
+				account: postings.account,
+				commodity: postings.commodity,
+				units: sql<string>`sum(${postings.amount})::text`.as('units'),
+			})
+			.from(postings)
+			.innerJoin(transactionTable, eq(transactionTable.id, postings.transactionId))
+			.where(
+				and(
+					eq(postings.ledgerId, ledgerId),
+					inArray(postings.accountType, BALANCE_TYPES),
+					eq(transactionTable.counted, true),
+				),
+			)
+			.groupBy(postings.account, postings.commodity)
+			.having(sql`sum(${postings.amount}) <> 0`)
+			.as('balances');
+		const costs = db
+			.select({
+				account: lotTable.account,
+				commodity: lotTable.commodity,
+				costAmount:
+					sql<string>`sum(round(${lotTable.remaining}::numeric * ${lotTable.costAmount} / ${sql.raw(AMOUNT_UNIT.toString())}))::text`.as(
+						'cost_amount',
 					),
-				)
-				.groupBy(postings.account, postings.commodity)
-				.having(sql`sum(${postings.amount}) <> 0`)
-				.as('balances');
-			const costs = db
-				.select({
-					account: lotTable.account,
-					commodity: lotTable.commodity,
-					costAmount:
-						sql<string>`sum(round(${lotTable.remaining}::numeric * ${lotTable.costAmount} / ${sql.raw(AMOUNT_UNIT.toString())}))::text`.as(
-							'cost_amount',
-						),
-					costCommodity: sql<
-						string | null
-					>`case when count(distinct ${lotTable.costCommodity}) = 1 then min(${lotTable.costCommodity}) end`.as(
-						'cost_commodity',
-					),
-				})
-				.from(lotTable)
-				.where(and(eq(lotTable.ledgerId, ledgerId), ne(lotTable.remaining, 0n)))
-				.groupBy(lotTable.account, lotTable.commodity)
-				.as('costs');
+				costCommodity: sql<
+					string | null
+				>`case when count(distinct ${lotTable.costCommodity}) = 1 then min(${lotTable.costCommodity}) end`.as(
+					'cost_commodity',
+				),
+			})
+			.from(lotTable)
+			.where(and(eq(lotTable.ledgerId, ledgerId), ne(lotTable.remaining, 0n)))
+			.groupBy(lotTable.account, lotTable.commodity)
+			.as('costs');
 
-			return attempt(() =>
-				db
-					.select({
-						account: balances.account,
-						commodity: balances.commodity,
-						units: balances.units,
-						costAmount: costs.costAmount,
-						costCommodity: costs.costCommodity,
-					})
-					.from(balances)
-					.leftJoin(
-						costs,
-						and(eq(costs.account, balances.account), eq(costs.commodity, balances.commodity)),
-					)
-					.orderBy(asc(balances.account), asc(balances.commodity)),
-			).map((rows) =>
-				rows.map((row) => ({
-					account: row.account,
-					commodity: row.commodity,
-					units: BigInt(row.units) as Amount,
-					cost: toQuantity({
-						amount: row.costAmount === null ? null : BigInt(row.costAmount),
-						commodity: row.costCommodity,
-					}),
-				})),
-			);
-		});
+		return attempt(() =>
+			db
+				.select({
+					account: balances.account,
+					commodity: balances.commodity,
+					units: balances.units,
+					costAmount: costs.costAmount,
+					costCommodity: costs.costCommodity,
+				})
+				.from(balances)
+				.leftJoin(
+					costs,
+					and(eq(costs.account, balances.account), eq(costs.commodity, balances.commodity)),
+				)
+				.orderBy(asc(balances.account), asc(balances.commodity)),
+		).map((rows) =>
+			rows.map((row) => ({
+				account: row.account,
+				commodity: row.commodity,
+				units: BigInt(row.units) as Amount,
+				cost: toQuantity({
+					amount: row.costAmount === null ? null : BigInt(row.costAmount),
+					commodity: row.costCommodity,
+				}),
+			})),
+		);
+	});
 
 type LatestPriceRow = { commodity: string; priceAmount: string; priceCommodity: string };
 
@@ -1097,7 +1096,7 @@ type WorthRow = {
  */
 const worth =
 	(ledgerId: string) =>
-	(evidence: string[], from: Temporal.PlainDate, to: Temporal.PlainDate): ResultAsync<Worth[]> =>
+	(from: Temporal.PlainDate, to: Temporal.PlainDate): ResultAsync<Worth[]> =>
 		withContext('db')((db) =>
 			attempt(() =>
 				db.execute<WorthRow>(sql`
@@ -1106,7 +1105,7 @@ const worth =
 						from ${postings} p
 						join ${transactionTable} t on t.id = p.transaction_id
 						where p.ledger_id = ${ledgerId} and p.account_type in (${AccountType.Assets}, ${AccountType.Liabilities})
-							and t.date <= ${to.toString()} and t.id <> all(${sql.param(evidence)}::uuid[])
+							and t.date <= ${to.toString()} and t.counted
 						group by 1, 2, 3
 					),
 					days as (

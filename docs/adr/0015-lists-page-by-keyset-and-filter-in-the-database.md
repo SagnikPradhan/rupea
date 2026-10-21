@@ -20,4 +20,4 @@ Whether a transaction counts is stored on it. Settling a change to the ledger's 
 - The cursor is not in the URL, so a link opens a list at its top.
 - Saving a file settles every event it touches, in any file, since a primary can move between them.
 - The browser's find only reaches rows on screen.
-- A follow-up can let balances and lots read the stored column too, instead of working out the uncounted transactions themselves.
+- Holdings and net worth read the stored column too. Settling still works out the uncounted transactions itself, since it is what stores them.

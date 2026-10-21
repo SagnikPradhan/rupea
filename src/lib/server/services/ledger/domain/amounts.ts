@@ -1,10 +1,10 @@
-export const AMOUNT_SCALE = 6;
+export const AMOUNT_SCALE = 9;
 export const AMOUNT_UNIT = 10n ** BigInt(AMOUNT_SCALE);
 
 /** What a bare amount is in. */
 export const DEFAULT_COMMODITY = 'INR';
 
-/** Millionths of a unit, so 1250.5 is 1_250_500_000n; only parseAmount makes one. */
+/** Billionths of a unit, so 1250.5 is 1_250_500_000_000n; only parseAmount makes one. */
 export type Amount = bigint & { readonly brand: unique symbol };
 
 export type Quantity = { amount: Amount; commodity: string };

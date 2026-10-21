@@ -4,23 +4,53 @@ import * as Auth from '#services/auth/application/auth.ts';
 import * as Drafts from '#services/extraction/application/drafts.ts';
 import * as Schemas from '#services/extraction/application/schemas.ts';
 import * as Statements from '#services/extraction/application/statements.ts';
+import * as Uploads from '#services/extraction/application/uploads.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import { viewTransaction } from '#services/ledger/application/shared.ts';
-import { command, form } from '$app/server';
+import { command, form, query } from '$app/server';
 import * as v from 'valibot';
 import { getFiles } from './files.remote';
 import { getSchemas } from './schemas.remote';
 import { Handle, inLedger, Key } from './shared';
-import { getTransactions } from './transactions.remote';
 
-export const uploadStatement = form(
-	v.object({ handle: Handle, file: v.file() }),
-	async ({ handle, file }) => {
-		const upload = { name: file.name, content: new Uint8Array(await file.arrayBuffer()) };
-		return replyFrom(
-			await inLedger({ handle, action: (l) => Statements.uploadStatement(l, upload) }),
+/** Statements to review, and ledger files, which import on their own as jobs. */
+export const uploadStatements = form(
+	v.object({ handle: Handle, files: v.pipe(v.array(v.file()), v.minLength(1)) }),
+	async ({ handle, files }) => {
+		const uploads = await Promise.all(
+			files.map(async (f) => ({ name: f.name, content: new Uint8Array(await f.arrayBuffer()) })),
 		);
+		const uploaded = await inLedger({
+			handle,
+			action: (l, u) => Uploads.uploadStatements({ ledger: l, user: u.id, uploads }),
+		});
+		void getInbox(handle).refresh();
+		void getImports(handle).refresh();
+		return replyFromBatch(uploaded);
 	},
+);
+
+/** Statements uploaded lately that nothing was imported from yet. */
+export const getInbox = query(Handle, async (h) =>
+	replyFrom(await inLedger({ handle: h, action: Uploads.listInbox })),
+);
+
+/** The ledger files this user uploaded here, as their imports run. */
+export const getImports = query(Handle, async (h) =>
+	replyFrom(await inLedger({ handle: h, action: (l, u) => Uploads.listImports(l, u.id) })),
+);
+
+/** A stored statement, read for the schema editor. */
+export const openStatement = command(
+	v.object({ handle: Handle, statement: v.pipe(v.string(), v.nonEmpty()) }),
+	async ({ handle, statement }) =>
+		replyFrom(
+			await inLedger({
+				handle,
+				action: (l) =>
+					Statements.findStatement(l, statement).map((s) => ({ key: s.key, grid: s.grid })),
+			}),
+		),
 );
 
 export const unlockStatement = form(
@@ -65,12 +95,12 @@ export const previewStatement = command(
 	},
 );
 
+/** Files the draft for review under the review area's imports. */
 export const importStatement = form(
 	v.object({
 		handle: Handle,
 		statement: v.pipe(v.string(), v.nonEmpty()),
 		schema: v.object({ key: v.string(), content: v.string() }),
-		key: Key,
 	}),
 	async ({ handle, ...options }) => {
 		const created = await inLedger({
@@ -79,7 +109,7 @@ export const importStatement = form(
 		});
 		void getFiles(handle).refresh();
 		void getSchemas(handle).refresh();
-		void getTransactions(handle).refresh();
+		void getInbox(handle).refresh();
 		return replyFrom(created.map((f) => ({ key: f.key })));
 	},
 );

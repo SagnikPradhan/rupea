@@ -1,12 +1,14 @@
 # Statements and schemas belong to the ledger
 
-A ledger's folder holds three trees: `ledgers/<handle>/files/` for ledger files, `statements/` for the statements imported into it, and `schemas/` for the schemas that read them. A user's storage holds only the ledgers they own. This supersedes the part of [ADR 0005](0005-storage-belongs-to-users.md) that put schemas, and statements with them, in the user's storage: a statement is evidence for a ledger, like a ledger file, and every member needs to reach it. A schema states the account it imports into, and account names belong to a ledger.
+A ledger's folder holds two trees: `ledgers/<handle>/files/` for ledger files and the statements imported into them, and `schemas/` for the schemas that read them. A user's storage holds only the ledgers they own. This supersedes the part of [ADR 0005](0005-storage-belongs-to-users.md) that put schemas, and statements with them, in the user's storage: a statement is evidence for a ledger, like a ledger file, and every member needs to reach it. A schema states the account it imports into, and account names belong to a ledger.
 
 A draft cites its statement by content, not by path. Its file metadata records `checksum:`, the sha256 of the stored statement, and `original-checksum:`, the sha256 of the upload when unlocking a PDF changed it. Statements can then be renamed and moved without touching the files that cite them, which on object storage could not be done atomically. The **inbox** is derived, not a folder: the statements no ledger file in the ledger cites.
 
 Importing is deterministic. A schema lists `match:` patterns, each words to find (`text:`), a regex (`regex:`) or a glob for the file name (`file:`), and matches when any one does. A statement is recognised only when exactly one schema matches, the ledger's schemas first and Rupee's built-in schemas only when none of the ledger's do. Zero or several matches leave the statement in the inbox, saying why. The schema's `account:` names the account, so an import asks for nothing. A built-in schema carries a default account and is copied into the ledger's `schemas/` when its first import is saved, where it can be edited like any file.
 
-The system names what it files. A recognised statement goes to `statements/<account path>/<first date>_<last date>.<ext>` and its draft to `files/imports/<account path>/<first date>_<last date>.rupee`. A statement that is unrecognised or yields no records keeps its uploaded name. The same name with other content gets ` (2)`.
+Uploads and drafts wait in the **review area**, `files/_/`. A statement keeps its uploaded name under the day it came, `_/statements/<yyyymmdd>/<name>`, and a draft is saved beside it as `_/imports/<yyyymmdd>/<name>.rupee`. A name taken that day gets `-02`, `-03` and on, before its extension. The ledger counts nothing under `_/`: its transactions and balances are neither booked nor checked, but its file metadata is indexed, so a draft waiting there still cites its statement. A reviewer fixes the draft and moves it out of `_/` to where it belongs, which is when it counts.
+
+Several statements upload at once. A ledger file (`.rupee`, `.ledger`, `.journal`, `.dat`, `.txt`) is a statement too, one that needs no schema: a job copies it, as written and citing its upload, into `_/imports`, and it never shows in the inbox. It must be UTF-8; directives such as `include` are not followed.
 
 ## Considered Options
 
@@ -17,13 +19,17 @@ The system names what it files. A recognised statement goes to `statements/<acco
 - **Built-in schemas referenced by a ledger schema (`use: hdfc`)**: upstream fixes would reach every ledger, but it is inheritance, and debugging means reading two files.
 - **Built-in schemas copied into every new ledger**: every ledger would carry every bank, and older ledgers would miss schemas added later.
 - **An inbox folder**: it goes stale the moment a statement is filed without importing it.
+- **Naming files after the account and the dates they cover**: it needs a recognised statement and records, so drafts of the same statement differed by who read them; the day and uploaded name need neither.
+- **Drafts reviewed before they are written**: one statement at a time, in the browser, lost on reload; a review area holds many and survives.
 - **Choosing a schema by best score**: the same statement could be read differently as schemas are added.
 
 ## Consequences
 
-- Finding a statement by checksum, and listing the inbox, read a `statements` table of path and checksum per ledger. Like the posting index, it is a cache the statements folder can rebuild, never the truth.
+- Finding a statement by checksum, and listing the inbox, read a `statements` table of path and checksum per ledger. Like the posting index, it is a cache the statements folder can rebuild, never the truth. A row whose file was moved or deleted is dropped when a lookup or the inbox finds the file gone, and uploading that content again stores it anew.
 - Uploading content the ledger already has does nothing. A locked statement unlocked in the inbox and uploaded again before it is imported shows up twice, since no file records its `original-checksum:` yet.
 - A PDF is stored decrypted once its password is given, so returning to it later never asks again. The password is never stored.
 - Every member imports with the ledger's schemas and sees the same recognition.
 - A user with the same bank in two ledgers copies the schema, or lets the built-in one be copied into both.
-- Every import is reviewed in the file editor before it is saved. Saving clean imports without review is meant to become a setting.
+- Every import is reviewed in the file editor before it counts. Moving clean imports out of `_/` without review is meant to become a setting.
+- The old `statements/` tree is not migrated; statements there are no longer found, and uploading one again stores it anew.
+- A file under `_/` that does not parse reports nothing until it is moved out.

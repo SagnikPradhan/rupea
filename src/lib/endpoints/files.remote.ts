@@ -1,5 +1,5 @@
-import { ok, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { type Reply, replyFrom, replyFromBatch } from '#lib/server/shared/result/reply.ts';
+import { ok, type Result, type ResultAsync } from '#lib/server/shared/result/result.ts';
+import { replyFrom, replyFromBatch } from '#lib/server/shared/result/reply.ts';
 import * as Auth from '#services/auth/application/auth.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
@@ -26,30 +26,33 @@ export const formatDraft = command(v.object({ content: v.string() }), async ({ c
 const mutate = async <T>(
 	handle: string,
 	run: (ledger: Ledger.Ledger) => ResultAsync<T>,
-): Promise<Reply<T>> => {
+): Promise<Result<T>> => {
 	const result = await inLedger({ handle, action: run });
 	void getFiles(handle).refresh();
 	void getTransactions(handle).refresh();
-	return replyFrom(result);
+	return result;
 };
 
 export const createFile = command(
 	v.object({ handle: Handle, key: Key, content: v.string() }),
-	({ handle, key, content }) =>
-		mutate(handle, (l) => Files.createFile({ ledger: l, key, content })),
+	async ({ handle, key, content }) =>
+		replyFrom(await mutate(handle, (l) => Files.createFile({ ledger: l, key, content }))),
 );
 
 export const editFile = command(
 	v.object({ handle: Handle, key: Key, content: v.string(), version: v.string() }),
-	({ handle, key, content, version }) =>
-		mutate(handle, (l) => Files.editFile({ ledger: l, key, content, version })),
+	async ({ handle, key, content, version }) =>
+		replyFrom(await mutate(handle, (l) => Files.editFile({ ledger: l, key, content, version }))),
 );
 
-export const renameFile = command(
-	v.object({ handle: Handle, key: Key, to: Key }),
-	({ handle, key, to }) => mutate(handle, (l) => Files.renameFile({ ledger: l, from: key, to })),
+export const renameFiles = command(
+	v.object({ handle: Handle, moves: v.array(v.object({ from: Key, to: Key })) }),
+	async ({ handle, moves }) =>
+		replyFromBatch(await mutate(handle, (l) => Files.renameFiles(l, moves))),
 );
 
-export const deleteFile = command(v.object({ handle: Handle, key: Key }), ({ handle, key }) =>
-	mutate(handle, (l) => Files.deleteFile(l, key)),
+export const deleteFiles = command(
+	v.object({ handle: Handle, keys: v.array(Key) }),
+	async ({ handle, keys }) =>
+		replyFromBatch(await mutate(handle, (l) => Files.deleteFiles(l, keys))),
 );

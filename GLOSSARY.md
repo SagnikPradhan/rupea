@@ -110,7 +110,7 @@ _Avoid_: Provider, feed
 A file from a source, kept in the ledger it is imported into.
 
 **Inbox**:
-A ledger's statements that no ledger file cites yet.
+A ledger's statements that wait for a schema, as no ledger file cites them yet.
 _Avoid_: Queue, pending, unfiled
 
 **Schema**:
@@ -138,8 +138,12 @@ One step of a path turning the text of a cell into a value, like `date:` or `num
 _Avoid_: Filter, converter
 
 **Draft**:
-The ledger file an import produces from a statement, reviewed and edited before it is saved.
+The ledger file an import produces from a statement, saved in the review area and fixed there before it counts.
 _Avoid_: Preview
+
+**Review area**:
+The `_/` folder of a ledger's files, where uploads and drafts wait. The ledger counts nothing in it until a file is moved out.
+_Avoid_: Staging, inbox
 
 ## Events
 

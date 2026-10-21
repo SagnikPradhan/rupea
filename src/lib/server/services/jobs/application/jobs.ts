@@ -1,9 +1,10 @@
 import { provide, withContext } from '#lib/server/shared/context/context.ts';
 import { type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { insertJob, type ClaimedJob } from '../adapters/database';
+import { findJobs, insertJob, type ClaimedJob, type UserJob } from '../adapters/database';
 import { dedupeOf, partitionOf, type Job } from '../domain/jobs';
 
-export type { ClaimedJob, Job };
+export { findJobs };
+export type { ClaimedJob, Job, UserJob };
 
 type EnqueueOptions<P> = {
 	job: Job<P>;

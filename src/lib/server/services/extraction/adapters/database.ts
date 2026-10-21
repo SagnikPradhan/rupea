@@ -1,6 +1,6 @@
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { and, eq, gt, lte, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, inArray, lte, or, sql } from 'drizzle-orm';
 import { statementContents, statements } from './database-schema';
 import type { Contents } from '../domain/types';
 
@@ -45,6 +45,19 @@ export const findStatementByChecksum = (
 		),
 	);
 
+/** A ledger's latest statements, newest first. */
+export const findRecentStatements = (ledger: string, limit: number): ResultAsync<StatementRow[]> =>
+	withContext('db')((db) =>
+		attempt(() =>
+			db
+				.select(row)
+				.from(statements)
+				.where(eq(statements.ledgerId, ledger))
+				.orderBy(desc(statements.createdAt))
+				.limit(limit),
+		),
+	);
+
 export const saveStatement = (ledger: string, r: StatementRow): ResultAsync<void> =>
 	withContext('db')((db) =>
 		attempt(async () => {
@@ -55,6 +68,18 @@ export const saveStatement = (ledger: string, r: StatementRow): ResultAsync<void
 					target: [statements.ledgerId, statements.key],
 					set: { checksum: r.checksum, originalChecksum: r.originalChecksum },
 				});
+		}),
+	);
+
+/** Drops rows whose file is gone, as the folder, not the table, is the truth. */
+export const forgetStatements = (ledger: string, keys: string[]): ResultAsync<void> =>
+	withContext('db')((db) =>
+		attempt(async () => {
+			if (keys.length === 0) return;
+
+			await db
+				.delete(statements)
+				.where(and(eq(statements.ledgerId, ledger), inArray(statements.key, keys)));
 		}),
 	);
 

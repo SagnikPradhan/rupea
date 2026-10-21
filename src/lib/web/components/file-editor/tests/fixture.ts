@@ -56,7 +56,7 @@ export const fakeApi = (initial: Record<string, string>) => {
 		}),
 		remove: vi.fn(async (key: string) => {
 			disk.delete(key);
-			return succeed(undefined);
+			return succeed(key);
 		}),
 	} satisfies EditorApi;
 	const touch = (k: string, c: string) => disk.set(k, { content: c, n: (disk.get(k)?.n ?? 0) + 1 });

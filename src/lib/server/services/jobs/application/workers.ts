@@ -41,5 +41,5 @@ export const startWorkers = (o: StartOptions) => {
 		await stopped;
 	};
 
-	return { kill, stop };
+	return { kill, stop, recycle: pool.recycle };
 };

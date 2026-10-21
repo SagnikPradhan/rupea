@@ -19,6 +19,7 @@ export const statements = PG.pgTable(
 		PG.unique('statements_ledger_id_key').on(t.ledgerId, t.key),
 		PG.index('statements_ledger_id_checksum').on(t.ledgerId, t.checksum),
 		PG.index('statements_ledger_id_original_checksum').on(t.ledgerId, t.originalChecksum),
+		PG.index('statements_ledger_id_created_at').on(t.ledgerId, t.createdAt.desc()),
 	],
 );
 

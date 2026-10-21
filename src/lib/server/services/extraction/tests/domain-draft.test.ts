@@ -1,7 +1,7 @@
 import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
 import { parse, parseAmount, type Amount } from '#services/ledger/application/shared.ts';
 import { describe, expect, it } from 'vitest';
-import { categorised, draft, uncategorised } from '#services/extraction/domain/draft.ts';
+import { categorised, copy, draft, uncategorised } from '#services/extraction/domain/draft.ts';
 import type { RupeeRecord } from '#services/extraction/domain/types.ts';
 
 const config = defaultConfiguration.ledger;
@@ -48,15 +48,41 @@ describe('categorising records', () => {
 });
 
 describe('drafting a ledger file', () => {
-	it('names the file after the statement, under imports', () => {
+	it("names the file after the statement and its day folder, under the review area's imports", () => {
 		const drafted = draft({
 			config,
-			statement: { key: 'hdfc-aug.2026.csv', checksum: 'sha256:abc', originalChecksum: null },
+			statement: {
+				key: '20260829/hdfc-aug.2026.csv',
+				checksum: 'sha256:abc',
+				originalChecksum: null,
+			},
 			account: 'Assets:Bank',
 			records: [],
 			failed: [],
 		});
-		expect(drafted.key).toBe('imports/hdfc-aug.2026.rupee');
+		expect(drafted.key).toBe('_/imports/20260829/hdfc-aug.2026.rupee');
+	});
+
+	it('copies a ledger file as written, below the metadata of where it came from', () => {
+		const copied = copy({
+			config,
+			statement: { key: '20260829/books.ledger', checksum: 'sha256:abc', originalChecksum: null },
+			text: ['- owner: me', '', '2026-08-29 Tea', '\tExpenses:Food 10', '\tAssets:Cash', ''],
+		});
+
+		expect(copied.key).toBe('_/imports/20260829/books.rupee');
+		expect(copied.content).toBe(
+			[
+				'- statement: 20260829/books.ledger',
+				'- checksum: sha256:abc',
+				'- owner: me',
+				'',
+				'2026-08-29 Tea',
+				'\tExpenses:Food 10',
+				'\tAssets:Cash',
+				'',
+			].join('\n'),
+		);
 	});
 
 	it("writes each record against its account, in the statement's order", () => {
@@ -73,7 +99,7 @@ describe('drafting a ledger file', () => {
 		expect(counterparts(drafted.content)).toEqual(['Expenses:Food', 'Income:Salary']);
 	});
 
-	it('writes a balanced transaction per record, on one header line, citing the statement and its checksum', () => {
+	it('writes a balanced transaction per record, on one header line, naming the statement and its checksum', () => {
 		const drafted = draft({
 			config,
 			statement: { key: 'hdfc.csv', checksum: 'sha256:abc', originalChecksum: null },
@@ -91,7 +117,7 @@ describe('drafting a ledger file', () => {
 		]);
 	});
 
-	it('cites the upload too, when unlocking changed its content', () => {
+	it('names the upload too, when unlocking changed its content', () => {
 		const drafted = draft({
 			config,
 			statement: { key: 'hdfc.pdf', checksum: 'sha256:abc', originalChecksum: 'sha256:def' },

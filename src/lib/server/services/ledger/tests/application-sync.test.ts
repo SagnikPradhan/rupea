@@ -418,7 +418,7 @@ describe('balance assertions', () => {
 			await Files.createFile({ ledger, key: 'ibkr.rupee', content: ibkr('2') });
 			expect(await Sync.sync(ledger)).toEqual(ok([]));
 
-			await Files.deleteFile(ledger, 'ibkr.rupee');
+			await Files.deleteFiles(ledger, ['ibkr.rupee']);
 			await Files.createFile({ ledger, key: 'ibkr.rupee', content: ibkr('3') });
 			expect(await Sync.sync(ledger)).toEqual(
 				ok([
@@ -516,7 +516,7 @@ describe('lots', () => {
 				{ type: 'LotCostMissing', location: 'b.rupee:1', account: 'Assets:Zerodha' },
 			]);
 
-			await Files.deleteFile(ledger, 'a.rupee');
+			await Files.deleteFiles(ledger, ['a.rupee']);
 			expect((await Sync.sync(ledger))._unsafeUnwrap()).toEqual([
 				{
 					type: 'LotNotOpen',

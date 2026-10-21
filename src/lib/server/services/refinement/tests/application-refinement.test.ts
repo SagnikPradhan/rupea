@@ -116,7 +116,7 @@ describe('refining a saved file', () => {
 			await Files.createFile({ ledger, key: 'hdfc.rupee', content: hdfc });
 			await Files.createFile({ ledger, key: 'ibkr.rupee', content: ibkr });
 			const suggestions = (await Refinement.suggestFor(ledger, 'ibkr.rupee'))._unsafeUnwrap();
-			await Files.deleteFile(ledger, 'hdfc.rupee');
+			await Files.deleteFiles(ledger, ['hdfc.rupee']);
 
 			const failed = (await Events.linkEvents(ledger, edits(suggestions)))._unsafeUnwrap();
 

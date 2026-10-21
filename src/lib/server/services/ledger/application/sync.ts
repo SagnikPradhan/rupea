@@ -6,6 +6,7 @@ import { embedder, MODEL } from '../adapters/prediction-onnx';
 import type { Files } from '../adapters/storage';
 import { formatQuantity, type Amount } from '../domain/amounts';
 import { checkEvents } from '../domain/events';
+import { isCounted } from '#lib/shared/folders.ts';
 import { displayLocation, parse } from '../domain/parser';
 import { indexedVersion, plan, type SyncPlan } from '../domain/sync';
 import { filling, type Unembedded } from '../domain/text';
@@ -29,7 +30,7 @@ export const syncIndex = (ledger: Ledger): ResultAsync<RupeeError[]> =>
 			.andThen((e) => embed(ledger.id, e)),
 	);
 
-type Indexed = { failed: RupeeError[]; touched: string[] };
+export type Indexed = { failed: RupeeError[]; touched: string[] };
 
 // One file at a time, since embedded Postgres has one connection. A failed
 // step is reported, not fatal; failing to list either side is.
@@ -53,16 +54,20 @@ const attempt = (s: () => ResultAsync<Indexed>): ResultAsync<Indexed[]> =>
 const reindex = (f: Files, l: string, k: string): ResultAsync<Indexed> =>
 	f.read(k).andThen((r) => indexFile(l, r));
 
+/** A file waiting for review keeps only its metadata, so where it came from is known, but nothing in it counts or fails. */
 export const indexFile = (ledgerId: string, file: RupeeFile): ResultAsync<Indexed> =>
 	withContext('config')((config) => {
 		const parsed = parse(config.ledger, file);
+		const kept = isCounted(file.key)
+			? parsed
+			: { ...parsed, succeeded: [], prices: [], failed: [] };
 		return index(ledgerId)
-			.put(file.key, indexedVersion(file.version, parsed.failed), {
-				metadata: parsed.metadata,
-				transactions: parsed.succeeded,
-				prices: parsed.prices,
+			.put(file.key, indexedVersion(file.version, kept.failed), {
+				metadata: kept.metadata,
+				transactions: kept.succeeded,
+				prices: kept.prices,
 			})
-			.map((t) => ({ failed: parsed.failed, touched: t }));
+			.map((t) => ({ failed: kept.failed, touched: t }));
 	});
 
 export const unindex = (li: string, k: string): ResultAsync<Indexed> =>

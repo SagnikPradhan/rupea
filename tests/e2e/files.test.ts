@@ -89,3 +89,40 @@ test('asks before leaving unsaved changes, and stays when told to', async ({
 	await discarded.accept();
 	await expect(page.getByRole('link', { name: 'draft.rupee' })).toBeVisible();
 });
+
+test('moves and deletes many files at once', async ({ signedIn: page, ledger }) => {
+	const create = async (key: string) => {
+		await visit(page, `${ledger}/files`);
+		await page.getByRole('button', { name: 'New file' }).click();
+		await page.getByLabel('New file').fill(key);
+		await page.getByRole('button', { name: 'Create' }).click();
+		await expect(page.getByRole('heading', { name: key })).toBeVisible();
+	};
+	await create('_/a.rupee');
+	await create('_/b.rupee');
+	await create('c.rupee');
+
+	await visit(page, `${ledger}/files`);
+	const table = async () => (await page.getByRole('table').boundingBox())?.y;
+	const top = await table();
+	await page.getByLabel('Select _/', { exact: true }).check();
+	expect(await table()).toBe(top);
+	await page.getByRole('button', { name: 'Move' }).click();
+	expect(await table()).toBe(top);
+	await page.getByLabel('Move 2 files to').fill('bank');
+	await page.getByRole('button', { name: 'Move' }).click();
+	await expect(page.getByLabel('Select bank/a.rupee')).toBeVisible();
+	await expect(page.getByLabel('Select _/', { exact: true })).toBeHidden();
+
+	await page.getByRole('button', { name: 'bank/' }).click();
+	await expect(page.getByLabel('Select bank/a.rupee')).toBeHidden();
+
+	await page.getByLabel('Select all files').check();
+	await page.getByRole('button', { name: 'Delete' }).click();
+	expect(await table()).toBe(top);
+	await page
+		.getByRole('group', { name: 'Confirm delete' })
+		.getByRole('button', { name: 'Delete' })
+		.click();
+	await expect(page.getByText('No files yet.')).toBeVisible();
+});

@@ -1,6 +1,7 @@
 import type { Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
+import { moveOut } from './support/files.ts';
 import { expect, test } from './support/test.ts';
 import { visit } from './support/visit.ts';
 
@@ -10,10 +11,11 @@ const importAs = async (page: Page, ledger: string, key: string) => {
 	await visit(page, `${ledger}/import`);
 	await page.getByRole('button', { name: 'bank.yml', exact: true }).click();
 	await expect(page.getByLabel('Schema', { exact: true })).toHaveValue(/name: Bank/);
-	await page.getByLabel('Statement').setInputFiles(data('statement.csv'));
+	await page.getByLabel('Statements').setInputFiles(data('statement.csv'));
 	await expect(page.getByRole('table', { name: 'Draft' })).toContainText('UPI GROCER');
-	await page.getByLabel('Save as').fill(key);
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
+	await page.waitForURL(/files\?file=_%2Fimports/);
+	await moveOut(page, key);
 };
 
 const importTwice = async (page: Page, ledger: string) => {
@@ -24,9 +26,9 @@ const importTwice = async (page: Page, ledger: string) => {
 	await expect(page.getByText('Saved.')).toBeVisible();
 
 	await importAs(page, ledger, 'imports/aug.rupee');
-	await page.waitForURL(`**${ledger}/transactions`);
 	await importAs(page, ledger, 'imports/aug-again.rupee');
-	await page.waitForURL(`**${ledger}/refine?file=*`);
+
+	await visit(page, `${ledger}/refine?file=imports/aug-again.rupee`);
 };
 
 test('reviews the duplicates of a statement imported twice', async ({ signedIn: page, ledger }) => {

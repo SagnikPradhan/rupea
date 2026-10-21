@@ -19,6 +19,8 @@ export type Processes = {
 	/** Kills the process running the job once it outlasts `timeout`, failing with `JobTimedOut`. */
 	dispatch: (c: ClaimedJob, timeout: number) => ResultAsync<void>;
 	stop: () => Promise<void>;
+	/** Replaces each process once its job ends, so the next job loads the worker module afresh. */
+	recycle: () => Promise<void>;
 };
 
 /** Runs each job in a child process, so a crash in native code takes down only that job. */
@@ -42,7 +44,7 @@ export const processes = (o: ProcessesOptions): Processes => {
 			.andThen((e) => (e ? errAsync(e) : okAsync(undefined)));
 	};
 
-	return { dispatch, stop: () => pool.destroy() };
+	return { dispatch, stop: () => pool.destroy(), recycle: () => pool.recycleWorkers() };
 };
 
 const inherited = (): Record<string, string> =>

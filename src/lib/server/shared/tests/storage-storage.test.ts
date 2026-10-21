@@ -2,7 +2,12 @@ import { symlink } from 'node:fs/promises';
 import { join } from 'node:path';
 import { describe, expect } from 'vitest';
 import { it } from '#tests/shared/vitest.ts';
-import { scoped, validateKey, type Storage } from '#lib/server/shared/storage/storage.ts';
+import {
+	scoped,
+	validateKey,
+	writeNumbered,
+	type Storage,
+} from '#lib/server/shared/storage/storage.ts';
 import { err, ok } from '#lib/server/shared/result/result.ts';
 
 const text = (s: string) => new TextEncoder().encode(s);
@@ -124,6 +129,29 @@ describe('local storage', () => {
 		await storage.write({ key: 'a', content: text('') });
 		await symlink('missing', join(root, 'b'));
 		expect(await keys(storage)).toEqual(['a']);
+	});
+});
+
+describe('writing a numbered key', () => {
+	it('numbers a taken name from 02, keeping its extension', async ({ storage }) => {
+		const written = [];
+		for (const content of ['a', 'b', 'c'])
+			written.push(await writeNumbered(storage, 'day/hdfc.pdf', text(content)));
+
+		expect(written.map((w) => w.isOk() && w.value.key)).toEqual([
+			'day/hdfc.pdf',
+			'day/hdfc-02.pdf',
+			'day/hdfc-03.pdf',
+		]);
+	});
+
+	it('keeps a numbered key that holds this content already', async ({ storage }) => {
+		await writeNumbered(storage, 'day/hdfc.pdf', text('a'));
+		await writeNumbered(storage, 'day/hdfc.pdf', text('b'));
+		const again = await writeNumbered(storage, 'day/hdfc.pdf', text('b'));
+
+		expect(again).toMatchObject(ok({ key: 'day/hdfc-02.pdf' }));
+		expect(await keys(storage)).toEqual(['day/hdfc-02.pdf', 'day/hdfc.pdf']);
 	});
 });
 

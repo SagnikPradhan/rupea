@@ -10,3 +10,13 @@ export const batch = <T>(results: Result<T>[]): Batch<T> => ({
 
 export const batchAsync = <T>(res: (Result<T> | ResultAsync<T>)[]): ResultAsync<Batch<T>> =>
 	ResultAsync.fromSafePromise(Promise.all(res).then(batch));
+
+/** Like `batchAsync`, starting each step once the one before it is done. */
+export const batchInOrder = <T>(s: (() => ResultAsync<T>)[]): ResultAsync<Batch<T>> =>
+	ResultAsync.fromSafePromise(inOrder(s).then(batch));
+
+const inOrder = async <T>(steps: (() => ResultAsync<T>)[]) => {
+	const results: Result<T>[] = [];
+	for (const step of steps) results.push(await step());
+	return results;
+};

@@ -2,12 +2,12 @@
 	import { createEditor } from '#lib/web/components/file-editor/file-editor.svelte.ts';
 	import {
 		createFile,
-		deleteFile,
+		deleteFiles,
 		editFile,
 		formatDraft,
 		getFiles,
 		readFile,
-		renameFile,
+		renameFiles,
 	} from '#lib/endpoints/files.remote.ts';
 	import { checkDraft } from '#lib/endpoints/import.remote.ts';
 	import { getEvents, getSuggestions } from '#lib/endpoints/refinement.remote.ts';
@@ -15,6 +15,7 @@
 	import FileEvents from '#lib/web/components/file-events/file-events.svelte';
 	import FileIndex from '#lib/web/components/file-index/file-index.svelte';
 	import Issues from '#lib/web/components/issues/issues.svelte';
+	import type { Reply } from '#lib/server/shared/result/reply.ts';
 	import { ledgerCrumb } from '#lib/web/links.ts';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -28,6 +29,9 @@
 	// How many possible matches refinement found after the last save, and for which file.
 	const matches = $state({ key: '', count: 0 });
 
+	// The editor changes one file at a time; it failed when that one is not among those done.
+	const only = <T,>(r: Reply<T[]>): Reply<T> => ({ ...r, data: r.data?.[0] ?? null });
+
 	const editor = createEditor(
 		{
 			read: (key) => readFile({ handle, key }),
@@ -40,8 +44,9 @@
 				return saved;
 			},
 			create: (input) => createFile({ handle, ...input }),
-			rename: ({ key, to }) => renameFile({ handle, key, to }),
-			remove: (key) => deleteFile({ handle, key }),
+			rename: async ({ key, to }) =>
+				only(await renameFiles({ handle, moves: [{ from: key, to }] })),
+			remove: async (key) => only(await deleteFiles({ handle, keys: [key] })),
 		},
 		300,
 	);

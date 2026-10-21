@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/svelte';
-import { flushSync } from 'svelte';
+import { createRawSnippet, flushSync } from 'svelte';
 import type uPlot from 'uplot';
 import { describe, expect, it, vi } from 'vitest';
 import LineChart from '#lib/web/components/line-chart/line-chart.svelte';
@@ -20,21 +20,34 @@ vi.mock('uplot', () => ({
 // Happy DOM has no font loading; the chart waits on it before drawing.
 Object.defineProperty(document, 'fonts', { value: { load: async () => [] } });
 
-const DAYS = ['2026-01-01', '2026-01-02', '2026-01-03'];
-const LINES = [
-	{ label: 'Net worth', values: ['100', '-50', '300'], kind: 'ink' as const },
-	{ label: 'Assets', values: ['150', '50', '400'], kind: 'faint' as const },
-	{ label: 'Owed', values: ['50', '100', '100'], kind: 'dashed' as const },
+const ROWS = [
+	{ day: '2026-01-01', worth: '100', assets: '150', liabilities: '50' },
+	{ day: '2026-01-02', worth: '-50', assets: '50', liabilities: '100' },
+	{ day: '2026-01-03', worth: '300', assets: '400', liabilities: '100' },
 ];
+const SERIES = [
+	{ key: 'worth', label: 'Net worth', role: 'primary' },
+	{ key: 'assets', label: 'Assets', role: 'context' },
+	{ key: 'liabilities', label: 'Owed', role: 'reference' },
+] as const;
+
+const summary = createRawSnippet((index: () => number) => ({
+	render: () => `<p data-testid="summary">${ROWS[index()]?.worth}</p>`,
+	setup: (node) => {
+		$effect(() => {
+			node.textContent = ROWS[index()]?.worth ?? '';
+		});
+	},
+}));
 
 const drawn = async () => {
-	const onhover = vi.fn();
 	plots.splice(0);
-	const view = render(LineChart, { days: DAYS, lines: LINES, label: 'Net worth', onhover });
+	const props = { rows: ROWS, x: 'day', series: [...SERIES], label: 'Net worth', summary };
+	const view = render(LineChart, props);
 	await vi.waitFor(() => expect(plots).toHaveLength(1));
 	const options = plots[0]?.options;
 	if (!options) throw new Error('No chart was drawn');
-	return { options, onhover, view };
+	return { options, view };
 };
 
 const hover = (options: uPlot.Options, idx: number | null) => {
@@ -50,7 +63,7 @@ describe('the line chart', () => {
 		expect(screen.getByRole('img', { name: 'Net worth' })).toBeTruthy();
 	});
 
-	it('plots each day once, and each line by its kind', async () => {
+	it('plots each day once, and each series by its role', async () => {
 		const { options } = await drawn();
 		const series = options.series.slice(1);
 
@@ -61,18 +74,18 @@ describe('the line chart', () => {
 		]);
 	});
 
-	it('captions the faint lines with their last value, then the one under the cursor', async () => {
-		const { options, onhover } = await drawn();
+	it('captions the other series with their last value, then the one under the cursor', async () => {
+		const { options } = await drawn();
 		expect(caption()).toContain('400.00');
 		expect(caption()).not.toContain('300.00');
 
 		hover(options, 0);
 		expect(caption()).toContain('150.00');
-		expect(onhover).toHaveBeenLastCalledWith(0);
+		expect(screen.getByTestId('summary').textContent).toBe('100');
 
 		hover(options, null);
 		expect(caption()).toContain('400.00');
-		expect(onhover).toHaveBeenLastCalledWith(null);
+		expect(screen.getByTestId('summary').textContent).toBe('300');
 	});
 
 	it('draws zero only when a line crosses it', async () => {

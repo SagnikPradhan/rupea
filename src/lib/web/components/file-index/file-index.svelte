@@ -25,10 +25,10 @@
 			{#each files as file (file.key)}
 				<tr>
 					<th scope="row" class="truncate">
-						<a href={fileHref(handle, file.key)}><FilePath path={file.key} /></a>
+						<a href={fileHref(handle, file.key)} class="plain"><FilePath path={file.key} /></a>
 					</th>
 					<td class="date">{formatMoment(file.modified)}</td>
-					<td class="size">{formatSize(file.size)}</td>
+					<td class="amount size">{formatSize(file.size)}</td>
 				</tr>
 			{/each}
 		</tbody>
@@ -36,22 +36,8 @@
 {/if}
 
 <style>
-	a {
-		color: inherit;
-		text-decoration: none;
-	}
-
-	a:hover {
-		text-decoration: underline;
-	}
-
 	.size {
-		width: 1%;
 		color: var(--color-muted);
-		font-family: var(--font-mono);
-		font-variant-numeric: tabular-nums;
-		text-align: right;
-		white-space: nowrap;
 	}
 
 	p {

@@ -1,52 +1,53 @@
-<script lang="ts">
-	import { formatAmount } from '#lib/web/format.ts';
+<script lang="ts" generics="Row extends Record<string, unknown>">
+	import { formatAmount, formatCompact, formatPercent, formatShortDate } from '#lib/web/format.ts';
+	import type { Snippet } from 'svelte';
 	import uPlot from 'uplot';
 	import 'uplot/dist/uPlot.min.css';
 
-	type Line = {
+	/** A field of the rows to plot, by what it means: the one measure a chart shows, what explains it, or what it is weighed against. */
+	type Series = {
+		key: keyof Row & string;
 		label: string;
-		/** Exact amounts like `1250.50`, one per day. */
-		values: string[];
-		/** The line a page exists to show is ink, and the page shows its value as its figure; the rest are faint, dashed to tell them apart. */
-		kind: 'ink' | 'faint' | 'dashed';
+		role: 'primary' | 'context' | 'reference';
 	};
 
 	type Props = {
-		/** ISO dates, one per point. */
-		days: string[];
-		lines: Line[];
+		/** One row per point, as an endpoint returns them, with ISO days and exact decimals. */
+		rows: Row[];
+		/** The field holding each row's ISO day. */
+		x: keyof Row & string;
+		series: Series[];
+		unit?: 'amount' | 'percent';
 		label: string;
-		/** The point under the cursor, or null when there is none. */
-		onhover: (index: number | null) => void;
+		/** Drawn above the plot with the row under the cursor, or the last one. */
+		summary?: Snippet<[number]>;
 	};
 
-	const { days, lines, label, onhover }: Props = $props();
+	const { rows, x, series, unit = 'amount', label, summary }: Props = $props();
 
-	const WIDTHS = { ink: 2, faint: 1, dashed: 1 };
-	const DASHES = { ink: [], faint: [], dashed: [4, 4] };
+	const WIDTHS = { primary: 2, context: 1, reference: 1 };
+	const DASHES = { primary: [], context: [], reference: [4, 4] };
+	const FORMATS = {
+		amount: { tick: formatCompact, value: formatAmount },
+		percent: { tick: formatPercent, value: (v: string) => formatPercent(Number(v)) },
+	};
 	const EDGE = 32;
 
-	const ticks = new Intl.NumberFormat('en-IN', { notation: 'compact' });
-	const dates = new Intl.DateTimeFormat('en-IN', {
-		day: 'numeric',
-		month: 'short',
-		timeZone: 'UTC',
-	});
-
 	const hovered = $state({ index: null as number | null });
-	const shown = $derived(hovered.index ?? days.length - 1);
+	const shown = $derived(hovered.index ?? rows.length - 1);
 
-	// Reading the points before any await redraws the chart when they change.
+	/** Reads the points before any await, so the chart redraws when they change. */
 	const chart = (node: HTMLElement) => {
 		const points = data();
-		const series = seriesOf();
+		const lines = series.map((s) => ({ ...s }));
+		const format = FORMATS[unit];
 		const dark = matchMedia('(prefers-color-scheme: dark)');
 		const plots: uPlot[] = [];
 
 		const draw = async () => {
 			const font = await fontOf(node);
 			plots.splice(0).forEach((p) => p.destroy());
-			plots.push(new uPlot(options(node, font, series), points, node));
+			plots.push(new uPlot(options({ node, font, lines, tick: format.tick }), points, node));
 		};
 		const resize = new ResizeObserver(() =>
 			plots.forEach((p) => p.setSize({ width: node.clientWidth, height: node.clientHeight })),
@@ -70,17 +71,19 @@
 	};
 
 	const data = (): uPlot.AlignedData => [
-		days.map((d) => Date.parse(d) / 1000),
-		...lines.map((l) => l.values.map(Number)),
+		rows.map((r) => Date.parse(String(r[x])) / 1000),
+		...series.map((s) => rows.map((r) => Number(r[s.key]))),
 	];
 
-	const seriesOf = () => lines.map((l) => ({ label: l.label, kind: l.kind }));
+	type OptionsInput = {
+		node: HTMLElement;
+		font: string;
+		lines: Series[];
+		tick: (n: number) => string;
+	};
 
-	const options = (
-		node: HTMLElement,
-		font: string,
-		series: Pick<Line, 'label' | 'kind'>[],
-	): uPlot.Options => {
+	const options = (input: OptionsInput): uPlot.Options => {
+		const { node, font, lines, tick } = input;
 		const ink = colorOf(node, '--color-ink');
 		const muted = colorOf(node, '--color-muted');
 		const border = colorOf(node, '--color-border');
@@ -95,11 +98,11 @@
 			cursor: { drag: { x: false, y: false }, points: { show: false }, y: false },
 			series: [
 				{},
-				...series.map((l) => ({
+				...lines.map((l) => ({
 					label: l.label,
-					stroke: l.kind === 'ink' ? ink : muted,
-					width: WIDTHS[l.kind],
-					dash: DASHES[l.kind],
+					stroke: l.role === 'primary' ? ink : muted,
+					width: WIDTHS[l.role],
+					dash: DASHES[l.role],
 					points: { show: false },
 				})),
 			],
@@ -108,31 +111,22 @@
 					...axis,
 					size: 32,
 					space: 96,
-					values: (u, splits) => splits.map((s) => (edged(u, s) ? '' : dates.format(s * 1000))),
+					values: (u, splits) =>
+						splits.map((s) => (edged(u, s) ? '' : formatShortDate(new Date(s * 1000)))),
 				},
-				{
-					...axis,
-					side: 1,
-					size: 48,
-					values: (_, splits) => splits.map((s) => ticks.format(s)),
-				},
+				{ ...axis, side: 1, size: 48, values: (_, splits) => splits.map(tick) },
 			],
 			hooks: {
-				setCursor: [
-					(u) => {
-						hovered.index = u.cursor.idx ?? null;
-						onhover(hovered.index);
-					},
-				],
+				setCursor: [(u) => (hovered.index = u.cursor.idx ?? null)],
 				draw: [(u) => zero(u, border)],
 			},
 		};
 	};
 
-	// The plot starts flush with the text beside it, so a date there would be cut in half.
+	/** The plot starts flush with the text beside it, so a date there would be cut in half. */
 	const edged = (u: uPlot, s: number) => u.valToPos(s, 'x') < EDGE;
 
-	// The axis fits the data, so zero is drawn only when a line crosses it.
+	/** The axis fits the data, so zero is drawn only when a line crosses it. */
 	const zero = (u: uPlot, color: string) => {
 		const scale = u.scales['y'];
 		if (!scale || (scale.min ?? 0) >= 0 || (scale.max ?? 0) <= 0) return;
@@ -147,7 +141,7 @@
 		u.ctx.restore();
 	};
 
-	// A canvas cannot read `light-dark()`, so each colour is resolved through an element.
+	/** A canvas cannot read light-dark colours, so each one is resolved through an element. */
 	const colorOf = (node: HTMLElement, token: string) => {
 		const probe = node.appendChild(document.createElement('span'));
 		probe.style.color = `var(${token})`;
@@ -168,12 +162,15 @@
 </script>
 
 <figure>
+	{@render summary?.(shown)}
 	<div class="plot" role="img" aria-label={label} {@attach chart}></div>
 	<figcaption>
-		{#each lines as line (line.label)}
-			<span class={line.kind}>
+		{#each series as line (line.key)}
+			<span class={line.role}>
 				{line.label}
-				{#if line.kind !== 'ink'}<data>{formatAmount(line.values[shown] ?? '')}</data>{/if}
+				{#if line.role !== 'primary'}
+					<data>{FORMATS[unit].value(String(rows[shown]?.[line.key] ?? ''))}</data>
+				{/if}
 			</span>
 		{/each}
 	</figcaption>
@@ -200,9 +197,9 @@
 		font-variant-numeric: tabular-nums;
 	}
 
-	.ink::before,
-	.faint::before,
-	.dashed::before {
+	.primary::before,
+	.context::before,
+	.reference::before {
 		content: '';
 		display: inline-block;
 		width: 1em;
@@ -211,11 +208,11 @@
 		border-top: 1px solid var(--color-muted);
 	}
 
-	.ink::before {
+	.primary::before {
 		border-top: 2px solid var(--color-ink);
 	}
 
-	.dashed::before {
+	.reference::before {
 		border-top-style: dashed;
 	}
 

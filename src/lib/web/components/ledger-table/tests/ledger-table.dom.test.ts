@@ -1,6 +1,7 @@
 import { render, screen } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 import { describe, expect, it } from 'vitest';
+import Account from '#lib/web/components/ledger-table/account.svelte';
 import Amount from '#lib/web/components/ledger-table/amount.svelte';
 import Source from '#lib/web/components/ledger-table/source.svelte';
 
@@ -27,6 +28,16 @@ describe('an amount', () => {
 		const children = createRawSnippet(() => ({ render: () => '<span>unpriced</span>' }));
 		render(Amount, { value: null, children });
 		expect(cell().textContent).toBe('unpriced');
+	});
+});
+
+describe('an account', () => {
+	it('mutes its parents, and lets the name break after each colon', () => {
+		const { container } = render(Account, { account: 'Assets:Bank:Savings' });
+
+		expect(container.textContent).toBe('Assets:Bank:Savings');
+		expect(container.querySelector('.parent')?.textContent).toBe('Assets:Bank:');
+		expect(container.querySelectorAll('wbr')).toHaveLength(2);
 	});
 });
 

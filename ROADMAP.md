@@ -92,4 +92,7 @@
 - [ ] Keep statements and schemas in the ledger
       ([ADR 0008](docs/adr/0008-statements-and-schemas-belong-to-the-ledger.md))
 - [x] Pick a chart library ([ADR 0013](docs/adr/0013-charts-with-uplot.md))
+- [ ] Value net worth in under 100 ms on decades of history. Over 20 years at 10 transactions
+      a day it takes about 390 ms for any range (`pnpm bench`): about 130 ms syncing the index
+      and 160 ms summing every past posting for the opening balances.
 - [ ] Bundle the migrations into the build, so the server starts from any directory

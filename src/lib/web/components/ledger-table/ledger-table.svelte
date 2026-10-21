@@ -68,6 +68,8 @@
 	}
 
 	table :global(.amount) {
+		font-family: var(--font-mono);
+		font-variant-numeric: tabular-nums;
 		text-align: right;
 	}
 
@@ -92,17 +94,6 @@
 
 	table :global(tr.child > :not(.amount)) {
 		color: var(--color-muted);
-	}
-
-	table :global(.tag) {
-		margin-right: var(--size-1);
-		padding: 0 var(--size-1);
-		border: 1px solid var(--color-border);
-		border-radius: var(--radius);
-		color: var(--color-muted);
-		font-size: var(--font-size-0);
-		font-weight: 400;
-		vertical-align: middle;
 	}
 
 	@media (width < 40rem) {

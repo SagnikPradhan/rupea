@@ -1,5 +1,14 @@
 import { describe, expect, it } from 'vitest';
-import { formatAmount, formatDate, formatMoment, formatSize } from '#lib/web/format.ts';
+import {
+	formatAmount,
+	formatChange,
+	formatCompact,
+	formatDate,
+	formatIsoDate,
+	formatMoment,
+	formatShortDate,
+	formatSize,
+} from '#lib/web/format.ts';
 
 describe('formatAmount', () => {
 	it('groups digits the Indian way, keeping two decimals at least', () => {
@@ -37,5 +46,49 @@ describe('formatSize', () => {
 		[5_000_000_000, '5,000 MB'],
 	])('formats %i bytes as %s', (bytes, text) => {
 		expect(formatSize(bytes)).toBe(text);
+	});
+});
+
+describe('formatIsoDate', () => {
+	it("gives the viewer's day as an ISO date", () => {
+		expect(formatIsoDate(new Date(2026, 9, 21, 23, 30))).toBe('2026-10-21');
+	});
+});
+
+describe('formatShortDate', () => {
+	it('names the UTC day and month, without the year', () => {
+		expect(formatShortDate(new Date('2026-10-21'))).toBe('21 Oct');
+	});
+});
+
+describe('formatCompact', () => {
+	it('shortens large numbers the Indian way', () => {
+		expect(formatCompact(1_200_000)).toBe('12L');
+	});
+});
+
+describe('formatChange', () => {
+	it('signs a gain and gives it as a share of the start', () => {
+		expect(formatChange('1000', '1250.5')).toEqual({
+			amount: '+250.50',
+			percent: '+25.1%',
+			negative: false,
+		});
+	});
+
+	it('marks a loss as negative', () => {
+		expect(formatChange('200000', '150000')).toEqual({
+			amount: '-50,000.00',
+			percent: '-25%',
+			negative: true,
+		});
+	});
+
+	it('shows no sign when nothing moved', () => {
+		expect(formatChange('10', '10')).toEqual({ amount: '0.00', percent: '0%', negative: false });
+	});
+
+	it.each(['0', '-500'])('gives no percent from a start of %s', (start) => {
+		expect(formatChange(start, '100').percent).toBeNull();
 	});
 });

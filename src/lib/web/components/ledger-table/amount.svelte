@@ -14,18 +14,3 @@
 <td class={['amount', { optional, negative, positive }]}>
 	{#if value === null}{@render children?.()}{:else}{formatAmount(value)}{/if}
 </td>
-
-<style>
-	td {
-		font-family: var(--font-mono);
-		font-variant-numeric: tabular-nums;
-	}
-
-	.negative {
-		color: var(--color-negative);
-	}
-
-	.positive {
-		color: var(--color-positive);
-	}
-</style>

@@ -53,7 +53,11 @@
 				{#each lot.disposals as disposal, i (i)}
 					<tr class="child">
 						<td class="date">{formatDate(disposal.date)}</td>
-						<td><a href={fileHref(handle, disposal.file, disposal.line)}>{disposal.kind}</a></td>
+						<td>
+							<a href={fileHref(handle, disposal.file, disposal.line)} class="plain"
+								>{disposal.kind}</a
+							>
+						</td>
 						<Amount value={disposal.units} />
 						<Amount value={disposal.price} optional />
 						<Amount value={disposal.gain} gain />
@@ -67,19 +71,6 @@
 <style>
 	th::first-letter {
 		text-transform: uppercase;
-	}
-
-	th .tag {
-		margin: 0 0 0 var(--size-1);
-	}
-
-	a {
-		color: inherit;
-		text-decoration: none;
-	}
-
-	a:hover {
-		text-decoration: underline;
 	}
 
 	p {

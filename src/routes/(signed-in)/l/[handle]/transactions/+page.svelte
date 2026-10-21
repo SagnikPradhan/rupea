@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { getTransactions } from '#lib/endpoints/transactions.remote.ts';
 	import Issues from '#lib/web/components/issues/issues.svelte';
+	import Account from '#lib/web/components/ledger-table/account.svelte';
 	import Amount from '#lib/web/components/ledger-table/amount.svelte';
 	import LedgerTable from '#lib/web/components/ledger-table/ledger-table.svelte';
 	import Source from '#lib/web/components/ledger-table/source.svelte';
 	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
-	import { isWarning } from '#lib/web/errors.ts';
 	import { formatDate } from '#lib/web/format.ts';
 	import { ledgerCrumb } from '#lib/web/links.ts';
 
@@ -13,15 +13,11 @@
 
 	const handle = $derived(data.ledger.handle);
 	const response = $derived(await getTransactions(handle));
-
-	const problems = $derived(response.errors.filter((e) => !isWarning(e)));
-	const warnings = $derived(response.errors.filter(isWarning));
 </script>
 
 <PageHeader trail={[ledgerCrumb(data.ledger)]}>Transactions</PageHeader>
 
-<Issues {handle} errors={problems} />
-<Issues {handle} errors={warnings} warning />
+<Issues {handle} errors={response.errors} />
 
 <LedgerTable
 	columns={[
@@ -47,7 +43,7 @@
 				<tr class="child">
 					<td></td>
 					<td>
-						{#each posting.account.split(':') as part, i (i)}{i > 0 ? ':' : ''}<wbr />{part}{/each}
+						<Account account={posting.account} />
 					</td>
 					<Amount value={posting.quantity} />
 				</tr>

@@ -1,0 +1,82 @@
+import { provide } from '#lib/server/shared/context/context.ts';
+import * as Accounts from '#services/ledger/application/accounts.ts';
+import * as Files from '#services/ledger/application/files.ts';
+import { createLedger } from '#tests/shared/seed.ts';
+import { it } from '#tests/shared/vitest.ts';
+import { describe } from 'vitest';
+
+const TO = Temporal.PlainDate.from('2026-10-21');
+const STOCKS = ['INFY', 'TCS', 'HDFC', 'ITC', 'WIPRO', 'LT', 'SBIN', 'ONGC', 'NTPC', 'BEL'];
+const PRICED = ['INFY', 'TCS', 'HDFC', 'USD'];
+
+const LEDGERS = [
+	{ name: '20 years, 10 a day', years: 20, perDay: () => 10 },
+	{ name: '50 years, 5 to 7 a day', years: 50, perDay: (i: number) => 5 + (i % 3) },
+];
+
+describe('net worth', () => {
+	it.for(LEDGERS)(
+		'over $name',
+		{ timeout: 3_600_000 },
+		({ years, perDay }, { context, db, bench }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				const started = performance.now();
+				for (const year of yearsUpTo(TO.year, years))
+					await Files.createFile({ ledger, key: `${year}.rupee`, content: yearOf(year, perDay) });
+				console.info(`seeded in ${Math.round(performance.now() - started)} ms`);
+
+				const worth = (f: Temporal.PlainDate) => () =>
+					provide(context, () => Accounts.getWorth({ ledger, from: f, to: TO })).then(() => {});
+				await bench.compare(
+					bench('1m', worth(TO.subtract({ months: 1 }))),
+					bench('ytd', worth(TO.with({ month: 1, day: 1 }))),
+					bench('1y', worth(TO.subtract({ years: 1 }))),
+					{ iterations: 10, time: 0, warmupIterations: 1 },
+				);
+			}),
+	);
+});
+
+const yearsUpTo = (l: number, c: number) => Array.from({ length: c }, (_, i) => l - c + 1 + i);
+
+/** A year of salary, spending on a card and from the bank, card bills, stock buys and daily prices. */
+const yearOf = (year: number, perDay: (i: number) => number) => {
+	const start = Temporal.PlainDate.from({ year, month: 1, day: 1 });
+	const days = Array.from({ length: start.daysInYear }, (_, i) => start.add({ days: i }));
+	const past = days.filter((d) => Temporal.PlainDate.compare(d, TO) <= 0);
+
+	return past.flatMap((d, i) => [...dayOf(d, perDay(i)), ...pricesOf(d)]).join('\n');
+};
+
+const dayOf = (d: Temporal.PlainDate, c: number) =>
+	Array.from({ length: c }, (_, n) => transactionOf(d, n)).flat();
+
+const transactionOf = (d: Temporal.PlainDate, n: number) => {
+	const seed = d.dayOfYear * 31 + n * 7 + d.year;
+	const stock = STOCKS[seed % STOCKS.length];
+	const price = 1000 + (seed % 900);
+
+	if (n === 0 && d.day === 1) return [`${d} Salary`, '\tAssets:Bank 150000', '\tIncome:Salary', ''];
+	if (n === 0 && d.day === 5)
+		return [`${d} Card bill`, '\tLiabilities:Card 30000', '\tAssets:Bank', ''];
+	if (n === 1 && d.day === 10)
+		return [`${d} Fund`, '\tAssets:IBKR 100 USD @ 83', '\tAssets:Bank', ''];
+	if (n === 1 && d.day === 12)
+		return [`${d} Buy`, '\tAssets:IBKR 1 AAPL @ 50 USD', '\tAssets:IBKR -50 USD', ''];
+	if (n === 2 && d.dayOfWeek === 1)
+		return [`${d} Buy`, `\tAssets:Zerodha 2 ${stock} @ ${price}`, '\tAssets:Bank', ''];
+	if (n % 2 === 0)
+		return [`${d} Lunch`, `\tExpenses:Food ${100 + (seed % 400)}`, '\tLiabilities:Card', ''];
+
+	return [`${d} Groceries`, `\tExpenses:Groceries ${200 + (seed % 800)}`, '\tAssets:Bank', ''];
+};
+
+/** Daily prices for a few commodities, and AAPL in dollars so rupees take two hops. */
+const pricesOf = (d: Temporal.PlainDate) => [
+	...PRICED.map(
+		(c, i) => `P ${d} ${c} ${c === 'USD' ? 83 : 1000 + ((d.dayOfYear * (i + 3)) % 900)}`,
+	),
+	`P ${d} AAPL ${40 + (d.dayOfYear % 20)} USD`,
+	'',
+];

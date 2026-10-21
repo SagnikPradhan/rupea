@@ -3,10 +3,10 @@ import { fileURLToPath } from 'node:url';
 import { jobs } from './jobs';
 import type { RupeeContext } from './shared/context/context';
 
-/** Worker entries, relative to this module, which the build puts in build/server/entries. */
+/** Worker entries, relative to this module: `vite dev` watches one into .svelte-kit, and the build puts the other in build/server/entries. */
 const WORKER = {
-	source: { entry: '../../worker.ts', execArgv: ['--import', 'tsx'] },
-	built: { entry: '../../worker/worker.js', execArgv: [] },
+	dev: '../../../.svelte-kit/worker/worker.js',
+	built: '../../worker/worker.js',
 };
 
 type ServerWorkersOptions = {
@@ -16,14 +16,14 @@ type ServerWorkersOptions = {
 	dev: boolean;
 };
 
-/** Starts this server's workers; a dev reload kills the jobs running, which run again. */
+/** Starts this server's workers; a dev reload kills the jobs running, which run again, and a worker rebuild replaces idle workers. */
 export const startServerWorkers = async (o: ServerWorkersOptions) => {
 	await import.meta.hot?.data.killWorkers?.();
 
-	const source = o.dev ? WORKER.source : WORKER.built;
+	const entry = o.dev ? WORKER.dev : WORKER.built;
 	const workers = startWorkers({
-		entry: fileURLToPath(new URL(source.entry, import.meta.url)),
-		execArgv: source.execArgv,
+		entry: fileURLToPath(new URL(entry, import.meta.url)),
+		execArgv: [],
 		env: workerEnv(o),
 		context: o.context,
 		jobs,
@@ -31,6 +31,7 @@ export const startServerWorkers = async (o: ServerWorkersOptions) => {
 	});
 
 	if (import.meta.hot) import.meta.hot.data.killWorkers = workers.kill;
+	import.meta.hot?.on('rupee:worker-built', () => void workers.recycle());
 	return { stop: workers.stop };
 };
 

@@ -35,10 +35,13 @@ test('shows what each account holds and what it is worth', async ({ signedIn: pa
 	await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
 
 	await visit(page, `${ledger}/accounts`);
-	await expect(page.getByRole('row', { name: 'Assets:Zerodha' })).toContainText('10,800.00');
+	const zerodha = page.getByRole('row').filter({ hasText: 'Zerodha' });
+	for (const cell of ['1 unpriced', '9,000.00', '10,800.00', '1,800.00', '+20%'])
+		await expect(zerodha).toContainText(cell);
 	const infy = page.getByRole('row').filter({ hasText: 'INFY' });
-	for (const cell of ['6.00 INFY', '9,000.00', '1,800.00', '10,800.00', '1,800.00'])
+	for (const cell of ['6.00 INFY', '9,000.00', '10,800.00', '1,800.00', '+20%'])
 		await expect(infy).toContainText(cell);
+	await expect(infy.getByTitle('@ 1,800.00')).toHaveText('10,800.00');
 	await expect(page.getByRole('row').filter({ hasText: 'TCS' })).toContainText('unpriced');
 
 	const worth = page.getByRole('region', { name: 'Net worth' });

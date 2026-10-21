@@ -1,7 +1,12 @@
 import { replyFromBatch } from '#lib/server/shared/result/reply.ts';
 import * as Accounts from '#services/ledger/application/accounts.ts';
 import { Day, Range, startOf } from '#lib/shared/dates.ts';
-import { formatAmount, formatQuantity } from '#services/ledger/application/shared.ts';
+import {
+	DEFAULT_COMMODITY,
+	formatAmount,
+	formatQuantity,
+	type Amount,
+} from '#services/ledger/application/shared.ts';
 import { query } from '$app/server';
 import * as v from 'valibot';
 import { Handle, inLedger } from './shared';
@@ -37,16 +42,22 @@ export const getLots = query(LotsQuery, async ({ handle, account, commodity }) =
 });
 
 const viewAccount = (account: Accounts.Account) => ({
-	...account,
+	account: account.account,
 	total: formatAmount(account.total),
+	cost: formatOptional(account.cost),
+	gain: formatOptional(account.gain),
+	unpriced: account.unpriced,
 	holdings: account.holdings.map((holding) => ({
 		commodity: holding.commodity,
 		hasLots: holding.hasLots,
-		units: formatQuantity({ amount: holding.units, commodity: holding.commodity }),
-		cost: holding.cost && formatQuantity(holding.cost),
+		units:
+			holding.commodity === DEFAULT_COMMODITY
+				? null
+				: formatQuantity({ amount: holding.units, commodity: holding.commodity }),
+		cost: formatOptional(holding.paid),
 		price: holding.price && formatQuantity(holding.price),
-		value: holding.value === null ? null : formatAmount(holding.value),
-		gain: holding.gain === null ? null : formatAmount(holding.gain),
+		value: formatOptional(holding.value),
+		gain: formatOptional(holding.gain),
 	})),
 });
 
@@ -77,3 +88,5 @@ const viewLot = (lot: Accounts.LotHistory) => ({
 		gain: disposal.gain && formatQuantity(disposal.gain),
 	})),
 });
+
+const formatOptional = (a: Amount | null) => (a === null ? null : formatAmount(a));

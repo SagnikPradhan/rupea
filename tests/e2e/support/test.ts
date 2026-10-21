@@ -1,7 +1,6 @@
 import { test as base, expect, type Page } from '@playwright/test';
-import { CoverageReport } from 'monocart-coverage-reports';
 import { randomUUID } from 'node:crypto';
-import coverage from '../../../mcr.config.ts';
+import { saveCoverage, startCoverage } from './coverage.ts';
 import { withServer, type Server } from './server.ts';
 import { signIn } from './sign-in.ts';
 import { visit } from './visit.ts';
@@ -14,13 +13,10 @@ export const test = base.extend<
 	server: [({}, use) => withServer(use), { scope: 'worker' }],
 	baseURL: ({ server }, use) => use(server.url),
 	extraHTTPHeaders: { 'x-forwarded-proto': 'http' },
-	// Under mcr, which records the server, the browser's coverage joins the same report.
 	page: async ({ page }, use) => {
-		if (!process.env['NODE_V8_COVERAGE']) return use(page);
-
-		await page.coverage.startJSCoverage({ resetOnNavigation: false });
+		await startCoverage(page);
 		await use(page);
-		await new CoverageReport(coverage).add(await page.coverage.stopJSCoverage());
+		await saveCoverage(page);
 	},
 	email: ({}, use) => use(`${randomUUID()}@example.test`),
 	signedIn: async ({ page, server, email }, use) => {

@@ -32,6 +32,13 @@
 
 	const depthOf = (account: string) => account.split(':').length - 1;
 	const nameOf = (account: string) => account.split(':').at(-1) ?? account;
+	/** The first letter of each parent, like A:C: for Assets:Checking:HDFC. */
+	const prefixOf = (account: string) =>
+		account
+			.split(':')
+			.slice(0, -1)
+			.map((part) => `${part[0]}:`)
+			.join('');
 
 	/** A group adds up sub-accounts or several holdings; any other account reads as its one holding. */
 	const isGroup = (account: { account: string; holdings: Holding[] }, next?: { account: string }) =>
@@ -52,10 +59,14 @@
 
 {#snippet held(account: string, holding: Holding, child: boolean)}
 	{@const name = child ? holding.commodity : nameOf(account)}
-	<tr class={{ child }}>
+	<tr class={{ child, leaf: !child }}>
 		<td>
-			<span class="name" style:--depth={depthOf(account) + Number(child)}>
-				{#if holding.hasLots}
+			<span
+				class="name"
+				style:--depth={depthOf(account) + Number(child)}
+				title={child ? undefined : account}
+			>
+				{#if !child}<span class="prefix">{prefixOf(account)}</span>{/if}{#if holding.hasLots}
 					<a href={lotsOf(account, holding.commodity)} class="plain">{name}</a>
 				{:else}
 					{name}
@@ -88,8 +99,10 @@
 				{#if isGroup(account, tree?.[i + 1])}
 					<tr class="group">
 						<th scope="row" class={{ nested: depthOf(account.account) > 0 }}>
-							<span class="name" style:--depth={depthOf(account.account)}
-								>{nameOf(account.account)}</span
+							<span class="name" style:--depth={depthOf(account.account)} title={account.account}
+								><span class="prefix">{prefixOf(account.account)}</span>{nameOf(
+									account.account,
+								)}</span
 							>
 							{#if account.unpriced > 0}<span class="tag">{account.unpriced} unpriced</span>{/if}
 						</th>
@@ -126,9 +139,22 @@
 		font-size: var(--font-size-1);
 	}
 
+	tr.leaf > :global(*) {
+		padding-top: var(--size-0);
+	}
+
 	.name {
 		display: inline-block;
 		padding-left: calc(var(--depth) * var(--size-2));
+	}
+
+	tr.leaf .name,
+	th.nested .name {
+		font-size: 1.125rem;
+	}
+
+	.prefix {
+		color: var(--color-muted);
 	}
 
 	.unpriced {

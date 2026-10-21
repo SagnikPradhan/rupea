@@ -3,7 +3,13 @@
 	import { Range } from '#lib/shared/dates.ts';
 	import LineChart from '#lib/web/components/line-chart/line-chart.svelte';
 	import RangePicker from '#lib/web/components/range-picker/range-picker.svelte';
-	import { formatAmount, formatChange, formatDate, formatIsoDate } from '#lib/web/format.ts';
+	import {
+		formatAmount,
+		formatChange,
+		formatDate,
+		formatExact,
+		formatIsoDate,
+	} from '#lib/web/format.ts';
 	import { page } from '$app/state';
 	import * as v from 'valibot';
 
@@ -39,7 +45,7 @@
 						<h2 id="worth" class="label">Net worth</h2>
 						<RangePicker current={range} />
 					</div>
-					<p class="figure">{formatAmount(shown.worth)}</p>
+					<p class="figure" title={formatExact(shown.worth)}>{formatAmount(shown.worth)}</p>
 					<p>
 						<span class={change.negative ? 'negative' : 'positive'}>
 							{change.amount}{#if change.percent !== null}&nbsp;({change.percent}){/if}

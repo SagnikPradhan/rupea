@@ -31,6 +31,18 @@ describe('an amount', () => {
 		expect(cell().querySelector('small')?.classList.contains('negative')).toBe(true);
 	});
 
+	it('rounds to two places, with every digit in its tooltip', () => {
+		render(Amount, { value: '1250.5678' });
+		expect(textOf(cell())).toBe('1,250.57');
+		expect(cell().title).toBe('1,250.5678');
+	});
+
+	it('keeps four places for units, and no tooltip when nothing is rounded', () => {
+		render(Amount, { value: '7.25', units: true });
+		expect(textOf(cell())).toBe('7.25');
+		expect(cell().hasAttribute('title')).toBe(false);
+	});
+
 	it('shows its children without a value', () => {
 		const children = createRawSnippet(() => ({ render: () => '<span>unpriced</span>' }));
 		render(Amount, { value: null, children });

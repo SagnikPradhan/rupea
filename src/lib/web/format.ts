@@ -1,6 +1,14 @@
 const LOCALE = 'en-IN';
 
-const numbers = new Intl.NumberFormat(LOCALE, {
+const rupees = new Intl.NumberFormat(LOCALE, {
+	minimumFractionDigits: 2,
+	maximumFractionDigits: 2,
+});
+const quantities = new Intl.NumberFormat(LOCALE, {
+	minimumFractionDigits: 2,
+	maximumFractionDigits: 4,
+});
+const exacts = new Intl.NumberFormat(LOCALE, {
 	minimumFractionDigits: 2,
 	maximumFractionDigits: 20,
 });
@@ -36,10 +44,18 @@ const percents = new Intl.NumberFormat(LOCALE, {
 
 const UNITS = ['B', 'kB', 'MB'];
 
-/** Groups the number in an amount like `-1250.50` or `10 AAPL`, keeping every digit. */
-export const formatAmount = (text: string) => {
+/** Groups an amount like -1250.50 or 10 AAPL, rounding rupees to two places and units, as any amount naming a commodity counts, to four. */
+export const formatAmount = (text: string, units = false) => {
 	const [amount = '', ...commodity] = text.split(' ');
-	return [numbers.format(amount as Intl.StringNumericLiteral), ...commodity].join(' ');
+	const format = units || commodity.length > 0 ? quantities : rupees;
+	return [format.format(amount as Intl.StringNumericLiteral), ...commodity].join(' ');
+};
+
+/** An amount with every digit, for a tooltip, or nothing when formatAmount already shows them all. */
+export const formatExact = (text: string, units = false) => {
+	const [amount = '', ...commodity] = text.split(' ');
+	const exact = [exacts.format(amount as Intl.StringNumericLiteral), ...commodity].join(' ');
+	return exact === formatAmount(text, units) ? undefined : exact;
 };
 
 /** Formats an ISO date like `2026-08-29`. */

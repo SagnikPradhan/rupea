@@ -2,7 +2,6 @@
 	import { deleteFiles, getFiles, renameFiles } from '#lib/endpoints/files.remote.ts';
 	import type { RupeeError } from '#lib/server/shared/result/error.ts';
 	import Button from '#lib/web/components/button/button.svelte';
-	import Field from '#lib/web/components/field/field.svelte';
 	import Issues from '#lib/web/components/issues/issues.svelte';
 	import LedgerTable from '#lib/web/components/ledger-table/ledger-table.svelte';
 	import { formatMoment, formatSize } from '#lib/web/format.ts';
@@ -93,7 +92,7 @@
 	{:else}
 		<div class="toolbar">
 			{#if step.now === 'choosing'}
-				<label>
+				<label class="grow">
 					{@render checkbox(
 						files.map((f) => f.key),
 						'Select all files',
@@ -101,25 +100,26 @@
 					)}
 					{chosen.length === 0 ? 'Select all' : `${chosen.length} selected`}
 				</label>
-				{#if chosen.length > 0}
-					<Button onclick={() => (step.now = 'moving')}>Move</Button>
-					<Button onclick={() => (step.now = 'deleting')}>Delete</Button>
-				{/if}
+				<Button disabled={chosen.length === 0} onclick={() => (step.now = 'moving')}>Move</Button>
+				<Button disabled={chosen.length === 0} onclick={() => (step.now = 'deleting')}>
+					Delete
+				</Button>
 			{/if}
 
 			{#if step.now === 'moving'}
-				<form class="toolbar" onsubmit={move}>
-					<Field label={`Move ${chosen.length} files to folder`}>
-						<input bind:value={step.folder} placeholder="bank/2026" />
-					</Field>
+				<form class="toolbar grow" onsubmit={move}>
+					<label class="grow">
+						Move {chosen.length} files to
+						<input class="grow" bind:value={step.folder} placeholder="bank/2026" />
+					</label>
 					<Button primary>Move</Button>
 					<Button type="button" onclick={() => (step.now = 'choosing')}>Cancel</Button>
 				</form>
 			{/if}
 
 			{#if step.now === 'deleting'}
-				<div class="toolbar" role="group" aria-label="Confirm delete">
-					<p>Delete {chosen.length} files?</p>
+				<div class="toolbar grow" role="group" aria-label="Confirm delete">
+					<p class="grow">Delete {chosen.length} files?</p>
 					<Button primary onclick={remove}>Delete</Button>
 					<Button onclick={() => (step.now = 'choosing')}>Cancel</Button>
 				</div>
@@ -177,22 +177,32 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--size-1);
-		align-items: end;
+		align-items: center;
 	}
 
-	form.toolbar {
+	.grow {
 		flex: 1;
-	}
-
-	form.toolbar > :global(:first-child) {
-		flex: 1;
-	}
-
-	form.toolbar input {
-		width: 100%;
 	}
 
 	label,
+	.entry {
+		display: flex;
+		gap: var(--size-1);
+		align-items: center;
+	}
+
+	label {
+		white-space: nowrap;
+	}
+
+	input.grow {
+		min-width: 0;
+	}
+
+	p {
+		margin: 0;
+	}
+
 	.entry {
 		display: flex;
 		gap: var(--size-1);

@@ -103,9 +103,13 @@ test('moves and deletes many files at once', async ({ signedIn: page, ledger }) 
 	await create('c.rupee');
 
 	await visit(page, `${ledger}/files`);
+	const table = async () => (await page.getByRole('table').boundingBox())?.y;
+	const top = await table();
 	await page.getByLabel('Select _/', { exact: true }).check();
+	expect(await table()).toBe(top);
 	await page.getByRole('button', { name: 'Move' }).click();
-	await page.getByLabel('Move 2 files to folder').fill('bank');
+	expect(await table()).toBe(top);
+	await page.getByLabel('Move 2 files to').fill('bank');
 	await page.getByRole('button', { name: 'Move' }).click();
 	await expect(page.getByLabel('Select bank/a.rupee')).toBeVisible();
 	await expect(page.getByLabel('Select _/', { exact: true })).toBeHidden();
@@ -115,6 +119,7 @@ test('moves and deletes many files at once', async ({ signedIn: page, ledger }) 
 
 	await page.getByLabel('Select all files').check();
 	await page.getByRole('button', { name: 'Delete' }).click();
+	expect(await table()).toBe(top);
 	await page
 		.getByRole('group', { name: 'Confirm delete' })
 		.getByRole('button', { name: 'Delete' })

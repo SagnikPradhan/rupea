@@ -11,7 +11,7 @@ export const priceSource = PG.pgEnum('price_source', PriceSource);
 export const lotOrigin = PG.pgEnum('lot_origin', LotOrigin);
 export const disposalKind = PG.pgEnum('disposal_kind', DisposalKind);
 
-// Billionths of a unit; a bigint would overflow past nine billion units or on a product.
+// Ten-billionths of a unit; a bigint would overflow past 900 million units or on a product.
 const amount = () => PG.numeric({ precision: 38, scale: 0, mode: 'bigint' });
 
 // The handle also names the ledger's folder in its owner's storage, so it never changes.
@@ -101,7 +101,7 @@ export const postings = PG.pgTable(
 		account: t.text().notNull(),
 		accountType: accountType().notNull(),
 
-		// What moves into the account, or out when negative, in signed billionths.
+		// What moves into the account, or out when negative, in signed ten-billionths.
 		amount: amount().notNull(),
 		commodity: t.text().notNull(),
 
@@ -143,7 +143,7 @@ export const prices = PG.pgTable(
 		line: t.integer().notNull(),
 		date: t.date().notNull(),
 		commodity: t.text().notNull(),
-		priceAmount: amount().notNull(), // of one unit, in billionths
+		priceAmount: amount().notNull(), // of one unit, in ten-billionths
 		priceCommodity: t.text().notNull(),
 		source: priceSource().notNull(),
 	}),
@@ -170,7 +170,7 @@ export const lots = PG.pgTable(
 		commodity: t.text().notNull(),
 		origin: lotOrigin().notNull(),
 		date: t.date().notNull(),
-		units: amount().notNull(), // signed billionths; negative for a short
+		units: amount().notNull(), // signed ten-billionths; negative for a short
 		remaining: amount().notNull(),
 		costAmount: amount().notNull(), // of one unit
 		costCommodity: t.text().notNull(),
@@ -197,7 +197,7 @@ export const disposals = PG.pgTable(
 			.references(() => postings.id, { onDelete: 'cascade' }),
 		commodity: t.text().notNull(),
 		kind: disposalKind().notNull(),
-		units: amount().notNull(), // what the lot changes by, signed billionths
+		units: amount().notNull(), // what the lot changes by, signed ten-billionths
 		priceAmount: amount(), // of one unit; with its commodity, all or none
 		priceCommodity: t.text(),
 	}),

@@ -37,19 +37,19 @@ describe('accounts', () => {
 
 			const accounts = (await Accounts.getAccounts(ledger, day))._unsafeUnwrap().succeeded;
 			expect(accounts.map((a) => [a.account, a.total, a.unpriced])).toEqual([
-				['Assets', 2500_000_000_000n, 1],
-				['Assets:Bank', -10100_000_000_000n, 0],
-				['Assets:Zerodha', 12600_000_000_000n, 1],
+				['Assets', 2500_0000000000n, 1],
+				['Assets:Bank', -10100_0000000000n, 0],
+				['Assets:Zerodha', 12600_0000000000n, 1],
 			]);
 			expect(accounts[2]?.holdings).toMatchObject([
 				{
 					commodity: 'INFY',
-					units: 7_000_000_000n,
-					cost: { amount: 10900_000_000_000n, commodity: 'INR' },
-					price: { amount: 1800_000_000_000n, commodity: 'INR' },
-					gain: 1700_000_000_000n,
+					units: 7_0000000000n,
+					cost: { amount: 10900_0000000000n, commodity: 'INR' },
+					price: { amount: 1800_0000000000n, commodity: 'INR' },
+					gain: 1700_0000000000n,
 				},
-				{ commodity: 'TCS', units: 1_000_000_000n, value: null },
+				{ commodity: 'TCS', units: 1_0000000000n, value: null },
 			]);
 		}));
 
@@ -72,8 +72,8 @@ describe('accounts', () => {
 
 			const accounts = (await Accounts.getAccounts(ledger, day))._unsafeUnwrap().succeeded;
 			expect(accounts.find((a) => a.account === 'Assets:IBKR')?.holdings).toMatchObject([
-				{ commodity: 'AAPL', value: 41500_000_000_000n, gain: 8300_000_000_000n },
-				{ commodity: 'USD', value: 49800_000_000_000n, gain: null },
+				{ commodity: 'AAPL', value: 41500_0000000000n, gain: 8300_0000000000n },
+				{ commodity: 'USD', value: 49800_0000000000n, gain: null },
 			]);
 		}));
 
@@ -108,10 +108,10 @@ describe('accounts', () => {
 					disposals: [
 						{
 							kind: 'sale',
-							units: -4_000_000_000n,
-							gain: { amount: 800_000_000_000n, commodity: 'INR' },
+							units: -4_0000000000n,
+							gain: { amount: 800_0000000000n, commodity: 'INR' },
 						},
-						{ kind: 'transfer', units: -6_000_000_000n, price: null, gain: null },
+						{ kind: 'transfer', units: -6_0000000000n, price: null, gain: null },
 					],
 				},
 			]);
@@ -120,7 +120,7 @@ describe('accounts', () => {
 				await Accounts.getLots({ ledger, account: 'Assets:Groww', commodity: 'INFY' })
 			)._unsafeUnwrap();
 			expect(groww.succeeded).toMatchObject([
-				{ origin: 'transfer', from: 'Assets:Zerodha', remaining: 6_000_000_000n, disposals: [] },
+				{ origin: 'transfer', from: 'Assets:Zerodha', remaining: 6_0000000000n, disposals: [] },
 			]);
 		}));
 });

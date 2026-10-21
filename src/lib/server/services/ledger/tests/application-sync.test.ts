@@ -108,15 +108,15 @@ describe('syncing the ledger', () => {
 			await put(storage, ledger, 'a.rupee', `${bought}\nP 2026-10-17 INFY 1820\n`);
 			await Sync.sync(ledger);
 			expect(await indexed()).toEqual([
-				{ commodity: 'INFY', amount: 1_500_000_000_000n, source: PriceSource.Posting },
-				{ commodity: 'INFY', amount: 1_820_000_000_000n, source: PriceSource.Line },
+				{ commodity: 'INFY', amount: 1500_0000000000n, source: PriceSource.Posting },
+				{ commodity: 'INFY', amount: 1820_0000000000n, source: PriceSource.Line },
 			]);
 
 			await put(storage, ledger, 'a.rupee', 'P 2026-10-18 INFY 1830\nP 2026-10-18 TCS 4100\n');
 			await Sync.sync(ledger);
 			expect(await indexed()).toEqual([
-				{ commodity: 'INFY', amount: 1_830_000_000_000n, source: PriceSource.Line },
-				{ commodity: 'TCS', amount: 4_100_000_000_000n, source: PriceSource.Line },
+				{ commodity: 'INFY', amount: 1830_0000000000n, source: PriceSource.Line },
+				{ commodity: 'TCS', amount: 4100_0000000000n, source: PriceSource.Line },
 			]);
 		}));
 
@@ -136,7 +136,7 @@ describe('syncing the ledger', () => {
 			const [indexed] = (await index(ledger.id).transactions())._unsafeUnwrap();
 			expect(indexed?.postings.map((p) => p.cost)).toEqual([
 				{
-					amount: 1_500_000_000_000n,
+					amount: 1500_0000000000n,
 					commodity: 'INR',
 					date: Temporal.PlainDate.from('2024-06-03'),
 				},
@@ -458,7 +458,7 @@ describe('lots', () => {
 
 			expect(await Sync.sync(ledger)).toEqual(ok([]));
 			expect(await held(db, ledger.id)).toEqual([
-				{ account: 'Assets:Zerodha', remaining: 6_000_000_000n, origin: 'buy' },
+				{ account: 'Assets:Zerodha', remaining: 6_0000000000n, origin: 'buy' },
 			]);
 		}));
 

@@ -636,16 +636,16 @@ describe('blank lines', () => {
 
 describe('reading an amount', () => {
 	it.each([
-		['100', 100_000_000_000n],
-		['-1250.50', -1_250_500_000_000n],
-		['+5', 5_000_000_000n],
-		['₹1,250.50', 1_250_500_000_000n],
-		['0.000000001', 1n],
-	])('reads %j as %s billionths', (tx, am) => {
+		['100', 100_0000000000n],
+		['-1250.50', -1250_5000000000n],
+		['+5', 5_0000000000n],
+		['₹1,250.50', 1250_5000000000n],
+		['0.0000000001', 1n],
+	])('reads %j as %s ten-billionths', (tx, am) => {
 		expect(parseAmount(tx)).toBe(am);
 	});
 
-	it.each(['', 'abc', '₹', '.5', '1.2345678901', '100abc', '10AAPL', '5.5.5', '1,250.00Cr'])(
+	it.each(['', 'abc', '₹', '.5', '1.23456789012', '100abc', '10AAPL', '5.5.5', '1,250.00Cr'])(
 		'rejects %j',
 		(tx) => {
 			expect(parseAmount(tx)).toBeNull();
@@ -655,12 +655,12 @@ describe('reading an amount', () => {
 
 describe('writing an amount', () => {
 	it.each([
-		[100_000_000_000n, '100.00'],
-		[-1_250_500_000_000n, '-1250.50'],
-		[1n, '0.000000001'],
-		[-1n, '-0.000000001'],
+		[100_0000000000n, '100.00'],
+		[-1250_5000000000n, '-1250.50'],
+		[1n, '0.0000000001'],
+		[-1n, '-0.0000000001'],
 		[0n, '0.00'],
-	])('writes %s billionths as %j', (am, tx) => {
+	])('writes %s ten-billionths as %j', (am, tx) => {
 		expect(formatAmount(am as Amount)).toBe(tx);
 	});
 });

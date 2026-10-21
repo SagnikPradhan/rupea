@@ -39,7 +39,7 @@ describe('market prices', () => {
 	it('divides a total price by the units, whichever way they move', () => {
 		expect(
 			pricesIn(['2026-10-01 Sell AAPL', '\tAssets:IBKR -3 AAPL @@ 700 USD', '\tAssets:IBKR:Cash']),
-		).toEqual([[PriceSource.Posting, '2026-10-01', 'AAPL', quantity('233.333333', 'USD')]]);
+		).toEqual([[PriceSource.Posting, '2026-10-01', 'AAPL', quantity('233.3333333333', 'USD')]]);
 	});
 
 	it('skips postings without a price', () => {

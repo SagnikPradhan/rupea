@@ -11,6 +11,9 @@ export const priceSource = PG.pgEnum('price_source', PriceSource);
 export const lotOrigin = PG.pgEnum('lot_origin', LotOrigin);
 export const disposalKind = PG.pgEnum('disposal_kind', DisposalKind);
 
+// Ten-billionths of a unit; a bigint would overflow past 900 million units or on a product.
+const amount = () => PG.numeric({ precision: 38, scale: 0, mode: 'bigint' });
+
 // The handle also names the ledger's folder in its owner's storage, so it never changes.
 export const ledgers = PG.pgTable(
 	'ledgers',
@@ -98,22 +101,22 @@ export const postings = PG.pgTable(
 		account: t.text().notNull(),
 		accountType: accountType().notNull(),
 
-		// What moves into the account, or out when negative, in signed millionths.
-		amount: t.bigint({ mode: 'bigint' }).notNull(),
+		// What moves into the account, or out when negative, in signed ten-billionths.
+		amount: amount().notNull(),
 		commodity: t.text().notNull(),
 
 		// What the commodity is worth in another: `@` per unit or `@@` in total. All or none.
-		priceAmount: t.bigint({ mode: 'bigint' }),
+		priceAmount: amount(),
 		priceCommodity: t.text(),
 		priceKind: priceKind(),
 
 		// The `{cost, date}` per unit of the lot this takes from; balances in place of the price.
-		costAmount: t.bigint({ mode: 'bigint' }),
+		costAmount: amount(),
 		costCommodity: t.text(),
 		costDate: t.date(),
 
 		// What the account holds of this commodity after this posting, when the file asserts it.
-		balance: t.bigint({ mode: 'bigint' }),
+		balance: amount(),
 	}),
 	(t) => [
 		PG.index('postings_transaction_id').on(t.transactionId),
@@ -140,7 +143,7 @@ export const prices = PG.pgTable(
 		line: t.integer().notNull(),
 		date: t.date().notNull(),
 		commodity: t.text().notNull(),
-		priceAmount: t.bigint({ mode: 'bigint' }).notNull(), // of one unit, in millionths
+		priceAmount: amount().notNull(), // of one unit, in ten-billionths
 		priceCommodity: t.text().notNull(),
 		source: priceSource().notNull(),
 	}),
@@ -167,9 +170,9 @@ export const lots = PG.pgTable(
 		commodity: t.text().notNull(),
 		origin: lotOrigin().notNull(),
 		date: t.date().notNull(),
-		units: t.bigint({ mode: 'bigint' }).notNull(), // signed millionths; negative for a short
-		remaining: t.bigint({ mode: 'bigint' }).notNull(),
-		costAmount: t.bigint({ mode: 'bigint' }).notNull(), // of one unit
+		units: amount().notNull(), // signed ten-billionths; negative for a short
+		remaining: amount().notNull(),
+		costAmount: amount().notNull(), // of one unit
 		costCommodity: t.text().notNull(),
 	}),
 	(t) => [
@@ -194,8 +197,8 @@ export const disposals = PG.pgTable(
 			.references(() => postings.id, { onDelete: 'cascade' }),
 		commodity: t.text().notNull(),
 		kind: disposalKind().notNull(),
-		units: t.bigint({ mode: 'bigint' }).notNull(), // what the lot changes by, signed millionths
-		priceAmount: t.bigint({ mode: 'bigint' }), // of one unit; with its commodity, all or none
+		units: amount().notNull(), // what the lot changes by, signed ten-billionths
+		priceAmount: amount(), // of one unit; with its commodity, all or none
 		priceCommodity: t.text(),
 	}),
 	(t) => [

@@ -58,15 +58,16 @@ const reindex = (f: Files, l: string, k: string): ResultAsync<Indexed> =>
 export const indexFile = (ledgerId: string, file: RupeeFile): ResultAsync<Indexed> =>
 	withContext('config')((config) => {
 		const parsed = parse(config.ledger, file);
-		const counted = isCounted(file.key);
-		const failed = counted ? parsed.failed : [];
+		const kept = isCounted(file.key)
+			? parsed
+			: { ...parsed, succeeded: [], prices: [], failed: [] };
 		return index(ledgerId)
-			.put(file.key, indexedVersion(file.version, failed), {
-				metadata: parsed.metadata,
-				transactions: counted ? parsed.succeeded : [],
-				prices: counted ? parsed.prices : [],
+			.put(file.key, indexedVersion(file.version, kept.failed), {
+				metadata: kept.metadata,
+				transactions: kept.succeeded,
+				prices: kept.prices,
 			})
-			.map((t) => ({ failed, touched: t }));
+			.map((t) => ({ failed: kept.failed, touched: t }));
 	});
 
 export const unindex = (li: string, k: string): ResultAsync<Indexed> =>

@@ -47,7 +47,13 @@ describe('uploading statements', () => {
 			const queued = await Uploads.listImports(ledger, ledger.owner);
 
 			expect(uploaded).toEqual(
-				ok({ succeeded: [`${day()}/books.ledger`, `${day()}/aug.csv`], failed: [] }),
+				ok({
+					succeeded: [
+						{ key: `${day()}/books.ledger`, queued: true },
+						{ key: `${day()}/aug.csv`, queued: false },
+					],
+					failed: [],
+				}),
 			);
 			expect(queued).toMatchObject(ok([{ status: 'queued', statement: `${day()}/books.ledger` }]));
 		}));
@@ -59,7 +65,7 @@ describe('uploading statements', () => {
 
 			expect(uploaded).toMatchObject(
 				ok({
-					succeeded: [`${day()}/books.ledger`],
+					succeeded: [{ key: `${day()}/books.ledger`, queued: true }],
 					failed: [{ type: 'ExtractionUnsupportedFile' }],
 				}),
 			);

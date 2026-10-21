@@ -44,14 +44,10 @@ export const save = ({ ledger, statement, schema }: ExtractOptions) =>
 	);
 
 /** Files a statement that is a ledger file already, as written, unless a file cites it; so running it again is harmless. */
-export const importText = (ledger: Ledger, checksum: string): ResultAsync<void> =>
-	findCited(ledger, [checksum]).andThen((cited) =>
-		cited.length > 0
-			? okAsync(undefined)
-			: findByChecksum(ledger, checksum).andThen((s) =>
-					s ? copied(ledger, s) : okAsync(undefined),
-				),
-	);
+export const importText = (l: Ledger, cs: string): ResultAsync<void> =>
+	findCited(l, [cs])
+		.andThen((c) => (c.length > 0 ? okAsync(null) : findByChecksum(l, cs)))
+		.andThen((s) => (s ? copied(l, s) : okAsync(undefined)));
 
 const copied = (ledger: Ledger, s: Statement): ResultAsync<void> =>
 	withContext('config')((c) => {

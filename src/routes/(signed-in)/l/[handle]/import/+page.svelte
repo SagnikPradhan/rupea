@@ -20,13 +20,13 @@
 	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
 	import { ledgerCrumb } from '#lib/web/links.ts';
 	import type { Reply } from '#lib/server/shared/result/reply.ts';
+	import { fileHref } from '#lib/web/links.ts';
 	import { goto } from '$app/navigation';
 
 	type Preview = Awaited<ReturnType<typeof previewStatement>>;
 
-	/** Files that import on their own; the rest wait for a schema to read them. */
-	const LEDGER_FILES = ['.rupee', '.ledger', '.journal', '.dat', '.txt'];
-	const SHEETS = ['.csv', '.xls', '.xlsx', '.pdf'];
+	/** Statements a schema reads, then ledger files, which import on their own. */
+	const ACCEPTED = '.csv,.xls,.xlsx,.pdf,.rupee,.ledger,.journal,.dat,.txt';
 
 	/** A starting point: Rupee's built-in HDFC savings schema, which the manual walks through. */
 	const example = `version: v1
@@ -157,21 +157,21 @@ fields:
 	}
 
 	// One statement uploaded alone opens at once, even one read before.
-	async function readSingle(keys: string[]) {
-		const key = keys.length === 1 ? keys[0] : undefined;
-		if (key && !LEDGER_FILES.some((e) => key.toLowerCase().endsWith(e)))
-			await show(await openStatement({ handle, statement: key }));
+	async function readSingle(uploaded: { key: string; queued: boolean }[]) {
+		const single = uploaded.length === 1 ? uploaded[0] : undefined;
+		if (single && !single.queued)
+			await show(await openStatement({ handle, statement: single.key }));
 	}
 
-	// Imports run as jobs; poll them until none is left to run.
+	// Imports run as jobs; poll them until none is left to run, then list the files they made.
 	$effect(() => {
 		if (!running) return;
 
-		const timer = setInterval(() => {
-			void getImports(handle).refresh();
+		const timer = setInterval(() => void getImports(handle).refresh(), 2000);
+		return () => {
+			clearInterval(timer);
 			void getFiles(handle).refresh();
-		}, 2000);
-		return () => clearInterval(timer);
+		};
 	});
 </script>
 
@@ -207,7 +207,7 @@ fields:
 			Statements (.csv, .xls, .xlsx, .pdf, or ledger files)
 			<input
 				{...uploadStatements.fields.files.as('file multiple')}
-				accept={[...SHEETS, ...LEDGER_FILES].join(',')}
+				accept={ACCEPTED}
 				onchange={(e) => e.currentTarget.form?.requestSubmit()}
 				required
 			/>
@@ -323,8 +323,7 @@ fields:
 			{...importStatement.enhance(async (form) => {
 				await form.submit();
 				const result = form.result;
-				if (result?.ok && result.data)
-					await goto(`/l/${handle}/files?file=${encodeURIComponent(result.data.key)}`);
+				if (result?.ok && result.data) await goto(fileHref(handle, result.data.key));
 			})}
 		>
 			<input {...importStatement.fields.handle.as('hidden', handle)} />

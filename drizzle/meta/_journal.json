@@ -15,6 +15,13 @@
       "when": 1792568644940,
       "tag": "0001_amount_ten_places",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1792588744868,
+      "tag": "0002_statements_by_upload",
+      "breakpoints": true
     }
   ]
 }

@@ -44,7 +44,10 @@ const FOLDERS = {
 };
 
 /** One of a ledger's folders in its owner's storage, for a caller that reached the ledger through `withLedger`. */
-export const openFolder = (l: Ledger, f: keyof typeof FOLDERS): ResultAsync<Storage> =>
+export const openFolder = (
+	l: Ledger,
+	f: 'files' | 'statements' | 'schemas',
+): ResultAsync<Storage> =>
 	withStorage({
 		user: l.owner,
 		action: (s) => ok(scoped(s, `ledgers/${l.handle}/${FOLDERS[f]}`)),

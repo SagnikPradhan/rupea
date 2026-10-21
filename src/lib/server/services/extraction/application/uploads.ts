@@ -27,8 +27,11 @@ type UploadOptions = {
 	uploads: Upload[];
 };
 
+/** A stored upload, and whether a job imports it, as it needs no schema. */
+type Uploaded = { key: string; queued: boolean };
+
 /** Stores each upload, and queues the import of a ledger file with it; one failing does not stop the rest. */
-export const uploadStatements = (o: UploadOptions): ResultAsync<Batch<string>> =>
+export const uploadStatements = (o: UploadOptions): ResultAsync<Batch<Uploaded>> =>
 	sequence(o.uploads.map((u) => () => attemptUpload(o, u))).map(batch);
 
 /** Statements uploaded lately that wait for a schema to read them, as no file cites them yet. */
@@ -55,12 +58,12 @@ const viewImport = (j: UserJob) => ({
 	error: j.error,
 });
 
-const attemptUpload = (o: UploadOptions, u: Upload): ResultAsync<Result<string>[]> =>
+const attemptUpload = (o: UploadOptions, u: Upload): ResultAsync<Result<Uploaded>[]> =>
 	uploadOne(o, u)
 		.map((k) => [ok(k)])
 		.orElse((e) => okAsync([err(e)]));
 
-const uploadOne = (o: UploadOptions, upload: Upload): ResultAsync<string> =>
+const uploadOne = (o: UploadOptions, upload: Upload): ResultAsync<Uploaded> =>
 	atomically(() =>
 		storeStatement(o.ledger, upload).andThen((s) =>
 			isText(s.key)
@@ -68,7 +71,7 @@ const uploadOne = (o: UploadOptions, upload: Upload): ResultAsync<string> =>
 						job: importStatement,
 						user: o.user,
 						payload: { ledger: o.ledger.handle, checksum: s.checksum, statement: s.key },
-					}).map(() => s.key)
-				: okAsync(s.key),
+					}).map(() => ({ key: s.key, queued: true }))
+				: okAsync({ key: s.key, queued: false }),
 		),
 	);

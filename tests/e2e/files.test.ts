@@ -65,3 +65,27 @@ test('formats a file from the toolbar', async ({ signedIn: page, ledger }) => {
 	await expect(lines.nth(1)).toHaveText('\tExpenses:Food  20');
 	await expect(lines).toHaveCount(4);
 });
+
+test('asks before leaving unsaved changes, and stays when told to', async ({
+	signedIn: page,
+	ledger,
+}) => {
+	await visit(page, `${ledger}/files`);
+	await page.getByRole('button', { name: 'New file' }).click();
+	await page.getByLabel('New file').fill('draft.rupee');
+	await page.getByRole('button', { name: 'Create' }).click();
+	await page.getByLabel('Ledger file').click();
+	await page.keyboard.type('2026-09-01 TEA');
+
+	const files = page
+		.getByRole('navigation', { name: 'Breadcrumb' })
+		.getByRole('link', { name: 'Files' });
+
+	const [kept] = await Promise.all([page.waitForEvent('dialog'), files.click()]);
+	await kept.dismiss();
+	await expect(page.getByText('Unsaved')).toBeVisible();
+
+	const [discarded] = await Promise.all([page.waitForEvent('dialog'), files.click()]);
+	await discarded.accept();
+	await expect(page.getByRole('link', { name: 'draft.rupee' })).toBeVisible();
+});

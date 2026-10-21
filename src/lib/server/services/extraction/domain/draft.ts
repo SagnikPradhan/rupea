@@ -1,9 +1,9 @@
 import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
 import type { RupeeError } from '#lib/server/shared/result/error.ts';
+import { IMPORTS } from '#lib/shared/folders.ts';
 import {
 	accountType,
 	DEFAULT_COMMODITY,
-	IMPORTS,
 	print,
 	type Amount,
 	type RupeeTransaction,

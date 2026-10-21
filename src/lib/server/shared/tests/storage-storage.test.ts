@@ -144,6 +144,15 @@ describe('writing a numbered key', () => {
 			'day/hdfc-03.pdf',
 		]);
 	});
+
+	it('keeps a numbered key that holds this content already', async ({ storage }) => {
+		await writeNumbered(storage, 'day/hdfc.pdf', text('a'));
+		await writeNumbered(storage, 'day/hdfc.pdf', text('b'));
+		const again = await writeNumbered(storage, 'day/hdfc.pdf', text('b'));
+
+		expect(again).toMatchObject(ok({ key: 'day/hdfc-02.pdf' }));
+		expect(await keys(storage)).toEqual(['day/hdfc-02.pdf', 'day/hdfc.pdf']);
+	});
 });
 
 describe('scoped storage', () => {

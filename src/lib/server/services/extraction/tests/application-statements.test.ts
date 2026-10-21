@@ -10,6 +10,7 @@ import * as XLSX from 'xlsx';
 import { describe, expect } from 'vitest';
 import * as Drafts from '#services/extraction/application/drafts.ts';
 import * as Statements from '#services/extraction/application/statements.ts';
+import * as Files from '#services/ledger/application/files.ts';
 import { bank, day, encode, folder, statement, upload } from './fixtures/bank';
 
 const sha256 = (c: Uint8Array) => `sha256:${createHash('sha256').update(c).digest('hex')}`;
@@ -62,6 +63,19 @@ describe('uploading a statement', () => {
 			const renamed = await upload(ledger, statement, 'renamed.csv');
 
 			expect(renamed).toEqual(first);
+		}));
+
+	it('stores a statement again once its file was moved or deleted', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const first = await upload(ledger);
+			await Files.renameFiles(ledger, [{ from: `_/statements/${first.key}`, to: 'aug.csv' }]);
+			const moved = await upload(ledger);
+			await Files.deleteFiles(ledger, [`_/statements/${moved.key}`]);
+			const deleted = await upload(ledger);
+
+			expect(moved).toMatchObject({ key: first.key, checksum: first.checksum });
+			expect(deleted).toMatchObject({ key: first.key, checksum: first.checksum });
 		}));
 
 	it('keeps a locked statement, and replaces it with its content unlocked', ({

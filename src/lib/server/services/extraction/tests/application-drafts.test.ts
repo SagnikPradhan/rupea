@@ -169,14 +169,17 @@ describe('saving a draft', () => {
 		provide({ ...context, models: broken(context.models) }, async () => {
 			const ledger = await createLedger(db);
 			const statement = (await upload(ledger)).key;
-			await Drafts.save({ ledger, statement, schema: bank });
+			const taken = `_/imports/${day()}/aug.rupee`;
+			await Files.createFile({ ledger, key: taken, content: '' });
+			const saved = await Drafts.save({ ledger, statement, schema: bank });
 			const again = await Drafts.save({ ledger, statement, schema: bank });
-			const key = `_/imports/${day()}/aug.rupee`;
+			const key = `_/imports/${day()}/aug-02.rupee`;
 
-			expect(again).toMatchObject(ok({ key: `_/imports/${day()}/aug-02.rupee` }));
+			expect(saved).toMatchObject(ok({ key }));
+			expect(again).toMatchObject(ok({ key }));
 			expect(await Transactions.getTransactions(ledger)).toMatchObject(ok({ succeeded: [] }));
 
-			await Files.deleteFiles(ledger, [`_/imports/${day()}/aug-02.rupee`]);
+			await Files.deleteFiles(ledger, [taken]);
 			await Files.renameFiles(ledger, [{ from: key, to: 'bank/aug.rupee' }]);
 			expect(await Transactions.getTransactions(ledger)).toMatchObject(
 				ok({ succeeded: [{ description: 'UPI GROCER' }, { description: 'SALARY' }] }),

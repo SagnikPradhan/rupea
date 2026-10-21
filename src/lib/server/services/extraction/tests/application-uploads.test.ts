@@ -3,7 +3,10 @@ import { ok } from '#lib/server/shared/result/result.ts';
 import * as Drafts from '#services/extraction/application/drafts.ts';
 import { importStatement } from '#services/extraction/adapters/jobs.ts';
 import * as Uploads from '#services/extraction/application/uploads.ts';
+import { jobs } from '#services/jobs/adapters/database-schema.ts';
 import { listJobs } from '#services/jobs/application/jobs.ts';
+import { JobStatus } from '#services/jobs/domain/jobs.ts';
+import { metadata } from '#services/ledger/adapters/database-schema.ts';
 import { runJob } from '#services/jobs/application/worker.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import * as Transactions from '#services/ledger/application/transactions.ts';
@@ -101,6 +104,19 @@ describe('importing a ledger file', () => {
 			expect(listed.map((f) => f.key)).toEqual([`_/imports/${day()}/books.rupee`]);
 		}));
 
+	it('runs again without a second copy', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await uploads(ledger, { 'books.ledger': books });
+			await runImports(ledger);
+			await db.delete(metadata);
+			await db.update(jobs).set({ status: JobStatus.Queued });
+			await runImports(ledger);
+
+			const listed = (await Files.listFiles(ledger))._unsafeUnwrap().succeeded;
+			expect(listed.map((f) => f.key)).toEqual([`_/imports/${day()}/books.rupee`]);
+		}));
+
 	it('leaves only statements to read that no file cites in the inbox', ({ context, db }) =>
 		provide({ ...context, models: broken(context.models) }, async () => {
 			const ledger = await createLedger(db);
@@ -111,5 +127,18 @@ describe('importing a ledger file', () => {
 
 			expect(before._unsafeUnwrap().map((s) => s.key)).toEqual([`${day()}/aug.csv`]);
 			expect(after).toEqual(ok([]));
+		}));
+});
+
+describe('the inbox and the imports', () => {
+	it('leave out a statement deleted since, and a job that no longer reads', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await uploads(ledger, { 'books.ledger': books, 'aug.csv': statement });
+			await Files.deleteFiles(ledger, [`_/statements/${day()}/aug.csv`]);
+			await db.update(jobs).set({ payload: { ledger: ledger.handle } });
+
+			expect(await Uploads.listInbox(ledger)).toEqual(ok([]));
+			expect(await Uploads.listImports(ledger, ledger.owner)).toEqual(ok([]));
 		}));
 });

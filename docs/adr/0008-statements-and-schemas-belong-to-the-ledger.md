@@ -25,11 +25,11 @@ Several statements upload at once. A ledger file (`.rupee`, `.ledger`, `.journal
 
 ## Consequences
 
-- Finding a statement by checksum, and listing the inbox, read a `statements` table of path and checksum per ledger. Like the posting index, it is a cache the statements folder can rebuild, never the truth.
+- Finding a statement by checksum, and listing the inbox, read a `statements` table of path and checksum per ledger. Like the posting index, it is a cache the statements folder can rebuild, never the truth. A row whose file was moved or deleted is dropped when a lookup or the inbox finds the file gone, and uploading that content again stores it anew.
 - Uploading content the ledger already has does nothing. A locked statement unlocked in the inbox and uploaded again before it is imported shows up twice, since no file records its `original-checksum:` yet.
 - A PDF is stored decrypted once its password is given, so returning to it later never asks again. The password is never stored.
 - Every member imports with the ledger's schemas and sees the same recognition.
 - A user with the same bank in two ledgers copies the schema, or lets the built-in one be copied into both.
 - Every import is reviewed in the file editor before it counts. Moving clean imports out of `_/` without review is meant to become a setting.
-- The old `statements/` tree is not migrated; statements there are no longer found.
+- The old `statements/` tree is not migrated; statements there are no longer found, and uploading one again stores it anew.
 - A file under `_/` that does not parse reports nothing until it is moved out.

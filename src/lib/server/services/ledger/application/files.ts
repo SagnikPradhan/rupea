@@ -2,7 +2,7 @@ import { withContext } from '#lib/server/shared/context/context.ts';
 import { batchInOrder, type Batch } from '#lib/server/shared/result/batch.ts';
 import { ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { index } from '../adapters/database';
-import { isCounted } from '../domain/folders';
+import { isCounted } from '#lib/shared/folders.ts';
 import { parse } from '../domain/parser';
 import type { Ledger, RupeeFile, RupeeTransaction } from '../domain/types';
 import { ledgerFiles } from './ledger';
@@ -31,7 +31,7 @@ type CreateFileOptions = {
 export const createFile = (o: CreateFileOptions): ResultAsync<RupeeFile> =>
 	writeFile({ ...o, ifVersion: null });
 
-/** Creates a file, numbering its name when it is taken, as nothing reviewed it yet. */
+/** Creates a file, numbering its name when it is taken, as nothing reviewed it yet; the same file twice is kept once. */
 export const importFile = ({ ledger, key, content }: CreateFileOptions): ResultAsync<RupeeFile> =>
 	ledgerFiles(ledger)
 		.andThen((f) => f.writeNumbered(key, content))

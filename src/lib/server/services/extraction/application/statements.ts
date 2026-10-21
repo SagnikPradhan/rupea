@@ -1,11 +1,7 @@
 import { fault } from '#lib/server/shared/result/error.ts';
 import { errAsync, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { openFolder, type Ledger } from '#services/ledger/application/ledger.ts';
-import {
-	findStatementByChecksum,
-	findStatementContents,
-	saveStatementContents,
-} from '../adapters/database';
+import { findStatementContents, saveStatementContents } from '../adapters/database';
 import { isReadable, READER_VERSION, readContents, unlock, type Upload } from '../adapters/reader';
 import { statements, type Statements, type StoredStatement } from '../adapters/storage-statements';
 import type { Contents, Grid } from '../domain/types';
@@ -48,7 +44,9 @@ export const unlockStatement = (options: UnlockOptions): ResultAsync<Statement> 
 
 /** The statement stored with this content, wherever it was moved, or null once deleted. */
 export const findByChecksum = (l: Ledger, c: string): ResultAsync<Statement | null> =>
-	findStatementByChecksum(l.id, c).andThen((r) => (r ? findStatement(l, r.key) : okAsync(null)));
+	ledgerStatements(l)
+		.andThen((s) => s.locate(c))
+		.andThen((s) => (s ? cached(s) : okAsync(null)));
 
 /** A statement the ledger already has, read from the cache while it lasts. */
 export const findStatement = (l: Ledger, k: string): ResultAsync<Statement> =>
@@ -62,6 +60,10 @@ export const findStatement = (l: Ledger, k: string): ResultAsync<Statement> =>
 			),
 	);
 
+/** Of these statements, those still stored; the rest are forgotten. */
+export const keepStored = (l: Ledger, k: string[]): ResultAsync<string[]> =>
+	ledgerStatements(l).andThen((s) => s.present(k));
+
 const ledgerStatements = (l: Ledger): ResultAsync<Statements> =>
 	openFolder(l, 'statements').map((s) => statements(s, l.id));
 
@@ -69,6 +71,11 @@ const uploadDay = () => Temporal.Now.plainDateISO().toString().replaceAll('-', '
 
 const readFresh = (s: StoredStatement): ResultAsync<Statement> =>
 	readContents({ name: s.key, content: s.content }).andThen((r) => remember(statementOf(s, r)));
+
+const cached = (s: StoredStatement): ResultAsync<Statement> =>
+	findStatementContents({ checksum: s.checksum, reader: READER_VERSION }).andThen((c) =>
+		c ? okAsync(statementOf(s, c)) : readFresh(s),
+	);
 
 const statementOf = (s: StoredStatement, c: Contents): Statement => ({
 	key: s.key,

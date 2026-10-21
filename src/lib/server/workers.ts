@@ -1,5 +1,6 @@
 import { startWorkers } from '#services/jobs/application/workers.ts';
 import { fileURLToPath } from 'node:url';
+import type { ViteHotContext } from 'vite/types/hot.d.ts';
 import { jobs } from './jobs';
 import type { RupeeContext } from './shared/context/context';
 
@@ -30,9 +31,20 @@ export const startServerWorkers = async (o: ServerWorkersOptions) => {
 		ready: modelsReady(o.context),
 	});
 
-	if (import.meta.hot) import.meta.hot.data.killWorkers = workers.kill;
-	import.meta.hot?.on('rupee:worker-built', () => void workers.recycle());
+	if (import.meta.hot) watchBuilds(import.meta.hot, workers);
 	return { stop: workers.stop };
+};
+
+/** Replaces the last reload's handlers, which would recycle workers it already killed. */
+const watchBuilds = (
+	hot: ViteHotContext,
+	workers: { kill: () => Promise<void>; recycle: () => Promise<void> },
+) => {
+	if (hot.data.recycle) hot.off('rupee:worker-built', hot.data.recycle);
+
+	hot.data.killWorkers = workers.kill;
+	hot.data.recycle = () => void workers.recycle();
+	hot.on('rupee:worker-built', hot.data.recycle);
 };
 
 /** Jobs wait for the server to download the models, which workers then only check. */

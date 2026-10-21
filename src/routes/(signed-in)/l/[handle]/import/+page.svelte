@@ -21,12 +21,10 @@
 	import { ledgerCrumb } from '#lib/web/links.ts';
 	import type { Reply } from '#lib/server/shared/result/reply.ts';
 	import { fileHref } from '#lib/web/links.ts';
+	import { UPLOAD_EXTENSIONS } from '#lib/shared/statements.ts';
 	import { goto } from '$app/navigation';
 
 	type Preview = Awaited<ReturnType<typeof previewStatement>>;
-
-	/** Statements a schema reads, then ledger files, which import on their own. */
-	const ACCEPTED = '.csv,.xls,.xlsx,.pdf,.rupee,.ledger,.journal,.dat,.txt';
 
 	/** A starting point: Rupee's built-in HDFC savings schema, which the manual walks through. */
 	const example = `version: v1
@@ -207,7 +205,7 @@ fields:
 			Statements (.csv, .xls, .xlsx, .pdf, or ledger files)
 			<input
 				{...uploadStatements.fields.files.as('file multiple')}
-				accept={ACCEPTED}
+				accept={UPLOAD_EXTENSIONS.join(',')}
 				onchange={(e) => e.currentTarget.form?.requestSubmit()}
 				required
 			/>

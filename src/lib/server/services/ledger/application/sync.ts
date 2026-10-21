@@ -6,7 +6,7 @@ import { embedder, MODEL } from '../adapters/prediction-onnx';
 import type { Files } from '../adapters/storage';
 import { formatQuantity, type Amount } from '../domain/amounts';
 import { checkEvents } from '../domain/events';
-import { isCounted } from '../domain/folders';
+import { isCounted } from '#lib/shared/folders.ts';
 import { displayLocation, parse } from '../domain/parser';
 import { indexedVersion, plan, type SyncPlan } from '../domain/sync';
 import { filling, type Unembedded } from '../domain/text';

@@ -3,9 +3,6 @@ import { fault } from '#lib/server/shared/result/error.ts';
 import { errAsync, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import type { Contents } from '../domain/types';
 
-/** Ledger files Rupee reads as they are written: its own, and ledger's and hledger's in the syntax they share. */
-export const TEXT_EXTENSIONS = ['.rupee', '.ledger', '.journal', '.dat', '.txt'];
-
 const decoder = new TextDecoder('utf-8', { fatal: true });
 
 type TextOptions = {

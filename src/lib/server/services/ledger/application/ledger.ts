@@ -4,7 +4,7 @@ import { scoped, type Storage } from '#lib/server/shared/storage/storage.ts';
 import { withStorage } from '#services/storage/application/storage.ts';
 import { findLedger, findLedgers, insertLedger } from '../adapters/database';
 import { files, type Files } from '../adapters/storage';
-import { STATEMENTS } from '../domain/folders';
+import { STATEMENTS } from '#lib/shared/folders.ts';
 import type { Ledger } from '../domain/types';
 
 export type { Ledger };

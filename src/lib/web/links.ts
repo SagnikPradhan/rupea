@@ -1,6 +1,3 @@
-/** Files under `_/` wait for review; the ledger counts nothing in them. */
-export const isCounted = (f: string) => !f.startsWith('_/');
-
 /** Opens a ledger file in the editor, at a 1-based line when given. */
 export const fileHref = (handle: string, file: string, line: number | string | null = null) => {
 	const query = new URLSearchParams(line === null ? { file } : { file, line: String(line) });

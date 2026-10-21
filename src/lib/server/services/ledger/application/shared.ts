@@ -6,7 +6,6 @@ export {
 	type Amount,
 } from '../domain/amounts';
 export { EventRole, linksOf } from '../domain/events';
-export { IMPORTS } from '../domain/folders';
 export { format } from '../domain/format';
 export type { LinkEdit } from '../domain/links';
 export { displayLocation, parse } from '../domain/parser';

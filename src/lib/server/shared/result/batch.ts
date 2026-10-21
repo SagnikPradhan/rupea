@@ -1,5 +1,5 @@
 import type { RupeeError } from './error';
-import { ResultAsync, sequence, type Result } from './result';
+import { ResultAsync, type Result } from './result';
 
 export type Batch<T> = { succeeded: T[]; failed: RupeeError[] };
 
@@ -12,9 +12,11 @@ export const batchAsync = <T>(res: (Result<T> | ResultAsync<T>)[]): ResultAsync<
 	ResultAsync.fromSafePromise(Promise.all(res).then(batch));
 
 /** Like `batchAsync`, starting each step once the one before it is done. */
-export const batchInOrder = <T>(steps: (() => ResultAsync<T>)[]): ResultAsync<Batch<T>> =>
-	sequence(
-		steps.map(
-			(s) => () => ResultAsync.fromSafePromise<Result<T>[]>(Promise.resolve(s()).then((r) => [r])),
-		),
-	).map((r) => batch(r));
+export const batchInOrder = <T>(s: (() => ResultAsync<T>)[]): ResultAsync<Batch<T>> =>
+	ResultAsync.fromSafePromise(inOrder(s).then(batch));
+
+const inOrder = async <T>(steps: (() => ResultAsync<T>)[]) => {
+	const results: Result<T>[] = [];
+	for (const step of steps) results.push(await step());
+	return results;
+};

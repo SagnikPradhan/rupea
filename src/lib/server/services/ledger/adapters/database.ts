@@ -855,14 +855,23 @@ export type Worth = {
 	day: Temporal.PlainDate;
 	assets: Amount;
 	liabilities: Amount;
+	worth: Amount;
 	unpriced: number;
 };
 
-type WorthRow = { day: string; assets: string; liabilities: string; unpriced: number };
+type WorthRow = {
+	day: string;
+	assets: string;
+	liabilities: string;
+	worth: string;
+	unpriced: number;
+};
 
-// Each day values its balances at the latest price on or before it, reaching
-// rupees in at most two prices and rounding each step as `multiply` does. The
-// first day is the later of `from` and the ledger's first counted transaction.
+/**
+ * Each day values its balances at the latest price on or before it, reaching rupees in at most
+ * two prices and rounding each step as multiply does. The first day is the later of from and the
+ * ledger's first counted transaction.
+ */
 const worth =
 	(ledgerId: string) =>
 	(evidence: string[], from: Temporal.PlainDate, to: Temporal.PlainDate): ResultAsync<Worth[]> =>
@@ -910,6 +919,7 @@ const worth =
 					select d.day::text as day,
 						coalesce(sum(v.value) filter (where v.asset), 0)::text as assets,
 						coalesce(-sum(v.value) filter (where not v.asset), 0)::text as liabilities,
+						coalesce(sum(v.value), 0)::text as worth,
 						count(v.day) filter (where v.value is null)::int as unpriced
 					from days d
 					left join valued v on v.day = d.day
@@ -921,6 +931,7 @@ const worth =
 					day: Temporal.PlainDate.from(w.day),
 					assets: BigInt(w.assets) as Amount,
 					liabilities: BigInt(w.liabilities) as Amount,
+					worth: BigInt(w.worth) as Amount,
 					unpriced: w.unpriced,
 				})),
 			),
@@ -928,7 +939,7 @@ const worth =
 
 const UNIT = sql.raw(AMOUNT_UNIT.toString());
 
-// The latest price of a commodity on or before a day; that day, a `P` line beats an `@`.
+/** The latest price of a commodity on or before a day, where a P line beats an at-price on the same day. */
 const priceOn = (ledgerId: string, commodity: SQL, day: SQL) => sql`
 	select price_amount as amount, price_commodity as currency
 	from ${priceTable}

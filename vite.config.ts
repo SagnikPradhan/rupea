@@ -59,6 +59,7 @@ export default defineConfig({
 						'src/lib/endpoints/tests/*.test.ts',
 						'tests/shared/**/*.test.ts',
 					],
+					benchmark: { include: ['src/lib/server/**/tests/*.bench.ts'] },
 					environment: 'node',
 					globalSetup: ['tests/shared/postgres.ts'],
 				},
@@ -70,6 +71,7 @@ export default defineConfig({
 				test: {
 					name: 'frontend',
 					include: ['src/lib/web/**/tests/*.test.ts'],
+					benchmark: { include: [] },
 					environment: 'happy-dom',
 				},
 			},

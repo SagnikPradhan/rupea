@@ -1,33 +1,27 @@
 import { replyFromBatch } from '#lib/server/shared/result/reply.ts';
 import * as Accounts from '#services/ledger/application/accounts.ts';
-import { formatAmount, formatQuantity, type Amount } from '#services/ledger/application/shared.ts';
+import { Day, Range, startOf } from '#lib/shared/dates.ts';
+import { formatAmount, formatQuantity } from '#services/ledger/application/shared.ts';
 import { query } from '$app/server';
 import * as v from 'valibot';
 import { Handle, inLedger } from './shared';
 
-const RANGES = {
-	'1m': (d: Temporal.PlainDate) => d.subtract({ months: 1 }),
-	ytd: (d: Temporal.PlainDate) => d.with({ month: 1, day: 1 }),
-	'1y': (d: Temporal.PlainDate) => d.subtract({ years: 1 }),
-};
-
-const WorthQuery = v.object({ handle: Handle, range: v.picklist(['1m', 'ytd', '1y']) });
+const AccountsQuery = v.object({ handle: Handle, day: Day });
+const WorthQuery = v.object({ handle: Handle, range: Range, day: Day });
 const LotsQuery = v.object({ handle: Handle, account: v.string(), commodity: v.string() });
 
-export const getAccounts = query(Handle, async (handle) => {
-	const today = Temporal.Now.plainDateISO();
-	const accounts = inLedger({ handle, action: (l) => Accounts.getAccounts(l, today) });
+export const getAccounts = query(AccountsQuery, async ({ handle, day }) => {
+	const accounts = inLedger({ handle, action: (l) => Accounts.getAccounts(l, day) });
 
 	return replyFromBatch(
 		await accounts.map((b) => ({ ...b, succeeded: b.succeeded.map(viewAccount) })),
 	);
 });
 
-export const getWorth = query(WorthQuery, async ({ handle, range }) => {
-	const today = Temporal.Now.plainDateISO();
+export const getWorth = query(WorthQuery, async ({ handle, range, day }) => {
 	const worth = inLedger({
 		handle,
-		action: (l) => Accounts.getWorth({ ledger: l, from: RANGES[range](today), to: today }),
+		action: (l) => Accounts.getWorth({ ledger: l, from: startOf[range](day), to: day }),
 	});
 
 	return replyFromBatch(await worth.map((b) => ({ ...b, succeeded: b.succeeded.map(viewWorth) })));
@@ -60,7 +54,7 @@ const viewWorth = (worth: Accounts.Worth) => ({
 	day: worth.day.toString(),
 	assets: formatAmount(worth.assets),
 	liabilities: formatAmount(worth.liabilities),
-	worth: formatAmount((worth.assets - worth.liabilities) as Amount),
+	worth: formatAmount(worth.worth),
 	unpriced: worth.unpriced,
 });
 

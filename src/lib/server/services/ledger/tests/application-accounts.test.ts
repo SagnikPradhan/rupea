@@ -158,10 +158,17 @@ describe('net worth', () => {
 			await Files.createFile({ ledger, key: 'a.rupee', content });
 
 			const worth = (await Accounts.getWorth({ ledger, from, to }))._unsafeUnwrap().succeeded;
-			expect(worth.map((w) => [w.day.toString(), w.assets, w.liabilities, w.unpriced])).toEqual([
-				['2026-10-01', 100000_0000000000n, 2000_0000000000n, 0],
-				['2026-10-02', 100000_0000000000n, 2000_0000000000n, 1],
-				['2026-10-03', 101660_0000000000n, 2000_0000000000n, 1],
+			const days = worth.map((w) => [
+				w.day.toString(),
+				w.assets,
+				w.liabilities,
+				w.worth,
+				w.unpriced,
+			]);
+			expect(days).toEqual([
+				['2026-10-01', 100000_0000000000n, 2000_0000000000n, 98000_0000000000n, 0],
+				['2026-10-02', 100000_0000000000n, 2000_0000000000n, 98000_0000000000n, 1],
+				['2026-10-03', 101660_0000000000n, 2000_0000000000n, 99660_0000000000n, 1],
 			]);
 		}));
 

@@ -1,6 +1,6 @@
 # Charts with uPlot, valued in Postgres
 
-Charts are drawn with [uPlot](https://github.com/leeoniya/uPlot) (MIT) behind one `LineChart` component, which styles it to the design language and replaces its legend with a readout of exact amounts. Every point is valued in a single query at the latest price on or before its day, so the series and today's account totals agree, and nothing loads a ledger's history into app code.
+Charts are drawn with [uPlot](https://github.com/leeoniya/uPlot) (MIT) behind one `LineChart` component, which styles it to the design language and replaces its legend with a readout of exact amounts. What a chart takes is in [ADR 0014](0014-canonical-chart-series.md). Every point is valued in a single query at the latest price on or before its day, so the series and today's account totals agree, and nothing loads a ledger's history into app code.
 
 ## Considered Options
 

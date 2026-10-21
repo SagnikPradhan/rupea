@@ -26,9 +26,18 @@ describe('issues', () => {
 		);
 	});
 
-	it('reports warnings as status rather than alerts', () => {
-		render(Issues, { handle: 'h', errors: [unbalanced], warning: true });
-		expect(screen.queryByRole('alert')).toBeNull();
-		expect(screen.getByRole('status')).toBeTruthy();
+	it('reports assertions as status, after the problems', () => {
+		const assertion = fault('BalanceAssertionFailed', {
+			location: 'a.rupee:9',
+			account: 'Assets:Bank',
+			expected: '10',
+			actual: '20',
+		});
+		render(Issues, { handle: 'h', errors: [assertion, unbalanced] });
+
+		const lists = screen.getAllByRole('list');
+		expect(lists).toHaveLength(2);
+		expect(lists[0]?.querySelector('[role="alert"]')).toBeTruthy();
+		expect(lists[1]?.querySelector('[role="status"]')).toBeTruthy();
 	});
 });

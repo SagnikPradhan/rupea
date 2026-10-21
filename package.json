@@ -24,6 +24,7 @@
 		"models": "tsx --env-file-if-exists=.env scripts/models.ts",
 		"test": "vitest run",
 		"test:watch": "vitest",
+		"bench": "vitest bench --run --reporter=verbose --silent=false",
 		"test:coverage": "vitest run --coverage",
 		"test:e2e": "playwright test",
 		"test:e2e:coverage": "NODE_OPTIONS=--disable-warning=DEP0205 mcr -c mcr.config.ts -- playwright test"

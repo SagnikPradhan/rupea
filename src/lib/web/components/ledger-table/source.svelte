@@ -5,7 +5,12 @@
 </script>
 
 <td>
-	<a href={fileHref(handle, file, line)} aria-label="{file}:{line}" title="{file}:{line}">
+	<a
+		href={fileHref(handle, file, line)}
+		class="plain"
+		aria-label="{file}:{line}"
+		title="{file}:{line}"
+	>
 		{file.split('/').at(-1)}:{line}
 	</a>
 </td>
@@ -19,13 +24,7 @@
 	}
 
 	a {
-		color: inherit;
-		text-decoration: none;
 		font-family: var(--font-mono);
-	}
-
-	a:hover {
-		text-decoration: underline;
 	}
 
 	@media (width < 40rem) {

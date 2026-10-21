@@ -1,7 +1,9 @@
 import type { Database } from '#lib/server/db/index.ts';
 import { provide } from '#lib/server/shared/context/context.ts';
 import { EMBEDDING_DIMENSIONS } from '#lib/server/shared/onnx/models.ts';
-import { ok } from '#lib/server/shared/result/result.ts';
+import { fault } from '#lib/server/shared/result/error.ts';
+import { errAsync, ok } from '#lib/server/shared/result/result.ts';
+import { scoped } from '#lib/server/shared/storage/storage.ts';
 import {
 	ledgerFiles,
 	lots,
@@ -15,6 +17,7 @@ import * as Files from '#services/ledger/application/files.ts';
 import * as Sync from '#services/ledger/application/sync.ts';
 import * as Transactions from '#services/ledger/application/transactions.ts';
 import { PriceSource } from '#services/ledger/domain/types.ts';
+import { broken } from '#tests/shared/embedding.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { asc, eq } from 'drizzle-orm';
@@ -534,5 +537,38 @@ describe('lots', () => {
 
 			expect(await Sync.sync(ledger)).toEqual(ok([]));
 			expect(await held(db, ledger.id)).toHaveLength(1);
+		}));
+});
+
+describe('syncing past a failure', () => {
+	it('reports a file it cannot read, and indexes the rest', ({ context, db, storage }) => {
+		const gone = fault('UnknownError', { message: 'disk gone' });
+		const unreadable = {
+			...storage,
+			read: (k: string) => (k.endsWith('a.rupee') ? errAsync(gone) : storage.read(k)),
+		};
+		const storages = { local: (u: string) => scoped(unreadable, `users/${u}`) };
+
+		return provide({ ...context, storages }, async () => {
+			const ledger = await createLedger(db);
+			await put(storage, ledger, 'a.rupee', groceries);
+			await put(storage, ledger, 'b.rupee', salary);
+
+			expect(await Sync.sync(ledger)).toEqual(
+				ok([expect.objectContaining({ type: 'CannotReadFile', path: 'a.rupee', cause: [gone] })]),
+			);
+			expect(await summary(ledger.id)).toEqual(['b.rupee:1 Salary']);
+		});
+	});
+
+	it('reports descriptions it cannot embed, and indexes them anyway', ({ context, db, storage }) =>
+		provide({ ...context, models: broken(context.models) }, async () => {
+			const ledger = await createLedger(db);
+			await put(storage, ledger, 'a.rupee', groceries);
+
+			expect(await Sync.sync(ledger)).toEqual(
+				ok([fault('UnknownError', { message: 'no such model' })]),
+			);
+			expect(await summary(ledger.id)).toEqual(['a.rupee:1 Groceries']);
 		}));
 });

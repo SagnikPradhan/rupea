@@ -1,17 +1,25 @@
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen } from '@testing-library/svelte';
 import { createRawSnippet, flushSync } from 'svelte';
 import type uPlot from 'uplot';
 import { describe, expect, it, vi } from 'vitest';
 import LineChart from '#lib/web/components/line-chart/line-chart.svelte';
+import { formatPercent } from '#lib/web/format.ts';
 
-const plots = vi.hoisted(() => [] as { options: uPlot.Options; destroyed: boolean }[]);
+type Plot = { options: uPlot.Options; destroyed: boolean; cursor: unknown };
+
+const plots = vi.hoisted(() => [] as Plot[]);
 
 vi.mock('uplot', () => ({
 	default: Object.assign(
 		vi.fn(function (options: uPlot.Options) {
-			const plot = { options, destroyed: false };
+			const plot: Plot = { options, destroyed: false, cursor: null };
 			plots.push(plot);
-			return { destroy: () => (plot.destroyed = true), setSize: () => {} };
+			return {
+				destroy: () => (plot.destroyed = true),
+				setSize: () => {},
+				setCursor: (c: unknown) => (plot.cursor = c),
+				over: { getBoundingClientRect: () => ({ left: 10, top: 20 }) },
+			};
 		}),
 		{ tzDate: (d: Date) => d },
 	),
@@ -40,9 +48,9 @@ const summary = createRawSnippet((index: () => number) => ({
 	},
 }));
 
-const drawn = async () => {
+const drawn = async (unit: 'amount' | 'percent' = 'amount') => {
 	plots.splice(0);
-	const props = { rows: ROWS, x: 'day', series: [...SERIES], label: 'Net worth', summary };
+	const props = { rows: ROWS, x: 'day', series: [...SERIES], unit, label: 'Net worth', summary };
 	const view = render(LineChart, props);
 	await vi.waitFor(() => expect(plots).toHaveLength(1));
 	const options = plots[0]?.options;
@@ -121,6 +129,21 @@ describe('the line chart', () => {
 		const plot = { valToPos: (s: number) => (s === 0 ? 0 : 100) } as unknown as uPlot;
 
 		expect(values(plot, [0, Date.parse('2026-01-02') / 1000], 0, 0, 0)).toEqual(['', '2 Jan']);
+	});
+
+	it('ticks and captions a percent chart as percents', async () => {
+		const { options } = await drawn('percent');
+		const values = options.axes?.[1]?.values;
+		if (typeof values !== 'function') throw new Error('No value labels');
+
+		expect(values({} as uPlot, [0.5], 0, 0, 0)).toEqual([formatPercent(0.5)]);
+		expect(caption()).toContain(formatPercent(400));
+	});
+
+	it('moves the cursor to where a finger touches', async () => {
+		await drawn();
+		await fireEvent.pointerDown(screen.getByRole('img'), { clientX: 50, clientY: 60 });
+		expect(plots[0]?.cursor).toEqual({ left: 40, top: 40 });
 	});
 
 	it('lets go of the chart when it leaves the page', async () => {

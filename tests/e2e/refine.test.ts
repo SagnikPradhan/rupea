@@ -16,7 +16,7 @@ const importAs = async (page: Page, ledger: string, key: string) => {
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
 };
 
-test('reviews the duplicates of a statement imported twice', async ({ signedIn: page, ledger }) => {
+const importTwice = async (page: Page, ledger: string) => {
 	await visit(page, `${ledger}/import`);
 	await page.getByLabel('Name', { exact: true }).fill('bank.yml');
 	await page.getByLabel('Schema', { exact: true }).fill(await readFile(data('bank.yml'), 'utf8'));
@@ -26,8 +26,11 @@ test('reviews the duplicates of a statement imported twice', async ({ signedIn: 
 	await importAs(page, ledger, 'imports/aug.rupee');
 	await page.waitForURL(`**${ledger}/transactions`);
 	await importAs(page, ledger, 'imports/aug-again.rupee');
-
 	await page.waitForURL(`**${ledger}/refine?file=*`);
+};
+
+test('reviews the duplicates of a statement imported twice', async ({ signedIn: page, ledger }) => {
+	await importTwice(page, ledger);
 	await expect(page.getByText('2 possible matches.')).toBeVisible();
 	await expect(page.getByRole('article')).toHaveCount(2);
 	await page.getByRole('button', { name: 'Accept all 2 duplicates' }).click();
@@ -51,4 +54,20 @@ test('reviews the duplicates of a statement imported twice', async ({ signedIn: 
 	await salary.getByRole('button', { name: 'Rename event' }).click();
 	await expect(events.getByRole('article', { name: 'Event august-salary' })).toBeVisible();
 	await expect(page.getByLabel('Ledger file')).toContainText('- event: august-salary');
+});
+
+test('dismisses one match, and accepts the other with its primary swapped', async ({
+	signedIn: page,
+	ledger,
+}) => {
+	await importTwice(page, ledger);
+	const matches = page.getByRole('article');
+	await expect(matches).toHaveCount(2);
+
+	await matches.first().getByRole('button', { name: 'Dismiss' }).click();
+	await expect(page.getByText('1 possible match.')).toBeVisible();
+
+	await matches.getByRole('button', { name: 'Swap primary' }).click();
+	await matches.getByRole('button', { name: 'Accept', exact: true }).click();
+	await expect(page.getByText('No possible matches for imports/aug-again.rupee.')).toBeVisible();
 });

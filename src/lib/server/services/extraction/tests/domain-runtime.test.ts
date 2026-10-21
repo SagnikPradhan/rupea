@@ -154,18 +154,19 @@ fields:
 	});
 
 	it('walks locators from the record row', () => {
-		// Each record's date sits above it; its amount, right of a label.
+		// Each record's date sits above it, its category below; its amount, right of a label.
 		const walk = schema(`
 fields:
   date: { from: [col: A, above: 1], pipe: [date: d MMM yyyy] }
   amount: { from: [text: Amount, right: 1], pipe: [number] }
   description: { from: [regex: '^Paid to ', right: 0], pipe: [replace: { from: 'Paid to ', to: '' }] }
-  category: { from: [col: D] }
+  category: { from: [col: D, below: 1] }
 `);
 		const grid: Grid = [
 			['When', 'What'],
 			['29 Aug 2026'],
-			['Paid to Grocer', 'Amount', '-100', 'Food and Drink'],
+			['Paid to Grocer', 'Amount', '-100'],
+			['', '', '', 'Food and Drink'],
 		];
 		expect(summary(grid, walk)).toEqual({
 			failed: [],

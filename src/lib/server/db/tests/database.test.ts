@@ -3,6 +3,7 @@ import { it } from '#tests/shared/vitest.ts';
 import { eq } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import { describe, expect } from 'vitest';
+import { attemptWrite } from '#lib/server/db/errors.ts';
 import type { Database } from '#lib/server/db/index.ts';
 import { AccountType } from '#services/ledger/domain/types.ts';
 import {
@@ -143,5 +144,19 @@ describe('the database', () => {
 		const found = await Promise.all(ids.map((id) => findLedger(db, id)));
 
 		expect(found.map((f) => f?.id)).toEqual(ids);
+	});
+
+	it('names the unique constraint a write breaks, and nothing else', async ({ db }) => {
+		const ledger = await createLedger(db);
+		const insert = (ownerId: string, handle: string) =>
+			attemptWrite(() => db.insert(ledgers).values({ id: uuidv7(), ownerId, handle, name: 'x' }));
+
+		expect((await insert(ledger.owner, ledger.handle))._unsafeUnwrapErr()).toEqual({
+			type: 'UniqueViolation',
+			constraint: 'ledgers_handle_unique',
+		});
+		expect((await insert(uuidv7(), uuidv7()))._unsafeUnwrapErr()).toMatchObject({
+			type: 'UnknownError',
+		});
 	});
 });

@@ -57,6 +57,7 @@ export default defineConfig({
 					include: [
 						'src/lib/server/**/tests/*.test.ts',
 						'src/lib/endpoints/tests/*.test.ts',
+						'src/lib/shared/tests/*.test.ts',
 						'tests/shared/**/*.test.ts',
 					],
 					benchmark: { include: ['src/lib/server/**/tests/*.bench.ts'] },

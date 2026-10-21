@@ -6,6 +6,7 @@ import { embedder, MODEL } from '../adapters/prediction-onnx';
 import type { Files } from '../adapters/storage';
 import { formatQuantity, type Amount } from '../domain/amounts';
 import { checkEvents } from '../domain/events';
+import { isCounted } from '../domain/folders';
 import { displayLocation, parse } from '../domain/parser';
 import { indexedVersion, plan, type SyncPlan } from '../domain/sync';
 import { filling, type Unembedded } from '../domain/text';
@@ -53,16 +54,19 @@ const attempt = (s: () => ResultAsync<Indexed>): ResultAsync<Indexed[]> =>
 const reindex = (f: Files, l: string, k: string): ResultAsync<Indexed> =>
 	f.read(k).andThen((r) => indexFile(l, r));
 
+/** A file waiting for review keeps only its metadata: what it cites is known, but nothing in it counts or fails. */
 export const indexFile = (ledgerId: string, file: RupeeFile): ResultAsync<Indexed> =>
 	withContext('config')((config) => {
 		const parsed = parse(config.ledger, file);
+		const counted = isCounted(file.key);
+		const failed = counted ? parsed.failed : [];
 		return index(ledgerId)
-			.put(file.key, indexedVersion(file.version, parsed.failed), {
+			.put(file.key, indexedVersion(file.version, failed), {
 				metadata: parsed.metadata,
-				transactions: parsed.succeeded,
-				prices: parsed.prices,
+				transactions: counted ? parsed.succeeded : [],
+				prices: counted ? parsed.prices : [],
 			})
-			.map((t) => ({ failed: parsed.failed, touched: t }));
+			.map((t) => ({ failed, touched: t }));
 	});
 
 export const unindex = (li: string, k: string): ResultAsync<Indexed> =>

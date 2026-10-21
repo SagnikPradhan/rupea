@@ -1,7 +1,6 @@
-import { err, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import type { Storage } from '#lib/server/shared/storage/storage.ts';
+import { okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
+import { writeNumbered, type Storage } from '#lib/server/shared/storage/storage.ts';
 import { createHash } from 'node:crypto';
-import { extname } from 'node:path';
 import {
 	findStatementByKey,
 	findStatementByChecksum,
@@ -18,8 +17,8 @@ export type StoredStatement = {
 
 /** A ledger's statements folder, found by content through the `statements` table. */
 export type Statements = {
-	/** Content the ledger already has comes back where it is, under any name, unlocked if it was. */
-	store: (name: string, content: Uint8Array) => ResultAsync<StoredStatement>;
+	/** Content the ledger already has comes back where it is, under any name, unlocked if it was. A taken name is numbered. */
+	store: (key: string, content: Uint8Array) => ResultAsync<StoredStatement>;
 	read: (key: string) => ResultAsync<StoredStatement>;
 	find: (key: string) => ResultAsync<StatementRow>;
 	/** New content in place of the old, such as a PDF once unlocked. */
@@ -49,21 +48,7 @@ const store = (f: Folder, name: string, content: Uint8Array): ResultAsync<Stored
 };
 
 const write = (f: Folder, s: StoredStatement): ResultAsync<StoredStatement> =>
-	place(f, s, 1).andThen((k) => record(f, { ...s, key: k }));
-
-// The same name with other content goes in as `name (2)`, and so on.
-const place = (f: Folder, s: StoredStatement, n: number): ResultAsync<string> => {
-	const key = numbered(s.key, n);
-	return f.storage
-		.write({ key, content: s.content, ifVersion: null })
-		.map(() => key)
-		.orElse((e) => (e.type === 'StorageConflict' ? place(f, s, n + 1) : err(e)));
-};
-
-const numbered = (name: string, n: number) => {
-	const extension = extname(name);
-	return n === 1 ? name : `${name.slice(0, name.length - extension.length)} (${n})${extension}`;
-};
+	writeNumbered(f.storage, s.key, s.content).andThen((e) => record(f, { ...s, key: e.key }));
 
 const record = (f: Folder, s: StoredStatement): ResultAsync<StoredStatement> =>
 	saveStatement(f.ledger, {

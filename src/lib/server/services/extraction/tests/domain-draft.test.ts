@@ -1,7 +1,7 @@
 import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
 import { parse, parseAmount, type Amount } from '#services/ledger/application/shared.ts';
 import { describe, expect, it } from 'vitest';
-import { categorised, draft, uncategorised } from '#services/extraction/domain/draft.ts';
+import { categorised, copy, draft, uncategorised } from '#services/extraction/domain/draft.ts';
 import type { RupeeRecord } from '#services/extraction/domain/types.ts';
 
 const config = defaultConfiguration.ledger;
@@ -48,15 +48,41 @@ describe('categorising records', () => {
 });
 
 describe('drafting a ledger file', () => {
-	it('names the file after the statement, under imports', () => {
+	it("names the file after the statement and its day folder, under the review area's imports", () => {
 		const drafted = draft({
 			config,
-			statement: { key: 'hdfc-aug.2026.csv', checksum: 'sha256:abc', originalChecksum: null },
+			statement: {
+				key: '20260829/hdfc-aug.2026.csv',
+				checksum: 'sha256:abc',
+				originalChecksum: null,
+			},
 			account: 'Assets:Bank',
 			records: [],
 			failed: [],
 		});
-		expect(drafted.key).toBe('imports/hdfc-aug.2026.rupee');
+		expect(drafted.key).toBe('_/imports/20260829/hdfc-aug.2026.rupee');
+	});
+
+	it('copies a ledger file as written, citing it above its own metadata', () => {
+		const copied = copy({
+			config,
+			statement: { key: '20260829/books.ledger', checksum: 'sha256:abc', originalChecksum: null },
+			text: ['- owner: me', '', '2026-08-29 Tea', '\tExpenses:Food 10', '\tAssets:Cash', ''],
+		});
+
+		expect(copied.key).toBe('_/imports/20260829/books.rupee');
+		expect(copied.content).toBe(
+			[
+				'- statement: 20260829/books.ledger',
+				'- checksum: sha256:abc',
+				'- owner: me',
+				'',
+				'2026-08-29 Tea',
+				'\tExpenses:Food 10',
+				'\tAssets:Cash',
+				'',
+			].join('\n'),
+		);
 	});
 
 	it("writes each record against its account, in the statement's order", () => {

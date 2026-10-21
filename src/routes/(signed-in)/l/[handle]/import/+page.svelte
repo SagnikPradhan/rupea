@@ -1,12 +1,15 @@
 <script lang="ts">
 	import {
+		getImports,
+		getInbox,
 		importStatement,
+		openStatement,
 		previewStatement,
-		uploadStatement,
 		recogniseStatement,
 		unlockStatement,
+		uploadStatements,
 	} from '#lib/endpoints/import.remote.ts';
-	import { getSuggestions } from '#lib/endpoints/refinement.remote.ts';
+	import { getFiles } from '#lib/endpoints/files.remote.ts';
 	import {
 		deleteSchema,
 		getSchema,
@@ -20,6 +23,10 @@
 	import { goto } from '$app/navigation';
 
 	type Preview = Awaited<ReturnType<typeof previewStatement>>;
+
+	/** Files that import on their own; the rest wait for a schema to read them. */
+	const LEDGER_FILES = ['.rupee', '.ledger', '.journal', '.dat', '.txt'];
+	const SHEETS = ['.csv', '.xls', '.xlsx', '.pdf'];
 
 	/** A starting point: Rupee's built-in HDFC savings schema, which the manual walks through. */
 	const example = `version: v1
@@ -44,6 +51,11 @@ fields:
 
 	const handle = $derived(data.ledger.handle);
 	const schemas = $derived(await getSchemas(handle));
+	const inbox = $derived(await getInbox(handle));
+	const imports = $derived(await getImports(handle));
+	const running = $derived(
+		(imports.data ?? []).some((j) => j.status === 'queued' || j.status === 'running'),
+	);
 
 	const statement = $state({ key: '', grid: [] as string[][], errors: [] as RupeeError[] });
 	const editor = $state({
@@ -90,14 +102,11 @@ fields:
 		if (ticket !== preview.ticket) return;
 
 		preview.result = result;
-		const suggested = result.data?.key;
-		if (suggested && !importStatement.fields.key.value()) importStatement.fields.key.set(suggested);
 	}
 
 	async function show(result: Reply<{ key: string; grid: string[][] }> | undefined) {
 		Object.assign(statement, { key: '', grid: [], errors: result?.errors ?? [] });
 		if (result?.data) Object.assign(statement, { key: result.data.key, grid: result.data.grid });
-		importStatement.fields.key.set('');
 		if (result?.data) await recognise(result.data.key);
 		await apply(0);
 	}
@@ -147,15 +156,23 @@ fields:
 		preview.result = null;
 	}
 
-	// Refinement runs on every save; review its matches if it found any.
-	async function review(key: string) {
-		const found = await getSuggestions({ handle, file: key });
-		await goto(
-			found.data?.length
-				? `/l/${handle}/refine?file=${encodeURIComponent(key)}`
-				: `/l/${handle}/transactions`,
-		);
+	// One statement uploaded alone opens at once, even one read before.
+	async function readSingle(keys: string[]) {
+		const key = keys.length === 1 ? keys[0] : undefined;
+		if (key && !LEDGER_FILES.some((e) => key.toLowerCase().endsWith(e)))
+			await show(await openStatement({ handle, statement: key }));
 	}
+
+	// Imports run as jobs; poll them until none is left to run.
+	$effect(() => {
+		if (!running) return;
+
+		const timer = setInterval(() => {
+			void getImports(handle).refresh();
+			void getFiles(handle).refresh();
+		}, 2000);
+		return () => clearInterval(timer);
+	});
 </script>
 
 <PageHeader trail={[ledgerCrumb(data.ledger)]}>Import a statement</PageHeader>
@@ -177,26 +194,55 @@ fields:
 </section>
 
 <section>
-	<h2>Statement</h2>
+	<h2>Statements</h2>
 	<form
 		enctype="multipart/form-data"
-		{...uploadStatement.enhance(async (form) => {
+		{...uploadStatements.enhance(async (form) => {
 			await form.submit();
-			await show(form.result);
+			await readSingle(form.result?.data ?? []);
 		})}
 	>
-		<input {...uploadStatement.fields.handle.as('hidden', handle)} />
+		<input {...uploadStatements.fields.handle.as('hidden', handle)} />
 		<label>
-			Statement (.csv, .xls, .xlsx, .pdf)
+			Statements (.csv, .xls, .xlsx, .pdf, or ledger files)
 			<input
-				{...uploadStatement.fields.file.as('file')}
-				accept=".csv,.xls,.xlsx,.pdf"
+				{...uploadStatements.fields.files.as('file multiple')}
+				accept={[...SHEETS, ...LEDGER_FILES].join(',')}
 				onchange={(e) => e.currentTarget.form?.requestSubmit()}
 				required
 			/>
 		</label>
-		<button disabled={uploadStatement.pending > 0}>Read again</button>
+		<button disabled={uploadStatements.pending > 0}>Upload</button>
 	</form>
+	{#each uploadStatements.result?.errors ?? [] as error, index (index)}
+		<p role="alert">{describe(error)}</p>
+	{/each}
+
+	<h3>To read</h3>
+	{#each inbox.errors as error, index (index)}
+		<p role="alert">{describe(error)}</p>
+	{/each}
+	<ul>
+		{#each inbox.data ?? [] as row (row.key)}
+			<li>
+				<button onclick={async () => show(await openStatement({ handle, statement: row.key }))}>
+					{row.key}
+				</button>
+			</li>
+		{/each}
+	</ul>
+
+	<h3>Ledger files</h3>
+	<ul>
+		{#each imports.data ?? [] as job (job.id)}
+			<li>
+				{job.statement}: {job.status}
+				{#if job.error}
+					<span role="alert">{describe(job.error)}</span>
+				{/if}
+			</li>
+		{/each}
+	</ul>
 
 	{#each statement.errors as error, index (index)}
 		<p role="alert">{describe(error)}</p>
@@ -277,7 +323,8 @@ fields:
 			{...importStatement.enhance(async (form) => {
 				await form.submit();
 				const result = form.result;
-				if (result?.ok && result.data) await review(result.data.key);
+				if (result?.ok && result.data)
+					await goto(`/l/${handle}/files?file=${encodeURIComponent(result.data.key)}`);
 			})}
 		>
 			<input {...importStatement.fields.handle.as('hidden', handle)} />
@@ -315,10 +362,6 @@ fields:
 				</div>
 			{/if}
 
-			<label>
-				Save as
-				<input {...importStatement.fields.key.as('text')} required />
-			</label>
 			{#each importStatement.fields.allIssues() ?? [] as issue (issue.message)}
 				<p role="alert">{issue.message}</p>
 			{/each}

@@ -3,7 +3,7 @@
 	import FilePath from '#lib/web/components/file-path/file-path.svelte';
 	import LedgerTable from '#lib/web/components/ledger-table/ledger-table.svelte';
 	import { formatMoment, formatSize } from '#lib/web/format.ts';
-	import { fileHref } from '#lib/web/links.ts';
+	import { fileHref, isCounted } from '#lib/web/links.ts';
 
 	const { handle }: { handle: string } = $props();
 
@@ -26,6 +26,7 @@
 				<tr>
 					<th scope="row" class="truncate">
 						<a href={fileHref(handle, file.key)} class="plain"><FilePath path={file.key} /></a>
+						{#if !isCounted(file.key)}<span class="tag">not counted</span>{/if}
 					</th>
 					<td class="date">{formatMoment(file.modified)}</td>
 					<td class="amount size">{formatSize(file.size)}</td>
@@ -36,7 +37,8 @@
 {/if}
 
 <style>
-	.size {
+	.size,
+	.tag {
 		color: var(--color-muted);
 	}
 

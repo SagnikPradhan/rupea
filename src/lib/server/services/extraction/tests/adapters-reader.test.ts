@@ -135,9 +135,22 @@ describe('reading the contents of a file', () => {
 		});
 	});
 
-	it.each(['a.txt', 'a'])('refuses %j', async (name) => {
+	it.each(['a.doc', 'a'])('refuses %j', async (name) => {
 		expect(await readContents({ name, content: bytes('') })).toEqual(
 			err({ type: 'ExtractionUnsupportedFile', path: name }),
+		);
+	});
+
+	it('reads a ledger file as its lines, kept exactly', async () => {
+		expect(await readContents({ name: 'a.ledger', content: bytes('a\r\nb\n') })).toEqual(
+			ok({ grid: [], text: ['a\r', 'b', ''] }),
+		);
+	});
+
+	it('refuses a ledger file that is not UTF-8', async () => {
+		const latin1 = new Uint8Array([0x63, 0x61, 0x66, 0xe9]);
+		expect(await readContents({ name: 'a.journal', content: latin1 })).toEqual(
+			err({ type: 'CannotReadFile', path: 'a.journal', reason: 'not valid UTF-8' }),
 		);
 	});
 });

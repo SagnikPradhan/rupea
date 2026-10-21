@@ -1101,8 +1101,30 @@ const byOwner = (rows: MetadataRow[]): Record<string, RupeeMetadata> =>
 		]),
 	);
 
+/** Of these checksums, those a file's metadata cites, unlocked or as uploaded. */
+const cited =
+	(ledgerId: string) =>
+	(checksums: string[]): ResultAsync<string[]> =>
+		withContext('db')((db) =>
+			attempt(() =>
+				db
+					.selectDistinct({ value: metadataTable.value })
+					.from(metadataTable)
+					.where(
+						and(
+							eq(metadataTable.ledgerId, ledgerId),
+							inArray(metadataTable.key, ['checksum', 'original-checksum']),
+							inArray(metadataTable.value, checksums),
+							isNotNull(metadataTable.fileId),
+						),
+					)
+					.then((r) => r.map((c) => c.value)),
+			),
+		);
+
 export const index = (ledgerId: string) => ({
 	files: files(ledgerId),
+	cited: cited(ledgerId),
 	put: put(ledgerId),
 	remove: remove(ledgerId),
 	rename: rename(ledgerId),

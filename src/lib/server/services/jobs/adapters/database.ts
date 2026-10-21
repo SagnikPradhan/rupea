@@ -3,7 +3,7 @@ import { atomically } from '#lib/server/db/atomically.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import type { RupeeError } from '#lib/server/shared/result/error.ts';
 import { attempt, errAsync, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { and, eq, inArray, lte, notExists, notInArray, or, sql, type SQL } from 'drizzle-orm';
+import { and, desc, eq, inArray, lte, notExists, notInArray, or, sql, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { jobs } from './database-schema';
 import { JobStatus } from '../domain/jobs';
@@ -34,6 +34,47 @@ export const insertJob = (j: NewJob): ResultAsync<void> =>
 					where: sql`${jobs.status} = 'queued'`,
 				});
 		}),
+	);
+
+export type UserJob = {
+	id: string;
+	status: JobStatus;
+	payload: unknown;
+	error: RupeeError | null;
+	createdAt: Date;
+};
+
+type FindJobsOptions = {
+	userId: string;
+	name: string;
+	/** Fields the payload holds, such as the ledger it ran in. */
+	payload: Record<string, string>;
+	limit: number;
+};
+
+/** A user's latest jobs of one name, newest first. */
+export const findJobs = (o: FindJobsOptions): ResultAsync<UserJob[]> =>
+	withContext('db')((db) =>
+		attempt(() =>
+			db
+				.select({
+					id: jobs.id,
+					status: jobs.status,
+					payload: jobs.payload,
+					error: jobs.error,
+					createdAt: jobs.createdAt,
+				})
+				.from(jobs)
+				.where(
+					and(
+						eq(jobs.userId, o.userId),
+						eq(jobs.name, o.name),
+						sql`${jobs.payload} @> ${JSON.stringify(o.payload)}::jsonb`,
+					),
+				)
+				.orderBy(desc(jobs.createdAt))
+				.limit(o.limit),
+		),
 	);
 
 export type ClaimedJob = {

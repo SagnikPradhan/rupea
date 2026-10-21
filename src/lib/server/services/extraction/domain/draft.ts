@@ -3,6 +3,7 @@ import type { RupeeError } from '#lib/server/shared/result/error.ts';
 import {
 	accountType,
 	DEFAULT_COMMODITY,
+	IMPORTS,
 	print,
 	type Amount,
 	type RupeeTransaction,
@@ -14,10 +15,12 @@ export type Draft = { key: string; content: string; failed: RupeeError[] };
 // A record with the account its money came from or went to.
 export type CategorisedRupeeRecord = RupeeRecord & { account: string };
 
+/** What a draft cites; `originalChecksum` is the upload's, set when unlocking it changed the content. */
+type Cited = { key: string; checksum: string; originalChecksum: string | null };
+
 type DraftOptions = {
 	config: LedgerConfiguration;
-	// `originalChecksum` is the upload's, set when unlocking it changed the content.
-	statement: { key: string; checksum: string; originalChecksum: string | null };
+	statement: Cited;
 	account: string;
 	// In any order; they are written in the statement's.
 	records: CategorisedRupeeRecord[];
@@ -34,9 +37,9 @@ export const categorised = (records: RupeeRecord[]): CategorisedRupeeRecord[] =>
 	});
 
 export const draft = (options: DraftOptions): Draft => ({
-	key: `imports/${options.statement.key.replace(/\.[^.]*$/, '')}.rupee`,
+	key: draftKey(options.statement),
 	content: print(options.config, {
-		metadata: citation(options),
+		metadata: citation(options.statement),
 		transactions: options.records
 			.toSorted((a, b) => a.location.line - b.location.line)
 			.map(toTransaction(options.account)),
@@ -45,8 +48,26 @@ export const draft = (options: DraftOptions): Draft => ({
 	failed: options.failed,
 });
 
+type CopyOptions = {
+	config: LedgerConfiguration;
+	statement: Cited;
+	text: string[];
+};
+
+/** A statement that is a ledger file already, as written, citing it above its own metadata. */
+export const copy = ({ config, statement, text }: CopyOptions): Draft => ({
+	key: draftKey(statement),
+	content:
+		print(config, { metadata: citation(statement), transactions: [], prices: [] }) +
+		text.join('\n'),
+	failed: [],
+});
+
+/** The statement's day folder and name, under imports. */
+const draftKey = (s: Cited) => `${IMPORTS}/${s.key.replace(/\.[^.]*$/, '')}.rupee`;
+
 // The checksum finds the statement wherever it has moved; the path is only what it was called.
-const citation = ({ statement }: DraftOptions) => ({
+const citation = (statement: Cited) => ({
 	statement: [statement.key],
 	checksum: [statement.checksum],
 	...(statement.originalChecksum ? { 'original-checksum': [statement.originalChecksum] } : {}),

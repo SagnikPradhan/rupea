@@ -1,3 +1,4 @@
+import { extname } from 'node:path';
 import { fault } from '../result/error';
 import { err, ok, type Result, type ResultAsync } from '../result/result';
 
@@ -53,4 +54,21 @@ export const scoped = (storage: Storage, prefix: string): Storage => {
 		delete: (e) => checked(e, (k) => storage.delete(k)),
 		rename: (r, o) => checked(r, (f) => checked(o, (t) => storage.rename(f, t).map(outer))),
 	};
+};
+
+/** Writes a new key, or the first of `name-02.ext`, `name-03.ext` and on that is free. */
+export const writeNumbered = (s: Storage, k: string, c: Uint8Array): ResultAsync<Entry> =>
+	writeAt(s, { key: k, content: c, n: 1 });
+
+type WriteAtOptions = { key: string; content: Uint8Array; n: number };
+
+const writeAt = (s: Storage, o: WriteAtOptions): ResultAsync<Entry> =>
+	s
+		.write({ key: numbered(o.key, o.n), content: o.content, ifVersion: null })
+		.orElse((e) => (e.type === 'StorageConflict' ? writeAt(s, { ...o, n: o.n + 1 }) : err(e)));
+
+const numbered = (key: string, n: number) => {
+	const extension = extname(key);
+	const stem = key.slice(0, key.length - extension.length);
+	return n === 1 ? key : `${stem}-${String(n).padStart(2, '0')}${extension}`;
 };

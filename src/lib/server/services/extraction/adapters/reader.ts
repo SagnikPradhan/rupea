@@ -4,6 +4,7 @@ import { extname } from 'node:path';
 import type { Contents } from '../domain/types';
 import { readPdf, unlockPdf } from './reader-pdf';
 import { readCsv, readXls, readXlsx, unlockSheet } from './reader-sheet';
+import { readText, TEXT_EXTENSIONS } from './reader-text';
 
 // Grids read by another version are read again; bump it when reading changes.
 export const READER_VERSION = '4';
@@ -24,6 +25,7 @@ const readers: Record<string, (upload: Upload) => ResultAsync<Contents>> = {
 	'.csv': (u) => readCsv(u),
 	'.xls': (u) => readXls(u),
 	'.xlsx': (u) => readXlsx(u),
+	...Object.fromEntries(TEXT_EXTENSIONS.map((e) => [e, readText])),
 };
 
 const unlockers: Record<string, (upload: LockedUpload) => ResultAsync<Uint8Array>> = {
@@ -33,6 +35,9 @@ const unlockers: Record<string, (upload: LockedUpload) => ResultAsync<Uint8Array
 };
 
 export const isReadable = (n: string) => extension(n) in readers;
+
+/** A ledger file already, which imports as it is written, with no schema. */
+export const isText = (n: string) => TEXT_EXTENSIONS.includes(extension(n));
 
 export const readContents = (upload: Upload): ResultAsync<Contents> => {
 	const read = readers[extension(upload.name)];

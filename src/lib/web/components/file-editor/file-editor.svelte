@@ -8,6 +8,7 @@
 	import Issues from '#lib/web/components/issues/issues.svelte';
 	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
 	import { placesOf } from '#lib/web/errors.ts';
+	import { isCounted } from '#lib/web/links.ts';
 
 	type Props = {
 		handle: string;
@@ -65,6 +66,7 @@
 <PageHeader {trail}>
 	{#if state.file}<FilePath path={state.file.key} />{:else}Files{/if}
 	{#if editor.dirty}<span class="tag">Unsaved</span>{/if}
+	{#if state.file && !isCounted(state.file.key)}<span class="tag">Not counted</span>{/if}
 	{#snippet actions()}
 		{#if step.now === 'editing'}
 			<div class="toolbar">

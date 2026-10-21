@@ -2,15 +2,15 @@ import { withContext } from '#lib/server/shared/context/context.ts';
 import type { Batch } from '#lib/server/shared/result/batch.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { err, ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { createFile, parseFile } from '#services/ledger/application/files.ts';
+import { findCited, importFile, parseFile } from '#services/ledger/application/files.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
 import { predictAccounts } from '#services/ledger/application/prediction.ts';
-import { categorised, draft, uncategorised, type Draft } from '../domain/draft';
+import { categorised, copy, draft, uncategorised, type Draft } from '../domain/draft';
 import { readRecords } from '../domain/runtime';
 import { parseSchema } from '../domain/schema';
 import type { RupeeRecord } from '../domain/types';
 import { addSchema, isBuiltin, type SchemaText } from './schemas';
-import { findStatement, type Statement } from './statements';
+import { findByChecksum, findStatement, type Statement } from './statements';
 
 type ExtractOptions = {
 	ledger: Ledger;
@@ -35,20 +35,29 @@ export const preview = (options: ExtractOptions) =>
 		return { key: d.key, transactions: checked.succeeded, failed };
 	});
 
-type SaveOptions = {
-	ledger: Ledger;
-	statement: string;
-	schema: SchemaText;
-	key: string;
-};
-
-/** Files a draft in the ledger, keeping the built-in schema that read it. */
-export const save = ({ ledger, statement, schema, key }: SaveOptions) =>
+/** Files a draft for review, keeping the built-in schema that read it. */
+export const save = ({ ledger, statement, schema }: ExtractOptions) =>
 	extract({ ledger, statement, schema }).andThen((d) =>
 		(isBuiltin(schema) ? addSchema(ledger, schema) : okAsync(undefined)).andThen(() =>
-			createFile({ ledger, key, content: d.content }),
+			importFile({ ledger, key: d.key, content: d.content }),
 		),
 	);
+
+/** Files a statement that is a ledger file already, as written, unless a file cites it; so running it again is harmless. */
+export const importText = (ledger: Ledger, checksum: string): ResultAsync<void> =>
+	findCited(ledger, [checksum]).andThen((cited) =>
+		cited.length > 0
+			? okAsync(undefined)
+			: findByChecksum(ledger, checksum).andThen((s) =>
+					s ? copied(ledger, s) : okAsync(undefined),
+				),
+	);
+
+const copied = (ledger: Ledger, s: Statement): ResultAsync<void> =>
+	withContext('config')((c) => {
+		const d = copy({ config: c.ledger, statement: s, text: s.text });
+		return importFile({ ledger, key: d.key, content: d.content }).map(() => undefined);
+	});
 
 const withAccount = ({ key, content }: SchemaText) =>
 	parseSchema(key, content).andThen((p) =>

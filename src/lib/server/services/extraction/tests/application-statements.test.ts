@@ -10,7 +10,7 @@ import * as XLSX from 'xlsx';
 import { describe, expect } from 'vitest';
 import * as Drafts from '#services/extraction/application/drafts.ts';
 import * as Statements from '#services/extraction/application/statements.ts';
-import { bank, encode, folder, statement, upload } from './fixtures/bank';
+import { bank, day, encode, folder, statement, upload } from './fixtures/bank';
 
 const sha256 = (c: Uint8Array) => `sha256:${createHash('sha256').update(c).digest('hex')}`;
 
@@ -22,17 +22,22 @@ const lockedSheet = async () => {
 };
 
 describe('uploading a statement', () => {
-	it("keeps it in its ledger's statements", ({ context, db, storage }) =>
+	it("keeps it in a folder for the day, among its ledger's files for review", ({
+		context,
+		db,
+		storage,
+	}) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			const uploaded = await upload(ledger);
+			const stored = await storage.read(`${folder(ledger)}/files/_/statements/${day()}/aug.csv`);
 
 			expect(uploaded).toMatchObject({
-				key: 'aug.csv',
+				key: `${day()}/aug.csv`,
 				checksum: expect.stringMatching(/^sha256:/),
 			});
 			expect(uploaded.grid[1]).toEqual(['Date', 'Narration', 'Debit', 'Credit', 'Tag']);
-			expect((await storage.read(`${folder(ledger)}/statements/aug.csv`)).isOk()).toBe(true);
+			expect(stored.isOk()).toBe(true);
 		}));
 
 	it('keeps one copy of the same statement, and numbers another of the same name', ({
@@ -46,7 +51,7 @@ describe('uploading a statement', () => {
 			const other = await upload(ledger, `${statement}\n`);
 
 			expect(again).toEqual(first);
-			expect(other.key).toBe('aug (2).csv');
+			expect(other.key).toBe(`${day()}/aug-02.csv`);
 			expect(other.checksum).not.toBe(first.checksum);
 		}));
 
@@ -67,20 +72,19 @@ describe('uploading a statement', () => {
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			const content = await lockedSheet();
-			const locked = await Statements.uploadStatement(ledger, { name: 'aug.xlsx', content });
-			expect(locked).toMatchObject({ error: { type: 'ExtractionLocked', path: 'aug.xlsx' } });
+			const key = `${day()}/aug.xlsx`;
+			await Statements.storeStatement(ledger, { name: 'aug.xlsx', content });
+			const locked = await Statements.findStatement(ledger, key);
+			expect(locked).toMatchObject({ error: { type: 'ExtractionLocked', path: key } });
 
 			const unlocked = await Statements.unlockStatement({
 				ledger,
-				statement: 'aug.xlsx',
+				statement: key,
 				password: 'secret',
 			});
-			const stored = await storage.read(`${folder(ledger)}/statements/aug.xlsx`);
+			const stored = await storage.read(`${folder(ledger)}/files/_/statements/${key}`);
 
-			expect(unlocked._unsafeUnwrap()).toMatchObject({
-				key: 'aug.xlsx',
-				originalChecksum: sha256(content),
-			});
+			expect(unlocked._unsafeUnwrap()).toMatchObject({ key, originalChecksum: sha256(content) });
 			expect(unlocked._unsafeUnwrap().grid[0]).toEqual(['Date', 'Narration']);
 			expect([...stored._unsafeUnwrap().content.subarray(0, 2)]).toEqual([0x50, 0x4b]);
 		}));
@@ -89,21 +93,19 @@ describe('uploading a statement', () => {
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			const content = await lockedSheet();
-			await Statements.uploadStatement(ledger, { name: 'aug.xlsx', content });
-			await Statements.unlockStatement({ ledger, statement: 'aug.xlsx', password: 'secret' });
-			const again = await Statements.uploadStatement(ledger, { name: 'sep.xlsx', content });
+			const key = `${day()}/aug.xlsx`;
+			await Statements.storeStatement(ledger, { name: 'aug.xlsx', content });
+			await Statements.unlockStatement({ ledger, statement: key, password: 'secret' });
+			const again = await Statements.storeStatement(ledger, { name: 'sep.xlsx', content });
 
-			expect(again._unsafeUnwrap()).toMatchObject({
-				key: 'aug.xlsx',
-				originalChecksum: sha256(content),
-			});
+			expect(again._unsafeUnwrap()).toMatchObject({ key, originalChecksum: sha256(content) });
 		}));
 
 	it('reads a statement the table does not know yet, and records it', ({ context, db, storage }) =>
 		provide({ ...context, models: broken(context.models) }, async () => {
 			const ledger = await createLedger(db);
 			const content = encode(statement);
-			await storage.write({ key: `${folder(ledger)}/statements/aug.csv`, content });
+			await storage.write({ key: `${folder(ledger)}/files/_/statements/aug.csv`, content });
 			const draft = await Drafts.extract({ ledger, statement: 'aug.csv', schema: bank });
 
 			expect(draft._unsafeUnwrap().content).toContain(`- checksum: ${sha256(content)}`);
@@ -112,13 +114,14 @@ describe('uploading a statement', () => {
 	it('keeps nothing it cannot read', ({ context, db, storage }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			const unread = await Statements.uploadStatement(ledger, {
-				name: 'aug.txt',
+			const unread = await Statements.storeStatement(ledger, {
+				name: 'aug.doc',
 				content: encode(statement),
 			});
+			const stored = await storage.read(`${folder(ledger)}/files/_/statements/${day()}/aug.doc`);
 
 			expect(unread).toMatchObject({ error: { type: 'ExtractionUnsupportedFile' } });
-			expect((await storage.read(`${folder(ledger)}/statements/aug.txt`)).isErr()).toBe(true);
+			expect(stored.isErr()).toBe(true);
 		}));
 });
 

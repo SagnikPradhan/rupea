@@ -1,7 +1,11 @@
 import { fault } from '#lib/server/shared/result/error.ts';
 import { errAsync, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { openFolder, type Ledger } from '#services/ledger/application/ledger.ts';
-import { findStatementContents, saveStatementContents } from '../adapters/database';
+import {
+	findStatementByChecksum,
+	findStatementContents,
+	saveStatementContents,
+} from '../adapters/database';
 import { isReadable, READER_VERSION, readContents, unlock, type Upload } from '../adapters/reader';
 import { statements, type Statements, type StoredStatement } from '../adapters/storage-statements';
 import type { Contents, Grid } from '../domain/types';
@@ -16,12 +20,12 @@ export type Statement = {
 	text: string[];
 };
 
-/** Stores an upload in the ledger's statements, once per content, and reads it. A locked one is kept to unlock. */
-export const uploadStatement = (ledger: Ledger, upload: Upload): ResultAsync<Statement> =>
+/** Stores an upload in the ledger's statements, in a folder for the day, once per content. */
+export const storeStatement = (ledger: Ledger, upload: Upload): ResultAsync<StoredStatement> =>
 	isReadable(upload.name)
-		? ledgerStatements(ledger)
-				.andThen((s) => s.store(upload.name, upload.content))
-				.andThen(contentsOf)
+		? ledgerStatements(ledger).andThen((s) =>
+				s.store(`${uploadDay()}/${upload.name}`, upload.content),
+			)
 		: errAsync(fault('ExtractionUnsupportedFile', { path: upload.name }));
 
 type UnlockOptions = {
@@ -38,9 +42,13 @@ export const unlockStatement = (options: UnlockOptions): ResultAsync<Statement> 
 			.read(statement)
 			.andThen(({ content }) => unlock({ name: statement, content, password }))
 			.andThen((c) => s.replace(statement, c))
-			.andThen(contentsOf),
+			.andThen(readFresh),
 	);
 };
+
+/** The statement stored with this content, wherever it was moved, or null once deleted. */
+export const findByChecksum = (l: Ledger, c: string): ResultAsync<Statement | null> =>
+	findStatementByChecksum(l.id, c).andThen((r) => (r ? findStatement(l, r.key) : okAsync(null)));
 
 /** A statement the ledger already has, read from the cache while it lasts. */
 export const findStatement = (l: Ledger, k: string): ResultAsync<Statement> =>
@@ -57,11 +65,7 @@ export const findStatement = (l: Ledger, k: string): ResultAsync<Statement> =>
 const ledgerStatements = (l: Ledger): ResultAsync<Statements> =>
 	openFolder(l, 'statements').map((s) => statements(s, l.id));
 
-// Contents are cached by checksum, so the same statement in another ledger is not read twice.
-const contentsOf = (s: StoredStatement): ResultAsync<Statement> =>
-	findStatementContents({ checksum: s.checksum, reader: READER_VERSION }).andThen((c) =>
-		c ? okAsync(statementOf(s, c)) : readFresh(s),
-	);
+const uploadDay = () => Temporal.Now.plainDateISO().toString().replaceAll('-', '');
 
 const readFresh = (s: StoredStatement): ResultAsync<Statement> =>
 	readContents({ name: s.key, content: s.content }).andThen((r) => remember(statementOf(s, r)));

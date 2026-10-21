@@ -1,6 +1,6 @@
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { and, eq, gt, lte, or, sql } from 'drizzle-orm';
+import { and, desc, eq, gt, lte, or, sql } from 'drizzle-orm';
 import { statementContents, statements } from './database-schema';
 import type { Contents } from '../domain/types';
 
@@ -42,6 +42,19 @@ export const findStatementByChecksum = (
 				.orderBy(statements.key)
 				.limit(1)
 				.then(([f]) => f ?? null),
+		),
+	);
+
+/** A ledger's latest statements, newest first. */
+export const findRecentStatements = (ledger: string, limit: number): ResultAsync<StatementRow[]> =>
+	withContext('db')((db) =>
+		attempt(() =>
+			db
+				.select(row)
+				.from(statements)
+				.where(eq(statements.ledgerId, ledger))
+				.orderBy(desc(statements.createdAt))
+				.limit(limit),
 		),
 	);
 

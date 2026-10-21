@@ -25,6 +25,7 @@ Rupee scales out, by running more replicas of one server against one database, s
 ## Consequences
 
 - The `jobs` table is the outbox. Another backend, when one is needed, still writes a row inside `atomically` and relays it; the row stays where a job's status is read. Who retries then, the broker or the table, is decided with that backend.
+- `import-statement` is the first job: it files an uploaded ledger file for review. Its payload is the ledger and the checksum, partitioned by ledger so its rebooks never race and deduplicated on both, so uploading the same file twice queues it once. It does nothing when a file already cites the statement.
 - A user sees their own jobs only. Nothing lists every job, since the service runs jobs for everyone.
 - A server with free workers polls the table every second, as an outbox relay does, so nothing tells it a job was queued: a job is seen once its transaction commits, and the caller does nothing more. An idle claim matches no row and writes nothing, so polling costs well under a millisecond each time. `NOTIFY` would start jobs sooner, but holds a connection to listen on and never tells the server anything polling would miss.
 - A claim reads queued jobs in `run_at` order past those whose partition runs one, so a backlog behind busy partitions slows every claim, by about half a millisecond per thousand such jobs on Postgres 18. A table holding each partition's next due time keeps claims constant, and comes back once backlogs reach hundreds of thousands of jobs.

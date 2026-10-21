@@ -1,9 +1,12 @@
 import { provide, withContext } from '#lib/server/shared/context/context.ts';
 import { type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { insertJob, type ClaimedJob } from '../adapters/database';
+import { findJobs, insertJob, type ClaimedJob, type UserJob } from '../adapters/database';
 import { dedupeOf, partitionOf, type Job } from '../domain/jobs';
 
-export type { ClaimedJob, Job };
+export type { ClaimedJob, Job, UserJob };
+
+/** Jobs a user sees, kept until the server deletes finished ones. */
+export const listJobs = findJobs;
 
 type EnqueueOptions<P> = {
 	job: Job<P>;

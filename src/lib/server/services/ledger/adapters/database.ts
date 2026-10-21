@@ -1,10 +1,24 @@
 import { attemptWrite, violates } from '#lib/server/db/errors.ts';
-import { statementChunks, vectorText, type Database } from '#lib/server/db/index.ts';
+import { literalLike, statementChunks, vectorText, type Database } from '#lib/server/db/index.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { inOrder } from '#lib/server/shared/control.ts';
 import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
 import { attempt, err, errAsync, ok, ResultAsync } from '#lib/server/shared/result/result.ts';
-import { and, asc, desc, eq, inArray, isNotNull, isNull, ne, or, sql, type SQL } from 'drizzle-orm';
+import {
+	and,
+	asc,
+	desc,
+	eq,
+	gte,
+	ilike,
+	inArray,
+	isNotNull,
+	isNull,
+	ne,
+	or,
+	sql,
+	type SQL,
+} from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
 import { v7 as uuidv7 } from 'uuid';
 import { AMOUNT_UNIT, DEFAULT_COMMODITY, type Amount, type Quantity } from '../domain/amounts';
@@ -28,6 +42,7 @@ import {
 	type RupeeLedgerFile,
 	type RupeeMetadata,
 	type RupeeParseLocation,
+	type RupeePosting,
 	type RupeeTransaction,
 } from '../domain/types';
 import {
@@ -43,6 +58,8 @@ import {
 } from './database-schema';
 
 export type IndexedTransaction = RupeeTransaction & { id: string };
+
+export type CountedTransaction = IndexedTransaction & { counted: boolean };
 
 const files = (ledgerId: string) => (): ResultAsync<FileVersion[]> =>
 	withContext('db')((db) =>
@@ -252,12 +269,15 @@ const eventMembers = (ledgerId: string) => (): ResultAsync<IndexedTransaction[]>
 		),
 	);
 
-// `narrow` picks among the ledger's transactions. One snapshot, so the
-// metadata read always belongs to the transactions read.
-const read = (ledgerId: string, narrow: SQL | undefined): ResultAsync<IndexedTransaction[]> =>
+// `n` narrows the ledger's transactions. One snapshot, so the metadata
+// read always belongs to the transactions read.
+const read = (l: string, n: SQL | undefined): ResultAsync<IndexedTransaction[]> =>
+	readOnly((t) => readIn(t, and(eq(transactionTable.ledgerId, l), n)));
+
+const readOnly = <T>(run: (db: Database) => Promise<T>): ResultAsync<T> =>
 	withContext('db')((db) =>
 		attempt(() =>
-			db.transaction((t) => readIn(t, and(eq(transactionTable.ledgerId, ledgerId), narrow)), {
+			db.transaction((t) => run(t), {
 				isolationLevel: 'repeatable read',
 				accessMode: 'read only',
 			}),
@@ -390,6 +410,209 @@ const byIds =
 		ResultAsync.combine(
 			statementChunks(l).map((c) => read(ledgerId, inArray(transactionTable.id, c))),
 		).map((r) => r.flat());
+
+/** What a list is narrowed to; a null side is left open. */
+export type ListFilter = {
+	from: Temporal.PlainDate;
+	account: string | null;
+	description: string | null;
+};
+
+/** Where a page of transactions starts: just past this one, newest first. */
+export type Cursor = { date: string; time: string; id: string };
+
+/** Where a page of postings starts: just past this one, newest first. */
+export type PostingCursor = { date: string; time: string; id: string; position: number };
+
+export type Page<T, C> = { rows: T[]; next: C | null };
+
+type PageOptions<C> = { filter: ListFilter; after: C | null; limit: number };
+
+// A missing time sorts as midnight, so every transaction has a place in the order.
+const timeKey = sql<string>`coalesce(${transactionTable.time}, '00:00')`;
+
+const NEWEST_FIRST = [desc(transactionTable.date), desc(timeKey), desc(transactionTable.id)];
+
+const transactionPage =
+	(ledgerId: string) =>
+	(options: PageOptions<Cursor>): ResultAsync<Page<CountedTransaction, Cursor>> =>
+		readOnly(async (db) => {
+			const { filter, after, limit } = options;
+
+			const keys = await db
+				.select({
+					id: transactionTable.id,
+					date: transactionTable.date,
+					time: sql<string>`${timeKey}::text`,
+					counted: transactionTable.counted,
+				})
+				.from(transactionTable)
+				.where(
+					and(
+						listed(ledgerId, filter),
+						filter.account === null ? undefined : hasPostingIn(filter.account),
+						after === null ? undefined : before(after),
+					),
+				)
+				.orderBy(...NEWEST_FIRST)
+				.limit(limit);
+			const found = await readIn(
+				db,
+				inArray(
+					transactionTable.id,
+					keys.map((k) => k.id),
+				),
+			);
+
+			const byId = Object.fromEntries(found.map((t) => [t.id, t]));
+			const last = keys.length === limit ? keys.at(-1) : undefined;
+			return {
+				rows: keys.flatMap((k) => {
+					const transaction = byId[k.id];
+					return transaction ? [{ ...transaction, counted: k.counted }] : [];
+				}),
+				next: last ? { date: last.date, time: last.time, id: last.id } : null,
+			};
+		});
+
+export type ListedPosting = {
+	transaction: string;
+	position: number;
+	location: RupeeParseLocation;
+	date: Temporal.PlainDate;
+	description: string;
+	posting: RupeePosting;
+};
+
+// Evidence is kept but not counted, so it has no postings to list.
+const postingPage =
+	(ledgerId: string) =>
+	(options: PageOptions<PostingCursor>): ResultAsync<Page<ListedPosting, PostingCursor>> =>
+		readOnly(async (db) => {
+			const { filter, after, limit } = options;
+
+			const rows = await db
+				.select({
+					file: ledgerFiles.key,
+					line: transactionTable.line,
+					id: transactionTable.id,
+					date: transactionTable.date,
+					time: sql<string>`${timeKey}::text`,
+					description: transactionTable.description,
+					position: postings.position,
+					account: postings.account,
+					amount: postings.amount,
+					commodity: postings.commodity,
+					priceAmount: postings.priceAmount,
+					priceCommodity: postings.priceCommodity,
+					priceKind: postings.priceKind,
+					costAmount: postings.costAmount,
+					costCommodity: postings.costCommodity,
+					costDate: postings.costDate,
+					balance: postings.balance,
+				})
+				.from(postings)
+				.innerJoin(transactionTable, eq(transactionTable.id, postings.transactionId))
+				.innerJoin(ledgerFiles, eq(ledgerFiles.id, transactionTable.fileId))
+				.where(
+					and(
+						listed(ledgerId, filter),
+						eq(transactionTable.counted, true),
+						filter.account === null ? undefined : inAccount(filter.account),
+						after === null ? undefined : or(before(after), atAfter(after)),
+					),
+				)
+				.orderBy(...NEWEST_FIRST, asc(postings.position))
+				.limit(limit);
+
+			const last = rows.length === limit ? rows.at(-1) : undefined;
+			return {
+				rows: rows.map((r) => ({
+					transaction: r.id,
+					position: r.position,
+					location: { file: r.file, line: r.line },
+					date: Temporal.PlainDate.from(r.date),
+					description: r.description,
+					posting: {
+						account: r.account,
+						amount: r.amount as Amount,
+						commodity: r.commodity,
+						price: toPrice(r),
+						cost: toCost(r),
+						balance: r.balance as Amount | null,
+						metadata: {},
+					},
+				})),
+				next: last
+					? { date: last.date, time: last.time, id: last.id, position: last.position }
+					: null,
+			};
+		});
+
+const listed = (ledgerId: string, filter: ListFilter) =>
+	and(
+		eq(transactionTable.ledgerId, ledgerId),
+		gte(transactionTable.date, filter.from.toString()),
+		filter.description === null
+			? undefined
+			: ilike(transactionTable.description, `%${literalLike(filter.description)}%`),
+	);
+
+/** A posting to an account or any account under it, whatever their case. */
+const inAccount = (a: string) =>
+	sql`(lower(${postings.account}) = lower(${a}) or starts_with(lower(${postings.account}), lower(${a}) || ':'))`;
+
+const hasPostingIn = (a: string) =>
+	sql`exists (select 1 from ${postings} where ${postings.transactionId} = ${transactionTable.id} and ${inAccount(a)})`;
+
+const before = (c: Cursor) =>
+	sql`(${transactionTable.date}, ${timeKey}, ${transactionTable.id}) < (${c.date}::date, ${c.time}::time, ${c.id}::uuid)`;
+
+const atAfter = (c: PostingCursor) =>
+	sql`(${transactionTable.date}, ${timeKey}, ${transactionTable.id}) = (${c.date}::date, ${c.time}::time, ${c.id}::uuid) and ${postings.position} > ${c.position}`;
+
+const accountNames = (ledgerId: string) => (): ResultAsync<string[]> =>
+	withContext('db')((db) =>
+		attempt(() =>
+			db
+				.selectDistinct({ account: postings.account })
+				.from(postings)
+				.where(eq(postings.ledgerId, ledgerId))
+				.orderBy(asc(postings.account))
+				.then((r) => r.map((a) => a.account)),
+		),
+	);
+
+/** Marks these transactions uncounted and every other counted, writing only the rows that change. */
+const recount =
+	(ledgerId: string) =>
+	(uncounted: string[]): ResultAsync<void> =>
+		withContext('db')((db) =>
+			attempt(() =>
+				db.transaction(async (tx) => {
+					await tx
+						.update(transactionTable)
+						.set({ counted: true })
+						.where(
+							and(
+								eq(transactionTable.ledgerId, ledgerId),
+								eq(transactionTable.counted, false),
+								sql`${transactionTable.id} <> all(${sql.param(uncounted)}::uuid[])`,
+							),
+						);
+					await tx
+						.update(transactionTable)
+						.set({ counted: false })
+						.where(
+							and(
+								eq(transactionTable.ledgerId, ledgerId),
+								eq(transactionTable.counted, true),
+								inArray(transactionTable.id, uncounted),
+							),
+						);
+				}),
+			),
+		);
 
 export type CandidatePair = { ours: string; theirs: string };
 
@@ -1142,6 +1365,10 @@ export const index = (ledgerId: string) => ({
 	lotsIn: lotsIn(ledgerId),
 	unmatched: unmatched(ledgerId),
 	transactions: transactions(ledgerId),
+	transactionPage: transactionPage(ledgerId),
+	postingPage: postingPage(ledgerId),
+	accountNames: accountNames(ledgerId),
+	recount: recount(ledgerId),
 	unembedded: unembedded(ledgerId),
 	fill: fill(ledgerId),
 });

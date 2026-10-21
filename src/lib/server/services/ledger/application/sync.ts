@@ -25,10 +25,15 @@ export const sync = (l: Ledger): ResultAsync<RupeeError[]> =>
 export const syncIndex = (ledger: Ledger): ResultAsync<RupeeError[]> =>
 	ledgerFiles(ledger).andThen((f) =>
 		ResultAsync.combine([f.entries(), index(ledger.id).files()])
-			.andThen(([stored, indexed]) => applyPlan(f, ledger.id, plan(stored, indexed)))
-			.andThen((a) => rebook(ledger.id, a))
+			.andThen(([stored, indexed]) => update(f, ledger.id, plan(stored, indexed)))
 			.andThen((e) => embed(ledger.id, e)),
 	);
+
+// Most syncs find nothing changed, and then nothing needs settling.
+const update = (f: Files, l: string, p: SyncPlan): ResultAsync<RupeeError[]> =>
+	p.changed.length + p.gone.length === 0
+		? okAsync([])
+		: applyPlan(f, l, p).andThen((a) => settle(l, a));
 
 export type Indexed = { failed: RupeeError[]; touched: string[] };
 
@@ -75,12 +80,17 @@ export const unindex = (li: string, k: string): ResultAsync<Indexed> =>
 		.remove(k)
 		.map((t) => ({ failed: [], touched: t }));
 
-export const rebook = (ledgerId: string, indexed: Indexed): ResultAsync<RupeeError[]> => {
+/** Settles what spans files once they are indexed: which transactions count, then the lots they book. */
+export const settle = (ledgerId: string, indexed: Indexed): ResultAsync<RupeeError[]> => {
 	const commodities = [...new Set(indexed.touched)];
-	if (commodities.length === 0) return okAsync(indexed.failed);
 
 	return uncountedIn(ledgerId)
-		.andThen((e) => index(ledgerId).rebook(commodities, e))
+		.andThen((e) =>
+			index(ledgerId)
+				.recount(e)
+				.map(() => e),
+		)
+		.andThen((e) => (commodities.length === 0 ? okAsync() : index(ledgerId).rebook(commodities, e)))
 		.map(() => indexed.failed)
 		.orElse((e) => ok([...indexed.failed, e]));
 };

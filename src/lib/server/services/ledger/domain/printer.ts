@@ -106,7 +106,7 @@ export const viewTransaction = (t: RupeeTransaction): TransactionView => ({
 	postings: t.postings.map(viewPosting),
 });
 
-const viewPosting = (p: RupeePosting): PostingView => ({
+export const viewPosting = (p: RupeePosting): PostingView => ({
 	account: p.account,
 	quantity: [formatQuantity(p), ...printTerms(undefined, p)].join(' '),
 });

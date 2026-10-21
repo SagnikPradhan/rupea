@@ -41,6 +41,9 @@ importers:
       '@tabler/icons-svelte-runes':
         specifier: 3.48.0
         version: 3.48.0(svelte@5.57.1(@typescript-eslint/types@8.71.0))
+      '@tanstack/svelte-virtual':
+        specifier: 3.13.47
+        version: 3.13.47(svelte@5.57.1(@typescript-eslint/types@8.71.0))
       bits-ui:
         specifier: 2.19.5
         version: 2.19.5(@internationalized/date@3.12.4)(@sveltejs/kit@3.0.0(@sveltejs/vite-plugin-svelte@7.3.1(svelte@5.57.1(@typescript-eslint/types@8.71.0))(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(svelte@5.57.1(@typescript-eslint/types@8.71.0))(typescript@6.0.3)(vite@8.3.2(@types/node@26.6.4)(esbuild@0.28.2)(jiti@2.7.0)(tsx@4.23.15)(yaml@2.9.1)))(svelte@5.57.1(@typescript-eslint/types@8.71.0))
@@ -1108,6 +1111,14 @@ packages:
 
   '@tabler/icons@3.48.0':
     resolution: {integrity: sha512-lQk06gVHNVBnJp0UOgtth54mcZBJM7rdYKsAxKOProj1bbSAx+/xiuOWfHlyvgdL3M+Y+I0HINrjHa3ygp8eXQ==}
+
+  '@tanstack/svelte-virtual@3.13.47':
+    resolution: {integrity: sha512-lF1mdrnkoFR1+AubB/W0ifgryCHyO0iDBygWIf4LE/H0XAjHZQ/ui83EDXpWvdSrD9VV5bPR2pn5toVyHNq7xw==}
+    peerDependencies:
+      svelte: ^3.48.0 || ^4.0.0 || ^5.0.0
+
+  '@tanstack/virtual-core@3.19.6':
+    resolution: {integrity: sha512-CsTW892z23gy7IyxYTTorVu1uZWB+0N349rSMgKz4rFLPpLza7F7TpcCKeI5iUAwYQCt8QUlOU67J+KXCxtpGw==}
 
   '@testing-library/dom@10.4.2':
     resolution: {integrity: sha512-yzr2S9HyAIdhz2/6qHgbs665Q7PKVcDF05vsOlHPxG1mo36gKVesdYVeDLnXgfjJ03CrKRk08knc6+E/9m8v2Q==}
@@ -3639,6 +3650,13 @@ snapshots:
       svelte: 5.57.1(@typescript-eslint/types@8.71.0)
 
   '@tabler/icons@3.48.0': {}
+
+  '@tanstack/svelte-virtual@3.13.47(svelte@5.57.1(@typescript-eslint/types@8.71.0))':
+    dependencies:
+      '@tanstack/virtual-core': 3.19.6
+      svelte: 5.57.1(@typescript-eslint/types@8.71.0)
+
+  '@tanstack/virtual-core@3.19.6': {}
 
   '@testing-library/dom@10.4.2':
     dependencies:

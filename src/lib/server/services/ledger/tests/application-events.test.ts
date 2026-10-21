@@ -5,7 +5,7 @@ import * as Events from '#services/ledger/application/events.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import * as Sync from '#services/ledger/application/sync.ts';
-import * as Transactions from '#services/ledger/application/transactions.ts';
+import { listed } from './fixtures/files';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { afterEach, describe, expect, vi } from 'vitest';
@@ -49,10 +49,7 @@ describe('changing an event', () => {
 	const linkedIbkr = ibkr.replace('Deposit\n', 'Deposit\n\t- event: transfer-otter\n');
 
 	const counted = async (ledger: Ledger.Ledger) =>
-		(await Transactions.getTransactions(ledger))
-			._unsafeUnwrap()
-			.succeeded.filter((t) => !t.counted)
-			.map((t) => t.description);
+		(await listed(ledger)).filter((t) => !t.counted).map((t) => t.description);
 
 	it('lists the events a file takes part in, with members from every file', ({ context, db }) =>
 		provide(context, async () => {

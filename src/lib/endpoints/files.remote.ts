@@ -7,7 +7,7 @@ import { format } from '#services/ledger/application/shared.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
 import { Handle, inLedger, Key } from './shared';
-import { getTransactions } from './transactions.remote';
+import { getIssues } from './transactions.remote';
 
 export const getFiles = query(Handle, async (h) =>
 	replyFromBatch(await inLedger({ handle: h, action: Files.listFiles })),
@@ -29,7 +29,7 @@ const mutate = async <T>(
 ): Promise<Result<T>> => {
 	const result = await inLedger({ handle, action: run });
 	void getFiles(handle).refresh();
-	void getTransactions(handle).refresh();
+	void getIssues(handle).refresh();
 	return result;
 };
 

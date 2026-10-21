@@ -9,7 +9,7 @@ import { JobStatus } from '#services/jobs/domain/jobs.ts';
 import { metadata } from '#services/ledger/adapters/database-schema.ts';
 import { runJob } from '#services/jobs/application/worker.ts';
 import * as Files from '#services/ledger/application/files.ts';
-import * as Transactions from '#services/ledger/application/transactions.ts';
+import { listed } from '#services/ledger/tests/fixtures/files.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
 import { broken } from '#tests/shared/embedding.ts';
 import { createLedger } from '#tests/shared/seed.ts';
@@ -89,7 +89,7 @@ describe('importing a ledger file', () => {
 			expect(file._unsafeUnwrap().content).toMatch(
 				new RegExp(`^- statement: ${day()}/books.ledger\n- checksum: sha256:\\w+\n${books}$`),
 			);
-			expect(await Transactions.getTransactions(ledger)).toMatchObject(ok({ succeeded: [] }));
+			expect(await listed(ledger)).toEqual([]);
 		}));
 
 	it('imports a statement once, however often it comes', ({ context, db }) =>

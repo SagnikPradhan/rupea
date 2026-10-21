@@ -9,7 +9,7 @@ import { command, query } from '$app/server';
 import * as v from 'valibot';
 import { getFiles } from './files.remote';
 import { Handle, inLedger, Key } from './shared';
-import { getTransactions } from './transactions.remote';
+import { getIssues } from './transactions.remote';
 
 const Line = v.pipe(v.number(), v.integer(), v.minValue(1));
 const EventId = v.pipe(v.string(), v.regex(/^\S+$/, 'An event id is one word.'));
@@ -49,7 +49,7 @@ export const acceptSuggestions = command(
 		const accepted = await inLedger({ handle, action: (l) => Events.linkEvents(l, edits) });
 
 		void getFiles(handle).refresh();
-		void getTransactions(handle).refresh();
+		void getIssues(handle).refresh();
 		for (const file of new Set(edits.map((e) => e.file)))
 			void getSuggestions({ handle, file }).refresh();
 		return replyFrom(accepted);
@@ -92,7 +92,7 @@ const changeEvent = async (options: ChangeEventOptions) => {
 	const changed = await inLedger({ handle, action });
 
 	void getFiles(handle).refresh();
-	void getTransactions(handle).refresh();
+	void getIssues(handle).refresh();
 	void getEvents({ handle, file }).refresh();
 	return replyFrom(changed);
 };

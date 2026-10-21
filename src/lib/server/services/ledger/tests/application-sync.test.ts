@@ -15,14 +15,13 @@ import { index } from '#services/ledger/adapters/database.ts';
 import { MODEL } from '#services/ledger/adapters/prediction-onnx.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import * as Sync from '#services/ledger/application/sync.ts';
-import * as Transactions from '#services/ledger/application/transactions.ts';
 import { PriceSource } from '#services/ledger/domain/types.ts';
 import { broken } from '#tests/shared/embedding.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { asc, eq } from 'drizzle-orm';
 import { describe, expect } from 'vitest';
-import { groceries, put, salary, stored, summary } from './fixtures/files';
+import { groceries, listed, put, salary, stored, summary } from './fixtures/files';
 
 const annotated = [
 	'- statement: hdfc-oct.pdf',
@@ -262,12 +261,10 @@ describe('events across files', () => {
 			await Files.createFile({ ledger, key: 'a.rupee', content: groceries });
 
 			expect(await Sync.sync(ledger)).toEqual(ok([]));
-			const listed = (await Transactions.getTransactions(ledger))._unsafeUnwrap();
-			expect(listed.failed).toEqual([]);
-			expect(listed.succeeded.map((t) => [t.location.file, t.counted])).toEqual([
-				['a.rupee', true],
-				['hdfc.rupee', true],
+			expect((await listed(ledger)).map((t) => [t.location.file, t.counted])).toEqual([
 				['ibkr.rupee', false],
+				['hdfc.rupee', true],
+				['a.rupee', true],
 			]);
 		}));
 
@@ -284,9 +281,7 @@ describe('events across files', () => {
 			};
 			expect(await Sync.sync(ledger)).toEqual(ok([problem]));
 			expect(await Sync.sync(ledger)).toEqual(ok([problem]));
-			const listed = (await Transactions.getTransactions(ledger))._unsafeUnwrap();
-			expect(listed.failed).toEqual([problem]);
-			expect(listed.succeeded.every((t) => t.counted)).toBe(true);
+			expect((await listed(ledger)).every((t) => t.counted)).toBe(true);
 		}));
 
 	it('reports evidence that disagrees with its primary', ({ context, db }) =>
@@ -328,7 +323,7 @@ describe('balance assertions', () => {
 			expect(await Sync.sync(ledger)).toEqual(ok([]));
 		}));
 
-	it('reports an assertion that does not hold, on every listing', ({ context, db }) =>
+	it('reports an assertion that does not hold, on every sync', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({ ledger, key: 'opening.rupee', content: opening });
@@ -346,9 +341,7 @@ describe('balance assertions', () => {
 				actual: '850.00',
 			};
 			expect(await Sync.sync(ledger)).toEqual(ok([problem]));
-			expect((await Transactions.getTransactions(ledger))._unsafeUnwrap().failed).toEqual([
-				problem,
-			]);
+			expect(await Sync.sync(ledger)).toEqual(ok([problem]));
 		}));
 
 	it('orders another file by time, and warns when it cannot', ({ context, db }) =>

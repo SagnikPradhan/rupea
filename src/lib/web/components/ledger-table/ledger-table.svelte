@@ -1,8 +1,11 @@
+<script lang="ts" module>
+	/** A `date` or `amount` column fits its widest cell; the others share what is left. */
+	export type Column = { label: string; kind?: 'date' | 'amount'; optional?: boolean };
+</script>
+
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	/** A `date` or `amount` column fits its widest cell; the others share what is left. */
-	type Column = { label: string; kind?: 'date' | 'amount'; optional?: boolean };
 	type Props = { columns: Column[]; children: Snippet };
 
 	const { columns, children }: Props = $props();
@@ -90,6 +93,10 @@
 
 	table :global(tr.child > *) {
 		padding-top: var(--size-0);
+	}
+
+	table :global(tbody.spacer tr > *) {
+		padding: 0;
 	}
 
 	table :global(tr.child > :not(.amount)) {

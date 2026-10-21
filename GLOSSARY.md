@@ -173,6 +173,16 @@ _Avoid_: Match (before it is accepted)
 **Broken event**:
 An event whose members contradict each other, such as no primary or two primaries.
 
+## Lists
+
+**Range**:
+A span of a ledger's history counted back from today: a month, the year so far, a year, or all of it. Charts and lists share it.
+_Avoid_: Period, window
+
+**Filter**:
+What a list of transactions or postings is narrowed to: a range, an account with the accounts under it, and words in a description. It lives in the page's URL.
+_Avoid_: Query (kept for a future query language), search
+
 ## Background work
 
 **Job**:

@@ -1,6 +1,7 @@
 import { scoped, type Storage } from '#lib/server/shared/storage/storage.ts';
 import { index } from '#services/ledger/adapters/database.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
+import * as Transactions from '#services/ledger/application/transactions.ts';
 
 export const groceries = '2026-08-29 Groceries\n\tExpenses:Food 100.5\n\tAssets:Bank\n';
 export const salary = '2026-08-01 Salary\n\tAssets:Bank 50000\n\tIncome:Salary\n';
@@ -23,3 +24,16 @@ export const summary = async (ledgerId: string) => {
 			)
 		: indexed;
 };
+
+/** A filter that leaves every side open. */
+export const everything = {
+	from: Temporal.PlainDate.from('0001-01-01'),
+	account: null,
+	description: null,
+};
+
+/** The first page of the ledger's transactions, newest first. */
+export const listed = async (l: Ledger) =>
+	(
+		await Transactions.listTransactions({ ledger: l, filter: everything, after: null })
+	)._unsafeUnwrap().rows;

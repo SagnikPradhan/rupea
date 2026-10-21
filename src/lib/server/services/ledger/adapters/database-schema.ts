@@ -77,10 +77,20 @@ export const transactions = PG.pgTable(
 		description: t.text().notNull(),
 		embedding: t.vector({ dimensions: EMBEDDING_DIMENSIONS }), // of the description; filled lazily
 		embeddingModel: t.text(),
+		counted: t.boolean().notNull().default(true), // false for an event's evidence; set once files settle
 	}),
 	(t) => [
 		PG.index('transactions_file_id').on(t.fileId),
-		PG.index('transactions_ledger_id_date').on(t.ledgerId, t.date),
+		PG.index('transactions_ledger_id_order').on(
+			t.ledgerId,
+			t.date,
+			sql`coalesce(${t.time}, '00:00')`,
+			t.id,
+		), // lists page by it
+		PG.index('transactions_ledger_id_uncounted')
+			.on(t.ledgerId)
+			.where(sql`not ${t.counted}`),
+		PG.index('transactions_description').using('gin', sql`${t.description} gin_trgm_ops`),
 		PG.index('transactions_embedding').using('hnsw', t.embedding.op('vector_cosine_ops')),
 	],
 );

@@ -30,6 +30,8 @@
 	const lotsOf = (account: string, commodity: string) =>
 		`/l/${handle}/accounts/lots?${new URLSearchParams({ account, commodity })}`;
 
+	/** A commodity's row is named by it, so its units need no code after them. */
+	const numberOf = (quantity: string | null) => quantity?.split(' ')[0] ?? null;
 	const depthOf = (account: string) => account.split(':').length - 1;
 	const nameOf = (account: string) => account.split(':').at(-1) ?? account;
 	/** The first letter of each parent, like A:C: for Assets:Checking:HDFC. */
@@ -73,12 +75,12 @@
 				{/if}
 			</span>
 		</td>
-		<Amount value={holding.units} units optional />
-		<Amount value={holding.cost} optional />
+		<Amount value={child ? numberOf(holding.units) : holding.units} compact optional />
+		<Amount value={holding.cost} compact optional />
 		<Amount value={holding.value} note={holding.price && `@ ${formatAmount(holding.price)}`}
 			><span class="unpriced">unpriced</span></Amount
 		>
-		<Amount value={holding.gain} signed />
+		<Amount value={holding.gain} signed compact />
 		{@render returnOf(holding.gain, holding.cost)}
 	</tr>
 {/snippet}
@@ -107,9 +109,9 @@
 							{#if account.unpriced > 0}<span class="tag">{account.unpriced} unpriced</span>{/if}
 						</th>
 						<Amount value={null} optional />
-						<Amount value={account.cost} optional />
+						<Amount value={account.cost} compact optional />
 						<Amount value={account.total} />
-						<Amount value={account.gain} signed />
+						<Amount value={account.gain} signed compact />
 						{@render returnOf(account.gain, account.cost)}
 					</tr>
 					{#each account.holdings as holding (holding.commodity)}

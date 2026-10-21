@@ -31,6 +31,7 @@ const shortDays = new Intl.DateTimeFormat(LOCALE, {
 });
 const isoDays = new Intl.DateTimeFormat('en-CA');
 const compacts = new Intl.NumberFormat(LOCALE, { notation: 'compact' });
+const shorts = new Intl.NumberFormat(LOCALE, { notation: 'compact', maximumSignificantDigits: 3 });
 const signed = new Intl.NumberFormat(LOCALE, {
 	signDisplay: 'exceptZero',
 	minimumFractionDigits: 2,
@@ -51,11 +52,17 @@ export const formatAmount = (text: string, units = false) => {
 	return [format.format(amount as Intl.StringNumericLiteral), ...commodity].join(' ');
 };
 
-/** An amount with every digit, for a tooltip, or nothing when formatAmount already shows them all. */
-export const formatExact = (text: string, units = false) => {
+/** Shortens an amount to three digits the Indian way, like 76.4L or 18.7K AABR. */
+export const formatShort = (text: string) => {
+	const [amount = '', ...commodity] = text.split(' ');
+	return [shorts.format(Number(amount)), ...commodity].join(' ');
+};
+
+/** An amount with every digit, for a tooltip, or nothing when what is shown already has them all. */
+export const formatExact = (text: string, shown = formatAmount(text)) => {
 	const [amount = '', ...commodity] = text.split(' ');
 	const exact = [exacts.format(amount as Intl.StringNumericLiteral), ...commodity].join(' ');
-	return exact === formatAmount(text, units) ? undefined : exact;
+	return exact === shown ? undefined : exact;
 };
 
 /** Formats an ISO date like `2026-08-29`. */

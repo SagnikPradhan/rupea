@@ -8,6 +8,7 @@ import {
 	formatIsoDate,
 	formatMoment,
 	formatReturn,
+	formatShort,
 	formatShortDate,
 	formatSize,
 } from '#lib/web/format.ts';
@@ -29,11 +30,24 @@ describe('formatAmount', () => {
 	});
 });
 
+describe('formatShort', () => {
+	it('keeps three digits in lakhs, crores and thousands', () => {
+		expect(formatShort('7639574.02')).toBe('76.4L');
+		expect(formatShort('126392130')).toBe('12.6Cr');
+		expect(formatShort('-149.54')).toBe('-150');
+	});
+
+	it('keeps the commodity after the number', () => {
+		expect(formatShort('18692.062 AABR')).toBe('18.7K AABR');
+	});
+});
+
 describe('formatExact', () => {
 	it('gives every digit only when formatAmount rounds some away', () => {
 		expect(formatExact('1250.5678')).toBe('1,250.5678');
 		expect(formatExact('0.123456789 USD')).toBe('0.123456789 USD');
 		expect(formatExact('1250.5')).toBeUndefined();
+		expect(formatExact('7639574.02', '76.4L')).toBe('76,39,574.02');
 	});
 });
 

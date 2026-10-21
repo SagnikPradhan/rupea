@@ -4,6 +4,7 @@ import {
 	formatChange,
 	formatCompact,
 	formatDate,
+	formatExact,
 	formatIsoDate,
 	formatMoment,
 	formatShortDate,
@@ -16,12 +17,22 @@ describe('formatAmount', () => {
 		expect(formatAmount('-1250.5')).toBe('-1,250.50');
 	});
 
-	it('keeps every fraction digit an amount has', () => {
-		expect(formatAmount('0.123456789')).toBe('0.123456789');
+	it('rounds rupees to two places, and units to four', () => {
+		expect(formatAmount('1250.5678')).toBe('1,250.57');
+		expect(formatAmount('0.123456789 USD')).toBe('0.1235 USD');
+		expect(formatAmount('7.123456', true)).toBe('7.1235');
 	});
 
 	it('keeps the commodity after the number', () => {
 		expect(formatAmount('10 INFY')).toBe('10.00 INFY');
+	});
+});
+
+describe('formatExact', () => {
+	it('gives every digit only when formatAmount rounds some away', () => {
+		expect(formatExact('1250.5678')).toBe('1,250.5678');
+		expect(formatExact('0.123456789 USD')).toBe('0.123456789 USD');
+		expect(formatExact('1250.5')).toBeUndefined();
 	});
 });
 

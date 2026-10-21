@@ -5,7 +5,7 @@
 	import LedgerTable from '#lib/web/components/ledger-table/ledger-table.svelte';
 	import Source from '#lib/web/components/ledger-table/source.svelte';
 	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
-	import { formatDate } from '#lib/web/format.ts';
+	import { formatAmount, formatDate, formatExact } from '#lib/web/format.ts';
 	import { fileHref, ledgerCrumb } from '#lib/web/links.ts';
 	import { page } from '$app/state';
 
@@ -44,9 +44,11 @@
 					<td class="date">{formatDate(lot.date)}</td>
 					<th scope="row" class="truncate">
 						{lot.origin}{lot.from ? ` from ${lot.from}` : ''}
-						<span class="tag">{lot.remaining} left</span>
+						<span class="tag" title={formatExact(lot.remaining, true)}
+							>{formatAmount(lot.remaining, true)} left</span
+						>
 					</th>
-					<Amount value={lot.units} />
+					<Amount value={lot.units} units />
 					<Amount value={lot.cost} optional />
 					<Source {handle} file={lot.file} line={lot.line} />
 				</tr>
@@ -58,7 +60,7 @@
 								>{disposal.kind}</a
 							>
 						</td>
-						<Amount value={disposal.units} />
+						<Amount value={disposal.units} units />
 						<Amount value={disposal.price} optional />
 						<Amount value={disposal.gain} signed />
 					</tr>

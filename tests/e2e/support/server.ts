@@ -62,9 +62,6 @@ export const withServer = async (use: (server: Server) => Promise<void>) => {
 			RUPEE_MODELS_DIR: resolve('data/models'),
 			RUPEE_LOG_LEVEL: 'info',
 			RUPEE_ACCOUNTS_SIGNUP: 'open',
-			...(process.env['E2E_COVERAGE'] && {
-				NODE_V8_COVERAGE: resolve(process.env['E2E_COVERAGE'], 'server'),
-			}),
 		},
 		stdio: ['ignore', 'pipe', 'inherit'],
 	});

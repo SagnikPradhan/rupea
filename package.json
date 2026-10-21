@@ -26,7 +26,7 @@
 		"test:watch": "vitest",
 		"test:coverage": "vitest run --coverage",
 		"test:e2e": "playwright test",
-		"test:coverage:e2e": "rm -rf coverage/e2e-raw && vitest run --coverage --coverage.reporter=json && E2E_COVERAGE=coverage/e2e-raw playwright test; node --experimental-strip-types scripts/coverage-e2e.ts"
+		"test:e2e:coverage": "NODE_OPTIONS=--disable-warning=DEP0205 mcr -c mcr.config.ts -- playwright test"
 	},
 	"devDependencies": {
 		"@cantoo/pdf-lib": "2.11.1",

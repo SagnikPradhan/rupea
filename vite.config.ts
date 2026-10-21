@@ -28,8 +28,8 @@ export default defineConfig({
 		},
 	],
 	builder: {},
-	// E2E coverage maps the built code back to src.
-	build: { sourcemap: process.env['E2E_COVERAGE'] ? 'inline' : false },
+	// Coverage of the built app, as under mcr, maps back to src through these.
+	build: { sourcemap: process.env['NODE_V8_COVERAGE'] ? 'inline' : false },
 	environments: {
 		worker: {
 			consumer: 'server',

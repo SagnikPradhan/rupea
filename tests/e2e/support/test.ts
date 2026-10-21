@@ -1,5 +1,7 @@
 import { test as base, expect, type Page } from '@playwright/test';
 import { randomUUID } from 'node:crypto';
+import { mkdir, writeFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { withServer, type Server } from './server.ts';
 import { signIn } from './sign-in.ts';
 import { visit } from './visit.ts';
@@ -12,6 +14,17 @@ export const test = base.extend<
 	server: [({}, use) => withServer(use), { scope: 'worker' }],
 	baseURL: ({ server }, use) => use(server.url),
 	extraHTTPHeaders: { 'x-forwarded-proto': 'http' },
+	// Records what each test runs in the browser when E2E_COVERAGE names a directory.
+	page: async ({ page }, use) => {
+		const out = process.env['E2E_COVERAGE'];
+		if (!out) return use(page);
+
+		await page.coverage.startJSCoverage({ resetOnNavigation: false });
+		await use(page);
+		const entries = await page.coverage.stopJSCoverage();
+		await mkdir(join(out, 'browser'), { recursive: true });
+		await writeFile(join(out, 'browser', `${randomUUID()}.json`), JSON.stringify(entries));
+	},
 	email: ({}, use) => use(`${randomUUID()}@example.test`),
 	signedIn: async ({ page, server, email }, use) => {
 		await signIn(page, server, email);

@@ -10,9 +10,8 @@ const pricesIn = (lines: string[]) => {
 		key: 'a.rupee',
 		content: `${lines.join('\n')}\n`,
 	});
-	return marketPrices({ metadata: {}, transactions: parsed.succeeded, prices: parsed.prices }).map(
-		(p) => [p.source, p.date.toString(), p.commodity, p.price],
-	);
+	const file = { ...parsed, transactions: parsed.succeeded };
+	return marketPrices(file).map((p) => [p.source, p.date.toString(), p.commodity, p.price]);
 };
 
 const quantity = (amount: string, commodity = 'INR') => ({

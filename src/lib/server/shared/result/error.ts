@@ -20,6 +20,12 @@ export type RupeeError =
 	| { type: 'ParseInvalidMetadata'; location: string }
 	| { type: 'ParseDetachedMetadata'; location: string }
 	| { type: 'ParseInvalidPrice'; location: string }
+	| { type: 'ParseInvalidLink'; location: string }
+	| { type: 'ParseUnknownFeed'; location: string; feed: string }
+	| { type: 'LinkRepeated'; location: string; commodity: string }
+	| { type: 'FeedUnavailable'; feed: string; symbol: string; status?: number }
+	| { type: 'FeedSymbolUnknown'; feed: string; symbol: string }
+	| { type: 'FeedInvalidResponse'; feed: string; symbol: string; reason: string }
 	| { type: 'EventInvalidMembership'; location: string }
 	| { type: 'EventStale'; location: string }
 	| { type: 'EventIdTaken'; event: string }

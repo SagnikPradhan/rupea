@@ -48,6 +48,7 @@ export const draft = (options: DraftOptions): Draft => ({
 			.toSorted((a, b) => a.location.line - b.location.line)
 			.map(toTransaction(options.account)),
 		prices: [],
+		links: [],
 	}),
 	failed: options.failed,
 });
@@ -62,8 +63,12 @@ type CopyOptions = {
 export const copy = ({ config, statement, text }: CopyOptions): Draft => ({
 	key: draftKey(statement),
 	content:
-		print(config, { metadata: sourceMetadata(statement), transactions: [], prices: [] }) +
-		text.join('\n'),
+		print(config, {
+			metadata: sourceMetadata(statement),
+			transactions: [],
+			prices: [],
+			links: [],
+		}) + text.join('\n'),
 	failed: [],
 });
 

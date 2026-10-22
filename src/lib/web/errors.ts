@@ -24,6 +24,15 @@ export const explain = (error: RupeeError): string =>
 		.with({ type: 'ParseInvalidMetadata' }, () => 'This metadata line can’t be read.')
 		.with({ type: 'ParseDetachedMetadata' }, () => 'This metadata line isn’t under a transaction.')
 		.with(
+			{ type: 'ParseInvalidLink' },
+			() => 'This link should name a date or *, a commodity and feed:symbol.',
+		)
+		.with({ type: 'ParseUnknownFeed' }, (e) => `“${e.feed}” isn’t a feed. Link to mfapi or yahoo.`)
+		.with(
+			{ type: 'LinkRepeated' },
+			(e) => `${e.commodity} is linked more than once from the same day.`,
+		)
+		.with(
 			{ type: 'EventInvalidMembership' },
 			() => 'This transaction belongs to more than one event.',
 		)

@@ -68,6 +68,7 @@ const ledger = (t: RupeeTransaction[]): RupeeLedgerFile => ({
 	metadata: {},
 	transactions: t,
 	prices: [],
+	links: [],
 });
 
 const annotated: RupeeLedgerFile = {
@@ -111,6 +112,7 @@ const annotated: RupeeLedgerFile = {
 		},
 	],
 	prices: [],
+	links: [],
 };
 
 describe('printing a ledger', () => {
@@ -170,6 +172,7 @@ describe('printing a ledger', () => {
 		expect(parse(defaultConfiguration.ledger, { key: 'a.rupee', content })).toEqual({
 			metadata: {},
 			prices: [],
+			links: [],
 			succeeded: transactions,
 			failed: [],
 		});
@@ -198,6 +201,7 @@ describe('printing a ledger', () => {
 		expect(parse(defaultConfiguration.ledger, { key: 'a.rupee', content })).toEqual({
 			metadata: annotated.metadata,
 			prices: [],
+			links: [],
 			succeeded: annotated.transactions,
 			failed: [],
 		});
@@ -255,7 +259,7 @@ describe('printing a ledger', () => {
 		expect(print(defaultConfiguration.ledger, ledger(parsed.succeeded))).toBe(content);
 	});
 
-	it('writes market prices after the transactions, and reads them back', () => {
+	it('writes market prices and links after the transactions, and reads them back', () => {
 		const content = [
 			'2026-10-01 Buy INFY',
 			'\tAssets:Zerodha 10.00 INFY @ 1500.00',
@@ -263,14 +267,15 @@ describe('printing a ledger', () => {
 			'',
 			'P 2026-10-17 INFY 1820.00',
 			'P 2026-10-17 AAPL 230.50 USD',
+			'P * HNFI mfapi:120716',
+			'P 2026-01-01 HNFI yahoo:HDFCNIFTY.NS',
 			'',
 		].join('\n');
 		const parsed = parse(defaultConfiguration.ledger, { key: 'a.rupee', content });
+		const file = { ...ledger(parsed.succeeded), prices: parsed.prices, links: parsed.links };
 
 		expect(parsed.failed).toEqual([]);
-		expect(
-			print(defaultConfiguration.ledger, { ...ledger(parsed.succeeded), prices: parsed.prices }),
-		).toBe(content);
+		expect(print(defaultConfiguration.ledger, file)).toBe(content);
 	});
 
 	it('follows the configuration', () => {

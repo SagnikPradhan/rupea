@@ -47,5 +47,6 @@ export const createContext = (
 			mode: config.models.mode,
 			logger,
 		}),
+		fetch: globalThis.fetch,
 	};
 };

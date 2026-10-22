@@ -20,6 +20,7 @@ const context = {
 		logger,
 	}),
 	mailer: logMailer,
+	fetch: globalThis.fetch,
 	logger,
 } satisfies RupeeContext;
 

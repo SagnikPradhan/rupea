@@ -1,8 +1,15 @@
+import type { Database } from '#lib/server/db/index.ts';
 import { provide } from '#lib/server/shared/context/context.ts';
+import * as DB from '#services/ledger/adapters/database.ts';
+import { symbols } from '#services/ledger/adapters/database-schema.ts';
 import * as Accounts from '#services/ledger/application/accounts.ts';
 import * as Files from '#services/ledger/application/files.ts';
+import type { Ledger } from '#services/ledger/application/ledger.ts';
+import { parseAmount, type Amount } from '#services/ledger/domain/amounts.ts';
+import { Feed, PriceSource } from '#services/ledger/domain/types.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
+import { and, eq } from 'drizzle-orm';
 import { describe, expect } from 'vitest';
 
 const bought = (price: number) =>
@@ -250,5 +257,114 @@ describe('net worth', () => {
 			const worth = (await Accounts.listWorth({ ledger, from, to }))._unsafeUnwrap().succeeded;
 			expect(empty).toEqual([]);
 			expect(worth.map((w) => w.day.toString())).toEqual(['2026-10-02', '2026-10-03']);
+		}));
+});
+
+describe('linked feeds', () => {
+	const day = Temporal.PlainDate.from('2026-10-17');
+	const held = (link: string, ...more: string[]) =>
+		['2026-10-01 Buy', '\tAssets:Kuvera 1 HNFI @ 100', '\tAssets:Bank', '', link, ...more, ''].join(
+			'\n',
+		);
+
+	/** Saves a feed's quotes as a fetch would, for a symbol a ledger already links. */
+	const quoted = async (db: Database, feed: Feed, symbol: string, q: Record<string, string>) => {
+		const [found] = await db
+			.select({ id: symbols.id })
+			.from(symbols)
+			.where(and(eq(symbols.feed, feed), eq(symbols.symbol, symbol)));
+		const source = feed === Feed.Mfapi ? PriceSource.Mfapi : PriceSource.Yahoo;
+		const quotes = Object.entries(q).map(([date, price]) => {
+			const [amount = '', commodity = 'INR'] = price.split(' ');
+			const parsed = parseAmount(amount) as Amount;
+			return { date: Temporal.PlainDate.from(date), price: { amount: parsed, commodity } };
+		});
+		await DB.saveQuotes(found?.id ?? '', source, quotes);
+	};
+
+	const valueOf = async (ledger: Ledger, account = 'Assets:Kuvera') =>
+		(await Accounts.listAccounts({ ledger, day }))
+			._unsafeUnwrap()
+			.succeeded.find((a) => a.account === account)?.holdings[0]?.value;
+
+	it('values at a feed’s quote, a P line first on its day, and a later quote over both', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = held('P * HNFI yahoo:RANK.NS', 'P 2026-10-10 HNFI 120');
+			await Files.createFile({ ledger, key: 'a.rupee', content });
+
+			await quoted(db, Feed.Yahoo, 'RANK.NS', { '2026-10-05': '105', '2026-10-10': '110' });
+			const sameDay = await valueOf(ledger);
+			await quoted(db, Feed.Yahoo, 'RANK.NS', { '2026-10-12': '125' });
+			const later = await valueOf(ledger);
+
+			expect([sameDay, later]).toEqual([120_0000000000n, 125_0000000000n]);
+		}));
+
+	it('switches feed on the day a link names, each feed counting only while linked', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = held('P * HNFI mfapi:200001', 'P 2026-10-10 HNFI yahoo:SWITCH.NS');
+			await Files.createFile({ ledger, key: 'a.rupee', content });
+			await quoted(db, Feed.Mfapi, '200001', { '2026-10-05': '105', '2026-10-12': '999' });
+			await quoted(db, Feed.Yahoo, 'SWITCH.NS', { '2026-10-08': '888', '2026-10-11': '111' });
+
+			const from = Temporal.PlainDate.from('2026-10-09');
+			const to = Temporal.PlainDate.from('2026-10-12');
+			const worth = (await Accounts.listWorth({ ledger, from, to }))._unsafeUnwrap().succeeded;
+
+			expect(worth.map((w) => [w.day.toString(), w.worth])).toEqual([
+				['2026-10-09', 5_0000000000n],
+				['2026-10-10', 5_0000000000n],
+				['2026-10-11', 11_0000000000n],
+				['2026-10-12', 11_0000000000n],
+			]);
+		}));
+
+	it('reaches rupees through a dollar quoted by a feed too', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = [
+				'2026-10-01 Fund',
+				'\tAssets:IBKR 400 USD @ 80',
+				'\tAssets:HDFC',
+				'',
+				'2026-10-02 Buy',
+				'\tAssets:IBKR 2 AAPL @ 200 USD',
+				'\tAssets:IBKR -400 USD',
+				'',
+				'P * AAPL yahoo:AAPL',
+				'P * USD yahoo:USDINR=X',
+				'',
+			].join('\n');
+			await Files.createFile({ ledger, key: 'ibkr.rupee', content });
+			await quoted(db, Feed.Yahoo, 'AAPL', { '2026-10-10': '250 USD' });
+			await quoted(db, Feed.Yahoo, 'USDINR=X', { '2026-10-10': '83' });
+
+			const worth = await Accounts.listWorth({ ledger, from: day, to: day });
+			expect(await valueOf(ledger, 'Assets:IBKR')).toBe(41500_0000000000n);
+			expect(worth._unsafeUnwrap().succeeded.map((w) => w.worth)).toEqual([9500_0000000000n]);
+		}));
+
+	it('prices by its own links only, though ledgers share a feed’s quotes', ({ context, db }) =>
+		provide(context, async () => {
+			const linked = await createLedger(db);
+			const unlinked = await createLedger(db);
+			await Files.createFile({
+				ledger: linked,
+				key: 'a.rupee',
+				content: held('P * HNFI yahoo:OWN.NS'),
+			});
+			await Files.createFile({ ledger: unlinked, key: 'a.rupee', content: held('') });
+			await quoted(db, Feed.Yahoo, 'OWN.NS', { '2026-10-10': '150' });
+
+			expect(await valueOf(linked)).toBe(150_0000000000n);
+			expect(await valueOf(unlinked)).toBe(100_0000000000n);
 		}));
 });

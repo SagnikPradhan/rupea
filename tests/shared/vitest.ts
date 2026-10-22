@@ -58,6 +58,7 @@ export const it = base.extend<{
 			mailer: logMailer,
 			logger,
 			models,
+			fetch: () => Promise.reject(new Error('Tests do not reach the internet')),
 		});
 	},
 });

@@ -4,7 +4,9 @@ import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
 import { inOrder, ok, okAsync, ResultAsync } from '#lib/server/shared/result/result.ts';
 import { readText, type Entry, type Storage } from '#lib/server/shared/storage/storage.ts';
 import { isCounted, STATEMENTS } from '#lib/shared/folders.ts';
+import { enqueue } from '#services/jobs/application/jobs.ts';
 import * as DB from '../adapters/database';
+import { fetchQuotes } from '../adapters/jobs';
 import { embedTexts, MODEL } from '../adapters/prediction-onnx';
 import { formatQuantity, type Amount } from '../domain/amounts';
 import { checkEvents } from '../domain/events';
@@ -29,6 +31,7 @@ export const syncIndex = (ledger: Ledger): ResultAsync<RupeeError[]> =>
 	openFolder({ ledger, folder: 'files' }).andThen((s) =>
 		ResultAsync.combine([listLedgerFiles(s), DB.listIndexedFiles(ledger.id)])
 			.andThen(([stored, indexed]) => update(s, ledger.id, plan(stored, indexed)))
+			.andThen((f) => queueFetches(ledger, f))
 			.andThen((f) => embed(ledger.id, f)),
 	);
 
@@ -47,12 +50,17 @@ export const indexFile = ({ ledgerId, file }: IndexFileOptions): ResultAsync<Ind
 		const parsed = parse(config.ledger, file);
 		const kept = isCounted(file.key)
 			? parsed
-			: { ...parsed, succeeded: [], prices: [], failed: [] };
+			: { ...parsed, succeeded: [], prices: [], links: [], failed: [] };
 
 		// A file with errors is indexed without a version, so every sync parses
 		// it again and reports them until they are fixed.
 		const version = kept.failed.length === 0 ? file.version : null;
-		const indexed = { metadata: kept.metadata, transactions: kept.succeeded, prices: kept.prices };
+		const indexed = {
+			metadata: kept.metadata,
+			transactions: kept.succeeded,
+			prices: kept.prices,
+			links: kept.links,
+		};
 		return DB.indexFile(ledgerId, { key: file.key, version, file: indexed }).map((t) => ({
 			failed: kept.failed,
 			touched: t,
@@ -105,6 +113,19 @@ const applyPlan = (storage: Storage, ledgerId: string, p: SyncPlan): ResultAsync
 const reported = (i: ResultAsync<Indexed>): ResultAsync<Indexed> =>
 	i.orElse((e) => ok({ failed: [e], touched: [] }));
 
+/** A symbol is fetched once the first ledger links to it; the job keeps it fresh from there. */
+const queueFetches = (ledger: Ledger, failed: RupeeError[]): ResultAsync<RupeeError[]> =>
+	DB.listUnfetched(ledger.id)
+		.andThen((ids) =>
+			inOrder(
+				ids.map(
+					(id) => () => enqueue({ job: fetchQuotes, user: ledger.owner, payload: { symbol: id } }),
+				),
+			),
+		)
+		.map(() => failed)
+		.orElse((e) => ok([...failed, e]));
+
 const embed = (ledgerId: string, failed: RupeeError[]): ResultAsync<RupeeError[]> =>
 	DB.listUnembedded(ledgerId, MODEL, EMBEDDED)
 		.andThen((r) => (r.length === 0 ? okAsync(undefined) : fill(ledgerId, r)))
@@ -130,7 +151,15 @@ const checkLedger = (ledger: Ledger): ResultAsync<RupeeError[]> =>
 			]),
 		)
 		.andThen((f) => checkLots(ledger).map((l) => [...f, ...l]))
+		.andThen((f) => checkLinks(ledger).map((l) => [...f, ...l]))
 		.orElse((e) => ok([e]));
+
+const checkLinks = (l: Ledger): ResultAsync<RupeeError[]> =>
+	DB.listRepeatedLinks(l.id).map((r) =>
+		r.map((k) =>
+			fault('LinkRepeated', { location: k.locations.join(', '), commodity: k.commodity }),
+		),
+	);
 
 const uncountedIn = (id: string): ResultAsync<string[]> =>
 	DB.listEventTransactions(id).map((m) => checkEvents(m).uncounted);

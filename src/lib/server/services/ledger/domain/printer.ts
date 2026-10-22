@@ -5,6 +5,7 @@ import {
 	PriceKind,
 	type LotCost,
 	type RupeeLedgerFile,
+	type RupeeLink,
 	type RupeeMarketPrice,
 	type RupeeMetadata,
 	type RupeePosting,
@@ -16,14 +17,19 @@ export const PRICE_SIGN: Record<PriceKind, string> = {
 	[PriceKind.Total]: '@@',
 };
 
-export const print = (c: LedgerConfiguration, file: RupeeLedgerFile): string =>
-	[
+export const print = (c: LedgerConfiguration, file: RupeeLedgerFile): string => {
+	const pLines = [
+		...file.prices.map((p) => printPrice(c, p)),
+		...file.links.map((l) => printLink(c, l)),
+	];
+	return [
 		printMetadata('', file.metadata),
 		...file.transactions.map((t) => printTransaction(c, t)),
-		file.prices.map((p) => printPrice(c, p)).join(''),
+		pLines.join(''),
 	]
 		.filter(Boolean)
 		.join('\n');
+};
 
 // A single outgoing posting leaves its amount out; it is whatever balances.
 // With prices or several commodities every amount is spelled out.
@@ -73,6 +79,9 @@ const printCost = (f: string | undefined, c: LotCost): string =>
 
 const printPrice = ({ dateFormats }: LedgerConfiguration, p: RupeeMarketPrice): string =>
 	`P ${printDate(dateFormats[0], p.date)} ${p.commodity} ${formatQuantity(p.price)}\n`;
+
+const printLink = ({ dateFormats }: LedgerConfiguration, l: RupeeLink): string =>
+	`P ${l.since ? printDate(dateFormats[0], l.since) : '*'} ${l.commodity} ${l.feed}:${l.symbol}\n`;
 
 const printMetadata = (t: string, m: RupeeMetadata): string =>
 	Object.entries(m)

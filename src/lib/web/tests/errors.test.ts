@@ -30,6 +30,18 @@ describe('explain', () => {
 			'This metadata line isn’t under a transaction.',
 		],
 		[
+			fault('ParseInvalidLink', { location: at }),
+			'This link should name a date or *, a commodity and feed:symbol.',
+		],
+		[
+			fault('ParseUnknownFeed', { location: at, feed: 'google' }),
+			'“google” isn’t a feed. Link to mfapi or yahoo.',
+		],
+		[
+			fault('LinkRepeated', { location: at, commodity: 'HNFI' }),
+			'HNFI is linked more than once from the same day.',
+		],
+		[
 			fault('EventInvalidMembership', { location: at }),
 			'This transaction belongs to more than one event.',
 		],

@@ -75,3 +75,25 @@ test('lists counted postings, narrowed to an account', async ({ signedIn: page, 
 	const dates = page.getByRole('navigation', { name: 'Date' });
 	await expect(dates.getByRole('link', { name: 'All' })).toHaveAttribute('aria-current', 'page');
 });
+
+test('lists the postings of chosen days, then any range again', async ({
+	signedIn: page,
+	ledger,
+}) => {
+	await createFile(page, ledger, [...shopping, rent].join('\n'));
+
+	await visit(page, `${ledger}/postings?account=Expenses&from=2025-05-30&to=2025-06-15`);
+	const rows = page.getByRole('rowgroup');
+	await expect(rows.filter({ hasText: 'Rent' })).toBeVisible();
+	await expect(rows.filter({ hasText: 'Shop 150' })).toBeVisible();
+	await expect(rows.filter({ hasText: 'Shop 149' })).toHaveCount(0);
+
+	const dates = page.getByRole('navigation', { name: 'Date' });
+	await expect(dates.getByRole('link', { name: '30 May 2025 – 15 Jun 2025' })).toHaveAttribute(
+		'aria-current',
+		'page',
+	);
+	await dates.getByRole('link', { name: 'All' }).click();
+	await expect(page).not.toHaveURL(/from=/);
+	await expect(rows.filter({ hasText: 'Shop 149' })).toBeVisible();
+});

@@ -200,7 +200,7 @@ A span of a ledger's history counted back from today: a month, the year so far, 
 _Avoid_: Period, window
 
 **Filter**:
-What a list of transactions or postings is narrowed to: a range, an account with the accounts under it, and words in a description. It lives in the page's URL.
+What a list of transactions or postings is narrowed to: a range or chosen days, an account with the accounts under it, and words in a description. It lives in the page's URL.
 _Avoid_: Query (kept for a future query language), search
 
 ## Background work

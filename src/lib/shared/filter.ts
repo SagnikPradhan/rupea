@@ -2,10 +2,13 @@ import * as v from 'valibot';
 import { Range } from './dates';
 
 const Text = v.fallback(v.pipe(v.string(), v.trim()), '');
+const IsoDate = v.fallback(v.pipe(v.string(), v.isoDate()), '');
 
-/** What a list of transactions or postings is narrowed to, as its page's URL carries it. */
+/** What a list of transactions or postings is narrowed to, as its page's URL carries it; days given win over the range. */
 export const Filter = v.object({
 	range: v.fallback(Range, 'all'),
+	from: IsoDate,
+	to: IsoDate,
 	account: Text,
 	description: Text,
 });

@@ -4,7 +4,7 @@ import { err, ok } from '#lib/server/shared/result/result.ts';
 import * as Events from '#services/ledger/application/events.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import * as Sync from '#services/ledger/application/sync.ts';
-import * as Transactions from '#services/ledger/application/transactions.ts';
+import { listed } from '#services/ledger/tests/fixtures/files.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { afterEach, describe, expect, vi } from 'vitest';
@@ -69,8 +69,8 @@ describe('refining a saved file', () => {
 				`2026-10-03 NEFT TO INTERACTIVE BROKERS\n\t- same-as: ${transfer?.event}\n`,
 			);
 			expect(await Sync.sync(ledger)).toEqual(ok([]));
-			const listed = (await Transactions.getTransactions(ledger))._unsafeUnwrap().succeeded;
-			expect(listed.filter((t) => !t.counted).map((t) => t.description)).toEqual([
+			const rows = await listed(ledger);
+			expect(rows.filter((t) => !t.counted).map((t) => t.description)).toEqual([
 				'NEFT TO INTERACTIVE BROKERS',
 			]);
 			expect(await Refinement.suggestFor(ledger, 'ibkr.rupee')).toEqual(ok([]));

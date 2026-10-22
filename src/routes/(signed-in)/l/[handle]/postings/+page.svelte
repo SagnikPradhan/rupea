@@ -1,49 +1,56 @@
 <script lang="ts">
-	import { getTransactions } from '#lib/endpoints/transactions.remote.ts';
+	import { getAccountNames, getIssues, getPostings } from '#lib/endpoints/transactions.remote.ts';
+	import { filterOf, type Filter } from '#lib/shared/filter.ts';
 	import Issues from '#lib/web/components/issues/issues.svelte';
 	import Account from '#lib/web/components/ledger-table/account.svelte';
 	import Amount from '#lib/web/components/ledger-table/amount.svelte';
-	import LedgerTable from '#lib/web/components/ledger-table/ledger-table.svelte';
 	import Source from '#lib/web/components/ledger-table/source.svelte';
+	import ListFilter from '#lib/web/components/list-filter/list-filter.svelte';
 	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
-	import { formatDate } from '#lib/web/format.ts';
+	import PagedTable from '#lib/web/components/paged-table/paged-table.svelte';
+	import { formatDate, formatIsoDate } from '#lib/web/format.ts';
 	import { ledgerCrumb } from '#lib/web/links.ts';
+	import { paged } from '#lib/web/paged.svelte.ts';
+	import { page } from '$app/state';
 
 	const { data } = $props();
 
+	const day = formatIsoDate(new Date());
 	const handle = $derived(data.ledger.handle);
-	const response = $derived(await getTransactions(handle));
+	const filter = $derived(filterOf(page.url.searchParams));
 
-	const postings = $derived(
-		// Evidence of an event is kept in the ledger but not counted.
-		(response.data ?? [])
-			.filter((transaction) => transaction.counted)
-			.flatMap((transaction) =>
-				transaction.postings.map((posting, index) => ({
-					key: `${transaction.id}:${index}`,
-					date: transaction.date,
-					description: transaction.description,
-					file: transaction.file,
-					line: transaction.line,
-					...posting,
-				})),
-			),
-	);
+	const issues = $derived(await getIssues(handle));
+	const accounts = $derived(await getAccountNames(handle));
+	const first = $derived(await firstPage(handle, filter));
+	const list = $derived(paged(first, (after) => getPostings({ handle, day, filter, after })));
+
+	/** The list reads the index, which the issues query brings up to date. */
+	async function firstPage(h: string, f: Filter) {
+		await getIssues(h);
+		return getPostings({ handle: h, day, filter: f, after: null });
+	}
 </script>
 
-<PageHeader trail={[ledgerCrumb(data.ledger)]}>Postings</PageHeader>
+<PageHeader trail={[ledgerCrumb(data.ledger)]}>
+	Postings
+	{#snippet actions()}<ListFilter {filter} accounts={accounts.data ?? []} />{/snippet}
+</PageHeader>
 
-<Issues {handle} errors={response.errors} />
+<Issues {handle} errors={[...issues.errors, ...list.errors]} />
 
-<LedgerTable
+<PagedTable
 	columns={[
 		{ label: 'Date', kind: 'date' },
 		{ label: 'Account' },
 		{ label: 'Amount', kind: 'amount' },
 	]}
+	{list}
+	height={48}
+	empty="No postings match."
 >
-	{#each postings as posting (posting.key)}
-		<tbody>
+	{#snippet row(index: number)}
+		{@const posting = list.rows[index]}
+		{#if posting}
 			<tr>
 				<td class="date"><time datetime={posting.date}>{formatDate(posting.date)}</time></td>
 				<th scope="row">
@@ -56,9 +63,9 @@
 				<td class="truncate" title={posting.description}>{posting.description}</td>
 				<Source {handle} file={posting.file} line={posting.line} />
 			</tr>
-		</tbody>
-	{/each}
-</LedgerTable>
+		{/if}
+	{/snippet}
+</PagedTable>
 
 <style>
 	th {

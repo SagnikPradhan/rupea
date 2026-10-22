@@ -125,6 +125,33 @@ describe('accounts', () => {
 		}));
 });
 
+describe('evidence', () => {
+	const day = Temporal.PlainDate.from('2026-10-03');
+	const salary = (role: string) =>
+		[
+			'2026-10-02 Salary',
+			`\t- ${role}: october-salary`,
+			'\tAssets:Bank 500',
+			'\tIncome:Salary',
+			'',
+		].join('\n');
+
+	it('counts an event once in what accounts hold and what they are worth', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'payslip.rupee', content: salary('event') });
+			await Files.createFile({ ledger, key: 'hdfc.rupee', content: salary('same-as') });
+
+			const accounts = (await Accounts.getAccounts(ledger, day))._unsafeUnwrap().succeeded;
+			const worth = (await Accounts.getWorth({ ledger, from: day, to: day }))._unsafeUnwrap();
+			expect(accounts.map((a) => [a.account, a.total])).toEqual([
+				['Assets', 500_0000000000n],
+				['Assets:Bank', 500_0000000000n],
+			]);
+			expect(worth.succeeded.map((w) => w.worth)).toEqual([500_0000000000n]);
+		}));
+});
+
 describe('net worth', () => {
 	const from = Temporal.PlainDate.from('2026-10-01');
 	const to = Temporal.PlainDate.from('2026-10-03');

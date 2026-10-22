@@ -1,7 +1,7 @@
 import { provide } from '#lib/server/shared/context/context.ts';
 import { ok } from '#lib/server/shared/result/result.ts';
 import * as Files from '#services/ledger/application/files.ts';
-import * as Transactions from '#services/ledger/application/transactions.ts';
+import { listed } from '#services/ledger/tests/fixtures/files.ts';
 import { broken, hashed } from '#tests/shared/embedding.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { existsSync } from 'node:fs';
@@ -177,13 +177,14 @@ describe('saving a draft', () => {
 
 			expect(saved).toMatchObject(ok({ key }));
 			expect(again).toMatchObject(ok({ key }));
-			expect(await Transactions.getTransactions(ledger)).toMatchObject(ok({ succeeded: [] }));
+			expect(await listed(ledger)).toEqual([]);
 
 			await Files.deleteFiles(ledger, [taken]);
 			await Files.renameFiles(ledger, [{ from: key, to: 'bank/aug.rupee' }]);
-			expect(await Transactions.getTransactions(ledger)).toMatchObject(
-				ok({ succeeded: [{ description: 'UPI GROCER' }, { description: 'SALARY' }] }),
-			);
+			expect(await listed(ledger)).toMatchObject([
+				{ description: 'SALARY' },
+				{ description: 'UPI GROCER' },
+			]);
 		}));
 });
 

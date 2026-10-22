@@ -4,7 +4,7 @@ import { index, type LotHistory, type Worth } from '../adapters/database';
 import type { Quantity } from '../domain/amounts';
 import { byAccount, HOPS, pricedIn, valued, type Account } from '../domain/holdings';
 import type { Ledger } from '../domain/types';
-import { checkLots, syncIndex, uncountedIn } from './sync';
+import { checkLots, syncIndex } from './sync';
 
 export type { Account, LotHistory, Worth };
 
@@ -19,8 +19,8 @@ type GetWorthOptions = { ledger: Ledger; from: Temporal.PlainDate; to: Temporal.
 export const getWorth = (options: GetWorthOptions): ResultAsync<Batch<Worth>> => {
 	const { ledger, from, to } = options;
 	return syncIndex(ledger).andThen((f) =>
-		uncountedIn(ledger.id)
-			.andThen((e) => index(ledger.id).worth(e, from, to))
+		index(ledger.id)
+			.worth(from, to)
 			.map((w) => ({ succeeded: w, failed: f })),
 	);
 };
@@ -37,8 +37,8 @@ export const getLots = (options: GetLotsOptions): ResultAsync<Batch<LotHistory>>
 };
 
 const listValued = (ledgerId: string, day: Temporal.PlainDate): ResultAsync<Batch<Account>> =>
-	uncountedIn(ledgerId)
-		.andThen((e) => index(ledgerId).holdings(e))
+	index(ledgerId)
+		.holdings()
 		.andThen((hs) =>
 			pricesOn({ ledgerId, day, commodities: pricedIn(hs) }).map((p) =>
 				hs.map((h) => valued(h, p)),

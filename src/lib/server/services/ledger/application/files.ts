@@ -6,7 +6,7 @@ import { isCounted } from '#lib/shared/folders.ts';
 import { parse } from '../domain/parser';
 import type { Ledger, RupeeFile, RupeeTransaction } from '../domain/types';
 import { ledgerFiles } from './ledger';
-import { indexFile, rebook, unindex, type Indexed } from './sync';
+import { indexFile, settle, unindex, type Indexed } from './sync';
 
 export const listFiles = (l: Ledger): ResultAsync<Batch<RupeeFile>> =>
 	ledgerFiles(l).andThen((f) => f.list());
@@ -85,7 +85,7 @@ const writeFile = (options: WriteFileOptions): ResultAsync<RupeeFile> => {
 		.andTee((w) => reindex(ledger.id, w));
 };
 
-const reindex = (id: string, f: RupeeFile) => indexFile(id, f).andThen((i) => rebook(id, i));
+const reindex = (id: string, f: RupeeFile) => indexFile(id, f).andThen((i) => settle(id, i));
 
 type Changed<T> = { value: T; indexed: Indexed };
 
@@ -103,13 +103,13 @@ const indexMove = (id: string, m: Move, r: RupeeFile): ResultAsync<Indexed> =>
 		);
 
 // One file at a time, since embedded Postgres has one connection, and
-// lots rebooked once for them all.
+// settled once for them all.
 const changeEach = <T>(id: string, steps: (() => ResultAsync<Changed<T>>)[]) =>
 	batchInOrder(steps).andThen((b) => {
 		const changed = b.succeeded;
 		const failed = [...b.failed, ...changed.flatMap((c) => c.indexed.failed)];
 		const touched = changed.flatMap((c) => c.indexed.touched);
-		return rebook(id, { failed, touched }).map((f) => ({
+		return settle(id, { failed, touched }).map((f) => ({
 			succeeded: changed.map((c) => c.value),
 			failed: f,
 		}));

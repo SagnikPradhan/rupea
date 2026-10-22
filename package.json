@@ -87,6 +87,7 @@
 		"@huggingface/tokenizers": "0.2.0",
 		"@lezer/highlight": "1.2.5",
 		"@tabler/icons-svelte-runes": "3.48.0",
+		"@tanstack/svelte-virtual": "3.13.47",
 		"bits-ui": "2.19.5",
 		"csv-parse": "7.0.3",
 		"date-fns": "4.4.0",

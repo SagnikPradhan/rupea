@@ -3,9 +3,12 @@ import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { runningTotal, total, unset } from '#lib/server/db/expressions.ts';
 import type { Queries } from '#lib/server/db/index.ts';
 import { sql, type Expression, type SqlBool } from 'kysely';
-import { DEFAULT_COMMODITY, type Amount, type Quantity } from '../domain/amounts';
+import { AMOUNT_UNIT, DEFAULT_COMMODITY, type Amount, type Quantity } from '../domain/amounts';
 import { AccountType, Feed, PriceSource } from '../domain/types';
 import { multiply } from './database-queries';
+
+/** The most prices a commodity is converted through on its way to rupees. */
+const MAX_PRICES = 2;
 
 /** What balance accounts were worth in rupees at the end of one day, and how many commodities had no price. */
 export type Worth = {
@@ -58,7 +61,8 @@ export const listWorth = (
 
 		return attempt(() =>
 			kysely
-				.with('own', ownSymbols(kysely, ledgerId))
+				// Kysely writes with recursive only when the first CTE asks for it
+				.withRecursive('own(id, symbol)', () => ownSymbols(kysely, ledgerId))
 				.with('deltas', (q) =>
 					q
 						.selectFrom('postings')
@@ -120,19 +124,48 @@ export const listWorth = (
 							),
 						]),
 				)
+				.withRecursive('rates(symbolId, day, commodity, at, rate, hops)', (q) =>
+					q
+						.selectFrom('balances as b')
+						.select([
+							'b.symbolId',
+							'b.day',
+							'b.commodity',
+							'b.symbolId as at',
+							sql<bigint>`${sql.lit(AMOUNT_UNIT)}::numeric`.as('rate'),
+							sql<number>`0`.as('hops'),
+						])
+						.distinct()
+						.where('b.commodity', '<>', DEFAULT_COMMODITY)
+						.where('b.symbolId', 'is not', null)
+						.unionAll((r) =>
+							r
+								.selectFrom('rates as r')
+								.innerJoinLateral(
+									priceOn(kysely, sql.ref<string>('r.at'), sql.ref<string>('r.day')).as('p'),
+									(j) => j.onTrue(),
+								)
+								.leftJoin('own as o', 'o.symbol', 'p.currency')
+								.select([
+									'r.symbolId',
+									'r.day',
+									'p.currency as commodity',
+									'o.id as at',
+									multiply(sql.ref('r.rate'), sql.ref('p.amount')).as('rate'),
+									sql<number>`${sql.ref('r.hops')} + 1`.as('hops'),
+								])
+								.where('r.commodity', '<>', DEFAULT_COMMODITY)
+								.where('r.hops', '<', MAX_PRICES),
+						),
+				)
 				.with('valued', (q) =>
 					q
 						.selectFrom('balances as b')
-						.leftJoinLateral(
-							priceOn(kysely, sql.ref<string>('b.symbolId'), sql.ref<string>('b.day')).as('p1'),
-							(j) => j.on('b.commodity', '<>', DEFAULT_COMMODITY),
-						)
-						.leftJoin('own as o', (j) =>
-							j.onRef('o.symbol', '=', 'p1.currency').on('p1.currency', '<>', DEFAULT_COMMODITY),
-						)
-						.leftJoinLateral(
-							priceOn(kysely, sql.ref<string>('o.id'), sql.ref<string>('b.day')).as('p2'),
-							(j) => j.onTrue(),
+						.leftJoin('rates as r', (j) =>
+							j
+								.onRef('r.symbolId', '=', 'b.symbolId')
+								.onRef('r.day', '=', 'b.day')
+								.on('r.commodity', '=', DEFAULT_COMMODITY),
 						)
 						.select((e) => [
 							'b.day',
@@ -141,10 +174,7 @@ export const listWorth = (
 								.case()
 								.when('b.commodity', '=', DEFAULT_COMMODITY)
 								.then(e.ref('b.units'))
-								.when('p1.currency', '=', DEFAULT_COMMODITY)
-								.then(multiply(e.ref('b.units'), e.ref('p1.amount')))
-								.when('p2.currency', '=', DEFAULT_COMMODITY)
-								.then(multiply(e.ref('b.units'), multiply(e.ref('p1.amount'), e.ref('p2.amount'))))
+								.else(multiply(e.ref('b.units'), e.ref('r.rate')))
 								.end()
 								.as('value'),
 						])

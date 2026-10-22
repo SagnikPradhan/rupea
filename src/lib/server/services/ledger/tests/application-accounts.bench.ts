@@ -27,7 +27,7 @@ describe('net worth', () => {
 				console.info(`seeded in ${Math.round(performance.now() - started)} ms`);
 
 				const worth = (f: Temporal.PlainDate) => () =>
-					provide(context, () => Accounts.getWorth({ ledger, from: f, to: TO })).then(() => {});
+					provide(context, () => Accounts.listWorth({ ledger, from: f, to: TO })).then(() => {});
 				await bench.compare(
 					bench('1m', worth(TO.subtract({ months: 1 }))),
 					bench('ytd', worth(TO.with({ month: 1, day: 1 }))),

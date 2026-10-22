@@ -4,19 +4,18 @@ import { err, errAsync, ok } from '#lib/server/shared/result/result.ts';
 import * as Events from '#services/ledger/application/events.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
-import * as Sync from '#services/ledger/application/sync.ts';
-import { listed } from './fixtures/files';
+import { issues, listed } from './fixtures/files';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { afterEach, describe, expect, vi } from 'vitest';
 
 vi.mock(import('#services/ledger/application/files.ts'), async (original) => {
 	const files = await original();
-	return { ...files, getFile: vi.fn(files.getFile) };
+	return { ...files, readFile: vi.fn(files.readFile) };
 });
 
 afterEach(() => {
-	vi.mocked(Files.getFile).mockReset();
+	vi.mocked(Files.readFile).mockReset();
 });
 
 describe('changing an event', () => {
@@ -57,7 +56,7 @@ describe('changing an event', () => {
 			await Files.createFile({ ledger, key: 'hdfc.rupee', content: linkedHdfc });
 			await Files.createFile({ ledger, key: 'ibkr.rupee', content: linkedIbkr });
 
-			const events = (await Events.eventsIn(ledger, 'hdfc.rupee'))._unsafeUnwrap();
+			const events = (await Events.listEvents({ ledger, file: 'hdfc.rupee' }))._unsafeUnwrap();
 			expect(
 				events.map((e) => [e.event, e.members.map((m) => [m.location.file, m.role, m.counted])]),
 			).toEqual([
@@ -85,13 +84,13 @@ describe('changing an event', () => {
 					line: 1,
 				}),
 			).toEqual(ok([]));
-			expect((await Files.getFile(ledger, 'hdfc.rupee'))._unsafeUnwrap().content).toBe(
+			expect((await Files.readFile({ ledger, key: 'hdfc.rupee' }))._unsafeUnwrap().content).toBe(
 				linkedHdfc.replace('same-as:', 'event:'),
 			);
-			expect((await Files.getFile(ledger, 'ibkr.rupee'))._unsafeUnwrap().content).toBe(
+			expect((await Files.readFile({ ledger, key: 'ibkr.rupee' }))._unsafeUnwrap().content).toBe(
 				linkedIbkr.replace('event:', 'same-as:'),
 			);
-			expect(await Sync.sync(ledger)).toEqual(ok([]));
+			expect(await issues(ledger)).toEqual(ok([]));
 			expect(await counted(ledger)).toEqual(['Deposit']);
 		}));
 
@@ -124,17 +123,19 @@ describe('changing an event', () => {
 				content: '2026-10-04 ATM\n\t- event: taken\n\tAssets:Cash 5\n\tAssets:HDFC\n',
 			});
 
-			expect(await Events.renameEvent(ledger, 'transfer-otter', 'taken')).toEqual(
+			expect(await Events.renameEvent({ ledger, event: 'transfer-otter', to: 'taken' })).toEqual(
 				err({ type: 'EventIdTaken', event: 'taken' }),
 			);
-			expect(await Events.renameEvent(ledger, 'transfer-otter', 'ibkr-funding')).toEqual(ok([]));
-			expect((await Files.getFile(ledger, 'hdfc.rupee'))._unsafeUnwrap().content).toBe(
+			expect(
+				await Events.renameEvent({ ledger, event: 'transfer-otter', to: 'ibkr-funding' }),
+			).toEqual(ok([]));
+			expect((await Files.readFile({ ledger, key: 'hdfc.rupee' }))._unsafeUnwrap().content).toBe(
 				linkedHdfc.replace('transfer-otter', 'ibkr-funding'),
 			);
-			expect((await Files.getFile(ledger, 'ibkr.rupee'))._unsafeUnwrap().content).toBe(
+			expect((await Files.readFile({ ledger, key: 'ibkr.rupee' }))._unsafeUnwrap().content).toBe(
 				linkedIbkr.replace('transfer-otter', 'ibkr-funding'),
 			);
-			expect(await Sync.sync(ledger)).toEqual(ok([]));
+			expect(await issues(ledger)).toEqual(ok([]));
 			expect(await counted(ledger)).toEqual(['NEFT TO INTERACTIVE BROKERS']);
 		}));
 
@@ -145,19 +146,19 @@ describe('changing an event', () => {
 			await Files.createFile({ ledger, key: 'ibkr.rupee', content: linkedIbkr });
 			const unreadable = fault('CannotReadFile', { path: 'hdfc.rupee', reason: 'gone' });
 			const content = async (key: string) =>
-				(await Files.getFile(ledger, key))._unsafeUnwrap().content;
+				(await Files.readFile({ ledger, key: key }))._unsafeUnwrap().content;
 
-			vi.mocked(Files.getFile).mockReturnValueOnce(errAsync(unreadable));
-			expect(await Events.renameEvent(ledger, 'transfer-otter', 'ibkr-funding')).toEqual(
-				ok([unreadable]),
-			);
+			vi.mocked(Files.readFile).mockReturnValueOnce(errAsync(unreadable));
+			expect(
+				await Events.renameEvent({ ledger, event: 'transfer-otter', to: 'ibkr-funding' }),
+			).toEqual(ok([unreadable]));
 
-			vi.mocked(Files.getFile).mockReturnValueOnce(errAsync(unreadable));
+			vi.mocked(Files.readFile).mockReturnValueOnce(errAsync(unreadable));
 			expect(
 				await Events.makePrimary({ ledger, event: 'transfer-otter', file: 'hdfc.rupee', line: 1 }),
 			).toEqual(ok([unreadable]));
 
-			expect([await content('hdfc.rupee'), await content('ibkr.rupee')]).toEqual([
+			expect(await Promise.all([content('hdfc.rupee'), content('ibkr.rupee')])).toEqual([
 				linkedHdfc,
 				linkedIbkr,
 			]);

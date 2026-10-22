@@ -28,7 +28,7 @@ vi.mock(import('@embedpdf/pdfium'), async (original) => {
 const plain = () => readFile(join(import.meta.dirname, 'fixtures/sbi-savings.pdf'));
 
 const locked = async () => {
-	const document = await PDFDocument.load(await plain());
+	const document = await plain().then((b) => PDFDocument.load(b));
 	document.encrypt({ userPassword: 'secret', ownerPassword: 'secret' });
 	return document.save();
 };
@@ -41,7 +41,7 @@ const opened = async (content: Uint8Array, password?: string) => {
 
 describe('opening a PDF with pdfium', () => {
 	it('counts its pages and measures them in points', async () => {
-		const document = await opened(await plain());
+		const document = await plain().then((b) => opened(b));
 		expect(document.count).toBe(2);
 
 		const page = document.page(0);
@@ -74,7 +74,7 @@ describe('opening a PDF with pdfium', () => {
 
 describe('reading a page with pdfium', () => {
 	const page = async () => {
-		const document = await opened(await plain());
+		const document = await plain().then((b) => opened(b));
 		const first = document.page(0);
 		if (first.isErr()) throw new Error(first.error.type);
 		return first.value;
@@ -121,7 +121,7 @@ describe('reading a page with pdfium', () => {
 	});
 
 	it('writes a locked PDF without its password', async () => {
-		const document = await opened(await locked(), 'secret');
+		const document = await locked().then((b) => opened(b, 'secret'));
 		const content = document.decrypted()._unsafeUnwrap();
 		document.close();
 
@@ -135,7 +135,7 @@ describe('reading a page with pdfium', () => {
 		async (as) => {
 			saving.as = as;
 			onTestFinished(() => void (saving.as = 'usual'));
-			const document = await opened(await locked(), 'secret');
+			const document = await locked().then((b) => opened(b, 'secret'));
 
 			expect(document.decrypted()).toEqual(
 				err({ type: 'CannotReadFile', path: 'a.pdf', reason: 'not saved unlocked' }),

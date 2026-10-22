@@ -1,11 +1,10 @@
 import { drizzle, type NodePgDatabase } from 'drizzle-orm/node-postgres';
 import { Pool } from 'pg';
 import { startServer } from 'portable-pg';
-import { batches } from '../shared/batches';
 import { migrate } from './migrate';
 
 // Well under Postgres's limit of 65535 parameters per statement.
-const ROWS_PER_STATEMENT = 500;
+export const ROWS_PER_STATEMENT = 500;
 
 export type Database = NodePgDatabase;
 
@@ -41,8 +40,6 @@ const embedDatabase = async (directory: string): Promise<DatabaseHandle> => {
 	};
 	return { ...handle, close };
 };
-
-export const statementChunks = <T>(l: T[]): T[][] => batches(l, ROWS_PER_STATEMENT);
 
 /** A vector as pgvector reads it from text. */
 export const vectorText = (v: Float32Array) => `[${v.join(',')}]`;

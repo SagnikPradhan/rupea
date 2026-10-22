@@ -7,7 +7,12 @@ import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it as plain } from 'vitest';
 import { embedder } from '#services/ledger/adapters/prediction-onnx.ts';
-import { THRESHOLDS, type Embed, type Nearest } from '#services/ledger/domain/prediction.ts';
+import {
+	THRESHOLDS,
+	type ClassifierOptions,
+	type Embed,
+	type Nearest,
+} from '#services/ledger/domain/prediction.ts';
 import { clean } from '#services/ledger/domain/text.ts';
 import { classify as classifyNear } from '#services/ledger/application/prediction.ts';
 
@@ -39,14 +44,18 @@ const nearestIn =
 		);
 	};
 
-type ClassifyOptions = Omit<Parameters<typeof classifyNear>[2], 'accounts'> & {
+type ClassifyOptions = Omit<ClassifierOptions, 'accounts'> & {
 	transactions: RupeeTransaction[];
 };
 
 const classify = (embed: Embed, o: ClassifyOptions) =>
-	classifyNear(embed, nearestIn(embed, o.transactions), {
-		...o,
-		accounts: [...new Set(o.transactions.flatMap((t) => t.postings.map((p) => p.account)))],
+	classifyNear({
+		embed,
+		nearest: nearestIn(embed, o.transactions),
+		options: {
+			...o,
+			accounts: [...new Set(o.transactions.flatMap((t) => t.postings.map((p) => p.account)))],
+		},
 	});
 
 const transaction = (description: string, postings: [string, bigint][], date = '2026-09-01') =>
@@ -122,7 +131,11 @@ describe('classifying statement lines', () => {
 		};
 		const nearest: Nearest = (vectors) => okAsync(vectors.map(() => []));
 		const lines = Array(3).fill({ amount: amount(-1n), description: 'swiggy' });
-		await classifyNear(embed, nearest, { ...options, lines, accounts: ['Expenses:Dining'] });
+		await classifyNear({
+			embed,
+			nearest,
+			options: { ...options, lines, accounts: ['Expenses:Dining'] },
+		});
 		expect(seen).toHaveLength(1);
 		expect(seen[0]?.filter((t) => t === 'swiggy')).toHaveLength(1);
 	});

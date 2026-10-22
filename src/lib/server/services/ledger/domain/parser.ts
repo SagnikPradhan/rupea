@@ -3,7 +3,7 @@ import { parseDate, parseTime, type ReadOptions } from '#lib/server/shared/dates
 import { batch, type Batch } from '#lib/server/shared/result/batch.ts';
 import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
-import { drain, takeWhile } from '#lib/server/shared/stacks.ts';
+import { drain, takeWhile } from '#lib/server/shared/arrays.ts';
 import { match, P } from 'ts-pattern';
 import {
 	DEFAULT_COMMODITY,

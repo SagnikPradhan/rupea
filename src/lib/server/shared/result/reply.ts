@@ -9,18 +9,21 @@ export type Reply<T> = {
 	errors: RupeeError[];
 };
 
-export const replyFrom = <T>(result: Result<T>): Reply<T> =>
-	result.match(
-		(d) => ({ ok: true, data: d, errors: [] }),
-		(e) => ({ ok: false, data: null, errors: [e] }),
+/** Takes a result, or one on its way, such as a `ResultAsync`, whose own `then` is typed too loosely for a remote function. */
+export const replyFrom = <T>(result: Result<T> | PromiseLike<Result<T>>): Promise<Reply<T>> =>
+	Promise.resolve(result).then((r) =>
+		r.match(
+			(d) => ({ ok: true, data: d, errors: [] }),
+			(e) => ({ ok: false, data: null, errors: [e] }),
+		),
 	);
 
-export const replyFromBatch = <T>(result: Result<Batch<T>>): Reply<T[]> =>
-	result.match(
-		({ succeeded, failed }) => ({
-			ok: failed.length === 0,
-			data: succeeded,
-			errors: failed,
-		}),
-		(e) => ({ ok: false, data: null, errors: [e] }),
+export const replyFromBatch = <T>(
+	result: Result<Batch<T>> | PromiseLike<Result<Batch<T>>>,
+): Promise<Reply<T[]>> =>
+	Promise.resolve(result).then((r) =>
+		r.match(
+			({ succeeded, failed }) => ({ ok: failed.length === 0, data: succeeded, errors: failed }),
+			(e) => ({ ok: false, data: null, errors: [e] }),
+		),
 	);

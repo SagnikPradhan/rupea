@@ -11,7 +11,7 @@ import {
 	prices,
 	transactions,
 } from '#services/ledger/adapters/database-schema.ts';
-import { index } from '#services/ledger/adapters/database.ts';
+import { listAllTransactions } from '#services/ledger/adapters/database-transactions.ts';
 import { MODEL } from '#services/ledger/adapters/prediction-onnx.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import * as Sync from '#services/ledger/application/sync.ts';
@@ -21,7 +21,7 @@ import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { asc, eq } from 'drizzle-orm';
 import { describe, expect } from 'vitest';
-import { groceries, listed, put, salary, stored, summary } from './fixtures/files';
+import { groceries, issues, listed, put, salary, stored, summary } from './fixtures/files';
 
 const annotated = [
 	'- statement: hdfc-oct.pdf',
@@ -54,7 +54,7 @@ describe('syncing the ledger', () => {
 			await put(storage, ledger, 'b/c.rupee', salary);
 			await put(storage, ledger, 'notes.txt', 'not a ledger file');
 
-			expect(await Sync.sync(ledger)).toEqual(ok([]));
+			expect(await issues(ledger)).toEqual(ok([]));
 			expect(await summary(ledger.id)).toEqual(['b/c.rupee:1 Salary', 'a.rupee:1 Groceries']);
 		}));
 
@@ -68,7 +68,7 @@ describe('syncing the ledger', () => {
 			await put(storage, ledger, 'a.rupee', annotated);
 			await Sync.sync(ledger);
 
-			const [indexed] = (await index(ledger.id).transactions())._unsafeUnwrap();
+			const [indexed] = (await listAllTransactions(ledger.id))._unsafeUnwrap();
 			expect(indexed?.metadata).toEqual({ ref: ['a', 'b'], note: ['weekly shop'] });
 			expect(indexed?.postings.map((p) => p.metadata)).toEqual([{ tags: ['weekly'] }, {}]);
 			expect(await fileMetadata(db, ledger.id)).toEqual([['statement', 'hdfc-oct.pdf']]);
@@ -135,7 +135,7 @@ describe('syncing the ledger', () => {
 			await put(storage, ledger, 'a.rupee', sale);
 			await Sync.sync(ledger);
 
-			const [indexed] = (await index(ledger.id).transactions())._unsafeUnwrap();
+			const [indexed] = (await listAllTransactions(ledger.id))._unsafeUnwrap();
 			expect(indexed?.postings.map((p) => p.cost)).toEqual([
 				{
 					amount: 1500_0000000000n,
@@ -199,13 +199,13 @@ describe('syncing the ledger', () => {
 				type: 'ParseInvalidPosting',
 				location: 'a.rupee:5',
 			};
-			expect(await Sync.sync(ledger)).toEqual(ok([problem]));
-			expect(await Sync.sync(ledger)).toEqual(ok([problem]));
+			expect(await issues(ledger)).toEqual(ok([problem]));
+			expect(await issues(ledger)).toEqual(ok([problem]));
 			// What did parse is indexed meanwhile.
 			expect(await summary(ledger.id)).toEqual(['a.rupee:1 Groceries']);
 
 			await put(storage, ledger, 'a.rupee', groceries);
-			expect(await Sync.sync(ledger)).toEqual(ok([]));
+			expect(await issues(ledger)).toEqual(ok([]));
 		}));
 
 	it('orders a day by time, untimed first', ({ context, db, storage }) =>
@@ -260,7 +260,7 @@ describe('events across files', () => {
 			await Files.createFile({ ledger, key: 'ibkr.rupee', content: transfer('same-as', '1000') });
 			await Files.createFile({ ledger, key: 'a.rupee', content: groceries });
 
-			expect(await Sync.sync(ledger)).toEqual(ok([]));
+			expect(await issues(ledger)).toEqual(ok([]));
 			expect((await listed(ledger)).map((t) => [t.location.file, t.counted])).toEqual([
 				['ibkr.rupee', false],
 				['hdfc.rupee', true],
@@ -279,8 +279,8 @@ describe('events across files', () => {
 				event: '2026-10-03-ibkr-otter',
 				location: 'hdfc.rupee:1, ibkr.rupee:1',
 			};
-			expect(await Sync.sync(ledger)).toEqual(ok([problem]));
-			expect(await Sync.sync(ledger)).toEqual(ok([problem]));
+			expect(await issues(ledger)).toEqual(ok([problem]));
+			expect(await issues(ledger)).toEqual(ok([problem]));
 			expect((await listed(ledger)).every((t) => t.counted)).toBe(true);
 		}));
 
@@ -290,7 +290,7 @@ describe('events across files', () => {
 			await Files.createFile({ ledger, key: 'hdfc.rupee', content: transfer('event', '1000') });
 			await Files.createFile({ ledger, key: 'ibkr.rupee', content: transfer('same-as', '999') });
 
-			expect((await Sync.sync(ledger))._unsafeUnwrap()).toMatchObject([
+			expect((await issues(ledger))._unsafeUnwrap()).toMatchObject([
 				{ type: 'EventDisagreement', location: 'ibkr.rupee:1', account: 'Assets:IBKR' },
 				{ type: 'EventDisagreement', location: 'ibkr.rupee:1', account: 'Assets:HDFC' },
 			]);
@@ -320,7 +320,7 @@ describe('balance assertions', () => {
 			await Files.createFile({ ledger, key: 'opening.rupee', content: opening });
 			await Files.createFile({ ledger, key: 'hdfc.rupee', content: statement });
 
-			expect(await Sync.sync(ledger)).toEqual(ok([]));
+			expect(await issues(ledger)).toEqual(ok([]));
 		}));
 
 	it('reports an assertion that does not hold, on every sync', ({ context, db }) =>
@@ -340,8 +340,8 @@ describe('balance assertions', () => {
 				expected: '800.00',
 				actual: '850.00',
 			};
-			expect(await Sync.sync(ledger)).toEqual(ok([problem]));
-			expect(await Sync.sync(ledger)).toEqual(ok([problem]));
+			expect(await issues(ledger)).toEqual(ok([problem]));
+			expect(await issues(ledger)).toEqual(ok([problem]));
 		}));
 
 	it('orders another file by time, and warns when it cannot', ({ context, db }) =>
@@ -355,7 +355,7 @@ describe('balance assertions', () => {
 				content: '2026-08-02 ATM\n\tAssets:Bank -10\n\tAssets:Cash\n',
 			});
 
-			expect((await Sync.sync(ledger))._unsafeUnwrap()).toEqual([
+			expect((await issues(ledger))._unsafeUnwrap()).toEqual([
 				{
 					type: 'BalanceAssertionAmbiguous',
 					location: 'hdfc.rupee:1',
@@ -391,7 +391,7 @@ describe('balance assertions', () => {
 				].join('\n'),
 			});
 
-			expect(await Sync.sync(ledger)).toEqual(ok([]));
+			expect(await issues(ledger)).toEqual(ok([]));
 		}));
 
 	it('checks each commodity of an account on its own', ({ context, db }) =>
@@ -409,11 +409,11 @@ describe('balance assertions', () => {
 					'',
 				].join('\n');
 			await Files.createFile({ ledger, key: 'ibkr.rupee', content: ibkr('2') });
-			expect(await Sync.sync(ledger)).toEqual(ok([]));
+			expect(await issues(ledger)).toEqual(ok([]));
 
-			await Files.deleteFiles(ledger, ['ibkr.rupee']);
+			await Files.deleteFiles({ ledger, keys: ['ibkr.rupee'] });
 			await Files.createFile({ ledger, key: 'ibkr.rupee', content: ibkr('3') });
-			expect(await Sync.sync(ledger)).toEqual(
+			expect(await issues(ledger)).toEqual(
 				ok([
 					{
 						type: 'BalanceAssertionFailed',
@@ -452,7 +452,7 @@ describe('lots', () => {
 				content: sold('\tAssets:Zerodha -4 INFY {1500} @ 1700'),
 			});
 
-			expect(await Sync.sync(ledger)).toEqual(ok([]));
+			expect(await issues(ledger)).toEqual(ok([]));
 			expect(await held(db, ledger.id)).toEqual([
 				{ account: 'Assets:Zerodha', remaining: 6_0000000000n, origin: 'buy' },
 			]);
@@ -468,7 +468,7 @@ describe('lots', () => {
 				content: sold('\tAssets:Zerodha -4 INFY {1500} @ 1700'),
 			});
 
-			const file = (await Files.getFile(ledger, 'a.rupee'))._unsafeUnwrap();
+			const file = (await Files.readFile({ ledger, key: 'a.rupee' }))._unsafeUnwrap();
 			await Files.editFile({
 				ledger,
 				key: 'a.rupee',
@@ -476,7 +476,7 @@ describe('lots', () => {
 				version: file.version,
 			});
 
-			expect(await Sync.sync(ledger)).toEqual(
+			expect(await issues(ledger)).toEqual(
 				ok([
 					{
 						type: 'LotNotOpen',
@@ -505,12 +505,12 @@ describe('lots', () => {
 				key: 'c.rupee',
 				content: sold('\tAssets:Zerodha -4 INFY {1500} @ 1700'),
 			});
-			expect((await Sync.sync(ledger))._unsafeUnwrap()).toEqual([
+			expect((await issues(ledger))._unsafeUnwrap()).toEqual([
 				{ type: 'LotCostMissing', location: 'b.rupee:1', account: 'Assets:Zerodha' },
 			]);
 
-			await Files.deleteFiles(ledger, ['a.rupee']);
-			expect((await Sync.sync(ledger))._unsafeUnwrap()).toEqual([
+			await Files.deleteFiles({ ledger, keys: ['a.rupee'] });
+			expect((await issues(ledger))._unsafeUnwrap()).toEqual([
 				{
 					type: 'LotNotOpen',
 					location: 'c.rupee:1',
@@ -528,7 +528,7 @@ describe('lots', () => {
 			await Files.createFile({ ledger, key: 'a.rupee', content: buy('event') });
 			await Files.createFile({ ledger, key: 'b.rupee', content: buy('same-as') });
 
-			expect(await Sync.sync(ledger)).toEqual(ok([]));
+			expect(await issues(ledger)).toEqual(ok([]));
 			expect(await held(db, ledger.id)).toHaveLength(1);
 		}));
 });
@@ -547,7 +547,7 @@ describe('syncing past a failure', () => {
 			await put(storage, ledger, 'a.rupee', groceries);
 			await put(storage, ledger, 'b.rupee', salary);
 
-			expect(await Sync.sync(ledger)).toEqual(
+			expect(await issues(ledger)).toEqual(
 				ok([expect.objectContaining({ type: 'CannotReadFile', path: 'a.rupee', cause: [gone] })]),
 			);
 			expect(await summary(ledger.id)).toEqual(['b.rupee:1 Salary']);
@@ -559,7 +559,7 @@ describe('syncing past a failure', () => {
 			const ledger = await createLedger(db);
 			await put(storage, ledger, 'a.rupee', groceries);
 
-			expect(await Sync.sync(ledger)).toEqual(
+			expect(await issues(ledger)).toEqual(
 				ok([fault('UnknownError', { message: 'no such model' })]),
 			);
 			expect(await summary(ledger.id)).toEqual(['a.rupee:1 Groceries']);

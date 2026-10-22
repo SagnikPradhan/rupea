@@ -5,8 +5,7 @@ import * as Files from '#services/ledger/application/files.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { describe, expect } from 'vitest';
-import { index } from '#services/ledger/adapters/database.ts';
-import { history } from '#services/ledger/adapters/prediction.ts';
+import * as DB from '#services/ledger/adapters/database.ts';
 
 // The column holds full-width vectors; the rest of these stay zero.
 const vector = (...l: number[]) => {
@@ -30,15 +29,15 @@ const embedAll = async (
 	model: string,
 	of: (d: string) => Float32Array | null,
 ) => {
-	const rows = (await index(ledgerId).unembedded(model, 1000))._unsafeUnwrap();
-	await index(ledgerId).fill(
+	const rows = (await DB.listUnembedded(ledgerId, model, 1000))._unsafeUnwrap();
+	await DB.saveEmbeddings(
+		ledgerId,
 		model,
 		rows.map((r) => ({ id: r.id, vector: of(r.description) })),
 	);
-	return history(ledgerId, model);
 };
 
-describe('the history of a ledger', () => {
+describe('the embeddings of a ledger', () => {
 	it('lists what is not embedded yet, latest first', ({ context, db }) =>
 		provide(context, async () => {
 			const ledgerId = await ledgerWith(
@@ -47,7 +46,7 @@ describe('the history of a ledger', () => {
 				spend('2026-03-01', 'NEW', 'Expenses:Food'),
 				spend('2026-02-01', 'MID', 'Expenses:Food'),
 			);
-			const rows = (await index(ledgerId).unembedded('m1', 2))._unsafeUnwrap();
+			const rows = (await DB.listUnembedded(ledgerId, 'm1', 2))._unsafeUnwrap();
 			expect(rows.map((r) => r.description)).toEqual(['NEW', 'MID']);
 		}));
 
@@ -63,8 +62,8 @@ describe('the history of a ledger', () => {
 			);
 			await embedAll(ledgerId, 'm1', (d) => (d === 'SWIGGY' ? vector(1) : null));
 
-			expect((await index(ledgerId).unembedded('m1', 10))._unsafeUnwrap()).toEqual([]);
-			expect((await index(ledgerId).unembedded('m2', 10))._unsafeUnwrap()).toHaveLength(2);
+			expect((await DB.listUnembedded(ledgerId, 'm1', 10))._unsafeUnwrap()).toEqual([]);
+			expect((await DB.listUnembedded(ledgerId, 'm2', 10))._unsafeUnwrap()).toHaveLength(2);
 		}));
 
 	it('finds the postings of the nearest transactions, for each vector in order', ({
@@ -77,9 +76,10 @@ describe('the history of a ledger', () => {
 				spend('2026-01-01', 'SWIGGY', 'Expenses:Food'),
 				spend('2026-01-02', 'UBER', 'Expenses:Commute'),
 			);
-			const h = await embedAll(ledgerId, 'm1', (d) => (d === 'SWIGGY' ? vector(1) : vector(0, 1)));
+			await embedAll(ledgerId, 'm1', (d) => (d === 'SWIGGY' ? vector(1) : vector(0, 1)));
 
-			const [food, commute] = (await h.nearest([vector(1), vector(0, 1)]))._unsafeUnwrap();
+			const nearest = await DB.findNearest(ledgerId, 'm1', [vector(1), vector(0, 1)]);
+			const [food, commute] = nearest._unsafeUnwrap();
 			const best = (n: typeof food) =>
 				n
 					?.filter((p) => p.similarity > 0.99)
@@ -95,11 +95,11 @@ describe('the history of a ledger', () => {
 			const crowd = Array.from({ length: 300 }, (_, i) =>
 				spend('2026-01-01', `OTHER ${i}`, 'Expenses:Theirs'),
 			);
-			await embedAll(await ledgerWith(db, ...crowd), 'm1', () => vector(1));
+			await ledgerWith(db, ...crowd).then((l) => embedAll(l, 'm1', () => vector(1)));
 			const ledgerId = await ledgerWith(db, spend('2026-01-01', 'MINE', 'Expenses:Mine'));
-			const h = await embedAll(ledgerId, 'm1', () => vector(1, 0.1));
+			await embedAll(ledgerId, 'm1', () => vector(1, 0.1));
 
-			const [found] = (await h.nearest([vector(1)]))._unsafeUnwrap();
+			const [found] = (await DB.findNearest(ledgerId, 'm1', [vector(1)]))._unsafeUnwrap();
 			expect(found?.map((p) => p.account).toSorted()).toEqual(['Assets:Bank', 'Expenses:Mine']);
 		}));
 
@@ -108,7 +108,7 @@ describe('the history of a ledger', () => {
 			const ledgerId = await ledgerWith(db, spend('2026-01-01', 'SWIGGY', 'Expenses:Food'));
 			await embedAll(ledgerId, 'm1', () => vector(1));
 
-			expect((await history(ledgerId, 'm2').nearest([vector(1)]))._unsafeUnwrap()).toEqual([[]]);
+			expect((await DB.findNearest(ledgerId, 'm2', [vector(1)]))._unsafeUnwrap()).toEqual([[]]);
 		}));
 
 	it('knows the accounts posted to', ({ context, db }) =>
@@ -119,7 +119,7 @@ describe('the history of a ledger', () => {
 				spend('2026-01-02', 'B', 'Expenses:Food'),
 			);
 
-			const accounts = (await history(ledgerId, 'm1').accounts())._unsafeUnwrap();
+			const accounts = (await DB.listAccountNames(ledgerId))._unsafeUnwrap();
 			expect(accounts.toSorted()).toEqual(['Assets:Bank', 'Expenses:Food']);
 		}));
 });

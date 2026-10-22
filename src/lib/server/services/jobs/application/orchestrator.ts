@@ -7,7 +7,7 @@ import { once } from 'node:events';
 import { setTimeout } from 'node:timers/promises';
 import {
 	claimJob,
-	findExpired,
+	listExpired,
 	finishJob,
 	renewLease,
 	retryJob,
@@ -15,6 +15,7 @@ import {
 	type ClaimedJob,
 	type Run,
 } from '../adapters/database';
+import { processes } from '../adapters/processes';
 import { endingOf, findJob, timeoutOf, type Ending, type Job } from '../domain/jobs';
 import { asJob } from './jobs';
 
@@ -25,10 +26,50 @@ const POLL_EVERY = 1_000;
 const SWEEP_EVERY = 60 * 60 * 1000;
 const RELEASED_AT_ONCE = 100;
 
+/** Under the 30 seconds Kubernetes and others give before killing the server. */
+const GRACE = 20_000;
+
 const ABANDONED = unknownError('the worker stopped before the job finished');
 
 /** Sends a claimed job to a worker and waits for it to end, failing it once it outlasts `timeout`. */
 export type Dispatch = (c: ClaimedJob, timeout: number) => ResultAsync<void>;
+
+type StartOptions = {
+	/** The worker module, the flags Node needs to run it, and the variables it reads. */
+	entry: string;
+	execArgv: string[];
+	env: Record<string, string>;
+	context: RupeeContext;
+	jobs: Job<unknown>[];
+	/** Settles once the workers' models are ready; nothing is claimed before. */
+	ready: Promise<void>;
+};
+
+/** Orchestrates jobs here and runs each in one of up to `jobs.workers` processes. */
+export const startWorkers = (o: StartOptions) => {
+	const count = o.context.config.jobs.workers;
+	const pool = processes({ entry: o.entry, count, env: o.env, execArgv: o.execArgv });
+	const orchestrator = orchestrate({
+		context: o.context,
+		jobs: o.jobs,
+		dispatch: pool.dispatch,
+		count,
+		ready: o.ready,
+	});
+
+	/** Kills the jobs running, which run again. */
+	const kill = () => pool.stop().then(orchestrator.stop);
+
+	/** Gives the jobs running `GRACE` to finish, then kills them. */
+	const stop = async () => {
+		const stopped = orchestrator.stop();
+		await Promise.race([stopped, setTimeout(GRACE, undefined, { ref: false })]);
+		await pool.stop();
+		await stopped;
+	};
+
+	return { kill, stop, recycle: pool.recycle };
+};
 
 type OrchestrateOptions = {
 	context: RupeeContext;
@@ -88,7 +129,7 @@ export const tick = (o: TickOptions): ResultAsync<boolean> =>
 
 /** Queues again, or fails, the claims whose lease ran out because their worker died. */
 export const releaseExpired = (l: Job<unknown>[]): ResultAsync<void> =>
-	findExpired(RELEASED_AT_ONCE)
+	listExpired(RELEASED_AT_ONCE)
 		.andThen((e) => batchAsync(e.map((r) => settle(r, abandoned(l, r)))))
 		.map((b) => b.failed.forEach(logged));
 

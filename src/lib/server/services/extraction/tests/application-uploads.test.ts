@@ -4,10 +4,10 @@ import * as Drafts from '#services/extraction/application/drafts.ts';
 import { importStatement } from '#services/extraction/adapters/jobs.ts';
 import * as Uploads from '#services/extraction/application/uploads.ts';
 import { jobs } from '#services/jobs/adapters/database-schema.ts';
-import { findJobs } from '#services/jobs/application/jobs.ts';
+import { listJobs } from '#services/jobs/application/jobs.ts';
 import { JobStatus } from '#services/jobs/domain/jobs.ts';
 import { metadata } from '#services/ledger/adapters/database-schema.ts';
-import { runJob } from '#services/jobs/application/worker.ts';
+import { runJob } from '#services/jobs/application/jobs.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import { listed } from '#services/ledger/tests/fixtures/files.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
@@ -29,7 +29,7 @@ const uploads = (l: Ledger, files: Record<string, string>) =>
 /** Runs each queued import as a worker would, oldest first. */
 const runImports = async (l: Ledger) => {
 	const queued = (
-		await findJobs({ userId: l.owner, name: importStatement.name, payload: {}, limit: 50 })
+		await listJobs({ userId: l.owner, name: importStatement.name, payload: {}, limit: 50 })
 	)._unsafeUnwrap();
 	for (const job of queued.toReversed().filter((j) => j.status === 'queued'))
 		await runJob([importStatement], {
@@ -47,7 +47,7 @@ describe('uploading statements', () => {
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			const uploaded = await uploads(ledger, { 'books.ledger': books, 'aug.csv': statement });
-			const queued = await Uploads.listImports(ledger, ledger.owner);
+			const queued = await Uploads.listImports({ ledger, user: ledger.owner });
 
 			expect(uploaded).toEqual(
 				ok({
@@ -84,7 +84,7 @@ describe('importing a ledger file', () => {
 			const ledger = await createLedger(db);
 			await uploads(ledger, { 'books.ledger': books });
 			await runImports(ledger);
-			const file = await Files.getFile(ledger, `_/imports/${day()}/books.rupee`);
+			const file = await Files.readFile({ ledger, key: `_/imports/${day()}/books.rupee` });
 
 			expect(file._unsafeUnwrap().content).toMatch(
 				new RegExp(`^- statement: ${day()}/books.ledger\n- checksum: sha256:\\w+\n${books}$`),
@@ -122,7 +122,7 @@ describe('importing a ledger file', () => {
 			const ledger = await createLedger(db);
 			await uploads(ledger, { 'books.ledger': books, 'aug.csv': statement });
 			const before = await Uploads.listInbox(ledger);
-			await Drafts.save({ ledger, statement: `${day()}/aug.csv`, schema: bank });
+			await Drafts.importStatement({ ledger, statement: `${day()}/aug.csv`, schema: bank });
 			const after = await Uploads.listInbox(ledger);
 
 			expect(before._unsafeUnwrap().map((s) => s.key)).toEqual([`${day()}/aug.csv`]);
@@ -135,10 +135,10 @@ describe('the inbox and the imports', () => {
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			await uploads(ledger, { 'books.ledger': books, 'aug.csv': statement });
-			await Files.deleteFiles(ledger, [`_/statements/${day()}/aug.csv`]);
+			await Files.deleteFiles({ ledger, keys: [`_/statements/${day()}/aug.csv`] });
 			await db.update(jobs).set({ payload: { ledger: ledger.handle } });
 
 			expect(await Uploads.listInbox(ledger)).toEqual(ok([]));
-			expect(await Uploads.listImports(ledger, ledger.owner)).toEqual(ok([]));
+			expect(await Uploads.listImports({ ledger, user: ledger.owner })).toEqual(ok([]));
 		}));
 });

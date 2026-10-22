@@ -25,9 +25,8 @@ const structure: DetrModel = {
 	threshold,
 };
 
-export const tatr = (models: Models) => ({
-	detect: (r: Raster, b: Box) => models.detect({ model: detection, raster: r, region: b }),
-	structure: (r: Raster, b: Box) => models.detect({ model: structure, raster: r, region: b }),
-});
+export const detectTables = (m: Models, r: Raster, b: Box) =>
+	m.detect({ model: detection, raster: r, region: b });
 
-export type Tables = ReturnType<typeof tatr>;
+export const detectStructure = (m: Models, r: Raster, b: Box) =>
+	m.detect({ model: structure, raster: r, region: b });

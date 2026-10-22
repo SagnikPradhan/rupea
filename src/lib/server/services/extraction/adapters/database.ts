@@ -12,20 +12,20 @@ const row = {
 	originalChecksum: statements.originalChecksum,
 };
 
-export const findStatementByKey = (ledger: string, key: string): ResultAsync<StatementRow | null> =>
+export const findStatement = (ledgerId: string, key: string): ResultAsync<StatementRow | null> =>
 	withContext('db')((db) =>
 		attempt(() =>
 			db
 				.select(row)
 				.from(statements)
-				.where(and(eq(statements.ledgerId, ledger), eq(statements.key, key)))
+				.where(and(eq(statements.ledgerId, ledgerId), eq(statements.key, key)))
 				.limit(1)
 				.then(([f]) => f ?? null),
 		),
 	);
 
 export const findStatementByChecksum = (
-	ledger: string,
+	ledgerId: string,
 	checksum: string,
 ): ResultAsync<StatementRow | null> =>
 	withContext('db')((db) =>
@@ -35,7 +35,7 @@ export const findStatementByChecksum = (
 				.from(statements)
 				.where(
 					and(
-						eq(statements.ledgerId, ledger),
+						eq(statements.ledgerId, ledgerId),
 						or(eq(statements.checksum, checksum), eq(statements.originalChecksum, checksum)),
 					),
 				)
@@ -46,24 +46,27 @@ export const findStatementByChecksum = (
 	);
 
 /** A ledger's latest statements, newest first. */
-export const findRecentStatements = (ledger: string, limit: number): ResultAsync<StatementRow[]> =>
+export const listRecentStatements = (
+	ledgerId: string,
+	limit: number,
+): ResultAsync<StatementRow[]> =>
 	withContext('db')((db) =>
 		attempt(() =>
 			db
 				.select(row)
 				.from(statements)
-				.where(eq(statements.ledgerId, ledger))
+				.where(eq(statements.ledgerId, ledgerId))
 				.orderBy(desc(statements.createdAt))
 				.limit(limit),
 		),
 	);
 
-export const saveStatement = (ledger: string, r: StatementRow): ResultAsync<void> =>
+export const saveStatement = (ledgerId: string, r: StatementRow): ResultAsync<void> =>
 	withContext('db')((db) =>
 		attempt(async () => {
 			await db
 				.insert(statements)
-				.values({ ledgerId: ledger, ...r })
+				.values({ ledgerId, ...r })
 				.onConflictDoUpdate({
 					target: [statements.ledgerId, statements.key],
 					set: { checksum: r.checksum, originalChecksum: r.originalChecksum },
@@ -72,14 +75,14 @@ export const saveStatement = (ledger: string, r: StatementRow): ResultAsync<void
 	);
 
 /** Drops rows whose file is gone, as the folder, not the table, is the truth. */
-export const forgetStatements = (ledger: string, keys: string[]): ResultAsync<void> =>
+export const deleteStatements = (ledgerId: string, keys: string[]): ResultAsync<void> =>
 	withContext('db')((db) =>
 		attempt(async () => {
 			if (keys.length === 0) return;
 
 			await db
 				.delete(statements)
-				.where(and(eq(statements.ledgerId, ledger), inArray(statements.key, keys)));
+				.where(and(eq(statements.ledgerId, ledgerId), inArray(statements.key, keys)));
 		}),
 	);
 

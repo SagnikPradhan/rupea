@@ -1,14 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fault, type RupeeError, unknownError } from '#lib/server/shared/result/error.ts';
-import {
-	attempt,
-	attemptWith,
-	err,
-	errAsync,
-	ok,
-	okAsync,
-	sequence,
-} from '#lib/server/shared/result/result.ts';
+import { attempt, err, errAsync, inOrder, ok, okAsync } from '#lib/server/shared/result/result.ts';
 
 const error: RupeeError = { type: 'UnknownError', message: 'boom' };
 
@@ -39,33 +31,33 @@ describe('attempting an effect', () => {
 		).toEqual(err(error));
 	});
 
-	it('hands its catch the thrown value', async () => {
+	it('hands onThrow the thrown value', async () => {
 		expect(
-			await attemptWith({
-				try: () => Promise.reject(new Error('boom')),
-				catch: (t) => fault('CannotReadFile', { path: 'a', reason: 'b', cause: [unknownError(t)] }),
-			}),
+			await attempt(
+				() => Promise.reject(new Error('boom')),
+				(t) => fault('CannotReadFile', { path: 'a', reason: 'b', cause: [unknownError(t)] }),
+			),
 		).toEqual(err(fault('CannotReadFile', { path: 'a', reason: 'b', cause: [error] })));
 	});
 
-	it('fails with the error its catch names', async () => {
+	it('fails with the error onThrow names', async () => {
 		expect(
-			await attemptWith({
-				try: () => Promise.reject(new Error('boom')),
-				catch: () => ({ type: 'AuthUnauthenticated' }),
-			}),
+			await attempt(
+				() => Promise.reject(new Error('boom')),
+				() => ({ type: 'AuthUnauthenticated' }),
+			),
 		).toEqual(err({ type: 'AuthUnauthenticated' }));
 	});
 });
 
-describe('sequencing steps', () => {
+describe('running steps in order', () => {
 	it('runs each step after the last has settled, keeping their order', async () => {
 		const started: number[] = [];
 		const step = (n: number) => () => {
 			started.push(n);
-			return attempt(() => new Promise<number[]>((d) => setTimeout(d, 10 - n, [n])));
+			return attempt(() => new Promise<number>((d) => setTimeout(d, 10 - n, n)));
 		};
-		expect(await sequence([step(1), step(2), step(3)])).toEqual(ok([1, 2, 3]));
+		expect(await inOrder([step(1), step(2), step(3)])).toEqual(ok([1, 2, 3]));
 		expect(started).toEqual([1, 2, 3]);
 	});
 
@@ -73,13 +65,13 @@ describe('sequencing steps', () => {
 		const ran: number[] = [];
 		const step = (n: number) => () => {
 			ran.push(n);
-			return n === 2 ? errAsync(error) : okAsync([n]);
+			return n === 2 ? errAsync(error) : okAsync(n);
 		};
-		expect(await sequence([step(1), step(2), step(3)])).toEqual(err(error));
+		expect(await inOrder([step(1), step(2), step(3)])).toEqual(err(error));
 		expect(ran).toEqual([1, 2]);
 	});
 
 	it('is empty with no steps', async () => {
-		expect(await sequence([])).toEqual(ok([]));
+		expect(await inOrder([])).toEqual(ok([]));
 	});
 });

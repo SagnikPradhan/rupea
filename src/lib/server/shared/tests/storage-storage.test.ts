@@ -3,9 +3,11 @@ import { join } from 'node:path';
 import { describe, expect } from 'vitest';
 import { it } from '#tests/shared/vitest.ts';
 import {
+	readText,
 	scoped,
 	validateKey,
 	writeNumbered,
+	writeText,
 	type Storage,
 } from '#lib/server/shared/storage/storage.ts';
 import { err, ok } from '#lib/server/shared/result/result.ts';
@@ -178,5 +180,31 @@ describe('scoped storage', () => {
 	it('does not see a sibling prefix that shares its name', async ({ storage }) => {
 		await storage.write({ key: 'ledgers/one2/a', content: text('') });
 		expect(await keys(scoped(storage, 'ledgers/one'))).toEqual([]);
+	});
+});
+
+describe('text files', () => {
+	it('are written and read back as text', async ({ storage }) => {
+		await writeText(storage, { key: 'a.rupee', content: 'hello' });
+		expect(await readText(storage, 'a.rupee')).toMatchObject(
+			ok({ key: 'a.rupee', content: 'hello' }),
+		);
+	});
+
+	it('cannot be read when they are not UTF-8', async ({ storage }) => {
+		await storage.write({ key: 'bad.rupee', content: new Uint8Array([0xff, 0xfe]) });
+		expect(await readText(storage, 'bad.rupee')).toMatchObject({
+			error: { type: 'CannotReadFile', path: 'bad.rupee', reason: 'not valid UTF-8' },
+		});
+	});
+
+	it('cannot be read when missing', async ({ storage }) => {
+		expect(await readText(storage, 'missing.rupee')).toMatchObject({
+			error: {
+				type: 'CannotReadFile',
+				path: 'missing.rupee',
+				cause: [{ type: 'StorageNotFound' }],
+			},
+		});
 	});
 });

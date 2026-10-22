@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { indexedVersion, plan } from '#services/ledger/domain/sync.ts';
+import { plan } from '#services/ledger/domain/sync.ts';
 
 describe('planning a sync', () => {
 	it('reindexes files that are new or at another version', () => {
@@ -23,12 +23,5 @@ describe('planning a sync', () => {
 
 	it('drops files no longer stored', () => {
 		expect(plan([], [{ key: 'a', version: '1' }])).toEqual({ changed: [], gone: ['a'] });
-	});
-});
-
-describe('the version a file is indexed at', () => {
-	it('is its own when it parsed cleanly, and none otherwise', () => {
-		expect(indexedVersion('v1', [])).toBe('v1');
-		expect(indexedVersion('v1', [{ type: 'UnknownError', message: 'x' }])).toBeNull();
 	});
 });

@@ -14,7 +14,7 @@ import { describe, expect, vi } from 'vitest';
 import * as v from 'valibot';
 import * as Jobs from '#services/jobs/application/jobs.ts';
 import * as Orchestrator from '#services/jobs/application/orchestrator.ts';
-import { runJob } from '#services/jobs/application/worker.ts';
+import { runJob } from '#services/jobs/application/jobs.ts';
 
 type Echo = { word: string };
 
@@ -60,10 +60,11 @@ const drain = async (l: Jobs.Job<unknown>[], dispatch = inProcess(l)): Promise<n
 	return tickAll({ jobs: l, dispatch });
 };
 
-const tickAll = async (o: {
+const tickAll = (o: {
 	jobs: Jobs.Job<unknown>[];
 	dispatch: Orchestrator.Dispatch;
-}): Promise<number> => ((await Orchestrator.tick(o)).unwrapOr(false) ? 1 + (await tickAll(o)) : 0);
+}): PromiseLike<number> =>
+	Orchestrator.tick(o).then((t) => (t.unwrapOr(false) ? tickAll(o).then((n) => 1 + n) : 0));
 
 describe('a job', () => {
 	it('runs once, as the user who queued it, and shows them it succeeded', ({ context, user }) =>
@@ -169,7 +170,8 @@ describe('a job', () => {
 		db,
 	}) =>
 		provide(context, async () => {
-			const [a, b] = [(await createUser(db)).userId, (await createUser(db)).userId];
+			const a = await createUser(db).then((u) => u.userId);
+			const b = await createUser(db).then((u) => u.userId);
 			const { job, runs } = recorder();
 
 			await Jobs.enqueue({ job, user: a, payload: { word: 'same' } });

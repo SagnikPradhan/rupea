@@ -42,7 +42,7 @@ describe('reaching a ledger', () => {
 			await createLedger(db);
 			await db.insert(memberships).values({ userId: own.owner, ledgerId: shared.id });
 
-			expect(await Ledger.listLedgers(own.owner)).toEqual(ok([own, shared]));
+			expect(await Ledger.listLedgers({ user: own.owner })).toEqual(ok([own, shared]));
 		}));
 
 	it("creates a ledger under a fresh handle, in its owner's storage", ({ context, db, storage }) =>

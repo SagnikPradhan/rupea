@@ -4,13 +4,14 @@ import { fault } from '#lib/server/shared/result/error.ts';
 import { err, ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { findImported, importFile, parseFile } from '#services/ledger/application/files.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
+import type { RupeeTransaction } from '#services/ledger/application/shared.ts';
 import { predictAccounts } from '#services/ledger/application/prediction.ts';
 import { categorised, copy, draft, uncategorised, type Draft } from '../domain/draft';
 import { readRecords } from '../domain/runtime';
 import { parseSchema } from '../domain/schema';
 import type { RupeeRecord } from '../domain/types';
 import { addSchema, isBuiltin, type SchemaText } from './schemas';
-import { findByChecksum, findStatement, type Statement } from './statements';
+import { readByChecksum, readStatement, type Statement } from './statements';
 
 type ExtractOptions = {
 	ledger: Ledger;
@@ -20,7 +21,7 @@ type ExtractOptions = {
 
 export const extract = ({ ledger, statement, schema }: ExtractOptions): ResultAsync<Draft> =>
 	withAccount(schema).asyncAndThen(({ parsed, account }) =>
-		findStatement(ledger, statement).andThen((s) =>
+		readStatement({ ledger, key: statement }).andThen((s) =>
 			readRecords({ schema: parsed, file: statement, grid: s.grid }).asyncAndThen((r) =>
 				drafted({ ledger, statement: s, account, records: r }),
 			),
@@ -28,25 +29,29 @@ export const extract = ({ ledger, statement, schema }: ExtractOptions): ResultAs
 	);
 
 /** A draft checked as the ledger would read it, with the errors of both steps. */
-export const preview = (options: ExtractOptions) =>
+export const previewStatement = (options: ExtractOptions): ResultAsync<Batch<RupeeTransaction>> =>
 	extract(options).map((d) => {
-		const checked = parseFile(d.key, d.content);
-		const failed = [...d.failed, ...checked.failed];
-		return { key: d.key, transactions: checked.succeeded, failed };
+		const checked = parseFile({ key: d.key, content: d.content });
+		return { succeeded: checked.succeeded, failed: [...d.failed, ...checked.failed] };
 	});
 
 /** Files a draft for review, keeping the built-in schema that read it. */
-export const save = ({ ledger, statement, schema }: ExtractOptions) =>
+export const importStatement = ({ ledger, statement, schema }: ExtractOptions) =>
 	extract({ ledger, statement, schema }).andThen((d) =>
-		(isBuiltin(schema) ? addSchema(ledger, schema) : okAsync(undefined)).andThen(() =>
+		(isBuiltin(schema) ? addSchema({ ledger, schema }) : okAsync(undefined)).andThen(() =>
 			importFile({ ledger, key: d.key, content: d.content }),
 		),
 	);
 
+type ImportLedgerFileOptions = { ledger: Ledger; checksum: string };
+
 /** Files an uploaded ledger file for review as written, unless it was imported already. */
-export const importLedgerFile = (ledger: Ledger, cs: string): ResultAsync<void> =>
-	findImported(ledger, [cs])
-		.andThen((i) => (i.length > 0 ? okAsync(null) : findByChecksum(ledger, cs)))
+export const importLedgerFile = ({
+	ledger,
+	checksum,
+}: ImportLedgerFileOptions): ResultAsync<void> =>
+	findImported({ ledger, checksums: [checksum] })
+		.andThen((i) => (i.length > 0 ? okAsync(null) : readByChecksum({ ledger, checksum })))
 		.andThen((s) => {
 			if (!s) return okAsync(undefined);
 

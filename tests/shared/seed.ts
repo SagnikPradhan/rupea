@@ -15,7 +15,7 @@ export const createUser = async (db: Database) => {
 
 // Owned by a new user, so no other ledger shares its storage.
 export const createLedger = async (db: Database): Promise<Ledger> => {
-	const userId = (await createUser(db)).userId;
+	const userId = await createUser(db).then((u) => u.userId);
 	const id = uuidv7();
 	await db.insert(ledgers).values({ id, ownerId: userId, handle: id, name: 'Test' });
 	return { id, handle: id, name: 'Test', owner: userId };

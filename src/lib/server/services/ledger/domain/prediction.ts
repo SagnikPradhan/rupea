@@ -46,11 +46,6 @@ export type Neighbour = {
 /** The postings of the transactions nearest each vector, in the vectors' order. */
 export type Nearest = (vectors: Float32Array[]) => ResultAsync<Neighbour[][]>;
 
-export type History = {
-	nearest: Nearest;
-	accounts: () => ResultAsync<string[]>;
-};
-
 export type Thresholds = { history: number; name: number };
 
 export type ClassifierOptions = {

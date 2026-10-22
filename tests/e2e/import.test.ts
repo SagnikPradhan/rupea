@@ -16,7 +16,9 @@ test('imports a statement for review, counted once moved out', async ({
 	await page.getByLabel('Statements').setInputFiles(data('statement.csv'));
 	await expect(page.getByRole('table', { name: 'Grid' })).toContainText('UPI GROCER');
 
-	await page.getByLabel('Schema', { exact: true }).fill(await readFile(data('bank.yml'), 'utf8'));
+	await readFile(data('bank.yml'), 'utf8').then((s) =>
+		page.getByLabel('Schema', { exact: true }).fill(s),
+	);
 	const draft = page.getByRole('table', { name: 'Draft' });
 	await expect(draft.getByRole('row').filter({ hasText: 'UPI GROCER' })).toContainText('-1250.50');
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
@@ -44,7 +46,9 @@ test('unlocks a statement with its password', async ({ signedIn: page, ledger })
 test('saves, opens and deletes schemas', async ({ signedIn: page, ledger }) => {
 	await visit(page, `${ledger}/import`);
 	await page.getByLabel('Name', { exact: true }).fill('bank.yml');
-	await page.getByLabel('Schema', { exact: true }).fill(await readFile(data('bank.yml'), 'utf8'));
+	await readFile(data('bank.yml'), 'utf8').then((s) =>
+		page.getByLabel('Schema', { exact: true }).fill(s),
+	);
 	await page.getByRole('button', { name: 'Save schema' }).click();
 	await expect(page.getByRole('button', { name: 'bank.yml', exact: true })).toBeVisible();
 

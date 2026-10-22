@@ -1,4 +1,4 @@
-import { startWorkers } from '#services/jobs/application/workers.ts';
+import { startWorkers } from '#services/jobs/application/orchestrator.ts';
 import { fileURLToPath } from 'node:url';
 import type { ViteHotContext } from 'vite/types/hot.d.ts';
 import { jobs } from './jobs';

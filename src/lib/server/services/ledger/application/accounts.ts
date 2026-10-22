@@ -1,69 +1,72 @@
 import type { Batch } from '#lib/server/shared/result/batch.ts';
 import { okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { index, type LotHistory, type Worth } from '../adapters/database';
+import * as DB from '../adapters/database';
 import type { Quantity } from '../domain/amounts';
-import { byAccount, HOPS, pricedIn, valued, type Account } from '../domain/holdings';
+import { byAccount, HOPS, pricedIn, valued, type Account, type Holding } from '../domain/holdings';
 import type { Ledger } from '../domain/types';
 import { checkLots, syncIndex } from './sync';
 
-export type { Account, LotHistory, Worth };
+export type { Account };
+export type { LotHistory, Worth } from '../adapters/database';
 
-export const getAccounts = (l: Ledger, d: Temporal.PlainDate): ResultAsync<Batch<Account>> =>
-	syncIndex(l).andThen((f) =>
-		listValued(l.id, d).map((b) => ({ ...b, failed: [...f, ...b.failed] })),
+type ListAccountsOptions = { ledger: Ledger; day: Temporal.PlainDate };
+
+export const listAccounts = ({ ledger, day }: ListAccountsOptions): ResultAsync<Batch<Account>> =>
+	syncIndex(ledger).andThen((failed) =>
+		DB.listHoldings(ledger.id)
+			.andThen((h) => valuedOn(ledger.id, day, h))
+			.andThen((accounts) =>
+				checkLots(ledger).map((unmatched) => ({
+					succeeded: accounts,
+					failed: [...failed, ...unmatched],
+				})),
+			),
 	);
 
-type GetWorthOptions = { ledger: Ledger; from: Temporal.PlainDate; to: Temporal.PlainDate };
+type ListWorthOptions = { ledger: Ledger; from: Temporal.PlainDate; to: Temporal.PlainDate };
 
 /** What balance accounts were worth in rupees at the end of each day, from the ledger's first day at the earliest. */
-export const getWorth = (options: GetWorthOptions): ResultAsync<Batch<Worth>> => {
-	const { ledger, from, to } = options;
-	return syncIndex(ledger).andThen((f) =>
-		index(ledger.id)
-			.worth(from, to)
-			.map((w) => ({ succeeded: w, failed: f })),
+export const listWorth = ({ ledger, from, to }: ListWorthOptions): ResultAsync<Batch<DB.Worth>> =>
+	syncIndex(ledger).andThen((f) =>
+		DB.listWorth(ledger.id, from, to).map((w) => ({ succeeded: w, failed: f })),
 	);
-};
 
-type GetLotsOptions = { ledger: Ledger; account: string; commodity: string };
+type ListLotsOptions = { ledger: Ledger; account: string; commodity: string };
 
-export const getLots = (options: GetLotsOptions): ResultAsync<Batch<LotHistory>> => {
-	const { ledger, account, commodity } = options;
-	return syncIndex(ledger).andThen((f) =>
-		index(ledger.id)
-			.lotsIn({ account, commodity })
-			.map((l) => ({ succeeded: l, failed: f })),
+export const listLots = ({
+	ledger,
+	account,
+	commodity,
+}: ListLotsOptions): ResultAsync<Batch<DB.LotHistory>> =>
+	syncIndex(ledger).andThen((f) =>
+		DB.listLots(ledger.id, { account, commodity }).map((l) => ({ succeeded: l, failed: f })),
 	);
-};
 
-const listValued = (ledgerId: string, day: Temporal.PlainDate): ResultAsync<Batch<Account>> =>
-	index(ledgerId)
-		.holdings()
-		.andThen((hs) =>
-			pricesOn({ ledgerId, day, commodities: pricedIn(hs) }).map((p) =>
-				hs.map((h) => valued(h, p)),
-			),
-		)
-		.andThen((v) => checkLots(ledgerId).map((u) => ({ succeeded: byAccount(v), failed: u })));
+const valuedOn = (id: string, d: Temporal.PlainDate, h: Holding[]) =>
+	pricesOn({ ledgerId: id, day: d, commodities: pricedIn(h), hops: HOPS }).map((p) =>
+		byAccount(h.map((x) => valued(x, p))),
+	);
 
 type PricesOnOptions = {
 	ledgerId: string;
 	day: Temporal.PlainDate;
 	commodities: string[];
-	hops?: number;
+	hops: number;
 };
 
-const pricesOn = (options: PricesOnOptions): ResultAsync<Record<string, Quantity>> => {
-	const { ledgerId, day, commodities, hops = HOPS } = options;
+const pricesOn = ({
+	ledgerId,
+	day,
+	commodities,
+	hops,
+}: PricesOnOptions): ResultAsync<Record<string, Quantity>> => {
 	if (hops === 0 || commodities.length === 0) return okAsync({});
 
-	return index(ledgerId)
-		.latestPrices(commodities, day)
-		.andThen((prices) => {
-			const currencies = [...new Set(Object.values(prices).map((p) => p.commodity))];
-			return pricesOn({ ledgerId, day, commodities: currencies, hops: hops - 1 }).map((f) => ({
-				...f,
-				...prices,
-			}));
-		});
+	return DB.findLatestPrices(ledgerId, commodities, day).andThen((prices) => {
+		const currencies = [...new Set(Object.values(prices).map((p) => p.commodity))];
+		return pricesOn({ ledgerId, day, commodities: currencies, hops: hops - 1 }).map((further) => ({
+			...further,
+			...prices,
+		}));
+	});
 };

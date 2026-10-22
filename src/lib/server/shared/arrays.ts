@@ -1,3 +1,6 @@
+export const chunks = <T>(l: T[], n: number): T[][] =>
+	Array.from({ length: Math.ceil(l.length / n) }, (_, c) => l.slice(c * n, (c + 1) * n));
+
 /** Yields the front item and removes it first, so the loop body can take more from the stack. */
 export function* drain<T>(l: T[]): Generator<T> {
 	while (l.length > 0) yield* l.splice(0, 1);

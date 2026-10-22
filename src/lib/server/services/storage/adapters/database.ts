@@ -18,13 +18,13 @@ export const findStorage = (u: string): ResultAsync<StorageRecord | null> =>
 		),
 	);
 
-type InsertStorageOptions = {
+type CreateStorageOptions = {
 	user: string;
 	kind: StorageKind;
 };
 
 // Another request may have made it first, which is as good.
-export const insertStorage = (o: InsertStorageOptions): ResultAsync<void> =>
+export const createStorage = (o: CreateStorageOptions): ResultAsync<void> =>
 	withContext('db')((db) =>
 		attempt(async () => {
 			await db

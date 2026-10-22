@@ -3,16 +3,7 @@ import { createHash, randomUUID } from 'node:crypto';
 import { glob, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, sep } from 'node:path';
 import { fault, type RupeeError, unknownError } from '../result/error';
-import {
-	attempt,
-	attemptWith,
-	err,
-	ok,
-	okAsync,
-	type Result,
-	ResultAsync,
-	sequence,
-} from '../result/result';
+import { attempt, err, ok, okAsync, type Result, ResultAsync, inOrder } from '../result/result';
 import { validateKey, type Entry, type Storage } from './storage';
 
 // Writes land here and are renamed into place, so a crash never leaves half a file.
@@ -22,11 +13,8 @@ const hash = (c: Uint8Array) => createHash('sha256').update(c).digest('hex');
 
 const isMissing = (t: unknown) => t instanceof Error && 'code' in t && t.code === 'ENOENT';
 
-const filesystem = <T>(key: string, run: () => Promise<T>): ResultAsync<T> =>
-	attemptWith({
-		try: run,
-		catch: (e) => (isMissing(e) ? fault('StorageNotFound', { key }) : unknownError(e)),
-	});
+const filesystem = <T>(k: string, f: () => Promise<T>): ResultAsync<T> =>
+	attempt(f, (e) => (isMissing(e) ? fault('StorageNotFound', { key: k }) : unknownError(e)));
 
 const whenMissing =
 	<T>(fb: T) =>
@@ -79,14 +67,14 @@ export const localStorage = (root: string): Storage => {
 					.filter((k) => k.startsWith(prefix) && !k.startsWith(`${TEMPORARY}/`)),
 			)
 			.andThen((keys) =>
-				sequence(
+				inOrder(
 					keys.map(
 						(key) => () =>
 							current(key)
-								.map((s) => [s.entry])
-								.orElse(whenMissing([])),
+								.map((s) => s.entry)
+								.orElse(whenMissing(null)),
 					),
-				),
+				).map((e) => e.filter((f) => f !== null)),
 			);
 	};
 

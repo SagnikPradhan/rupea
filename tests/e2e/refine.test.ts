@@ -21,7 +21,9 @@ const importAs = async (page: Page, ledger: string, key: string) => {
 const importTwice = async (page: Page, ledger: string) => {
 	await visit(page, `${ledger}/import`);
 	await page.getByLabel('Name', { exact: true }).fill('bank.yml');
-	await page.getByLabel('Schema', { exact: true }).fill(await readFile(data('bank.yml'), 'utf8'));
+	await readFile(data('bank.yml'), 'utf8').then((s) =>
+		page.getByLabel('Schema', { exact: true }).fill(s),
+	);
 	await page.getByRole('button', { name: 'Save schema' }).click();
 	await expect(page.getByText('Saved.')).toBeVisible();
 

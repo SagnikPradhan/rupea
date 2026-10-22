@@ -12,7 +12,7 @@ import { describe, expect } from 'vitest';
 import * as Drafts from '#services/extraction/application/drafts.ts';
 import * as Schemas from '#services/extraction/application/schemas.ts';
 import { models as files } from '#lib/server/shared/onnx/models.ts';
-import { bank, day, schema, upload } from './fixtures/bank';
+import { bank, day, schema, statement, upload } from './fixtures/bank';
 
 const fixtures = join(import.meta.dirname, 'fixtures');
 const models = files.every(({ file }) => existsSync(join('data/models', file)));
@@ -56,10 +56,21 @@ describe('extracting a statement', () => {
 				}),
 			);
 			if (draft.isErr()) return;
-			expect(Files.parseFile('aug.rupee', draft.value.content)).toMatchObject({
+			expect(Files.parseFile({ key: 'aug.rupee', content: draft.value.content })).toMatchObject({
 				metadata: { statement: [`${day()}/aug.csv`], checksum: [checksum] },
 				failed: [],
 			});
+		}));
+
+	it('previews a draft with the errors of reading the statement', ({ context, db }) =>
+		provide({ ...context, models: broken(context.models) }, async () => {
+			const ledger = await createLedger(db);
+			const { key } = await upload(ledger, statement);
+			const preview = await Drafts.previewStatement({ ledger, statement: key, schema: bank });
+
+			const batch = preview._unsafeUnwrap();
+			expect(batch.succeeded.map((t) => t.description)).toEqual(['UPI GROCER', 'SALARY']);
+			expect(batch.failed).toMatchObject([{ type: 'ExtractionInvalidField', field: 'amount' }]);
 		}));
 
 	it('files uncategorised lines under the accounts the ledger shows', ({ context, db }) =>
@@ -146,8 +157,8 @@ describe('saving a draft', () => {
 			const ledger = await createLedger(db);
 			const content = await readFile(join(fixtures, 'hdfc-card.xls'));
 			const statement = (await upload(ledger, content, 'hdfc-card.xls')).key;
-			const recognised = (await Schemas.recogniseStatement(ledger, statement))._unsafeUnwrap();
-			const saved = await Drafts.save({ ledger, statement, schema: recognised });
+			const recognised = (await Schemas.recogniseStatement({ ledger, statement }))._unsafeUnwrap();
+			const saved = await Drafts.importStatement({ ledger, statement, schema: recognised });
 
 			expect(saved).toMatchObject(ok({ key: `_/imports/${day()}/hdfc-card.rupee` }));
 			expect(await Schemas.listSchemas(ledger)).toMatchObject(ok([{ key: 'hdfc-card.yml' }]));
@@ -157,7 +168,7 @@ describe('saving a draft', () => {
 		provide({ ...context, models: broken(context.models) }, async () => {
 			const ledger = await createLedger(db);
 			const statement = (await upload(ledger)).key;
-			await Drafts.save({ ledger, statement, schema: bank });
+			await Drafts.importStatement({ ledger, statement, schema: bank });
 
 			expect(await Schemas.listSchemas(ledger)).toEqual(ok([]));
 		}));
@@ -171,16 +182,16 @@ describe('saving a draft', () => {
 			const statement = (await upload(ledger)).key;
 			const taken = `_/imports/${day()}/aug.rupee`;
 			await Files.createFile({ ledger, key: taken, content: '' });
-			const saved = await Drafts.save({ ledger, statement, schema: bank });
-			const again = await Drafts.save({ ledger, statement, schema: bank });
+			const saved = await Drafts.importStatement({ ledger, statement, schema: bank });
+			const again = await Drafts.importStatement({ ledger, statement, schema: bank });
 			const key = `_/imports/${day()}/aug-02.rupee`;
 
 			expect(saved).toMatchObject(ok({ key }));
 			expect(again).toMatchObject(ok({ key }));
 			expect(await listed(ledger)).toEqual([]);
 
-			await Files.deleteFiles(ledger, [taken]);
-			await Files.renameFiles(ledger, [{ from: key, to: 'bank/aug.rupee' }]);
+			await Files.deleteFiles({ ledger, keys: [taken] });
+			await Files.renameFiles({ ledger, moves: [{ from: key, to: 'bank/aug.rupee' }] });
 			expect(await listed(ledger)).toMatchObject([
 				{ description: 'SALARY' },
 				{ description: 'UPI GROCER' },
@@ -207,11 +218,13 @@ describe('a statement a built-in schema reads', () => {
 				const content = await readFile(join(fixtures, file));
 				const key = (await upload(ledger, content, file)).key;
 
-				const recognised = (await Schemas.recogniseStatement(ledger, key))._unsafeUnwrap();
+				const recognised = (
+					await Schemas.recogniseStatement({ ledger, statement: key })
+				)._unsafeUnwrap();
 				const draft = (
 					await Drafts.extract({ ledger, statement: key, schema: recognised })
 				)._unsafeUnwrap();
-				const checked = Files.parseFile(draft.key, draft.content);
+				const checked = Files.parseFile({ key: draft.key, content: draft.content });
 
 				expect(recognised).toMatchObject({ key: schema, builtin: true });
 				expect(draft.failed).toEqual([]);

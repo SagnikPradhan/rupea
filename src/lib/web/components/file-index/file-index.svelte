@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { deleteFiles, getFiles, renameFiles } from '#lib/endpoints/files.remote.ts';
+	import { deleteFiles, listFiles, renameFiles } from '#lib/endpoints/files.remote.ts';
 	import type { RupeeError } from '#lib/server/shared/result/error.ts';
 	import Button from '#lib/web/components/button/button.svelte';
 	import Issues from '#lib/web/components/issues/issues.svelte';
@@ -21,7 +21,7 @@
 	const step = $state({ now: 'choosing' as Step, folder: '', errors: [] as RupeeError[] });
 	const last = { key: null as string | null };
 
-	const response = $derived(await getFiles(handle));
+	const response = $derived(await listFiles(handle));
 	const files = $derived(response.data ?? []);
 	const rows = $derived(treeRows(files, [...collapsed]));
 	const chosen = $derived(files.map((f) => f.key).filter((k) => selected.has(k)));
@@ -53,16 +53,16 @@
 		return start === -1 ? [to] : keys.slice(start, Math.max(...at) + 1);
 	}
 
-	async function move(event: SubmitEvent) {
+	function move(event: SubmitEvent) {
 		event.preventDefault();
 		const moves = chosen
 			.map((k) => ({ from: k, to: movedTo(k, step.folder) }))
 			.filter((m) => m.from !== m.to);
-		done((await renameFiles({ handle, moves })).errors);
+		return renameFiles({ handle, moves }).then((r) => done(r.errors));
 	}
 
-	async function remove() {
-		done((await deleteFiles({ handle, keys: chosen })).errors);
+	function remove() {
+		return deleteFiles({ handle, keys: chosen }).then((r) => done(r.errors));
 	}
 
 	function done(errors: RupeeError[]) {

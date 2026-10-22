@@ -69,9 +69,12 @@ describe('uploading a statement', () => {
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			const first = await upload(ledger);
-			await Files.renameFiles(ledger, [{ from: `_/statements/${first.key}`, to: 'aug.csv' }]);
+			await Files.renameFiles({
+				ledger,
+				moves: [{ from: `_/statements/${first.key}`, to: 'aug.csv' }],
+			});
 			const moved = await upload(ledger);
-			await Files.deleteFiles(ledger, [`_/statements/${moved.key}`]);
+			await Files.deleteFiles({ ledger, keys: [`_/statements/${moved.key}`] });
 			const deleted = await upload(ledger);
 
 			expect(moved).toMatchObject({ key: first.key, checksum: first.checksum });
@@ -87,8 +90,8 @@ describe('uploading a statement', () => {
 			const ledger = await createLedger(db);
 			const content = await lockedSheet();
 			const key = `${day()}/aug.xlsx`;
-			await Statements.storeStatement(ledger, { name: 'aug.xlsx', content });
-			const locked = await Statements.findStatement(ledger, key);
+			await Statements.storeStatement({ ledger, upload: { name: 'aug.xlsx', content } });
+			const locked = await Statements.readStatement({ ledger, key });
 			expect(locked).toMatchObject({ error: { type: 'ExtractionLocked', path: key } });
 
 			const unlocked = await Statements.unlockStatement({
@@ -108,9 +111,12 @@ describe('uploading a statement', () => {
 			const ledger = await createLedger(db);
 			const content = await lockedSheet();
 			const key = `${day()}/aug.xlsx`;
-			await Statements.storeStatement(ledger, { name: 'aug.xlsx', content });
+			await Statements.storeStatement({ ledger, upload: { name: 'aug.xlsx', content } });
 			await Statements.unlockStatement({ ledger, statement: key, password: 'secret' });
-			const again = await Statements.storeStatement(ledger, { name: 'sep.xlsx', content });
+			const again = await Statements.storeStatement({
+				ledger,
+				upload: { name: 'sep.xlsx', content },
+			});
 
 			expect(again._unsafeUnwrap()).toMatchObject({ key, originalChecksum: sha256(content) });
 		}));
@@ -128,9 +134,12 @@ describe('uploading a statement', () => {
 	it('keeps nothing it cannot read', ({ context, db, storage }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			const unread = await Statements.storeStatement(ledger, {
-				name: 'aug.doc',
-				content: encode(statement),
+			const unread = await Statements.storeStatement({
+				ledger,
+				upload: {
+					name: 'aug.doc',
+					content: encode(statement),
+				},
 			});
 			const stored = await storage.read(`${folder(ledger)}/files/_/statements/${day()}/aug.doc`);
 

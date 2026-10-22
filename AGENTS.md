@@ -17,6 +17,7 @@ Domain terms are in [GLOSSARY.md](GLOSSARY.md), decisions in [docs/adr](docs/adr
 - **Schema.** Drizzle with `casing: 'snake_case'` and plural table names. Every table spreads `base`: a uuidv7 `id`, plus `created_at` and `updated_at`. A new table needs `select attach_updated_at()` in a custom migration. Natural keys are unique constraints, not the primary key. Fixed value sets use `pgEnum`.
 - **Generic helpers go in `src/lib/server/shared/`**, not in the module that first needed them. If a helper would make sense without its module, it belongs in `shared/`.
 - **Modules export only what's used outside them.** Values and functions get no `rupee` prefix.
+- **Service function names and shapes** ([ADR 0016](docs/adr/0016-service-functions-names-and-shapes.md)). `find` looks up a row or a few, `list` returns many or a page, `read` fetches content from storage, `create` makes a record, and `save`, `delete` and `rename` change one. There is no `get`. An application function takes `ledger` alone or one options object, destructured in its parameters. Adapters are plain functions that take their dependency first, and the application imports them as a namespace (`DB.findLedger`). Endpoints take the name of the application function they call.
 
 ## Code style
 

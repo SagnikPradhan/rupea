@@ -12,9 +12,13 @@ import {
 	type ResultAsync,
 } from '#lib/server/shared/result/result.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
-import { deleteSessionCookie, readSessionCookie, setSessionCookie } from '../adapters/cookie';
 import * as DB from '../adapters/database';
-import { requestUser } from '../adapters/locals';
+import {
+	deleteSessionCookie,
+	readSessionCookie,
+	requestUser,
+	setSessionCookie,
+} from '../adapters/request';
 import { codeMatches, newCode, newSession, sessionState } from '../domain/credentials';
 
 export { normalizeEmail } from '../domain/credentials';
@@ -65,7 +69,9 @@ const createUser = (v: string, n: number): ResultAsync<User> =>
 		e.type === 'NameTaken' && n > 1 ? createUser(v, n - 1) : errAsync(e),
 	);
 
-export const signIn = (email: string, code: string): ResultAsync<void> =>
+type SignInOptions = { email: string; code: string };
+
+export const signIn = ({ email, code }: SignInOptions): ResultAsync<void> =>
 	DB.takeEmailCode(email)
 		.andThen((s) => (codeMatches(s, code, Date.now()) ? ok() : err(fault('AuthInvalidCode'))))
 		.andThen(() => findOrCreateUser(email))

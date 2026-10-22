@@ -1,7 +1,7 @@
 import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
 import { parseAmount, formatAmount, type Amount } from '#services/ledger/domain/amounts.ts';
 import { displayLocation, parse } from '#services/ledger/domain/parser.ts';
-import { PriceKind, type RupeePosting } from '#services/ledger/domain/types.ts';
+import { Feed, PriceKind, type RupeePosting } from '#services/ledger/domain/types.ts';
 import { describe, expect, it } from 'vitest';
 
 const file = 'random.rupee';
@@ -447,6 +447,7 @@ describe('market prices', () => {
 				price(1, '2026-10-17', 'INFY', '1820'),
 				price(2, '2026-10-17', 'AAPL', '230.5', 'USD'),
 			],
+			links: [],
 			succeeded: [],
 			failed: [],
 		});
@@ -474,6 +475,75 @@ describe('market prices', () => {
 		['a word after the price', 'P 2026-10-17 INFY 1820 INR each'],
 	])('rejects %s', (_, line) => {
 		expect(parseFile([line])).toMatchObject({
+			prices: [],
+			failed: [{ type: 'ParseInvalidPrice', location: at }],
+		});
+	});
+});
+
+describe('links', () => {
+	const parseFile = (n: string[]) =>
+		parse(defaultConfiguration.ledger, { key: file, content: `${n.join('\n')}\n` });
+	const link = (
+		line: number,
+		since: string | null,
+		commodity: string,
+		feed: Feed,
+		symbol: string,
+	) => ({
+		location: { file, line },
+		since: since === null ? null : Temporal.PlainDate.from(since),
+		commodity,
+		feed,
+		symbol,
+	});
+
+	it('links a commodity to a feed from the start, or from a day on, as the feed spells it', () => {
+		const parsed = parseFile(['P * hnfi mfapi:120716', 'P 2026-01-01 HNFI Yahoo:hdfcnifty.ns']);
+
+		expect(parsed.links).toEqual([
+			link(1, null, 'HNFI', Feed.Mfapi, '120716'),
+			link(2, '2026-01-01', 'HNFI', Feed.Yahoo, 'HDFCNIFTY.NS'),
+		]);
+		expect([parsed.prices, parsed.failed]).toEqual([[], []]);
+	});
+
+	it('ends the transaction above it, like a price', () => {
+		const parsed = parseFile([
+			'2026-10-01 Buy HNFI',
+			'\tAssets:Kuvera 10 HNFI @ 15',
+			'\tAssets:Bank',
+			'P * HNFI mfapi:120716',
+		]);
+
+		expect(parsed.links).toEqual([link(4, null, 'HNFI', Feed.Mfapi, '120716')]);
+		expect(parsed.succeeded.map((t) => t.postings.length)).toEqual([2]);
+	});
+
+	it.each([
+		['no commodity', 'P * mfapi:120716'],
+		['no date', 'P HNFI mfapi:120716'],
+		['two commodities', 'P * HNFI NIFTY mfapi:120716'],
+		['a price ending in a word with a colon', 'P 2026-10-17 USD 83.12 INR src:rbi'],
+	])('reads a P line with %s as a bad price, not a link', (_, line) => {
+		expect(parseFile([line])).toMatchObject({
+			links: [],
+			failed: [{ type: 'ParseInvalidPrice', location: at }],
+		});
+	});
+
+	it.each([
+		['a feed it does not know', 'P * HNFI google:HNFI', 'google'],
+		['its own ledger', 'P * HNFI ledger:HNFI', 'ledger'],
+	])('rejects %s', (_, line, feed) => {
+		expect(parseFile([line])).toMatchObject({
+			links: [],
+			failed: [{ type: 'ParseUnknownFeed', location: at, feed }],
+		});
+	});
+
+	it('reads a price from the start as a bad price, since only a link has no date', () => {
+		expect(parseFile(['P * HNFI 15'])).toMatchObject({
 			prices: [],
 			failed: [{ type: 'ParseInvalidPrice', location: at }],
 		});

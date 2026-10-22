@@ -24,6 +24,15 @@ export const explain = (error: RupeeError): string =>
 		.with({ type: 'ParseInvalidMetadata' }, () => 'This metadata line can’t be read.')
 		.with({ type: 'ParseDetachedMetadata' }, () => 'This metadata line isn’t under a transaction.')
 		.with(
+			{ type: 'ParseInvalidPrice' },
+			() => 'This P line should give a date, a commodity, and a price or feed:symbol.',
+		)
+		.with({ type: 'ParseUnknownFeed' }, (e) => `“${e.feed}” isn’t a feed. Link to mfapi or yahoo.`)
+		.with(
+			{ type: 'LinkRepeated' },
+			(e) => `${e.commodity} is linked more than once from the same day.`,
+		)
+		.with(
 			{ type: 'EventInvalidMembership' },
 			() => 'This transaction belongs to more than one event.',
 		)
@@ -47,6 +56,15 @@ export const explain = (error: RupeeError): string =>
 		.with(
 			{ type: 'BalanceAssertionAmbiguous' },
 			(e) => `${e.account} could fall either side of ${e.unordered}. Add a time to order them.`,
+		)
+		.with(
+			{ type: 'FeedUnavailable' },
+			(e) => `${e.feed} couldn’t be reached for ${e.symbol}. It will be tried again.`,
+		)
+		.with({ type: 'FeedSymbolUnknown' }, (e) => `${e.feed} has no symbol ${e.symbol}.`)
+		.with(
+			{ type: 'FeedInvalidResponse' },
+			(e) => `${e.feed} answered for ${e.symbol} in a way Rupee can’t read: ${e.reason}.`,
 		)
 		.with({ type: 'CannotReadFile' }, (e) => `This file can’t be read: ${e.reason}.`)
 		.with({ type: 'StorageConflict' }, () => 'This file changed since you opened it.')

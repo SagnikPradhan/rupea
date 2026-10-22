@@ -1,5 +1,6 @@
 import { base } from '#lib/server/db/columns.ts';
 import { EMBEDDING_DIMENSIONS } from '#lib/server/shared/onnx/models.ts';
+import type { RupeeError } from '#lib/server/shared/result/error.ts';
 import { users } from '#services/auth/adapters/database-schema.ts';
 import { sql } from 'drizzle-orm';
 import * as PG from 'drizzle-orm/pg-core';
@@ -164,6 +165,7 @@ export const symbols = PG.pgTable(
 	],
 );
 
+/** A ledger's prices are read from its files, and a feed's quotes, one a day, are fetched. */
 export const prices = PG.pgTable(
 	'prices',
 	(t) => ({
@@ -172,11 +174,8 @@ export const prices = PG.pgTable(
 			.uuid()
 			.notNull()
 			.references(() => symbols.id, { onDelete: 'cascade' }),
-		fileId: t
-			.uuid()
-			.notNull()
-			.references(() => ledgerFiles.id, { onDelete: 'cascade' }),
-		line: t.integer().notNull(),
+		fileId: t.uuid().references(() => ledgerFiles.id, { onDelete: 'cascade' }),
+		line: t.integer(),
 		date: t.date().notNull(),
 		priceAmount: amount().notNull(), // of one unit, in ten-billionths
 		priceCommodity: t.text().notNull(),
@@ -185,8 +184,56 @@ export const prices = PG.pgTable(
 	(t) => [
 		PG.index('prices_file_id').on(t.fileId),
 		PG.index('prices_symbol_id_date').on(t.symbolId, t.date),
+		PG.uniqueIndex('prices_symbol_id_date_quoted')
+			.on(t.symbolId, t.date)
+			.where(sql`${t.fileId} is null`),
+		PG.check(
+			'prices_read_from_files',
+			sql`(${t.source} in ('line', 'posting')) = (${t.fileId} is not null and ${t.line} is not null)`,
+		),
 	],
 );
+
+/** Prices a ledger's commodity by a feed's symbol from since on, or from the start when it is null. */
+export const symbolLinks = PG.pgTable(
+	'symbol_links',
+	(t) => ({
+		...base,
+		symbolId: t
+			.uuid()
+			.notNull()
+			.references(() => symbols.id, { onDelete: 'cascade' }),
+		ledgerId: t
+			.uuid()
+			.notNull()
+			.references(() => ledgers.id, { onDelete: 'cascade' }),
+		alias: t.text().notNull(),
+		since: t.date(),
+		fileId: t
+			.uuid()
+			.notNull()
+			.references(() => ledgerFiles.id, { onDelete: 'cascade' }),
+		line: t.integer().notNull(),
+	}),
+	(t) => [
+		PG.index('symbol_links_ledger_id_alias').on(t.ledgerId, t.alias),
+		PG.index('symbol_links_file_id').on(t.fileId),
+		PG.index('symbol_links_symbol_id').on(t.symbolId),
+	],
+);
+
+/** How a feed symbol's last fetches went: when one last worked, and since when they have failed. */
+export const symbolFetches = PG.pgTable('symbol_fetches', (t) => ({
+	...base,
+	symbolId: t
+		.uuid()
+		.notNull()
+		.unique('symbol_fetches_symbol_id_unique')
+		.references(() => symbols.id, { onDelete: 'cascade' }),
+	fetchedAt: t.timestamp({ withTimezone: true }),
+	failingSince: t.timestamp({ withTimezone: true }),
+	error: t.jsonb().$type<RupeeError>(),
+}));
 
 export const lots = PG.pgTable(
 	'lots',

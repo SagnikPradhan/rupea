@@ -3,7 +3,7 @@ import { chunks } from '#lib/server/shared/arrays.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
 import { attempt, errAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm';
+import { and, eq, inArray, isNotNull, isNull, sql } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import { CURRENCIES } from '../domain/lots';
 import { displayLocation } from '../domain/parser';
@@ -15,6 +15,7 @@ import {
 	metadata as metadataTable,
 	postings,
 	prices as priceTable,
+	symbolLinks as linkTable,
 	symbols as symbolTable,
 	transactions as transactionTable,
 } from './database-schema';
@@ -120,13 +121,22 @@ export const indexFile = (
 					}),
 				);
 				const priceRows = marketPrices(file).map((p) => ({
-					commodity: p.commodity,
+					symbol: p.commodity,
 					fileId,
 					line: p.location.line,
 					date: p.date.toString(),
 					priceAmount: p.price.amount,
 					priceCommodity: p.price.commodity,
 					source: p.source,
+				}));
+				const linkRows = file.links.map((l) => ({
+					feed: l.feed,
+					symbol: l.symbol,
+					ledgerId,
+					alias: l.commodity,
+					since: l.since?.toString() ?? null,
+					fileId,
+					line: l.location.line,
 				}));
 				const metadataRows = [
 					...ownedBy({ ledgerId, fileId }, file.metadata),
@@ -142,14 +152,18 @@ export const indexFile = (
 				await tx.delete(metadataTable).where(eq(metadataTable.fileId, fileId));
 				await tx.delete(transactionTable).where(eq(transactionTable.fileId, fileId));
 				await tx.delete(priceTable).where(eq(priceTable.fileId, fileId));
+				await tx.delete(linkTable).where(eq(linkTable.fileId, fileId));
 				// A transaction's statements share one connection, so they go one at a time.
 				for (const chunk of chunks(transactionRows, ROWS_PER_STATEMENT))
 					await tx.insert(transactionTable).values(chunk);
 				for (const chunk of chunks(postingRows, ROWS_PER_STATEMENT))
 					await tx.insert(postings).values(chunk);
-				const symbolled = await withSymbols(tx, ledgerId, priceRows);
-				for (const chunk of chunks(symbolled, ROWS_PER_STATEMENT))
+				const priced = await withSymbols(tx, { feed: Feed.Ledger, ledgerId }, priceRows);
+				for (const chunk of chunks(priced, ROWS_PER_STATEMENT))
 					await tx.insert(priceTable).values(chunk);
+				const linked = await withFeedSymbols(tx, linkRows);
+				for (const chunk of chunks(linked, ROWS_PER_STATEMENT))
+					await tx.insert(linkTable).values(chunk);
 				for (const chunk of chunks(metadataRows, ROWS_PER_STATEMENT))
 					await tx.insert(metadataTable).values(chunk);
 				const after = await lotCommoditiesOf(tx, fileId);
@@ -232,18 +246,16 @@ const ownedBy = (o: MetadataOwner, m: RupeeMetadata) =>
 		.flatMap(([key, values]) => values.map((v) => ({ key, value: v })))
 		.map((e, i) => ({ ...o, position: i, ...e }));
 
+type Owner = { feed: Feed; ledgerId: string | null };
+
 /**
- * Puts each price on the ledger's own symbol for its commodity, made the first time it is priced.
- * New symbols go in sorted, so two syncs making the same ones take their locks in one order, and
- * one another sync made meanwhile is updated in place so that it is still returned.
+ * Puts each row on its owner's symbol of that name, made the first time it is named. New symbols
+ * go in sorted, so two syncs making the same ones take their locks in one order, and one another
+ * sync made meanwhile is updated in place so that it is still returned.
  */
-const withSymbols = async <P extends { commodity: string }>(
-	db: Database,
-	ledgerId: string,
-	prices: P[],
-) => {
-	const byCommodity = Object.groupBy(prices, (p) => p.commodity);
-	const commodities = Object.keys(byCommodity).toSorted();
+const withSymbols = async <R extends { symbol: string }>(db: Database, owner: Owner, rows: R[]) => {
+	const bySymbol = Object.groupBy(rows, (r) => r.symbol);
+	const names = Object.keys(bySymbol).toSorted();
 	const columns = { id: symbolTable.id, symbol: symbolTable.symbol };
 
 	const known = await db
@@ -251,17 +263,17 @@ const withSymbols = async <P extends { commodity: string }>(
 		.from(symbolTable)
 		.where(
 			and(
-				eq(symbolTable.feed, Feed.Ledger),
-				eq(symbolTable.ledgerId, ledgerId),
-				inArray(symbolTable.symbol, commodities),
+				eq(symbolTable.feed, owner.feed),
+				owner.ledgerId ? eq(symbolTable.ledgerId, owner.ledgerId) : isNull(symbolTable.ledgerId),
+				inArray(symbolTable.symbol, names),
 			),
 		);
 	const seen = new Set(known.map((k) => k.symbol));
-	const missing = commodities.filter((c) => !seen.has(c));
+	const missing = names.filter((n) => !seen.has(n));
 	const made = missing.length
 		? await db
 				.insert(symbolTable)
-				.values(missing.map((c) => ({ feed: Feed.Ledger, symbol: c, ledgerId })))
+				.values(missing.map((n) => ({ ...owner, symbol: n })))
 				.onConflictDoUpdate({
 					target: [symbolTable.feed, symbolTable.ledgerId, symbolTable.symbol],
 					set: { symbol: sql`excluded.symbol` },
@@ -270,8 +282,21 @@ const withSymbols = async <P extends { commodity: string }>(
 		: [];
 
 	return [...known, ...made].flatMap((s) =>
-		(byCommodity[s.symbol] ?? []).map((p) => ({ ...p, symbolId: s.id })),
+		(bySymbol[s.symbol] ?? []).map((r) => ({ ...r, symbolId: s.id })),
 	);
+};
+
+/** Puts each link on its feed's symbol, which every ledger shares; one feed at a time, in order. */
+const withFeedSymbols = async <R extends { feed: Feed; symbol: string }>(
+	db: Database,
+	rows: R[],
+) => {
+	const byFeed = Object.groupBy(rows, (r) => r.feed);
+	const feeds = Object.values(Feed).filter((f) => byFeed[f]);
+	const linked = [];
+	for (const f of feeds)
+		linked.push(...(await withSymbols(db, { feed: f, ledgerId: null }, byFeed[f] ?? [])));
+	return linked;
 };
 
 const lotCommoditiesOf = (db: Database, fileId: string): Promise<string[]> =>

@@ -9,13 +9,14 @@ import {
 	lots,
 	metadata,
 	prices,
+	symbolLinks,
 	symbols,
 	transactions,
 } from '#services/ledger/adapters/database-schema.ts';
 import { MODEL } from '#services/ledger/adapters/prediction-onnx.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import * as Sync from '#services/ledger/application/sync.ts';
-import { PriceSource } from '#services/ledger/domain/types.ts';
+import { Feed, PriceSource } from '#services/ledger/domain/types.ts';
 import { broken } from '#tests/shared/embedding.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
@@ -155,6 +156,85 @@ describe('syncing the ledger', () => {
 			await Sync.sync(ledger);
 			expect(made.map((s) => s.symbol)).toEqual(['INFY', 'TCS']);
 			expect(await own()).toEqual(made);
+		}));
+
+	it('indexes links onto symbols every ledger shares, replacing them when the file changes', ({
+		context,
+		db,
+		storage,
+	}) =>
+		provide(context, async () => {
+			const one = await createLedger(db);
+			const two = await createLedger(db);
+			const linked = (l: { id: string }) =>
+				db
+					.select({
+						alias: symbolLinks.alias,
+						since: symbolLinks.since,
+						feed: symbols.feed,
+						symbol: symbols.symbol,
+						owner: symbols.ledgerId,
+						line: symbolLinks.line,
+					})
+					.from(symbolLinks)
+					.innerJoin(symbols, eq(symbols.id, symbolLinks.symbolId))
+					.where(eq(symbolLinks.ledgerId, l.id))
+					.orderBy(asc(symbolLinks.line));
+			const links = 'P * HNFI mfapi:300001\nP 2026-01-01 HNFI yahoo:SHARED.NS\n';
+
+			await put(storage, one, 'a.rupee', links);
+			await put(storage, two, 'a.rupee', links);
+			await Sync.sync(one);
+			await Sync.sync(two);
+			const first = await linked(one);
+			const second = await linked(two);
+			const shared = await db
+				.select({ id: symbols.id })
+				.from(symbols)
+				.where(eq(symbols.symbol, 'SHARED.NS'));
+
+			await put(storage, one, 'a.rupee', 'P * NIFTY yahoo:SHARED.NS\n');
+			await Sync.sync(one);
+
+			expect(first).toEqual([
+				{ alias: 'HNFI', since: null, feed: Feed.Mfapi, symbol: '300001', owner: null, line: 1 },
+				{
+					alias: 'HNFI',
+					since: '2026-01-01',
+					feed: Feed.Yahoo,
+					symbol: 'SHARED.NS',
+					owner: null,
+					line: 2,
+				},
+			]);
+			expect(second).toEqual(first);
+			expect(shared).toHaveLength(1);
+			expect(await linked(one)).toEqual([
+				{
+					alias: 'NIFTY',
+					since: null,
+					feed: Feed.Yahoo,
+					symbol: 'SHARED.NS',
+					owner: null,
+					line: 1,
+				},
+			]);
+		}));
+
+	it('warns of a commodity linked twice from one day, across files', ({ context, db, storage }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await put(
+				storage,
+				ledger,
+				'a.rupee',
+				'P * HNFI mfapi:300002\nP 2026-01-01 HNFI yahoo:A.NS\n',
+			);
+			await put(storage, ledger, 'b.rupee', 'P * HNFI yahoo:B.NS\n');
+
+			expect(await issues(ledger)).toEqual(
+				ok([fault('LinkRepeated', { location: 'a.rupee:1, b.rupee:1', commodity: 'HNFI' })]),
+			);
 		}));
 
 	it('indexes a lot cost and reads it back', ({ context, db, storage }) =>

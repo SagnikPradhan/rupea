@@ -27,6 +27,7 @@ const recording = () => {
 			logger,
 		}),
 		mailer: logMailer,
+		fetch: globalThis.fetch,
 		logger: logger.child({ request_id: 'request' }),
 	} satisfies RupeeContext;
 	return { lines, context };

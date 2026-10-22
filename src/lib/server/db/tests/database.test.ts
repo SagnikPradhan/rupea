@@ -1,6 +1,6 @@
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
-import { eq } from 'drizzle-orm';
+import { eq, sql } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import { describe, expect } from 'vitest';
 import { attemptWrite } from '#lib/server/db/errors.ts';
@@ -36,6 +36,19 @@ describe('the database', () => {
 		expect(after?.name).toBe('Renamed');
 		expect(after?.createdAt).toEqual(before?.createdAt);
 		expect(after!.updatedAt.getTime()).toBeGreaterThan(before!.updatedAt.getTime());
+	});
+
+	it('stamps updatedAt on every table that has one', async ({ db }) => {
+		const unstamped = await db.execute<{ table_name: string }>(sql`
+			select c.table_name from information_schema.columns c
+			where c.table_schema = 'public' and c.column_name = 'updated_at'
+				and not exists (
+					select from information_schema.triggers t
+					where t.event_object_table = c.table_name and t.trigger_name = 'set_updated_at'
+				)
+		`);
+
+		expect(unstamped.rows).toEqual([]);
 	});
 
 	it('gives every row a UUIDv7 id and equal create and update times', async ({ db }) => {

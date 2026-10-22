@@ -17,10 +17,12 @@ import {
 import { movesInKind } from './lots';
 import { accountType } from './taxonomy';
 import {
+	Feed,
 	PriceKind,
 	type LotCost,
 	type Price,
 	type RupeeFile,
+	type RupeeLink,
 	type RupeeMarketPrice,
 	type RupeeMetadata,
 	type RupeeParseLocation,
@@ -29,6 +31,10 @@ import {
 } from './types';
 
 const COMMODITY = /^[A-Za-z][A-Za-z0-9._-]*$/;
+const LINK = /\s(?<feed>[A-Za-z]+):(?<symbol>\S+)\s*$/;
+
+/** The feeds a link can name; a ledger's own symbols are priced by its files, never linked. */
+const LINKED: Record<string, Feed> = { mfapi: Feed.Mfapi, yahoo: Feed.Yahoo };
 
 /** A cost or price only follows an amount, and a price never starts with a minus. */
 const POSTING =
@@ -39,6 +45,7 @@ export const displayLocation = ({ file, line }: RupeeParseLocation): string => `
 type RupeeParsedFile = Batch<RupeeTransaction> & {
 	metadata: RupeeMetadata;
 	prices: RupeeMarketPrice[];
+	links: RupeeLink[];
 };
 
 /** Metadata above the first transaction belongs to the file. */
@@ -50,14 +57,15 @@ export const parse = (
 	const preamble = readMetadata(
 		takeWhile(input, (l) => isBlank(l) || isMetadata(l)).filter(isMetadata),
 	);
-	const prices = batch(input.filter(isPriceLine).map((l) => parsePriceLine(c, l)));
+	const pLines = batch(input.filter(isPLine).map((l) => parsePLine(c, l)));
 	const parsed = parseTransactions(c, input);
 
 	return {
 		metadata: preamble.metadata,
-		prices: prices.succeeded,
+		prices: pLines.succeeded.filter(isPrice),
+		links: pLines.succeeded.filter(isLink),
 		succeeded: parsed.succeeded,
-		failed: [...preamble.failed, ...prices.failed, ...parsed.failed],
+		failed: [...preamble.failed, ...pLines.failed, ...parsed.failed],
 	};
 };
 
@@ -89,7 +97,7 @@ const parseTransactions = (
 	const results: Result<RupeeTransaction>[] = [];
 
 	for (const line of drain(lines)) {
-		if (isBlank(line) || isPriceLine(line)) continue;
+		if (isBlank(line) || isPLine(line)) continue;
 		if (isMetadata(line)) {
 			results.push(
 				err(fault('ParseDetachedMetadata', { location: displayLocation(line.location) })),
@@ -171,7 +179,13 @@ export const isMetadata = ({ content }: RupeeLine) => /^\s*-(\s|$)/.test(content
 export const isPosting = (l: RupeeLine) =>
 	/^(\t| {2})/.test(l.content) && !isBlank(l) && !isMetadata(l);
 
-const isPriceLine = ({ content }: RupeeLine) => /^P\s/.test(content);
+/** A P line prices a commodity, or links it to a feed. */
+const isPLine = ({ content }: RupeeLine) => /^P\s/.test(content);
+const isPrice = (p: RupeeMarketPrice | RupeeLink): p is RupeeMarketPrice => 'price' in p;
+const isLink = (p: RupeeMarketPrice | RupeeLink): p is RupeeLink => 'feed' in p;
+
+const parsePLine = (c: LedgerConfiguration, l: RupeeLine): Result<RupeeMarketPrice | RupeeLink> =>
+	readLink(c, l) ?? parsePriceLine(c, l);
 
 /** Each commodity nets to zero by weight; a posting without an amount takes what is left. */
 const balance = (
@@ -273,6 +287,34 @@ const parsePriceLine = (
 		date: date.value,
 		commodity: commodity.toUpperCase(),
 		price: withDefaultCommodity(quantity),
+	});
+};
+
+/**
+ * P date|* commodity feed:symbol, where * links it from the start. Any other P line is a price,
+ * so a line that only ends in a word with a colon is a bad price. Feeds spell symbols in capitals.
+ */
+const readLink = (
+	{ dateFormats }: LedgerConfiguration,
+	{ location, content }: RupeeLine,
+): Result<RupeeLink> | null => {
+	const { feed = '', symbol = '' } = LINK.exec(content)?.groups ?? {};
+	const words = content.trim().split(/\s+/).slice(1, -1);
+	const since =
+		words[0] === '*'
+			? { value: null, rest: words.slice(1) }
+			: readWords(dateFormats, words, parseDate);
+	const [commodity = '', ...extra] = since?.rest ?? [];
+	if (!symbol || !since || !COMMODITY.test(commodity) || extra.length > 0) return null;
+
+	const linked = LINKED[feed.toLowerCase()];
+	if (!linked) return err(fault('ParseUnknownFeed', { location: displayLocation(location), feed }));
+	return ok({
+		location,
+		since: since.value,
+		commodity: commodity.toUpperCase(),
+		feed: linked,
+		symbol: symbol.toUpperCase(),
 	});
 };
 

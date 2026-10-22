@@ -6,6 +6,7 @@ import { AccountType, Feed, PriceSource } from '../domain/types';
 import {
 	postings,
 	prices as priceTable,
+	symbolLinks as linkTable,
 	symbols as symbolTable,
 	transactions as transactionTable,
 } from './database-schema';
@@ -31,11 +32,11 @@ export const findLatestPrices = (
 	withContext('db')((db) =>
 		attempt(() =>
 			db.execute<LatestPriceRow>(sql`
-				with own as (${ownSymbols(ledgerId)})
+				with own as (${ownSymbols(ledgerId)}), linked as (${ownLinks(ledgerId)})
 				select c.commodity, p.amount::text as "priceAmount", p.currency as "priceCommodity"
 				from unnest(${sql.param(commodities)}::text[]) as c(commodity)
-				join own o on o.symbol = c.commodity
-				cross join lateral (${priceOn(sql`o.id`, sql`${day.toString()}::date`)}) p
+				left join own o on o.symbol = c.commodity
+				cross join lateral (${priceOn(sql`o.id`, sql`c.commodity`, sql`${day.toString()}::date`)}) p
 			`),
 		).map((result) =>
 			Object.fromEntries(
@@ -69,6 +70,7 @@ export const listWorth = (
 		attempt(() =>
 			db.execute<WorthRow>(sql`
 				with own as (${ownSymbols(ledgerId)}),
+				linked as (${ownLinks(ledgerId)}),
 				deltas as (
 					select p.account_type = ${AccountType.Assets} as asset, p.commodity, t.date, sum(p.amount) as amount
 					from ${postings} p
@@ -105,9 +107,9 @@ export const listWorth = (
 							when p2.currency = ${DEFAULT_COMMODITY} then round(b.units * round(p1.amount * p2.amount / ${UNIT}) / ${UNIT})
 						end as value
 					from balances b
-					left join lateral (${priceOn(sql`b.symbol_id`, sql`b.day`)}) p1 on b.commodity <> ${DEFAULT_COMMODITY}
-					left join own o on o.symbol = p1.currency and p1.currency <> ${DEFAULT_COMMODITY}
-					left join lateral (${priceOn(sql`o.id`, sql`b.day`)}) p2 on true
+					left join lateral (${priceOn(sql`b.symbol_id`, sql`b.commodity`, sql`b.day`)}) p1 on b.commodity <> ${DEFAULT_COMMODITY}
+					left join own o on o.symbol = p1.currency
+					left join lateral (${priceOn(sql`o.id`, sql`p1.currency`, sql`b.day`)}) p2 on p1.currency <> ${DEFAULT_COMMODITY}
 					where b.units <> 0
 				)
 				select d.day::text as day,
@@ -138,11 +140,52 @@ const ownSymbols = (ledgerId: string) => sql`
 	where ${symbolTable.feed} = ${Feed.Ledger} and ${symbolTable.ledgerId} = ${ledgerId}
 `;
 
-/** The latest price of a symbol on or before a day, where a P line beats an at-price on the same day. */
-const priceOn = (symbolId: SQL, day: SQL) => sql`
-	select ${priceTable.priceAmount} as amount, ${priceTable.priceCommodity} as currency
-	from ${priceTable}
-	where ${priceTable.symbolId} = ${symbolId} and ${priceTable.date} <= ${day}
-	order by ${priceTable.date} desc, ${priceTable.source} = ${PriceSource.Line} desc, ${priceTable.line} desc
+/**
+ * The ledger's links, each holding from its since until the next link of its commodity. A link
+ * from the start holds from -infinity, so of two links from one day the later written holds.
+ */
+const ownLinks = (ledgerId: string) => sql`
+	select alias, symbol_id, since, coalesce(lead(since) over (partition by alias order by since, id), 'infinity'::date) as until
+	from (
+		select ${linkTable.alias} as alias, ${linkTable.symbolId} as symbol_id, ${linkTable.id} as id,
+			coalesce(${linkTable.since}, '-infinity'::date) as since
+		from ${linkTable}
+		where ${linkTable.ledgerId} = ${ledgerId}
+	) l
+`;
+
+/**
+ * The latest price of a commodity on or before a day, from the ledger's own symbol or the feed it
+ * links to then. On one day a P line beats an at-price, and either beats a feed's quote.
+ */
+const priceOn = (symbolId: SQL, commodity: SQL, day: SQL) => sql`
+	select c.amount, c.currency
+	from (
+		(
+			select ${priceTable.priceAmount} as amount, ${priceTable.priceCommodity} as currency,
+				${priceTable.date} as date, case when ${priceTable.source} = ${PriceSource.Line} then 0 else 1 end as rank
+			from ${priceTable}
+			where ${priceTable.symbolId} = ${symbolId} and ${priceTable.date} <= ${day}
+			order by ${priceTable.date} desc, ${priceTable.source} = ${PriceSource.Line} desc, ${priceTable.line} desc
+			limit 1
+		)
+		union all
+		(
+			select q.amount, q.currency, q.date, 2 as rank
+			from linked l
+			cross join lateral (
+				select ${priceTable.priceAmount} as amount, ${priceTable.priceCommodity} as currency, ${priceTable.date} as date
+				from ${priceTable}
+				where ${priceTable.symbolId} = l.symbol_id and ${priceTable.date} <= ${day}
+					and ${priceTable.date} >= l.since and ${priceTable.date} < l.until
+				order by ${priceTable.date} desc
+				limit 1
+			) q
+			where l.alias = ${commodity}
+			order by q.date desc
+			limit 1
+		)
+	) c
+	order by c.date desc, c.rank
 	limit 1
 `;

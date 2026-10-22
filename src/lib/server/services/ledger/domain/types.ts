@@ -14,14 +14,19 @@ export enum PriceKind {
 	Total = 'total',
 }
 
+/** Where a price was read: a P line, a posting's at-price, or a feed's quote. */
 export enum PriceSource {
 	Line = 'line',
 	Posting = 'posting',
+	Mfapi = 'mfapi',
+	Yahoo = 'yahoo',
 }
 
 /** Where a symbol's prices come from; a ledger's own symbols are priced by its files. */
 export enum Feed {
 	Ledger = 'ledger',
+	Mfapi = 'mfapi',
+	Yahoo = 'yahoo',
 }
 
 export enum LotOrigin {
@@ -84,8 +89,18 @@ export type RupeeMarketPrice = {
 	price: Quantity;
 };
 
+/** Prices a commodity by a feed's symbol from a day on, or from the start when since is null. */
+export type RupeeLink = {
+	location: RupeeParseLocation;
+	since: Temporal.PlainDate | null;
+	commodity: string;
+	feed: Feed;
+	symbol: string;
+};
+
 export type RupeeLedgerFile = {
 	metadata: RupeeMetadata;
 	transactions: RupeeTransaction[];
 	prices: RupeeMarketPrice[];
+	links: RupeeLink[];
 };

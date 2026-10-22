@@ -13,6 +13,8 @@ export type RupeeContext = {
 	mailer: Mailer;
 	logger: Logger;
 	models: Models;
+	/** How the server reaches the internet, such as a feed's quotes. */
+	fetch: typeof globalThis.fetch;
 };
 
 type Key = keyof RupeeContext;

@@ -30,6 +30,27 @@ describe('explain', () => {
 			'This metadata line isn’t under a transaction.',
 		],
 		[
+			fault('ParseInvalidPrice', { location: at }),
+			'This P line should give a date, a commodity, and a price or feed:symbol.',
+		],
+		[
+			fault('FeedUnavailable', { feed: 'yahoo', symbol: 'INFY.NS', status: 503 }),
+			'yahoo couldn’t be reached for INFY.NS. It will be tried again.',
+		],
+		[fault('FeedSymbolUnknown', { feed: 'mfapi', symbol: '999' }), 'mfapi has no symbol 999.'],
+		[
+			fault('FeedInvalidResponse', { feed: 'yahoo', symbol: 'X', reason: 'currency Rs' }),
+			'yahoo answered for X in a way Rupee can’t read: currency Rs.',
+		],
+		[
+			fault('ParseUnknownFeed', { location: at, feed: 'google' }),
+			'“google” isn’t a feed. Link to mfapi or yahoo.',
+		],
+		[
+			fault('LinkRepeated', { location: at, commodity: 'HNFI' }),
+			'HNFI is linked more than once from the same day.',
+		],
+		[
 			fault('EventInvalidMembership', { location: at }),
 			'This transaction belongs to more than one event.',
 		],

@@ -23,7 +23,7 @@ export type Filled = { id: string; vector: Float32Array | null };
 export const wordsOf = (d: string[]): string[] =>
 	[...new Set(d.map(clean))].filter((t) => t !== '');
 
-/** `vectors` are those of the rows' `wordsOf`; a description with no words gets no vector, but counts as done all the same. */
+/** The vectors are those of the rows' words; a description with no words gets no vector, but counts as done all the same. */
 export const filled = (rows: Unembedded[], vectors: Float32Array[]): Filled[] => {
 	const found = lookup(wordsOf(rows.map((r) => r.description)), vectors);
 	return rows.map((r) => ({ id: r.id, vector: found(clean(r.description)) }));

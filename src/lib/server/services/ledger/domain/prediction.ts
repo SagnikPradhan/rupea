@@ -59,7 +59,7 @@ export const textsOf = ({ lines, accounts }: TextsOptions) => {
 	return { texts: [...new Set([...searched, ...named])], searched: searched.length };
 };
 
-/** `vectors` are those of `textsOf`'s texts, and `nearest` what was found near the searched ones. */
+/** The vectors are those of the texts to embed, and nearest is what was found near the searched ones. */
 export const classify = (
 	options: ClassifyOptions,
 	vectors: Float32Array[],

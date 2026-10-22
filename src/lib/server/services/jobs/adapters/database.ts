@@ -44,7 +44,7 @@ export type UserJob = {
 	createdAt: Date;
 };
 
-export type ListJobsOptions = {
+type ListJobsOptions = {
 	userId: string;
 	name: string;
 	/** Fields the payload holds, such as the ledger it ran in. */

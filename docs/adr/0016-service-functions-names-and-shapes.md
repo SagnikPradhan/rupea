@@ -18,7 +18,7 @@ A newcomer should guess what a service function does, and how to call it, from i
 
 **Application functions take the ledger, or one options object.** A function that needs only the ledger takes it alone: `listFiles(ledger)`. Anything more goes in one object, destructured in the parameter list: `readFile({ ledger, key })`. No positional pairs, which read the same at the call site whichever way round they are.
 
-**Adapters are plain functions.** An adapter exports functions that take what they work on first, such as `DB.findLedger(userId, handle)` or `Stored.read(storage, ledgerId, key)`, not factory objects that close over it. The application imports an adapter as a namespace, so `DB.listPostings` and `Transactions.listPostings` can share a name without clashing. A port with several implementations, such as `Storage` or `Models`, stays a named type.
+**Adapters are plain functions.** An adapter exports functions that take what they work on first, such as `DB.findLedger(userId, handle)` or `DB.findStatement(ledgerId, key)`, not factory objects that close over it. The application imports an adapter as a namespace, so `DB.listPostings` and `Transactions.listPostings` can share a name without clashing. A port with several implementations, such as `Storage` or `Models`, stays a named type.
 
 **A database adapter is split by table.** A query lives with the table whose rows it returns: `database-transactions.ts`, `database-postings.ts`, `database-lots.ts` and so on, gathered by a `database.ts` barrel. No module knows the whole schema.
 

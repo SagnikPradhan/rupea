@@ -56,7 +56,7 @@ export const predictAccounts = <L extends Line>({
 	);
 };
 
-// The searched texts come first, so their vectors are the first ones.
+/** The searched texts come first, so their vectors are the first ones. */
 const guess = (ledger: Ledger, o: ClassifyOptions): ResultAsync<Prediction[]> =>
 	withContext('models')((models) => {
 		const t = textsOf(o);

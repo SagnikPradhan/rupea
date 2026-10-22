@@ -1,10 +1,10 @@
-import { ROWS_PER_STATEMENT, vectorText, type Database } from '#lib/server/db/index.ts';
+import { ROWS_PER_STATEMENT, vectorText, type Queries } from '#lib/server/db/index.ts';
+import { readOnly } from '#lib/server/db/read-only.ts';
+import type { Tables } from '#lib/server/db/tables.ts';
 import { chunks } from '#lib/server/shared/arrays.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
-import { readOnly } from '#lib/server/db/read-only.ts';
 import { attempt, okAsync, ResultAsync } from '#lib/server/shared/result/result.ts';
-import { and, asc, desc, eq, inArray, ne, sql, type SQL } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
+import { sql, type Expression, type ExpressionBuilder, type SqlBool } from 'kysely';
 import type { Amount } from '../domain/amounts';
 import { EVENT_KEYS } from '../domain/events';
 import { toMetadata } from '../domain/parser';
@@ -13,16 +13,10 @@ import { BALANCE_TYPES } from '../domain/taxonomy';
 import type { Filled, Unembedded } from '../domain/text';
 import type { RupeeMetadata, RupeeTransaction } from '../domain/types';
 import {
-	ledgerFiles,
-	metadata as metadataTable,
-	postings,
-	transactions as transactionTable,
-} from './database-schema';
-import {
 	before,
 	inAccount,
 	listed,
-	NEWEST_FIRST,
+	newestFirst,
 	timeKey,
 	toCost,
 	toPrice,
@@ -59,7 +53,7 @@ export const findTransactions = (
 ): ResultAsync<IndexedTransaction[]> =>
 	ResultAsync.combine(
 		chunks(ids, ROWS_PER_STATEMENT).map((c) =>
-			readWhere(ledgerId, inArray(transactionTable.id, c)),
+			readWhere(ledgerId, (e) => e('transactions.id', 'in', c)),
 		),
 	).map((r) => r.flat());
 
@@ -67,31 +61,35 @@ export const listTransactions = (
 	ledgerId: string,
 	{ filter, after, limit }: PageOptions<Cursor>,
 ): ResultAsync<Page<CountedTransaction, Cursor>> =>
-	readOnly(async (db) => {
-		const keys = await db
-			.select({
-				id: transactionTable.id,
-				date: transactionTable.date,
-				time: sql<string>`${timeKey}::text`,
-				counted: transactionTable.counted,
-			})
-			.from(transactionTable)
-			.where(
-				and(
-					listed(ledgerId, filter),
-					filter.account === null ? undefined : hasPostingIn(filter.account),
-					after === null ? undefined : before(after),
-				),
+	readOnly(async (kysely) => {
+		const keys = await kysely
+			.selectFrom('transactions')
+			.select([
+				'transactions.id',
+				'transactions.date',
+				sql<string>`${timeKey}::text`.as('time'),
+				'transactions.counted',
+			])
+			.where((eb) =>
+				eb.and([
+					listed(ledgerId, filter)(eb),
+					...(filter.account === null ? [] : [hasPostingIn(filter.account)]),
+					...(after === null ? [] : [before(after)]),
+				]),
 			)
-			.orderBy(...NEWEST_FIRST)
-			.limit(limit);
-		const found = await readIn(
-			db,
-			inArray(
-				transactionTable.id,
-				keys.map((k) => k.id),
-			),
-		);
+			.orderBy(newestFirst)
+			.limit(limit)
+			.execute();
+		const found =
+			keys.length === 0
+				? []
+				: await readIn(kysely, (eb) =>
+						eb(
+							'transactions.id',
+							'in',
+							keys.map((k) => k.id),
+						),
+					);
 
 		const byId = Object.fromEntries(found.map((t) => [t.id, t]));
 		const last = keys.length === limit ? keys.at(-1) : undefined;
@@ -106,91 +104,71 @@ export const listTransactions = (
 
 /** Marks these transactions uncounted and every other counted, writing only the rows that change. */
 export const recount = (ledgerId: string, uncounted: string[]): ResultAsync<void> =>
-	withContext('db')((db) =>
+	withContext('kysely')((kysely) =>
 		attempt(() =>
-			db.transaction(async (tx) => {
+			kysely.transaction().execute(async (tx) => {
 				await tx
-					.update(transactionTable)
+					.updateTable('transactions')
 					.set({ counted: true })
-					.where(
-						and(
-							eq(transactionTable.ledgerId, ledgerId),
-							eq(transactionTable.counted, false),
-							sql`${transactionTable.id} <> all(${sql.param(uncounted)}::uuid[])`,
-						),
-					);
+					.where('ledgerId', '=', ledgerId)
+					.where('counted', '=', false)
+					.where(sql<SqlBool>`not ${sql.ref('id')} = any(${uncounted}::uuid[])`)
+					.execute();
 				await tx
-					.update(transactionTable)
+					.updateTable('transactions')
 					.set({ counted: false })
-					.where(
-						and(
-							eq(transactionTable.ledgerId, ledgerId),
-							eq(transactionTable.counted, true),
-							inArray(transactionTable.id, uncounted),
-						),
-					);
+					.where('ledgerId', '=', ledgerId)
+					.where('counted', '=', true)
+					.where(sql<SqlBool>`${sql.ref('id')} = any(${uncounted}::uuid[])`)
+					.execute();
 			}),
 		),
 	);
 
 export type CandidatePair = { ours: string; theirs: string };
 
-const ourFile = alias(ledgerFiles, 'our_file');
-const ourTransaction = alias(transactionTable, 'our_transaction');
-const ourPosting = alias(postings, 'our_posting');
-
-const theirTransaction = alias(transactionTable, 'their_transaction');
-const theirPosting = alias(postings, 'their_posting');
-
 // Same date, amount and balance account, in another file; the other side goes
 // through the `(ledger_id, account, commodity, amount)` index.
 export const listCandidates = (ledgerId: string, key: string): ResultAsync<CandidatePair[]> =>
-	withContext('db')((db) =>
+	withContext('kysely')((kysely) =>
 		attempt(() =>
-			db
-				.selectDistinct({ ours: ourTransaction.id, theirs: theirTransaction.id })
-				.from(ourFile)
-				.innerJoin(ourTransaction, eq(ourTransaction.fileId, ourFile.id))
-				.innerJoin(ourPosting, eq(ourPosting.transactionId, ourTransaction.id))
-				.innerJoin(
-					theirPosting,
-					and(
-						eq(theirPosting.ledgerId, ledgerId),
-						eq(theirPosting.account, ourPosting.account),
-						eq(theirPosting.commodity, ourPosting.commodity),
-						eq(theirPosting.amount, ourPosting.amount),
-					),
+			kysely
+				.selectFrom('ledgerFiles as ourFile')
+				.innerJoin('transactions as ourTransaction', 'ourTransaction.fileId', 'ourFile.id')
+				.innerJoin('postings as ourPosting', 'ourPosting.transactionId', 'ourTransaction.id')
+				.innerJoin('postings as theirPosting', (join) =>
+					join
+						.on('theirPosting.ledgerId', '=', ledgerId)
+						.onRef('theirPosting.account', '=', 'ourPosting.account')
+						.onRef('theirPosting.commodity', '=', 'ourPosting.commodity')
+						.onRef('theirPosting.amount', '=', 'ourPosting.amount'),
 				)
-				.innerJoin(
-					theirTransaction,
-					and(
-						eq(theirTransaction.id, theirPosting.transactionId),
-						eq(theirTransaction.date, ourTransaction.date),
-						ne(theirTransaction.fileId, ourFile.id),
-					),
+				.innerJoin('transactions as theirTransaction', (join) =>
+					join
+						.onRef('theirTransaction.id', '=', 'theirPosting.transactionId')
+						.onRef('theirTransaction.date', '=', 'ourTransaction.date')
+						.onRef('theirTransaction.fileId', '!=', 'ourFile.id'),
 				)
-				.where(
-					and(
-						eq(ourFile.ledgerId, ledgerId),
-						eq(ourFile.key, key),
-						inArray(ourPosting.accountType, BALANCE_TYPES),
-					),
-				),
+				.where('ourFile.ledgerId', '=', ledgerId)
+				.where('ourFile.key', '=', key)
+				.where('ourPosting.accountType', 'in', BALANCE_TYPES)
+				.select(['ourTransaction.id as ours', 'theirTransaction.id as theirs'])
+				.distinct()
+				.execute(),
 		),
 	);
 
 // Only transactions in an event, through the metadata `(ledger_id, key, value)` index.
 export const listEventTransactions = (ledgerId: string): ResultAsync<IndexedTransaction[]> =>
-	withContext('db')((db) =>
-		readWhere(
-			ledgerId,
-			inArray(
-				transactionTable.id,
-				db
-					.select({ id: metadataTable.transactionId })
-					.from(metadataTable)
-					.where(and(eq(metadataTable.ledgerId, ledgerId), inArray(metadataTable.key, EVENT_KEYS))),
-			),
+	readWhere(ledgerId, (eb) =>
+		eb(
+			'transactions.id',
+			'in',
+			eb
+				.selectFrom('metadata')
+				.select('metadata.transactionId')
+				.where('metadata.ledgerId', '=', ledgerId)
+				.where('metadata.key', 'in', EVENT_KEYS),
 		),
 	);
 
@@ -199,22 +177,16 @@ export const listEventsInFile = (
 	ledgerId: string,
 	key: string,
 ): ResultAsync<IndexedTransaction[]> =>
-	withContext('db')((db) =>
-		readWhere(
-			ledgerId,
-			inArray(
-				transactionTable.id,
-				db
-					.select({ id: metadataTable.transactionId })
-					.from(metadataTable)
-					.where(
-						and(
-							eq(metadataTable.ledgerId, ledgerId),
-							inArray(metadataTable.key, EVENT_KEYS),
-							inArray(metadataTable.value, eventsOfFile(db, ledgerId, key)),
-						),
-					),
-			),
+	readWhere(ledgerId, (eb) =>
+		eb(
+			'transactions.id',
+			'in',
+			eb
+				.selectFrom('metadata')
+				.select('metadata.transactionId')
+				.where('metadata.ledgerId', '=', ledgerId)
+				.where('metadata.key', 'in', EVENT_KEYS)
+				.where('metadata.value', 'in', eventsOfFile(eb, ledgerId, key)),
 		),
 	);
 
@@ -222,40 +194,31 @@ export const listEventMembers = (
 	ledgerId: string,
 	event: string,
 ): ResultAsync<IndexedTransaction[]> =>
-	withContext('db')((db) =>
-		readWhere(
-			ledgerId,
-			inArray(
-				transactionTable.id,
-				db
-					.select({ id: metadataTable.transactionId })
-					.from(metadataTable)
-					.where(
-						and(
-							eq(metadataTable.ledgerId, ledgerId),
-							inArray(metadataTable.key, EVENT_KEYS),
-							eq(metadataTable.value, event),
-						),
-					),
-			),
+	readWhere(ledgerId, (eb) =>
+		eb(
+			'transactions.id',
+			'in',
+			eb
+				.selectFrom('metadata')
+				.select('metadata.transactionId')
+				.where('metadata.ledgerId', '=', ledgerId)
+				.where('metadata.key', 'in', EVENT_KEYS)
+				.where('metadata.value', '=', event),
 		),
 	);
 
 export const isEventIdTaken = (ledgerId: string, id: string): ResultAsync<boolean> =>
-	withContext('db')((db) =>
+	withContext('kysely')((kysely) =>
 		attempt(() =>
-			db
-				.select({ id: metadataTable.id })
-				.from(metadataTable)
-				.where(
-					and(
-						eq(metadataTable.ledgerId, ledgerId),
-						inArray(metadataTable.key, EVENT_KEYS),
-						eq(metadataTable.value, id),
-					),
-				)
-				.limit(1),
-		).map((r) => r.length > 0),
+			kysely
+				.selectFrom('metadata')
+				.select('metadata.id')
+				.where('metadata.ledgerId', '=', ledgerId)
+				.where('metadata.key', 'in', EVENT_KEYS)
+				.where('metadata.value', '=', id)
+				.limit(1)
+				.executeTakeFirst(),
+		).map((r) => r !== undefined),
 	);
 
 export const listUnembedded = (
@@ -263,19 +226,16 @@ export const listUnembedded = (
 	model: string,
 	limit: number,
 ): ResultAsync<Unembedded[]> =>
-	withContext('db')((db) =>
+	withContext('kysely')((kysely) =>
 		attempt(() =>
-			db
-				.select({ id: transactionTable.id, description: transactionTable.description })
-				.from(transactionTable)
-				.where(
-					and(
-						eq(transactionTable.ledgerId, ledgerId),
-						sql`${transactionTable.embeddingModel} is distinct from ${model}`,
-					),
-				)
-				.orderBy(desc(transactionTable.date))
-				.limit(limit),
+			kysely
+				.selectFrom('transactions')
+				.select(['transactions.id', 'transactions.description'])
+				.where('transactions.ledgerId', '=', ledgerId)
+				.where('transactions.embeddingModel', 'is distinct from', model)
+				.orderBy('transactions.date', 'desc')
+				.limit(limit)
+				.execute(),
 		),
 	);
 
@@ -285,11 +245,11 @@ export const saveEmbeddings = (
 	model: string,
 	rows: Filled[],
 ): ResultAsync<void> =>
-	withContext('db')((db) =>
+	withContext('kysely')((kysely) =>
 		attempt(() =>
-			db.transaction(async (tx) => {
+			kysely.transaction().execute(async (tx) => {
 				for (const chunk of chunks(rows, ROWS_PER_STATEMENT))
-					await tx.execute(embeddingsUpdate(ledgerId, model, chunk));
+					await embeddingsUpdate(ledgerId, model, chunk).execute(tx);
 			}),
 		),
 	);
@@ -303,89 +263,87 @@ export const findNearest = (
 ): ResultAsync<Neighbour[][]> => {
 	if (vectors.length === 0) return okAsync([]);
 
-	return withContext('db')((db) =>
+	return withContext('kysely')((kysely) =>
 		attempt(() =>
-			db.transaction(async (tx) => {
-				await tx.execute(sql`set local hnsw.iterative_scan = relaxed_order`);
-				await tx.execute(sql.raw(`set local hnsw.ef_search = ${SEARCHED}`));
-				return tx.execute<NeighbourRow>(nearestQuery(ledgerId, model, vectors));
+			kysely.transaction().execute(async (tx) => {
+				await sql`set local hnsw.iterative_scan = relaxed_order`.execute(tx);
+				await sql.raw(`set local hnsw.ef_search = ${SEARCHED}`).execute(tx);
+				return nearestQuery(ledgerId, model, vectors).execute(tx);
 			}),
 		).map((r) => byQuery(vectors.length, r.rows)),
 	);
 };
 
 const hasPostingIn = (a: string) =>
-	sql`exists (select 1 from ${postings} where ${postings.transactionId} = ${transactionTable.id} and ${inAccount(a)})`;
+	sql<SqlBool>`exists (select 1 from postings where ${sql.ref('postings.transactionId')} = ${sql.ref('transactions.id')} and ${inAccount(a)})`;
 
 // The event ids the file's transactions name, through the metadata index.
-const eventsOfFile = (db: Database, ledgerId: string, key: string) =>
-	db
-		.select({ value: metadataTable.value })
-		.from(metadataTable)
-		.innerJoin(transactionTable, eq(transactionTable.id, metadataTable.transactionId))
-		.innerJoin(ledgerFiles, eq(ledgerFiles.id, transactionTable.fileId))
-		.where(
-			and(
-				eq(metadataTable.ledgerId, ledgerId),
-				eq(ledgerFiles.key, key),
-				inArray(metadataTable.key, EVENT_KEYS),
-			),
-		);
+const eventsOfFile = (
+	eb: ExpressionBuilder<Tables, 'transactions'>,
+	ledgerId: string,
+	key: string,
+) =>
+	eb
+		.selectFrom('metadata')
+		.innerJoin('transactions', 'transactions.id', 'metadata.transactionId')
+		.innerJoin('ledgerFiles', 'ledgerFiles.id', 'transactions.fileId')
+		.select('metadata.value')
+		.where('metadata.ledgerId', '=', ledgerId)
+		.where('ledgerFiles.key', '=', key)
+		.where('metadata.key', 'in', EVENT_KEYS);
+
+type Where = (eb: ExpressionBuilder<Tables, 'transactions'>) => Expression<SqlBool>;
 
 // `n` narrows the ledger's transactions. One snapshot, so the metadata
 // read always belongs to the transactions read.
-const readWhere = (l: string, n: SQL | undefined): ResultAsync<IndexedTransaction[]> =>
-	readOnly((t) => readIn(t, and(eq(transactionTable.ledgerId, l), n)));
+const readWhere = (l: string, n: Where): ResultAsync<IndexedTransaction[]> =>
+	readOnly((t) => readIn(t, (e) => e.and([e('transactions.ledgerId', '=', l), n(e)])));
 
-const readIn = async (db: Database, where: SQL | undefined): Promise<IndexedTransaction[]> => {
-	const rows = await db
-		.select({
-			key: ledgerFiles.key,
-			id: transactionTable.id,
-			line: transactionTable.line,
-			date: transactionTable.date,
-			time: transactionTable.time,
-			description: transactionTable.description,
-			postingId: postings.id,
-			account: postings.account,
-			amount: postings.amount,
-			commodity: postings.commodity,
-			priceAmount: postings.priceAmount,
-			priceCommodity: postings.priceCommodity,
-			priceKind: postings.priceKind,
-			costAmount: postings.costAmount,
-			costCommodity: postings.costCommodity,
-			costDate: postings.costDate,
-			balance: postings.balance,
-		})
-		.from(transactionTable)
-		.innerJoin(ledgerFiles, eq(ledgerFiles.id, transactionTable.fileId))
-		.leftJoin(postings, eq(postings.transactionId, transactionTable.id))
+const readIn = async (kysely: Queries, where: Where): Promise<IndexedTransaction[]> => {
+	const rows = await kysely
+		.selectFrom('transactions')
+		.innerJoin('ledgerFiles', 'ledgerFiles.id', 'transactions.fileId')
+		.leftJoin('postings', 'postings.transactionId', 'transactions.id')
+		.select([
+			'ledgerFiles.key',
+			'transactions.id',
+			'transactions.line',
+			'transactions.date',
+			'transactions.time',
+			'transactions.description',
+			'postings.id as postingId',
+			'postings.account',
+			'postings.amount',
+			'postings.commodity',
+			'postings.priceAmount',
+			'postings.priceCommodity',
+			'postings.priceKind',
+			'postings.costAmount',
+			'postings.costCommodity',
+			'postings.costDate',
+			'postings.balance',
+		])
 		.where(where)
-		.orderBy(asc(transactionTable.id), asc(postings.position));
+		.orderBy('transactions.id')
+		.orderBy('postings.position')
+		.execute();
 
 	// A transaction's statements share one connection, so they go one at a time.
-	const ofTransactions = await db
-		.select({
-			owner: metadataTable.transactionId,
-			key: metadataTable.key,
-			value: metadataTable.value,
-		})
-		.from(metadataTable)
-		.innerJoin(transactionTable, eq(transactionTable.id, metadataTable.transactionId))
+	const ofTransactions = await kysely
+		.selectFrom('metadata')
+		.innerJoin('transactions', 'transactions.id', 'metadata.transactionId')
+		.select(['metadata.transactionId as owner', 'metadata.key', 'metadata.value'])
 		.where(where)
-		.orderBy(asc(metadataTable.position));
-	const ofPostings = await db
-		.select({
-			owner: metadataTable.postingId,
-			key: metadataTable.key,
-			value: metadataTable.value,
-		})
-		.from(metadataTable)
-		.innerJoin(postings, eq(postings.id, metadataTable.postingId))
-		.innerJoin(transactionTable, eq(transactionTable.id, postings.transactionId))
+		.orderBy('metadata.position')
+		.execute();
+	const ofPostings = await kysely
+		.selectFrom('metadata')
+		.innerJoin('postings', 'postings.id', 'metadata.postingId')
+		.innerJoin('transactions', 'transactions.id', 'postings.transactionId')
+		.select(['metadata.postingId as owner', 'metadata.key', 'metadata.value'])
 		.where(where)
-		.orderBy(asc(metadataTable.position));
+		.orderBy('metadata.position')
+		.execute();
 	const owned = byOwner([...ofTransactions, ...ofPostings]);
 
 	return [...Map.groupBy(rows, (r) => r.id).values()]
@@ -437,11 +395,11 @@ const byOwner = (rows: MetadataRow[]): Record<string, RupeeMetadata> =>
 	);
 
 const embeddingsUpdate = (ledgerId: string, model: string, rows: Filled[]) => sql`
-	update ${transactionTable} t
+	update transactions t
 	set embedding = f.embedding::vector, embedding_model = ${model}
 	from unnest(
-		${sql.param(rows.map((r) => r.id))}::uuid[],
-		${sql.param(rows.map((r) => (r.vector ? vectorText(r.vector) : null)))}::text[]
+		${rows.map((r) => r.id)}::uuid[],
+		${rows.map((r) => (r.vector ? vectorText(r.vector) : null))}::text[]
 	) as f(id, embedding)
 	where t.id = f.id and t.ledger_id = ${ledgerId}
 `;
@@ -454,17 +412,21 @@ type NeighbourRow = {
 	similarity: number;
 };
 
-const nearestQuery = (ledgerId: string, model: string, vectors: Float32Array[]) => sql`
+const nearestQuery = (
+	ledgerId: string,
+	model: string,
+	vectors: Float32Array[],
+) => sql<NeighbourRow>`
 	select q.i::text as query, p.account, p.amount::text as amount, n.date::text as date, n.similarity
-	from unnest(${sql.param(vectors.map(vectorText))}::text[]::vector[]) with ordinality as q(v, i)
+	from unnest(${vectors.map(vectorText)}::text[]::vector[]) with ordinality as q(v, i)
 	cross join lateral (
 		select t.id, t.date, 1 - (t.embedding <=> q.v) as similarity
-		from ${transactionTable} t
+		from transactions t
 		where t.ledger_id = ${ledgerId} and t.embedding_model = ${model} and t.embedding is not null
 		order by t.embedding <=> q.v
 		limit ${NEAREST}
 	) n
-	join ${postings} p on p.transaction_id = n.id
+	join postings p on p.transaction_id = n.id
 `;
 
 // `query` counts from 1, as `with ordinality` does.

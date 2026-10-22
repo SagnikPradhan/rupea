@@ -1,5 +1,5 @@
 import { resolve } from 'node:path';
-import { openDatabase, type Database, type DatabaseHandle } from '../../db/index';
+import { openDatabase, type DatabaseHandle } from '../../db/index';
 import type { RupeeConfiguration } from './config';
 import type { RupeeContext } from './context';
 import { createLogger } from './logger';
@@ -30,13 +30,14 @@ export const createDatabase = (c: RupeeConfiguration): Promise<DatabaseHandle> =
 
 export const createContext = (
 	config: RupeeConfiguration,
-	db: Database,
+	database: Pick<DatabaseHandle, 'orm' | 'kysely'>,
 	dev: boolean,
 ): RupeeContext => {
 	const logger = createLogger(config.log.level, dev);
 	return {
 		config,
-		db,
+		db: database.orm,
+		kysely: database.kysely,
 		storages: createStorages(config),
 		mailer: logMailer,
 		logger,

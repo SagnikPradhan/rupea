@@ -1,28 +1,18 @@
-import { ROWS_PER_STATEMENT, type Database } from '#lib/server/db/index.ts';
+import { ROWS_PER_STATEMENT, type Queries } from '#lib/server/db/index.ts';
+import type { Tables } from '#lib/server/db/tables.ts';
 import { chunks } from '#lib/server/shared/arrays.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { and, asc, eq, isNull, sql } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
+import { sql, type ExpressionBuilder, type SqlBool } from 'kysely';
 import type { Amount, Quantity } from '../domain/amounts';
 import { book, realised, type BookedPosting, type Booking } from '../domain/lots';
 import { BALANCE_TYPES } from '../domain/taxonomy';
 import type { DisposalKind, LotOrigin, RupeeParseLocation } from '../domain/types';
-import {
-	disposals as disposalTable,
-	ledgerFiles,
-	lots as lotTable,
-	postings,
-	transactions as transactionTable,
-} from './database-schema';
 import { toCost, toPrice, toQuantity } from './database-queries';
 
-const LEDGER_ORDER = [
-	asc(transactionTable.date),
-	sql`${transactionTable.time} asc nulls first`,
-	asc(ledgerFiles.key),
-	asc(transactionTable.line),
-];
+const transactionOrder = sql`${sql.ref('transactions.date')}, ${sql.ref('transactions.time')} nulls first`;
+
+const fileOrder = sql`${sql.ref('ledgerFiles.key')}, ${sql.ref('transactions.line')}`;
 
 export type UnmatchedDisposal = {
 	location: RupeeParseLocation;
@@ -57,9 +47,9 @@ export const rebook = (
 	commodities: string[],
 	uncounted: string[],
 ): ResultAsync<void> =>
-	withContext('db')((db) =>
+	withContext('kysely')((kysely) =>
 		attempt(() =>
-			db.transaction(async (tx) => {
+			kysely.transaction().execute(async (tx) => {
 				for (const commodity of commodities)
 					await bookedPostings(tx, { ledgerId, commodity, uncounted })
 						.then(book)
@@ -69,24 +59,26 @@ export const rebook = (
 	);
 
 export const listUnmatched = (ledgerId: string): ResultAsync<UnmatchedDisposal[]> =>
-	withContext('db')((db) =>
+	withContext('kysely')((kysely) =>
 		attempt(() =>
-			db
-				.select({
-					file: ledgerFiles.key,
-					line: transactionTable.line,
-					account: postings.account,
-					commodity: disposalTable.commodity,
-					kind: disposalTable.kind,
-					units: disposalTable.units,
-					costAmount: postings.costAmount,
-				})
-				.from(disposalTable)
-				.innerJoin(postings, eq(postings.id, disposalTable.postingId))
-				.innerJoin(transactionTable, eq(transactionTable.id, postings.transactionId))
-				.innerJoin(ledgerFiles, eq(ledgerFiles.id, transactionTable.fileId))
-				.where(and(eq(disposalTable.ledgerId, ledgerId), isNull(disposalTable.lotId)))
-				.orderBy(asc(ledgerFiles.key), asc(transactionTable.line)),
+			kysely
+				.selectFrom('disposals')
+				.innerJoin('postings', 'postings.id', 'disposals.postingId')
+				.innerJoin('transactions', 'transactions.id', 'postings.transactionId')
+				.innerJoin('ledgerFiles', 'ledgerFiles.id', 'transactions.fileId')
+				.select([
+					'ledgerFiles.key as file',
+					'transactions.line',
+					'postings.account',
+					'disposals.commodity',
+					'disposals.kind',
+					'disposals.units',
+					'postings.costAmount',
+				])
+				.where('disposals.ledgerId', '=', ledgerId)
+				.where('disposals.lotId', 'is', null)
+				.orderBy(fileOrder)
+				.execute(),
 		).map((rows) =>
 			rows.map((row) => ({
 				location: { file: row.file, line: row.line },
@@ -101,58 +93,61 @@ export const listUnmatched = (ledgerId: string): ResultAsync<UnmatchedDisposal[]
 
 type ListLotsOptions = { account: string; commodity: string };
 
-const sourceLot = alias(lotTable, 'source_lot');
-
 export const listLots = (
 	ledgerId: string,
 	{ account, commodity }: ListLotsOptions,
 ): ResultAsync<LotHistory[]> =>
-	withContext('db')((db) =>
+	withContext('kysely')((kysely) =>
 		attempt(async () => {
-			const inHolding = and(
-				eq(lotTable.ledgerId, ledgerId),
-				eq(lotTable.account, account),
-				eq(lotTable.commodity, commodity),
-			);
+			const inHolding = (eb: ExpressionBuilder<Tables, 'lots'>) =>
+				eb.and([
+					eb('lots.ledgerId', '=', ledgerId),
+					eb('lots.account', '=', account),
+					eb('lots.commodity', '=', commodity),
+				]);
 
-			const lots = await db
-				.select({
-					id: lotTable.id,
-					file: ledgerFiles.key,
-					line: transactionTable.line,
-					date: lotTable.date,
-					origin: lotTable.origin,
-					from: sourceLot.account,
-					units: lotTable.units,
-					remaining: lotTable.remaining,
-					costAmount: lotTable.costAmount,
-					costCommodity: lotTable.costCommodity,
-				})
-				.from(lotTable)
-				.innerJoin(postings, eq(postings.id, lotTable.postingId))
-				.innerJoin(transactionTable, eq(transactionTable.id, postings.transactionId))
-				.innerJoin(ledgerFiles, eq(ledgerFiles.id, transactionTable.fileId))
-				.leftJoin(sourceLot, eq(sourceLot.id, lotTable.sourceId))
+			const lots = await kysely
+				.selectFrom('lots')
+				.innerJoin('postings', 'postings.id', 'lots.postingId')
+				.innerJoin('transactions', 'transactions.id', 'postings.transactionId')
+				.innerJoin('ledgerFiles', 'ledgerFiles.id', 'transactions.fileId')
+				.leftJoin('lots as sourceLot', 'sourceLot.id', 'lots.sourceId')
+				.select([
+					'lots.id',
+					'ledgerFiles.key as file',
+					'transactions.line',
+					'lots.date',
+					'lots.origin',
+					'sourceLot.account as from',
+					'lots.units',
+					'lots.remaining',
+					'lots.costAmount',
+					'lots.costCommodity',
+				])
 				.where(inHolding)
-				.orderBy(asc(lotTable.date), ...LEDGER_ORDER.slice(2));
-			const disposals = await db
-				.select({
-					lot: lotTable.id,
-					file: ledgerFiles.key,
-					line: transactionTable.line,
-					date: transactionTable.date,
-					kind: disposalTable.kind,
-					units: disposalTable.units,
-					priceAmount: disposalTable.priceAmount,
-					priceCommodity: disposalTable.priceCommodity,
-				})
-				.from(disposalTable)
-				.innerJoin(lotTable, eq(lotTable.id, disposalTable.lotId))
-				.innerJoin(postings, eq(postings.id, disposalTable.postingId))
-				.innerJoin(transactionTable, eq(transactionTable.id, postings.transactionId))
-				.innerJoin(ledgerFiles, eq(ledgerFiles.id, transactionTable.fileId))
+				.orderBy('lots.date')
+				.orderBy(fileOrder)
+				.execute();
+			const disposals = await kysely
+				.selectFrom('disposals')
+				.innerJoin('lots', 'lots.id', 'disposals.lotId')
+				.innerJoin('postings', 'postings.id', 'disposals.postingId')
+				.innerJoin('transactions', 'transactions.id', 'postings.transactionId')
+				.innerJoin('ledgerFiles', 'ledgerFiles.id', 'transactions.fileId')
+				.select([
+					'lots.id as lot',
+					'ledgerFiles.key as file',
+					'transactions.line',
+					'transactions.date',
+					'disposals.kind',
+					'disposals.units',
+					'disposals.priceAmount',
+					'disposals.priceCommodity',
+				])
 				.where(inHolding)
-				.orderBy(...LEDGER_ORDER);
+				.orderBy(transactionOrder)
+				.orderBy(fileOrder)
+				.execute();
 
 			const byLot = Object.groupBy(disposals, (d) => d.lot);
 			return lots.map((lot) => ({
@@ -187,35 +182,34 @@ export const listLots = (
 type BookedPostingsOptions = { ledgerId: string; commodity: string; uncounted: string[] };
 
 const bookedPostings = (
-	db: Database,
+	kysely: Queries,
 	{ ledgerId, commodity, uncounted }: BookedPostingsOptions,
 ): Promise<BookedPosting[]> =>
-	db
-		.select({
-			id: postings.id,
-			transactionId: postings.transactionId,
-			account: postings.account,
-			accountType: postings.accountType,
-			date: transactionTable.date,
-			amount: postings.amount,
-			priceAmount: postings.priceAmount,
-			priceCommodity: postings.priceCommodity,
-			priceKind: postings.priceKind,
-			costAmount: postings.costAmount,
-			costCommodity: postings.costCommodity,
-			costDate: postings.costDate,
-		})
-		.from(postings)
-		.innerJoin(transactionTable, eq(transactionTable.id, postings.transactionId))
-		.innerJoin(ledgerFiles, eq(ledgerFiles.id, transactionTable.fileId))
-		.where(
-			and(
-				eq(postings.ledgerId, ledgerId),
-				eq(postings.commodity, commodity),
-				sql`${transactionTable.id} <> all(${sql.param(uncounted)}::uuid[])`,
-			),
-		)
-		.orderBy(...LEDGER_ORDER, asc(postings.position))
+	kysely
+		.selectFrom('postings')
+		.innerJoin('transactions', 'transactions.id', 'postings.transactionId')
+		.innerJoin('ledgerFiles', 'ledgerFiles.id', 'transactions.fileId')
+		.select([
+			'postings.id',
+			'postings.transactionId',
+			'postings.account',
+			'postings.accountType',
+			'transactions.date',
+			'postings.amount',
+			'postings.priceAmount',
+			'postings.priceCommodity',
+			'postings.priceKind',
+			'postings.costAmount',
+			'postings.costCommodity',
+			'postings.costDate',
+		])
+		.where('postings.ledgerId', '=', ledgerId)
+		.where('postings.commodity', '=', commodity)
+		.where(sql<SqlBool>`${sql.ref('transactions.id')} <> all(${uncounted}::uuid[])`)
+		.orderBy(transactionOrder)
+		.orderBy(fileOrder)
+		.orderBy('postings.position')
+		.execute()
 		.then((rows) =>
 			rows.map((row) => ({
 				id: row.id,
@@ -231,7 +225,10 @@ const bookedPostings = (
 
 type ReplaceLotsOptions = { ledgerId: string; commodity: string; booking: Booking };
 
-const replaceLots = async (db: Database, { ledgerId, commodity, booking }: ReplaceLotsOptions) => {
+const replaceLots = async (
+	kysely: Queries,
+	{ ledgerId, commodity, booking }: ReplaceLotsOptions,
+) => {
 	const lotRows = booking.lots.map((lot) => ({
 		id: lot.id,
 		ledgerId,
@@ -257,13 +254,18 @@ const replaceLots = async (db: Database, { ledgerId, commodity, booking }: Repla
 		priceCommodity: disposal.price?.commodity ?? null,
 	}));
 
-	await db
-		.delete(disposalTable)
-		.where(and(eq(disposalTable.ledgerId, ledgerId), eq(disposalTable.commodity, commodity)));
-	await db
-		.delete(lotTable)
-		.where(and(eq(lotTable.ledgerId, ledgerId), eq(lotTable.commodity, commodity)));
-	for (const chunk of chunks(lotRows, ROWS_PER_STATEMENT)) await db.insert(lotTable).values(chunk);
+	await kysely
+		.deleteFrom('disposals')
+		.where('ledgerId', '=', ledgerId)
+		.where('commodity', '=', commodity)
+		.execute();
+	await kysely
+		.deleteFrom('lots')
+		.where('ledgerId', '=', ledgerId)
+		.where('commodity', '=', commodity)
+		.execute();
+	for (const chunk of chunks(lotRows, ROWS_PER_STATEMENT))
+		await kysely.insertInto('lots').values(chunk).execute();
 	for (const chunk of chunks(disposalRows, ROWS_PER_STATEMENT))
-		await db.insert(disposalTable).values(chunk);
+		await kysely.insertInto('disposals').values(chunk).execute();
 };

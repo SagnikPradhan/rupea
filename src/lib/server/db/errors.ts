@@ -11,11 +11,11 @@ export const attemptWrite = <T>(f: () => PromiseLike<T>): ResultAsync<T> => atte
 export const violates = (e: RupeeError, c: string): boolean =>
 	e.type === 'UniqueViolation' && e.constraint === c;
 
-/** Reads the driver's error, which Drizzle keeps as the cause. */
+/** Reads the driver's error, which Drizzle keeps as the cause and Kysely throws as is. */
 const fromDriver = (thrown: unknown): RupeeError => {
-	const cause: DriverError | undefined =
-		thrown instanceof Error && thrown.cause instanceof Error ? thrown.cause : undefined;
-	if (cause?.code === UNIQUE_VIOLATION && cause.constraint)
-		return fault('UniqueViolation', { constraint: cause.constraint });
+	const driver: DriverError | undefined =
+		thrown instanceof Error && thrown.cause instanceof Error ? thrown.cause : (thrown as Error);
+	if (driver?.code === UNIQUE_VIOLATION && driver.constraint)
+		return fault('UniqueViolation', { constraint: driver.constraint });
 	return unknownError(thrown);
 };

@@ -1,5 +1,5 @@
 import { AsyncLocalStorage } from 'node:async_hooks';
-import type { Database } from '../../db/index';
+import type { Database, Queries } from '../../db/index';
 import type { RupeeConfiguration } from './config';
 import type { Logger } from './logger';
 import type { Mailer } from './mailer';
@@ -9,6 +9,7 @@ import type { Storages } from '../storage/storage';
 export type RupeeContext = {
 	config: RupeeConfiguration;
 	db: Database;
+	kysely: Queries;
 	storages: Storages;
 	mailer: Mailer;
 	logger: Logger;

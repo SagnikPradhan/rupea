@@ -1,53 +1,43 @@
-import { ROWS_PER_STATEMENT, type Database } from '#lib/server/db/index.ts';
+import { ROWS_PER_STATEMENT, type Queries } from '#lib/server/db/index.ts';
 import { chunks } from '#lib/server/shared/arrays.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
 import { attempt, errAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { and, eq, inArray, isNotNull, sql } from 'drizzle-orm';
+import { sql, type SqlBool } from 'kysely';
 import { v7 as uuidv7 } from 'uuid';
 import { CURRENCIES } from '../domain/lots';
 import { displayLocation } from '../domain/parser';
 import { marketPrices } from '../domain/prices';
 import { accountType, BALANCE_TYPES } from '../domain/taxonomy';
 import { Feed, type RupeeLedgerFile, type RupeeMetadata } from '../domain/types';
-import {
-	ledgerFiles,
-	metadata as metadataTable,
-	postings,
-	prices as priceTable,
-	symbols as symbolTable,
-	transactions as transactionTable,
-} from './database-schema';
 
 export type FileVersion = { key: string; version: string | null };
 
 export const listIndexedFiles = (ledgerId: string): ResultAsync<FileVersion[]> =>
-	withContext('db')((db) =>
+	withContext('kysely')((kysely) =>
 		attempt(() =>
-			db
-				.select({ key: ledgerFiles.key, version: ledgerFiles.version })
-				.from(ledgerFiles)
-				.where(eq(ledgerFiles.ledgerId, ledgerId)),
+			kysely
+				.selectFrom('ledgerFiles')
+				.select(['ledgerFiles.key', 'ledgerFiles.version'])
+				.where('ledgerFiles.ledgerId', '=', ledgerId)
+				.execute(),
 		),
 	);
 
 /** Of these checksums, those in a file's metadata, unlocked or as uploaded. */
 export const findImported = (ledgerId: string, checksums: string[]): ResultAsync<string[]> =>
-	withContext('db')((db) =>
+	withContext('kysely')((kysely) =>
 		attempt(() =>
-			db
-				.selectDistinct({ value: metadataTable.value })
-				.from(metadataTable)
-				.where(
-					and(
-						eq(metadataTable.ledgerId, ledgerId),
-						inArray(metadataTable.key, ['checksum', 'original-checksum']),
-						inArray(metadataTable.value, checksums),
-						isNotNull(metadataTable.fileId),
-					),
-				)
-				.then((r) => r.map((c) => c.value)),
-		),
+			kysely
+				.selectFrom('metadata')
+				.select('metadata.value')
+				.distinct()
+				.where('metadata.ledgerId', '=', ledgerId)
+				.where('metadata.key', 'in', ['checksum', 'original-checksum'])
+				.where(sql<SqlBool>`${sql.ref('metadata.value')} = any(${checksums}::text[])`)
+				.where('metadata.fileId', 'is not', null)
+				.execute(),
+		).map((r) => r.map((c) => c.value)),
 	);
 
 type IndexFileOptions = { key: string; version: string | null; file: RupeeLedgerFile };
@@ -62,18 +52,16 @@ export const indexFile = (
 	const untyped = untypedAccount(file);
 	if (untyped) return errAsync(untyped);
 
-	return withContext('db')((db) =>
+	return withContext('kysely')((kysely) =>
 		attempt(() =>
-			db.transaction(async (tx) => {
+			kysely.transaction().execute(async (tx) => {
 				const fileId = await tx
-					.insert(ledgerFiles)
+					.insertInto('ledgerFiles')
 					.values({ ledgerId, key, version })
-					.onConflictDoUpdate({
-						target: [ledgerFiles.ledgerId, ledgerFiles.key],
-						set: { version },
-					})
-					.returning({ id: ledgerFiles.id })
-					.then(([f]) => f?.id ?? Promise.reject(new Error(`${key} was not saved`)));
+					.onConflict((o) => o.columns(['ledgerId', 'key']).doUpdateSet({ version }))
+					.returning('id')
+					.executeTakeFirstOrThrow()
+					.then((f) => f.id);
 				const embedded = await embeddingsIn(tx, fileId);
 
 				const indexed = file.transactions.map((t) => ({
@@ -90,7 +78,7 @@ export const indexFile = (
 					date: transaction.date.toString(),
 					time: transaction.time?.toString() ?? null,
 					description: transaction.description,
-					embedding: embedded[transaction.description]?.embedding ?? null,
+					embedding: embedding(embedded[transaction.description]),
 					embeddingModel: embedded[transaction.description]?.embeddingModel ?? null,
 				}));
 				const postingRows = indexed.flatMap(({ id, postings: p }) =>
@@ -121,12 +109,14 @@ export const indexFile = (
 				);
 				const priceRows = marketPrices(file).map((p) => ({
 					commodity: p.commodity,
-					fileId,
-					line: p.location.line,
-					date: p.date.toString(),
-					priceAmount: p.price.amount,
-					priceCommodity: p.price.commodity,
-					source: p.source,
+					row: {
+						fileId,
+						line: p.location.line,
+						date: p.date.toString(),
+						priceAmount: p.price.amount,
+						priceCommodity: p.price.commodity,
+						source: p.source,
+					},
 				}));
 				const metadataRows = [
 					...ownedBy({ ledgerId, fileId }, file.metadata),
@@ -139,19 +129,19 @@ export const indexFile = (
 				];
 
 				const before = await lotCommoditiesOf(tx, fileId);
-				await tx.delete(metadataTable).where(eq(metadataTable.fileId, fileId));
-				await tx.delete(transactionTable).where(eq(transactionTable.fileId, fileId));
-				await tx.delete(priceTable).where(eq(priceTable.fileId, fileId));
+				await tx.deleteFrom('metadata').where('fileId', '=', fileId).execute();
+				await tx.deleteFrom('transactions').where('fileId', '=', fileId).execute();
+				await tx.deleteFrom('prices').where('fileId', '=', fileId).execute();
 				// A transaction's statements share one connection, so they go one at a time.
 				for (const chunk of chunks(transactionRows, ROWS_PER_STATEMENT))
-					await tx.insert(transactionTable).values(chunk);
+					await tx.insertInto('transactions').values(chunk).execute();
 				for (const chunk of chunks(postingRows, ROWS_PER_STATEMENT))
-					await tx.insert(postings).values(chunk);
+					await tx.insertInto('postings').values(chunk).execute();
 				const symbolled = await withSymbols(tx, ledgerId, priceRows);
 				for (const chunk of chunks(symbolled, ROWS_PER_STATEMENT))
-					await tx.insert(priceTable).values(chunk);
+					await tx.insertInto('prices').values(chunk).execute();
 				for (const chunk of chunks(metadataRows, ROWS_PER_STATEMENT))
-					await tx.insert(metadataTable).values(chunk);
+					await tx.insertInto('metadata').values(chunk).execute();
 				const after = await lotCommoditiesOf(tx, fileId);
 
 				return [...before, ...after];
@@ -162,17 +152,19 @@ export const indexFile = (
 
 /** Returns the commodities whose lots the file held. */
 export const unindexFile = (ledgerId: string, key: string): ResultAsync<string[]> =>
-	withContext('db')((db) =>
+	withContext('kysely')((kysely) =>
 		attempt(() =>
-			db.transaction(async (tx) => {
-				const [file] = await tx
-					.select({ id: ledgerFiles.id })
-					.from(ledgerFiles)
-					.where(and(eq(ledgerFiles.ledgerId, ledgerId), eq(ledgerFiles.key, key)));
+			kysely.transaction().execute(async (tx) => {
+				const file = await tx
+					.selectFrom('ledgerFiles')
+					.select('ledgerFiles.id')
+					.where('ledgerFiles.ledgerId', '=', ledgerId)
+					.where('ledgerFiles.key', '=', key)
+					.executeTakeFirst();
 				if (!file) return [];
 
 				const touched = await lotCommoditiesOf(tx, file.id);
-				await tx.delete(ledgerFiles).where(eq(ledgerFiles.id, file.id));
+				await tx.deleteFrom('ledgerFiles').where('id', '=', file.id).execute();
 				return touched;
 			}),
 		),
@@ -184,14 +176,16 @@ export const renameIndexedFile = (
 	from: string,
 	to: string,
 ): ResultAsync<string[]> =>
-	withContext('db')((db) =>
+	withContext('kysely')((kysely) =>
 		attempt(() =>
-			db
-				.update(ledgerFiles)
+			kysely
+				.updateTable('ledgerFiles')
 				.set({ key: to })
-				.where(and(eq(ledgerFiles.ledgerId, ledgerId), eq(ledgerFiles.key, from)))
-				.returning({ id: ledgerFiles.id })
-				.then(([file]) => (file ? lotCommoditiesOf(db, file.id) : [])),
+				.where('ledgerId', '=', ledgerId)
+				.where('key', '=', from)
+				.returning('id')
+				.executeTakeFirst()
+				.then((f) => (f ? lotCommoditiesOf(kysely, f.id) : [])),
 		),
 	);
 
@@ -210,18 +204,25 @@ const untypedAccount = (file: RupeeLedgerFile): RupeeError | null =>
 		)
 		.at(0) ?? null;
 
-type Embedded = { embedding: number[] | null; embeddingModel: string | null };
+type Embedded = { embedding: string | null; embeddingModel: string | null };
 
-const embeddingsIn = (db: Database, fileId: string): Promise<Record<string, Embedded>> =>
-	db
-		.selectDistinctOn([transactionTable.description], {
-			description: transactionTable.description,
-			embedding: transactionTable.embedding,
-			embeddingModel: transactionTable.embeddingModel,
-		})
-		.from(transactionTable)
-		.where(and(eq(transactionTable.fileId, fileId), isNotNull(transactionTable.embedding)))
+// Read as the text pgvector prints, since the driver has no parser for the type.
+const embeddingsIn = (kysely: Queries, fileId: string): Promise<Record<string, Embedded>> =>
+	kysely
+		.selectFrom('transactions')
+		.select([
+			'transactions.description',
+			sql<string>`${sql.ref('transactions.embedding')}::text`.as('embedding'),
+			'transactions.embeddingModel',
+		])
+		.distinctOn('transactions.description')
+		.where('transactions.fileId', '=', fileId)
+		.where('transactions.embedding', 'is not', null)
+		.execute()
 		.then((l) => Object.fromEntries(l.map((r) => [r.description, r])));
+
+const embedding = (e: Embedded | undefined) =>
+	e?.embedding ? sql<number[]>`${e.embedding}::vector` : null;
 
 type MetadataOwner = { ledgerId: string } & (
 	{ fileId: string } | { transactionId: string } | { postingId: string }
@@ -237,53 +238,51 @@ const ownedBy = (o: MetadataOwner, m: RupeeMetadata) =>
  * New symbols go in sorted, so two syncs making the same ones take their locks in one order, and
  * one another sync made meanwhile is updated in place so that it is still returned.
  */
-const withSymbols = async <P extends { commodity: string }>(
-	db: Database,
+const withSymbols = async <R>(
+	kysely: Queries,
 	ledgerId: string,
-	prices: P[],
+	prices: { commodity: string; row: R }[],
 ) => {
 	const byCommodity = Object.groupBy(prices, (p) => p.commodity);
 	const commodities = Object.keys(byCommodity).toSorted();
-	const columns = { id: symbolTable.id, symbol: symbolTable.symbol };
 
-	const known = await db
-		.select(columns)
-		.from(symbolTable)
-		.where(
-			and(
-				eq(symbolTable.feed, Feed.Ledger),
-				eq(symbolTable.ledgerId, ledgerId),
-				inArray(symbolTable.symbol, commodities),
-			),
-		);
+	const known = commodities.length
+		? await kysely
+				.selectFrom('symbols')
+				.select(['symbols.id', 'symbols.symbol'])
+				.where('symbols.feed', '=', Feed.Ledger)
+				.where('symbols.ledgerId', '=', ledgerId)
+				.where('symbols.symbol', 'in', commodities)
+				.execute()
+		: [];
 	const seen = new Set(known.map((k) => k.symbol));
 	const missing = commodities.filter((c) => !seen.has(c));
 	const made = missing.length
-		? await db
-				.insert(symbolTable)
+		? await kysely
+				.insertInto('symbols')
 				.values(missing.map((c) => ({ feed: Feed.Ledger, symbol: c, ledgerId })))
-				.onConflictDoUpdate({
-					target: [symbolTable.feed, symbolTable.ledgerId, symbolTable.symbol],
-					set: { symbol: sql`excluded.symbol` },
-				})
-				.returning(columns)
+				.onConflict((oc) =>
+					oc
+						.columns(['feed', 'ledgerId', 'symbol'])
+						.doUpdateSet((e) => ({ symbol: e.ref('excluded.symbol') })),
+				)
+				.returning(['symbols.id', 'symbols.symbol'])
+				.execute()
 		: [];
 
 	return [...known, ...made].flatMap((s) =>
-		(byCommodity[s.symbol] ?? []).map((p) => ({ ...p, symbolId: s.id })),
+		(byCommodity[s.symbol] ?? []).map((p) => ({ ...p.row, symbolId: s.id })),
 	);
 };
 
-const lotCommoditiesOf = (db: Database, fileId: string): Promise<string[]> =>
-	db
-		.selectDistinct({ commodity: postings.commodity })
-		.from(postings)
-		.innerJoin(transactionTable, eq(transactionTable.id, postings.transactionId))
-		.where(
-			and(
-				eq(transactionTable.fileId, fileId),
-				inArray(postings.accountType, BALANCE_TYPES),
-				sql`${postings.commodity} <> all(${sql.param(CURRENCIES)}::text[])`,
-			),
-		)
+const lotCommoditiesOf = (kysely: Queries, fileId: string): Promise<string[]> =>
+	kysely
+		.selectFrom('postings')
+		.innerJoin('transactions', 'transactions.id', 'postings.transactionId')
+		.select('postings.commodity')
+		.distinct()
+		.where('transactions.fileId', '=', fileId)
+		.where('postings.accountType', 'in', BALANCE_TYPES)
+		.where(sql<SqlBool>`${sql.ref('postings.commodity')} <> all(${CURRENCIES}::text[])`)
+		.execute()
 		.then((r) => r.map((c) => c.commodity));

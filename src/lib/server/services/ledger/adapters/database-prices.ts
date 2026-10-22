@@ -1,16 +1,10 @@
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { sql, type SQL } from 'drizzle-orm';
+import { sql, type RawBuilder } from 'kysely';
 import { AMOUNT_UNIT, DEFAULT_COMMODITY, type Amount, type Quantity } from '../domain/amounts';
 import { AccountType, Feed, PriceSource } from '../domain/types';
-import {
-	postings,
-	prices as priceTable,
-	symbols as symbolTable,
-	transactions as transactionTable,
-} from './database-schema';
 
-const UNIT = sql.raw(AMOUNT_UNIT.toString());
+const UNIT = sql.lit(AMOUNT_UNIT);
 
 /** What balance accounts were worth in rupees at the end of one day, and how many commodities had no price. */
 export type Worth = {
@@ -28,15 +22,15 @@ export const findLatestPrices = (
 	commodities: string[],
 	day: Temporal.PlainDate,
 ): ResultAsync<Record<string, Quantity>> =>
-	withContext('db')((db) =>
+	withContext('kysely')((kysely) =>
 		attempt(() =>
-			db.execute<LatestPriceRow>(sql`
+			sql<LatestPriceRow>`
 				with own as (${ownSymbols(ledgerId)})
-				select c.commodity, p.amount::text as "priceAmount", p.currency as "priceCommodity"
-				from unnest(${sql.param(commodities)}::text[]) as c(commodity)
+				select c.commodity, p.amount::text as price_amount, p.currency as price_commodity
+				from unnest(${commodities}::text[]) as c(commodity)
 				join own o on o.symbol = c.commodity
 				cross join lateral (${priceOn(sql`o.id`, sql`${day.toString()}::date`)}) p
-			`),
+			`.execute(kysely),
 		).map((result) =>
 			Object.fromEntries(
 				result.rows.map((row) => [
@@ -65,14 +59,14 @@ export const listWorth = (
 	from: Temporal.PlainDate,
 	to: Temporal.PlainDate,
 ): ResultAsync<Worth[]> =>
-	withContext('db')((db) =>
+	withContext('kysely')((kysely) =>
 		attempt(() =>
-			db.execute<WorthRow>(sql`
+			sql<WorthRow>`
 				with own as (${ownSymbols(ledgerId)}),
 				deltas as (
 					select p.account_type = ${AccountType.Assets} as asset, p.commodity, t.date, sum(p.amount) as amount
-					from ${postings} p
-					join ${transactionTable} t on t.id = p.transaction_id
+					from postings p
+					join transactions t on t.id = p.transaction_id
 					where p.ledger_id = ${ledgerId} and p.account_type in (${AccountType.Assets}, ${AccountType.Liabilities})
 						and t.date <= ${to.toString()} and t.counted
 					group by 1, 2, 3
@@ -119,7 +113,7 @@ export const listWorth = (
 				left join valued v on v.day = d.day
 				group by d.day
 				order by d.day
-			`),
+			`.execute(kysely),
 		).map((r) =>
 			r.rows.map((w) => ({
 				day: Temporal.PlainDate.from(w.day),
@@ -133,16 +127,16 @@ export const listWorth = (
 
 /** The ledger's own symbols, so each commodity is looked up once rather than once a day. */
 const ownSymbols = (ledgerId: string) => sql`
-	select ${symbolTable.id} as id, ${symbolTable.symbol} as symbol
-	from ${symbolTable}
-	where ${symbolTable.feed} = ${Feed.Ledger} and ${symbolTable.ledgerId} = ${ledgerId}
+	select id, symbol
+	from symbols
+	where feed = ${Feed.Ledger} and ledger_id = ${ledgerId}
 `;
 
 /** The latest price of a symbol on or before a day, where a P line beats an at-price on the same day. */
-const priceOn = (symbolId: SQL, day: SQL) => sql`
-	select ${priceTable.priceAmount} as amount, ${priceTable.priceCommodity} as currency
-	from ${priceTable}
-	where ${priceTable.symbolId} = ${symbolId} and ${priceTable.date} <= ${day}
-	order by ${priceTable.date} desc, ${priceTable.source} = ${PriceSource.Line} desc, ${priceTable.line} desc
+const priceOn = (symbolId: RawBuilder<unknown>, day: RawBuilder<unknown>) => sql`
+	select price_amount as amount, price_commodity as currency
+	from prices
+	where symbol_id = ${symbolId} and date <= ${day}
+	order by date desc, source = ${PriceSource.Line} desc, line desc
 	limit 1
 `;

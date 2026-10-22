@@ -4,7 +4,19 @@ type AnyFunction =
 	TSESTree.FunctionDeclaration | TSESTree.FunctionExpression | TSESTree.ArrowFunctionExpression;
 
 const maxLength = (n: number) => (n === 1 ? 1 : n <= 3 ? 2 : n <= 10 ? 12 : n <= 30 ? 24 : 32);
-const ignored = new Set(['id', 'url', 'uri', 'db', 'sql', 'api', 'err', 'ctx', 'req', 'res']);
+const ignored = new Set([
+	'id',
+	'url',
+	'uri',
+	'db',
+	'kysely',
+	'sql',
+	'api',
+	'err',
+	'ctx',
+	'req',
+	'res',
+]);
 
 const createRule = ESLintUtils.RuleCreator.withoutDocs;
 const description = 'Prefer shorter variable names in shorter functions';

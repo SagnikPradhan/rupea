@@ -740,6 +740,27 @@ describe('lots', () => {
 			expect(await issues(ledger)).toEqual(ok([]));
 			expect(await held(db, ledger.id)).toHaveLength(1);
 		}));
+
+	it('books again when an event stops counting the buy', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({
+				ledger,
+				key: 'b.rupee',
+				content: bought.replace('Buy\n', 'Buy\n\t- same-as: 2024-01-02-infy-otter\n'),
+			});
+			expect(await held(db, ledger.id)).toHaveLength(1);
+
+			await Files.createFile({
+				ledger,
+				key: 'a.rupee',
+				content:
+					'2024-01-02 Transfer\n\t- event: 2024-01-02-infy-otter\n\tAssets:Zerodha 15000\n\tAssets:Bank\n',
+			});
+			await issues(ledger);
+
+			expect(await held(db, ledger.id)).toEqual([]);
+		}));
 });
 
 describe('syncing past a failure', () => {

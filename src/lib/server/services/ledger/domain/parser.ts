@@ -57,16 +57,15 @@ export const parse = (
 	const preamble = readMetadata(
 		takeWhile(input, (l) => isBlank(l) || isMetadata(l)).filter(isMetadata),
 	);
-	const prices = batch(input.filter(isPriceLine).map((l) => parsePriceLine(c, l)));
-	const links = batch(input.filter(isLinkLine).map((l) => parseLinkLine(c, l)));
+	const pLines = batch(input.filter(isPLine).map((l) => parsePLine(c, l)));
 	const parsed = parseTransactions(c, input);
 
 	return {
 		metadata: preamble.metadata,
-		prices: prices.succeeded,
-		links: links.succeeded,
+		prices: pLines.succeeded.filter(isPrice),
+		links: pLines.succeeded.filter(isLink),
 		succeeded: parsed.succeeded,
-		failed: [...preamble.failed, ...prices.failed, ...links.failed, ...parsed.failed],
+		failed: [...preamble.failed, ...pLines.failed, ...parsed.failed],
 	};
 };
 
@@ -180,10 +179,13 @@ export const isMetadata = ({ content }: RupeeLine) => /^\s*-(\s|$)/.test(content
 export const isPosting = (l: RupeeLine) =>
 	/^(\t| {2})/.test(l.content) && !isBlank(l) && !isMetadata(l);
 
-/** A P line prices a commodity, or links it to a feed when it ends in feed:symbol. */
+/** A P line prices a commodity, or links it to a feed. */
 const isPLine = ({ content }: RupeeLine) => /^P\s/.test(content);
-const isLinkLine = (l: RupeeLine) => isPLine(l) && LINK.test(l.content);
-const isPriceLine = (l: RupeeLine) => isPLine(l) && !LINK.test(l.content);
+const isPrice = (p: RupeeMarketPrice | RupeeLink): p is RupeeMarketPrice => 'price' in p;
+const isLink = (p: RupeeMarketPrice | RupeeLink): p is RupeeLink => 'feed' in p;
+
+const parsePLine = (c: LedgerConfiguration, l: RupeeLine): Result<RupeeMarketPrice | RupeeLink> =>
+	readLink(c, l) ?? parsePriceLine(c, l);
 
 /** Each commodity nets to zero by weight; a posting without an amount takes what is left. */
 const balance = (
@@ -288,11 +290,14 @@ const parsePriceLine = (
 	});
 };
 
-/** P date|* commodity feed:symbol, where * links it from the start. */
-const parseLinkLine = (
+/**
+ * P date|* commodity feed:symbol, where * links it from the start. Any other P line is a price,
+ * so a line that only ends in a word with a colon is a bad price. Feeds spell symbols in capitals.
+ */
+const readLink = (
 	{ dateFormats }: LedgerConfiguration,
 	{ location, content }: RupeeLine,
-): Result<RupeeLink> => {
+): Result<RupeeLink> | null => {
 	const { feed = '', symbol = '' } = LINK.exec(content)?.groups ?? {};
 	const words = content.trim().split(/\s+/).slice(1, -1);
 	const since =
@@ -300,8 +305,7 @@ const parseLinkLine = (
 			? { value: null, rest: words.slice(1) }
 			: readWords(dateFormats, words, parseDate);
 	const [commodity = '', ...extra] = since?.rest ?? [];
-	if (!since || !COMMODITY.test(commodity) || extra.length > 0)
-		return err(fault('ParseInvalidLink', { location: displayLocation(location) }));
+	if (!symbol || !since || !COMMODITY.test(commodity) || extra.length > 0) return null;
 
 	const linked = LINKED[feed.toLowerCase()];
 	if (!linked) return err(fault('ParseUnknownFeed', { location: displayLocation(location), feed }));
@@ -310,7 +314,7 @@ const parseLinkLine = (
 		since: since.value,
 		commodity: commodity.toUpperCase(),
 		feed: linked,
-		symbol,
+		symbol: symbol.toUpperCase(),
 	});
 };
 

@@ -42,7 +42,7 @@ export const findLatestQuote = (symbolId: string): ResultAsync<Temporal.PlainDat
 		),
 	);
 
-/** A day quoted again replaces the quote it had, since a feed may correct one. */
+/** A day quoted again replaces the quote it had, since a feed may correct one; within one answer the last quote of a day wins. */
 export const saveQuotes = (
 	symbolId: string,
 	source: PriceSource,
@@ -50,7 +50,8 @@ export const saveQuotes = (
 ): ResultAsync<void> =>
 	withContext('db')((db) =>
 		attempt(async () => {
-			const rows = quotes.map((q) => ({
+			const daily = Object.values(Object.fromEntries(quotes.map((q) => [q.date.toString(), q])));
+			const rows = daily.map((q) => ({
 				symbolId,
 				source,
 				date: q.date.toString(),
@@ -91,7 +92,7 @@ export const saveFetch = (symbolId: string, error: RupeeError | null): ResultAsy
 		}),
 	);
 
-/** Symbols the ledger links to that nothing has fetched yet, or tried to. */
+/** Symbols the ledger links that no fetch has worked for yet, unless the feed said it has none. */
 export const listUnfetched = (ledgerId: string): ResultAsync<string[]> =>
 	withContext('db')((db) =>
 		attempt(() =>
@@ -99,7 +100,13 @@ export const listUnfetched = (ledgerId: string): ResultAsync<string[]> =>
 				.selectDistinct({ id: linkTable.symbolId })
 				.from(linkTable)
 				.leftJoin(fetchTable, eq(fetchTable.symbolId, linkTable.symbolId))
-				.where(and(eq(linkTable.ledgerId, ledgerId), isNull(fetchTable.id)))
+				.where(
+					and(
+						eq(linkTable.ledgerId, ledgerId),
+						isNull(fetchTable.fetchedAt),
+						sql`${fetchTable.error}->>'type' is distinct from 'FeedSymbolUnknown'`,
+					),
+				)
 				.then((r) => r.map((s) => s.id)),
 		),
 	);

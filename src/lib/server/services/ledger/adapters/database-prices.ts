@@ -140,15 +140,18 @@ const ownSymbols = (ledgerId: string) => sql`
 	where ${symbolTable.feed} = ${Feed.Ledger} and ${symbolTable.ledgerId} = ${ledgerId}
 `;
 
-/** The ledger's links, each holding from its since until the next link of its commodity. */
+/**
+ * The ledger's links, each holding from its since until the next link of its commodity. A link
+ * from the start holds from -infinity, so of two links from one day the later written holds.
+ */
 const ownLinks = (ledgerId: string) => sql`
-	select ${linkTable.alias} as alias, ${linkTable.symbolId} as symbol_id,
-		coalesce(${linkTable.since}, '-infinity'::date) as since,
-		coalesce(lead(${linkTable.since}) over (
-			partition by ${linkTable.alias} order by ${linkTable.since} nulls first, ${linkTable.id}
-		), 'infinity'::date) as until
-	from ${linkTable}
-	where ${linkTable.ledgerId} = ${ledgerId}
+	select alias, symbol_id, since, coalesce(lead(since) over (partition by alias order by since, id), 'infinity'::date) as until
+	from (
+		select ${linkTable.alias} as alias, ${linkTable.symbolId} as symbol_id, ${linkTable.id} as id,
+			coalesce(${linkTable.since}, '-infinity'::date) as since
+		from ${linkTable}
+		where ${linkTable.ledgerId} = ${ledgerId}
+	) l
 `;
 
 /**

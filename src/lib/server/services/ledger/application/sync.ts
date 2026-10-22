@@ -113,7 +113,7 @@ const applyPlan = (storage: Storage, ledgerId: string, p: SyncPlan): ResultAsync
 const reported = (i: ResultAsync<Indexed>): ResultAsync<Indexed> =>
 	i.orElse((e) => ok({ failed: [e], touched: [] }));
 
-/** A symbol is fetched once the first ledger links to it; the job keeps it fresh from there. */
+/** A symbol is fetched once a ledger links it, and again on later syncs until a fetch works. */
 const queueFetches = (ledger: Ledger, failed: RupeeError[]): ResultAsync<RupeeError[]> =>
 	DB.listUnfetched(ledger.id)
 		.andThen((ids) =>

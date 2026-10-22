@@ -327,6 +327,17 @@ describe('linked feeds', () => {
 			]);
 		}));
 
+	it('prices by the later of two links from one day, which the check warns of', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = held('P * HNFI mfapi:200002', 'P * HNFI yahoo:LATER.NS');
+			await Files.createFile({ ledger, key: 'a.rupee', content });
+			await quoted(db, Feed.Mfapi, '200002', { '2026-10-12': '999' });
+			await quoted(db, Feed.Yahoo, 'LATER.NS', { '2026-10-10': '150' });
+
+			expect(await valueOf(ledger)).toBe(150_0000000000n);
+		}));
+
 	it('reaches rupees through a dollar quoted by a feed too', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);

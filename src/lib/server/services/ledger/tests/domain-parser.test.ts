@@ -498,8 +498,8 @@ describe('links', () => {
 		symbol,
 	});
 
-	it('links a commodity to a feed from the start, or from a day on', () => {
-		const parsed = parseFile(['P * hnfi mfapi:120716', 'P 2026-01-01 HNFI Yahoo:HDFCNIFTY.NS']);
+	it('links a commodity to a feed from the start, or from a day on, as the feed spells it', () => {
+		const parsed = parseFile(['P * hnfi mfapi:120716', 'P 2026-01-01 HNFI Yahoo:hdfcnifty.ns']);
 
 		expect(parsed.links).toEqual([
 			link(1, null, 'HNFI', Feed.Mfapi, '120716'),
@@ -524,10 +524,11 @@ describe('links', () => {
 		['no commodity', 'P * mfapi:120716'],
 		['no date', 'P HNFI mfapi:120716'],
 		['two commodities', 'P * HNFI NIFTY mfapi:120716'],
-	])('rejects %s', (_, line) => {
+		['a price ending in a word with a colon', 'P 2026-10-17 USD 83.12 INR src:rbi'],
+	])('reads a P line with %s as a bad price, not a link', (_, line) => {
 		expect(parseFile([line])).toMatchObject({
 			links: [],
-			failed: [{ type: 'ParseInvalidLink', location: at }],
+			failed: [{ type: 'ParseInvalidPrice', location: at }],
 		});
 	});
 

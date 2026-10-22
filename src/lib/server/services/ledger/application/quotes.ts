@@ -25,6 +25,10 @@ export const fetchQuotes = ({ symbolId }: FetchQuotesOptions): ResultAsync<void>
 				.andThen((d) => feed.listQuotes(fetch, s.symbol, d))
 				.andThen((q) => DB.saveQuotes(s.id, feed.source, q))
 				.andThen(() => DB.saveFetch(s.id, null))
-				.orElse((e) => DB.saveFetch(s.id, e).andThen(() => errAsync(e))),
+				.orElse((e) =>
+					DB.saveFetch(s.id, e)
+						.andThen(() => errAsync(e))
+						.mapErr(() => e),
+				),
 		);
 	});

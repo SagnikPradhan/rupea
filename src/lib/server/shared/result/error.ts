@@ -20,7 +20,6 @@ export type RupeeError =
 	| { type: 'ParseInvalidMetadata'; location: string }
 	| { type: 'ParseDetachedMetadata'; location: string }
 	| { type: 'ParseInvalidPrice'; location: string }
-	| { type: 'ParseInvalidLink'; location: string }
 	| { type: 'ParseUnknownFeed'; location: string; feed: string }
 	| { type: 'LinkRepeated'; location: string; commodity: string }
 	| { type: 'FeedUnavailable'; feed: string; symbol: string; status?: number }

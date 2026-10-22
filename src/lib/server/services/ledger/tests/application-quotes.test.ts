@@ -2,6 +2,7 @@ import type { Database } from '#lib/server/db/index.ts';
 import { provide, type RupeeContext } from '#lib/server/shared/context/context.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { err, ok } from '#lib/server/shared/result/result.ts';
+import { jobs } from '#services/jobs/adapters/database-schema.ts';
 import { listJobs, runJob } from '#services/jobs/application/jobs.ts';
 import { symbolFetches, symbols } from '#services/ledger/adapters/database-schema.ts';
 import { fetchQuotes } from '#services/ledger/adapters/jobs.ts';
@@ -157,6 +158,76 @@ describe('fetching quotes', () => {
 			expect(await queued(first)).toHaveLength(1);
 			expect(await queued(second)).toEqual([]);
 			expect(await valueOf(second)).toBe(1605_0000000000n);
+		}));
+
+	it('queues a symbol again after a fetch that failed for now, but not one the feed lacks', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = `${fund('100006')}P * NIFTY mfapi:100007\n`;
+			await Files.createFile({ ledger, key: 'a.rupee', content });
+			const [down = ''] = await symbolOf(db, '100006');
+			const [missing = ''] = await symbolOf(db, '100007');
+			await fetchedWith(
+				context,
+				vi.fn(async () => new Response('', { status: 503 })),
+				down,
+			);
+			await fetchedWith(
+				context,
+				vi.fn(async () => new Response('', { status: 404 })),
+				missing,
+			);
+
+			await db.delete(jobs).where(eq(jobs.userId, ledger.owner));
+			await Accounts.listAccounts({ ledger, day });
+
+			expect((await queued(ledger)).map((j) => j.payload)).toEqual([{ symbol: down }]);
+		}));
+
+	it('saves one quote a day when a feed answers for a day twice', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = fund('100008').replace('mfapi:100008', 'yahoo:TWICE.NS');
+			await Files.createFile({ ledger, key: 'a.rupee', content });
+			const [symbol] = await db
+				.select({ id: symbols.id })
+				.from(symbols)
+				.where(eq(symbols.symbol, 'TWICE.NS'));
+			/** 09:15 on 17 October in Mumbai, when NSE opens. */
+			const opens = 1792208700;
+			const chart = {
+				chart: {
+					result: [
+						{
+							meta: { currency: 'INR', exchangeTimezoneName: 'Asia/Kolkata', priceHint: 2 },
+							timestamp: [opens, opens + 3600],
+							indicators: { quote: [{ close: [160, 161] }] },
+						},
+					],
+				},
+			};
+			const fetch = vi.fn(async () => new Response(JSON.stringify(chart)));
+
+			expect(await fetchedWith(context, fetch, symbol?.id ?? '')).toEqual(ok());
+			expect(await valueOf(ledger)).toBe(1610_0000000000n);
+		}));
+
+	it('fails with the feed’s error even when recording it fails too', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupee', content: fund('100009') });
+			const [symbolId = ''] = await symbolOf(db, '100009');
+			const removing = vi.fn(async () => {
+				await db.delete(symbols).where(eq(symbols.id, symbolId));
+				return new Response('', { status: 404 });
+			});
+
+			expect(await fetchedWith(context, removing, symbolId)).toEqual(
+				err(fault('FeedSymbolUnknown', { feed: Feed.Mfapi, symbol: '100009' })),
+			);
 		}));
 
 	it('leaves alone a symbol since removed, and one a ledger prices itself', ({ context, db }) =>

@@ -43,6 +43,13 @@
       "when": 1792675040612,
       "tag": "0005_price_feeds",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792677347729,
+      "tag": "0006_attach_updated_at_to_feeds",
+      "breakpoints": true
     }
   ]
 }

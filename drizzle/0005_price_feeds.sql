@@ -25,7 +25,6 @@ CREATE TABLE "symbol_links" (
 	"line" integer NOT NULL
 );
 --> statement-breakpoint
-SELECT attach_updated_at();--> statement-breakpoint
 ALTER TABLE "prices" ALTER COLUMN "file_id" DROP NOT NULL;--> statement-breakpoint
 ALTER TABLE "prices" ALTER COLUMN "line" DROP NOT NULL;--> statement-breakpoint
 ALTER TABLE "symbol_fetches" ADD CONSTRAINT "symbol_fetches_symbol_id_symbols_id_fk" FOREIGN KEY ("symbol_id") REFERENCES "public"."symbols"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint

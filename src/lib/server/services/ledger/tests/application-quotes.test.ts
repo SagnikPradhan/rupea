@@ -2,9 +2,7 @@ import type { Database } from '#lib/server/db/index.ts';
 import { provide, type RupeeContext } from '#lib/server/shared/context/context.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { err, ok } from '#lib/server/shared/result/result.ts';
-import { jobs } from '#services/jobs/adapters/database-schema.ts';
 import { listJobs, runJob } from '#services/jobs/application/jobs.ts';
-import { symbolFetches, symbols } from '#services/ledger/adapters/database-schema.ts';
 import { fetchQuotes } from '#services/ledger/adapters/jobs.ts';
 import * as Accounts from '#services/ledger/application/accounts.ts';
 import * as Files from '#services/ledger/application/files.ts';
@@ -13,7 +11,6 @@ import * as Quotes from '#services/ledger/application/quotes.ts';
 import { Feed } from '#services/ledger/domain/types.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
-import { and, eq } from 'drizzle-orm';
 import { v7 as uuidv7 } from 'uuid';
 import { describe, expect, vi } from 'vitest';
 
@@ -42,9 +39,11 @@ const navs = (n: Record<string, string>) => vi.fn<typeof globalThis.fetch>(async
 const symbolOf = async (db: Database, code: string) =>
 	(
 		await db
-			.select({ id: symbols.id })
-			.from(symbols)
-			.where(and(eq(symbols.feed, Feed.Mfapi), eq(symbols.symbol, code)))
+			.selectFrom('symbols')
+			.select('id')
+			.where('feed', '=', Feed.Mfapi)
+			.where('symbol', '=', code)
+			.execute()
 	).map((s) => s.id);
 
 const queued = async (l: Ledger) =>
@@ -111,17 +110,12 @@ describe('fetching quotes', () => {
 			await Files.createFile({ ledger, key: 'a.rupee', content: fund('100003') });
 			const [symbolId = ''] = await symbolOf(db, '100003');
 			const down = vi.fn(async () => new Response('', { status: 503 }));
-			const health = async () =>
-				(
-					await db
-						.select({
-							fetchedAt: symbolFetches.fetchedAt,
-							failingSince: symbolFetches.failingSince,
-							error: symbolFetches.error,
-						})
-						.from(symbolFetches)
-						.where(eq(symbolFetches.symbolId, symbolId))
-				)[0];
+			const health = () =>
+				db
+					.selectFrom('symbolFetches')
+					.select(['fetchedAt', 'failingSince', 'error'])
+					.where('symbolId', '=', symbolId)
+					.executeTakeFirst();
 
 			const failed = await fetchedWith(context, down, symbolId);
 			const first = await health();
@@ -181,7 +175,7 @@ describe('fetching quotes', () => {
 				missing,
 			);
 
-			await db.delete(jobs).where(eq(jobs.userId, ledger.owner));
+			await db.deleteFrom('jobs').where('userId', '=', ledger.owner).execute();
 			await Accounts.listAccounts({ ledger, day });
 
 			expect((await queued(ledger)).map((j) => j.payload)).toEqual([{ symbol: down }]);
@@ -192,10 +186,11 @@ describe('fetching quotes', () => {
 			const ledger = await createLedger(db);
 			const content = fund('100008').replace('mfapi:100008', 'yahoo:TWICE.NS');
 			await Files.createFile({ ledger, key: 'a.rupee', content });
-			const [symbol] = await db
-				.select({ id: symbols.id })
-				.from(symbols)
-				.where(eq(symbols.symbol, 'TWICE.NS'));
+			const symbol = await db
+				.selectFrom('symbols')
+				.select('id')
+				.where('symbol', '=', 'TWICE.NS')
+				.executeTakeFirst();
 			/** 09:15 on 17 October in Mumbai, when NSE opens. */
 			const opens = 1792208700;
 			const chart = {
@@ -221,7 +216,7 @@ describe('fetching quotes', () => {
 			await Files.createFile({ ledger, key: 'a.rupee', content: fund('100009') });
 			const [symbolId = ''] = await symbolOf(db, '100009');
 			const removing = vi.fn(async () => {
-				await db.delete(symbols).where(eq(symbols.id, symbolId));
+				await db.deleteFrom('symbols').where('id', '=', symbolId).execute();
 				return new Response('', { status: 404 });
 			});
 
@@ -234,10 +229,11 @@ describe('fetching quotes', () => {
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({ ledger, key: 'a.rupee', content: fund('100005') });
-			const [own] = await db
-				.select({ id: symbols.id })
-				.from(symbols)
-				.where(eq(symbols.ledgerId, ledger.id));
+			const own = await db
+				.selectFrom('symbols')
+				.select('id')
+				.where('ledgerId', '=', ledger.id)
+				.executeTakeFirst();
 			const fetch = navs({});
 
 			expect(await fetchedWith(context, fetch, uuidv7())).toEqual(ok());

@@ -158,6 +158,10 @@ describe('filtering', () => {
 		DB.listTransactions(ledger.id, { filter, after: null, limit: 10 }).map((p) =>
 			p.rows.map((t) => t.description),
 		);
+	const postings = (ledger: Ledger, filter: DB.ListFilter) =>
+		DB.listPostings(ledger.id, { filter, after: null, limit: 10 }).map((p) =>
+			p.rows.map((r) => `${r.description} ${r.posting.account}`),
+		);
 
 	it('keeps transactions between two days, both included', ({ context, db }) =>
 		provide(context, async () => {
@@ -214,6 +218,27 @@ describe('filtering', () => {
 				limit: 10,
 			});
 			expect(page._unsafeUnwrap().rows.map((p) => p.posting.account)).toEqual(['Assets:Card']);
+		}));
+
+	it('narrows postings by account, description and day as it narrows transactions', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupee', content });
+
+			expect(
+				(await postings(ledger, { ...everything, account: 'expenses:food' }))._unsafeUnwrap(),
+			).toEqual(['Market Expenses:Food', 'Swiggy dinner Expenses:Food:Delivery']);
+			expect(
+				(
+					await postings(ledger, { ...everything, description: 'swiggy', from: day('2026-08-03') })
+				)._unsafeUnwrap(),
+			).toEqual(['SWIGGY lunch Expenses:Foodie', 'SWIGGY lunch Assets:Bank']);
+			expect((await postings(ledger, { ...everything, description: '_' }))._unsafeUnwrap()).toEqual(
+				[],
+			);
 		}));
 });
 

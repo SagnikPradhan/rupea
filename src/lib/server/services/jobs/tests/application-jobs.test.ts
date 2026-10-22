@@ -1,4 +1,3 @@
-import { jobs } from '#services/jobs/adapters/database-schema.ts';
 import { JobStatus } from '#services/jobs/domain/jobs.ts';
 import { atomically } from '#lib/server/db/atomically.ts';
 import { provide, withContext, type RupeeContext } from '#lib/server/shared/context/context.ts';
@@ -8,7 +7,8 @@ import { createTemporaryDatabase } from '#tests/shared/database.ts';
 import { createUser } from '#tests/shared/seed.ts';
 import { it as base } from '#tests/shared/vitest.ts';
 import { processes, type Dispatch, type Processes } from '#services/jobs/adapters/processes.ts';
-import { eq, sql } from 'drizzle-orm';
+import { sql } from 'kysely';
+import { count } from '#tests/shared/count.ts';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, vi } from 'vitest';
 import * as v from 'valibot';
@@ -41,13 +41,13 @@ const recorder = (fail?: RupeeError) => {
 const abandoned = {
 	status: JobStatus.Running,
 	attempts: 1,
-	leasedUntil: sql`now() - interval '1 second'`,
+	leasedUntil: sql<Date>`now() - interval '1 second'`,
 };
 
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
 const rowsOf = (u: string) =>
-	withContext('db')((db) => db.select().from(jobs).where(eq(jobs.userId, u)));
+	withContext('db')((db) => db.selectFrom('jobs').selectAll().where('userId', '=', u).execute());
 
 const inProcess =
 	(l: Jobs.Job<unknown>[]): Dispatch =>
@@ -98,7 +98,7 @@ describe('a job', () => {
 				),
 			);
 
-			expect(await db.$count(jobs, eq(jobs.userId, user))).toBe(0);
+			expect(await count(db.selectFrom('jobs').where('userId', '=', user))).toBe(0);
 		}));
 
 	it('is tried again later after an error worth retrying', ({ context, user }) =>
@@ -183,7 +183,7 @@ describe('a job', () => {
 			const { job, runs } = recorder();
 
 			await Jobs.enqueue({ job, user, payload: { word: 'abandoned' } });
-			await db.update(jobs).set(abandoned).where(eq(jobs.userId, user));
+			await db.updateTable('jobs').set(abandoned).where('userId', '=', user).execute();
 			await drain([job]);
 
 			const [row] = await rowsOf(user);
@@ -197,7 +197,7 @@ describe('a job', () => {
 			const job = { ...recorder().job, retries: [] };
 
 			await Jobs.enqueue({ job, user, payload: { word: 'abandoned' } });
-			await db.update(jobs).set(abandoned).where(eq(jobs.userId, user));
+			await db.updateTable('jobs').set(abandoned).where('userId', '=', user).execute();
 			await drain([job]);
 
 			const [row] = await rowsOf(user);
@@ -213,7 +213,7 @@ describe('a job', () => {
 			const { job, runs } = recorder();
 
 			await Jobs.enqueue({ job, user, payload: { word: 'edited' } });
-			await db.update(jobs).set(abandoned).where(eq(jobs.userId, user));
+			await db.updateTable('jobs').set(abandoned).where('userId', '=', user).execute();
 			await Jobs.enqueue({ job, user, payload: { word: 'edited' } });
 			await drain([job]);
 
@@ -254,7 +254,7 @@ describe('workers', () => {
 
 	const started = async (context: RupeeContext, j: Jobs.Job<Echo>[], ready = Promise.resolve()) => {
 		const handle = await createTemporaryDatabase();
-		const ctx = { ...context, db: handle.orm };
+		const ctx = { ...context, db: handle.db };
 		const workers = Orchestrator.orchestrate({
 			context: ctx,
 			jobs: j,
@@ -265,10 +265,12 @@ describe('workers', () => {
 		return { ctx, handle, workers };
 	};
 
-	const succeeded = (ctx: RupeeContext, count: number) =>
+	const succeeded = (ctx: RupeeContext, expected: number) =>
 		expect
-			.poll(() => ctx.db.$count(jobs, eq(jobs.status, JobStatus.Succeeded)), { timeout: 3000 })
-			.toBe(count);
+			.poll(() => count(ctx.db.selectFrom('jobs').where('status', '=', JobStatus.Succeeded)), {
+				timeout: 3000,
+			})
+			.toBe(expected);
 
 	it('run jobs of one partition one at a time', async ({ context }) => {
 		const { job, at } = slow('slow', () => 'same');
@@ -328,7 +330,9 @@ describe('workers', () => {
 			const user = (await createUser(ctx.db)).userId;
 			await Jobs.enqueue({ job, user, payload: { word: 'a' } });
 			await pause(1500);
-			expect(await ctx.db.$count(jobs, eq(jobs.status, JobStatus.Succeeded))).toBe(0);
+			expect(await count(ctx.db.selectFrom('jobs').where('status', '=', JobStatus.Succeeded))).toBe(
+				0,
+			);
 
 			ready.resolve();
 			await succeeded(ctx, 1);

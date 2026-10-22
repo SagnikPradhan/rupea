@@ -1,17 +1,14 @@
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { sql, type SQL } from 'drizzle-orm';
+import { runningTotal, total, unset } from '#lib/server/db/expressions.ts';
+import type { Database } from '#lib/server/db/index.ts';
+import { sql, type Expression } from 'kysely';
 import { AMOUNT_UNIT, DEFAULT_COMMODITY, type Amount, type Quantity } from '../domain/amounts';
 import { AccountType, Feed, PriceSource } from '../domain/types';
-import {
-	postings,
-	prices as priceTable,
-	symbolLinks as linkTable,
-	symbols as symbolTable,
-	transactions as transactionTable,
-} from './database-schema';
+import { multiply } from './database-queries';
 
-const UNIT = sql.raw(AMOUNT_UNIT.toString());
+/** The most prices a commodity is converted through on its way to rupees. */
+const MAX_PRICES = 2;
 
 /** What balance accounts were worth in rupees at the end of one day, and how many commodities had no price. */
 export type Worth = {
@@ -22,8 +19,6 @@ export type Worth = {
 	unpriced: number;
 };
 
-type LatestPriceRow = { commodity: string; priceAmount: string; priceCommodity: string };
-
 export const findLatestPrices = (
 	ledgerId: string,
 	commodities: string[],
@@ -31,30 +26,29 @@ export const findLatestPrices = (
 ): ResultAsync<Record<string, Quantity>> =>
 	withContext('db')((db) =>
 		attempt(() =>
-			db.execute<LatestPriceRow>(sql`
-				with own as (${ownSymbols(ledgerId)}), linked as (${ownLinks(ledgerId)})
-				select c.commodity, p.amount::text as "priceAmount", p.currency as "priceCommodity"
-				from unnest(${sql.param(commodities)}::text[]) as c(commodity)
-				left join own o on o.symbol = c.commodity
-				cross join lateral (${priceOn(sql`o.id`, sql`c.commodity`, sql`${day.toString()}::date`)}) p
-			`),
-		).map((result) =>
+			db
+				.with('own', ownSymbols(db, ledgerId))
+				.selectFrom(
+					sql<{ commodity: string }>`(select unnest(${commodities}::text[]) as commodity)`.as('c'),
+				)
+				.leftJoin('own', 'own.symbol', 'c.commodity')
+				.innerJoinLateral(
+					(e) =>
+						priceOn(db, ledgerId, {
+							symbolId: e.ref('own.id'),
+							commodity: e.ref('c.commodity'),
+							day: e.val(day.toString()),
+						}).as('p'),
+					(j) => j.onTrue(),
+				)
+				.select(['c.commodity', 'p.amount', 'p.currency'])
+				.execute(),
+		).map((r) =>
 			Object.fromEntries(
-				result.rows.map((row) => [
-					row.commodity,
-					{ amount: BigInt(row.priceAmount) as Amount, commodity: row.priceCommodity },
-				]),
+				r.map((p) => [p.commodity, { amount: p.amount as Amount, commodity: p.currency }]),
 			),
 		),
 	);
-
-type WorthRow = {
-	day: string;
-	assets: string;
-	liabilities: string;
-	worth: string;
-	unpriced: number;
-};
 
 /**
  * Each day values its balances at the latest price on or before it, reaching rupees in at most
@@ -66,126 +60,264 @@ export const listWorth = (
 	from: Temporal.PlainDate,
 	to: Temporal.PlainDate,
 ): ResultAsync<Worth[]> =>
-	withContext('db')((db) =>
-		attempt(() =>
-			db.execute<WorthRow>(sql`
-				with own as (${ownSymbols(ledgerId)}),
-				linked as (${ownLinks(ledgerId)}),
-				deltas as (
-					select p.account_type = ${AccountType.Assets} as asset, p.commodity, t.date, sum(p.amount) as amount
-					from ${postings} p
-					join ${transactionTable} t on t.id = p.transaction_id
-					where p.ledger_id = ${ledgerId} and p.account_type in (${AccountType.Assets}, ${AccountType.Liabilities})
-						and t.date <= ${to.toString()} and t.counted
-					group by 1, 2, 3
-				),
-				days as (
-					select d::date as day
-					from (select min(date) as first from deltas) f,
-						generate_series(greatest(${from.toString()}::date, f.first), ${to.toString()}::date, interval '1 day') d
-					where f.first is not null
-				),
-				keys as (
-					select x.asset, x.commodity, o.id as symbol_id,
-						sum(x.amount) filter (where x.date < (select min(day) from days)) as opening
-					from deltas x
-					left join own o on o.symbol = x.commodity
-					group by x.asset, x.commodity, o.id
-				),
-				balances as (
-					select k.asset, k.commodity, k.symbol_id, d.day,
-						coalesce(k.opening, 0) + sum(coalesce(x.amount, 0)) over (partition by k.asset, k.commodity order by d.day) as units
-					from keys k
-					cross join days d
-					left join deltas x on x.asset = k.asset and x.commodity = k.commodity and x.date = d.day
-				),
-				valued as (
-					select b.day, b.asset,
-						case
-							when b.commodity = ${DEFAULT_COMMODITY} then b.units
-							when p1.currency = ${DEFAULT_COMMODITY} then round(b.units * p1.amount / ${UNIT})
-							when p2.currency = ${DEFAULT_COMMODITY} then round(b.units * round(p1.amount * p2.amount / ${UNIT}) / ${UNIT})
-						end as value
-					from balances b
-					left join lateral (${priceOn(sql`b.symbol_id`, sql`b.commodity`, sql`b.day`)}) p1 on b.commodity <> ${DEFAULT_COMMODITY}
-					left join own o on o.symbol = p1.currency
-					left join lateral (${priceOn(sql`o.id`, sql`p1.currency`, sql`b.day`)}) p2 on p1.currency <> ${DEFAULT_COMMODITY}
-					where b.units <> 0
+	withContext('db')((db) => {
+		return attempt(() =>
+			db
+				// Kysely writes with recursive only when the first CTE asks for it
+				.withRecursive('own(id, symbol)', () => ownSymbols(db, ledgerId))
+				.with('changes', (q) =>
+					q
+						.selectFrom('postings as p')
+						.innerJoin('transactions as t', 't.id', 'p.transactionId')
+						.select((e) => [
+							e('p.accountType', '=', AccountType.Assets).as('asset'),
+							'p.commodity',
+							't.date',
+							e.fn.sum<bigint>('p.amount').as('amount'),
+						])
+						.where('p.ledgerId', '=', ledgerId)
+						.where('p.accountType', 'in', [AccountType.Assets, AccountType.Liabilities])
+						.where('t.date', '<=', to.toString())
+						.where('t.counted', '=', true)
+						.groupBy(['p.accountType', 'p.commodity', 't.date']),
 				)
-				select d.day::text as day,
-					coalesce(sum(v.value) filter (where v.asset), 0)::text as assets,
-					coalesce(-sum(v.value) filter (where not v.asset), 0)::text as liabilities,
-					coalesce(sum(v.value), 0)::text as worth,
-					count(v.day) filter (where v.value is null)::int as unpriced
-				from days d
-				left join valued v on v.day = d.day
-				group by d.day
-				order by d.day
-			`),
-		).map((r) =>
-			r.rows.map((w) => ({
+				.with('first', (q) =>
+					q.selectFrom('changes').select((e) => e.fn.min('changes.date').as('day')),
+				)
+				.with('days', (q) =>
+					q
+						.selectFrom('first')
+						.select((e) =>
+							sql<string>`generate_series(greatest(${from.toString()}::date, ${e.ref('first.day')}), ${to.toString()}::date, interval '1 day')::date`.as(
+								'day',
+							),
+						)
+						.where('first.day', 'is not', null),
+				)
+				.with('keys', (q) =>
+					q
+						.selectFrom('changes as x')
+						.leftJoin('own as o', 'o.symbol', 'x.commodity')
+						.select((e) => [
+							'x.asset',
+							'x.commodity',
+							'o.id as symbolId',
+							total(
+								e.ref('x.amount'),
+								e(
+									'x.date',
+									'<',
+									e.selectFrom('days').select((d) => d.fn.min('days.day').as('day')),
+								),
+							).as('opening'),
+						])
+						.groupBy(['x.asset', 'x.commodity', 'o.id']),
+				)
+				.with('balances', (q) =>
+					q
+						.selectFrom('keys as k')
+						.crossJoin('days as d')
+						.leftJoin('changes as x', (j) =>
+							j
+								.onRef('x.asset', '=', 'k.asset')
+								.onRef('x.commodity', '=', 'k.commodity')
+								.onRef('x.date', '=', 'd.day'),
+						)
+						.select((e) => [
+							'k.asset',
+							'k.commodity',
+							'k.symbolId',
+							'd.day',
+							e(
+								e.ref('k.opening'),
+								'+',
+								runningTotal(
+									e.ref('x.amount'),
+									[e.ref('k.asset'), e.ref('k.commodity')],
+									e.ref('d.day'),
+								),
+							).as('units'),
+						]),
+				)
+				.withRecursive('rates(origin, day, commodity, at, rate, hops)', (q) =>
+					q
+						.selectFrom('balances as b')
+						.select([
+							'b.commodity as origin',
+							'b.day',
+							'b.commodity',
+							'b.symbolId as at',
+							sql<bigint>`${sql.lit(AMOUNT_UNIT)}::numeric`.as('rate'),
+							sql<number>`0`.as('hops'),
+						])
+						.distinct()
+						.where('b.commodity', '<>', DEFAULT_COMMODITY)
+						.unionAll((r) =>
+							r
+								.selectFrom('rates as r')
+								.innerJoinLateral(
+									(e) =>
+										priceOn(db, ledgerId, {
+											symbolId: e.ref('r.at'),
+											commodity: e.ref('r.commodity'),
+											day: e.ref('r.day'),
+										}).as('p'),
+									(j) => j.onTrue(),
+								)
+								.leftJoin('own as o', 'o.symbol', 'p.currency')
+								.select((e) => [
+									'r.origin',
+									'r.day',
+									'p.currency as commodity',
+									'o.id as at',
+									multiply(e.ref('r.rate'), e.ref('p.amount')).as('rate'),
+									e('r.hops', '+', 1).as('hops'),
+								])
+								.where('r.commodity', '<>', DEFAULT_COMMODITY)
+								.where('r.hops', '<', MAX_PRICES),
+						),
+				)
+				.with('valued', (q) =>
+					q
+						.selectFrom('balances as b')
+						.leftJoin('rates as r', (j) =>
+							j
+								.onRef('r.origin', '=', 'b.commodity')
+								.onRef('r.day', '=', 'b.day')
+								.on('r.commodity', '=', DEFAULT_COMMODITY),
+						)
+						.select((e) => [
+							'b.day',
+							'b.asset',
+							e
+								.case()
+								.when('b.commodity', '=', DEFAULT_COMMODITY)
+								.then(e.ref('b.units'))
+								.else(multiply(e.ref('b.units'), e.ref('r.rate')))
+								.end()
+								.as('value'),
+						])
+						.where('b.units', '<>', 0n),
+				)
+				.selectFrom('days as d')
+				.leftJoin('valued as v', 'v.day', 'd.day')
+				.select((e) => [
+					'd.day',
+					total(e.ref('v.value'), e('v.asset', '=', true)).as('assets'),
+					sql<bigint>`-${total(e.ref('v.value'), e('v.asset', '=', false))}`.as('liabilities'),
+					total(e.ref('v.value')).as('worth'),
+					unset(e.ref('v.value'), e.ref('v.day')).as('unpriced'),
+				])
+				.groupBy('d.day')
+				.orderBy('d.day')
+				.execute(),
+		).map((rows) =>
+			rows.map((w) => ({
 				day: Temporal.PlainDate.from(w.day),
-				assets: BigInt(w.assets) as Amount,
-				liabilities: BigInt(w.liabilities) as Amount,
-				worth: BigInt(w.worth) as Amount,
+				assets: w.assets as Amount,
+				liabilities: w.liabilities as Amount,
+				worth: w.worth as Amount,
 				unpriced: w.unpriced,
 			})),
-		),
-	);
+		);
+	});
 
 /** The ledger's own symbols, so each commodity is looked up once rather than once a day. */
-const ownSymbols = (ledgerId: string) => sql`
-	select ${symbolTable.id} as id, ${symbolTable.symbol} as symbol
-	from ${symbolTable}
-	where ${symbolTable.feed} = ${Feed.Ledger} and ${symbolTable.ledgerId} = ${ledgerId}
-`;
+const ownSymbols = (db: Database, ledgerId: string) =>
+	db
+		.selectFrom('symbols')
+		.select(['symbols.id', 'symbols.symbol'])
+		.where('symbols.feed', '=', Feed.Ledger)
+		.where('symbols.ledgerId', '=', ledgerId);
 
-/**
- * The ledger's links, each holding from its since until the next link of its commodity. A link
- * from the start holds from -infinity, so of two links from one day the later written holds.
- */
-const ownLinks = (ledgerId: string) => sql`
-	select alias, symbol_id, since, coalesce(lead(since) over (partition by alias order by since, id), 'infinity'::date) as until
-	from (
-		select ${linkTable.alias} as alias, ${linkTable.symbolId} as symbol_id, ${linkTable.id} as id,
-			coalesce(${linkTable.since}, '-infinity'::date) as since
-		from ${linkTable}
-		where ${linkTable.ledgerId} = ${ledgerId}
-	) l
-`;
+type PriceOnOptions = {
+	symbolId: Expression<string | null>;
+	commodity: Expression<string>;
+	day: Expression<string>;
+};
 
 /**
  * The latest price of a commodity on or before a day, from the ledger's own symbol or the feed it
  * links to then. On one day a P line beats an at-price, and either beats a feed's quote.
  */
-const priceOn = (symbolId: SQL, commodity: SQL, day: SQL) => sql`
-	select c.amount, c.currency
-	from (
-		(
-			select ${priceTable.priceAmount} as amount, ${priceTable.priceCommodity} as currency,
-				${priceTable.date} as date, case when ${priceTable.source} = ${PriceSource.Line} then 0 else 1 end as rank
-			from ${priceTable}
-			where ${priceTable.symbolId} = ${symbolId} and ${priceTable.date} <= ${day}
-			order by ${priceTable.date} desc, ${priceTable.source} = ${PriceSource.Line} desc, ${priceTable.line} desc
-			limit 1
+const priceOn = (db: Database, ledgerId: string, { symbolId, commodity, day }: PriceOnOptions) =>
+	db
+		.selectFrom(
+			db
+				.selectFrom(ownPrice(db, symbolId, day).as('o'))
+				.selectAll()
+				.unionAll(db.selectFrom(quotedPrice(db, ledgerId, commodity, day).as('q')).selectAll())
+				.as('c'),
 		)
-		union all
-		(
-			select q.amount, q.currency, q.date, 2 as rank
-			from linked l
-			cross join lateral (
-				select ${priceTable.priceAmount} as amount, ${priceTable.priceCommodity} as currency, ${priceTable.date} as date
-				from ${priceTable}
-				where ${priceTable.symbolId} = l.symbol_id and ${priceTable.date} <= ${day}
-					and ${priceTable.date} >= l.since and ${priceTable.date} < l.until
-				order by ${priceTable.date} desc
-				limit 1
-			) q
-			where l.alias = ${commodity}
-			order by q.date desc
-			limit 1
+		.select(['c.amount', 'c.currency'])
+		.orderBy('c.date', 'desc')
+		.orderBy('c.rank')
+		.limit(1);
+
+/** The latest price of a symbol on or before a day, where a P line beats an at-price on the same day. */
+const ownPrice = (db: Database, symbolId: Expression<string | null>, day: Expression<string>) =>
+	db
+		.selectFrom('prices')
+		.select((e) => [
+			'prices.priceAmount as amount',
+			'prices.priceCommodity as currency',
+			'prices.date',
+			e.case().when('prices.source', '=', PriceSource.Line).then(0).else(1).end().as('rank'),
+		])
+		.where('prices.symbolId', '=', symbolId)
+		.where('prices.date', '<=', day)
+		.orderBy('prices.date', 'desc')
+		.orderBy((e) => e('prices.source', '=', PriceSource.Line), 'desc')
+		.orderBy('prices.line', 'desc')
+		.limit(1);
+
+/** The latest quote on or before a day of the feed a commodity links to then. */
+const quotedPrice = (
+	db: Database,
+	ledgerId: string,
+	commodity: Expression<string>,
+	day: Expression<string>,
+) =>
+	db
+		.selectFrom(linksOf(db, ledgerId, commodity).as('l'))
+		.innerJoinLateral(
+			(e) =>
+				db
+					.selectFrom('prices')
+					.select([
+						'prices.priceAmount as amount',
+						'prices.priceCommodity as currency',
+						'prices.date',
+					])
+					.where('prices.symbolId', '=', e.ref('l.symbolId'))
+					.where('prices.date', '<=', day)
+					.where('prices.date', '>=', e.ref('l.since'))
+					.where('prices.date', '<', e.ref('l.until'))
+					.orderBy('prices.date', 'desc')
+					.limit(1)
+					.as('q'),
+			(j) => j.onTrue(),
 		)
-	) c
-	order by c.date desc, c.rank
-	limit 1
-`;
+		.select(['q.amount', 'q.currency', 'q.date', sql<number>`2`.as('rank')])
+		.orderBy('q.date', 'desc')
+		.limit(1);
+
+/**
+ * A commodity's links, each holding from its since until the next. A link from the start holds
+ * from -infinity, so of two links from one day the later written holds.
+ */
+const linksOf = (db: Database, ledgerId: string, commodity: Expression<string>) =>
+	db
+		.selectFrom('symbolLinks as l')
+		.select((e) => {
+			const since = sql<string>`coalesce(${e.ref('l.since')}, '-infinity'::date)`;
+			return [
+				'l.symbolId',
+				since.as('since'),
+				sql<string>`coalesce(lead(${since}) over (order by ${since}, ${e.ref('l.id')}), 'infinity'::date)`.as(
+					'until',
+				),
+			];
+		})
+		.where('l.ledgerId', '=', ledgerId)
+		.where('l.alias', '=', commodity);

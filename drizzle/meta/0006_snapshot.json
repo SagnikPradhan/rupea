@@ -1,6 +1,6 @@
 {
-  "id": "8960cf7e-310a-4a56-aaab-064f0f07fd3f",
-  "prevId": "ef52ddd9-30e1-4e23-9270-da039a36af55",
+  "id": "726d2642-7573-44d9-87e4-14e5dddd8fe4",
+  "prevId": "dcf93d49-2888-402a-9e5c-1b2b9bc703ae",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -1531,6 +1531,27 @@
           "method": "btree",
           "with": {}
         },
+        "postings_ledger_id_lower_account": {
+          "name": "postings_ledger_id_lower_account",
+          "columns": [
+            {
+              "expression": "ledger_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "lower(\"account\") text_pattern_ops",
+              "asc": true,
+              "isExpression": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
         "postings_ledger_id_balance": {
           "name": "postings_ledger_id_balance",
           "columns": [
@@ -2139,6 +2160,16 @@
           "primaryKey": false,
           "notNull": false
         },
+        "sort_time": {
+          "name": "sort_time",
+          "type": "time",
+          "primaryKey": false,
+          "notNull": true,
+          "generated": {
+            "as": "coalesce(\"time\", '00:00')",
+            "type": "stored"
+          }
+        },
         "description": {
           "name": "description",
           "type": "text",
@@ -2197,9 +2228,9 @@
               "nulls": "last"
             },
             {
-              "expression": "coalesce(\"time\", '00:00')",
+              "expression": "sort_time",
+              "isExpression": false,
               "asc": true,
-              "isExpression": true,
               "nulls": "last"
             },
             {

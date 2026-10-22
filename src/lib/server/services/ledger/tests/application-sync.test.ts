@@ -4,15 +4,6 @@ import { EMBEDDING_DIMENSIONS } from '#lib/server/shared/onnx/models.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { errAsync, ok } from '#lib/server/shared/result/result.ts';
 import { scoped } from '#lib/server/shared/storage/storage.ts';
-import {
-	ledgerFiles,
-	lots,
-	metadata,
-	prices,
-	symbolLinks,
-	symbols,
-	transactions,
-} from '#services/ledger/adapters/database-schema.ts';
 import { MODEL } from '#services/ledger/adapters/prediction-onnx.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import * as Sync from '#services/ledger/application/sync.ts';
@@ -20,7 +11,8 @@ import { Feed, PriceSource } from '#services/ledger/domain/types.ts';
 import { broken } from '#tests/shared/embedding.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
-import { asc, eq } from 'drizzle-orm';
+import { count } from '#tests/shared/count.ts';
+import { sql } from 'kysely';
 import { describe, expect } from 'vitest';
 import {
 	groceries,
@@ -49,11 +41,12 @@ const annotated = [
 const fileMetadata = async (db: Database, ledgerId: string) =>
 	(
 		await db
-			.select({ key: metadata.key, value: metadata.value })
-			.from(metadata)
-			.innerJoin(ledgerFiles, eq(ledgerFiles.id, metadata.fileId))
-			.where(eq(ledgerFiles.ledgerId, ledgerId))
-			.orderBy(asc(metadata.position))
+			.selectFrom('metadata')
+			.innerJoin('ledgerFiles', 'ledgerFiles.id', 'metadata.fileId')
+			.select(['metadata.key', 'metadata.value'])
+			.where('ledgerFiles.ledgerId', '=', ledgerId)
+			.orderBy('metadata.position')
+			.execute()
 	).map((r) => [r.key, r.value]);
 
 describe('syncing the ledger', () => {
@@ -88,18 +81,19 @@ describe('syncing the ledger', () => {
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			// Other tests share the database, so count only what this one adds.
-			const before = await db.$count(metadata);
+			const all = () => count(db.selectFrom('metadata'));
+			const before = await all();
 			await put(storage, ledger, 'a.rupee', annotated);
 			await Sync.sync(ledger);
-			expect(await db.$count(metadata)).toBe(before + 5);
+			expect(await all()).toBe(before + 5);
 
 			await put(storage, ledger, 'a.rupee', `- statement: other.pdf\n\n${groceries}`);
 			await Sync.sync(ledger);
-			expect(await db.$count(metadata)).toBe(before + 1);
+			expect(await all()).toBe(before + 1);
 
 			await stored(storage, ledger).delete('a.rupee');
 			await Sync.sync(ledger);
-			expect(await db.$count(metadata)).toBe(before);
+			expect(await all()).toBe(before);
 		}));
 
 	it('indexes market prices, replacing them when the file changes', ({ context, db, storage }) =>
@@ -108,15 +102,12 @@ describe('syncing the ledger', () => {
 			const bought = '2026-10-01 Buy INFY\n\tAssets:Zerodha 10 INFY @ 1500\n\tAssets:Bank\n';
 			const indexed = () =>
 				db
-					.select({
-						commodity: symbols.symbol,
-						amount: prices.priceAmount,
-						source: prices.source,
-					})
-					.from(prices)
-					.innerJoin(symbols, eq(symbols.id, prices.symbolId))
-					.where(eq(symbols.ledgerId, ledger.id))
-					.orderBy(asc(prices.line));
+					.selectFrom('prices')
+					.innerJoin('symbols', 'symbols.id', 'prices.symbolId')
+					.select(['symbols.symbol as commodity', 'prices.priceAmount as amount', 'prices.source'])
+					.where('symbols.ledgerId', '=', ledger.id)
+					.orderBy('prices.line')
+					.execute();
 
 			await put(storage, ledger, 'a.rupee', `${bought}\nP 2026-10-17 INFY 1820\n`);
 			await Sync.sync(ledger);
@@ -142,10 +133,11 @@ describe('syncing the ledger', () => {
 			const ledger = await createLedger(db);
 			const own = () =>
 				db
-					.select({ id: symbols.id, symbol: symbols.symbol })
-					.from(symbols)
-					.where(eq(symbols.ledgerId, ledger.id))
-					.orderBy(asc(symbols.symbol));
+					.selectFrom('symbols')
+					.select(['id', 'symbol'])
+					.where('ledgerId', '=', ledger.id)
+					.orderBy('symbol')
+					.execute();
 
 			await put(storage, ledger, 'a.rupee', 'P 2026-10-17 INFY 1820\n');
 			await put(storage, ledger, 'b.rupee', 'P 2026-10-18 INFY 1830\nP 2026-10-18 TCS 4100\n');
@@ -168,18 +160,12 @@ describe('syncing the ledger', () => {
 			const two = await createLedger(db);
 			const linked = (l: { id: string }) =>
 				db
-					.select({
-						alias: symbolLinks.alias,
-						since: symbolLinks.since,
-						feed: symbols.feed,
-						symbol: symbols.symbol,
-						owner: symbols.ledgerId,
-						line: symbolLinks.line,
-					})
-					.from(symbolLinks)
-					.innerJoin(symbols, eq(symbols.id, symbolLinks.symbolId))
-					.where(eq(symbolLinks.ledgerId, l.id))
-					.orderBy(asc(symbolLinks.line));
+					.selectFrom('symbolLinks as l')
+					.innerJoin('symbols as s', 's.id', 'l.symbolId')
+					.select(['l.alias', 'l.since', 's.feed', 's.symbol', 's.ledgerId as owner', 'l.line'])
+					.where('l.ledgerId', '=', l.id)
+					.orderBy('l.line')
+					.execute();
 			const links = 'P * HNFI mfapi:300001\nP 2026-01-01 HNFI yahoo:SHARED.NS\n';
 
 			await put(storage, one, 'a.rupee', links);
@@ -188,10 +174,7 @@ describe('syncing the ledger', () => {
 			await Sync.sync(two);
 			const first = await linked(one);
 			const second = await linked(two);
-			const shared = await db
-				.select({ id: symbols.id })
-				.from(symbols)
-				.where(eq(symbols.symbol, 'SHARED.NS'));
+			const shared = await count(db.selectFrom('symbols').where('symbol', '=', 'SHARED.NS'));
 
 			await put(storage, one, 'a.rupee', 'P * NIFTY yahoo:SHARED.NS\n');
 			await Sync.sync(one);
@@ -208,7 +191,7 @@ describe('syncing the ledger', () => {
 				},
 			]);
 			expect(second).toEqual(first);
-			expect(shared).toHaveLength(1);
+			expect(shared).toBe(1);
 			expect(await linked(one)).toEqual([
 				{
 					alias: 'NIFTY',
@@ -279,28 +262,30 @@ describe('syncing the ledger', () => {
 	it('keeps a description embedded through a re-index', ({ context, db, storage }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			const vector = Array.from({ length: EMBEDDING_DIMENSIONS }, (_, i) => (i === 0 ? 1 : 0));
+			const vector = `[${Array.from({ length: EMBEDDING_DIMENSIONS }, (_, i) => (i === 0 ? 1 : 0)).join(',')}]`;
 			await put(storage, ledger, 'a.rupee', groceries);
 			await Sync.sync(ledger);
 			await db
-				.update(transactions)
-				.set({ embedding: vector })
-				.where(eq(transactions.ledgerId, ledger.id));
+				.updateTable('transactions')
+				.set({ embedding: sql<number[]>`${vector}::vector` })
+				.where('ledgerId', '=', ledger.id)
+				.execute();
 
 			await put(storage, ledger, 'a.rupee', `${salary}${groceries}`);
 			await Sync.sync(ledger);
 
 			const rows = await db
-				.select({
-					description: transactions.description,
-					embedding: transactions.embedding,
-					model: transactions.embeddingModel,
-				})
-				.from(transactions)
-				.where(eq(transactions.ledgerId, ledger.id))
-				.orderBy(asc(transactions.line));
+				.selectFrom('transactions')
+				.select([
+					'description',
+					sql<string>`${sql.ref('embedding')}::text`.as('embedding'),
+					'embeddingModel as model',
+				])
+				.where('ledgerId', '=', ledger.id)
+				.orderBy('line')
+				.execute();
 			expect(rows).toEqual([
-				{ description: 'Salary', embedding: expect.any(Array), model: MODEL },
+				{ description: 'Salary', embedding: expect.any(String), model: MODEL },
 				{ description: 'Groceries', embedding: vector, model: MODEL },
 			]);
 		}));
@@ -552,10 +537,12 @@ describe('lots', () => {
 
 	const held = (db: Database, ledgerId: string) =>
 		db
-			.select({ account: lots.account, remaining: lots.remaining, origin: lots.origin })
-			.from(lots)
-			.where(eq(lots.ledgerId, ledgerId))
-			.orderBy(asc(lots.date), asc(lots.account));
+			.selectFrom('lots')
+			.select(['account', 'remaining', 'origin'])
+			.where('ledgerId', '=', ledgerId)
+			.orderBy('date')
+			.orderBy('account')
+			.execute();
 
 	it('books lots across files, and what a sale takes from them', ({ context, db }) =>
 		provide(context, async () => {

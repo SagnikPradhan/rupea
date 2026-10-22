@@ -1,4 +1,4 @@
-import type { Database } from '#lib/server/db/index.ts';
+import type { Database, DatabaseHandle } from '#lib/server/db/index.ts';
 import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
 import type { RupeeContext } from '#lib/server/shared/context/context.ts';
 import { createLogger } from '#lib/server/shared/context/logger.ts';
@@ -16,6 +16,7 @@ import { createTemporaryDatabase } from './database.ts';
 export const it = base.extend<{
 	root: string;
 	storage: Storage;
+	handle: DatabaseHandle;
 	db: Database;
 	models: Models;
 	context: RupeeContext;
@@ -26,15 +27,16 @@ export const it = base.extend<{
 		await rm(root, { recursive: true, force: true });
 	},
 	storage: ({ root }, use) => use(localStorage(root)),
-	db: [
+	handle: [
 		// Vitest reads the fixtures a test uses from this destructuring.
 		async ({}, use) => {
 			const handle = await createTemporaryDatabase();
-			await use(handle.orm);
+			await use(handle);
 			await handle.close();
 		},
 		{ scope: 'file' },
 	],
+	db: ({ handle }, use) => use(handle.db),
 	// Loading the models takes about a second, so every test in a worker shares them.
 	models: [
 		({}, use) =>

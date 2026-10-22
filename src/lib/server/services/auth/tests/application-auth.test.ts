@@ -110,7 +110,7 @@ describe('requesting a code', () => {
 		const empty = await createTemporaryDatabase();
 		const mail = inbox();
 
-		await provide({ ...context, db: empty.orm, mailer: mail.mailer }, () =>
+		await provide({ ...context, db: empty.db, mailer: mail.mailer }, () =>
 			Auth.requestCode('first@example.com'),
 		);
 		await empty.close();
@@ -274,7 +274,7 @@ describe('signing out', () => {
 		provide(context, async () => {
 			await signIn(context, 'stuck@example.com');
 			const token = request.cookies.get('session')!.value;
-			const failing = vi.spyOn(db, 'delete').mockImplementation(() => {
+			const failing = vi.spyOn(db, 'deleteFrom').mockImplementation(() => {
 				throw new Error('database down');
 			});
 

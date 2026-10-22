@@ -1,10 +1,8 @@
-import { statementContents } from '#services/extraction/adapters/database-schema.ts';
 import { provide } from '#lib/server/shared/context/context.ts';
 import { broken } from '#tests/shared/embedding.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { createHash } from 'node:crypto';
 import { it } from '#tests/shared/vitest.ts';
-import { inArray } from 'drizzle-orm';
 import officeCrypto from 'officecrypto-tool';
 import * as XLSX from 'xlsx';
 import { describe, expect } from 'vitest';
@@ -153,7 +151,10 @@ describe('caching what a statement reads', () => {
 		provide({ ...context, models: broken(context.models) }, async () => {
 			const ledger = await createLedger(db);
 			const { key } = await upload(ledger);
-			await db.update(statementContents).set({ expiresAt: new Date(0) });
+			await db
+				.updateTable('statementContents')
+				.set({ expiresAt: new Date(0) })
+				.execute();
 
 			const draft = await Drafts.extract({
 				ledger,
@@ -162,7 +163,7 @@ describe('caching what a statement reads', () => {
 			});
 
 			expect(draft._unsafeUnwrap().content).toContain('UPI GROCER');
-			const [cached] = await db.select().from(statementContents);
+			const cached = await db.selectFrom('statementContents').selectAll().executeTakeFirst();
 			expect(cached?.expiresAt.getTime()).toBeGreaterThan(Date.now());
 		}));
 
@@ -170,13 +171,17 @@ describe('caching what a statement reads', () => {
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			const aug = await upload(ledger);
-			await db.update(statementContents).set({ expiresAt: new Date(0) });
+			await db
+				.updateTable('statementContents')
+				.set({ expiresAt: new Date(0) })
+				.execute();
 			const sep = await upload(ledger, `${statement}\nsep`, 'sep.csv');
 
 			const cached = await db
-				.select({ checksum: statementContents.checksum })
-				.from(statementContents)
-				.where(inArray(statementContents.checksum, [aug.checksum, sep.checksum]));
+				.selectFrom('statementContents')
+				.select('checksum')
+				.where('checksum', 'in', [aug.checksum, sep.checksum])
+				.execute();
 			expect(cached).toEqual([{ checksum: sep.checksum }]);
 		}));
 });

@@ -1,11 +1,11 @@
 import { attemptWrite, violates } from '#lib/server/db/errors.ts';
 import { atomically } from '#lib/server/db/atomically.ts';
+import { json, noneOf } from '#lib/server/db/expressions.ts';
+import type { Tables } from '#lib/server/db/tables.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import type { RupeeError } from '#lib/server/shared/result/error.ts';
 import { attempt, errAsync, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { and, desc, eq, inArray, lte, notExists, notInArray, or, sql, type SQL } from 'drizzle-orm';
-import { alias } from 'drizzle-orm/pg-core';
-import { jobs } from './database-schema';
+import { sql, type Expression, type ExpressionBuilder } from 'kysely';
 import { JobStatus } from '../domain/jobs';
 
 const DAY = 24 * 60 * 60 * 1000;
@@ -27,12 +27,15 @@ export const createJob = (j: NewJob): ResultAsync<void> =>
 	withContext('db')((db) =>
 		attempt(async () => {
 			await db
-				.insert(jobs)
-				.values(j)
-				.onConflictDoNothing({
-					target: [jobs.userId, jobs.name, jobs.dedupe],
-					where: sql`${jobs.status} = 'queued'`,
-				});
+				.insertInto('jobs')
+				.values({ ...j, payload: json(j.payload) })
+				.onConflict((o) =>
+					o
+						.columns(['userId', 'name', 'dedupe'])
+						.where('status', '=', JobStatus.Queued)
+						.doNothing(),
+				)
+				.execute();
 		}),
 	);
 
@@ -57,23 +60,14 @@ export const listJobs = (o: ListJobsOptions): ResultAsync<UserJob[]> =>
 	withContext('db')((db) =>
 		attempt(() =>
 			db
-				.select({
-					id: jobs.id,
-					status: jobs.status,
-					payload: jobs.payload,
-					error: jobs.error,
-					createdAt: jobs.createdAt,
-				})
-				.from(jobs)
-				.where(
-					and(
-						eq(jobs.userId, o.userId),
-						eq(jobs.name, o.name),
-						sql`${jobs.payload} @> ${JSON.stringify(o.payload)}::jsonb`,
-					),
-				)
-				.orderBy(desc(jobs.createdAt))
-				.limit(o.limit),
+				.selectFrom('jobs')
+				.select(['id', 'status', 'payload', 'error', 'createdAt'])
+				.where('userId', '=', o.userId)
+				.where('name', '=', o.name)
+				.where('payload', '@>', json(o.payload))
+				.orderBy('createdAt', 'desc')
+				.limit(o.limit)
+				.execute(),
 		),
 	);
 
@@ -102,16 +96,17 @@ export const claimJob = (known: Known[], lease: number): ResultAsync<ClaimedJob 
 
 export type Run = { id: string; name: string; attempts: number };
 
-const ofThisAttempt = (r: Run) =>
-	and(eq(jobs.id, r.id), eq(jobs.attempts, r.attempts), eq(jobs.status, JobStatus.Running));
+const ofThisAttempt = (r: Run) => (e: ExpressionBuilder<Tables, 'jobs'>) =>
+	e.and([e('id', '=', r.id), e('attempts', '=', r.attempts), e('status', '=', JobStatus.Running)]);
 
 export const renewLease = (r: Run, lease: number): ResultAsync<void> =>
 	withContext('db')((db) =>
 		attempt(async () => {
 			await db
-				.update(jobs)
+				.updateTable('jobs')
 				.set({ leasedUntil: later(lease) })
-				.where(ofThisAttempt(r));
+				.where(ofThisAttempt(r))
+				.execute();
 		}),
 	);
 
@@ -135,10 +130,12 @@ export const listExpired = (limit: number): ResultAsync<Run[]> =>
 	withContext('db')((db) =>
 		attempt(() =>
 			db
-				.select({ id: jobs.id, name: jobs.name, attempts: jobs.attempts })
-				.from(jobs)
-				.where(and(eq(jobs.status, JobStatus.Running), lte(jobs.leasedUntil, sql`now()`)))
-				.limit(limit),
+				.selectFrom('jobs')
+				.select(['id', 'name', 'attempts'])
+				.where('status', '=', JobStatus.Running)
+				.where('leasedUntil', '<=', now)
+				.limit(limit)
+				.execute(),
 		),
 	);
 
@@ -148,100 +145,104 @@ export const sweep = (l: string[]): ResultAsync<void> => failUnknown(l).andThen(
 const failUnknown = (known: string[]): ResultAsync<void> =>
 	withContext('db')((db) =>
 		attempt(async () => {
-			const error = sql`jsonb_build_object('type', 'JobUnknown', 'name', ${jobs.name})`;
 			await db
-				.update(jobs)
-				.set({ status: JobStatus.Failed, error })
-				.where(
-					and(
-						eq(jobs.status, JobStatus.Queued),
-						lte(jobs.runAt, ago(UNKNOWN_KEPT)),
-						notInArray(jobs.name, known),
-					),
-				);
+				.updateTable('jobs')
+				.set((e) => ({
+					status: JobStatus.Failed,
+					error: sql<RupeeError>`jsonb_build_object('type', 'JobUnknown', 'name', ${e.ref('name')})`,
+				}))
+				.where('status', '=', JobStatus.Queued)
+				.where('runAt', '<=', ago(UNKNOWN_KEPT))
+				.where((e) => noneOf(e.ref('name'), known, 'text'))
+				.execute();
 		}),
 	);
 
 const deleteFinished = (): ResultAsync<void> =>
 	withContext('db')((db) =>
 		attempt(async () => {
-			const old = or(
-				and(eq(jobs.status, JobStatus.Succeeded), lte(jobs.updatedAt, ago(SUCCEEDED_KEPT))),
-				and(eq(jobs.status, JobStatus.Failed), lte(jobs.updatedAt, ago(FAILED_KEPT))),
-			);
-			await db.delete(jobs).where(old);
+			await db
+				.deleteFrom('jobs')
+				.where((e) =>
+					e.or([
+						e.and([
+							e('status', '=', JobStatus.Succeeded),
+							e('updatedAt', '<=', ago(SUCCEEDED_KEPT)),
+						]),
+						e.and([e('status', '=', JobStatus.Failed), e('updatedAt', '<=', ago(FAILED_KEPT))]),
+					]),
+				)
+				.execute();
 		}),
 	);
 
-const later = (t: number) => sql`now() + make_interval(secs => ${t / 1000})`;
-const ago = (t: number) => sql`now() - make_interval(secs => ${t / 1000})`;
+const now = sql<Date>`now()`;
+const later = (t: number) => sql<Date>`now() + make_interval(secs => ${t / 1000})`;
+const ago = (t: number) => sql<Date>`now() - make_interval(secs => ${t / 1000})`;
 
-const claimed = {
-	id: jobs.id,
-	userId: jobs.userId,
-	name: jobs.name,
-	version: jobs.version,
-	payload: jobs.payload,
-	attempts: jobs.attempts,
-};
+const claimed = ['id', 'userId', 'name', 'version', 'payload', 'attempts'] as const;
 
 const claimDue = (known: Known[], lease: number) =>
 	withContext('db')((db) => {
-		const running = alias(jobs, 'running');
-		const busy = db
-			.select({ id: running.id })
-			.from(running)
-			.where(
-				and(
-					eq(running.name, jobs.name),
-					eq(running.partition, jobs.partition),
-					eq(running.status, JobStatus.Running),
-				),
-			);
 		const next = db
-			.select({ id: jobs.id })
-			.from(jobs)
-			.where(and(due(known), notExists(busy)))
-			.orderBy(jobs.runAt, jobs.id)
+			.selectFrom('jobs')
+			.select('id')
+			.where(due(known))
+			.where((e) =>
+				e.not(
+					e.exists(
+						e
+							.selectFrom('jobs as running')
+							.select('running.id')
+							.whereRef('running.name', '=', 'jobs.name')
+							.whereRef('running.partition', '=', 'jobs.partition')
+							.where('running.status', '=', JobStatus.Running),
+					),
+				),
+			)
+			.orderBy('runAt')
+			.orderBy('id')
 			.limit(1)
-			.for('update', { skipLocked: true });
-		const claim = {
-			status: JobStatus.Running,
-			attempts: sql`${jobs.attempts} + 1`,
-			leasedUntil: later(lease),
-		};
+			.forUpdate()
+			.skipLocked();
 		return attemptWrite(() =>
 			db
-				.update(jobs)
-				.set(claim)
-				.where(inArray(jobs.id, next))
+				.updateTable('jobs')
+				.set((e) => ({
+					status: JobStatus.Running,
+					attempts: e('attempts', '+', 1),
+					leasedUntil: later(lease),
+				}))
+				.where('id', 'in', next)
 				.returning(claimed)
-				.then(([c]) => c ?? null),
+				.executeTakeFirst()
+				.then((c) => c ?? null),
 		);
 	});
 
-const due = (known: Known[]) =>
-	and(
-		eq(jobs.status, JobStatus.Queued),
-		lte(jobs.runAt, sql`now()`),
-		or(...known.map((k) => and(eq(jobs.name, k.name), lte(jobs.version, k.version)))),
-	);
+const due = (known: Known[]) => (e: ExpressionBuilder<Tables, 'jobs'>) =>
+	e.and([
+		e('status', '=', JobStatus.Queued),
+		e('runAt', '<=', now),
+		e.or(known.map((k) => e.and([e('name', '=', k.name), e('version', '<=', k.version)]))),
+	]);
 
-type RunUpdate = { status: JobStatus; error: RupeeError | null; runAt?: SQL };
+type RunUpdate = { status: JobStatus; error: RupeeError | null; runAt?: Expression<Date> };
 
 const updateRun = (r: Run, e: RunUpdate): ResultAsync<void> =>
 	withContext('db')((db) =>
 		attemptWrite(async () => {
 			await db
-				.update(jobs)
-				.set({ ...e, leasedUntil: null })
-				.where(ofThisAttempt(r));
+				.updateTable('jobs')
+				.set({ ...e, error: e.error && json(e.error), leasedUntil: null })
+				.where(ofThisAttempt(r))
+				.execute();
 		}),
 	);
 
 const deleteRun = (r: Run): ResultAsync<void> =>
 	withContext('db')((db) =>
 		attempt(async () => {
-			await db.delete(jobs).where(ofThisAttempt(r));
+			await db.deleteFrom('jobs').where(ofThisAttempt(r)).execute();
 		}),
 	);

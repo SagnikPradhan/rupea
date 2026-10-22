@@ -1,7 +1,6 @@
 import type { Database } from '#lib/server/db/index.ts';
 import { provide } from '#lib/server/shared/context/context.ts';
 import * as DB from '#services/ledger/adapters/database.ts';
-import { symbols } from '#services/ledger/adapters/database-schema.ts';
 import * as Accounts from '#services/ledger/application/accounts.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
@@ -9,7 +8,6 @@ import { parseAmount, type Amount } from '#services/ledger/domain/amounts.ts';
 import { Feed, PriceSource } from '#services/ledger/domain/types.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
-import { and, eq } from 'drizzle-orm';
 import { describe, expect } from 'vitest';
 
 const bought = (price: number) =>
@@ -269,10 +267,12 @@ describe('linked feeds', () => {
 
 	/** Saves a feed's quotes as a fetch would, for a symbol a ledger already links. */
 	const quoted = async (db: Database, feed: Feed, symbol: string, q: Record<string, string>) => {
-		const [found] = await db
-			.select({ id: symbols.id })
-			.from(symbols)
-			.where(and(eq(symbols.feed, feed), eq(symbols.symbol, symbol)));
+		const found = await db
+			.selectFrom('symbols')
+			.select('id')
+			.where('feed', '=', feed)
+			.where('symbol', '=', symbol)
+			.executeTakeFirst();
 		const source = feed === Feed.Mfapi ? PriceSource.Mfapi : PriceSource.Yahoo;
 		const quotes = Object.entries(q).map(([date, price]) => {
 			const [amount = '', commodity = 'INR'] = price.split(' ');

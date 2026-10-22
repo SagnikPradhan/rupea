@@ -9,12 +9,13 @@ import { CURRENCIES } from '../domain/lots';
 import { displayLocation } from '../domain/parser';
 import { marketPrices } from '../domain/prices';
 import { accountType, BALANCE_TYPES } from '../domain/taxonomy';
-import type { RupeeLedgerFile, RupeeMetadata } from '../domain/types';
+import { Feed, type RupeeLedgerFile, type RupeeMetadata } from '../domain/types';
 import {
 	ledgerFiles,
 	metadata as metadataTable,
 	postings,
 	prices as priceTable,
+	symbols as symbolTable,
 	transactions as transactionTable,
 } from './database-schema';
 
@@ -118,16 +119,19 @@ export const indexFile = (
 							: [];
 					}),
 				);
-				const priceRows = marketPrices(file).map((p) => ({
-					ledgerId,
-					fileId,
-					line: p.location.line,
-					date: p.date.toString(),
-					commodity: p.commodity,
-					priceAmount: p.price.amount,
-					priceCommodity: p.price.commodity,
-					source: p.source,
-				}));
+				const priced = Object.groupBy(marketPrices(file), (p) => p.commodity);
+				const symbols = await ownSymbols(tx, ledgerId, Object.keys(priced));
+				const priceRows = symbols.flatMap(({ id, symbol }) =>
+					(priced[symbol] ?? []).map((p) => ({
+						symbolId: id,
+						fileId,
+						line: p.location.line,
+						date: p.date.toString(),
+						priceAmount: p.price.amount,
+						priceCommodity: p.price.commodity,
+						source: p.source,
+					})),
+				);
 				const metadataRows = [
 					...ownedBy({ ledgerId, fileId }, file.metadata),
 					...indexed.flatMap(({ id, transaction }) =>
@@ -230,6 +234,26 @@ const ownedBy = (o: MetadataOwner, m: RupeeMetadata) =>
 	Object.entries(m)
 		.flatMap(([key, values]) => values.map((v) => ({ key, value: v })))
 		.map((e, i) => ({ ...o, position: i, ...e }));
+
+/** The ledger's own symbols for these commodities, made the first time each is priced. */
+const ownSymbols = async (db: Database, ledgerId: string, commodities: string[]) => {
+	if (commodities.length === 0) return [];
+
+	await db
+		.insert(symbolTable)
+		.values(commodities.map((c) => ({ feed: Feed.Ledger, symbol: c, ledgerId })))
+		.onConflictDoNothing();
+	return db
+		.select({ id: symbolTable.id, symbol: symbolTable.symbol })
+		.from(symbolTable)
+		.where(
+			and(
+				eq(symbolTable.feed, Feed.Ledger),
+				eq(symbolTable.ledgerId, ledgerId),
+				inArray(symbolTable.symbol, commodities),
+			),
+		);
+};
 
 const lotCommoditiesOf = (db: Database, fileId: string): Promise<string[]> =>
 	db

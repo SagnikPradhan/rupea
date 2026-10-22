@@ -9,6 +9,7 @@ import {
 	lots,
 	metadata,
 	prices,
+	symbols,
 	transactions,
 } from '#services/ledger/adapters/database-schema.ts';
 import { listAllTransactions } from '#services/ledger/adapters/database-transactions.ts';
@@ -99,12 +100,13 @@ describe('syncing the ledger', () => {
 			const indexed = () =>
 				db
 					.select({
-						commodity: prices.commodity,
+						commodity: symbols.symbol,
 						amount: prices.priceAmount,
 						source: prices.source,
 					})
 					.from(prices)
-					.where(eq(prices.ledgerId, ledger.id))
+					.innerJoin(symbols, eq(symbols.id, prices.symbolId))
+					.where(eq(symbols.ledgerId, ledger.id))
 					.orderBy(asc(prices.line));
 
 			await put(storage, ledger, 'a.rupee', `${bought}\nP 2026-10-17 INFY 1820\n`);

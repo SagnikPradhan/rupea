@@ -29,11 +29,31 @@ _Avoid_: Root, prefix, category
 
 **Commodity**:
 What an amount is counted in: a currency, a share or a fund unit. An amount with none named is in rupees.
-_Avoid_: Currency (one kind of commodity), asset, symbol
+_Avoid_: Currency (one kind of commodity), asset, ticker (that is a symbol)
 
 **Price**:
 What a commodity is worth in another, per unit or in total: written on a posting, or as a `P` line for a market price. A transaction balances at its prices, each commodity on its own, except where a posting names a lot cost.
 _Avoid_: Rate, cost basis (that is a lot cost)
+
+**Feed**:
+Somewhere Rupee fetches market prices from, such as mfapi for mutual funds or Yahoo for shares. A ledger is the feed of its own prices.
+_Avoid_: Provider, source (that reports money movements)
+
+**Symbol**:
+What a feed calls a commodity, like `120716` on mfapi. Every price belongs to one; a ledger's own commodities are symbols of its own feed.
+_Avoid_: Ticker, code
+
+**Link**:
+A `P` line naming a feed's symbol in place of a price, so a commodity is priced by that feed from its date, or from the start with `*`.
+_Avoid_: Mapping, binding
+
+**Alias**:
+The commodity a link prices, as the ledger names it.
+_Avoid_: Local symbol
+
+**Quote**:
+A price a feed reported for its symbol on a day, shared by every ledger that links to it.
+_Avoid_: Fetched price, rate
 
 **Balance account**:
 An Assets or Liabilities account, where real money sits.
@@ -104,7 +124,7 @@ _Avoid_: Slug, ID
 
 **Source**:
 Anything that reports money movements: a bank or card statement, a broker report, an order export.
-_Avoid_: Provider, feed
+_Avoid_: Provider
 
 **Statement**:
 A file from a source, kept in the ledger it is imported into.

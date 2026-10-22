@@ -19,6 +19,11 @@ export enum PriceSource {
 	Posting = 'posting',
 }
 
+/** Where a symbol's prices come from; a ledger's own symbols are priced by its files. */
+export enum Feed {
+	Ledger = 'ledger',
+}
+
 export enum LotOrigin {
 	Buy = 'buy',
 	Transfer = 'transfer',

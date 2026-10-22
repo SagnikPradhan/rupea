@@ -2,10 +2,11 @@ import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { sql, type SQL } from 'drizzle-orm';
 import { AMOUNT_UNIT, DEFAULT_COMMODITY, type Amount, type Quantity } from '../domain/amounts';
-import { AccountType, PriceSource } from '../domain/types';
+import { AccountType, Feed, PriceSource } from '../domain/types';
 import {
 	postings,
 	prices as priceTable,
+	symbols as symbolTable,
 	transactions as transactionTable,
 } from './database-schema';
 
@@ -126,9 +127,11 @@ export const listWorth = (
 
 /** The latest price of a commodity on or before a day, where a P line beats an at-price on the same day. */
 const priceOn = (ledgerId: string, commodity: SQL, day: SQL) => sql`
-	select price_amount as amount, price_commodity as currency
-	from ${priceTable}
-	where ledger_id = ${ledgerId} and commodity = ${commodity} and date <= ${day}
-	order by date desc, source = ${PriceSource.Line} desc, line desc
+	select ${priceTable.priceAmount} as amount, ${priceTable.priceCommodity} as currency
+	from ${symbolTable}
+	join ${priceTable} on ${priceTable.symbolId} = ${symbolTable.id}
+	where ${symbolTable.feed} = ${Feed.Ledger} and ${symbolTable.ledgerId} = ${ledgerId}
+		and ${symbolTable.symbol} = ${commodity} and ${priceTable.date} <= ${day}
+	order by ${priceTable.date} desc, ${priceTable.source} = ${PriceSource.Line} desc, ${priceTable.line} desc
 	limit 1
 `;

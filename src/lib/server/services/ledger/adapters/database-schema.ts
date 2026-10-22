@@ -3,11 +3,19 @@ import { EMBEDDING_DIMENSIONS } from '#lib/server/shared/onnx/models.ts';
 import { users } from '#services/auth/adapters/database-schema.ts';
 import { sql } from 'drizzle-orm';
 import * as PG from 'drizzle-orm/pg-core';
-import { AccountType, DisposalKind, LotOrigin, PriceKind, PriceSource } from '../domain/types';
+import {
+	AccountType,
+	DisposalKind,
+	Feed,
+	LotOrigin,
+	PriceKind,
+	PriceSource,
+} from '../domain/types';
 
 export const accountType = PG.pgEnum('account_type', AccountType);
 export const priceKind = PG.pgEnum('price_kind', PriceKind);
 export const priceSource = PG.pgEnum('price_source', PriceSource);
+export const feed = PG.pgEnum('feed', Feed);
 export const lotOrigin = PG.pgEnum('lot_origin', LotOrigin);
 export const disposalKind = PG.pgEnum('disposal_kind', DisposalKind);
 
@@ -138,28 +146,45 @@ export const postings = PG.pgTable(
 	],
 );
 
+// What a feed names a commodity; a ledger's own symbols are its commodities, priced by its files.
+export const symbols = PG.pgTable(
+	'symbols',
+	(t) => ({
+		...base,
+		feed: feed().notNull(),
+		symbol: t.text().notNull(),
+		ledgerId: t.uuid().references(() => ledgers.id, { onDelete: 'cascade' }),
+	}),
+	(t) => [
+		PG.unique('symbols_feed_ledger_id_symbol').on(t.feed, t.ledgerId, t.symbol).nullsNotDistinct(),
+		PG.check(
+			'symbols_ledger_owns_its_own',
+			sql`(${t.feed} = 'ledger') = (${t.ledgerId} is not null)`,
+		),
+	],
+);
+
 export const prices = PG.pgTable(
 	'prices',
 	(t) => ({
 		...base,
-		ledgerId: t
+		symbolId: t
 			.uuid()
 			.notNull()
-			.references(() => ledgers.id, { onDelete: 'cascade' }),
+			.references(() => symbols.id, { onDelete: 'cascade' }),
 		fileId: t
 			.uuid()
 			.notNull()
 			.references(() => ledgerFiles.id, { onDelete: 'cascade' }),
 		line: t.integer().notNull(),
 		date: t.date().notNull(),
-		commodity: t.text().notNull(),
 		priceAmount: amount().notNull(), // of one unit, in ten-billionths
 		priceCommodity: t.text().notNull(),
 		source: priceSource().notNull(),
 	}),
 	(t) => [
 		PG.index('prices_file_id').on(t.fileId),
-		PG.index('prices_ledger_id_commodity_date').on(t.ledgerId, t.commodity, t.date),
+		PG.index('prices_symbol_id_date').on(t.symbolId, t.date),
 	],
 );
 

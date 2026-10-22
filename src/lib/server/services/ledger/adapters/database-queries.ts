@@ -33,10 +33,7 @@ export const postingColumns = [
 	'p.balance',
 ] as const;
 
-// A missing time sorts as midnight, so every transaction has a place in the order.
-export const timeKey = sql<string>`coalesce(${sql.ref('t.time')}, '00:00')`;
-
-export const newestFirst = sql`${sql.ref('t.date')} desc, ${timeKey} desc, ${sql.ref('t.id')} desc`;
+export const newestFirst = sql`${sql.ref('t.date')} desc, ${sql.ref('t.sortTime')} desc, ${sql.ref('t.id')} desc`;
 
 export const listed =
 	(ledgerId: string, filter: ListFilter) => (e: ExpressionBuilder<Aliased, 't'>) =>
@@ -58,7 +55,7 @@ export const inAccount = (a: string) =>
 	sql<SqlBool>`(lower(${sql.ref('p.account')}) = lower(${a}) or starts_with(lower(${sql.ref('p.account')}), lower(${a}) || ':'))`;
 
 export const before = (c: Cursor) =>
-	sql<SqlBool>`(${sql.ref('t.date')}, ${timeKey}, ${sql.ref('t.id')}) < (${c.date}::date, ${c.time}::time, ${c.id}::uuid)`;
+	sql<SqlBool>`(${sql.ref('t.date')}, ${sql.ref('t.sortTime')}, ${sql.ref('t.id')}) < (${c.date}::date, ${c.time}::time, ${c.id}::uuid)`;
 
 type PriceColumns = {
 	priceAmount: bigint | null;

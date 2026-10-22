@@ -13,15 +13,7 @@ import type { Neighbour } from '../domain/prediction';
 import { BALANCE_TYPES } from '../domain/taxonomy';
 import type { Filled, Unembedded } from '../domain/text';
 import type { RupeeMetadata, RupeeTransaction } from '../domain/types';
-import {
-	before,
-	inAccount,
-	listed,
-	newestFirst,
-	timeKey,
-	toCost,
-	toPrice,
-} from './database-queries';
+import { before, inAccount, listed, newestFirst, toCost, toPrice } from './database-queries';
 
 // Transactions searched near each line; the domain keeps the best few postings.
 const NEAREST = 50;
@@ -65,7 +57,7 @@ export const listTransactions = (
 	readOnly(async (kysely) => {
 		const keys = await kysely
 			.selectFrom('transactions as t')
-			.select(['t.id', 't.date', sql<string>`${timeKey}::text`.as('time'), 't.counted'])
+			.select(['t.id', 't.date', 't.sortTime as time', 't.counted'])
 			.where((e) =>
 				e.and([
 					listed(ledgerId, filter)(e),

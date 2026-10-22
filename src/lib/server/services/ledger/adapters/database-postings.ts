@@ -16,7 +16,6 @@ import {
 	postingColumns,
 	postingsInFiles,
 	postingsInTransactions,
-	timeKey,
 	toCost,
 	toPrice,
 	toQuantity,
@@ -57,7 +56,7 @@ export const listPostings = (
 				't.line',
 				't.id',
 				't.date',
-				sql<string>`${timeKey}::text`.as('time'),
+				't.sortTime as time',
 				't.description',
 				'p.position',
 				...postingColumns,
@@ -334,4 +333,4 @@ const asserted = (kysely: Queries, ledgerId: string) =>
 		.where('p.balance', 'is not', null);
 
 const atAfter = (c: PostingCursor) =>
-	sql<SqlBool>`(${sql.ref('t.date')}, ${timeKey}, ${sql.ref('t.id')}) = (${c.date}::date, ${c.time}::time, ${c.id}::uuid) and ${sql.ref('p.position')} > ${c.position}`;
+	sql<SqlBool>`(${sql.ref('t.date')}, ${sql.ref('t.sortTime')}, ${sql.ref('t.id')}) = (${c.date}::date, ${c.time}::time, ${c.id}::uuid) and ${sql.ref('p.position')} > ${c.position}`;

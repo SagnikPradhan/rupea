@@ -36,6 +36,13 @@
       "when": 1792646042107,
       "tag": "0004_price_symbols",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1792675484898,
+      "tag": "0005_transactions_sort_time",
+      "breakpoints": true
     }
   ]
 }

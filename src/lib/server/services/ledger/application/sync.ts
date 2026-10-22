@@ -1,3 +1,4 @@
+import { atomically } from '#lib/server/db/atomically.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import type { Batch } from '#lib/server/shared/result/batch.ts';
 import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
@@ -27,10 +28,16 @@ export const sync = (l: Ledger): ResultAsync<Batch<never>> =>
 /** Brings the index up to date without checking the ledger, which costs a pass over every event and balance assertion. */
 export const syncIndex = (ledger: Ledger): ResultAsync<RupeeError[]> =>
 	openFolder({ ledger, folder: 'files' }).andThen((s) =>
-		ResultAsync.combine([listLedgerFiles(s), DB.listIndexedFiles(ledger.id)])
-			.andThen(([stored, indexed]) => update(s, ledger.id, plan(stored, indexed)))
-			.andThen((f) => embed(ledger.id, f)),
+		exclusively(ledger.id, () =>
+			ResultAsync.combine([listLedgerFiles(s), DB.listIndexedFiles(ledger.id)]).andThen(
+				([stored, indexed]) => update(s, ledger.id, plan(stored, indexed)),
+			),
+		).andThen((f) => embed(ledger.id, f)),
 	);
+
+/** Runs `f` in one transaction as the ledger's only writer, so what it indexes is settled with it or not at all. */
+export const exclusively = <T>(id: string, f: () => ResultAsync<T>): ResultAsync<T> =>
+	atomically(() => DB.lockLedger(id).andThen(f));
 
 /** The ledger files in a ledger's files folder, leaving out the statements waiting there. */
 export const listLedgerFiles = (storage: Storage): ResultAsync<Entry[]> =>
@@ -71,44 +78,48 @@ export const unindex = ({ ledgerId, key }: UnindexOptions): ResultAsync<Indexed>
 
 type SettleOptions = { ledgerId: string; indexed: Indexed };
 
-/** Settles what spans files once they are indexed: which transactions count, then the lots they book. */
-export const settle = ({ ledgerId, indexed }: SettleOptions): ResultAsync<RupeeError[]> => {
-	const commodities = [...new Set(indexed.touched)];
-
-	return uncountedIn(ledgerId)
+/** Settles what spans files once they are indexed: which transactions count, then the balances and lots they make. */
+export const settle = ({ ledgerId, indexed }: SettleOptions): ResultAsync<RupeeError[]> =>
+	uncountedIn(ledgerId)
 		.andThen((u) => DB.recount(ledgerId, u).map((r) => ({ u, r })))
-		.andThen(({ u, r }) =>
-			DB.rebalance(ledgerId, [...new Set([...indexed.commodities, ...r])]).map(() => u),
-		)
-		.andThen((u) => (commodities.length === 0 ? okAsync() : DB.rebook(ledgerId, commodities, u)))
-		.map(() => indexed.failed)
-		.orElse((e) => ok([...indexed.failed, e]));
-};
+		.andThen(({ u, r }) => {
+			const commodities = [...new Set([...indexed.commodities, ...r.commodities])];
+			const lots = [...new Set([...indexed.touched, ...r.lots])];
+			return DB.rebalance(ledgerId, commodities).andThen(() =>
+				lots.length === 0 ? okAsync() : DB.rebook(ledgerId, lots, u),
+			);
+		})
+		.map(() => indexed.failed);
 
-export const checkLots = (l: Ledger): ResultAsync<RupeeError[]> =>
-	DB.listUnmatched(l.id).map((u) => u.map(toLotError));
-
-// Most syncs find nothing changed, and then nothing needs settling.
-const update = (s: Storage, id: string, p: SyncPlan): ResultAsync<RupeeError[]> =>
-	p.changed.length + p.gone.length === 0
-		? okAsync([])
-		: applyPlan(s, id, p).andThen((i) => settle({ ledgerId: id, indexed: i }));
-
-// One file at a time, since embedded Postgres has one connection. A failed
-// step is reported, not fatal; failing to list either side is.
-const applyPlan = (storage: Storage, ledgerId: string, p: SyncPlan): ResultAsync<Indexed> => {
-	const reindex = (k: string) =>
-		readText(storage, k).andThen((f) => indexFile({ ledgerId, file: f }));
-	const steps = [
-		...p.changed.map((k) => () => reindex(k)),
-		...p.gone.map((k) => () => unindex({ ledgerId, key: k })),
-	];
-
-	return inOrder(steps.map((s) => () => reported(s()))).map((done) => ({
+/** Indexes one file at a time, each in a savepoint, so a step that fails is reported and leaves the others. */
+export const indexEach = (steps: (() => ResultAsync<Indexed>)[]): ResultAsync<Indexed> =>
+	inOrder(steps.map((s) => () => reported(atomically(s)))).map((done) => ({
 		failed: done.flatMap((d) => d.failed),
 		touched: done.flatMap((d) => d.touched),
 		commodities: done.flatMap((d) => d.commodities),
 	}));
+
+export const checkLots = (l: Ledger): ResultAsync<RupeeError[]> =>
+	DB.listUnmatched(l.id).map((u) => u.map(toLotError));
+
+// Most syncs find nothing changed, and then nothing needs settling. A settle
+// that fails is reported, and undoes what this sync indexed, so the next one
+// tries again; failing to list either side is fatal.
+const update = (s: Storage, id: string, p: SyncPlan): ResultAsync<RupeeError[]> =>
+	p.changed.length + p.gone.length === 0
+		? okAsync([])
+		: atomically(() =>
+				applyPlan(s, id, p).andThen((i) => settle({ ledgerId: id, indexed: i })),
+			).orElse((e) => ok([e]));
+
+const applyPlan = (storage: Storage, ledgerId: string, p: SyncPlan): ResultAsync<Indexed> => {
+	const reindex = (k: string) =>
+		readText(storage, k).andThen((f) => indexFile({ ledgerId, file: f }));
+
+	return indexEach([
+		...p.changed.map((k) => () => reindex(k)),
+		...p.gone.map((k) => () => unindex({ ledgerId, key: k })),
+	]);
 };
 
 const reported = (i: ResultAsync<Indexed>): ResultAsync<Indexed> =>

@@ -2,16 +2,8 @@ import type { Database } from '#lib/server/db/index.ts';
 import { provide } from '#lib/server/shared/context/context.ts';
 import { EMBEDDING_DIMENSIONS } from '#lib/server/shared/onnx/models.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
-import { errAsync, ok } from '#lib/server/shared/result/result.ts';
+import { errAsync, ok, ResultAsync } from '#lib/server/shared/result/result.ts';
 import { scoped } from '#lib/server/shared/storage/storage.ts';
-import {
-	ledgerFiles,
-	lots,
-	metadata,
-	prices,
-	symbols,
-	transactions,
-} from '#services/ledger/adapters/database-schema.ts';
 import { MODEL } from '#services/ledger/adapters/prediction-onnx.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import * as Sync from '#services/ledger/application/sync.ts';
@@ -19,7 +11,8 @@ import { PriceSource } from '#services/ledger/domain/types.ts';
 import { broken } from '#tests/shared/embedding.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
-import { asc, eq } from 'drizzle-orm';
+import { count } from '#tests/shared/count.ts';
+import { sql } from 'kysely';
 import { describe, expect } from 'vitest';
 import {
 	groceries,
@@ -48,11 +41,12 @@ const annotated = [
 const fileMetadata = async (db: Database, ledgerId: string) =>
 	(
 		await db
-			.select({ key: metadata.key, value: metadata.value })
-			.from(metadata)
-			.innerJoin(ledgerFiles, eq(ledgerFiles.id, metadata.fileId))
-			.where(eq(ledgerFiles.ledgerId, ledgerId))
-			.orderBy(asc(metadata.position))
+			.selectFrom('metadata')
+			.innerJoin('ledgerFiles', 'ledgerFiles.id', 'metadata.fileId')
+			.select(['metadata.key', 'metadata.value'])
+			.where('ledgerFiles.ledgerId', '=', ledgerId)
+			.orderBy('metadata.position')
+			.execute()
 	).map((r) => [r.key, r.value]);
 
 describe('syncing the ledger', () => {
@@ -87,18 +81,19 @@ describe('syncing the ledger', () => {
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			// Other tests share the database, so count only what this one adds.
-			const before = await db.$count(metadata);
+			const all = () => count(db.selectFrom('metadata'));
+			const before = await all();
 			await put(storage, ledger, 'a.rupee', annotated);
 			await Sync.sync(ledger);
-			expect(await db.$count(metadata)).toBe(before + 5);
+			expect(await all()).toBe(before + 5);
 
 			await put(storage, ledger, 'a.rupee', `- statement: other.pdf\n\n${groceries}`);
 			await Sync.sync(ledger);
-			expect(await db.$count(metadata)).toBe(before + 1);
+			expect(await all()).toBe(before + 1);
 
 			await stored(storage, ledger).delete('a.rupee');
 			await Sync.sync(ledger);
-			expect(await db.$count(metadata)).toBe(before);
+			expect(await all()).toBe(before);
 		}));
 
 	it('indexes market prices, replacing them when the file changes', ({ context, db, storage }) =>
@@ -107,15 +102,12 @@ describe('syncing the ledger', () => {
 			const bought = '2026-10-01 Buy INFY\n\tAssets:Zerodha 10 INFY @ 1500\n\tAssets:Bank\n';
 			const indexed = () =>
 				db
-					.select({
-						commodity: symbols.symbol,
-						amount: prices.priceAmount,
-						source: prices.source,
-					})
-					.from(prices)
-					.innerJoin(symbols, eq(symbols.id, prices.symbolId))
-					.where(eq(symbols.ledgerId, ledger.id))
-					.orderBy(asc(prices.line));
+					.selectFrom('prices')
+					.innerJoin('symbols', 'symbols.id', 'prices.symbolId')
+					.select(['symbols.symbol as commodity', 'prices.priceAmount as amount', 'prices.source'])
+					.where('symbols.ledgerId', '=', ledger.id)
+					.orderBy('prices.line')
+					.execute();
 
 			await put(storage, ledger, 'a.rupee', `${bought}\nP 2026-10-17 INFY 1820\n`);
 			await Sync.sync(ledger);
@@ -141,10 +133,11 @@ describe('syncing the ledger', () => {
 			const ledger = await createLedger(db);
 			const own = () =>
 				db
-					.select({ id: symbols.id, symbol: symbols.symbol })
-					.from(symbols)
-					.where(eq(symbols.ledgerId, ledger.id))
-					.orderBy(asc(symbols.symbol));
+					.selectFrom('symbols')
+					.select(['id', 'symbol'])
+					.where('ledgerId', '=', ledger.id)
+					.orderBy('symbol')
+					.execute();
 
 			await put(storage, ledger, 'a.rupee', 'P 2026-10-17 INFY 1820\n');
 			await put(storage, ledger, 'b.rupee', 'P 2026-10-18 INFY 1830\nP 2026-10-18 TCS 4100\n');
@@ -199,28 +192,30 @@ describe('syncing the ledger', () => {
 	it('keeps a description embedded through a re-index', ({ context, db, storage }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			const vector = Array.from({ length: EMBEDDING_DIMENSIONS }, (_, i) => (i === 0 ? 1 : 0));
+			const vector = `[${Array.from({ length: EMBEDDING_DIMENSIONS }, (_, i) => (i === 0 ? 1 : 0)).join(',')}]`;
 			await put(storage, ledger, 'a.rupee', groceries);
 			await Sync.sync(ledger);
 			await db
-				.update(transactions)
-				.set({ embedding: vector })
-				.where(eq(transactions.ledgerId, ledger.id));
+				.updateTable('transactions')
+				.set({ embedding: sql<number[]>`${vector}::vector` })
+				.where('ledgerId', '=', ledger.id)
+				.execute();
 
 			await put(storage, ledger, 'a.rupee', `${salary}${groceries}`);
 			await Sync.sync(ledger);
 
 			const rows = await db
-				.select({
-					description: transactions.description,
-					embedding: transactions.embedding,
-					model: transactions.embeddingModel,
-				})
-				.from(transactions)
-				.where(eq(transactions.ledgerId, ledger.id))
-				.orderBy(asc(transactions.line));
+				.selectFrom('transactions')
+				.select([
+					'description',
+					sql<string>`${sql.ref('embedding')}::text`.as('embedding'),
+					'embeddingModel as model',
+				])
+				.where('ledgerId', '=', ledger.id)
+				.orderBy('line')
+				.execute();
 			expect(rows).toEqual([
-				{ description: 'Salary', embedding: expect.any(Array), model: MODEL },
+				{ description: 'Salary', embedding: expect.any(String), model: MODEL },
 				{ description: 'Groceries', embedding: vector, model: MODEL },
 			]);
 		}));
@@ -460,6 +455,26 @@ describe('balance assertions', () => {
 				]),
 			);
 		}));
+	it('checks an assertion on a day only evidence falls on', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'opening.rupee', content: opening });
+			await Files.createFile({
+				ledger,
+				key: 'hdfc.rupee',
+				content:
+					'2026-08-02 BOOKS\n\t- same-as: books\n\tAssets:Bank -50 = 900\n\tExpenses:Books\n',
+			});
+			await Files.createFile({
+				ledger,
+				key: 'amazon.rupee',
+				content: '2026-08-03 Amazon order\n\t- event: books\n\tAssets:Bank -50\n\tExpenses:Books\n',
+			});
+
+			expect((await issues(ledger))._unsafeUnwrap()).toEqual([
+				expect.objectContaining({ type: 'BalanceAssertionFailed', location: 'hdfc.rupee:1' }),
+			]);
+		}));
 });
 
 describe('lots', () => {
@@ -472,10 +487,12 @@ describe('lots', () => {
 
 	const held = (db: Database, ledgerId: string) =>
 		db
-			.select({ account: lots.account, remaining: lots.remaining, origin: lots.origin })
-			.from(lots)
-			.where(eq(lots.ledgerId, ledgerId))
-			.orderBy(asc(lots.date), asc(lots.account));
+			.selectFrom('lots')
+			.select(['account', 'remaining', 'origin'])
+			.where('ledgerId', '=', ledgerId)
+			.orderBy('date')
+			.orderBy('account')
+			.execute();
 
 	it('books lots across files, and what a sale takes from them', ({ context, db }) =>
 		provide(context, async () => {
@@ -564,6 +581,74 @@ describe('lots', () => {
 			await Files.createFile({ ledger, key: 'b.rupee', content: buy('same-as') });
 
 			expect(await issues(ledger)).toEqual(ok([]));
+			expect(await held(db, ledger.id)).toHaveLength(1);
+		}));
+	it('books again when an event stops counting the buy', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({
+				ledger,
+				key: 'b.rupee',
+				content: bought.replace('Buy\n', 'Buy\n\t- same-as: 2024-01-02-infy-otter\n'),
+			});
+			expect(await held(db, ledger.id)).toHaveLength(1);
+
+			await Files.createFile({
+				ledger,
+				key: 'a.rupee',
+				content:
+					'2024-01-02 Transfer\n\t- event: 2024-01-02-infy-otter\n\tAssets:Zerodha 15000\n\tAssets:Bank\n',
+			});
+			await issues(ledger);
+
+			expect(await held(db, ledger.id)).toEqual([]);
+		}));
+
+	it('waits for another sync of the ledger to finish', ({ context, db, storage }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const other = Promise.withResolvers<void>();
+			await put(storage, ledger, 'a.rupee', bought);
+
+			const holding = Sync.exclusively(ledger.id, () => ResultAsync.fromSafePromise(other.promise));
+			const syncing = issues(ledger);
+			const first = await Promise.race([
+				syncing.then(() => 'sync'),
+				new Promise((r) => setTimeout(() => r('wait'), 200)),
+			]);
+
+			other.resolve();
+			await Promise.all([holding, syncing]);
+			expect(first).toBe('wait');
+			expect(await held(db, ledger.id)).toHaveLength(1);
+		}));
+
+	it('rolls back what a sync indexed when booking fails, and books on the next', ({
+		context,
+		db,
+		storage,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const name = sql.id(`fail_lots_${ledger.id.replaceAll('-', '_')}`);
+			await sql`create function ${name}() returns trigger language plpgsql as $$ begin raise exception 'no lots'; end $$`.execute(
+				db,
+			);
+			await sql`create trigger ${name} before insert on lots for each row when (new.ledger_id = ${sql.lit(ledger.id)}) execute function ${name}()`.execute(
+				db,
+			);
+			await put(storage, ledger, 'a.rupee', bought);
+
+			expect((await issues(ledger))._unsafeUnwrap()).toEqual([
+				expect.objectContaining({ type: 'UnknownError' }),
+			]);
+			expect(await summary(ledger.id)).toEqual([]);
+
+			await sql`drop trigger ${name} on lots`.execute(db);
+			await sql`drop function ${name}()`.execute(db);
+
+			expect(await issues(ledger)).toEqual(ok([]));
+			expect(await summary(ledger.id)).toEqual(['a.rupee:1 Buy']);
 			expect(await held(db, ledger.id)).toHaveLength(1);
 		}));
 });

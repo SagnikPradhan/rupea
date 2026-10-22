@@ -13,7 +13,15 @@ import { format } from '../domain/format';
 import { parse } from '../domain/parser';
 import type { Ledger, RupeeFile, RupeeTransaction } from '../domain/types';
 import { openFolder } from './ledger';
-import { indexFile, listLedgerFiles, settle, unindex, type Indexed } from './sync';
+import {
+	exclusively,
+	indexEach,
+	indexFile,
+	listLedgerFiles,
+	settle,
+	unindex,
+	type Indexed,
+} from './sync';
 
 export const listFiles = (l: Ledger): ResultAsync<Batch<RupeeFile>> =>
 	openFolder({ ledger: l, folder: 'files' }).andThen((s) =>
@@ -100,7 +108,9 @@ const writeFile = ({ ledger, key, content, ifVersion }: WriteFileOptions): Resul
 		.andTee((f) => indexAndSettle(ledger.id, f));
 
 const indexAndSettle = (id: string, f: RupeeFile) =>
-	indexFile({ ledgerId: id, file: f }).andThen((i) => settle({ ledgerId: id, indexed: i }));
+	exclusively(id, () =>
+		indexFile({ ledgerId: id, file: f }).andThen((i) => settle({ ledgerId: id, indexed: i })),
+	);
 
 // A move between counted and review folders changes what the file counts, so
 // it is indexed again; otherwise only its key changes.
@@ -108,38 +118,28 @@ const moveFile = (storage: Storage, ledgerId: string, { from, to }: Move) =>
 	storage
 		.rename(from, to)
 		.andThen(() => readText(storage, to))
-		.andThen((file) =>
-			indexed(
-				file,
+		.map((file) => ({
+			value: file,
+			index: () =>
 				DB.renameIndexedFile(ledgerId, from, to).andThen((t) =>
 					isCounted(from) === isCounted(to)
 						? okAsync({ failed: [], touched: t, commodities: [] })
 						: indexFile({ ledgerId, file }),
 				),
-			),
-		);
+		}));
 
 const deleteFile = (s: Storage, id: string, k: string) =>
-	s.delete(k).andThen(() => indexed(k, unindex({ ledgerId: id, key: k })));
+	s.delete(k).map(() => ({ value: k, index: () => unindex({ ledgerId: id, key: k }) }));
 
-type Changed<T> = { value: T; indexed: Indexed };
+type Changed<T> = { value: T; index: () => ResultAsync<Indexed> };
 
-// If indexing fails, the next sync picks the file up.
-const indexed = <T>(v: T, i: ResultAsync<Indexed>): ResultAsync<Changed<T>> =>
-	i
-		.orElse((e) => ok({ failed: [e], touched: [], commodities: [] }))
-		.map((x) => ({ value: v, indexed: x }));
-
-// One file at a time, since embedded Postgres has one connection, and
-// settled once for them all.
+// Every file is changed first, then all are indexed and settled together. If
+// that fails, the next sync picks them up.
 const changeEach = <T>(ledgerId: string, steps: (() => ResultAsync<Changed<T>>)[]) =>
-	batchInOrder(steps).andThen((b) => {
-		const changed = b.succeeded;
-		const failed = [...b.failed, ...changed.flatMap((c) => c.indexed.failed)];
-		const touched = changed.flatMap((c) => c.indexed.touched);
-		const commodities = changed.flatMap((c) => c.indexed.commodities);
-		return settle({ ledgerId, indexed: { failed, touched, commodities } }).map((f) => ({
-			succeeded: changed.map((c) => c.value),
-			failed: f,
-		}));
-	});
+	batchInOrder(steps).andThen((b) =>
+		exclusively(ledgerId, () =>
+			indexEach(b.succeeded.map((c) => c.index)).andThen((i) => settle({ ledgerId, indexed: i })),
+		)
+			.orElse((e) => ok([e]))
+			.map((f) => ({ succeeded: b.succeeded.map((c) => c.value), failed: [...b.failed, ...f] })),
+	);

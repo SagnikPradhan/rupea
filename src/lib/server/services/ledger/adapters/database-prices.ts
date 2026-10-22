@@ -1,8 +1,8 @@
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { runningTotal, total, unset } from '#lib/server/db/expressions.ts';
-import type { Queries } from '#lib/server/db/index.ts';
-import { sql, type Expression, type SqlBool } from 'kysely';
+import type { Database } from '#lib/server/db/index.ts';
+import { sql, type Expression } from 'kysely';
 import { AMOUNT_UNIT, DEFAULT_COMMODITY, type Amount, type Quantity } from '../domain/amounts';
 import { AccountType, Feed, PriceSource } from '../domain/types';
 import { multiply } from './database-queries';
@@ -24,16 +24,16 @@ export const findLatestPrices = (
 	commodities: string[],
 	day: Temporal.PlainDate,
 ): ResultAsync<Record<string, Quantity>> =>
-	withContext('kysely')((kysely) =>
+	withContext('db')((db) =>
 		attempt(() =>
-			kysely
-				.with('own', ownSymbols(kysely, ledgerId))
+			db
+				.with('own', ownSymbols(db, ledgerId))
 				.selectFrom(
 					sql<{ commodity: string }>`(select unnest(${commodities}::text[]) as commodity)`.as('c'),
 				)
 				.innerJoin('own', 'own.symbol', 'c.commodity')
 				.innerJoinLateral(
-					priceOn(kysely, sql.ref<string>('own.id'), sql<string>`${day.toString()}::date`).as('p'),
+					priceOn(db, sql.ref<string>('own.id'), sql<string>`${day.toString()}::date`).as('p'),
 					(j) => j.onTrue(),
 				)
 				.select(['c.commodity', 'p.amount', 'p.currency'])
@@ -55,14 +55,14 @@ export const listWorth = (
 	from: Temporal.PlainDate,
 	to: Temporal.PlainDate,
 ): ResultAsync<Worth[]> =>
-	withContext('kysely')((kysely) => {
+	withContext('db')((db) => {
 		const firstDay = sql<string>`(select min(day) from days)`;
 		const isAsset = sql<boolean>`${sql.ref('deltas.accountType')} = ${sql.lit(AccountType.Assets)}`;
 
 		return attempt(() =>
-			kysely
+			db
 				// Kysely writes with recursive only when the first CTE asks for it
-				.withRecursive('own(id, symbol)', () => ownSymbols(kysely, ledgerId))
+				.withRecursive('own(id, symbol)', () => ownSymbols(db, ledgerId))
 				.with('changes', (q) =>
 					q
 						.selectFrom('deltas')
@@ -98,7 +98,7 @@ export const listWorth = (
 							'x.asset',
 							'x.commodity',
 							'o.id as symbolId',
-							total('x.amount', e('x.date', '<', firstDay)).as('opening'),
+							total(e.ref('x.amount'), e('x.date', '<', firstDay)).as('opening'),
 						])
 						.groupBy(['x.asset', 'x.commodity', 'o.id']),
 				)
@@ -112,14 +112,20 @@ export const listWorth = (
 								.onRef('x.commodity', '=', 'k.commodity')
 								.onRef('x.date', '=', 'd.day'),
 						)
-						.select([
+						.select((e) => [
 							'k.asset',
 							'k.commodity',
 							'k.symbolId',
 							'd.day',
-							sql<bigint>`${sql.ref('k.opening')} + ${runningTotal('x.amount', ['k.asset', 'k.commodity'], 'd.day')}`.as(
-								'units',
-							),
+							e(
+								e.ref('k.opening'),
+								'+',
+								runningTotal(
+									e.ref('x.amount'),
+									[e.ref('k.asset'), e.ref('k.commodity')],
+									e.ref('d.day'),
+								),
+							).as('units'),
 						]),
 				)
 				.withRecursive('rates(symbolId, day, commodity, at, rate, hops)', (q) =>
@@ -140,7 +146,7 @@ export const listWorth = (
 							r
 								.selectFrom('rates as r')
 								.innerJoinLateral(
-									priceOn(kysely, sql.ref<string>('r.at'), sql.ref<string>('r.day')).as('p'),
+									priceOn(db, sql.ref<string>('r.at'), sql.ref<string>('r.day')).as('p'),
 									(j) => j.onTrue(),
 								)
 								.leftJoin('own as o', 'o.symbol', 'p.currency')
@@ -180,14 +186,12 @@ export const listWorth = (
 				)
 				.selectFrom('days as d')
 				.leftJoin('valued as v', 'v.day', 'd.day')
-				.select([
+				.select((e) => [
 					'd.day',
-					total('v.value', 'v.asset').as('assets'),
-					sql<bigint>`-${total('v.value', sql<SqlBool>`not ${sql.ref('v.asset')}`)}`.as(
-						'liabilities',
-					),
-					total('v.value').as('worth'),
-					unset('v.value', 'v.day').as('unpriced'),
+					total(e.ref('v.value'), e('v.asset', '=', true)).as('assets'),
+					sql<bigint>`-${total(e.ref('v.value'), e('v.asset', '=', false))}`.as('liabilities'),
+					total(e.ref('v.value')).as('worth'),
+					unset(e.ref('v.value'), e.ref('v.day')).as('unpriced'),
 				])
 				.groupBy('d.day')
 				.orderBy('d.day')
@@ -204,16 +208,16 @@ export const listWorth = (
 	});
 
 /** The ledger's own symbols, so each commodity is looked up once rather than once a day. */
-const ownSymbols = (kysely: Queries, ledgerId: string) =>
-	kysely
+const ownSymbols = (db: Database, ledgerId: string) =>
+	db
 		.selectFrom('symbols')
 		.select(['symbols.id', 'symbols.symbol'])
 		.where('symbols.feed', '=', Feed.Ledger)
 		.where('symbols.ledgerId', '=', ledgerId);
 
 /** The latest price of a symbol on or before a day, where a P line beats an at-price on the same day. */
-const priceOn = (kysely: Queries, symbolId: Expression<string>, day: Expression<string>) =>
-	kysely
+const priceOn = (db: Database, symbolId: Expression<string>, day: Expression<string>) =>
+	db
 		.selectFrom('prices')
 		.select(['prices.priceAmount as amount', 'prices.priceCommodity as currency'])
 		.where('prices.symbolId', '=', symbolId)

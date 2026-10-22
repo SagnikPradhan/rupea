@@ -1,5 +1,6 @@
 import { anyOf, noneOf } from '#lib/server/db/expressions.ts';
-import { ROWS_PER_STATEMENT, type Queries } from '#lib/server/db/index.ts';
+import { ROWS_PER_STATEMENT, type Database } from '#lib/server/db/index.ts';
+import { transaction } from '#lib/server/db/transaction.ts';
 import { chunks } from '#lib/server/shared/arrays.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
@@ -15,9 +16,9 @@ import { Feed, type RupeeLedgerFile, type RupeeMetadata } from '../domain/types'
 export type FileVersion = { key: string; version: string | null };
 
 export const listIndexedFiles = (ledgerId: string): ResultAsync<FileVersion[]> =>
-	withContext('kysely')((kysely) =>
+	withContext('db')((db) =>
 		attempt(() =>
-			kysely
+			db
 				.selectFrom('ledgerFiles')
 				.select(['ledgerFiles.key', 'ledgerFiles.version'])
 				.where('ledgerFiles.ledgerId', '=', ledgerId)
@@ -27,15 +28,15 @@ export const listIndexedFiles = (ledgerId: string): ResultAsync<FileVersion[]> =
 
 /** Of these checksums, those in a file's metadata, unlocked or as uploaded. */
 export const findImported = (ledgerId: string, checksums: string[]): ResultAsync<string[]> =>
-	withContext('kysely')((kysely) =>
+	withContext('db')((db) =>
 		attempt(() =>
-			kysely
+			db
 				.selectFrom('metadata')
 				.select('metadata.value')
 				.distinct()
 				.where('metadata.ledgerId', '=', ledgerId)
 				.where('metadata.key', 'in', ['checksum', 'original-checksum'])
-				.where(anyOf('metadata.value', checksums, 'text'))
+				.where((e) => anyOf(e.ref('metadata.value'), checksums, 'text'))
 				.where('metadata.fileId', 'is not', null)
 				.execute(),
 		).map((r) => r.map((c) => c.value)),
@@ -55,9 +56,9 @@ export const indexFile = (
 	const untyped = untypedAccount(file);
 	if (untyped) return errAsync(untyped);
 
-	return withContext('kysely')((kysely) =>
+	return withContext('db')((db) =>
 		attempt(() =>
-			kysely.transaction().execute(async (tx) => {
+			transaction(db, async (tx) => {
 				const fileId = await tx
 					.insertInto('ledgerFiles')
 					.values({ ledgerId, key, version })
@@ -160,9 +161,9 @@ export const indexFile = (
 
 /** Returns the commodities the file posted, and those whose lots it held. */
 export const unindexFile = (ledgerId: string, key: string): ResultAsync<Touched> =>
-	withContext('kysely')((kysely) =>
+	withContext('db')((db) =>
 		attempt(() =>
-			kysely.transaction().execute(async (tx) => {
+			transaction(db, async (tx) => {
 				const file = await tx
 					.selectFrom('ledgerFiles')
 					.select('ledgerFiles.id')
@@ -185,16 +186,16 @@ export const renameIndexedFile = (
 	from: string,
 	to: string,
 ): ResultAsync<string[]> =>
-	withContext('kysely')((kysely) =>
+	withContext('db')((db) =>
 		attempt(() =>
-			kysely
+			db
 				.updateTable('ledgerFiles')
 				.set({ key: to })
 				.where('ledgerId', '=', ledgerId)
 				.where('key', '=', from)
 				.returning('id')
 				.executeTakeFirst()
-				.then((f) => (f ? lotCommoditiesOf(kysely, f.id) : [])),
+				.then((f) => (f ? lotCommoditiesOf(db, f.id) : [])),
 		),
 	);
 
@@ -216,8 +217,8 @@ const untypedAccount = (file: RupeeLedgerFile): RupeeError | null =>
 type Embedded = { embedding: string | null; embeddingModel: string | null };
 
 // Read as the text pgvector prints, since the driver has no parser for the type.
-const embeddingsIn = (kysely: Queries, fileId: string): Promise<Record<string, Embedded>> =>
-	kysely
+const embeddingsIn = (db: Database, fileId: string): Promise<Record<string, Embedded>> =>
+	db
 		.selectFrom('transactions')
 		.select([
 			'transactions.description',
@@ -248,7 +249,7 @@ const ownedBy = (o: MetadataOwner, m: RupeeMetadata) =>
  * one another sync made meanwhile is updated in place so that it is still returned.
  */
 const withSymbols = async <R>(
-	kysely: Queries,
+	db: Database,
 	ledgerId: string,
 	prices: { commodity: string; row: R }[],
 ) => {
@@ -256,7 +257,7 @@ const withSymbols = async <R>(
 	const commodities = Object.keys(byCommodity).toSorted();
 
 	const known = commodities.length
-		? await kysely
+		? await db
 				.selectFrom('symbols')
 				.select(['symbols.id', 'symbols.symbol'])
 				.where('symbols.feed', '=', Feed.Ledger)
@@ -267,7 +268,7 @@ const withSymbols = async <R>(
 	const seen = new Set(known.map((k) => k.symbol));
 	const missing = commodities.filter((c) => !seen.has(c));
 	const made = missing.length
-		? await kysely
+		? await db
 				.insertInto('symbols')
 				.values(missing.map((c) => ({ feed: Feed.Ledger, symbol: c, ledgerId })))
 				.onConflict((oc) =>
@@ -284,8 +285,8 @@ const withSymbols = async <R>(
 	);
 };
 
-const commoditiesOf = (kysely: Queries, fileId: string): Promise<string[]> =>
-	kysely
+const commoditiesOf = (db: Database, fileId: string): Promise<string[]> =>
+	db
 		.selectFrom('postings')
 		.innerJoin('transactions', 'transactions.id', 'postings.transactionId')
 		.select('postings.commodity')
@@ -294,14 +295,14 @@ const commoditiesOf = (kysely: Queries, fileId: string): Promise<string[]> =>
 		.execute()
 		.then((r) => r.map((c) => c.commodity));
 
-const lotCommoditiesOf = (kysely: Queries, fileId: string): Promise<string[]> =>
-	kysely
+const lotCommoditiesOf = (db: Database, fileId: string): Promise<string[]> =>
+	db
 		.selectFrom('postings')
 		.innerJoin('transactions', 'transactions.id', 'postings.transactionId')
 		.select('postings.commodity')
 		.distinct()
 		.where('transactions.fileId', '=', fileId)
 		.where('postings.accountType', 'in', BALANCE_TYPES)
-		.where(noneOf('postings.commodity', CURRENCIES, 'text'))
+		.where((e) => noneOf(e.ref('postings.commodity'), CURRENCIES, 'text'))
 		.execute()
 		.then((r) => r.map((c) => c.commodity));

@@ -18,7 +18,6 @@ const recording = () => {
 	const context = {
 		config: defaultConfiguration,
 		db: {} as RupeeContext['db'],
-		kysely: {} as RupeeContext['kysely'],
 		storages: { local: () => localStorage('/nowhere') },
 		models: createModels({
 			directory: '/nowhere',

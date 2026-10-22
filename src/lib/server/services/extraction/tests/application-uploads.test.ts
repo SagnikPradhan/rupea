@@ -1,12 +1,11 @@
+import { json } from '#lib/server/db/expressions.ts';
 import { provide } from '#lib/server/shared/context/context.ts';
 import { ok } from '#lib/server/shared/result/result.ts';
 import * as Drafts from '#services/extraction/application/drafts.ts';
 import { importStatement } from '#services/extraction/adapters/jobs.ts';
 import * as Uploads from '#services/extraction/application/uploads.ts';
-import { jobs } from '#services/jobs/adapters/database-schema.ts';
 import { listJobs } from '#services/jobs/application/jobs.ts';
 import { JobStatus } from '#services/jobs/domain/jobs.ts';
-import { metadata } from '#services/ledger/adapters/database-schema.ts';
 import { runJob } from '#services/jobs/application/jobs.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import { listed } from '#services/ledger/tests/fixtures/files.ts';
@@ -109,8 +108,8 @@ describe('importing a ledger file', () => {
 			const ledger = await createLedger(db);
 			await uploads(ledger, { 'books.ledger': books });
 			await runImports(ledger);
-			await db.delete(metadata);
-			await db.update(jobs).set({ status: JobStatus.Queued });
+			await db.deleteFrom('metadata').execute();
+			await db.updateTable('jobs').set({ status: JobStatus.Queued }).execute();
 			await runImports(ledger);
 
 			const listed = (await Files.listFiles(ledger))._unsafeUnwrap().succeeded;
@@ -136,7 +135,10 @@ describe('the inbox and the imports', () => {
 			const ledger = await createLedger(db);
 			await uploads(ledger, { 'books.ledger': books, 'aug.csv': statement });
 			await Files.deleteFiles({ ledger, keys: [`_/statements/${day()}/aug.csv`] });
-			await db.update(jobs).set({ payload: { ledger: ledger.handle } });
+			await db
+				.updateTable('jobs')
+				.set({ payload: json({ ledger: ledger.handle }) })
+				.execute();
 
 			expect(await Uploads.listInbox(ledger)).toEqual(ok([]));
 			expect(await Uploads.listImports({ ledger, user: ledger.owner })).toEqual(ok([]));

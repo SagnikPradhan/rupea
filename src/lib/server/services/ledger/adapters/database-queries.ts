@@ -1,4 +1,4 @@
-import { literalLike, type Queries } from '#lib/server/db/index.ts';
+import { literalLike, type Database } from '#lib/server/db/index.ts';
 import type { Tables } from '#lib/server/db/tables.ts';
 import { sql, type Expression, type ExpressionBuilder, type SqlBool } from 'kysely';
 import { AMOUNT_UNIT, type Amount, type Quantity } from '../domain/amounts';
@@ -13,12 +13,12 @@ type Aliased = Tables & {
 };
 
 /** Each posting with its transaction. */
-export const postingsInTransactions = (kysely: Queries) =>
-	kysely.selectFrom('postings as p').innerJoin('transactions as t', 't.id', 'p.transactionId');
+export const postingsInTransactions = (db: Database) =>
+	db.selectFrom('postings as p').innerJoin('transactions as t', 't.id', 'p.transactionId');
 
 /** Each posting with its transaction and file. */
-export const postingsInFiles = (kysely: Queries) =>
-	postingsInTransactions(kysely).innerJoin('ledgerFiles as f', 'f.id', 't.fileId');
+export const postingsInFiles = (db: Database) =>
+	postingsInTransactions(db).innerJoin('ledgerFiles as f', 'f.id', 't.fileId');
 
 export const postingColumns = [
 	'p.account',
@@ -50,9 +50,9 @@ export const listed =
 export const multiply = (a: Expression<unknown>, b: Expression<unknown>) =>
 	sql<bigint>`round(${a} * ${b} / ${sql.lit(AMOUNT_UNIT)})`;
 
-/** A posting to an account or any account under it, whatever their case. */
+/** A posting to an account or any account under it, whatever their case, through `postings_ledger_id_lower_account`. */
 export const inAccount = (a: string) =>
-	sql<SqlBool>`(lower(${sql.ref('p.account')}) = lower(${a}) or starts_with(lower(${sql.ref('p.account')}), lower(${a}) || ':'))`;
+	sql<SqlBool>`(lower(${sql.ref('p.account')}) = lower(${a}) or lower(${sql.ref('p.account')}) like lower(${literalLike(a)}) || ':%')`;
 
 export const before = (c: Cursor) =>
 	sql<SqlBool>`(${sql.ref('t.date')}, ${sql.ref('t.sortTime')}, ${sql.ref('t.id')}) < (${c.date}::date, ${c.time}::time, ${c.id}::uuid)`;

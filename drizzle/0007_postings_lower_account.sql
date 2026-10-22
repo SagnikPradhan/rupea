@@ -1,0 +1,1 @@
+CREATE INDEX "postings_ledger_id_lower_account" ON "postings" USING btree ("ledger_id",lower("account") text_pattern_ops);

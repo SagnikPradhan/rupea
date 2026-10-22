@@ -139,6 +139,10 @@ export const postings = PG.pgTable(
 		PG.index('postings_transaction_id').on(t.transactionId),
 		PG.index('postings_ledger_id_account_amount').on(t.ledgerId, t.account, t.commodity, t.amount), // refinement matches
 		PG.index('postings_ledger_id_commodity').on(t.ledgerId, t.commodity), // lots are booked per commodity
+		PG.index('postings_ledger_id_lower_account').on(
+			t.ledgerId,
+			sql`lower(${t.account}) text_pattern_ops`,
+		), // account filters, whatever their case
 		PG.index('postings_ledger_id_balance')
 			.on(t.ledgerId, t.account, t.commodity)
 			.where(sql`${t.balance} IS NOT NULL`),

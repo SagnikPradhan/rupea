@@ -1,4 +1,4 @@
-import type { Database, DatabaseHandle, Queries } from '#lib/server/db/index.ts';
+import type { Database, DatabaseHandle } from '#lib/server/db/index.ts';
 import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
 import type { RupeeContext } from '#lib/server/shared/context/context.ts';
 import { createLogger } from '#lib/server/shared/context/logger.ts';
@@ -18,7 +18,6 @@ export const it = base.extend<{
 	storage: Storage;
 	handle: DatabaseHandle;
 	db: Database;
-	kysely: Queries;
 	models: Models;
 	context: RupeeContext;
 }>({
@@ -37,8 +36,7 @@ export const it = base.extend<{
 		},
 		{ scope: 'file' },
 	],
-	db: ({ handle }, use) => use(handle.orm),
-	kysely: ({ handle }, use) => use(handle.kysely),
+	db: ({ handle }, use) => use(handle.db),
 	// Loading the models takes about a second, so every test in a worker shares them.
 	models: [
 		({}, use) =>
@@ -53,12 +51,11 @@ export const it = base.extend<{
 			),
 		{ scope: 'worker' },
 	],
-	context: async ({ db, kysely, storage, models }, use) => {
+	context: async ({ db, storage, models }, use) => {
 		const logger = createLogger('silent', false);
 		await use({
 			config: defaultConfiguration,
 			db,
-			kysely,
 			storages: { local: (u) => scoped(storage, `users/${u}`) },
 			mailer: logMailer,
 			logger,

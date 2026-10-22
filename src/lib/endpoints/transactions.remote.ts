@@ -8,7 +8,11 @@ import * as v from 'valibot';
 import { Handle, inLedger } from './shared';
 import { viewCounted, viewPosting } from './views';
 
-const Cursor = v.object({ date: v.string(), time: v.string(), id: v.pipe(v.string(), v.uuid()) });
+const Cursor = v.object({
+	date: v.pipe(v.string(), v.isoDate()),
+	time: v.pipe(v.string(), v.isoTimeSecond()),
+	id: v.pipe(v.string(), v.uuid()),
+});
 const PostingCursor = v.object({ ...Cursor.entries, position: v.number() });
 
 /** What is wrong across the ledger, after bringing its index up to date; lists read that index. */

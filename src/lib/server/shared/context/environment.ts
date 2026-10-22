@@ -30,14 +30,13 @@ export const createDatabase = (c: RupeeConfiguration): Promise<DatabaseHandle> =
 
 export const createContext = (
 	config: RupeeConfiguration,
-	database: Pick<DatabaseHandle, 'orm' | 'kysely'>,
+	database: Pick<DatabaseHandle, 'db'>,
 	dev: boolean,
 ): RupeeContext => {
 	const logger = createLogger(config.log.level, dev);
 	return {
 		config,
-		db: database.orm,
-		kysely: database.kysely,
+		db: database.db,
 		storages: createStorages(config),
 		mailer: logMailer,
 		logger,

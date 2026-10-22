@@ -1,6 +1,7 @@
 import { noneOf } from '#lib/server/db/expressions.ts';
-import { ROWS_PER_STATEMENT, type Queries } from '#lib/server/db/index.ts';
+import { ROWS_PER_STATEMENT, type Database } from '#lib/server/db/index.ts';
 import type { Tables } from '#lib/server/db/tables.ts';
+import { transaction } from '#lib/server/db/transaction.ts';
 import { chunks } from '#lib/server/shared/arrays.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
@@ -48,9 +49,9 @@ export const rebook = (
 	commodities: string[],
 	uncounted: string[],
 ): ResultAsync<void> =>
-	withContext('kysely')((kysely) =>
+	withContext('db')((db) =>
 		attempt(() =>
-			kysely.transaction().execute(async (tx) => {
+			transaction(db, async (tx) => {
 				for (const commodity of commodities)
 					await bookedPostings(tx, { ledgerId, commodity, uncounted })
 						.then(book)
@@ -60,9 +61,9 @@ export const rebook = (
 	);
 
 export const listUnmatched = (ledgerId: string): ResultAsync<UnmatchedDisposal[]> =>
-	withContext('kysely')((kysely) =>
+	withContext('db')((db) =>
 		attempt(() =>
-			kysely
+			db
 				.selectFrom('disposals')
 				.innerJoin('postings', 'postings.id', 'disposals.postingId')
 				.innerJoin('transactions', 'transactions.id', 'postings.transactionId')
@@ -98,7 +99,7 @@ export const listLots = (
 	ledgerId: string,
 	{ account, commodity }: ListLotsOptions,
 ): ResultAsync<LotHistory[]> =>
-	withContext('kysely')((kysely) =>
+	withContext('db')((db) =>
 		attempt(async () => {
 			const inHolding = (eb: ExpressionBuilder<Tables, 'lots'>) =>
 				eb.and([
@@ -107,7 +108,7 @@ export const listLots = (
 					eb('lots.commodity', '=', commodity),
 				]);
 
-			const lots = await kysely
+			const lots = await db
 				.selectFrom('lots')
 				.innerJoin('postings', 'postings.id', 'lots.postingId')
 				.innerJoin('transactions', 'transactions.id', 'postings.transactionId')
@@ -129,7 +130,7 @@ export const listLots = (
 				.orderBy('lots.date')
 				.orderBy(fileOrder)
 				.execute();
-			const disposals = await kysely
+			const disposals = await db
 				.selectFrom('disposals')
 				.innerJoin('lots', 'lots.id', 'disposals.lotId')
 				.innerJoin('postings', 'postings.id', 'disposals.postingId')
@@ -183,10 +184,10 @@ export const listLots = (
 type BookedPostingsOptions = { ledgerId: string; commodity: string; uncounted: string[] };
 
 const bookedPostings = (
-	kysely: Queries,
+	db: Database,
 	{ ledgerId, commodity, uncounted }: BookedPostingsOptions,
 ): Promise<BookedPosting[]> =>
-	kysely
+	db
 		.selectFrom('postings')
 		.innerJoin('transactions', 'transactions.id', 'postings.transactionId')
 		.innerJoin('ledgerFiles', 'ledgerFiles.id', 'transactions.fileId')
@@ -206,7 +207,7 @@ const bookedPostings = (
 		])
 		.where('postings.ledgerId', '=', ledgerId)
 		.where('postings.commodity', '=', commodity)
-		.where(noneOf('transactions.id', uncounted, 'uuid'))
+		.where((e) => noneOf(e.ref('transactions.id'), uncounted, 'uuid'))
 		.orderBy(transactionOrder)
 		.orderBy(fileOrder)
 		.orderBy('postings.position')
@@ -226,10 +227,7 @@ const bookedPostings = (
 
 type ReplaceLotsOptions = { ledgerId: string; commodity: string; booking: Booking };
 
-const replaceLots = async (
-	kysely: Queries,
-	{ ledgerId, commodity, booking }: ReplaceLotsOptions,
-) => {
+const replaceLots = async (db: Database, { ledgerId, commodity, booking }: ReplaceLotsOptions) => {
 	const lotRows = booking.lots.map((lot) => ({
 		id: lot.id,
 		ledgerId,
@@ -255,18 +253,18 @@ const replaceLots = async (
 		priceCommodity: disposal.price?.commodity ?? null,
 	}));
 
-	await kysely
+	await db
 		.deleteFrom('disposals')
 		.where('ledgerId', '=', ledgerId)
 		.where('commodity', '=', commodity)
 		.execute();
-	await kysely
+	await db
 		.deleteFrom('lots')
 		.where('ledgerId', '=', ledgerId)
 		.where('commodity', '=', commodity)
 		.execute();
 	for (const chunk of chunks(lotRows, ROWS_PER_STATEMENT))
-		await kysely.insertInto('lots').values(chunk).execute();
+		await db.insertInto('lots').values(chunk).execute();
 	for (const chunk of chunks(disposalRows, ROWS_PER_STATEMENT))
-		await kysely.insertInto('disposals').values(chunk).execute();
+		await db.insertInto('disposals').values(chunk).execute();
 };

@@ -1,7 +1,8 @@
 import { anyOf, distance, noneOf } from '#lib/server/db/expressions.ts';
-import { ROWS_PER_STATEMENT, vectorText, type Queries } from '#lib/server/db/index.ts';
+import { ROWS_PER_STATEMENT, vectorText, type Database } from '#lib/server/db/index.ts';
 import { readOnly } from '#lib/server/db/read-only.ts';
 import type { Tables } from '#lib/server/db/tables.ts';
+import { transaction } from '#lib/server/db/transaction.ts';
 import { chunks } from '#lib/server/shared/arrays.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, okAsync, ResultAsync } from '#lib/server/shared/result/result.ts';
@@ -10,9 +11,11 @@ import type { Amount } from '../domain/amounts';
 import { EVENT_KEYS } from '../domain/events';
 import { toMetadata } from '../domain/parser';
 import type { Neighbour } from '../domain/prediction';
+import { CURRENCIES } from '../domain/lots';
 import { BALANCE_TYPES } from '../domain/taxonomy';
 import type { Filled, Unembedded } from '../domain/text';
 import type { RupeeMetadata, RupeeTransaction } from '../domain/types';
+import type { Touched } from './database-files';
 import { before, inAccount, listed, newestFirst, toCost, toPrice } from './database-queries';
 
 // Transactions searched near each line; the domain keeps the best few postings.
@@ -54,8 +57,8 @@ export const listTransactions = (
 	ledgerId: string,
 	{ filter, after, limit }: PageOptions<Cursor>,
 ): ResultAsync<Page<CountedTransaction, Cursor>> =>
-	readOnly(async (kysely) => {
-		const keys = await kysely
+	readOnly(async (db) => {
+		const keys = await db
 			.selectFrom('transactions as t')
 			.select(['t.id', 't.date', 't.sortTime as time', 't.counted'])
 			.where((e) =>
@@ -71,7 +74,7 @@ export const listTransactions = (
 		const found =
 			keys.length === 0
 				? []
-				: await readIn(kysely, (eb) =>
+				: await readIn(db, (eb) =>
 						eb(
 							'transactions.id',
 							'in',
@@ -90,17 +93,17 @@ export const listTransactions = (
 		};
 	});
 
-/** Marks these transactions uncounted and every other counted, writing only the rows that change, and lists the commodities they post. */
-export const recount = (ledgerId: string, uncounted: string[]): ResultAsync<string[]> =>
-	withContext('kysely')((kysely) =>
+/** Marks these transactions uncounted and every other counted, writing only the rows that change, and returns the commodities and lots they post. */
+export const recount = (ledgerId: string, uncounted: string[]): ResultAsync<Touched> =>
+	withContext('db')((db) =>
 		attempt(() =>
-			kysely.transaction().execute(async (tx) => {
+			transaction(db, async (tx) => {
 				const counting = await tx
 					.updateTable('transactions')
 					.set({ counted: true })
 					.where('ledgerId', '=', ledgerId)
 					.where('counted', '=', false)
-					.where(noneOf('id', uncounted, 'uuid'))
+					.where((e) => noneOf(e.ref('id'), uncounted, 'uuid'))
 					.returning('id')
 					.execute();
 				const uncounting = await tx
@@ -108,18 +111,25 @@ export const recount = (ledgerId: string, uncounted: string[]): ResultAsync<stri
 					.set({ counted: false })
 					.where('ledgerId', '=', ledgerId)
 					.where('counted', '=', true)
-					.where(anyOf('id', uncounted, 'uuid'))
+					.where((e) => anyOf(e.ref('id'), uncounted, 'uuid'))
 					.returning('id')
 					.execute();
 				const changed = [...counting, ...uncounting].map((t) => t.id);
-				const commodities = await tx
+
+				const posted = tx
 					.selectFrom('postings')
 					.select('commodity')
 					.distinct()
-					.where(anyOf('transactionId', changed, 'uuid'))
+					.where((e) => anyOf(e.ref('transactionId'), changed, 'uuid'));
+				const commodities = await posted.execute();
+				const lots = await posted
+					.where('accountType', 'in', BALANCE_TYPES)
+					.where((e) => noneOf(e.ref('commodity'), CURRENCIES, 'text'))
 					.execute();
-
-				return commodities.map((c) => c.commodity);
+				return {
+					lots: lots.map((c) => c.commodity),
+					commodities: commodities.map((c) => c.commodity),
+				};
 			}),
 		),
 	);
@@ -129,9 +139,9 @@ export type CandidatePair = { ours: string; theirs: string };
 // Same date, amount and balance account, in another file; the other side goes
 // through the `(ledger_id, account, commodity, amount)` index.
 export const listCandidates = (ledgerId: string, key: string): ResultAsync<CandidatePair[]> =>
-	withContext('kysely')((kysely) =>
+	withContext('db')((db) =>
 		attempt(() =>
-			kysely
+			db
 				.selectFrom('ledgerFiles as ourFile')
 				.innerJoin('transactions as ourTransaction', 'ourTransaction.fileId', 'ourFile.id')
 				.innerJoin('postings as ourPosting', 'ourPosting.transactionId', 'ourTransaction.id')
@@ -207,9 +217,9 @@ export const listEventMembers = (
 	);
 
 export const isEventIdTaken = (ledgerId: string, id: string): ResultAsync<boolean> =>
-	withContext('kysely')((kysely) =>
+	withContext('db')((db) =>
 		attempt(() =>
-			kysely
+			db
 				.selectFrom('metadata')
 				.select('metadata.id')
 				.where('metadata.ledgerId', '=', ledgerId)
@@ -225,9 +235,9 @@ export const listUnembedded = (
 	model: string,
 	limit: number,
 ): ResultAsync<Unembedded[]> =>
-	withContext('kysely')((kysely) =>
+	withContext('db')((db) =>
 		attempt(() =>
-			kysely
+			db
 				.selectFrom('transactions')
 				.select(['transactions.id', 'transactions.description'])
 				.where('transactions.ledgerId', '=', ledgerId)
@@ -244,9 +254,9 @@ export const saveEmbeddings = (
 	model: string,
 	rows: Filled[],
 ): ResultAsync<void> =>
-	withContext('kysely')((kysely) =>
+	withContext('db')((db) =>
 		attempt(() =>
-			kysely.transaction().execute(async (tx) => {
+			transaction(db, async (tx) => {
 				for (const chunk of chunks(rows, ROWS_PER_STATEMENT))
 					await embeddingsUpdate(tx, ledgerId, model, chunk).execute();
 			}),
@@ -262,9 +272,9 @@ export const findNearest = (
 ): ResultAsync<Neighbour[][]> => {
 	if (vectors.length === 0) return okAsync([]);
 
-	return withContext('kysely')((kysely) =>
+	return withContext('db')((db) =>
 		attempt(() =>
-			kysely.transaction().execute(async (tx) => {
+			transaction(db, async (tx) => {
 				await sql`set local hnsw.iterative_scan = relaxed_order`.execute(tx);
 				await sql.raw(`set local hnsw.ef_search = ${SEARCHED}`).execute(tx);
 				return nearestQuery(tx, ledgerId, model, vectors).execute();
@@ -305,8 +315,8 @@ type Where = (eb: ExpressionBuilder<Tables, 'transactions'>) => Expression<SqlBo
 const readWhere = (l: string, n: Where): ResultAsync<IndexedTransaction[]> =>
 	readOnly((t) => readIn(t, (e) => e.and([e('transactions.ledgerId', '=', l), n(e)])));
 
-const readIn = async (kysely: Queries, where: Where): Promise<IndexedTransaction[]> => {
-	const rows = await kysely
+const readIn = async (db: Database, where: Where): Promise<IndexedTransaction[]> => {
+	const rows = await db
 		.selectFrom('transactions')
 		.innerJoin('ledgerFiles', 'ledgerFiles.id', 'transactions.fileId')
 		.leftJoin('postings', 'postings.transactionId', 'transactions.id')
@@ -335,14 +345,14 @@ const readIn = async (kysely: Queries, where: Where): Promise<IndexedTransaction
 		.execute();
 
 	// A transaction's statements share one connection, so they go one at a time.
-	const ofTransactions = await kysely
+	const ofTransactions = await db
 		.selectFrom('metadata')
 		.innerJoin('transactions', 'transactions.id', 'metadata.transactionId')
 		.select(['metadata.transactionId as owner', 'metadata.key', 'metadata.value'])
 		.where(where)
 		.orderBy('metadata.position')
 		.execute();
-	const ofPostings = await kysely
+	const ofPostings = await db
 		.selectFrom('metadata')
 		.innerJoin('postings', 'postings.id', 'metadata.postingId')
 		.innerJoin('transactions', 'transactions.id', 'postings.transactionId')
@@ -400,7 +410,7 @@ const byOwner = (rows: MetadataRow[]): Record<string, RupeeMetadata> =>
 		]),
 	);
 
-const embeddingsUpdate = (tx: Queries, ledgerId: string, model: string, rows: Filled[]) =>
+const embeddingsUpdate = (tx: Database, ledgerId: string, model: string, rows: Filled[]) =>
 	tx
 		.updateTable('transactions')
 		.set({
@@ -427,7 +437,7 @@ type NeighbourRow = {
 };
 
 // Nearest by cosine distance for each vector in turn, the index finding them.
-const nearestQuery = (tx: Queries, ledgerId: string, model: string, vectors: Float32Array[]) =>
+const nearestQuery = (tx: Database, ledgerId: string, model: string, vectors: Float32Array[]) =>
 	tx
 		.selectFrom(
 			sql<{ v: string; i: number }>`(
@@ -438,15 +448,17 @@ const nearestQuery = (tx: Queries, ledgerId: string, model: string, vectors: Flo
 			(e) =>
 				e
 					.selectFrom('transactions')
-					.select([
+					.select((x) => [
 						'transactions.id',
 						'transactions.date',
-						sql<number>`1 - (${distance('transactions.embedding', 'q.v')})`.as('similarity'),
+						sql<number>`1 - (${distance(x.ref('transactions.embedding'), x.ref('q.v'))})`.as(
+							'similarity',
+						),
 					])
 					.where('transactions.ledgerId', '=', ledgerId)
 					.where('transactions.embeddingModel', '=', model)
 					.where('transactions.embedding', 'is not', null)
-					.orderBy(distance('transactions.embedding', 'q.v'))
+					.orderBy((x) => distance(x.ref('transactions.embedding'), x.ref('q.v')))
 					.limit(NEAREST)
 					.as('n'),
 			(j) => j.onTrue(),

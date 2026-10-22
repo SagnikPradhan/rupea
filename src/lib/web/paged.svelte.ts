@@ -33,9 +33,9 @@ export const paged = <T, C>(
 			if (after === null || list.busy) return;
 
 			list.busy = true;
-			const page = await fetch(after);
+			const page = await fetch(after).finally(() => (list.busy = false));
 			list.rows.push(...(page.data?.rows ?? []));
-			Object.assign(list, { next: page.data?.next ?? null, errors: page.errors, busy: false });
+			Object.assign(list, { next: page.data?.next ?? null, errors: page.errors });
 		},
 	};
 };

@@ -1,26 +1,23 @@
+import { anyOf, json } from '#lib/server/db/expressions.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { and, desc, eq, gt, inArray, lte, or, sql } from 'drizzle-orm';
-import { statementContents, statements } from './database-schema';
+import { sql } from 'kysely';
 import type { Contents } from '../domain/types';
 
 export type StatementRow = { key: string; checksum: string; originalChecksum: string | null };
 
-const row = {
-	key: statements.key,
-	checksum: statements.checksum,
-	originalChecksum: statements.originalChecksum,
-};
+const row = ['key', 'checksum', 'originalChecksum'] as const;
 
 export const findStatement = (ledgerId: string, key: string): ResultAsync<StatementRow | null> =>
 	withContext('db')((db) =>
 		attempt(() =>
 			db
+				.selectFrom('statements')
 				.select(row)
-				.from(statements)
-				.where(and(eq(statements.ledgerId, ledgerId), eq(statements.key, key)))
-				.limit(1)
-				.then(([f]) => f ?? null),
+				.where('ledgerId', '=', ledgerId)
+				.where('key', '=', key)
+				.executeTakeFirst()
+				.then((f) => f ?? null),
 		),
 	);
 
@@ -31,17 +28,14 @@ export const findStatementByChecksum = (
 	withContext('db')((db) =>
 		attempt(() =>
 			db
+				.selectFrom('statements')
 				.select(row)
-				.from(statements)
-				.where(
-					and(
-						eq(statements.ledgerId, ledgerId),
-						or(eq(statements.checksum, checksum), eq(statements.originalChecksum, checksum)),
-					),
-				)
-				.orderBy(statements.key)
+				.where('ledgerId', '=', ledgerId)
+				.where((e) => e.or([e('checksum', '=', checksum), e('originalChecksum', '=', checksum)]))
+				.orderBy('key')
 				.limit(1)
-				.then(([f]) => f ?? null),
+				.executeTakeFirst()
+				.then((f) => f ?? null),
 		),
 	);
 
@@ -53,11 +47,12 @@ export const listRecentStatements = (
 	withContext('db')((db) =>
 		attempt(() =>
 			db
+				.selectFrom('statements')
 				.select(row)
-				.from(statements)
-				.where(eq(statements.ledgerId, ledgerId))
-				.orderBy(desc(statements.createdAt))
-				.limit(limit),
+				.where('ledgerId', '=', ledgerId)
+				.orderBy('createdAt', 'desc')
+				.limit(limit)
+				.execute(),
 		),
 	);
 
@@ -65,12 +60,14 @@ export const saveStatement = (ledgerId: string, r: StatementRow): ResultAsync<vo
 	withContext('db')((db) =>
 		attempt(async () => {
 			await db
-				.insert(statements)
+				.insertInto('statements')
 				.values({ ledgerId, ...r })
-				.onConflictDoUpdate({
-					target: [statements.ledgerId, statements.key],
-					set: { checksum: r.checksum, originalChecksum: r.originalChecksum },
-				});
+				.onConflict((o) =>
+					o
+						.columns(['ledgerId', 'key'])
+						.doUpdateSet({ checksum: r.checksum, originalChecksum: r.originalChecksum }),
+				)
+				.execute();
 		}),
 	);
 
@@ -78,11 +75,11 @@ export const saveStatement = (ledgerId: string, r: StatementRow): ResultAsync<vo
 export const deleteStatements = (ledgerId: string, keys: string[]): ResultAsync<void> =>
 	withContext('db')((db) =>
 		attempt(async () => {
-			if (keys.length === 0) return;
-
 			await db
-				.delete(statements)
-				.where(and(eq(statements.ledgerId, ledgerId), inArray(statements.key, keys)));
+				.deleteFrom('statements')
+				.where('ledgerId', '=', ledgerId)
+				.where((e) => anyOf(e.ref('key'), keys, 'text'))
+				.execute();
 		}),
 	);
 
@@ -95,17 +92,13 @@ export const findStatementContents = (k: StatementContentsKey): ResultAsync<Cont
 	withContext('db')((db) =>
 		attempt(() =>
 			db
-				.select({ grid: statementContents.grid, text: statementContents.text })
-				.from(statementContents)
-				.where(
-					and(
-						eq(statementContents.checksum, k.checksum),
-						eq(statementContents.reader, k.reader),
-						gt(statementContents.expiresAt, sql`now()`),
-					),
-				)
-				.limit(1)
-				.then(([f]) => f ?? null),
+				.selectFrom('statementContents')
+				.select(['grid', 'text'])
+				.where('checksum', '=', k.checksum)
+				.where('reader', '=', k.reader)
+				.where('expiresAt', '>', sql<Date>`now()`)
+				.executeTakeFirst()
+				.then((f) => f ?? null),
 		),
 	);
 
@@ -120,14 +113,19 @@ type SaveStatementContentsOptions = {
 export const saveStatementContents = (o: SaveStatementContentsOptions): ResultAsync<void> =>
 	withContext('db')((db) =>
 		attempt(async () => {
-			await db.delete(statementContents).where(lte(statementContents.expiresAt, sql`now()`));
-			const read = { ...o.contents, expiresAt: o.expiresAt };
 			await db
-				.insert(statementContents)
+				.deleteFrom('statementContents')
+				.where('expiresAt', '<=', sql<Date>`now()`)
+				.execute();
+			const read = {
+				grid: json(o.contents.grid),
+				text: json(o.contents.text),
+				expiresAt: o.expiresAt,
+			};
+			await db
+				.insertInto('statementContents')
 				.values({ checksum: o.checksum, reader: o.reader, ...read })
-				.onConflictDoUpdate({
-					target: [statementContents.checksum, statementContents.reader],
-					set: read,
-				});
+				.onConflict((c) => c.columns(['checksum', 'reader']).doUpdateSet(read))
+				.execute();
 		}),
 	);

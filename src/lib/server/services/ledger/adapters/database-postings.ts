@@ -1,4 +1,4 @@
-import type { Queries } from '#lib/server/db/index.ts';
+import type { Database } from '#lib/server/db/index.ts';
 import { labels, noneOf, total, totalBefore } from '#lib/server/db/expressions.ts';
 import { readOnly } from '#lib/server/db/read-only.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
@@ -9,7 +9,6 @@ import type { Holding } from '../domain/holdings';
 import { BALANCE_TYPES } from '../domain/taxonomy';
 import type { RupeeParseLocation, RupeePosting } from '../domain/types';
 import {
-	before,
 	inAccount,
 	listed,
 	newestFirst,
@@ -48,8 +47,8 @@ export const listPostings = (
 	ledgerId: string,
 	{ filter, after, limit }: PageOptions<PostingCursor>,
 ): ResultAsync<Page<ListedPosting, PostingCursor>> =>
-	readOnly(async (kysely) => {
-		const rows = await postingsInFiles(kysely)
+	readOnly(async (db) => {
+		const rows = await postingsInFiles(db)
 			.select([
 				'f.key as file',
 				't.line',
@@ -65,7 +64,7 @@ export const listPostings = (
 					listed(ledgerId, filter)(e),
 					e('t.counted', '=', true),
 					...(filter.account === null ? [] : [inAccount(filter.account)]),
-					...(after === null ? [] : [e.or([before(after), atAfter(after)])]),
+					...(after === null ? [] : [upTo(after), pastPosition(after)]),
 				]),
 			)
 			.orderBy(newestFirst)
@@ -98,9 +97,9 @@ export const listPostings = (
 	});
 
 export const listAccountNames = (ledgerId: string): ResultAsync<string[]> =>
-	withContext('kysely')((kysely) =>
+	withContext('db')((db) =>
 		attempt(() =>
-			kysely
+			db
 				.selectFrom('postings as p')
 				.select('p.account')
 				.distinct()
@@ -111,9 +110,9 @@ export const listAccountNames = (ledgerId: string): ResultAsync<string[]> =>
 	);
 
 export const listHoldings = (ledgerId: string): ResultAsync<Holding[]> =>
-	withContext('kysely')((kysely) =>
+	withContext('db')((db) =>
 		attempt(() =>
-			kysely
+			db
 				.with('balances', (q) =>
 					q
 						.selectFrom('deltas')
@@ -182,15 +181,15 @@ export const listBalanceChecks = (
 	ledgerId: string,
 	uncounted: string[],
 ): ResultAsync<BalanceCheck[]> =>
-	withContext('kysely')((kysely) =>
+	withContext('db')((db) =>
 		attempt(() =>
-			kysely
+			db
 				.with('entries', () =>
-					postingsInFiles(kysely)
-						.innerJoin(asserted(kysely, ledgerId).as('a'), (j) =>
+					postingsInFiles(db)
+						.innerJoin(asserted(db, ledgerId).as('a'), (j) =>
 							j.onRef('a.account', '=', 'p.account').onRef('a.commodity', '=', 'p.commodity'),
 						)
-						.select([
+						.select((e) => [
 							'f.key as file',
 							't.line',
 							't.date',
@@ -200,31 +199,57 @@ export const listBalanceChecks = (
 							'p.commodity',
 							'p.amount',
 							'p.balance',
-							noneOf('t.id', uncounted, 'uuid').as('counted'),
+							noneOf(e.ref('t.id'), uncounted, 'uuid').as('counted'),
 						])
 						.where('p.ledgerId', '=', ledgerId),
 				)
-				.with('days', (q) =>
+				.with('moves', (q) =>
 					q
 						.selectFrom('deltas')
-						.innerJoin(asserted(kysely, ledgerId).as('a'), (j) =>
+						.innerJoin(asserted(db, ledgerId).as('a'), (j) =>
 							j
 								.onRef('a.account', '=', 'deltas.account')
 								.onRef('a.commodity', '=', 'deltas.commodity'),
 						)
-						.select(['deltas.account', 'deltas.commodity', 'deltas.date', 'deltas.amount as total'])
+						.select(['deltas.account', 'deltas.commodity', 'deltas.date', 'deltas.amount'])
 						.where('deltas.ledgerId', '=', ledgerId),
+				)
+				.with('stops', (q) =>
+					q
+						.selectFrom('entries')
+						.select([
+							'entries.account',
+							'entries.commodity',
+							'entries.date',
+							sql<bigint>`0`.as('amount'),
+						])
+						.where('entries.balance', 'is not', null),
+				)
+				.with('days', (q) =>
+					q
+						.selectFrom((s) =>
+							s.selectFrom('moves').selectAll().unionAll(s.selectFrom('stops').selectAll()).as('d'),
+						)
+						.select((e) => [
+							'd.account',
+							'd.commodity',
+							'd.date',
+							total(e.ref('d.amount')).as('total'),
+						])
+						.groupBy(['d.account', 'd.commodity', 'd.date']),
 				)
 				.with('openings', (q) =>
 					q
 						.selectFrom('days')
-						.select([
+						.select((e) => [
 							'days.account',
 							'days.commodity',
 							'days.date',
-							totalBefore('days.total', ['days.account', 'days.commodity'], 'days.date').as(
-								'opening',
-							),
+							totalBefore(
+								e.ref('days.total'),
+								[e.ref('days.account'), e.ref('days.commodity')],
+								e.ref('days.date'),
+							).as('opening'),
 						]),
 				)
 				.with('checks', (q) =>
@@ -275,9 +300,9 @@ export const listBalanceChecks = (
 								x(
 									x.ref('o.opening'),
 									'+',
-									total('e.amount', x.or([earlierInFile, earlierInOther])),
+									total(x.ref('e.amount'), x.or([earlierInFile, earlierInOther])),
 								).as('actual'),
-								labels('e.file', 'e.line', unsure).as('unordered'),
+								labels(x.ref('e.file'), x.ref('e.line'), unsure).as('unordered'),
 							];
 						})
 						.where('a.balance', 'is not', null)
@@ -323,13 +348,18 @@ export const listBalanceChecks = (
 	);
 
 /** The accounts and commodities that have a balance assertion. */
-const asserted = (kysely: Queries, ledgerId: string) =>
-	kysely
+const asserted = (db: Database, ledgerId: string) =>
+	db
 		.selectFrom('postings as p')
 		.select(['p.account', 'p.commodity'])
 		.distinct()
 		.where('p.ledgerId', '=', ledgerId)
 		.where('p.balance', 'is not', null);
 
-const atAfter = (c: PostingCursor) =>
-	sql<SqlBool>`(${sql.ref('t.date')}, ${sql.ref('t.sortTime')}, ${sql.ref('t.id')}) = (${c.date}::date, ${c.time}::time, ${c.id}::uuid) and ${sql.ref('p.position')} > ${c.position}`;
+/** Up to the cursor's transaction, so the page reads on as one range of the order index. */
+const upTo = (c: PostingCursor) =>
+	sql<SqlBool>`(${sql.ref('t.date')}, ${sql.ref('t.sortTime')}, ${sql.ref('t.id')}) <= (${c.date}::date, ${c.time}::time, ${c.id}::uuid)`;
+
+/** Past the cursor's posting, within the cursor's own transaction. */
+const pastPosition = (c: PostingCursor) =>
+	sql<SqlBool>`(${sql.ref('t.id')} <> ${c.id}::uuid or ${sql.ref('p.position')} > ${c.position})`;

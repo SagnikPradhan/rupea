@@ -1,15 +1,15 @@
 import type { Database } from '#lib/server/db/index.ts';
-import { ledgers } from '#services/ledger/adapters/database-schema.ts';
 import { StorageKind } from '#lib/server/shared/storage/storage.ts';
-import { storages } from '#services/storage/adapters/database-schema.ts';
-import { users } from '#services/auth/adapters/database-schema.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
 import { v7 as uuidv7 } from 'uuid';
 
 export const createUser = async (db: Database) => {
 	const userId = uuidv7();
-	await db.insert(users).values({ id: userId, email: `${userId}@example.com`, username: userId });
-	await db.insert(storages).values({ userId, kind: StorageKind.Local });
+	await db
+		.insertInto('users')
+		.values({ id: userId, email: `${userId}@example.com`, username: userId })
+		.execute();
+	await db.insertInto('storages').values({ userId, kind: StorageKind.Local }).execute();
 	return { userId };
 };
 
@@ -17,6 +17,9 @@ export const createUser = async (db: Database) => {
 export const createLedger = async (db: Database): Promise<Ledger> => {
 	const userId = await createUser(db).then((u) => u.userId);
 	const id = uuidv7();
-	await db.insert(ledgers).values({ id, ownerId: userId, handle: id, name: 'Test' });
+	await db
+		.insertInto('ledgers')
+		.values({ id, ownerId: userId, handle: id, name: 'Test' })
+		.execute();
 	return { id, handle: id, name: 'Test', owner: userId };
 };

@@ -2,8 +2,10 @@ import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { runningTotal, total, unset } from '#lib/server/db/expressions.ts';
 import type { Database } from '#lib/server/db/index.ts';
+import type { Bucket } from '#lib/shared/dates.ts';
 import { sql, type Expression } from 'kysely';
 import { AMOUNT_UNIT, DEFAULT_COMMODITY, type Amount, type Quantity } from '../domain/amounts';
+import type { Spent } from '../domain/spending';
 import { AccountType, Feed, PriceSource } from '../domain/types';
 import { multiply } from './database-queries';
 
@@ -219,6 +221,119 @@ export const listWorth = (
 			})),
 		);
 	});
+
+type SpendingOptions = { from: Temporal.PlainDate; to: Temporal.PlainDate; bucket: Bucket };
+
+/**
+ * Values each counted amount at the latest price on or before its own day, as worth does, and
+ * adds them up by account and the bucket its day falls in.
+ */
+export const listSpending = (
+	ledgerId: string,
+	{ from, to, bucket }: SpendingOptions,
+): ResultAsync<Spent[]> =>
+	withContext('db')((db) =>
+		attempt(() =>
+			db
+				.withRecursive('own(id, symbol)', () => ownSymbols(db, ledgerId))
+				.with('spent', (q) =>
+					q
+						.selectFrom('postings as p')
+						.innerJoin('transactions as t', 't.id', 'p.transactionId')
+						.leftJoin('own as o', 'o.symbol', 'p.commodity')
+						.select((e) => [
+							'p.account',
+							't.date',
+							'p.commodity',
+							'o.id as symbolId',
+							e.fn.sum<bigint>('p.amount').as('amount'),
+						])
+						.where('p.ledgerId', '=', ledgerId)
+						.where('p.accountType', '=', AccountType.Expenses)
+						.where('t.date', '>=', from.toString())
+						.where('t.date', '<=', to.toString())
+						.where('t.counted', '=', true)
+						.groupBy(['p.account', 't.date', 'p.commodity', 'o.id']),
+				)
+				.withRecursive('rates(origin, day, commodity, at, rate, hops)', (q) =>
+					q
+						.selectFrom('spent as s')
+						.select([
+							's.commodity as origin',
+							's.date as day',
+							's.commodity',
+							's.symbolId as at',
+							sql<bigint>`${sql.lit(AMOUNT_UNIT)}::numeric`.as('rate'),
+							sql<number>`0`.as('hops'),
+						])
+						.distinct()
+						.where('s.commodity', '<>', DEFAULT_COMMODITY)
+						.unionAll((r) =>
+							r
+								.selectFrom('rates as r')
+								.innerJoinLateral(
+									(e) =>
+										priceOn(db, ledgerId, {
+											symbolId: e.ref('r.at'),
+											commodity: e.ref('r.commodity'),
+											day: e.ref('r.day'),
+										}).as('p'),
+									(j) => j.onTrue(),
+								)
+								.leftJoin('own as o', 'o.symbol', 'p.currency')
+								.select((e) => [
+									'r.origin',
+									'r.day',
+									'p.currency as commodity',
+									'o.id as at',
+									multiply(e.ref('r.rate'), e.ref('p.amount')).as('rate'),
+									e('r.hops', '+', 1).as('hops'),
+								])
+								.where('r.commodity', '<>', DEFAULT_COMMODITY)
+								.where('r.hops', '<', MAX_PRICES),
+						),
+				)
+				.with('valued', (q) =>
+					q
+						.selectFrom('spent as s')
+						.leftJoin('rates as r', (j) =>
+							j
+								.onRef('r.origin', '=', 's.commodity')
+								.onRef('r.day', '=', 's.date')
+								.on('r.commodity', '=', DEFAULT_COMMODITY),
+						)
+						.select((e) => [
+							's.account',
+							sql<string>`date_trunc(${bucket}, ${e.ref('s.date')}::timestamp)::date`.as('bucket'),
+							e
+								.case()
+								.when('s.commodity', '=', DEFAULT_COMMODITY)
+								.then(e.ref('s.amount'))
+								.else(multiply(e.ref('s.amount'), e.ref('r.rate')))
+								.end()
+								.as('value'),
+						]),
+				)
+				.selectFrom('valued as v')
+				.select((e) => [
+					'v.account',
+					sql<string>`${e.ref('v.bucket')}::text`.as('bucket'),
+					total(e.ref('v.value')).as('amount'),
+					unset(e.ref('v.value'), e.ref('v.account')).as('unpriced'),
+				])
+				.groupBy(['v.account', 'v.bucket'])
+				.orderBy('v.account')
+				.orderBy('v.bucket')
+				.execute(),
+		).map((rows) =>
+			rows.map((s) => ({
+				account: s.account,
+				bucket: Temporal.PlainDate.from(s.bucket),
+				amount: s.amount as Amount,
+				unpriced: s.unpriced,
+			})),
+		),
+	);
 
 /** The ledger's own symbols, so each commodity is looked up once rather than once a day. */
 const ownSymbols = (db: Database, ledgerId: string) =>

@@ -1,5 +1,6 @@
 import { DEFAULT_COMMODITY, multiply, sum, type Amount, type Quantity } from './amounts';
 import { hasLots } from './lots';
+import { byPath, parentsOf } from './taxonomy';
 
 export const HOPS = 2;
 
@@ -76,15 +77,4 @@ const inRupees = (
 	const price = prices[quantity.commodity];
 	const rate = price && hops > 0 ? inRupees(price, prices, hops - 1) : null;
 	return rate === null ? null : multiply(quantity.amount, rate);
-};
-
-const parentsOf = (a: string) => a.split(':').map((_, i, p) => p.slice(0, i + 1).join(':'));
-
-/** Compares part by part, so a parent sorts right before its own sub-accounts. */
-const byPath = (a: string, b: string) => {
-	const x = a.split(':');
-	const y = b.split(':');
-	const i = x.findIndex((p, n) => p !== y[n]);
-
-	return i === -1 ? x.length - y.length : (x[i] ?? '').localeCompare(y[i] ?? '');
 };

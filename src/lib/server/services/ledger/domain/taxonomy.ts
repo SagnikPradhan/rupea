@@ -37,3 +37,15 @@ export const taxonomy: Record<string, string> = {
 
 export const accountType = (a: string): AccountType | null =>
 	Object.values(AccountType).find((r) => r === a.split(':')[0]) ?? null;
+
+/** An account and every account above it, the topmost first. */
+export const parentsOf = (a: string) => a.split(':').map((_, i, p) => p.slice(0, i + 1).join(':'));
+
+/** Compares part by part, so a parent sorts right before its own sub-accounts. */
+export const byPath = (a: string, b: string) => {
+	const x = a.split(':');
+	const y = b.split(':');
+	const i = x.findIndex((p, n) => p !== y[n]);
+
+	return i === -1 ? x.length - y.length : (x[i] ?? '').localeCompare(y[i] ?? '');
+};

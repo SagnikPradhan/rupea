@@ -27,6 +27,11 @@ const ROWS = [
 	{ bucket: '2026-03-01', food: '8000', other: '0' },
 ];
 const WHOLE = { bucket: '', food: '9500', other: '800' };
+const PARTS = [
+	{ key: 'food', label: 'Food', role: 'part' },
+	{ key: 'other', label: 'Other', role: 'part' },
+] as const;
+const PREVIOUS = { key: 'previous', label: 'Previous', role: 'reference' } as const;
 
 const summary = createRawSnippet((index: () => number | null) => ({
 	render: () => `<p data-testid="summary"></p>`,
@@ -37,17 +42,14 @@ const summary = createRawSnippet((index: () => number | null) => ({
 	},
 }));
 
-const drawn = async () => {
+const drawn = async (previous?: (string | null)[]) => {
 	plots.splice(0);
 	render(BarChart, {
-		rows: ROWS,
+		rows: ROWS.map((r, i) => ({ ...r, previous: previous?.[i] ?? null })),
 		x: 'bucket',
 		bucket: 'month',
-		series: [
-			{ key: 'food', label: 'Food', role: 'part' },
-			{ key: 'other', label: 'Other', role: 'part' },
-		],
-		whole: WHOLE,
+		series: previous ? [...PARTS, PREVIOUS] : [...PARTS],
+		whole: { ...WHOLE, previous: previous ? '9800' : null },
 		label: 'Spending',
 		summary,
 	});
@@ -78,6 +80,16 @@ describe('the bar chart', () => {
 		if (typeof range !== 'function') throw new Error('No value range');
 
 		expect(range({ data } as uPlot, 0, 0, 'y')).toEqual([-500, 8000]);
+	});
+
+	it('weighs the bars against a line, which leaves a gap where a value is missing', async () => {
+		const { options, data } = await drawn(['1000', null, '9000']);
+		const range = options.scales?.['y']?.range;
+		if (typeof range !== 'function') throw new Error('No value range');
+
+		expect(data[3]).toEqual([1000, null, 9000]);
+		expect(range({ data } as uPlot, 0, 0, 'y')).toEqual([-500, 9000]);
+		expect(options.series[3]).toMatchObject({ label: 'Previous', dash: [4, 4] });
 	});
 
 	it('lays each bar’s parts end to end from zero, refunds below it', async () => {
@@ -121,6 +133,15 @@ describe('the bar chart', () => {
 		hover(options, 1);
 		expect(key()).toContain('-500.00');
 		expect(key()).toContain('300.00');
+	});
+
+	it('keys the line beside the parts, with the hovered bar’s value or the whole’s', async () => {
+		const { options } = await drawn(['1000', null, '9000']);
+		const line = () => screen.getByRole('figure').querySelector('.reference')?.textContent;
+		expect(line()).toContain('Previous 9,800.00');
+
+		hover(options, 1);
+		expect(line()?.trim()).toBe('Previous');
 	});
 
 	it('hands the summary the bar under the cursor, or none', async () => {

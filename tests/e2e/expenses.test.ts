@@ -31,6 +31,7 @@ test('adds up spending by account over a range, net of refunds', async ({
 
 	await visit(page, `${ledger}/expenses`);
 	await expect(page.locator('.figure')).toHaveText('10,000.00');
+	await expect(page.locator('.summary')).toContainText('+5,000.00 (+100%) vs previous');
 	const food = page.getByRole('row').filter({ hasText: 'Food' }).first();
 	await expect(food).toContainText('2,000.00');
 	await expect(food).toContainText('20%');

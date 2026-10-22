@@ -7,8 +7,8 @@
 	import uPlot from 'uplot';
 	import 'uplot/dist/uPlot.min.css';
 
-	/** A field of the rows to plot: a part of each bar, stacked in order from its base. */
-	type Series = { key: keyof Row & string; label: string; role: 'part' };
+	/** A field of the rows to plot: a part of each bar, stacked in order from its base, or a dashed line it is weighed against. */
+	type Series = { key: keyof Row & string; label: string; role: 'part' | 'reference' };
 
 	type Props = {
 		/** One row per bar, as an endpoint returns them, with exact decimals. */
@@ -30,6 +30,9 @@
 	const WIDTH = { share: 0.6, most: 48 };
 	const FADED = 0.2;
 
+	const parts = $derived(series.filter((s) => s.role === 'part'));
+	const references = $derived(series.filter((s) => s.role === 'reference'));
+
 	const hovered = $state({ index: null as number | null });
 	const focused = $state({ part: null as number | null });
 	const shown = $derived((hovered.index === null ? undefined : rows[hovered.index]) ?? whole);
@@ -44,10 +47,12 @@
 		return plotInto(node, (font) => options({ node, font, days, name, focus }), bars);
 	};
 
-	/** Bars stand at their index, so a month or a year is as wide as a day. */
+	/** Bars stand at their index, so a month or a year is as wide as a day; a missing value leaves a gap in a line. */
 	const data = (): uPlot.AlignedData => [
 		rows.map((_, i) => i),
-		...series.map((s) => rows.map((r) => Number(r[s.key]))),
+		...[...parts, ...references].map((s) =>
+			rows.map((r) => (r[s.key] == null ? null : Number(r[s.key]))),
+		),
 	];
 
 	type OptionsInput = {
@@ -61,6 +66,7 @@
 	const options = (input: OptionsInput): uPlot.Options => {
 		const { node, font, days, name, focus } = input;
 		const ink = colorOf(node, '--color-ink');
+		const muted = colorOf(node, '--color-muted');
 		const border = colorOf(node, '--color-border');
 		const day = (i: number) => (Number.isInteger(i) ? name(days[i] ?? '') : '');
 		const [across, up] = axesOf(node, font, day, formatCompact);
@@ -77,7 +83,14 @@
 			},
 			series: [
 				{},
-				...series.map((s) => ({ label: s.label, paths: () => null, points: { show: false } })),
+				...parts.map((s) => ({ label: s.label, paths: () => null, points: { show: false } })),
+				...references.map((s) => ({
+					label: s.label,
+					stroke: muted,
+					width: 1,
+					dash: [4, 4],
+					points: { show: false },
+				})),
 			],
 			axes: [{ ...across, incrs: [1, 2, 3, 6, 12, 24, 48] }, up],
 			hooks: {
@@ -87,17 +100,20 @@
 		};
 	};
 
-	/** How far the stacks reach: what is spent piles up from zero, and what is refunded down from it. */
+	/** How far the stacks and lines reach: what is spent piles up from zero, and what is refunded down from it. */
 	const extentOf = (u: uPlot): uPlot.Range.MinMax => {
 		const piles = rows.map((_, i) => pilesAt(u, i));
-		const low = Math.min(0, ...piles.map((p) => p.down));
-		const high = Math.max(0, ...piles.map((p) => p.up));
+		const lines = u.data
+			.slice(parts.length + 1)
+			.flatMap((d) => [...d].filter((v) => typeof v === 'number'));
+		const low = Math.min(0, ...piles.map((p) => p.down), ...lines);
+		const high = Math.max(0, ...piles.map((p) => p.up), ...lines);
 
 		return [low, high === low ? low + 1 : high];
 	};
 
 	const pilesAt = (u: uPlot, i: number) => {
-		const values = u.data.slice(1).map((d) => d[i] ?? 0);
+		const values = u.data.slice(1, parts.length + 1).map((d) => d[i] ?? 0);
 		const up = values.filter((v) => v > 0).reduce((t, v) => t + v, 0);
 		const down = values.filter((v) => v < 0).reduce((t, v) => t + v, 0);
 
@@ -110,7 +126,7 @@
 	 * with a hairline between them so two hatches never run together.
 	 */
 	const stack = (u: uPlot, ink: string, focus: number | null) => {
-		const fills = series.map((_, k) => fillOf(u.ctx, k, ink));
+		const fills = parts.map((_, k) => fillOf(u.ctx, k, ink));
 		const gap = devicePixelRatio;
 		const width = Math.min(
 			(u.bbox.width / rows.length) * WIDTH.share,
@@ -121,7 +137,7 @@
 		rows.forEach((_, i) => {
 			const left = u.valToPos(i, 'x', true) - width / 2;
 			const reached = { up: 0, down: 0 };
-			series.forEach((_, k) => {
+			parts.forEach((_, k) => {
 				const value = u.data[k + 1]?.[i] ?? 0;
 				const side = value < 0 ? 'down' : 'up';
 				const from = u.valToPos(reached[side], 'y', true);
@@ -141,7 +157,7 @@
 	{@render summary?.(hovered.index)}
 	<div class="plot" role="img" aria-label={label} {@attach chart}></div>
 	<figcaption>
-		{#each series as part, k (part.key)}
+		{#each parts as part, k (part.key)}
 			<span
 				role="presentation"
 				onpointerenter={() => (focused.part = k)}
@@ -150,6 +166,12 @@
 				<Swatch part={k} />
 				{part.label}
 				<data>{formatAmount(String(shown[part.key] ?? '0'))}</data>
+			</span>
+		{/each}
+		{#each references as line (line.key)}
+			<span class="reference">
+				{line.label}
+				{#if shown[line.key] != null}<data>{formatAmount(String(shown[line.key]))}</data>{/if}
 			</span>
 		{/each}
 	</figcaption>
@@ -174,6 +196,15 @@
 	data {
 		font-family: var(--font-mono);
 		font-variant-numeric: tabular-nums;
+	}
+
+	.reference::before {
+		content: '';
+		display: inline-block;
+		width: var(--size-2);
+		margin-right: var(--size-0);
+		vertical-align: middle;
+		border-top: 1px dashed var(--color-muted);
 	}
 
 	.plot {

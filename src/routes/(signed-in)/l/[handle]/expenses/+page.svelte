@@ -12,6 +12,7 @@
 	import {
 		formatAmount,
 		formatBucket,
+		formatChange,
 		formatDate,
 		formatExact,
 		formatIsoDate,
@@ -23,6 +24,7 @@
 
 	const ROOT = 'Expenses';
 	const OTHER = 'Other';
+	const PREVIOUS = 'Previous';
 	/** An average month, so a year's spending divides into twelve of them. */
 	const MONTH_DAYS = 365.25 / 12;
 	const DAY_MS = 24 * 60 * 60 * 1000;
@@ -36,7 +38,11 @@
 
 	const response = $derived(await listSpending({ handle, range, day }));
 	const spending = $derived(response.data?.[0]);
+	const previous = $derived(response.data?.[1]);
+
 	const total = $derived(spending?.totals.find((t) => t.account === ROOT));
+	const before = $derived(previous?.totals.find((t) => t.account === ROOT)?.amount ?? '0');
+
 	/** The largest accounts under Expenses each stack as a part of every bar, the largest at the base. */
 	const parts = $derived(
 		(spending?.totals ?? [])
@@ -45,21 +51,31 @@
 			.slice(0, PARTS - 1)
 			.map((t) => t.account),
 	);
+
+	/** Both ranges end as far into their period, so their buckets match from the last one back. */
+	const earlier = $derived.by(() => {
+		const spent = Object.fromEntries(
+			(previous?.spent ?? []).filter((s) => s.account === ROOT).map((s) => [s.bucket, s.amount]),
+		);
+		return (previous?.buckets ?? []).map((b) => spent[b] ?? '0');
+	});
 	const bars = $derived.by(() => {
 		const spent = Object.fromEntries(
 			(spending?.spent ?? []).map((s) => [`${s.account} ${s.bucket}`, Number(s.amount)]),
 		);
-		return (spending?.buckets ?? []).map((b) =>
-			piled(b, (account) => spent[`${account} ${b}`] ?? 0),
-		);
+		return (spending?.buckets ?? []).map((b, i, all) => ({
+			...piled(b, (account) => spent[`${account} ${b}`] ?? 0),
+			[PREVIOUS]: earlier.at(i - all.length) ?? null,
+		}));
 	});
 	const whole = $derived.by(() => {
 		const spent = Object.fromEntries(
 			(spending?.totals ?? []).map((t) => [t.account, Number(t.amount)]),
 		);
-		return piled('', (account) => spent[account] ?? 0);
+		return { ...piled('', (account) => spent[account] ?? 0), [PREVIOUS]: previous ? before : null };
 	});
 	const other = $derived([whole, ...bars].some((b) => b[OTHER] !== '0'));
+
 	const first = $derived(bars[0]?.bucket ?? day);
 	const months = $derived(((Date.parse(day) - Date.parse(first)) / DAY_MS + 1) / MONTH_DAYS);
 
@@ -102,6 +118,7 @@
 		series={[
 			...parts.map((p) => ({ key: p, label: nameOf(p), role: 'part' as const })),
 			...(other ? [{ key: OTHER, label: OTHER, role: 'part' as const }] : []),
+			...(previous ? [{ key: PREVIOUS, label: PREVIOUS, role: 'reference' as const }] : []),
 		]}
 		{whole}
 		label="Spending from {formatDate(first)} to {formatDate(day)}, {formatAmount(
@@ -111,6 +128,8 @@
 		{#snippet summary(index: number | null)}
 			{@const bar = index === null ? undefined : bars[index]}
 			{@const shown = bar?.total ?? total?.amount ?? '0'}
+			{@const compared = bar ? bar[PREVIOUS] : previous && before}
+			{@const change = compared ? formatChange(compared, shown) : null}
 			<div class="summary">
 				<div class="heading">
 					<h2 id="spending" class="label">Spending</h2>
@@ -118,6 +137,11 @@
 				</div>
 				<p class="figure" title={formatExact(shown)}>{formatAmount(shown)}</p>
 				<p>
+					{#if change}
+						<span class="nowrap">
+							{change.amount}{#if change.percent !== null}&nbsp;({change.percent}){/if} vs previous ·
+						</span>
+					{/if}
 					{bar ? formatBucket[bucket](bar.bucket) : `${formatDate(first)} – ${formatDate(day)}`}
 					{#if total && total.unpriced > 0}
 						<span class="nowrap">· excludes {total.unpriced} unpriced</span>

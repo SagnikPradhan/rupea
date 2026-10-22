@@ -1,4 +1,5 @@
 import type { Kyselify } from 'drizzle-orm/kysely';
+import type { AccountType } from '#services/ledger/domain/types.ts';
 import type { emailCodes, sessions, users } from '#services/auth/adapters/database-schema.ts';
 import type {
 	statementContents,
@@ -24,6 +25,15 @@ import type { storages } from '#services/storage/adapters/database-schema.ts';
 
 /** The tables Kysely queries, named and typed as the database has them. */
 export type Tables = {
+	/** A view: what an account's counted postings of a commodity moved on one day. */
+	deltas: {
+		ledgerId: string;
+		account: string;
+		accountType: AccountType;
+		commodity: string;
+		date: string;
+		amount: bigint;
+	};
 	dismissedMatches: Kyselify<typeof dismissedMatches>;
 	disposals: Kyselify<typeof disposals>;
 	emailCodes: Kyselify<typeof emailCodes>;

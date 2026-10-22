@@ -1,5 +1,5 @@
 import { literalLike } from '#lib/server/db/index.ts';
-import { labels, noneOf, total, totalBefore } from '#lib/server/db/expressions.ts';
+import { labels, total, totalBefore } from '#lib/server/db/expressions.ts';
 import { readOnly } from '#lib/server/db/read-only.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
@@ -140,14 +140,16 @@ export const listHoldings = (ledgerId: string): ResultAsync<Holding[]> =>
 			db
 				.with('balances', (q) =>
 					q
-						.selectFrom('postings as p')
-						.innerJoin('transactions as t', 't.id', 'p.transactionId')
-						.select(['p.account', 'p.commodity', (e) => e.fn.sum<bigint>('p.amount').as('units')])
-						.where('p.ledgerId', '=', ledgerId)
-						.where('p.accountType', 'in', BALANCE_TYPES)
-						.where('t.counted', '=', true)
-						.groupBy(['p.account', 'p.commodity'])
-						.having((e) => e(e.fn.sum('p.amount'), '<>', 0n)),
+						.selectFrom('deltas')
+						.select([
+							'deltas.account',
+							'deltas.commodity',
+							(e) => e.fn.sum<bigint>('deltas.amount').as('units'),
+						])
+						.where('deltas.ledgerId', '=', ledgerId)
+						.where('deltas.accountType', 'in', BALANCE_TYPES)
+						.groupBy(['deltas.account', 'deltas.commodity'])
+						.having((e) => e(e.fn.sum('deltas.amount'), '<>', 0n)),
 				)
 				.with('costs', (qb) =>
 					qb
@@ -200,10 +202,7 @@ export const listHoldings = (ledgerId: string): ResultAsync<Holding[]> =>
 // An assertion is a point in time on its account: every counted posting before
 // it, in any file. A file is a sequence, so its own postings that day are
 // ordered by line; another file's are ordered only when both sides have a time.
-export const listBalanceChecks = (
-	ledgerId: string,
-	uncounted: string[],
-): ResultAsync<BalanceCheck[]> =>
+export const listBalanceChecks = (ledgerId: string): ResultAsync<BalanceCheck[]> =>
 	withContext('db')((db) =>
 		attempt(() =>
 			db
@@ -229,49 +228,24 @@ export const listBalanceChecks = (
 							't.line',
 							't.date',
 							't.time',
+							't.counted',
 							'p.position',
 							'p.account',
 							'p.commodity',
 							'p.amount',
 							'p.balance',
-							noneOf(e.ref('t.id'), uncounted, 'uuid').as('counted'),
+							totalBefore(
+								e.ref('p.amount'),
+								[e.ref('p.account'), e.ref('p.commodity')],
+								e.ref('t.date'),
+								e('t.counted', '=', true),
+							).as('opening'),
 						])
 						.where('p.ledgerId', '=', ledgerId),
-				)
-				.with('days', (q) =>
-					q
-						.selectFrom('entries')
-						.select((e) => [
-							'entries.account',
-							'entries.commodity',
-							'entries.date',
-							total(e.ref('entries.amount'), e('entries.counted', '=', true)).as('total'),
-						])
-						.groupBy(['entries.account', 'entries.commodity', 'entries.date']),
-				)
-				.with('openings', (q) =>
-					q
-						.selectFrom('days')
-						.select((e) => [
-							'days.account',
-							'days.commodity',
-							'days.date',
-							totalBefore(
-								e.ref('days.total'),
-								[e.ref('days.account'), e.ref('days.commodity')],
-								e.ref('days.date'),
-							).as('opening'),
-						]),
 				)
 				.with('checks', (q) =>
 					q
 						.selectFrom('entries as a')
-						.innerJoin('openings as o', (j) =>
-							j
-								.onRef('o.account', '=', 'a.account')
-								.onRef('o.commodity', '=', 'a.commodity')
-								.onRef('o.date', '=', 'a.date'),
-						)
 						.leftJoin('entries as e', (j) =>
 							j
 								.onRef('e.account', '=', 'a.account')
@@ -309,7 +283,7 @@ export const listBalanceChecks = (
 								'a.commodity',
 								'a.balance',
 								x(
-									x.ref('o.opening'),
+									x.ref('a.opening'),
 									'+',
 									total(x.ref('e.amount'), x.or([earlierInFile, earlierInOther])),
 								).as('actual'),
@@ -324,7 +298,7 @@ export const listBalanceChecks = (
 							'a.account',
 							'a.commodity',
 							'a.balance',
-							'o.opening',
+							'a.opening',
 						]),
 				)
 				.selectFrom('checks')

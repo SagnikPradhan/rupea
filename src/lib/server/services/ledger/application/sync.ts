@@ -145,10 +145,7 @@ const checkLedger = (ledger: Ledger): ResultAsync<RupeeError[]> =>
 	DB.listEventTransactions(ledger.id)
 		.map(checkEvents)
 		.andThen((e) =>
-			DB.listBalanceChecks(ledger.id, e.uncounted).map((c) => [
-				...e.failed,
-				...c.map(toBalanceError),
-			]),
+			DB.listBalanceChecks(ledger.id).map((c) => [...e.failed, ...c.map(toBalanceError)]),
 		)
 		.andThen((f) => checkLots(ledger).map((l) => [...f, ...l]))
 		.andThen((f) => checkLinks(ledger).map((l) => [...f, ...l]))

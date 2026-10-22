@@ -525,6 +525,113 @@ describe('balance assertions', () => {
 				]),
 			);
 		}));
+
+	it('checks an assertion on a day only evidence falls on', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'opening.rupee', content: opening });
+			await Files.createFile({
+				ledger,
+				key: 'hdfc.rupee',
+				content:
+					'2026-08-02 BOOKS\n\t- same-as: books\n\tAssets:Bank -50 = 900\n\tExpenses:Books\n',
+			});
+			await Files.createFile({
+				ledger,
+				key: 'amazon.rupee',
+				content: '2026-08-03 Amazon order\n\t- event: books\n\tAssets:Bank -50\n\tExpenses:Books\n',
+			});
+
+			expect((await issues(ledger))._unsafeUnwrap()).toEqual([
+				expect.objectContaining({ type: 'BalanceAssertionFailed', location: 'hdfc.rupee:1' }),
+			]);
+		}));
+
+	it('leaves evidence on an earlier day out of the opening', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'opening.rupee', content: opening });
+			await Files.createFile({
+				ledger,
+				key: 'hdfc.rupee',
+				content: [
+					'2026-08-02 BOOKS',
+					'\t- same-as: books',
+					'\tAssets:Bank -50',
+					'\tExpenses:Books',
+					'',
+					'2026-08-04 TEA',
+					'\tAssets:Bank -100 = 850',
+					'\tExpenses:Food',
+					'',
+				].join('\n'),
+			});
+			await Files.createFile({
+				ledger,
+				key: 'amazon.rupee',
+				content: '2026-08-03 Amazon order\n\t- event: books\n\tAssets:Bank -50\n\tExpenses:Books\n',
+			});
+
+			expect(await issues(ledger)).toEqual(ok([]));
+		}));
+
+	it('orders postings in one transaction by position', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'opening.rupee', content: opening });
+			await Files.createFile({
+				ledger,
+				key: 'hdfc.rupee',
+				content: [
+					'2026-08-02 Transfer',
+					'\tAssets:Bank -100 = 900',
+					'\tAssets:Bank 40 = 940',
+					'\tExpenses:Fees',
+					'',
+				].join('\n'),
+			});
+
+			expect(await issues(ledger)).toEqual(ok([]));
+		}));
+
+	it('counts another file up to the time of the assertion', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'opening.rupee', content: opening });
+			await Files.createFile({
+				ledger,
+				key: 'hdfc.rupee',
+				content: '2026-08-02 09:00 TEA\n\tAssets:Bank -100 = 890\n\tExpenses:Food\n',
+			});
+			await Files.createFile({
+				ledger,
+				key: 'cash.rupee',
+				content: [
+					'2026-08-02 08:00 ATM',
+					'\tAssets:Bank -10',
+					'\tAssets:Cash',
+					'',
+					'2026-08-02 10:00 ATM',
+					'\tAssets:Bank -20',
+					'\tAssets:Cash',
+					'',
+				].join('\n'),
+			});
+
+			expect(await issues(ledger)).toEqual(ok([]));
+		}));
+
+	it('checks an assertion on the first posting of its account', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({
+				ledger,
+				key: 'opening.rupee',
+				content: '2026-08-01 Opening\n\tAssets:Bank 1000 = 1000\n\tEquity:Opening\n',
+			});
+
+			expect(await issues(ledger)).toEqual(ok([]));
+		}));
 });
 
 describe('lots', () => {

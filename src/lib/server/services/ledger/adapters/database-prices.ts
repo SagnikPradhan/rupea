@@ -67,19 +67,17 @@ export const listWorth = (
 				.withRecursive('own(id, symbol)', () => ownSymbols(db, ledgerId))
 				.with('changes', (q) =>
 					q
-						.selectFrom('postings as p')
-						.innerJoin('transactions as t', 't.id', 'p.transactionId')
+						.selectFrom('deltas')
 						.select((e) => [
-							e('p.accountType', '=', AccountType.Assets).as('asset'),
-							'p.commodity',
-							't.date',
-							e.fn.sum<bigint>('p.amount').as('amount'),
+							e('deltas.accountType', '=', AccountType.Assets).as('asset'),
+							'deltas.commodity',
+							'deltas.date',
+							e.fn.sum<bigint>('deltas.amount').as('amount'),
 						])
-						.where('p.ledgerId', '=', ledgerId)
-						.where('p.accountType', 'in', [AccountType.Assets, AccountType.Liabilities])
-						.where('t.date', '<=', to.toString())
-						.where('t.counted', '=', true)
-						.groupBy(['p.accountType', 'p.commodity', 't.date']),
+						.where('deltas.ledgerId', '=', ledgerId)
+						.where('deltas.accountType', 'in', [AccountType.Assets, AccountType.Liabilities])
+						.where('deltas.date', '<=', to.toString())
+						.groupBy(['deltas.accountType', 'deltas.commodity', 'deltas.date']),
 				)
 				.with('first', (q) =>
 					q.selectFrom('changes').select((e) => e.fn.min('changes.date').as('day')),

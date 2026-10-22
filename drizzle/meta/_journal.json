@@ -5,50 +5,50 @@
     {
       "idx": 0,
       "version": "7",
-      "when": 1792510688853,
-      "tag": "0000_baseline",
+      "when": 1792687069726,
+      "tag": "0000_setup",
       "breakpoints": true
     },
     {
       "idx": 1,
       "version": "7",
-      "when": 1792568644940,
-      "tag": "0001_amount_ten_places",
+      "when": 1792687070303,
+      "tag": "0001_auth",
       "breakpoints": true
     },
     {
       "idx": 2,
       "version": "7",
-      "when": 1792588744868,
-      "tag": "0002_statements_by_upload",
+      "when": 1792687070889,
+      "tag": "0002_storage",
       "breakpoints": true
     },
     {
       "idx": 3,
       "version": "7",
-      "when": 1792601269903,
-      "tag": "0003_lists_page_and_filter",
+      "when": 1792687071487,
+      "tag": "0003_jobs",
       "breakpoints": true
     },
     {
       "idx": 4,
       "version": "7",
-      "when": 1792646042107,
-      "tag": "0004_price_symbols",
+      "when": 1792687072123,
+      "tag": "0004_ledger",
       "breakpoints": true
     },
     {
       "idx": 5,
       "version": "7",
-      "when": 1792675040612,
-      "tag": "0005_price_feeds",
+      "when": 1792687072734,
+      "tag": "0005_extraction",
       "breakpoints": true
     },
     {
       "idx": 6,
       "version": "7",
-      "when": 1792677347729,
-      "tag": "0006_attach_updated_at_to_feeds",
+      "when": 1792687073339,
+      "tag": "0006_refinement",
       "breakpoints": true
     }
   ]

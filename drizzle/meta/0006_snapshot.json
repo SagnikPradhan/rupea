@@ -1,6 +1,6 @@
 {
-  "id": "9cf990fb-3a4c-48c1-9427-287ff7d7f4eb",
-  "prevId": "4bafecd8-e922-4119-90f1-5d04b94ecf2e",
+  "id": "8960cf7e-310a-4a56-aaab-064f0f07fd3f",
+  "prevId": "ef52ddd9-30e1-4e23-9270-da039a36af55",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -54,10 +54,10 @@
       "uniqueConstraints": {
         "email_codes_email_unique": {
           "name": "email_codes_email_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "email"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       },
       "policies": {},
@@ -113,25 +113,25 @@
         "sessions_user_id_users_id_fk": {
           "name": "sessions_user_id_users_id_fk",
           "tableFrom": "sessions",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "sessions_token_hash_unique": {
           "name": "sessions_token_hash_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "token_hash"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       },
       "policies": {},
@@ -182,25 +182,25 @@
       "uniqueConstraints": {
         "users_email_unique": {
           "name": "users_email_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "email"
-          ],
-          "nullsNotDistinct": false
+          ]
         },
         "users_username_unique": {
           "name": "users_username_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "username"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.statement_contents": {
-      "name": "statement_contents",
+    "public.storages": {
+      "name": "storages",
       "schema": "",
       "columns": {
         "id": {
@@ -224,210 +224,43 @@
           "notNull": true,
           "default": "now()"
         },
-        "checksum": {
-          "name": "checksum",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "reader": {
-          "name": "reader",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "grid": {
-          "name": "grid",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "text": {
-          "name": "text",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "statement_contents_expires_at": {
-          "name": "statement_contents_expires_at",
-          "columns": [
-            {
-              "expression": "expires_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "with": {},
-          "method": "btree",
-          "concurrently": false
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "statement_contents_checksum_reader": {
-          "name": "statement_contents_checksum_reader",
-          "columns": [
-            "checksum",
-            "reader"
-          ],
-          "nullsNotDistinct": false
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.statements": {
-      "name": "statements",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "uuidv7()"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "ledger_id": {
-          "name": "ledger_id",
+        "user_id": {
+          "name": "user_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
-        "key": {
-          "name": "key",
-          "type": "text",
+        "kind": {
+          "name": "kind",
+          "type": "storage_kind",
           "primaryKey": false,
           "notNull": true
-        },
-        "checksum": {
-          "name": "checksum",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "original_checksum": {
-          "name": "original_checksum",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         }
       },
-      "indexes": {
-        "statements_ledger_id_checksum": {
-          "name": "statements_ledger_id_checksum",
-          "columns": [
-            {
-              "expression": "ledger_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "checksum",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "with": {},
-          "method": "btree",
-          "concurrently": false
-        },
-        "statements_ledger_id_original_checksum": {
-          "name": "statements_ledger_id_original_checksum",
-          "columns": [
-            {
-              "expression": "ledger_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "original_checksum",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "with": {},
-          "method": "btree",
-          "concurrently": false
-        },
-        "statements_ledger_id_created_at": {
-          "name": "statements_ledger_id_created_at",
-          "columns": [
-            {
-              "expression": "ledger_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": false,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "with": {},
-          "method": "btree",
-          "concurrently": false
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
-        "statements_ledger_id_ledgers_id_fk": {
-          "name": "statements_ledger_id_ledgers_id_fk",
-          "tableFrom": "statements",
+        "storages_user_id_users_id_fk": {
+          "name": "storages_user_id_users_id_fk",
+          "tableFrom": "storages",
+          "tableTo": "users",
           "columnsFrom": [
-            "ledger_id"
+            "user_id"
           ],
-          "tableTo": "ledgers",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "statements_ledger_id_key": {
-          "name": "statements_ledger_id_key",
+        "storages_user_id_unique": {
+          "name": "storages_user_id_unique",
+          "nullsNotDistinct": false,
           "columns": [
-            "ledger_id",
-            "key"
-          ],
-          "nullsNotDistinct": false
+            "user_id"
+          ]
         }
       },
       "policies": {},
@@ -553,10 +386,10 @@
             }
           ],
           "isUnique": true,
-          "with": {},
-          "method": "btree",
           "where": "\"jobs\".\"status\" = 'queued'",
-          "concurrently": false
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         },
         "jobs_name_partition_running": {
           "name": "jobs_name_partition_running",
@@ -575,10 +408,10 @@
             }
           ],
           "isUnique": true,
-          "with": {},
-          "method": "btree",
           "where": "\"jobs\".\"status\" = 'running'",
-          "concurrently": false
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         },
         "jobs_run_at_queued": {
           "name": "jobs_run_at_queued",
@@ -591,10 +424,10 @@
             }
           ],
           "isUnique": false,
-          "with": {},
-          "method": "btree",
           "where": "\"jobs\".\"status\" = 'queued'",
-          "concurrently": false
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         },
         "jobs_leased_until_running": {
           "name": "jobs_leased_until_running",
@@ -607,10 +440,10 @@
             }
           ],
           "isUnique": false,
-          "with": {},
-          "method": "btree",
           "where": "\"jobs\".\"status\" = 'running'",
-          "concurrently": false
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         },
         "jobs_status_updated_at": {
           "name": "jobs_status_updated_at",
@@ -629,9 +462,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "jobs_user_id_created_at": {
           "name": "jobs_user_id_created_at",
@@ -650,24 +483,24 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "jobs_user_id_users_id_fk": {
           "name": "jobs_user_id_users_id_fk",
           "tableFrom": "jobs",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -762,9 +595,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "disposals_posting_id": {
           "name": "disposals_posting_id",
@@ -777,9 +610,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "disposals_ledger_id_commodity": {
           "name": "disposals_ledger_id_commodity",
@@ -798,9 +631,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "disposals_ledger_id_unmatched": {
           "name": "disposals_ledger_id_unmatched",
@@ -813,51 +646,51 @@
             }
           ],
           "isUnique": false,
-          "with": {},
-          "method": "btree",
           "where": "\"disposals\".\"lot_id\" IS NULL",
-          "concurrently": false
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
         "disposals_ledger_id_ledgers_id_fk": {
           "name": "disposals_ledger_id_ledgers_id_fk",
           "tableFrom": "disposals",
+          "tableTo": "ledgers",
           "columnsFrom": [
             "ledger_id"
           ],
-          "tableTo": "ledgers",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "disposals_lot_id_lots_id_fk": {
           "name": "disposals_lot_id_lots_id_fk",
           "tableFrom": "disposals",
+          "tableTo": "lots",
           "columnsFrom": [
             "lot_id"
           ],
-          "tableTo": "lots",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "disposals_posting_id_postings_id_fk": {
           "name": "disposals_posting_id_postings_id_fk",
           "tableFrom": "disposals",
+          "tableTo": "postings",
           "columnsFrom": [
             "posting_id"
           ],
-          "tableTo": "postings",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -915,26 +748,26 @@
         "ledger_files_ledger_id_ledgers_id_fk": {
           "name": "ledger_files_ledger_id_ledgers_id_fk",
           "tableFrom": "ledger_files",
+          "tableTo": "ledgers",
           "columnsFrom": [
             "ledger_id"
           ],
-          "tableTo": "ledgers",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "ledger_files_ledger_id_key": {
           "name": "ledger_files_ledger_id_key",
+          "nullsNotDistinct": false,
           "columns": [
             "ledger_id",
             "key"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       },
       "policies": {},
@@ -997,34 +830,34 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "ledgers_owner_id_users_id_fk": {
           "name": "ledgers_owner_id_users_id_fk",
           "tableFrom": "ledgers",
+          "tableTo": "users",
           "columnsFrom": [
             "owner_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "ledgers_handle_unique": {
           "name": "ledgers_handle_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "handle"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       },
       "policies": {},
@@ -1147,9 +980,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "lots_posting_id": {
           "name": "lots_posting_id",
@@ -1162,9 +995,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "lots_source_id": {
           "name": "lots_source_id",
@@ -1177,50 +1010,50 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "lots_ledger_id_ledgers_id_fk": {
           "name": "lots_ledger_id_ledgers_id_fk",
           "tableFrom": "lots",
+          "tableTo": "ledgers",
           "columnsFrom": [
             "ledger_id"
           ],
-          "tableTo": "ledgers",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "lots_posting_id_postings_id_fk": {
           "name": "lots_posting_id_postings_id_fk",
           "tableFrom": "lots",
+          "tableTo": "postings",
           "columnsFrom": [
             "posting_id"
           ],
-          "tableTo": "postings",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "lots_source_id_lots_id_fk": {
           "name": "lots_source_id_lots_id_fk",
           "tableFrom": "lots",
+          "tableTo": "lots",
           "columnsFrom": [
             "source_id"
           ],
-          "tableTo": "lots",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "set null"
+          "onDelete": "set null",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1272,39 +1105,39 @@
         "memberships_user_id_users_id_fk": {
           "name": "memberships_user_id_users_id_fk",
           "tableFrom": "memberships",
+          "tableTo": "users",
           "columnsFrom": [
             "user_id"
           ],
-          "tableTo": "users",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "memberships_ledger_id_ledgers_id_fk": {
           "name": "memberships_ledger_id_ledgers_id_fk",
           "tableFrom": "memberships",
+          "tableTo": "ledgers",
           "columnsFrom": [
             "ledger_id"
           ],
-          "tableTo": "ledgers",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "memberships_user_id_ledger_id": {
           "name": "memberships_user_id_ledger_id",
+          "nullsNotDistinct": false,
           "columns": [
             "user_id",
             "ledger_id"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       },
       "policies": {},
@@ -1391,9 +1224,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "metadata_transaction_id": {
           "name": "metadata_transaction_id",
@@ -1406,9 +1239,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "metadata_posting_id": {
           "name": "metadata_posting_id",
@@ -1421,9 +1254,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "metadata_ledger_id_key_value": {
           "name": "metadata_ledger_id_key_value",
@@ -1448,63 +1281,63 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "metadata_ledger_id_ledgers_id_fk": {
           "name": "metadata_ledger_id_ledgers_id_fk",
           "tableFrom": "metadata",
+          "tableTo": "ledgers",
           "columnsFrom": [
             "ledger_id"
           ],
-          "tableTo": "ledgers",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "metadata_file_id_ledger_files_id_fk": {
           "name": "metadata_file_id_ledger_files_id_fk",
           "tableFrom": "metadata",
+          "tableTo": "ledger_files",
           "columnsFrom": [
             "file_id"
           ],
-          "tableTo": "ledger_files",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "metadata_transaction_id_transactions_id_fk": {
           "name": "metadata_transaction_id_transactions_id_fk",
           "tableFrom": "metadata",
+          "tableTo": "transactions",
           "columnsFrom": [
             "transaction_id"
           ],
-          "tableTo": "transactions",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "metadata_posting_id_postings_id_fk": {
           "name": "metadata_posting_id_postings_id_fk",
           "tableFrom": "metadata",
+          "tableTo": "postings",
           "columnsFrom": [
             "posting_id"
           ],
-          "tableTo": "postings",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1640,9 +1473,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "postings_ledger_id_account_amount": {
           "name": "postings_ledger_id_account_amount",
@@ -1673,9 +1506,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "postings_ledger_id_commodity": {
           "name": "postings_ledger_id_commodity",
@@ -1694,9 +1527,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "postings_ledger_id_balance": {
           "name": "postings_ledger_id_balance",
@@ -1721,38 +1554,38 @@
             }
           ],
           "isUnique": false,
-          "with": {},
-          "method": "btree",
           "where": "\"postings\".\"balance\" IS NOT NULL",
-          "concurrently": false
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
         "postings_ledger_id_ledgers_id_fk": {
           "name": "postings_ledger_id_ledgers_id_fk",
           "tableFrom": "postings",
+          "tableTo": "ledgers",
           "columnsFrom": [
             "ledger_id"
           ],
-          "tableTo": "ledgers",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "postings_transaction_id_transactions_id_fk": {
           "name": "postings_transaction_id_transactions_id_fk",
           "tableFrom": "postings",
+          "tableTo": "transactions",
           "columnsFrom": [
             "transaction_id"
           ],
-          "tableTo": "transactions",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1841,9 +1674,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "prices_symbol_id_date": {
           "name": "prices_symbol_id_date",
@@ -1862,9 +1695,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "prices_symbol_id_date_quoted": {
           "name": "prices_symbol_id_date_quoted",
@@ -1883,38 +1716,38 @@
             }
           ],
           "isUnique": true,
-          "with": {},
-          "method": "btree",
           "where": "\"prices\".\"file_id\" is null",
-          "concurrently": false
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
         "prices_symbol_id_symbols_id_fk": {
           "name": "prices_symbol_id_symbols_id_fk",
           "tableFrom": "prices",
+          "tableTo": "symbols",
           "columnsFrom": [
             "symbol_id"
           ],
-          "tableTo": "symbols",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "prices_file_id_ledger_files_id_fk": {
           "name": "prices_file_id_ledger_files_id_fk",
           "tableFrom": "prices",
+          "tableTo": "ledger_files",
           "columnsFrom": [
             "file_id"
           ],
-          "tableTo": "ledger_files",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -1983,25 +1816,25 @@
         "symbol_fetches_symbol_id_symbols_id_fk": {
           "name": "symbol_fetches_symbol_id_symbols_id_fk",
           "tableFrom": "symbol_fetches",
+          "tableTo": "symbols",
           "columnsFrom": [
             "symbol_id"
           ],
-          "tableTo": "symbols",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "symbol_fetches_symbol_id_unique": {
           "name": "symbol_fetches_symbol_id_unique",
+          "nullsNotDistinct": false,
           "columns": [
             "symbol_id"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       },
       "policies": {},
@@ -2088,9 +1921,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "symbol_links_file_id": {
           "name": "symbol_links_file_id",
@@ -2103,9 +1936,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "symbol_links_symbol_id": {
           "name": "symbol_links_symbol_id",
@@ -2118,50 +1951,50 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "symbol_links_symbol_id_symbols_id_fk": {
           "name": "symbol_links_symbol_id_symbols_id_fk",
           "tableFrom": "symbol_links",
+          "tableTo": "symbols",
           "columnsFrom": [
             "symbol_id"
           ],
-          "tableTo": "symbols",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "symbol_links_ledger_id_ledgers_id_fk": {
           "name": "symbol_links_ledger_id_ledgers_id_fk",
           "tableFrom": "symbol_links",
+          "tableTo": "ledgers",
           "columnsFrom": [
             "ledger_id"
           ],
-          "tableTo": "ledgers",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "symbol_links_file_id_ledger_files_id_fk": {
           "name": "symbol_links_file_id_ledger_files_id_fk",
           "tableFrom": "symbol_links",
+          "tableTo": "ledger_files",
           "columnsFrom": [
             "file_id"
           ],
-          "tableTo": "ledger_files",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
@@ -2219,27 +2052,27 @@
         "symbols_ledger_id_ledgers_id_fk": {
           "name": "symbols_ledger_id_ledgers_id_fk",
           "tableFrom": "symbols",
+          "tableTo": "ledgers",
           "columnsFrom": [
             "ledger_id"
           ],
-          "tableTo": "ledgers",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "symbols_feed_ledger_id_symbol": {
           "name": "symbols_feed_ledger_id_symbol",
+          "nullsNotDistinct": true,
           "columns": [
             "feed",
             "ledger_id",
             "symbol"
-          ],
-          "nullsNotDistinct": true
+          ]
         }
       },
       "policies": {},
@@ -2344,9 +2177,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "transactions_ledger_id_order": {
           "name": "transactions_ledger_id_order",
@@ -2365,8 +2198,8 @@
             },
             {
               "expression": "coalesce(\"time\", '00:00')",
-              "isExpression": true,
               "asc": true,
+              "isExpression": true,
               "nulls": "last"
             },
             {
@@ -2377,9 +2210,9 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "btree",
-          "concurrently": false
+          "with": {}
         },
         "transactions_ledger_id_uncounted": {
           "name": "transactions_ledger_id_uncounted",
@@ -2392,25 +2225,25 @@
             }
           ],
           "isUnique": false,
-          "with": {},
-          "method": "btree",
           "where": "not \"transactions\".\"counted\"",
-          "concurrently": false
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         },
         "transactions_description": {
           "name": "transactions_description",
           "columns": [
             {
               "expression": "\"description\" gin_trgm_ops",
-              "isExpression": true,
               "asc": true,
+              "isExpression": true,
               "nulls": "last"
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "gin",
-          "concurrently": false
+          "with": {}
         },
         "transactions_embedding": {
           "name": "transactions_embedding",
@@ -2424,41 +2257,276 @@
             }
           ],
           "isUnique": false,
-          "with": {},
+          "concurrently": false,
           "method": "hnsw",
-          "concurrently": false
+          "with": {}
         }
       },
       "foreignKeys": {
         "transactions_ledger_id_ledgers_id_fk": {
           "name": "transactions_ledger_id_ledgers_id_fk",
           "tableFrom": "transactions",
+          "tableTo": "ledgers",
           "columnsFrom": [
             "ledger_id"
           ],
-          "tableTo": "ledgers",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         },
         "transactions_file_id_ledger_files_id_fk": {
           "name": "transactions_file_id_ledger_files_id_fk",
           "tableFrom": "transactions",
+          "tableTo": "ledger_files",
           "columnsFrom": [
             "file_id"
           ],
-          "tableTo": "ledger_files",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.statement_contents": {
+      "name": "statement_contents",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "checksum": {
+          "name": "checksum",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reader": {
+          "name": "reader",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "grid": {
+          "name": "grid",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "text": {
+          "name": "text",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "statement_contents_expires_at": {
+          "name": "statement_contents_expires_at",
+          "columns": [
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "statement_contents_checksum_reader": {
+          "name": "statement_contents_checksum_reader",
+          "nullsNotDistinct": false,
+          "columns": [
+            "checksum",
+            "reader"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.statements": {
+      "name": "statements",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "ledger_id": {
+          "name": "ledger_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "key": {
+          "name": "key",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "checksum": {
+          "name": "checksum",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "original_checksum": {
+          "name": "original_checksum",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
+        }
+      },
+      "indexes": {
+        "statements_ledger_id_checksum": {
+          "name": "statements_ledger_id_checksum",
+          "columns": [
+            {
+              "expression": "ledger_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "checksum",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "statements_ledger_id_original_checksum": {
+          "name": "statements_ledger_id_original_checksum",
+          "columns": [
+            {
+              "expression": "ledger_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "original_checksum",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "statements_ledger_id_created_at": {
+          "name": "statements_ledger_id_created_at",
+          "columns": [
+            {
+              "expression": "ledger_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {
+        "statements_ledger_id_ledgers_id_fk": {
+          "name": "statements_ledger_id_ledgers_id_fk",
+          "tableFrom": "statements",
+          "tableTo": "ledgers",
+          "columnsFrom": [
+            "ledger_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
+        }
+      },
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "statements_ledger_id_key": {
+          "name": "statements_ledger_id_key",
+          "nullsNotDistinct": false,
+          "columns": [
+            "ledger_id",
+            "key"
+          ]
+        }
+      },
       "policies": {},
       "checkConstraints": {},
       "isRLSEnabled": false
@@ -2506,94 +2574,26 @@
         "dismissed_matches_ledger_id_ledgers_id_fk": {
           "name": "dismissed_matches_ledger_id_ledgers_id_fk",
           "tableFrom": "dismissed_matches",
+          "tableTo": "ledgers",
           "columnsFrom": [
             "ledger_id"
           ],
-          "tableTo": "ledgers",
           "columnsTo": [
             "id"
           ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
         "dismissed_matches_ledger_id_fingerprint": {
           "name": "dismissed_matches_ledger_id_fingerprint",
+          "nullsNotDistinct": false,
           "columns": [
             "ledger_id",
             "fingerprint"
-          ],
-          "nullsNotDistinct": false
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.storages": {
-      "name": "storages",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "uuidv7()"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "kind": {
-          "name": "kind",
-          "type": "storage_kind",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "storages_user_id_users_id_fk": {
-          "name": "storages_user_id_users_id_fk",
-          "tableFrom": "storages",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "tableTo": "users",
-          "columnsTo": [
-            "id"
-          ],
-          "onUpdate": "no action",
-          "onDelete": "cascade"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "storages_user_id_unique": {
-          "name": "storages_user_id_unique",
-          "columns": [
-            "user_id"
-          ],
-          "nullsNotDistinct": false
+          ]
         }
       },
       "policies": {},
@@ -2602,6 +2602,13 @@
     }
   },
   "enums": {
+    "public.storage_kind": {
+      "name": "storage_kind",
+      "schema": "public",
+      "values": [
+        "local"
+      ]
+    },
     "public.job_status": {
       "name": "job_status",
       "schema": "public",
@@ -2669,20 +2676,13 @@
         "mfapi",
         "yahoo"
       ]
-    },
-    "public.storage_kind": {
-      "name": "storage_kind",
-      "schema": "public",
-      "values": [
-        "local"
-      ]
     }
   },
   "schemas": {},
-  "views": {},
   "sequences": {},
   "roles": {},
   "policies": {},
+  "views": {},
   "_meta": {
     "columns": {},
     "schemas": {},

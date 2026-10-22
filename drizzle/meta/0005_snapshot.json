@@ -1,6 +1,6 @@
 {
-  "id": "4bafecd8-e922-4119-90f1-5d04b94ecf2e",
-  "prevId": "3e7e89ae-4804-414c-9f0d-20e28957efa9",
+  "id": "ef52ddd9-30e1-4e23-9270-da039a36af55",
+  "prevId": "a30e05ec-76d2-4397-90cc-ca72342ac5d2",
   "version": "7",
   "dialect": "postgresql",
   "tables": {
@@ -199,8 +199,8 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.statement_contents": {
-      "name": "statement_contents",
+    "public.storages": {
+      "name": "storages",
       "schema": "",
       "columns": {
         "id": {
@@ -224,193 +224,27 @@
           "notNull": true,
           "default": "now()"
         },
-        "checksum": {
-          "name": "checksum",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "reader": {
-          "name": "reader",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "grid": {
-          "name": "grid",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "text": {
-          "name": "text",
-          "type": "jsonb",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "'[]'::jsonb"
-        },
-        "expires_at": {
-          "name": "expires_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {
-        "statement_contents_expires_at": {
-          "name": "statement_contents_expires_at",
-          "columns": [
-            {
-              "expression": "expires_at",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
-      "foreignKeys": {},
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "statement_contents_checksum_reader": {
-          "name": "statement_contents_checksum_reader",
-          "nullsNotDistinct": false,
-          "columns": [
-            "checksum",
-            "reader"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.statements": {
-      "name": "statements",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "uuidv7()"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "ledger_id": {
-          "name": "ledger_id",
+        "user_id": {
+          "name": "user_id",
           "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
-        "key": {
-          "name": "key",
-          "type": "text",
+        "kind": {
+          "name": "kind",
+          "type": "storage_kind",
           "primaryKey": false,
           "notNull": true
-        },
-        "checksum": {
-          "name": "checksum",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "original_checksum": {
-          "name": "original_checksum",
-          "type": "text",
-          "primaryKey": false,
-          "notNull": false
         }
       },
-      "indexes": {
-        "statements_ledger_id_checksum": {
-          "name": "statements_ledger_id_checksum",
-          "columns": [
-            {
-              "expression": "ledger_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "checksum",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "statements_ledger_id_original_checksum": {
-          "name": "statements_ledger_id_original_checksum",
-          "columns": [
-            {
-              "expression": "ledger_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "original_checksum",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
-        "statements_ledger_id_created_at": {
-          "name": "statements_ledger_id_created_at",
-          "columns": [
-            {
-              "expression": "ledger_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "created_at",
-              "isExpression": false,
-              "asc": false,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        }
-      },
+      "indexes": {},
       "foreignKeys": {
-        "statements_ledger_id_ledgers_id_fk": {
-          "name": "statements_ledger_id_ledgers_id_fk",
-          "tableFrom": "statements",
-          "tableTo": "ledgers",
+        "storages_user_id_users_id_fk": {
+          "name": "storages_user_id_users_id_fk",
+          "tableFrom": "storages",
+          "tableTo": "users",
           "columnsFrom": [
-            "ledger_id"
+            "user_id"
           ],
           "columnsTo": [
             "id"
@@ -421,12 +255,11 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "statements_ledger_id_key": {
-          "name": "statements_ledger_id_key",
+        "storages_user_id_unique": {
+          "name": "storages_user_id_unique",
           "nullsNotDistinct": false,
           "columns": [
-            "ledger_id",
-            "key"
+            "user_id"
           ]
         }
       },
@@ -2463,8 +2296,98 @@
       "checkConstraints": {},
       "isRLSEnabled": false
     },
-    "public.dismissed_matches": {
-      "name": "dismissed_matches",
+    "public.statement_contents": {
+      "name": "statement_contents",
+      "schema": "",
+      "columns": {
+        "id": {
+          "name": "id",
+          "type": "uuid",
+          "primaryKey": true,
+          "notNull": true,
+          "default": "uuidv7()"
+        },
+        "created_at": {
+          "name": "created_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "updated_at": {
+          "name": "updated_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "now()"
+        },
+        "checksum": {
+          "name": "checksum",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "reader": {
+          "name": "reader",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "grid": {
+          "name": "grid",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "text": {
+          "name": "text",
+          "type": "jsonb",
+          "primaryKey": false,
+          "notNull": true,
+          "default": "'[]'::jsonb"
+        },
+        "expires_at": {
+          "name": "expires_at",
+          "type": "timestamp with time zone",
+          "primaryKey": false,
+          "notNull": true
+        }
+      },
+      "indexes": {
+        "statement_contents_expires_at": {
+          "name": "statement_contents_expires_at",
+          "columns": [
+            {
+              "expression": "expires_at",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
+      "foreignKeys": {},
+      "compositePrimaryKeys": {},
+      "uniqueConstraints": {
+        "statement_contents_checksum_reader": {
+          "name": "statement_contents_checksum_reader",
+          "nullsNotDistinct": false,
+          "columns": [
+            "checksum",
+            "reader"
+          ]
+        }
+      },
+      "policies": {},
+      "checkConstraints": {},
+      "isRLSEnabled": false
+    },
+    "public.statements": {
+      "name": "statements",
       "schema": "",
       "columns": {
         "id": {
@@ -2494,18 +2417,94 @@
           "primaryKey": false,
           "notNull": true
         },
-        "fingerprint": {
-          "name": "fingerprint",
+        "key": {
+          "name": "key",
           "type": "text",
           "primaryKey": false,
           "notNull": true
+        },
+        "checksum": {
+          "name": "checksum",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": true
+        },
+        "original_checksum": {
+          "name": "original_checksum",
+          "type": "text",
+          "primaryKey": false,
+          "notNull": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "statements_ledger_id_checksum": {
+          "name": "statements_ledger_id_checksum",
+          "columns": [
+            {
+              "expression": "ledger_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "checksum",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "statements_ledger_id_original_checksum": {
+          "name": "statements_ledger_id_original_checksum",
+          "columns": [
+            {
+              "expression": "ledger_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "original_checksum",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "statements_ledger_id_created_at": {
+          "name": "statements_ledger_id_created_at",
+          "columns": [
+            {
+              "expression": "ledger_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "created_at",
+              "isExpression": false,
+              "asc": false,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        }
+      },
       "foreignKeys": {
-        "dismissed_matches_ledger_id_ledgers_id_fk": {
-          "name": "dismissed_matches_ledger_id_ledgers_id_fk",
-          "tableFrom": "dismissed_matches",
+        "statements_ledger_id_ledgers_id_fk": {
+          "name": "statements_ledger_id_ledgers_id_fk",
+          "tableFrom": "statements",
           "tableTo": "ledgers",
           "columnsFrom": [
             "ledger_id"
@@ -2519,80 +2518,12 @@
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "dismissed_matches_ledger_id_fingerprint": {
-          "name": "dismissed_matches_ledger_id_fingerprint",
+        "statements_ledger_id_key": {
+          "name": "statements_ledger_id_key",
           "nullsNotDistinct": false,
           "columns": [
             "ledger_id",
-            "fingerprint"
-          ]
-        }
-      },
-      "policies": {},
-      "checkConstraints": {},
-      "isRLSEnabled": false
-    },
-    "public.storages": {
-      "name": "storages",
-      "schema": "",
-      "columns": {
-        "id": {
-          "name": "id",
-          "type": "uuid",
-          "primaryKey": true,
-          "notNull": true,
-          "default": "uuidv7()"
-        },
-        "created_at": {
-          "name": "created_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "updated_at": {
-          "name": "updated_at",
-          "type": "timestamp with time zone",
-          "primaryKey": false,
-          "notNull": true,
-          "default": "now()"
-        },
-        "user_id": {
-          "name": "user_id",
-          "type": "uuid",
-          "primaryKey": false,
-          "notNull": true
-        },
-        "kind": {
-          "name": "kind",
-          "type": "storage_kind",
-          "primaryKey": false,
-          "notNull": true
-        }
-      },
-      "indexes": {},
-      "foreignKeys": {
-        "storages_user_id_users_id_fk": {
-          "name": "storages_user_id_users_id_fk",
-          "tableFrom": "storages",
-          "tableTo": "users",
-          "columnsFrom": [
-            "user_id"
-          ],
-          "columnsTo": [
-            "id"
-          ],
-          "onDelete": "cascade",
-          "onUpdate": "no action"
-        }
-      },
-      "compositePrimaryKeys": {},
-      "uniqueConstraints": {
-        "storages_user_id_unique": {
-          "name": "storages_user_id_unique",
-          "nullsNotDistinct": false,
-          "columns": [
-            "user_id"
+            "key"
           ]
         }
       },
@@ -2602,6 +2533,13 @@
     }
   },
   "enums": {
+    "public.storage_kind": {
+      "name": "storage_kind",
+      "schema": "public",
+      "values": [
+        "local"
+      ]
+    },
     "public.job_status": {
       "name": "job_status",
       "schema": "public",
@@ -2668,13 +2606,6 @@
         "posting",
         "mfapi",
         "yahoo"
-      ]
-    },
-    "public.storage_kind": {
-      "name": "storage_kind",
-      "schema": "public",
-      "values": [
-        "local"
       ]
     }
   },

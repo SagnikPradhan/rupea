@@ -11,7 +11,6 @@ import {
 	prices,
 	transactions,
 } from '#services/ledger/adapters/database-schema.ts';
-import { listAllTransactions } from '#services/ledger/adapters/database-transactions.ts';
 import { MODEL } from '#services/ledger/adapters/prediction-onnx.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import * as Sync from '#services/ledger/application/sync.ts';
@@ -21,7 +20,16 @@ import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { asc, eq } from 'drizzle-orm';
 import { describe, expect } from 'vitest';
-import { groceries, issues, listed, put, salary, stored, summary } from './fixtures/files';
+import {
+	groceries,
+	issues,
+	listAllTransactions,
+	listed,
+	put,
+	salary,
+	stored,
+	summary,
+} from './fixtures/files';
 
 const annotated = [
 	'- statement: hdfc-oct.pdf',

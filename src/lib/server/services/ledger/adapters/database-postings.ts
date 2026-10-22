@@ -21,9 +21,8 @@ import {
 	toCost,
 	toPrice,
 	toQuantity,
-	type Page,
-	type PageOptions,
-} from './database-transactions';
+} from './database-queries';
+import type { Page, PageOptions } from './database-transactions';
 
 /** Where a page of postings starts: just past this one, newest first. */
 export type PostingCursor = { date: string; time: string; id: string; position: number };

@@ -1,28 +1,32 @@
-import {
-	ROWS_PER_STATEMENT,
-	literalLike,
-	vectorText,
-	type Database,
-} from '#lib/server/db/index.ts';
+import { ROWS_PER_STATEMENT, vectorText, type Database } from '#lib/server/db/index.ts';
 import { chunks } from '#lib/server/shared/arrays.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { readOnly } from '#lib/server/db/read-only.ts';
 import { attempt, okAsync, ResultAsync } from '#lib/server/shared/result/result.ts';
-import { and, asc, desc, eq, gte, ilike, inArray, lte, ne, sql, type SQL } from 'drizzle-orm';
+import { and, asc, desc, eq, inArray, ne, sql, type SQL } from 'drizzle-orm';
 import { alias } from 'drizzle-orm/pg-core';
-import type { Amount, Quantity } from '../domain/amounts';
+import type { Amount } from '../domain/amounts';
 import { EVENT_KEYS } from '../domain/events';
 import { toMetadata } from '../domain/parser';
 import type { Neighbour } from '../domain/prediction';
 import { BALANCE_TYPES } from '../domain/taxonomy';
 import type { Filled, Unembedded } from '../domain/text';
-import type { LotCost, Price, PriceKind, RupeeMetadata, RupeeTransaction } from '../domain/types';
+import type { RupeeMetadata, RupeeTransaction } from '../domain/types';
 import {
 	ledgerFiles,
 	metadata as metadataTable,
 	postings,
 	transactions as transactionTable,
 } from './database-schema';
+import {
+	before,
+	inAccount,
+	listed,
+	NEWEST_FIRST,
+	timeKey,
+	toCost,
+	toPrice,
+} from './database-queries';
 
 // Transactions searched near each line; the domain keeps the best few postings.
 const NEAREST = 50;
@@ -48,14 +52,6 @@ export type Cursor = { date: string; time: string; id: string };
 export type Page<T, C> = { rows: T[]; next: C | null };
 
 export type PageOptions<C> = { filter: ListFilter; after: C | null; limit: number };
-
-// A missing time sorts as midnight, so every transaction has a place in the order.
-export const timeKey = sql<string>`coalesce(${transactionTable.time}, '00:00')`;
-
-export const NEWEST_FIRST = [desc(transactionTable.date), desc(timeKey), desc(transactionTable.id)];
-
-/** Every transaction of the ledger, for tests; a request never reads a whole ledger. */
-export const listAllTransactions = (l: string) => readWhere(l, undefined);
 
 export const findTransactions = (
 	ledgerId: string,
@@ -317,58 +313,6 @@ export const findNearest = (
 		).map((r) => byQuery(vectors.length, r.rows)),
 	);
 };
-
-export const listed = (ledgerId: string, filter: ListFilter) =>
-	and(
-		eq(transactionTable.ledgerId, ledgerId),
-		gte(transactionTable.date, filter.from.toString()),
-		lte(transactionTable.date, filter.to.toString()),
-		filter.description === null
-			? undefined
-			: ilike(transactionTable.description, `%${literalLike(filter.description)}%`),
-	);
-
-/** A posting to an account or any account under it, whatever their case. */
-export const inAccount = (a: string) =>
-	sql`(lower(${postings.account}) = lower(${a}) or starts_with(lower(${postings.account}), lower(${a}) || ':'))`;
-
-export const before = (c: Cursor) =>
-	sql`(${transactionTable.date}, ${timeKey}, ${transactionTable.id}) < (${c.date}::date, ${c.time}::time, ${c.id}::uuid)`;
-
-type PriceColumns = {
-	priceAmount: bigint | null;
-	priceCommodity: string | null;
-	priceKind: PriceKind | null;
-};
-
-export const toPrice = ({ priceAmount, priceCommodity, priceKind }: PriceColumns): Price | null =>
-	priceAmount === null || priceCommodity === null || priceKind === null
-		? null
-		: {
-				amount: priceAmount as Amount,
-				commodity: priceCommodity,
-				kind: priceKind,
-			};
-
-type CostColumns = {
-	costAmount: bigint | null;
-	costCommodity: string | null;
-	costDate: string | null;
-};
-
-export const toCost = ({ costAmount, costCommodity, costDate }: CostColumns): LotCost | null =>
-	costAmount === null || costCommodity === null
-		? null
-		: {
-				amount: costAmount as Amount,
-				commodity: costCommodity,
-				date: costDate === null ? null : Temporal.PlainDate.from(costDate),
-			};
-
-type QuantityColumns = { amount: bigint | null; commodity: string | null };
-
-export const toQuantity = ({ amount, commodity }: QuantityColumns): Quantity | null =>
-	amount === null || commodity === null ? null : { amount: amount as Amount, commodity };
 
 const hasPostingIn = (a: string) =>
 	sql`exists (select 1 from ${postings} where ${postings.transactionId} = ${transactionTable.id} and ${inAccount(a)})`;

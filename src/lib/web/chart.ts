@@ -22,9 +22,12 @@ export const plotInto = (
 ) => {
 	const dark = matchMedia('(prefers-color-scheme: dark)');
 	const plots: uPlot[] = [];
+	const removed = new AbortController();
 
 	const draw = async () => {
 		const font = await fontOf(node);
+		if (removed.signal.aborted) return;
+
 		plots.splice(0).forEach((p) => p.destroy());
 		plots.push(new uPlot(options(font), data, node));
 	};
@@ -42,6 +45,7 @@ export const plotInto = (
 	dark.addEventListener('change', draw);
 	node.addEventListener('pointerdown', touch);
 	return () => {
+		removed.abort();
 		resize.disconnect();
 		dark.removeEventListener('change', draw);
 		node.removeEventListener('pointerdown', touch);
@@ -108,6 +112,15 @@ export const fillOf = (ctx: CanvasRenderingContext2D, part: number, ink: string)
 	return ctx.createPattern(tile, 'repeat') ?? ink;
 };
 
+/** A canvas cannot read light-dark colours, so each one is resolved through an element. */
+export const colorOf = (node: HTMLElement, token: string) => {
+	const probe = node.appendChild(document.createElement('span'));
+	probe.style.color = `var(${token})`;
+	const color = getComputedStyle(probe).color;
+	probe.remove();
+	return color;
+};
+
 /** A diagonal through the tile, and its ends again in the opposite corners, so tiles join into unbroken lines. */
 const hatch = (pen: CanvasRenderingContext2D, size: number) => {
 	pen.beginPath();
@@ -116,15 +129,6 @@ const hatch = (pen: CanvasRenderingContext2D, size: number) => {
 		pen.lineTo(shift + size, 0);
 	});
 	pen.stroke();
-};
-
-/** A canvas cannot read light-dark colours, so each one is resolved through an element. */
-export const colorOf = (node: HTMLElement, token: string) => {
-	const probe = node.appendChild(document.createElement('span'));
-	probe.style.color = `var(${token})`;
-	const color = getComputedStyle(probe).color;
-	probe.remove();
-	return color;
 };
 
 const fontOf = async (node: HTMLElement) => {

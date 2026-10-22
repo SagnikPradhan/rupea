@@ -247,6 +247,7 @@ export const listSpending = (
 							'p.commodity',
 							'o.id as symbolId',
 							e.fn.sum<bigint>('p.amount').as('amount'),
+							e.fn.countAll<bigint>().as('postings'),
 						])
 						.where('p.ledgerId', '=', ledgerId)
 						.where('p.accountType', '=', AccountType.Expenses)
@@ -305,6 +306,7 @@ export const listSpending = (
 						.select((e) => [
 							's.account',
 							's.date',
+							's.postings',
 							sql<string>`date_trunc(${bucket}, ${e.ref('s.date')}::timestamp)::date`.as('bucket'),
 							e
 								.case()
@@ -321,7 +323,9 @@ export const listSpending = (
 					'v.bucket',
 					e.fn.min('v.date').as('first'),
 					total(e.ref('v.value')).as('amount'),
-					unset(e.ref('v.value'), e.ref('v.account')).as('unpriced'),
+					sql<number>`${total(e.ref('v.postings'), e('v.value', 'is', null))}::integer`.as(
+						'unpriced',
+					),
 				])
 				.groupBy(['v.account', 'v.bucket'])
 				.orderBy('v.account')

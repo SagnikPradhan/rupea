@@ -1,8 +1,12 @@
 import * as v from 'valibot';
 import { Range } from './dates';
 
+/** An ISO date only has the right shape, so 2026-02-30 passes it; a day that exists comes back the same. */
+const exists = (d: string) =>
+	!Number.isNaN(Date.parse(d)) && new Date(d).toISOString().startsWith(d);
+
 const Text = v.fallback(v.pipe(v.string(), v.trim()), '');
-const IsoDate = v.fallback(v.pipe(v.string(), v.isoDate()), '');
+const IsoDate = v.fallback(v.pipe(v.string(), v.isoDate(), v.check(exists)), '');
 
 /** What a list of transactions or postings is narrowed to, as its page's URL carries it; days given win over the range. */
 export const Filter = v.object({

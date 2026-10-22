@@ -425,6 +425,7 @@ describe('spending', () => {
 		'',
 		'2026-02-06 Souvenir',
 		'\tExpenses:Travel 5 EUR',
+		'\tExpenses:Travel 3 EUR',
 		'\tLiabilities:Card',
 		'',
 		'P 2026-02-01 USD 83',
@@ -436,7 +437,7 @@ describe('spending', () => {
 	const totals = (spending: Accounts.Spending | undefined) =>
 		spending?.totals.map((t) => [t.account, t.amount, t.unpriced]);
 
-	it('adds up each account and its parents by bucket, net of refunds, at its own day’s price', ({
+	it('adds up each account and its parents by bucket, net of refunds, at its own day’s price, counting each unpriced amount', ({
 		context,
 		db,
 	}) =>
@@ -452,10 +453,10 @@ describe('spending', () => {
 			const [year] = spending._unsafeUnwrap().succeeded;
 			expect(buckets(year)).toEqual([
 				['Expenses', '2026-01-01', 800_0000000000n, 0],
-				['Expenses', '2026-02-01', 8300_0000000000n, 1],
+				['Expenses', '2026-02-01', 8300_0000000000n, 2],
 				['Expenses:Food', '2026-01-01', 800_0000000000n, 0],
 				['Expenses:Food:Groceries', '2026-01-01', 800_0000000000n, 0],
-				['Expenses:Travel', '2026-02-01', 8300_0000000000n, 1],
+				['Expenses:Travel', '2026-02-01', 8300_0000000000n, 2],
 			]);
 			expect(year?.buckets.map(String)).toEqual([
 				'2026-01-01',
@@ -472,10 +473,10 @@ describe('spending', () => {
 				'2026-12-01',
 			]);
 			expect(totals(year)).toEqual([
-				['Expenses', 9100_0000000000n, 1],
+				['Expenses', 9100_0000000000n, 2],
 				['Expenses:Food', 800_0000000000n, 0],
 				['Expenses:Food:Groceries', 800_0000000000n, 0],
-				['Expenses:Travel', 8300_0000000000n, 1],
+				['Expenses:Travel', 8300_0000000000n, 2],
 			]);
 		}));
 
@@ -502,7 +503,7 @@ describe('spending', () => {
 				'Expenses',
 				'2026-01-01',
 				9100_0000000000n,
-				1,
+				2,
 			]);
 		}));
 

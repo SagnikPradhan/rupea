@@ -158,6 +158,22 @@ describe('the bar chart', () => {
 		expect(plots).toHaveLength(1);
 	});
 
+	it('draws nothing once removed while its font was loading', async () => {
+		plots.splice(0);
+		const { unmount } = render(BarChart, {
+			rows: ROWS,
+			x: 'bucket',
+			bucket: 'month',
+			series: [...PARTS],
+			whole: WHOLE,
+			label: 'Spending',
+		});
+		unmount();
+
+		await new Promise((resolve) => setTimeout(resolve));
+		expect(plots).toHaveLength(0);
+	});
+
 	it('hands the summary the bar under the cursor, or none', async () => {
 		const { options } = await drawn();
 		expect(screen.getByTestId('summary').textContent).toBe('null');

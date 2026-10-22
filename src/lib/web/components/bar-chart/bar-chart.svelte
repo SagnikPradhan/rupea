@@ -1,13 +1,14 @@
 <script lang="ts" generics="Row extends Record<string, unknown>">
 	import type { Bucket } from '#lib/shared/dates.ts';
-	import { axesOf, colorOf, drawZero, plotInto } from '#lib/web/chart.ts';
-	import { formatBucket, formatCompact } from '#lib/web/format.ts';
+	import { axesOf, colorOf, drawZero, fillOf, plotInto } from '#lib/web/chart.ts';
+	import Swatch from '#lib/web/components/swatch/swatch.svelte';
+	import { formatAmount, formatBucket, formatCompact } from '#lib/web/format.ts';
 	import type { Snippet } from 'svelte';
 	import uPlot from 'uplot';
 	import 'uplot/dist/uPlot.min.css';
 
-	/** A field of the rows to plot: the one measure a chart shows, drawn as bars. */
-	type Series = { key: keyof Row & string; label: string; role: 'primary' };
+	/** A field of the rows to plot: a part of each bar, stacked in order from its base. */
+	type Series = { key: keyof Row & string; label: string; role: 'part' };
 
 	type Props = {
 		/** One row per bar, as an endpoint returns them, with exact decimals. */
@@ -17,25 +18,30 @@
 		/** How many days one bar adds up, which names it on the axis. */
 		bucket: Bucket;
 		series: Series[];
+		/** What the key reads while no bar is under the cursor, such as the parts' totals. */
+		whole: Row;
 		label: string;
 		/** Drawn above the plot with the row under the cursor, or none. */
 		summary?: Snippet<[number | null]>;
 	};
 
-	const { rows, x, bucket, series, label, summary }: Props = $props();
+	const { rows, x, bucket, series, whole, label, summary }: Props = $props();
 
-	// Every build of uPlot draws bars, though its types call them optional.
-	const BARS = uPlot.paths.bars!({ size: [0.6, 48], gap: 1 });
+	const WIDTH = { share: 0.6, most: 48 };
+	const FADED = 0.2;
 
 	const hovered = $state({ index: null as number | null });
+	const focused = $state({ part: null as number | null });
+	const shown = $derived((hovered.index === null ? undefined : rows[hovered.index]) ?? whole);
 
-	/** Reads the bars before any await, so the chart redraws when they change. */
+	/** Reads the bars and the focused part before any await, so the chart redraws when they change. */
 	const chart = (node: HTMLElement) => {
 		const bars = data();
 		const days = rows.map((r) => String(r[x]));
 		const name = formatBucket[bucket];
+		const focus = focused.part;
 
-		return plotInto(node, (font) => options({ node, font, days, name }), bars);
+		return plotInto(node, (font) => options({ node, font, days, name, focus }), bars);
 	};
 
 	/** Bars stand at their index, so a month or a year is as wide as a day. */
@@ -49,10 +55,11 @@
 		font: string;
 		days: string[];
 		name: (d: string) => string;
+		focus: number | null;
 	};
 
 	const options = (input: OptionsInput): uPlot.Options => {
-		const { node, font, days, name } = input;
+		const { node, font, days, name, focus } = input;
 		const ink = colorOf(node, '--color-ink');
 		const border = colorOf(node, '--color-border');
 		const day = (i: number) => (Number.isInteger(i) ? name(days[i] ?? '') : '');
@@ -64,30 +71,88 @@
 			padding: [8, 0, 0, 0],
 			legend: { show: false },
 			cursor: { drag: { x: false, y: false }, points: { show: false }, y: false },
-			scales: { x: { time: false, range: [-0.5, days.length - 0.5] } },
+			scales: {
+				x: { time: false, range: [-0.5, days.length - 0.5] },
+				y: { range: (u) => extentOf(u) },
+			},
 			series: [
 				{},
-				...series.map((s) => ({
-					label: s.label,
-					fill: ink,
-					stroke: ink,
-					width: 0,
-					paths: BARS,
-					points: { show: false },
-				})),
+				...series.map((s) => ({ label: s.label, paths: () => null, points: { show: false } })),
 			],
 			axes: [{ ...across, incrs: [1, 2, 3, 6, 12, 24, 48] }, up],
 			hooks: {
 				setCursor: [(u) => (hovered.index = u.cursor.idx ?? null)],
-				draw: [(u) => drawZero(u, border)],
+				draw: [(u) => stack(u, ink, focus), (u) => drawZero(u, border)],
 			},
 		};
+	};
+
+	/** How far the stacks reach: what is spent piles up from zero, and what is refunded down from it. */
+	const extentOf = (u: uPlot): uPlot.Range.MinMax => {
+		const piles = rows.map((_, i) => pilesAt(u, i));
+		const low = Math.min(0, ...piles.map((p) => p.down));
+		const high = Math.max(0, ...piles.map((p) => p.up));
+
+		return [low, high === low ? low + 1 : high];
+	};
+
+	const pilesAt = (u: uPlot, i: number) => {
+		const values = u.data.slice(1).map((d) => d[i] ?? 0);
+		const up = values.filter((v) => v > 0).reduce((t, v) => t + v, 0);
+		const down = values.filter((v) => v < 0).reduce((t, v) => t + v, 0);
+
+		return { up, down };
+	};
+
+	/**
+	 * Draws each bar's parts in order from zero, upwards for spending and downwards for refunds. A
+	 * hatched part lets what is behind it show through, so parts are laid end to end, never over,
+	 * with a hairline between them so two hatches never run together.
+	 */
+	const stack = (u: uPlot, ink: string, focus: number | null) => {
+		const fills = series.map((_, k) => fillOf(u.ctx, k, ink));
+		const gap = devicePixelRatio;
+		const width = Math.min(
+			(u.bbox.width / rows.length) * WIDTH.share,
+			WIDTH.most * devicePixelRatio,
+		);
+
+		u.ctx.save();
+		rows.forEach((_, i) => {
+			const left = u.valToPos(i, 'x', true) - width / 2;
+			const reached = { up: 0, down: 0 };
+			series.forEach((_, k) => {
+				const value = u.data[k + 1]?.[i] ?? 0;
+				const side = value < 0 ? 'down' : 'up';
+				const from = u.valToPos(reached[side], 'y', true);
+				reached[side] += value;
+				const to = u.valToPos(reached[side], 'y', true);
+
+				u.ctx.globalAlpha = focus === null || focus === k ? 1 : FADED;
+				u.ctx.fillStyle = fills[k] ?? ink;
+				u.ctx.fillRect(left, Math.min(from, to), width, Math.max(Math.abs(to - from) - gap, 0));
+			});
+		});
+		u.ctx.restore();
 	};
 </script>
 
 <figure>
 	{@render summary?.(hovered.index)}
 	<div class="plot" role="img" aria-label={label} {@attach chart}></div>
+	<figcaption>
+		{#each series as part, k (part.key)}
+			<span
+				role="presentation"
+				onpointerenter={() => (focused.part = k)}
+				onpointerleave={() => (focused.part = null)}
+			>
+				<Swatch part={k} />
+				{part.label}
+				<data>{formatAmount(String(shown[part.key] ?? '0'))}</data>
+			</span>
+		{/each}
+	</figcaption>
 </figure>
 
 <style>
@@ -96,6 +161,19 @@
 		flex-direction: column;
 		gap: var(--size-1);
 		margin: 0;
+	}
+
+	figcaption {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--size-0) var(--size-3);
+		color: var(--color-muted);
+		font-size: var(--font-size-0);
+	}
+
+	data {
+		font-family: var(--font-mono);
+		font-variant-numeric: tabular-nums;
 	}
 
 	.plot {

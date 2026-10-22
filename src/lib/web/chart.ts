@@ -2,6 +2,18 @@ import uPlot from 'uplot';
 
 const EDGE = 32;
 
+/** Parts of a stacked bar fill from dense at its base to sparse at its top, all in ink, so colour keeps its meaning. */
+const DENSITIES = [
+	{ kind: 'solid', gap: 0 },
+	{ kind: 'hatch', gap: 3 },
+	{ kind: 'hatch', gap: 6 },
+	{ kind: 'hatch', gap: 10 },
+	{ kind: 'dots', gap: 6 },
+] as const;
+
+/** How many parts a stacked bar can tell apart. */
+export const PARTS = DENSITIES.length;
+
 /** Draws a plot into a node, again when the colour scheme changes, sized to it, and moves its cursor where a finger lands. */
 export const plotInto = (
 	node: HTMLElement,
@@ -75,6 +87,35 @@ export const drawZero = (u: uPlot, color: string) => {
 	u.ctx.lineTo(u.bbox.left + u.bbox.width, y);
 	u.ctx.stroke();
 	u.ctx.restore();
+};
+
+/** The fill of a stacked bar's part at its density, in canvas pixels; plain ink where a canvas makes no patterns. */
+export const fillOf = (ctx: CanvasRenderingContext2D, part: number, ink: string) => {
+	const density = DENSITIES[Math.min(part, PARTS - 1)] ?? DENSITIES[0];
+	const size = Math.round(density.gap * devicePixelRatio);
+	const tile = document.createElement('canvas');
+	const pen = tile.getContext('2d');
+	if (density.kind === 'solid' || !pen) return ink;
+
+	tile.width = size;
+	tile.height = size;
+	pen.fillStyle = ink;
+	pen.strokeStyle = ink;
+	pen.lineWidth = devicePixelRatio;
+	if (density.kind === 'dots') pen.fillRect(0, 0, devicePixelRatio * 1.5, devicePixelRatio * 1.5);
+	if (density.kind === 'hatch') hatch(pen, size);
+
+	return ctx.createPattern(tile, 'repeat') ?? ink;
+};
+
+/** A diagonal through the tile, and its ends again in the opposite corners, so tiles join into unbroken lines. */
+const hatch = (pen: CanvasRenderingContext2D, size: number) => {
+	pen.beginPath();
+	[-size, 0, size].forEach((shift) => {
+		pen.moveTo(shift, size);
+		pen.lineTo(shift + size, 0);
+	});
+	pen.stroke();
 };
 
 /** A canvas cannot read light-dark colours, so each one is resolved through an element. */

@@ -1,12 +1,14 @@
 <script lang="ts">
 	import { listSpending } from '#lib/endpoints/accounts.remote.ts';
 	import { BUCKETS, Range } from '#lib/shared/dates.ts';
+	import { PARTS } from '#lib/web/chart.ts';
 	import BarChart from '#lib/web/components/bar-chart/bar-chart.svelte';
 	import Issues from '#lib/web/components/issues/issues.svelte';
 	import Amount from '#lib/web/components/ledger-table/amount.svelte';
 	import LedgerTable from '#lib/web/components/ledger-table/ledger-table.svelte';
 	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
 	import RangePicker from '#lib/web/components/range-picker/range-picker.svelte';
+	import Swatch from '#lib/web/components/swatch/swatch.svelte';
 	import {
 		formatAmount,
 		formatBucket,
@@ -20,6 +22,7 @@
 	import * as v from 'valibot';
 
 	const ROOT = 'Expenses';
+	const OTHER = 'Other';
 	/** An average month, so a year's spending divides into twelve of them. */
 	const MONTH_DAYS = 365.25 / 12;
 	const DAY_MS = 24 * 60 * 60 * 1000;
@@ -34,14 +37,43 @@
 	const response = $derived(await listSpending({ handle, range, day }));
 	const spending = $derived(response.data?.[0]);
 	const total = $derived(spending?.totals.find((t) => t.account === ROOT));
+	/** The largest accounts under Expenses each stack as a part of every bar, the largest at the base. */
+	const parts = $derived(
+		(spending?.totals ?? [])
+			.filter((t) => depthOf(t.account) === 1)
+			.toSorted((a, b) => Number(b.amount) - Number(a.amount))
+			.slice(0, PARTS - 1)
+			.map((t) => t.account),
+	);
 	const bars = $derived.by(() => {
 		const spent = Object.fromEntries(
-			(spending?.spent ?? []).filter((s) => s.account === ROOT).map((s) => [s.bucket, s.amount]),
+			(spending?.spent ?? []).map((s) => [`${s.account} ${s.bucket}`, Number(s.amount)]),
 		);
-		return (spending?.buckets ?? []).map((b) => ({ bucket: b, spent: spent[b] ?? '0' }));
+		return (spending?.buckets ?? []).map((b) =>
+			piled(b, (account) => spent[`${account} ${b}`] ?? 0),
+		);
 	});
+	const whole = $derived.by(() => {
+		const spent = Object.fromEntries(
+			(spending?.totals ?? []).map((t) => [t.account, Number(t.amount)]),
+		);
+		return piled('', (account) => spent[account] ?? 0);
+	});
+	const other = $derived([whole, ...bars].some((b) => b[OTHER] !== '0'));
 	const first = $derived(bars[0]?.bucket ?? day);
 	const months = $derived(((Date.parse(day) - Date.parse(first)) / DAY_MS + 1) / MONTH_DAYS);
+
+	/** What a bar holds, by part; whatever the parts leave is the other spending. */
+	function piled(bucket: string, spentIn: (account: string) => number) {
+		const amounts = parts.map((p) => spentIn(p));
+		const rest = spentIn(ROOT) - amounts.reduce((t, a) => t + a, 0);
+		return {
+			bucket,
+			total: String(spentIn(ROOT)),
+			...Object.fromEntries(parts.map((p, i) => [p, String(amounts[i] ?? 0)])),
+			[OTHER]: String(rest),
+		};
+	}
 
 	const postingsOf = (account: string) =>
 		`/l/${handle}/postings?${new URLSearchParams({ account, range })}`;
@@ -67,14 +99,18 @@
 		rows={bars}
 		x="bucket"
 		{bucket}
-		series={[{ key: 'spent', label: 'Spending', role: 'primary' }]}
+		series={[
+			...parts.map((p) => ({ key: p, label: nameOf(p), role: 'part' as const })),
+			...(other ? [{ key: OTHER, label: OTHER, role: 'part' as const }] : []),
+		]}
+		{whole}
 		label="Spending from {formatDate(first)} to {formatDate(day)}, {formatAmount(
 			total?.amount ?? '0',
 		)} in all"
 	>
 		{#snippet summary(index: number | null)}
 			{@const bar = index === null ? undefined : bars[index]}
-			{@const shown = bar?.spent ?? total?.amount ?? '0'}
+			{@const shown = bar?.total ?? total?.amount ?? '0'}
 			<div class="summary">
 				<div class="heading">
 					<h2 id="spending" class="label">Spending</h2>
@@ -114,6 +150,9 @@
 							title={account.account}
 							><span class="prefix">{prefixOf(account.account)}</span>{nameOf(account.account)}</a
 						>
+						{#if parts.includes(account.account)}<Swatch
+								part={parts.indexOf(account.account)}
+							/>{/if}
 						{#if account.unpriced > 0}<span class="tag">{account.unpriced} unpriced</span>{/if}
 					</th>
 					<Amount value={account.amount} />

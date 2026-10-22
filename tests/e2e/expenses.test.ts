@@ -34,6 +34,7 @@ test('adds up spending by account over a range, net of refunds', async ({
 	const food = page.getByRole('row').filter({ hasText: 'Food' }).first();
 	await expect(food).toContainText('2,000.00');
 	await expect(food).toContainText('20%');
+	await expect(page.locator('figcaption')).toContainText('Housing 8,000.00');
 	await page.getByRole('img', { name: /^Spending/ }).hover({ position: { x: 105, y: 120 } });
 	await expect(page.locator('.figure')).toHaveText('8,000.00');
 

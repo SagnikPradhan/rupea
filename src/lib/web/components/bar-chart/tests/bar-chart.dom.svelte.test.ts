@@ -22,10 +22,11 @@ vi.mock('uplot', () => ({
 Object.defineProperty(document, 'fonts', { value: { load: async () => [] } });
 
 const ROWS = [
-	{ bucket: '2026-01-01', spent: '2000' },
-	{ bucket: '2026-02-01', spent: '-500' },
-	{ bucket: '2026-03-01', spent: '8000' },
+	{ bucket: '2026-01-01', food: '2000', other: '500' },
+	{ bucket: '2026-02-01', food: '-500', other: '300' },
+	{ bucket: '2026-03-01', food: '8000', other: '0' },
 ];
+const WHOLE = { bucket: '', food: '9500', other: '800' };
 
 const summary = createRawSnippet((index: () => number | null) => ({
 	render: () => `<p data-testid="summary"></p>`,
@@ -42,7 +43,11 @@ const drawn = async () => {
 		rows: ROWS,
 		x: 'bucket',
 		bucket: 'month',
-		series: [{ key: 'spent', label: 'Spending', role: 'primary' }],
+		series: [
+			{ key: 'food', label: 'Food', role: 'part' },
+			{ key: 'other', label: 'Other', role: 'part' },
+		],
+		whole: WHOLE,
 		label: 'Spending',
 		summary,
 	});
@@ -58,12 +63,45 @@ const hover = (options: uPlot.Options, idx: number | null) => {
 };
 
 describe('the bar chart', () => {
-	it('stands each bar at its index, below zero when it is negative', async () => {
+	it('stands each bar at its index, a series per part', async () => {
 		const { data } = await drawn();
 		expect(data).toEqual([
 			[0, 1, 2],
 			[2000, -500, 8000],
+			[500, 300, 0],
 		]);
+	});
+
+	it('reaches as far as the parts pile up from zero, and down for refunds', async () => {
+		const { options, data } = await drawn();
+		const range = options.scales?.['y']?.range;
+		if (typeof range !== 'function') throw new Error('No value range');
+
+		expect(range({ data } as uPlot, 0, 0, 'y')).toEqual([-500, 8000]);
+	});
+
+	it('lays each bar’s parts end to end from zero, refunds below it', async () => {
+		const { options, data } = await drawn();
+		const rects: number[][] = [];
+		const ctx = {
+			save: vi.fn(),
+			restore: vi.fn(),
+			fillRect: (...r: number[]) => rects.push(r),
+			createPattern: () => null,
+		};
+		const plot = {
+			data,
+			ctx,
+			bbox: { width: 300 },
+			valToPos: (v: number, scale: string) => (scale === 'x' ? v * 100 + 50 : 1000 - v / 10),
+		} as unknown as uPlot;
+
+		options.hooks?.draw?.[0]?.(plot);
+		expect(rects.slice(0, 2)).toEqual([
+			[26, 800, 48, 199],
+			[26, 750, 48, 49],
+		]);
+		expect(rects[2]).toEqual([126, 1000, 48, 49]);
 	});
 
 	it('names a bar on the axis by its bucket, and nothing between two bars', async () => {
@@ -73,6 +111,16 @@ describe('the bar chart', () => {
 		const plot = { valToPos: () => 100 } as unknown as uPlot;
 
 		expect(values(plot, [0, 0.5, 2], 0, 0, 0)).toEqual(['Jan 2026', '', 'Mar 2026']);
+	});
+
+	it('keys each part with the hovered bar’s amount, or the whole’s', async () => {
+		const { options } = await drawn();
+		const key = () => screen.getByRole('figure').querySelector('figcaption')?.textContent;
+		expect(key()).toContain('9,500.00');
+
+		hover(options, 1);
+		expect(key()).toContain('-500.00');
+		expect(key()).toContain('300.00');
 	});
 
 	it('hands the summary the bar under the cursor, or none', async () => {

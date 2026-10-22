@@ -11,41 +11,32 @@ import { viewCounted, viewPosting } from './views';
 const Cursor = v.object({ date: v.string(), time: v.string(), id: v.pipe(v.string(), v.uuid()) });
 const PostingCursor = v.object({ ...Cursor.entries, position: v.number() });
 
-const TransactionsQuery = v.object({
-	handle: Handle,
-	day: Day,
-	filter: Filter,
-	after: v.nullable(Cursor),
-});
-const PostingsQuery = v.object({
-	handle: Handle,
-	day: Day,
-	filter: Filter,
-	after: v.nullable(PostingCursor),
-});
-
 /** What is wrong across the ledger, after bringing its index up to date; lists read that index. */
 export const sync = query(Handle, (h) =>
 	replyFromBatch(inLedger({ handle: h, action: Sync.sync })),
 );
 
-export const listTransactions = query(TransactionsQuery, ({ handle, day, filter, after }) =>
-	replyFrom(
-		inLedger({
-			handle,
-			action: (l) =>
-				Transactions.listTransactions({ ledger: l, filter: listed(filter, day), after }),
-		}).map((p) => ({ ...p, rows: p.rows.map(viewCounted) })),
-	),
+export const listTransactions = query(
+	v.object({ handle: Handle, day: Day, filter: Filter, after: v.nullable(Cursor) }),
+	({ handle, day, filter, after }) =>
+		replyFrom(
+			inLedger({
+				handle,
+				action: (l) =>
+					Transactions.listTransactions({ ledger: l, filter: listed(filter, day), after }),
+			}).map((p) => ({ ...p, rows: p.rows.map(viewCounted) })),
+		),
 );
 
-export const listPostings = query(PostingsQuery, ({ handle, day, filter, after }) =>
-	replyFrom(
-		inLedger({
-			handle,
-			action: (l) => Transactions.listPostings({ ledger: l, filter: listed(filter, day), after }),
-		}).map((p) => ({ ...p, rows: p.rows.map(viewPosting) })),
-	),
+export const listPostings = query(
+	v.object({ handle: Handle, day: Day, filter: Filter, after: v.nullable(PostingCursor) }),
+	({ handle, day, filter, after }) =>
+		replyFrom(
+			inLedger({
+				handle,
+				action: (l) => Transactions.listPostings({ ledger: l, filter: listed(filter, day), after }),
+			}).map((p) => ({ ...p, rows: p.rows.map(viewPosting) })),
+		),
 );
 
 export const listAccountNames = query(Handle, (h) =>

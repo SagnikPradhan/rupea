@@ -5,12 +5,12 @@ import { inOrder, ok, okAsync, ResultAsync } from '#lib/server/shared/result/res
 import { readText, type Entry, type Storage } from '#lib/server/shared/storage/storage.ts';
 import { isCounted, STATEMENTS } from '#lib/shared/folders.ts';
 import * as DB from '../adapters/database';
-import { embedder, MODEL } from '../adapters/prediction-onnx';
+import { embedTexts, MODEL } from '../adapters/prediction-onnx';
 import { formatQuantity, type Amount } from '../domain/amounts';
 import { checkEvents } from '../domain/events';
 import { displayLocation, parse } from '../domain/parser';
 import { plan, type SyncPlan } from '../domain/sync';
-import { filling, type Unembedded } from '../domain/text';
+import { filled, wordsOf, type Unembedded } from '../domain/text';
 import { DisposalKind, type Ledger, type RupeeFile } from '../domain/types';
 import { openFolder } from './ledger';
 
@@ -113,9 +113,9 @@ const embed = (ledgerId: string, failed: RupeeError[]): ResultAsync<RupeeError[]
 
 const fill = (ledgerId: string, rows: Unembedded[]): ResultAsync<void> =>
 	withContext('models')((models) => {
-		const f = filling(rows);
-		const vectors = f.texts.length === 0 ? okAsync([]) : embedder(models)(f.texts);
-		return vectors.andThen((v) => DB.saveEmbeddings(ledgerId, MODEL, f.fill(v)));
+		const texts = wordsOf(rows.map((r) => r.description));
+		const vectors = texts.length === 0 ? okAsync([]) : embedTexts(models, texts);
+		return vectors.andThen((v) => DB.saveEmbeddings(ledgerId, MODEL, filled(rows, v)));
 	});
 
 // Events and balances span files, so they are checked after every file is in

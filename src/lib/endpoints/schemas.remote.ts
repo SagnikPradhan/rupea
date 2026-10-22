@@ -31,7 +31,7 @@ export const deleteSchema = command(
 			handle,
 			action: (l) => Schemas.deleteSchema({ ledger: l, key }),
 		});
-		if (deleted.isOk()) void listSchemas(handle).refresh();
+		void listSchemas(handle).refresh();
 		return replyFrom(deleted);
 	},
 );

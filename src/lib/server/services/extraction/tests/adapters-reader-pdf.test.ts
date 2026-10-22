@@ -6,7 +6,7 @@ import { provide } from '#lib/server/shared/context/context.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { models as files } from '#lib/server/shared/onnx/models.ts';
 import { createModels } from '#lib/server/shared/onnx/runtime.ts';
-import { readPdf } from '#services/extraction/adapters/reader-pdf.ts';
+import { readPdf, unlockPdf } from '#services/extraction/adapters/reader-pdf.ts';
 import { err } from '#lib/server/shared/result/result.ts';
 import { PDFDocument } from '@cantoo/pdf-lib';
 
@@ -35,7 +35,7 @@ describe('reading a PDF', () => {
 		'reads every page’s table, wrapped narrations and all',
 		async ({ context }) => {
 			const read = await provide(context, async () =>
-				readPdf({ name: 'a.pdf', content: await plain(), password: undefined }),
+				readPdf({ name: 'a.pdf', content: await plain() }),
 			);
 			if (read.isErr()) throw new Error(read.error.type);
 			const grid = read.value.grid;
@@ -54,13 +54,12 @@ describe('reading a PDF', () => {
 		const content = await locked();
 		const unasked = await provide(context, () => readPdf({ name: 'locked.pdf', content }));
 		expect(unasked).toEqual(err({ type: 'ExtractionLocked', path: 'locked.pdf' }));
-		const wrong = await provide(context, () =>
-			readPdf({ name: 'locked.pdf', content, password: 'wrong' }),
-		);
+		const wrong = await unlockPdf({ name: 'locked.pdf', content, password: 'wrong' });
 		expect(wrong).toMatchObject({ error: { type: 'ExtractionLocked' } });
-		const opened = await provide(context, () =>
-			readPdf({ name: 'locked.pdf', content, password: 'secret' }),
-		);
+		const unlocked = (
+			await unlockPdf({ name: 'locked.pdf', content, password: 'secret' })
+		)._unsafeUnwrap();
+		const opened = await provide(context, () => readPdf({ name: 'locked.pdf', content: unlocked }));
 		expect(opened.isOk() && opened.value.grid[1]).toEqual(first);
 	});
 
@@ -69,7 +68,6 @@ describe('reading a PDF', () => {
 			readPdf({
 				name: 'a.pdf',
 				content: new TextEncoder().encode('not a pdf'),
-				password: undefined,
 			}),
 		);
 		expect(read).toMatchObject({ error: { type: 'CannotReadFile', path: 'a.pdf' } });
@@ -87,7 +85,7 @@ describe('reading a PDF', () => {
 					logger: context.logger,
 				}),
 			},
-			async () => readPdf({ name: 'a.pdf', content: await plain(), password: undefined }),
+			async () => readPdf({ name: 'a.pdf', content: await plain() }),
 		);
 		expect(read).toMatchObject({
 			error: {

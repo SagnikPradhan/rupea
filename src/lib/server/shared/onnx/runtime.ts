@@ -89,20 +89,15 @@ export const createModels = (models: CreateModelsOptions): Models => {
 	const tokenizer = (m: ModelFile) =>
 		remembered(tokenizers, m.file, () => sure(m).andThen(loadTokenizer));
 
-	const embedders = new Map<string, Embed>();
-	const embedder = (model: EmbeddingModel) => {
-		const kept =
-			embedders.get(model.source.file) ??
-			remembering(
-				(x) =>
-					ResultAsync.combine([session(model.source), tokenizer(model.tokenizer)]).andThen(
-						([l, t]) => embed({ model, texts: x, session: l, tokenizer: t }),
-					),
-				REMEMBERED,
-			);
-		embedders.set(model.source.file, kept);
-		return kept;
-	};
+	const embedders: Record<string, Embed> = {};
+	const embedder = (model: EmbeddingModel) =>
+		(embedders[model.source.file] ??= remembering(
+			(x) =>
+				ResultAsync.combine([session(model.source), tokenizer(model.tokenizer)]).andThen(([l, t]) =>
+					embed({ model, texts: x, session: l, tokenizer: t }),
+				),
+			REMEMBERED,
+		));
 
 	return {
 		ready: () => ResultAsync.combine(files.map(sure)).map(() => undefined),

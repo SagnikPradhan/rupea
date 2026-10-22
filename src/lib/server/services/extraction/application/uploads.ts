@@ -6,7 +6,8 @@ import { findImported } from '#services/ledger/application/files.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
 import * as DB from '../adapters/database';
 import { importStatement } from '../adapters/jobs';
-import { isText, type Upload } from '../adapters/reader';
+import { isText } from '../adapters/reader';
+import type { Upload } from '../domain/types';
 import * as v from 'valibot';
 import { dropMissing, storeStatement } from './statements';
 

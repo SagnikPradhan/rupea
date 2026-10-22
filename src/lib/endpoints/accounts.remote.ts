@@ -6,11 +6,7 @@ import * as v from 'valibot';
 import { Handle, inLedger } from './shared';
 import { viewAccount, viewLot, viewWorth } from './views';
 
-const AccountsQuery = v.object({ handle: Handle, day: Day });
-const WorthQuery = v.object({ handle: Handle, range: Range, day: Day });
-const LotsQuery = v.object({ handle: Handle, account: v.string(), commodity: v.string() });
-
-export const listAccounts = query(AccountsQuery, ({ handle, day }) =>
+export const listAccounts = query(v.object({ handle: Handle, day: Day }), ({ handle, day }) =>
 	replyFromBatch(
 		inLedger({ handle, action: (l) => Accounts.listAccounts({ ledger: l, day }) }).map((b) => ({
 			...b,
@@ -19,19 +15,23 @@ export const listAccounts = query(AccountsQuery, ({ handle, day }) =>
 	),
 );
 
-export const listWorth = query(WorthQuery, ({ handle, range, day }) =>
-	replyFromBatch(
-		inLedger({
-			handle,
-			action: (l) => Accounts.listWorth({ ledger: l, from: startOf[range](day), to: day }),
-		}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewWorth) })),
-	),
+export const listWorth = query(
+	v.object({ handle: Handle, range: Range, day: Day }),
+	({ handle, range, day }) =>
+		replyFromBatch(
+			inLedger({
+				handle,
+				action: (l) => Accounts.listWorth({ ledger: l, from: startOf[range](day), to: day }),
+			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewWorth) })),
+		),
 );
 
-export const listLots = query(LotsQuery, ({ handle, account, commodity }) =>
-	replyFromBatch(
-		inLedger({ handle, action: (l) => Accounts.listLots({ ledger: l, account, commodity }) }).map(
-			(b) => ({ ...b, succeeded: b.succeeded.map(viewLot) }),
+export const listLots = query(
+	v.object({ handle: Handle, account: v.string(), commodity: v.string() }),
+	({ handle, account, commodity }) =>
+		replyFromBatch(
+			inLedger({ handle, action: (l) => Accounts.listLots({ ledger: l, account, commodity }) }).map(
+				(b) => ({ ...b, succeeded: b.succeeded.map(viewLot) }),
+			),
 		),
-	),
 );

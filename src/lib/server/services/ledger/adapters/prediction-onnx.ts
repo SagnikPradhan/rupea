@@ -1,6 +1,5 @@
 import { textEmbedding, textTokenizer } from '#lib/server/shared/onnx/models.ts';
 import type { EmbeddingModel, Models } from '#lib/server/shared/onnx/runtime.ts';
-import type { Embed } from '../domain/prediction';
 
 const minilm: EmbeddingModel = {
 	source: textEmbedding,
@@ -13,7 +12,4 @@ const minilm: EmbeddingModel = {
 // Stored with each vector, so another model's vectors are never mixed in.
 export const MODEL = textEmbedding.sha256;
 
-export const embedder =
-	(m: Models): Embed =>
-	(t) =>
-		m.embed({ model: minilm, texts: t });
+export const embedTexts = (m: Models, t: string[]) => m.embed({ model: minilm, texts: t });

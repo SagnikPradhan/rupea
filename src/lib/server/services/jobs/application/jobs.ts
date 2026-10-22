@@ -33,7 +33,7 @@ export const runJob = (jobs: Job<unknown>[], claimed: DB.ClaimedJob): ResultAsyn
 		),
 	);
 
-export const listJobs = DB.listJobs;
+export const listJobs = (o: DB.ListJobsOptions): ResultAsync<DB.UserJob[]> => DB.listJobs(o);
 
 /** Logs as the job, with its name, id and attempt. */
 export const asJob = <T>(c: DB.ClaimedJob, f: () => T): T =>

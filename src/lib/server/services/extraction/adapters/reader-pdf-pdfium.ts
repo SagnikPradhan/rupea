@@ -12,6 +12,7 @@ import { init, type WrappedPdfiumModule } from '@embedpdf/pdfium';
 import { readFile } from 'node:fs/promises';
 import { createRequire } from 'node:module';
 import type { Word } from '../domain/table';
+import type { LockedUpload, Upload } from '../domain/types';
 
 // FPDF_ERR_PASSWORD.
 const PASSWORD = 4;
@@ -39,12 +40,6 @@ export type PdfDocument = {
 	close: () => void;
 };
 
-type OpenOptions = {
-	name: string;
-	content: Uint8Array;
-	password?: string | undefined;
-};
-
 const wasm = createRequire(import.meta.url).resolve('@embedpdf/pdfium/pdfium.wasm');
 
 // One instance for the process: pdfium holds no state of ours between documents.
@@ -60,14 +55,15 @@ const start = () =>
 
 const pdfium = (): ResultAsync<Pdfium> => (kept.pdfium ??= attempt(start));
 
-export const openPdf = (o: OpenOptions): ResultAsync<PdfDocument> =>
+export const openPdf = (o: Upload | LockedUpload): ResultAsync<PdfDocument> =>
 	pdfium().andThen((m) => open(m, o));
 
-const open = (m: Pdfium, options: OpenOptions): Result<PdfDocument> => {
-	const { name, content, password } = options;
+const open = (m: Pdfium, options: Upload | LockedUpload): Result<PdfDocument> => {
+	const { name, content } = options;
+	const password = 'password' in options ? options.password : '';
 
 	const data = copy(m, content);
-	const document = m.FPDF_LoadMemDocument(data, content.length, password ?? '');
+	const document = m.FPDF_LoadMemDocument(data, content.length, password);
 	const close = () => {
 		if (document !== 0) m.FPDF_CloseDocument(document);
 		m.pdfium.wasmExports.free(data);

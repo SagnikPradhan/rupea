@@ -44,7 +44,7 @@ export type UserJob = {
 	createdAt: Date;
 };
 
-type ListJobsOptions = {
+export type ListJobsOptions = {
 	userId: string;
 	name: string;
 	/** Fields the payload holds, such as the ledger it ran in. */
@@ -227,9 +227,9 @@ const due = (known: Known[]) =>
 		or(...known.map((k) => and(eq(jobs.name, k.name), lte(jobs.version, k.version)))),
 	);
 
-type Ending = { status: JobStatus; error: RupeeError | null; runAt?: SQL };
+type RunUpdate = { status: JobStatus; error: RupeeError | null; runAt?: SQL };
 
-const updateRun = (r: Run, e: Ending): ResultAsync<void> =>
+const updateRun = (r: Run, e: RunUpdate): ResultAsync<void> =>
 	withContext('db')((db) =>
 		attemptWrite(async () => {
 			await db

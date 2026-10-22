@@ -1,7 +1,6 @@
-import type { ResultAsync } from '#lib/server/shared/result/result.ts';
 import { type Amount } from './amounts';
 import { taxonomy, accountType } from './taxonomy';
-import { accountText, clean, lookup } from './text';
+import { accountText, clean, lookup, wordsOf } from './text';
 import { AccountType } from './types';
 
 const NEIGHBOURS = 5;
@@ -33,8 +32,6 @@ export type Line = {
 	description: string;
 };
 
-export type Embed = (texts: string[]) => ResultAsync<Float32Array[]>;
-
 /** A posting of a past transaction whose description is near a line's. */
 export type Neighbour = {
 	account: string;
@@ -43,12 +40,9 @@ export type Neighbour = {
 	similarity: number;
 };
 
-/** The postings of the transactions nearest each vector, in the vectors' order. */
-export type Nearest = (vectors: Float32Array[]) => ResultAsync<Neighbour[][]>;
-
 export type Thresholds = { history: number; name: number };
 
-export type ClassifierOptions = {
+export type ClassifyOptions = {
 	thresholds: Thresholds;
 	account: string;
 	lines: Line[];
@@ -56,47 +50,34 @@ export type ClassifierOptions = {
 	today: Temporal.PlainDate;
 };
 
-export type Classifier = {
-	/** Embedded first. */
-	texts: string[];
-	/** From the vectors of the texts to the ones to search near. */
-	asked: (vectors: Float32Array[]) => Float32Array[];
-	/** From the vectors of the texts and what was found near them. */
-	classify: (vectors: Float32Array[], nearest: Neighbour[][]) => Prediction[];
+type TextsOptions = { lines: Line[]; accounts: string[] };
+
+/** What to embed: the words of each distinct line, which are searched near, then the accounts' names. */
+export const textsOf = ({ lines, accounts }: TextsOptions) => {
+	const searched = wordsOf(lines.map((l) => l.description));
+	const named = candidates(accounts).map((c) => c.text);
+	return { texts: [...new Set([...searched, ...named])], searched: searched.length };
 };
 
-export const classifier = (options: ClassifierOptions): Classifier => {
-	const cleaned = options.lines.map((l) => clean(l.description));
-	const searched = [...new Set(cleaned)].filter((t) => t !== '');
-	const named = candidates(options.accounts);
-	const texts = [...new Set([...searched, ...named.map((c) => c.text)])].filter((t) => t !== '');
+/** `vectors` are those of `textsOf`'s texts, and `nearest` what was found near the searched ones. */
+export const classify = (
+	options: ClassifyOptions,
+	vectors: Float32Array[],
+	nearest: Neighbour[][],
+): Prediction[] => {
+	const texts = textsOf(options);
+	const found = lookup(texts.texts, vectors);
+	const near = lookup(texts.texts.slice(0, texts.searched), nearest);
+	const names = candidates(options.accounts).flatMap((c) => {
+		const vector = found(c.text);
+		return vector ? [{ account: c.account, vector }] : [];
+	});
 
-	const asked = (vectors: Float32Array[]) => {
-		const found = lookup(texts, vectors);
-		return searched.flatMap((t) => {
-			const vector = found(t);
-			return vector ? [vector] : [];
-		});
-	};
-
-	const classify = (vectors: Float32Array[], nearest: Neighbour[][]) => {
-		const found = lookup(texts, vectors);
-		const near = Object.fromEntries(
-			searched.filter((t) => found(t)).map((t, i) => [t, nearest[i] ?? []]),
-		);
-		const names = named.flatMap((c) => {
-			const vector = found(c.text);
-			return vector ? [{ account: c.account, vector }] : [];
-		});
-
-		const guess = predict({ ...options, names });
-		return options.lines.map((l, i) => {
-			const text = cleaned[i] ?? '';
-			return guess({ ...l, vector: found(text), neighbours: near[text] ?? [] });
-		});
-	};
-
-	return { texts, asked, classify };
+	const guess = predict({ ...options, names });
+	return options.lines.map((l) => {
+		const words = clean(l.description);
+		return guess({ ...l, vector: found(words), neighbours: near(words) ?? [] });
+	});
 };
 
 export type Named = { account: string; vector: Float32Array };

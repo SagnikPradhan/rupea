@@ -1,20 +1,22 @@
 import { models as pinned } from '#lib/server/shared/onnx/models.ts';
-import { okAsync } from '#lib/server/shared/result/result.ts';
+import { okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import type { Amount, RupeeTransaction } from '#services/ledger/application/shared.ts';
 import { hashVector } from '#tests/shared/embedding.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it as plain } from 'vitest';
-import { embedder } from '#services/ledger/adapters/prediction-onnx.ts';
+import { embedTexts } from '#services/ledger/adapters/prediction-onnx.ts';
 import {
+	classify as classifyWith,
+	textsOf,
 	THRESHOLDS,
-	type ClassifierOptions,
-	type Embed,
-	type Nearest,
+	type ClassifyOptions,
+	type Neighbour,
 } from '#services/ledger/domain/prediction.ts';
 import { clean } from '#services/ledger/domain/text.ts';
-import { classify as classifyNear } from '#services/ledger/application/prediction.ts';
+
+type Embed = (texts: string[]) => ResultAsync<Float32Array[]>;
 
 const amount = (n: bigint) => n as Amount;
 const hashed: Embed = (texts) => okAsync(texts.map(hashVector));
@@ -22,41 +24,36 @@ const hashed: Embed = (texts) => okAsync(texts.map(hashVector));
 const dot = (a: Float32Array, b: Float32Array) => a.reduce((s, v, i) => s + v * (b[i] ?? 0), 0);
 
 // What the database search does, over a ledger in memory.
-const nearestIn =
-	(embed: Embed, transactions: RupeeTransaction[]): Nearest =>
-	(vectors) => {
-		const described = transactions.filter((t) => clean(t.description) !== '');
-		return embed(described.map((t) => clean(t.description))).map((history) =>
-			vectors.map((v) =>
-				described
-					.map((t, i) => ({ t, similarity: dot(v, history[i] ?? new Float32Array()) }))
-					.toSorted((x, y) => y.similarity - x.similarity)
-					.slice(0, 50)
-					.flatMap(({ t, similarity }) =>
-						t.postings.map((p) => ({
-							account: p.account,
-							amount: p.amount,
-							date: t.date,
-							similarity,
-						})),
-					),
+const nearestIn = (
+	vectors: Float32Array[],
+	described: RupeeTransaction[],
+	history: Float32Array[],
+): Neighbour[][] =>
+	vectors.map((v) =>
+		described
+			.map((t, i) => ({ t, similarity: dot(v, history[i] ?? new Float32Array()) }))
+			.toSorted((x, y) => y.similarity - x.similarity)
+			.slice(0, 50)
+			.flatMap(({ t, similarity }) =>
+				t.postings.map((p) => ({ account: p.account, amount: p.amount, date: t.date, similarity })),
 			),
-		);
-	};
+	);
 
-type ClassifyOptions = Omit<ClassifierOptions, 'accounts'> & {
-	transactions: RupeeTransaction[];
+type GuessOptions = Omit<ClassifyOptions, 'accounts'> & { transactions: RupeeTransaction[] };
+
+// Embeds as the model would, then searches the transactions in memory as the database would.
+const classify = (embed: Embed, o: GuessOptions) => {
+	const accounts = [...new Set(o.transactions.flatMap((t) => t.postings.map((p) => p.account)))];
+	const options = { ...o, accounts };
+	const texts = textsOf(options);
+	const described = o.transactions.filter((t) => clean(t.description) !== '');
+
+	return embed(texts.texts).andThen((v) =>
+		embed(described.map((t) => clean(t.description))).map((history) =>
+			classifyWith(options, v, nearestIn(v.slice(0, texts.searched), described, history)),
+		),
+	);
 };
-
-const classify = (embed: Embed, o: ClassifyOptions) =>
-	classifyNear({
-		embed,
-		nearest: nearestIn(embed, o.transactions),
-		options: {
-			...o,
-			accounts: [...new Set(o.transactions.flatMap((t) => t.postings.map((p) => p.account)))],
-		},
-	});
 
 const transaction = (description: string, postings: [string, bigint][], date = '2026-09-01') =>
 	({
@@ -123,21 +120,10 @@ describe('classifying statement lines', () => {
 		]);
 	});
 
-	plain('embeds each text once', async () => {
-		const seen: string[][] = [];
-		const embed: Embed = (texts) => {
-			seen.push(texts);
-			return hashed(texts);
-		};
-		const nearest: Nearest = (vectors) => okAsync(vectors.map(() => []));
+	plain('embeds each text once', () => {
 		const lines = Array(3).fill({ amount: amount(-1n), description: 'swiggy' });
-		await classifyNear({
-			embed,
-			nearest,
-			options: { ...options, lines, accounts: ['Expenses:Dining'] },
-		});
-		expect(seen).toHaveLength(1);
-		expect(seen[0]?.filter((t) => t === 'swiggy')).toHaveLength(1);
+		const texts = textsOf({ lines, accounts: ['Expenses:Dining'] }).texts;
+		expect(texts.filter((t) => t === 'swiggy')).toHaveLength(1);
 	});
 });
 
@@ -169,7 +155,7 @@ describe('classifying with the real model', () => {
 			description: description as string,
 			amount: amount(account?.startsWith('Income') ? 5000n : -500n),
 		}));
-		const guesses = await classify(embedder(context.models), {
+		const guesses = await classify((t) => embedTexts(context.models, t), {
 			...options,
 			thresholds: THRESHOLDS,
 			lines,

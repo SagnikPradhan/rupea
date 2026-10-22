@@ -1,1 +1,0 @@
-CREATE INDEX "statements_ledger_id_created_at" ON "statements" USING btree ("ledger_id","created_at" DESC NULLS LAST);

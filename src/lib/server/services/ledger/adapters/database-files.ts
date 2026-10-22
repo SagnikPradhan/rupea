@@ -9,12 +9,13 @@ import { CURRENCIES } from '../domain/lots';
 import { displayLocation } from '../domain/parser';
 import { marketPrices } from '../domain/prices';
 import { accountType, BALANCE_TYPES } from '../domain/taxonomy';
-import type { RupeeLedgerFile, RupeeMetadata } from '../domain/types';
+import { Feed, type RupeeLedgerFile, type RupeeMetadata } from '../domain/types';
 import {
 	ledgerFiles,
 	metadata as metadataTable,
 	postings,
 	prices as priceTable,
+	symbols as symbolTable,
 	transactions as transactionTable,
 } from './database-schema';
 
@@ -119,11 +120,10 @@ export const indexFile = (
 					}),
 				);
 				const priceRows = marketPrices(file).map((p) => ({
-					ledgerId,
+					commodity: p.commodity,
 					fileId,
 					line: p.location.line,
 					date: p.date.toString(),
-					commodity: p.commodity,
 					priceAmount: p.price.amount,
 					priceCommodity: p.price.commodity,
 					source: p.source,
@@ -147,7 +147,8 @@ export const indexFile = (
 					await tx.insert(transactionTable).values(chunk);
 				for (const chunk of chunks(postingRows, ROWS_PER_STATEMENT))
 					await tx.insert(postings).values(chunk);
-				for (const chunk of chunks(priceRows, ROWS_PER_STATEMENT))
+				const symbolled = await withSymbols(tx, ledgerId, priceRows);
+				for (const chunk of chunks(symbolled, ROWS_PER_STATEMENT))
 					await tx.insert(priceTable).values(chunk);
 				for (const chunk of chunks(metadataRows, ROWS_PER_STATEMENT))
 					await tx.insert(metadataTable).values(chunk);
@@ -230,6 +231,48 @@ const ownedBy = (o: MetadataOwner, m: RupeeMetadata) =>
 	Object.entries(m)
 		.flatMap(([key, values]) => values.map((v) => ({ key, value: v })))
 		.map((e, i) => ({ ...o, position: i, ...e }));
+
+/**
+ * Puts each price on the ledger's own symbol for its commodity, made the first time it is priced.
+ * New symbols go in sorted, so two syncs making the same ones take their locks in one order, and
+ * one another sync made meanwhile is updated in place so that it is still returned.
+ */
+const withSymbols = async <P extends { commodity: string }>(
+	db: Database,
+	ledgerId: string,
+	prices: P[],
+) => {
+	const byCommodity = Object.groupBy(prices, (p) => p.commodity);
+	const commodities = Object.keys(byCommodity).toSorted();
+	const columns = { id: symbolTable.id, symbol: symbolTable.symbol };
+
+	const known = await db
+		.select(columns)
+		.from(symbolTable)
+		.where(
+			and(
+				eq(symbolTable.feed, Feed.Ledger),
+				eq(symbolTable.ledgerId, ledgerId),
+				inArray(symbolTable.symbol, commodities),
+			),
+		);
+	const seen = new Set(known.map((k) => k.symbol));
+	const missing = commodities.filter((c) => !seen.has(c));
+	const made = missing.length
+		? await db
+				.insert(symbolTable)
+				.values(missing.map((c) => ({ feed: Feed.Ledger, symbol: c, ledgerId })))
+				.onConflictDoUpdate({
+					target: [symbolTable.feed, symbolTable.ledgerId, symbolTable.symbol],
+					set: { symbol: sql`excluded.symbol` },
+				})
+				.returning(columns)
+		: [];
+
+	return [...known, ...made].flatMap((s) =>
+		(byCommodity[s.symbol] ?? []).map((p) => ({ ...p, symbolId: s.id })),
+	);
+};
 
 const lotCommoditiesOf = (db: Database, fileId: string): Promise<string[]> =>
 	db

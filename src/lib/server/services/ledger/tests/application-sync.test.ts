@@ -9,6 +9,7 @@ import {
 	lots,
 	metadata,
 	prices,
+	symbols,
 	transactions,
 } from '#services/ledger/adapters/database-schema.ts';
 import { listAllTransactions } from '#services/ledger/adapters/database-transactions.ts';
@@ -99,12 +100,13 @@ describe('syncing the ledger', () => {
 			const indexed = () =>
 				db
 					.select({
-						commodity: prices.commodity,
+						commodity: symbols.symbol,
 						amount: prices.priceAmount,
 						source: prices.source,
 					})
 					.from(prices)
-					.where(eq(prices.ledgerId, ledger.id))
+					.innerJoin(symbols, eq(symbols.id, prices.symbolId))
+					.where(eq(symbols.ledgerId, ledger.id))
 					.orderBy(asc(prices.line));
 
 			await put(storage, ledger, 'a.rupee', `${bought}\nP 2026-10-17 INFY 1820\n`);
@@ -120,6 +122,31 @@ describe('syncing the ledger', () => {
 				{ commodity: 'INFY', amount: 1830_0000000000n, source: PriceSource.Line },
 				{ commodity: 'TCS', amount: 4100_0000000000n, source: PriceSource.Line },
 			]);
+		}));
+
+	it('prices a commodity on one symbol across files, kept through a reindex', ({
+		context,
+		db,
+		storage,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const own = () =>
+				db
+					.select({ id: symbols.id, symbol: symbols.symbol })
+					.from(symbols)
+					.where(eq(symbols.ledgerId, ledger.id))
+					.orderBy(asc(symbols.symbol));
+
+			await put(storage, ledger, 'a.rupee', 'P 2026-10-17 INFY 1820\n');
+			await put(storage, ledger, 'b.rupee', 'P 2026-10-18 INFY 1830\nP 2026-10-18 TCS 4100\n');
+			await Sync.sync(ledger);
+			const made = await own();
+
+			await put(storage, ledger, 'a.rupee', 'P 2026-10-19 INFY 1840\n');
+			await Sync.sync(ledger);
+			expect(made.map((s) => s.symbol)).toEqual(['INFY', 'TCS']);
+			expect(await own()).toEqual(made);
 		}));
 
 	it('indexes a lot cost and reads it back', ({ context, db, storage }) =>

@@ -5,6 +5,16 @@ import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { describe, expect } from 'vitest';
 
+const bought = (price: number) =>
+	[
+		'2026-10-01 Buy',
+		'\tAssets:Zerodha 1 INFY @ 1500',
+		'\tAssets:Bank',
+		'',
+		`P 2026-10-02 INFY ${price}`,
+		'',
+	].join('\n');
+
 describe('accounts', () => {
 	const day = Temporal.PlainDate.from('2026-10-17');
 
@@ -75,6 +85,21 @@ describe('accounts', () => {
 				{ commodity: 'AAPL', value: 41500_0000000000n, gain: 8300_0000000000n },
 				{ commodity: 'USD', value: 49800_0000000000n, gain: null },
 			]);
+		}));
+
+	it('values each ledger at its own prices of a commodity both hold', ({ context, db }) =>
+		provide(context, async () => {
+			const values = await Promise.all(
+				[1600, 2000].map(async (price) => {
+					const ledger = await createLedger(db);
+					await Files.createFile({ ledger, key: 'a.rupee', content: bought(price) });
+
+					const accounts = (await Accounts.listAccounts({ ledger, day }))._unsafeUnwrap();
+					return accounts.succeeded.find((a) => a.account === 'Assets:Zerodha')?.holdings[0]?.value;
+				}),
+			);
+
+			expect(values).toEqual([1600_0000000000n, 2000_0000000000n]);
 		}));
 
 	it('lists the lots an account held, with what each disposal realised', ({ context, db }) =>
@@ -198,6 +223,21 @@ describe('net worth', () => {
 				['2026-10-02', 100000_0000000000n, 2000_0000000000n, 98000_0000000000n, 1],
 				['2026-10-03', 101660_0000000000n, 2000_0000000000n, 99660_0000000000n, 1],
 			]);
+		}));
+
+	it('values each ledger at its own prices of a commodity both hold', ({ context, db }) =>
+		provide(context, async () => {
+			const worths = await Promise.all(
+				[1600, 2000].map(async (price) => {
+					const ledger = await createLedger(db);
+					await Files.createFile({ ledger, key: 'a.rupee', content: bought(price) });
+
+					const worth = (await Accounts.listWorth({ ledger, from, to }))._unsafeUnwrap();
+					return worth.succeeded.at(-1)?.worth;
+				}),
+			);
+
+			expect(worths).toEqual([100_0000000000n, 500_0000000000n]);
 		}));
 
 	it('starts on the first day the ledger has, and is empty without one', ({ context, db }) =>

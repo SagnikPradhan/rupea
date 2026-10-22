@@ -2,10 +2,11 @@ import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { sql, type SQL } from 'drizzle-orm';
 import { AMOUNT_UNIT, DEFAULT_COMMODITY, type Amount, type Quantity } from '../domain/amounts';
-import { AccountType, PriceSource } from '../domain/types';
+import { AccountType, Feed, PriceSource } from '../domain/types';
 import {
 	postings,
 	prices as priceTable,
+	symbols as symbolTable,
 	transactions as transactionTable,
 } from './database-schema';
 
@@ -30,9 +31,11 @@ export const findLatestPrices = (
 	withContext('db')((db) =>
 		attempt(() =>
 			db.execute<LatestPriceRow>(sql`
+				with own as (${ownSymbols(ledgerId)})
 				select c.commodity, p.amount::text as "priceAmount", p.currency as "priceCommodity"
 				from unnest(${sql.param(commodities)}::text[]) as c(commodity)
-				cross join lateral (${priceOn(ledgerId, sql`c.commodity`, sql`${day.toString()}::date`)}) p
+				join own o on o.symbol = c.commodity
+				cross join lateral (${priceOn(sql`o.id`, sql`${day.toString()}::date`)}) p
 			`),
 		).map((result) =>
 			Object.fromEntries(
@@ -65,7 +68,8 @@ export const listWorth = (
 	withContext('db')((db) =>
 		attempt(() =>
 			db.execute<WorthRow>(sql`
-				with deltas as (
+				with own as (${ownSymbols(ledgerId)}),
+				deltas as (
 					select p.account_type = ${AccountType.Assets} as asset, p.commodity, t.date, sum(p.amount) as amount
 					from ${postings} p
 					join ${transactionTable} t on t.id = p.transaction_id
@@ -80,12 +84,14 @@ export const listWorth = (
 					where f.first is not null
 				),
 				keys as (
-					select asset, commodity, sum(amount) filter (where date < (select min(day) from days)) as opening
-					from deltas
-					group by asset, commodity
+					select x.asset, x.commodity, o.id as symbol_id,
+						sum(x.amount) filter (where x.date < (select min(day) from days)) as opening
+					from deltas x
+					left join own o on o.symbol = x.commodity
+					group by x.asset, x.commodity, o.id
 				),
 				balances as (
-					select k.asset, k.commodity, d.day,
+					select k.asset, k.commodity, k.symbol_id, d.day,
 						coalesce(k.opening, 0) + sum(coalesce(x.amount, 0)) over (partition by k.asset, k.commodity order by d.day) as units
 					from keys k
 					cross join days d
@@ -99,8 +105,9 @@ export const listWorth = (
 							when p2.currency = ${DEFAULT_COMMODITY} then round(b.units * round(p1.amount * p2.amount / ${UNIT}) / ${UNIT})
 						end as value
 					from balances b
-					left join lateral (${priceOn(ledgerId, sql`b.commodity`, sql`b.day`)}) p1 on b.commodity <> ${DEFAULT_COMMODITY}
-					left join lateral (${priceOn(ledgerId, sql`p1.currency`, sql`b.day`)}) p2 on p1.currency <> ${DEFAULT_COMMODITY}
+					left join lateral (${priceOn(sql`b.symbol_id`, sql`b.day`)}) p1 on b.commodity <> ${DEFAULT_COMMODITY}
+					left join own o on o.symbol = p1.currency and p1.currency <> ${DEFAULT_COMMODITY}
+					left join lateral (${priceOn(sql`o.id`, sql`b.day`)}) p2 on true
 					where b.units <> 0
 				)
 				select d.day::text as day,
@@ -124,11 +131,18 @@ export const listWorth = (
 		),
 	);
 
-/** The latest price of a commodity on or before a day, where a P line beats an at-price on the same day. */
-const priceOn = (ledgerId: string, commodity: SQL, day: SQL) => sql`
-	select price_amount as amount, price_commodity as currency
+/** The ledger's own symbols, so each commodity is looked up once rather than once a day. */
+const ownSymbols = (ledgerId: string) => sql`
+	select ${symbolTable.id} as id, ${symbolTable.symbol} as symbol
+	from ${symbolTable}
+	where ${symbolTable.feed} = ${Feed.Ledger} and ${symbolTable.ledgerId} = ${ledgerId}
+`;
+
+/** The latest price of a symbol on or before a day, where a P line beats an at-price on the same day. */
+const priceOn = (symbolId: SQL, day: SQL) => sql`
+	select ${priceTable.priceAmount} as amount, ${priceTable.priceCommodity} as currency
 	from ${priceTable}
-	where ledger_id = ${ledgerId} and commodity = ${commodity} and date <= ${day}
-	order by date desc, source = ${PriceSource.Line} desc, line desc
+	where ${priceTable.symbolId} = ${symbolId} and ${priceTable.date} <= ${day}
+	order by ${priceTable.date} desc, ${priceTable.source} = ${PriceSource.Line} desc, ${priceTable.line} desc
 	limit 1
 `;

@@ -1,7 +1,7 @@
 import { literalLike } from '#lib/server/db/index.ts';
 import type { Tables } from '#lib/server/db/tables.ts';
-import { sql, type ExpressionBuilder, type SqlBool } from 'kysely';
-import type { Amount, Quantity } from '../domain/amounts';
+import { sql, type Expression, type ExpressionBuilder, type SqlBool } from 'kysely';
+import { AMOUNT_UNIT, type Amount, type Quantity } from '../domain/amounts';
 import type { LotCost, Price, PriceKind } from '../domain/types';
 import type { Cursor, ListFilter } from './database-transactions';
 
@@ -20,6 +20,10 @@ export const listed =
 				? []
 				: [eb('transactions.description', 'ilike', `%${literalLike(filter.description)}%`)]),
 		]);
+
+/** An amount times a price per unit, rounded to a ten-billionth as the domain's multiply is. */
+export const multiply = (a: Expression<unknown>, b: Expression<unknown>) =>
+	sql<bigint>`round(${a} * ${b} / ${sql.lit(AMOUNT_UNIT)})`;
 
 /** A posting to an account or any account under it, whatever their case. */
 export const inAccount = (a: string) =>

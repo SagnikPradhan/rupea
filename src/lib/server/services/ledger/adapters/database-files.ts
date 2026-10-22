@@ -1,9 +1,10 @@
+import { anyOf, noneOf } from '#lib/server/db/expressions.ts';
 import { ROWS_PER_STATEMENT, type Queries } from '#lib/server/db/index.ts';
 import { chunks } from '#lib/server/shared/arrays.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
 import { attempt, errAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { sql, type SqlBool } from 'kysely';
+import { sql } from 'kysely';
 import { v7 as uuidv7 } from 'uuid';
 import { CURRENCIES } from '../domain/lots';
 import { displayLocation } from '../domain/parser';
@@ -34,7 +35,7 @@ export const findImported = (ledgerId: string, checksums: string[]): ResultAsync
 				.distinct()
 				.where('metadata.ledgerId', '=', ledgerId)
 				.where('metadata.key', 'in', ['checksum', 'original-checksum'])
-				.where(sql<SqlBool>`${sql.ref('metadata.value')} = any(${checksums}::text[])`)
+				.where(anyOf('metadata.value', checksums, 'text'))
 				.where('metadata.fileId', 'is not', null)
 				.execute(),
 		).map((r) => r.map((c) => c.value)),
@@ -283,6 +284,6 @@ const lotCommoditiesOf = (kysely: Queries, fileId: string): Promise<string[]> =>
 		.distinct()
 		.where('transactions.fileId', '=', fileId)
 		.where('postings.accountType', 'in', BALANCE_TYPES)
-		.where(sql<SqlBool>`${sql.ref('postings.commodity')} <> all(${CURRENCIES}::text[])`)
+		.where(noneOf('postings.commodity', CURRENCIES, 'text'))
 		.execute()
 		.then((r) => r.map((c) => c.commodity));

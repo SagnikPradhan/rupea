@@ -1,3 +1,4 @@
+import { anyOf, distance, noneOf } from '#lib/server/db/expressions.ts';
 import { ROWS_PER_STATEMENT, vectorText, type Queries } from '#lib/server/db/index.ts';
 import { readOnly } from '#lib/server/db/read-only.ts';
 import type { Tables } from '#lib/server/db/tables.ts';
@@ -112,14 +113,14 @@ export const recount = (ledgerId: string, uncounted: string[]): ResultAsync<void
 					.set({ counted: true })
 					.where('ledgerId', '=', ledgerId)
 					.where('counted', '=', false)
-					.where(sql<SqlBool>`not ${sql.ref('id')} = any(${uncounted}::uuid[])`)
+					.where(noneOf('id', uncounted, 'uuid'))
 					.execute();
 				await tx
 					.updateTable('transactions')
 					.set({ counted: false })
 					.where('ledgerId', '=', ledgerId)
 					.where('counted', '=', true)
-					.where(sql<SqlBool>`${sql.ref('id')} = any(${uncounted}::uuid[])`)
+					.where(anyOf('id', uncounted, 'uuid'))
 					.execute();
 			}),
 		),
@@ -249,7 +250,7 @@ export const saveEmbeddings = (
 		attempt(() =>
 			kysely.transaction().execute(async (tx) => {
 				for (const chunk of chunks(rows, ROWS_PER_STATEMENT))
-					await embeddingsUpdate(ledgerId, model, chunk).execute(tx);
+					await embeddingsUpdate(tx, ledgerId, model, chunk).execute();
 			}),
 		),
 	);
@@ -268,9 +269,9 @@ export const findNearest = (
 			kysely.transaction().execute(async (tx) => {
 				await sql`set local hnsw.iterative_scan = relaxed_order`.execute(tx);
 				await sql.raw(`set local hnsw.ef_search = ${SEARCHED}`).execute(tx);
-				return nearestQuery(ledgerId, model, vectors).execute(tx);
+				return nearestQuery(tx, ledgerId, model, vectors).execute();
 			}),
-		).map((r) => byQuery(vectors.length, r.rows)),
+		).map((r) => byQuery(vectors.length, r)),
 	);
 };
 
@@ -394,40 +395,65 @@ const byOwner = (rows: MetadataRow[]): Record<string, RupeeMetadata> =>
 		]),
 	);
 
-const embeddingsUpdate = (ledgerId: string, model: string, rows: Filled[]) => sql`
-	update transactions t
-	set embedding = f.embedding::vector, embedding_model = ${model}
-	from unnest(
-		${rows.map((r) => r.id)}::uuid[],
-		${rows.map((r) => (r.vector ? vectorText(r.vector) : null))}::text[]
-	) as f(id, embedding)
-	where t.id = f.id and t.ledger_id = ${ledgerId}
-`;
+const embeddingsUpdate = (tx: Queries, ledgerId: string, model: string, rows: Filled[]) =>
+	tx
+		.updateTable('transactions')
+		.set({
+			embedding: sql<number[]>`${sql.ref('f.embedding')}::vector`,
+			embeddingModel: model,
+		})
+		.from(
+			sql<{ id: string; embedding: string | null }>`(
+				select * from unnest(
+					${rows.map((r) => r.id)}::uuid[],
+					${rows.map((r) => (r.vector ? vectorText(r.vector) : null))}::text[]
+				) as x(id, embedding)
+			)`.as('f'),
+		)
+		.whereRef('transactions.id', '=', 'f.id')
+		.where('transactions.ledgerId', '=', ledgerId);
 
 type NeighbourRow = {
 	query: string;
 	account: string;
-	amount: string;
+	amount: bigint;
 	date: string;
 	similarity: number;
 };
 
-const nearestQuery = (
-	ledgerId: string,
-	model: string,
-	vectors: Float32Array[],
-) => sql<NeighbourRow>`
-	select q.i::text as query, p.account, p.amount::text as amount, n.date::text as date, n.similarity
-	from unnest(${vectors.map(vectorText)}::text[]::vector[]) with ordinality as q(v, i)
-	cross join lateral (
-		select t.id, t.date, 1 - (t.embedding <=> q.v) as similarity
-		from transactions t
-		where t.ledger_id = ${ledgerId} and t.embedding_model = ${model} and t.embedding is not null
-		order by t.embedding <=> q.v
-		limit ${NEAREST}
-	) n
-	join postings p on p.transaction_id = n.id
-`;
+// Nearest by cosine distance for each vector in turn, the index finding them.
+const nearestQuery = (tx: Queries, ledgerId: string, model: string, vectors: Float32Array[]) =>
+	tx
+		.selectFrom(
+			sql<{ v: string; i: number }>`(
+				select v, i from unnest(${vectors.map(vectorText)}::text[]::vector[]) with ordinality as x(v, i)
+			)`.as('q'),
+		)
+		.innerJoinLateral(
+			(e) =>
+				e
+					.selectFrom('transactions')
+					.select([
+						'transactions.id',
+						'transactions.date',
+						sql<number>`1 - (${distance('transactions.embedding', 'q.v')})`.as('similarity'),
+					])
+					.where('transactions.ledgerId', '=', ledgerId)
+					.where('transactions.embeddingModel', '=', model)
+					.where('transactions.embedding', 'is not', null)
+					.orderBy(distance('transactions.embedding', 'q.v'))
+					.limit(NEAREST)
+					.as('n'),
+			(j) => j.onTrue(),
+		)
+		.innerJoin('postings', 'postings.transactionId', 'n.id')
+		.select([
+			sql<string>`${sql.ref('q.i')}::text`.as('query'),
+			'postings.account',
+			'postings.amount',
+			'n.date',
+			'n.similarity',
+		]);
 
 // `query` counts from 1, as `with ordinality` does.
 const byQuery = (count: number, rows: NeighbourRow[]): Neighbour[][] => {
@@ -435,9 +461,9 @@ const byQuery = (count: number, rows: NeighbourRow[]): Neighbour[][] => {
 	return Array.from({ length: count }, (_, i) =>
 		(grouped[String(i + 1)] ?? []).map((r) => ({
 			account: r.account,
-			amount: BigInt(r.amount) as Amount,
+			amount: r.amount as Amount,
 			date: Temporal.PlainDate.from(r.date),
-			similarity: Number(r.similarity),
+			similarity: r.similarity,
 		})),
 	);
 };

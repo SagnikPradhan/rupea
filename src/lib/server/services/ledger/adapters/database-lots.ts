@@ -1,9 +1,10 @@
+import { noneOf } from '#lib/server/db/expressions.ts';
 import { ROWS_PER_STATEMENT, type Queries } from '#lib/server/db/index.ts';
 import type { Tables } from '#lib/server/db/tables.ts';
 import { chunks } from '#lib/server/shared/arrays.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { sql, type ExpressionBuilder, type SqlBool } from 'kysely';
+import { sql, type ExpressionBuilder } from 'kysely';
 import type { Amount, Quantity } from '../domain/amounts';
 import { book, realised, type BookedPosting, type Booking } from '../domain/lots';
 import { BALANCE_TYPES } from '../domain/taxonomy';
@@ -205,7 +206,7 @@ const bookedPostings = (
 		])
 		.where('postings.ledgerId', '=', ledgerId)
 		.where('postings.commodity', '=', commodity)
-		.where(sql<SqlBool>`${sql.ref('transactions.id')} <> all(${uncounted}::uuid[])`)
+		.where(noneOf('transactions.id', uncounted, 'uuid'))
 		.orderBy(transactionOrder)
 		.orderBy(fileOrder)
 		.orderBy('postings.position')

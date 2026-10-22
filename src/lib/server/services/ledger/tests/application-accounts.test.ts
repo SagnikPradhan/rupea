@@ -404,3 +404,151 @@ describe('linked feeds', () => {
 			expect(await valueOf(unlinked)).toBe(100_0000000000n);
 		}));
 });
+
+describe('spending', () => {
+	const span = (from: string, to: string) => ({
+		from: Temporal.PlainDate.from(from),
+		to: Temporal.PlainDate.from(to),
+	});
+	const content = [
+		'2026-01-10 Groceries',
+		'\tExpenses:Food:Groceries 1000',
+		'\tAssets:Bank',
+		'',
+		'2026-01-20 Refund',
+		'\tExpenses:Food:Groceries -200',
+		'\tAssets:Bank',
+		'',
+		'2026-02-05 Hotel',
+		'\tExpenses:Travel 100 USD',
+		'\tLiabilities:Card',
+		'',
+		'2026-02-06 Souvenir',
+		'\tExpenses:Travel 5 EUR',
+		'\tExpenses:Travel 3 EUR',
+		'\tLiabilities:Card',
+		'',
+		'P 2026-02-01 USD 83',
+		'P 2026-03-01 USD 90',
+		'',
+	].join('\n');
+	const buckets = (spending: Accounts.Spending | undefined) =>
+		spending?.spent.map((s) => [s.account, s.bucket.toString(), s.amount, s.unpriced]);
+	const totals = (spending: Accounts.Spending | undefined) =>
+		spending?.totals.map((t) => [t.account, t.amount, t.unpriced]);
+
+	it('adds up each account and its parents by bucket, net of refunds, at its own day’s price, counting each unpriced amount', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupee', content });
+
+			const spending = await Accounts.listSpending({
+				ledger,
+				spans: [span('2026-01-01', '2026-12-31')],
+				bucket: 'month',
+			});
+			const [year] = spending._unsafeUnwrap().succeeded;
+			expect(buckets(year)).toEqual([
+				['Expenses', '2026-01-01', 800_0000000000n, 0],
+				['Expenses', '2026-02-01', 8300_0000000000n, 2],
+				['Expenses:Food', '2026-01-01', 800_0000000000n, 0],
+				['Expenses:Food:Groceries', '2026-01-01', 800_0000000000n, 0],
+				['Expenses:Travel', '2026-02-01', 8300_0000000000n, 2],
+			]);
+			expect(year?.buckets.map(String)).toEqual([
+				'2026-01-01',
+				'2026-02-01',
+				'2026-03-01',
+				'2026-04-01',
+				'2026-05-01',
+				'2026-06-01',
+				'2026-07-01',
+				'2026-08-01',
+				'2026-09-01',
+				'2026-10-01',
+				'2026-11-01',
+				'2026-12-01',
+			]);
+			expect(totals(year)).toEqual([
+				['Expenses', 9100_0000000000n, 2],
+				['Expenses:Food', 800_0000000000n, 0],
+				['Expenses:Food:Groceries', 800_0000000000n, 0],
+				['Expenses:Travel', 8300_0000000000n, 2],
+			]);
+		}));
+
+	it('reads each span on its own, by day or year', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupee', content });
+
+			const byDay = await Accounts.listSpending({
+				ledger,
+				spans: [span('2026-01-15', '2026-01-31'), span('2026-01-01', '2026-01-14')],
+				bucket: 'day',
+			});
+			const byYear = await Accounts.listSpending({
+				ledger,
+				spans: [span('0001-01-01', '2026-12-31')],
+				bucket: 'year',
+			});
+			const [later, earlier] = byDay._unsafeUnwrap().succeeded;
+			expect(buckets(later)?.[0]).toEqual(['Expenses', '2026-01-20', -200_0000000000n, 0]);
+			expect(buckets(earlier)?.[0]).toEqual(['Expenses', '2026-01-10', 1000_0000000000n, 0]);
+			expect(byYear._unsafeUnwrap().succeeded[0]?.buckets.map(String)).toEqual(['2026-01-01']);
+			expect(buckets(byYear._unsafeUnwrap().succeeded[0])?.[0]).toEqual([
+				'Expenses',
+				'2026-01-01',
+				9100_0000000000n,
+				2,
+			]);
+		}));
+
+	it('keeps a range’s empty buckets, and starts all of history on the first day spent', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupee', content });
+
+			const spending = await Accounts.listSpending({
+				ledger,
+				spans: [span('2025-11-15', '2026-01-31'), span('0001-01-01', '2026-12-31')],
+				bucket: 'month',
+			});
+			const [range, all] = spending._unsafeUnwrap().succeeded;
+			expect(range?.from.toString()).toBe('2025-11-15');
+			expect(range?.buckets.map(String)).toEqual(['2025-11-01', '2025-12-01', '2026-01-01']);
+			expect(all?.from.toString()).toBe('2026-01-10');
+			expect(all?.buckets.map(String)).toHaveLength(12);
+			expect(all?.buckets[0]?.toString()).toBe('2026-01-01');
+		}));
+
+	it('counts an event once', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const dinner = (role: string) => [
+				'2026-10-02 Dinner',
+				`\t- ${role}: dinner`,
+				'\tExpenses:Food 500',
+				'\tAssets:Bank',
+				'',
+			];
+			await Files.createFile({ ledger, key: 'a.rupee', content: dinner('event').join('\n') });
+			await Files.createFile({ ledger, key: 'b.rupee', content: dinner('same-as').join('\n') });
+
+			const spending = await Accounts.listSpending({
+				ledger,
+				spans: [span('2026-10-01', '2026-10-31')],
+				bucket: 'month',
+			});
+			expect(totals(spending._unsafeUnwrap().succeeded[0])).toEqual([
+				['Expenses', 500_0000000000n, 0],
+				['Expenses:Food', 500_0000000000n, 0],
+			]);
+		}));
+});

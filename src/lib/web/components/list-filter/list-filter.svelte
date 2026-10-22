@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { RANGE_LABELS } from '#lib/shared/dates.ts';
 	import type { Filter } from '#lib/shared/filter.ts';
+	import { formatDate } from '#lib/web/format.ts';
 	import { page } from '$app/state';
 
 	/** How long typing must pause before a description is searched for. */
@@ -11,7 +12,15 @@
 	const { filter, accounts }: Props = $props();
 
 	const choices = $derived(['', ...pathTo(filter.account), ...childrenOf(filter.account)]);
-	const kept = $derived(Object.entries({ range: filter.range, account: filter.account }));
+	const kept = $derived(
+		Object.entries({
+			range: filter.range,
+			from: filter.from,
+			to: filter.to,
+			account: filter.account,
+		}),
+	);
+	const days = $derived(Boolean(filter.from || filter.to));
 
 	const typing = { timer: 0 };
 
@@ -31,6 +40,15 @@
 	function pathTo(a: string) {
 		const parts = a ? a.split(':') : [];
 		return parts.map((_, i) => parts.slice(0, i + 1).join(':'));
+	}
+
+	/** Chosen days, like 1 Mar 2026 – 31 Mar 2026, or a single day once. */
+	function spanOf(from: string, to: string) {
+		if (from === to) return formatDate(from);
+		if (!to) return `From ${formatDate(from)}`;
+		if (!from) return `Until ${formatDate(to)}`;
+
+		return `${formatDate(from)} – ${formatDate(to)}`;
 	}
 
 	function nameOf(a: string) {
@@ -77,10 +95,14 @@
 	<span id="date">Date</span>
 	<nav aria-labelledby="date">
 		{#each Object.entries(RANGE_LABELS) as [range, name] (range)}
-			<a href={hrefWith({ range })} aria-current={range === filter.range ? 'page' : undefined}
-				>{name}</a
+			<a
+				href={hrefWith({ range, from: '', to: '' })}
+				aria-current={!days && range === filter.range ? 'page' : undefined}>{name}</a
 			>
 		{/each}
+		{#if days}
+			<a href={hrefWith({})} aria-current="page">{spanOf(filter.from, filter.to)}</a>
+		{/if}
 	</nav>
 
 	<span id="account">Account</span>

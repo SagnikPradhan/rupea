@@ -1,4 +1,5 @@
 <script lang="ts" generics="Row extends Record<string, unknown>">
+	import { axesOf, colorOf, drawZero, plotInto } from '#lib/web/chart.ts';
 	import { formatAmount, formatCompact, formatPercent, formatShortDate } from '#lib/web/format.ts';
 	import type { Snippet } from 'svelte';
 	import uPlot from 'uplot';
@@ -31,7 +32,6 @@
 		amount: { tick: formatCompact, value: formatAmount },
 		percent: { tick: formatPercent, value: (v: string) => formatPercent(Number(v)) },
 	};
-	const EDGE = 32;
 
 	const hovered = $state({ index: null as number | null });
 	const shown = $derived(hovered.index ?? rows.length - 1);
@@ -40,34 +40,9 @@
 	const chart = (node: HTMLElement) => {
 		const points = data();
 		const lines = series.map((s) => ({ ...s }));
-		const format = FORMATS[unit];
-		const dark = matchMedia('(prefers-color-scheme: dark)');
-		const plots: uPlot[] = [];
+		const tick = FORMATS[unit].tick;
 
-		const draw = async () => {
-			const font = await fontOf(node);
-			plots.splice(0).forEach((p) => p.destroy());
-			plots.push(new uPlot(options({ node, font, lines, tick: format.tick }), points, node));
-		};
-		const resize = new ResizeObserver(() =>
-			plots.forEach((p) => p.setSize({ width: node.clientWidth, height: node.clientHeight })),
-		);
-		const touch = (e: PointerEvent) =>
-			plots.forEach((p) => {
-				const box = p.over.getBoundingClientRect();
-				p.setCursor({ left: e.clientX - box.left, top: e.clientY - box.top });
-			});
-
-		draw();
-		resize.observe(node);
-		dark.addEventListener('change', draw);
-		node.addEventListener('pointerdown', touch);
-		return () => {
-			resize.disconnect();
-			dark.removeEventListener('change', draw);
-			node.removeEventListener('pointerdown', touch);
-			plots.forEach((p) => p.destroy());
-		};
+		return plotInto(node, (font) => options({ node, font, lines, tick }), points);
 	};
 
 	const data = (): uPlot.AlignedData => [
@@ -87,7 +62,6 @@
 		const ink = colorOf(node, '--color-ink');
 		const muted = colorOf(node, '--color-muted');
 		const border = colorOf(node, '--color-border');
-		const axis = { stroke: muted, font, grid: { show: false }, ticks: { show: false } };
 
 		return {
 			width: node.clientWidth,
@@ -106,58 +80,12 @@
 					points: { show: false },
 				})),
 			],
-			axes: [
-				{
-					...axis,
-					size: 32,
-					space: 96,
-					values: (u, splits) =>
-						splits.map((s) => (edged(u, s) ? '' : formatShortDate(new Date(s * 1000)))),
-				},
-				{ ...axis, side: 1, size: 48, values: (_, splits) => splits.map(tick) },
-			],
+			axes: axesOf(node, font, (s) => formatShortDate(new Date(s * 1000)), tick),
 			hooks: {
 				setCursor: [(u) => (hovered.index = u.cursor.idx ?? null)],
-				draw: [(u) => zero(u, border)],
+				draw: [(u) => drawZero(u, border)],
 			},
 		};
-	};
-
-	/** The plot starts flush with the text beside it, so a date there would be cut in half. */
-	const edged = (u: uPlot, s: number) => u.valToPos(s, 'x') < EDGE;
-
-	/** The axis fits the data, so zero is drawn only when a line crosses it. */
-	const zero = (u: uPlot, color: string) => {
-		const scale = u.scales['y'];
-		if (!scale || (scale.min ?? 0) >= 0 || (scale.max ?? 0) <= 0) return;
-
-		const y = u.valToPos(0, 'y', true);
-		u.ctx.save();
-		u.ctx.strokeStyle = color;
-		u.ctx.beginPath();
-		u.ctx.moveTo(u.bbox.left, y);
-		u.ctx.lineTo(u.bbox.left + u.bbox.width, y);
-		u.ctx.stroke();
-		u.ctx.restore();
-	};
-
-	/** A canvas cannot read light-dark colours, so each one is resolved through an element. */
-	const colorOf = (node: HTMLElement, token: string) => {
-		const probe = node.appendChild(document.createElement('span'));
-		probe.style.color = `var(${token})`;
-		const color = getComputedStyle(probe).color;
-		probe.remove();
-		return color;
-	};
-
-	const fontOf = async (node: HTMLElement) => {
-		const probe = node.appendChild(document.createElement('span'));
-		probe.style.font = 'var(--font-size-0) var(--font-mono)';
-		const style = getComputedStyle(probe);
-		const font = `${style.fontSize} ${style.fontFamily}`;
-		probe.remove();
-		await document.fonts.load(font);
-		return font;
 	};
 </script>
 

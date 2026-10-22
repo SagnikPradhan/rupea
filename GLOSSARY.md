@@ -200,8 +200,18 @@ A span of a ledger's history counted back from today: a month, the year so far, 
 _Avoid_: Period, window
 
 **Filter**:
-What a list of transactions or postings is narrowed to: a range, an account with the accounts under it, and words in a description. It lives in the page's URL.
+What a list of transactions or postings is narrowed to: a range or chosen days, an account with the accounts under it, and words in a description. It lives in the page's URL.
 _Avoid_: Query (kept for a future query language), search
+
+## Spending
+
+**Spending**:
+What Expenses accounts gained over a range, in rupees at the prices known by each posting's day, net of refunds and counting only counted transactions. An amount with no price yet is left out and counted as unpriced.
+_Avoid_: Expenses (an account type), outflow, burn
+
+**Bucket**:
+The days a chart adds up into one bar: a day, a month or a year, set by the range.
+_Avoid_: Interval, bin, period
 
 ## Background work
 

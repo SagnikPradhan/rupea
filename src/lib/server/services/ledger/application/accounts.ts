@@ -1,13 +1,16 @@
 import type { Batch } from '#lib/server/shared/result/batch.ts';
-import { okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
+import { okAsync, ResultAsync } from '#lib/server/shared/result/result.ts';
+import type { Bucket, Span } from '#lib/shared/dates.ts';
 import * as DB from '../adapters/database';
 import type { Quantity } from '../domain/amounts';
 import { byAccount, HOPS, pricedIn, valued, type Account, type Holding } from '../domain/holdings';
+import { spendingOf, type Spending } from '../domain/spending';
 import type { Ledger } from '../domain/types';
 import { checkLots, syncIndex } from './sync';
 
 export type { Account };
 export type { LotHistory, Worth } from '../adapters/database';
+export type { Spending };
 
 type ListAccountsOptions = { ledger: Ledger; day: Temporal.PlainDate };
 
@@ -30,6 +33,22 @@ export const listWorth = ({ ledger, from, to }: ListWorthOptions): ResultAsync<B
 	syncIndex(ledger).andThen((f) =>
 		DB.listWorth(ledger.id, from, to).map((w) => ({ succeeded: w, failed: f })),
 	);
+
+type ListSpendingOptions = { ledger: Ledger; spans: Span[]; bucket: Bucket };
+
+/** What Expenses accounts gained in rupees over each span, one spending per span. */
+export const listSpending = ({
+	ledger,
+	spans,
+	bucket,
+}: ListSpendingOptions): ResultAsync<Batch<Spending>> => {
+	const spending = (s: Span) =>
+		DB.listSpending(ledger.id, { ...s, bucket }).map((r) => spendingOf(r, s, bucket));
+
+	return syncIndex(ledger).andThen((f) =>
+		ResultAsync.combine(spans.map(spending)).map((s) => ({ succeeded: s, failed: f })),
+	);
+};
 
 type ListLotsOptions = { ledger: Ledger; account: string; commodity: string };
 

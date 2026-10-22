@@ -32,6 +32,11 @@
 	--color-accent: light-dark(#6b7a2a, #b5c46a);
 	--color-positive: light-dark(#0a7a3d, #4cc47f);
 	--color-negative: light-dark(#c62828, #ff7b72);
+	/* Fills ranked by amount, light enough that ink stays above 4.5:1 on the darkest. */
+	--color-shade-1: color-mix(in srgb, var(--color-ink) 8%, transparent);
+	--color-shade-2: color-mix(in srgb, var(--color-ink) 16%, transparent);
+	--color-shade-3: color-mix(in srgb, var(--color-ink) 24%, transparent);
+	--color-shade-4: color-mix(in srgb, var(--color-ink) 32%, transparent);
 }
 
 /* The signed-in sidebar sits beside the content from this width, so the content gives way to it. */

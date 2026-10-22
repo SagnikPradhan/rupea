@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import { createFile } from './support/files.ts';
 import { expect, test } from './support/test.ts';
 import { visit } from './support/visit.ts';
 
@@ -11,27 +11,11 @@ const shopping = Array.from({ length: 150 }, (_, i) => {
 
 const rent = '2025-06-15 Rent\n\tExpenses:Housing 9000\n\tAssets:Bank\n';
 
-const createFile = async (page: Page, ledger: string, content: string) => {
-	await visit(page, `${ledger}/files`);
-	await page.getByRole('button', { name: 'New file' }).click();
-	await page.getByLabel('New file').fill('bank.rupee');
-	await page.getByRole('button', { name: 'Create' }).click();
-	await expect(page.getByRole('heading', { name: 'bank.rupee' })).toBeVisible();
-	await page
-		.getByRole('navigation', { name: 'Breadcrumb' })
-		.getByRole('link', { name: 'Files' })
-		.click();
-	await page.getByRole('link', { name: 'bank.rupee' }).click();
-	await page.getByLabel('Ledger file').fill(content);
-	await page.getByRole('button', { name: 'Save', exact: true }).click();
-	await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
-};
-
 test('loads older transactions on scrolling, and narrows them by filter', async ({
 	signedIn: page,
 	ledger,
 }) => {
-	await createFile(page, ledger, [...shopping, rent].join('\n'));
+	await createFile(page, ledger, 'bank.rupee', [...shopping, rent].join('\n'));
 
 	await visit(page, `${ledger}/transactions`);
 	const rows = page.getByRole('rowgroup');
@@ -66,7 +50,7 @@ test('loads older transactions on scrolling, and narrows them by filter', async 
 });
 
 test('lists counted postings, narrowed to an account', async ({ signedIn: page, ledger }) => {
-	await createFile(page, ledger, rent);
+	await createFile(page, ledger, 'bank.rupee', rent);
 
 	await visit(page, `${ledger}/postings?account=Assets`);
 	const rows = page.getByRole('rowgroup');
@@ -74,4 +58,26 @@ test('lists counted postings, narrowed to an account', async ({ signedIn: page, 
 	await expect(rows.filter({ hasText: 'Expenses:Housing' })).toHaveCount(0);
 	const dates = page.getByRole('navigation', { name: 'Date' });
 	await expect(dates.getByRole('link', { name: 'All' })).toHaveAttribute('aria-current', 'page');
+});
+
+test('lists the postings of chosen days, then any range again', async ({
+	signedIn: page,
+	ledger,
+}) => {
+	await createFile(page, ledger, 'bank.rupee', [...shopping, rent].join('\n'));
+
+	await visit(page, `${ledger}/postings?account=Expenses&from=2025-05-30&to=2025-06-15`);
+	const rows = page.getByRole('rowgroup');
+	await expect(rows.filter({ hasText: 'Rent' })).toBeVisible();
+	await expect(rows.filter({ hasText: 'Shop 150' })).toBeVisible();
+	await expect(rows.filter({ hasText: 'Shop 149' })).toHaveCount(0);
+
+	const dates = page.getByRole('navigation', { name: 'Date' });
+	await expect(dates.getByRole('link', { name: '30 May 2025 – 15 Jun 2025' })).toHaveAttribute(
+		'aria-current',
+		'page',
+	);
+	await dates.getByRole('link', { name: 'All' }).click();
+	await expect(page).not.toHaveURL(/from=/);
+	await expect(rows.filter({ hasText: 'Shop 149' })).toBeVisible();
 });

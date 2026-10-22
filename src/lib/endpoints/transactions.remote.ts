@@ -48,8 +48,8 @@ export const listAccountNames = query(Handle, (h) =>
 );
 
 const listed = (filter: Filter, day: Temporal.PlainDate): Transactions.ListFilter => ({
-	from: startOf[filter.range](day),
-	to: day,
+	from: filter.from ? Temporal.PlainDate.from(filter.from) : startOf[filter.range](day),
+	to: filter.to ? Temporal.PlainDate.from(filter.to) : day,
 	account: filter.account || null,
 	description: filter.description || null,
 });

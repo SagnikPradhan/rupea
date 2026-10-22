@@ -76,6 +76,22 @@ export const viewWorth = (worth: Accounts.Worth) => ({
 	unpriced: worth.unpriced,
 });
 
+export const viewSpending = (spending: Accounts.Spending) => ({
+	from: spending.from.toString(),
+	buckets: spending.buckets.map((b) => b.toString()),
+	totals: spending.totals.map((t) => ({
+		account: t.account,
+		amount: formatAmount(t.amount),
+		unpriced: t.unpriced,
+	})),
+	spent: spending.spent.map((s) => ({
+		account: s.account,
+		bucket: s.bucket.toString(),
+		amount: formatAmount(s.amount),
+		unpriced: s.unpriced,
+	})),
+});
+
 export const viewLot = (lot: Accounts.LotHistory) => ({
 	file: lot.location.file,
 	line: lot.location.line,

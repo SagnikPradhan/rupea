@@ -506,6 +506,27 @@ describe('spending', () => {
 			]);
 		}));
 
+	it('keeps a range’s empty buckets, and starts all of history on the first day spent', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupee', content });
+
+			const spending = await Accounts.listSpending({
+				ledger,
+				spans: [span('2025-11-15', '2026-01-31'), span('0001-01-01', '2026-12-31')],
+				bucket: 'month',
+			});
+			const [range, all] = spending._unsafeUnwrap().succeeded;
+			expect(range?.from.toString()).toBe('2025-11-15');
+			expect(range?.buckets.map(String)).toEqual(['2025-11-01', '2025-12-01', '2026-01-01']);
+			expect(all?.from.toString()).toBe('2026-01-10');
+			expect(all?.buckets.map(String)).toHaveLength(12);
+			expect(all?.buckets[0]?.toString()).toBe('2026-01-01');
+		}));
+
 	it('counts an event once', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);

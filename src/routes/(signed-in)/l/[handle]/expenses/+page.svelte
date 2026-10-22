@@ -53,7 +53,7 @@
 			.map((t) => t.account),
 	);
 
-	/** Both ranges end as far into their period, so their buckets match from the last one back. */
+	/** Both ranges start as far into their period, so their buckets match from the first one on. */
 	const earlier = $derived.by(() => {
 		const spent = Object.fromEntries(
 			(previous?.spent ?? []).filter((s) => s.account === ROOT).map((s) => [s.bucket, s.amount]),
@@ -64,9 +64,9 @@
 		const spent = Object.fromEntries(
 			(spending?.spent ?? []).map((s) => [`${s.account} ${s.bucket}`, Number(s.amount)]),
 		);
-		return (spending?.buckets ?? []).map((b, i, all) => ({
+		return (spending?.buckets ?? []).map((b, i) => ({
 			...piled(b, (account) => spent[`${account} ${b}`] ?? 0),
-			[PREVIOUS]: earlier.at(i - all.length) ?? null,
+			[PREVIOUS]: earlier[i] ?? null,
 		}));
 	});
 	const whole = $derived.by(() => {
@@ -77,16 +77,16 @@
 	});
 	const other = $derived([whole, ...bars].some((b) => b[OTHER] !== '0'));
 
-	const first = $derived(bars[0]?.bucket ?? day);
+	const first = $derived(spending?.from ?? day);
 	const label = $derived(
 		`Spending from ${formatDate(first)} to ${formatDate(day)}, ${formatAmount(total?.amount ?? '0')} in all`,
 	);
 	const months = $derived(((Date.parse(day) - Date.parse(first)) / DAY_MS + 1) / MONTH_DAYS);
 
-	/** What a bar holds, by part; whatever the parts leave is the other spending. */
+	/** What a bar holds, by part; whatever the parts leave, to the paisa, is the other spending. */
 	function piled(bucket: string, spentIn: (account: string) => number) {
 		const amounts = parts.map((p) => spentIn(p));
-		const rest = spentIn(ROOT) - amounts.reduce((t, a) => t + a, 0);
+		const rest = Math.round((spentIn(ROOT) - amounts.reduce((t, a) => t + a, 0)) * 100) / 100;
 		return {
 			bucket,
 			total: String(spentIn(ROOT)),

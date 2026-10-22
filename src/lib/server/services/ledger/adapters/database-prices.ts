@@ -304,6 +304,7 @@ export const listSpending = (
 						)
 						.select((e) => [
 							's.account',
+							's.date',
 							sql<string>`date_trunc(${bucket}, ${e.ref('s.date')}::timestamp)::date`.as('bucket'),
 							e
 								.case()
@@ -317,7 +318,8 @@ export const listSpending = (
 				.selectFrom('valued as v')
 				.select((e) => [
 					'v.account',
-					sql<string>`${e.ref('v.bucket')}::text`.as('bucket'),
+					'v.bucket',
+					e.fn.min('v.date').as('first'),
 					total(e.ref('v.value')).as('amount'),
 					unset(e.ref('v.value'), e.ref('v.account')).as('unpriced'),
 				])
@@ -329,6 +331,7 @@ export const listSpending = (
 			rows.map((s) => ({
 				account: s.account,
 				bucket: Temporal.PlainDate.from(s.bucket),
+				first: Temporal.PlainDate.from(s.first),
 				amount: s.amount as Amount,
 				unpriced: s.unpriced,
 			})),

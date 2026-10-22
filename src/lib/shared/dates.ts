@@ -20,12 +20,15 @@ export const RANGE_LABELS: Record<Range, string> = {
 	all: 'All',
 };
 
+/** The first day of all of history, which a ledger starts long after. */
+export const BEGINNING = '0001-01-01';
+
 /** The first day a range covers, counting back from its last. */
 export const startOf: Record<Range, (last: Temporal.PlainDate) => Temporal.PlainDate> = {
 	'1m': (d) => d.subtract({ months: 1 }),
 	ytd: (d) => d.with({ month: 1, day: 1 }),
 	'1y': (d) => d.subtract({ years: 1 }),
-	all: () => Temporal.PlainDate.from('0001-01-01'),
+	all: () => Temporal.PlainDate.from(BEGINNING),
 };
 
 /** The first and last day of a span, both included. */

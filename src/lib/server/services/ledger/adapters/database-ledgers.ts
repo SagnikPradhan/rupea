@@ -3,6 +3,7 @@ import type { Database } from '#lib/server/db/index.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { attempt, err, ok, type ResultAsync } from '#lib/server/shared/result/result.ts';
+import { sql } from 'kysely';
 import type { Ledger } from '../domain/types';
 
 export const findLedger = (userId: string, handle: string): ResultAsync<Ledger> =>
@@ -33,6 +34,14 @@ export const createLedger = ({ owner, handle, name }: CreateLedgerOptions): Resu
 		).mapErr((e) =>
 			violates(e, 'ledgers_handle_unique') ? fault('NameTaken', { name: handle }) : e,
 		),
+	);
+
+/** Holds the ledger's lock until the transaction ends, so its writers take turns. */
+export const lockLedger = (ledgerId: string): ResultAsync<void> =>
+	withContext('db')((db) =>
+		attempt(async () => {
+			await sql`select pg_advisory_xact_lock(hashtextextended(${ledgerId}, 0))`.execute(db);
+		}),
 	);
 
 // A user reaches the ledgers they own and those they are a member of.

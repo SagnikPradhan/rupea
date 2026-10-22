@@ -2,7 +2,7 @@ import type { Database } from '#lib/server/db/index.ts';
 import { provide } from '#lib/server/shared/context/context.ts';
 import { EMBEDDING_DIMENSIONS } from '#lib/server/shared/onnx/models.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
-import { errAsync, ok } from '#lib/server/shared/result/result.ts';
+import { errAsync, ok, ResultAsync } from '#lib/server/shared/result/result.ts';
 import { scoped } from '#lib/server/shared/storage/storage.ts';
 import { MODEL } from '#services/ledger/adapters/prediction-onnx.ts';
 import * as Files from '#services/ledger/application/files.ts';
@@ -760,6 +760,54 @@ describe('lots', () => {
 			await issues(ledger);
 
 			expect(await held(db, ledger.id)).toEqual([]);
+		}));
+
+	it('waits for another sync of the ledger to finish', ({ context, db, storage }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const other = Promise.withResolvers<void>();
+			await put(storage, ledger, 'a.rupee', bought);
+
+			const holding = Sync.exclusively(ledger.id, () => ResultAsync.fromSafePromise(other.promise));
+			const syncing = issues(ledger);
+			const first = await Promise.race([
+				syncing.then(() => 'sync'),
+				new Promise((r) => setTimeout(() => r('wait'), 200)),
+			]);
+
+			other.resolve();
+			await Promise.all([holding, syncing]);
+			expect(first).toBe('wait');
+			expect(await held(db, ledger.id)).toHaveLength(1);
+		}));
+
+	it('rolls back what a sync indexed when booking fails, and books on the next', ({
+		context,
+		db,
+		storage,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const name = sql.id(`fail_lots_${ledger.id.replaceAll('-', '_')}`);
+			await sql`create function ${name}() returns trigger language plpgsql as $$ begin raise exception 'no lots'; end $$`.execute(
+				db,
+			);
+			await sql`create trigger ${name} before insert on lots for each row when (new.ledger_id = ${sql.lit(ledger.id)}) execute function ${name}()`.execute(
+				db,
+			);
+			await put(storage, ledger, 'a.rupee', bought);
+
+			expect((await issues(ledger))._unsafeUnwrap()).toEqual([
+				expect.objectContaining({ type: 'UnknownError' }),
+			]);
+			expect(await summary(ledger.id)).toEqual([]);
+
+			await sql`drop trigger ${name} on lots`.execute(db);
+			await sql`drop function ${name}()`.execute(db);
+
+			expect(await issues(ledger)).toEqual(ok([]));
+			expect(await summary(ledger.id)).toEqual(['a.rupee:1 Buy']);
+			expect(await held(db, ledger.id)).toHaveLength(1);
 		}));
 });
 

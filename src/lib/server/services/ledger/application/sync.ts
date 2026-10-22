@@ -1,7 +1,8 @@
+import { atomically } from '#lib/server/db/atomically.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import type { Batch } from '#lib/server/shared/result/batch.ts';
 import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
-import { inOrder, ok, okAsync, ResultAsync } from '#lib/server/shared/result/result.ts';
+import { inOrder, ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { readText, type Entry, type Storage } from '#lib/server/shared/storage/storage.ts';
 import { isCounted, STATEMENTS } from '#lib/shared/folders.ts';
 import { enqueue } from '#services/jobs/application/jobs.ts';
@@ -29,11 +30,15 @@ export const sync = (l: Ledger): ResultAsync<Batch<never>> =>
 /** Brings the index up to date without checking the ledger, which costs a pass over every event and balance assertion. */
 export const syncIndex = (ledger: Ledger): ResultAsync<RupeeError[]> =>
 	openFolder({ ledger, folder: 'files' }).andThen((s) =>
-		ResultAsync.combine([listLedgerFiles(s), DB.listIndexedFiles(ledger.id)])
-			.andThen(([stored, indexed]) => update(s, ledger.id, plan(stored, indexed)))
+		listLedgerFiles(s)
+			.andThen((f) => exclusively(ledger.id, () => update(s, ledger.id, f)).orElse((e) => ok([e])))
 			.andThen((f) => queueFetches(ledger, f))
 			.andThen((f) => embed(ledger.id, f)),
 	);
+
+/** Runs `f` in one transaction as the ledger's only writer, so what it indexes is settled with it or not at all. */
+export const exclusively = <T>(id: string, f: () => ResultAsync<T>): ResultAsync<T> =>
+	atomically(() => DB.lockLedger(id).andThen(f));
 
 /** The ledger files in a ledger's files folder, leaving out the statements waiting there. */
 export const listLedgerFiles = (storage: Storage): ResultAsync<Entry[]> =>
@@ -82,32 +87,38 @@ export const settle = ({ ledgerId, indexed }: SettleOptions): ResultAsync<RupeeE
 			const lots = [...new Set([...indexed.touched, ...r])];
 			return lots.length === 0 ? okAsync() : DB.rebook(ledgerId, lots, u);
 		})
-		.map(() => indexed.failed)
-		.orElse((e) => ok([...indexed.failed, e]));
+		.map(() => indexed.failed);
+
+/** Indexes one file at a time, each in a savepoint, so a step that fails is reported and leaves the others. */
+export const indexEach = (steps: (() => ResultAsync<Indexed>)[]): ResultAsync<Indexed> =>
+	inOrder(steps.map((s) => () => reported(atomically(s)))).map((done) => ({
+		failed: done.flatMap((d) => d.failed),
+		touched: done.flatMap((d) => d.touched),
+	}));
 
 export const checkLots = (l: Ledger): ResultAsync<RupeeError[]> =>
 	DB.listUnmatched(l.id).map((u) => u.map(toLotError));
 
-// Most syncs find nothing changed, and then nothing needs settling.
-const update = (s: Storage, id: string, p: SyncPlan): ResultAsync<RupeeError[]> =>
-	p.changed.length + p.gone.length === 0
-		? okAsync([])
-		: applyPlan(s, id, p).andThen((i) => settle({ ledgerId: id, indexed: i }));
+// Storage is listed before the lock, so the transaction lasts only while the
+// index changes. Most syncs find nothing changed, and then nothing needs
+// settling. A settle that fails undoes what this sync indexed, so the next one
+// tries again.
+const update = (s: Storage, id: string, stored: Entry[]): ResultAsync<RupeeError[]> =>
+	DB.listIndexedFiles(id).andThen((indexed) => {
+		const p = plan(stored, indexed);
+		return p.changed.length + p.gone.length === 0
+			? okAsync([])
+			: applyPlan(s, id, p).andThen((i) => settle({ ledgerId: id, indexed: i }));
+	});
 
-// One file at a time, since embedded Postgres has one connection. A failed
-// step is reported, not fatal; failing to list either side is.
 const applyPlan = (storage: Storage, ledgerId: string, p: SyncPlan): ResultAsync<Indexed> => {
 	const reindex = (k: string) =>
 		readText(storage, k).andThen((f) => indexFile({ ledgerId, file: f }));
-	const steps = [
+
+	return indexEach([
 		...p.changed.map((k) => () => reindex(k)),
 		...p.gone.map((k) => () => unindex({ ledgerId, key: k })),
-	];
-
-	return inOrder(steps.map((s) => () => reported(s()))).map((done) => ({
-		failed: done.flatMap((d) => d.failed),
-		touched: done.flatMap((d) => d.touched),
-	}));
+	]);
 };
 
 const reported = (i: ResultAsync<Indexed>): ResultAsync<Indexed> =>

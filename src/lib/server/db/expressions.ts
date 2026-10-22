@@ -24,12 +24,14 @@ export const total = (c: Expression<bigint | null>, w?: Expression<SqlBool>) =>
 export const labels = (a: Expression<unknown>, b: Expression<unknown>, w: Expression<SqlBool>) =>
 	sql<string[]>`coalesce(array_agg(distinct ${a} || ':' || ${b}) filter (where ${w}), '{}')`;
 
-/** The sum of a column over the rows before each one, restarting for each partition and counting in order. */
+/** The sum of a column over the rows on days before each one's, restarting for each partition. A condition limits it to the rows where it holds. */
 export const totalBefore = (
-	c: Expression<bigint>,
+	c: Expression<bigint | null>,
 	p: Expression<unknown>[],
-	o: Expression<unknown>,
-) => sql<bigint>`sum(${c}) over (partition by ${sql.join(p)} order by ${o}) - ${c}`;
+	o: Expression<string>,
+	w: Expression<SqlBool>,
+) =>
+	sql<bigint>`coalesce(sum(${c}) filter (where ${w}) over (partition by ${sql.join(p)} order by ${o} range between unbounded preceding and '1 day' preceding), 0)`;
 
 /** The sum of a column up to each row, restarting for each partition and counting in order. */
 export const runningTotal = (

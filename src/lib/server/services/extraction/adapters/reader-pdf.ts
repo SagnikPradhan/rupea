@@ -2,26 +2,20 @@ import { withContext } from '#lib/server/shared/context/context.ts';
 import type { Box, Models } from '#lib/server/shared/onnx/runtime.ts';
 import { inOrder, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { toGrid, toLines, widen, type Word } from '../domain/table';
-import type { Grid, Contents } from '../domain/types';
+import type { Contents, Grid, LockedUpload, Upload } from '../domain/types';
 import { openPdf, type PdfDocument, type PdfPage } from './reader-pdf-pdfium';
 import { detectStructure, detectTables } from './reader-pdf-tatr';
 
 // Points, so a table's edge rules sit inside the region TATR reads.
 const PADDING = 10;
 
-type PdfOptions = {
-	name: string;
-	content: Uint8Array;
-	password?: string | undefined;
-};
-
 // Words come from the text layer, so scans read empty.
-export const readPdf = (o: PdfOptions): ResultAsync<Contents> =>
+export const readPdf = (o: Upload): ResultAsync<Contents> =>
 	withContext('models')((m) =>
 		openPdf(o).andThen((d) => readPages(m, d).andTee(d.close).orTee(d.close)),
 	);
 
-export const unlockPdf = (o: PdfOptions): ResultAsync<Uint8Array> =>
+export const unlockPdf = (o: LockedUpload): ResultAsync<Uint8Array> =>
 	openPdf(o).andThen((d) => d.decrypted().andTee(d.close).orTee(d.close));
 
 const readPages = (models: Models, document: PdfDocument): ResultAsync<Contents> =>

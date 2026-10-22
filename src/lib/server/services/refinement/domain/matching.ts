@@ -1,3 +1,4 @@
+import { sha256 } from '#lib/server/shared/hash.ts';
 import {
 	EventRole,
 	formatQuantity,
@@ -5,7 +6,6 @@ import {
 	type LinkEdit,
 	type RupeeTransaction,
 } from '#services/ledger/application/shared.ts';
-import { createHash } from 'node:crypto';
 
 export enum Confidence {
 	Duplicate = 'duplicate',
@@ -117,9 +117,7 @@ const target = (t: MatchedTransaction, role: EventRole): LinkTarget => ({
 // Changes when either side does, so a dismissal lapses with an edit. The
 // location tells identical charges apart.
 export const fingerprint = (a: RupeeTransaction, b: RupeeTransaction): string =>
-	createHash('sha256')
-		.update([identity(a), identity(b)].sort().join('\n'))
-		.digest('hex');
+	sha256([identity(a), identity(b)].sort().join('\n'));
 
 const identity = (t: RupeeTransaction) =>
 	[

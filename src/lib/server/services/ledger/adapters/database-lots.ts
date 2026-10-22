@@ -15,7 +15,7 @@ import {
 	postings,
 	transactions as transactionTable,
 } from './database-schema';
-import { toCost, toPrice, toQuantity } from './database-transactions';
+import { toCost, toPrice, toQuantity } from './database-queries';
 
 const LEDGER_ORDER = [
 	asc(transactionTable.date),

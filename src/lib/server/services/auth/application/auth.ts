@@ -28,13 +28,6 @@ export type User = DB.User;
 // A random username clashes rarely enough that a few tries settle it.
 const TRIES = 5;
 
-const canSignIn = (email: string): ResultAsync<boolean> =>
-	withContext('config')((c) =>
-		DB.findUserByEmail(email).andThen((u) =>
-			u || c.accounts.signup === 'open' ? okAsync(true) : DB.countUsers().map((n) => n === 0),
-		),
-	);
-
 // Succeeds either way, so callers cannot tell which addresses have accounts.
 export const requestCode = (email: string): ResultAsync<void> =>
 	withContext('mailer')((mailer) =>
@@ -50,23 +43,6 @@ export const requestCode = (email: string): ResultAsync<void> =>
 				}),
 			);
 		}),
-	);
-
-const findOrCreateUser = (email: string): ResultAsync<User> =>
-	DB.findUserByEmail(email).andThen((u) =>
-		u
-			? okAsync(u)
-			: canSignIn(email).andThen((y) => (y ? signUp(email) : errAsync(fault('AuthInvalidCode')))),
-	);
-
-const signUp = (e: string): ResultAsync<User> =>
-	createUser(e, TRIES).andThen((u) =>
-		Ledger.createLedger({ user: u.id, name: 'Personal' }).map(() => u),
-	);
-
-const createUser = (v: string, n: number): ResultAsync<User> =>
-	DB.createUser({ email: v, username: petName() }).orElse((e) =>
-		e.type === 'NameTaken' && n > 1 ? createUser(v, n - 1) : errAsync(e),
 	);
 
 type SignInOptions = { email: string; code: string };
@@ -122,3 +98,27 @@ export const withCurrentUser = <T>(
 	const user = requestUser();
 	return user ? okAsync(user).andThen(use) : errAsync(fault('AuthUnauthenticated'));
 };
+
+const canSignIn = (email: string): ResultAsync<boolean> =>
+	withContext('config')((c) =>
+		DB.findUserByEmail(email).andThen((u) =>
+			u || c.accounts.signup === 'open' ? okAsync(true) : DB.countUsers().map((n) => n === 0),
+		),
+	);
+
+const findOrCreateUser = (email: string): ResultAsync<User> =>
+	DB.findUserByEmail(email).andThen((u) =>
+		u
+			? okAsync(u)
+			: canSignIn(email).andThen((y) => (y ? signUp(email) : errAsync(fault('AuthInvalidCode')))),
+	);
+
+const signUp = (e: string): ResultAsync<User> =>
+	createUser(e, TRIES).andThen((u) =>
+		Ledger.createLedger({ user: u.id, name: 'Personal' }).map(() => u),
+	);
+
+const createUser = (v: string, n: number): ResultAsync<User> =>
+	DB.createUser({ email: v, username: petName() }).orElse((e) =>
+		e.type === 'NameTaken' && n > 1 ? createUser(v, n - 1) : errAsync(e),
+	);

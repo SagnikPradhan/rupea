@@ -4,17 +4,12 @@ import { attempt, errAsync, type ResultAsync } from '#lib/server/shared/result/r
 import officeCrypto from 'officecrypto-tool';
 import { parse } from 'csv-parse/sync';
 import * as XLSX from 'xlsx';
-import type { Grid, Contents } from '../domain/types';
+import type { Contents, Grid, LockedUpload, Upload } from '../domain/types';
 
 // The first bytes of a zip, which an .xlsx is unless it is encrypted.
 const ZIP = [0x50, 0x4b, 0x03, 0x04];
 
-type SheetOptions = {
-	name: string;
-	content: Uint8Array;
-};
-
-export const readCsv = (o: SheetOptions): ResultAsync<Contents> =>
+export const readCsv = (o: Upload): ResultAsync<Contents> =>
 	attempt(
 		async () => ({
 			grid: parse(Buffer.from(o.content), { bom: true, relax_column_count: true }),
@@ -24,27 +19,21 @@ export const readCsv = (o: SheetOptions): ResultAsync<Contents> =>
 	);
 
 /** An .xls, which banks also send as HTML or text; SheetJS reads whichever it is. */
-export const readXls = (o: SheetOptions): ResultAsync<Contents> => {
+export const readXls = (o: Upload): ResultAsync<Contents> => {
 	if (isEncrypted(o.content)) return errAsync(fault('ExtractionLocked', { path: o.name }));
 
 	return readFirstSheet(o);
 };
 
 // SheetJS reads any bytes as some sheet, so an .xlsx that is not a zip is refused instead.
-export const readXlsx = (o: SheetOptions): ResultAsync<Contents> => {
+export const readXlsx = (o: Upload): ResultAsync<Contents> => {
 	if (isEncrypted(o.content)) return errAsync(fault('ExtractionLocked', { path: o.name }));
 	if (!ZIP.every((b, i) => o.content[i] === b)) return errAsync(unreadable(o.name, 'not a zip'));
 
 	return readFirstSheet(o);
 };
 
-type UnlockOptions = {
-	name: string;
-	content: Uint8Array;
-	password: string;
-};
-
-export const unlockSheet = (o: UnlockOptions): ResultAsync<Uint8Array> =>
+export const unlockSheet = (o: LockedUpload): ResultAsync<Uint8Array> =>
 	attempt(
 		() => officeCrypto.decrypt(Buffer.from(o.content), { password: o.password }),
 		() => fault('ExtractionLocked', { path: o.name }),
@@ -55,7 +44,7 @@ const isEncrypted = (c: Uint8Array) =>
 	safely(() => officeCrypto.isEncrypted(Buffer.from(c))) === true;
 
 // A sheet's every cell is in its grid, so no text is left outside it.
-const readFirstSheet = (o: SheetOptions): ResultAsync<Contents> =>
+const readFirstSheet = (o: Upload): ResultAsync<Contents> =>
 	attempt(
 		async () => {
 			const book = XLSX.read(o.content, {

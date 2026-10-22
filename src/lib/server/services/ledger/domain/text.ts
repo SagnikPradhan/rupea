@@ -19,22 +19,19 @@ export const accountText = (account: string): string =>
 export type Unembedded = { id: string; description: string };
 export type Filled = { id: string; vector: Float32Array | null };
 
-// A description with no words gets no vector, but counts as done all the same.
-export const filling = (rows: Unembedded[]) => {
-	const cleaned = rows.map((r) => clean(r.description));
-	const texts = [...new Set(cleaned)].filter((t) => t !== '');
+/** The words of each distinct description, leaving out those with none. */
+export const wordsOf = (d: string[]): string[] =>
+	[...new Set(d.map(clean))].filter((t) => t !== '');
 
-	const fill = (vectors: Float32Array[]): Filled[] => {
-		const found = lookup(texts, vectors);
-		return rows.map((r, i) => ({ id: r.id, vector: found(cleaned[i] ?? '') }));
-	};
-
-	return { texts, fill };
+/** The vectors are those of the rows' words; a description with no words gets no vector, but counts as done all the same. */
+export const filled = (rows: Unembedded[], vectors: Float32Array[]): Filled[] => {
+	const found = lookup(wordsOf(rows.map((r) => r.description)), vectors);
+	return rows.map((r) => ({ id: r.id, vector: found(clean(r.description)) }));
 };
 
-export const lookup = (texts: string[], vectors: Float32Array[]) => {
-	const vectorOf: Record<string, Float32Array | undefined> = Object.fromEntries(
-		texts.map((t, i) => [t, vectors[i]]),
+export const lookup = <T>(texts: string[], values: T[]) => {
+	const valueOf: Record<string, T | undefined> = Object.fromEntries(
+		texts.map((t, i) => [t, values[i]]),
 	);
-	return (t: string): Float32Array | null => vectorOf[t] ?? null;
+	return (t: string): T | null => valueOf[t] ?? null;
 };

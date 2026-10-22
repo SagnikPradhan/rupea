@@ -7,7 +7,7 @@ import { attempt, errAsync, okAsync } from '#lib/server/shared/result/result.ts'
 import { createTemporaryDatabase } from '#tests/shared/database.ts';
 import { createUser } from '#tests/shared/seed.ts';
 import { it as base } from '#tests/shared/vitest.ts';
-import { processes, type Processes } from '#services/jobs/adapters/processes.ts';
+import { processes, type Dispatch, type Processes } from '#services/jobs/adapters/processes.ts';
 import { eq, sql } from 'drizzle-orm';
 import { fileURLToPath } from 'node:url';
 import { describe, expect, vi } from 'vitest';
@@ -50,7 +50,7 @@ const rowsOf = (u: string) =>
 	withContext('db')((db) => db.select().from(jobs).where(eq(jobs.userId, u)));
 
 const inProcess =
-	(l: Jobs.Job<unknown>[]): Orchestrator.Dispatch =>
+	(l: Jobs.Job<unknown>[]): Dispatch =>
 	(c) =>
 		runJob(l, c);
 
@@ -60,10 +60,7 @@ const drain = async (l: Jobs.Job<unknown>[], dispatch = inProcess(l)): Promise<n
 	return tickAll({ jobs: l, dispatch });
 };
 
-const tickAll = (o: {
-	jobs: Jobs.Job<unknown>[];
-	dispatch: Orchestrator.Dispatch;
-}): PromiseLike<number> =>
+const tickAll = (o: { jobs: Jobs.Job<unknown>[]; dispatch: Dispatch }): PromiseLike<number> =>
 	Orchestrator.tick(o).then((t) => (t.unwrapOr(false) ? tickAll(o).then((n) => 1 + n) : 0));
 
 describe('a job', () => {

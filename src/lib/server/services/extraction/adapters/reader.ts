@@ -2,7 +2,7 @@ import { fault } from '#lib/server/shared/result/error.ts';
 import { errAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { TEXT_EXTENSIONS } from '#lib/shared/statements.ts';
 import { extname } from 'node:path';
-import type { Contents } from '../domain/types';
+import type { Contents, LockedUpload, Upload } from '../domain/types';
 import { readPdf, unlockPdf } from './reader-pdf';
 import { readCsv, readXls, readXlsx, unlockSheet } from './reader-sheet';
 import { readText } from './reader-text';
@@ -10,29 +10,18 @@ import { readText } from './reader-text';
 // Grids read by another version are read again; bump it when reading changes.
 export const READER_VERSION = '4';
 
-export type Upload = {
-	name: string;
-	content: Uint8Array;
-};
-
-type LockedUpload = {
-	name: string;
-	content: Uint8Array;
-	password: string;
-};
-
 const readers: Record<string, (upload: Upload) => ResultAsync<Contents>> = {
-	'.pdf': (u) => readPdf(u),
-	'.csv': (u) => readCsv(u),
-	'.xls': (u) => readXls(u),
-	'.xlsx': (u) => readXlsx(u),
+	'.pdf': readPdf,
+	'.csv': readCsv,
+	'.xls': readXls,
+	'.xlsx': readXlsx,
 	...Object.fromEntries(TEXT_EXTENSIONS.map((e) => [e, readText])),
 };
 
 const unlockers: Record<string, (upload: LockedUpload) => ResultAsync<Uint8Array>> = {
-	'.pdf': (u) => unlockPdf(u),
-	'.xls': (u) => unlockSheet(u),
-	'.xlsx': (u) => unlockSheet(u),
+	'.pdf': unlockPdf,
+	'.xls': unlockSheet,
+	'.xlsx': unlockSheet,
 };
 
 export const isReadable = (n: string) => extension(n) in readers;

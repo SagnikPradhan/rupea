@@ -1,15 +1,14 @@
 import type { Dirent } from 'node:fs';
-import { createHash, randomUUID } from 'node:crypto';
+import { randomUUID } from 'node:crypto';
 import { glob, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, sep } from 'node:path';
+import { sha256 } from '../hash';
 import { fault, type RupeeError, unknownError } from '../result/error';
 import { attempt, err, ok, okAsync, type Result, ResultAsync, inOrder } from '../result/result';
 import { validateKey, type Entry, type Storage } from './storage';
 
 // Writes land here and are renamed into place, so a crash never leaves half a file.
 const TEMPORARY = '.tmp';
-
-const hash = (c: Uint8Array) => createHash('sha256').update(c).digest('hex');
 
 const isMissing = (t: unknown) => t instanceof Error && 'code' in t && t.code === 'ENOENT';
 
@@ -44,7 +43,7 @@ export const localStorage = (root: string): Storage => {
 					key,
 					size: stats.size,
 					modified: stats.mtime,
-					version: hash(content),
+					version: sha256(content),
 				},
 				content,
 			}),
@@ -104,7 +103,7 @@ export const localStorage = (root: string): Storage => {
 							key,
 							size: stats.size,
 							modified: stats.mtime,
-							version: hash(content),
+							version: sha256(content),
 						};
 					}).orTee(() => rm(temporary, { force: true })),
 				);

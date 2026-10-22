@@ -33,7 +33,21 @@ export const runJob = (jobs: Job<unknown>[], claimed: DB.ClaimedJob): ResultAsyn
 		),
 	);
 
-export const listJobs = DB.listJobs;
+type ListJobsOptions = {
+	userId: string;
+	name: string;
+	/** Fields the payload holds, such as the ledger it ran in. */
+	payload: Record<string, string>;
+	limit: number;
+};
+
+/** A user's latest jobs of one name, newest first. */
+export const listJobs = ({
+	userId,
+	name,
+	payload,
+	limit,
+}: ListJobsOptions): ResultAsync<DB.UserJob[]> => DB.listJobs({ userId, name, payload, limit });
 
 /** Logs as the job, with its name, id and attempt. */
 export const asJob = <T>(c: DB.ClaimedJob, f: () => T): T =>

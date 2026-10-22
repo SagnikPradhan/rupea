@@ -1,9 +1,10 @@
 import type { Amount } from '#services/ledger/application/shared.ts';
 import { describe, expect, it } from 'vitest';
 import {
-	classifier,
+	classify,
 	fallback,
 	predict,
+	textsOf,
 	type Embedded,
 	type Knowledge,
 	type Neighbour,
@@ -160,13 +161,16 @@ describe('classifying lines', () => {
 			{ amount: amount(-2n), description: 'SWIGGY' },
 			{ amount: amount(-3n), description: '123456' },
 		];
-		const c = classifier({ ...options, lines });
-		expect(c.texts).not.toContain('expenses uncategorized');
+		const texts = textsOf({ ...options, lines });
+		expect(texts.texts).not.toContain('expenses uncategorized');
+		expect(texts.texts.slice(0, texts.searched)).toEqual(['swiggy']);
 
-		const vectors = c.texts.map((t) => (t === 'swiggy' ? axis(0) : axis(3)));
-		expect(c.asked(vectors)).toEqual([axis(0)]);
+		const vectors = texts.texts.map((t) => (t === 'swiggy' ? axis(0) : axis(3)));
 		expect(
-			c.classify(vectors, [[neighbour('Expenses:Food')]]).map((p) => [p.account, p.source]),
+			classify({ ...options, lines }, vectors, [[neighbour('Expenses:Food')]]).map((p) => [
+				p.account,
+				p.source,
+			]),
 		).toEqual([
 			['Expenses:Food', 'history'],
 			['Expenses:Food', 'history'],

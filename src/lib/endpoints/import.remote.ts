@@ -57,11 +57,11 @@ export const unlockStatement = form(
 		statement: v.pipe(v.string(), v.nonEmpty()),
 		password: v.pipe(v.string(), v.nonEmpty()),
 	}),
-	({ handle, ...options }) =>
+	({ handle, statement, password }) =>
 		replyFrom(
 			inLedger({
 				handle,
-				action: (l) => Statements.unlockStatement({ ...options, ledger: l }),
+				action: (l) => Statements.unlockStatement({ ledger: l, statement, password }),
 			}),
 		),
 );
@@ -85,14 +85,15 @@ export const previewStatement = command(
 		statement: v.pipe(v.string(), v.nonEmpty()),
 		schema: v.object({ key: v.string(), content: v.string() }),
 	}),
-	({ handle, ...options }) =>
+	({ handle, statement, schema }) =>
 		replyFromBatch(
-			inLedger({ handle, action: (l) => Drafts.previewStatement({ ...options, ledger: l }) }).map(
-				(b) => ({
-					...b,
-					succeeded: b.succeeded.map(viewTransaction),
-				}),
-			),
+			inLedger({
+				handle,
+				action: (l) => Drafts.previewStatement({ ledger: l, statement, schema }),
+			}).map((b) => ({
+				...b,
+				succeeded: b.succeeded.map(viewTransaction),
+			})),
 		),
 );
 
@@ -103,10 +104,10 @@ export const importStatement = form(
 		statement: v.pipe(v.string(), v.nonEmpty()),
 		schema: v.object({ key: v.string(), content: v.string() }),
 	}),
-	async ({ handle, ...options }) => {
+	async ({ handle, statement, schema }) => {
 		const created = await inLedger({
 			handle,
-			action: (l) => Drafts.importStatement({ ...options, ledger: l }),
+			action: (l) => Drafts.importStatement({ ledger: l, statement, schema }),
 		});
 		void listFiles(handle).refresh();
 		void listSchemas(handle).refresh();

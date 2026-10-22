@@ -15,9 +15,12 @@ type ProcessesOptions = {
 	execArgv: string[];
 };
 
+/** Sends a claimed job to a worker and waits for it to end, failing it once it outlasts `timeout`. */
+export type Dispatch = (c: ClaimedJob, timeout: number) => ResultAsync<void>;
+
 export type Processes = {
 	/** Kills the process running the job once it outlasts `timeout`, failing with `JobTimedOut`. */
-	dispatch: (c: ClaimedJob, timeout: number) => ResultAsync<void>;
+	dispatch: Dispatch;
 	stop: () => Promise<void>;
 	/** Replaces each process once its job ends, so the next job loads the worker module afresh. */
 	recycle: () => Promise<void>;
@@ -36,7 +39,7 @@ export const processes = (o: ProcessesOptions): Processes => {
 		serialization: 'advanced',
 	});
 
-	const dispatch = (c: ClaimedJob, timeout: number) => {
+	const dispatch: Dispatch = (c, timeout) => {
 		const signal = AbortSignal.timeout(timeout);
 		const timedOut = fault('JobTimedOut', { name: c.name, timeout });
 		return attempt<RupeeError | null>(() => pool.run(c, { signal }))

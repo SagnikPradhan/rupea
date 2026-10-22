@@ -15,7 +15,7 @@ import {
 	type ClaimedJob,
 	type Run,
 } from '../adapters/database';
-import { processes } from '../adapters/processes';
+import { processes, type Dispatch } from '../adapters/processes';
 import { endingOf, findJob, timeoutOf, type Ending, type Job } from '../domain/jobs';
 import { asJob } from './jobs';
 
@@ -30,9 +30,6 @@ const RELEASED_AT_ONCE = 100;
 const GRACE = 20_000;
 
 const ABANDONED = unknownError('the worker stopped before the job finished');
-
-/** Sends a claimed job to a worker and waits for it to end, failing it once it outlasts `timeout`. */
-export type Dispatch = (c: ClaimedJob, timeout: number) => ResultAsync<void>;
 
 type StartOptions = {
 	/** The worker module, the flags Node needs to run it, and the variables it reads. */

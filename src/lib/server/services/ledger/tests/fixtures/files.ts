@@ -1,8 +1,12 @@
 import { scoped, type Storage } from '#lib/server/shared/storage/storage.ts';
-import { listAllTransactions } from '#services/ledger/adapters/database-transactions.ts';
+import { withContext } from '#lib/server/shared/context/context.ts';
+import { attempt } from '#lib/server/shared/result/result.ts';
+import * as DB from '#services/ledger/adapters/database.ts';
+import { transactions } from '#services/ledger/adapters/database-schema.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
 import * as Sync from '#services/ledger/application/sync.ts';
 import * as Transactions from '#services/ledger/application/transactions.ts';
+import { asc, eq } from 'drizzle-orm';
 
 export const groceries = '2026-08-29 Groceries\n\tExpenses:Food 100.5\n\tAssets:Bank\n';
 export const salary = '2026-08-01 Salary\n\tAssets:Bank 50000\n\tIncome:Salary\n';
@@ -16,6 +20,23 @@ export const put = (storage: Storage, ledger: Ledger, key: string, text: string)
 		key,
 		content: new TextEncoder().encode(text),
 	});
+
+/** Every transaction of the ledger, oldest id first, which a request never reads. */
+export const listAllTransactions = (ledgerId: string) =>
+	withContext('db')((db) =>
+		attempt(() =>
+			db
+				.select({ id: transactions.id })
+				.from(transactions)
+				.where(eq(transactions.ledgerId, ledgerId))
+				.orderBy(asc(transactions.id)),
+		),
+	).andThen((r) =>
+		DB.findTransactions(
+			ledgerId,
+			r.map((t) => t.id),
+		),
+	);
 
 export const summary = async (ledgerId: string) => {
 	const indexed = await listAllTransactions(ledgerId);

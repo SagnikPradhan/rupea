@@ -34,17 +34,23 @@
 	const references = $derived(series.filter((s) => s.role === 'reference'));
 
 	const hovered = $state({ index: null as number | null });
-	const focused = $state({ part: null as number | null });
+	const focused = { part: null as number | null };
+	const plotted: uPlot[] = [];
 	const shown = $derived((hovered.index === null ? undefined : rows[hovered.index]) ?? whole);
 
-	/** Reads the bars and the focused part before any await, so the chart redraws when they change. */
+	/** Reads the bars before any await, so the chart is drawn again when they change. */
 	const chart = (node: HTMLElement) => {
 		const bars = data();
 		const days = rows.map((r) => String(r[x]));
 		const name = formatBucket[bucket];
-		const focus = focused.part;
 
-		return plotInto(node, (font) => options({ node, font, days, name, focus }), bars);
+		return plotInto(node, (font) => options({ node, font, days, name }), bars);
+	};
+
+	/** Fades every part but one, repainting the chart rather than building it again. */
+	const focus = (part: number | null) => {
+		focused.part = part;
+		plotted.forEach((u) => u.redraw(false, false));
 	};
 
 	/** Bars stand at their index, so a month or a year is as wide as a day; a missing value leaves a gap in a line. */
@@ -60,11 +66,10 @@
 		font: string;
 		days: string[];
 		name: (d: string) => string;
-		focus: number | null;
 	};
 
 	const options = (input: OptionsInput): uPlot.Options => {
-		const { node, font, days, name, focus } = input;
+		const { node, font, days, name } = input;
 		const ink = colorOf(node, '--color-ink');
 		const muted = colorOf(node, '--color-muted');
 		const border = colorOf(node, '--color-border');
@@ -94,8 +99,9 @@
 			],
 			axes: [{ ...across, incrs: [1, 2, 3, 6, 12, 24, 48] }, up],
 			hooks: {
+				ready: [(u) => plotted.splice(0, plotted.length, u)],
 				setCursor: [(u) => (hovered.index = u.cursor.idx ?? null)],
-				draw: [(u) => stack(u, ink, focus), (u) => drawZero(u, border)],
+				draw: [(u) => stack(u, ink), (u) => drawZero(u, border)],
 			},
 		};
 	};
@@ -125,7 +131,7 @@
 	 * hatched part lets what is behind it show through, so parts are laid end to end, never over,
 	 * with a hairline between them so two hatches never run together.
 	 */
-	const stack = (u: uPlot, ink: string, focus: number | null) => {
+	const stack = (u: uPlot, ink: string) => {
 		const fills = parts.map((_, k) => fillOf(u.ctx, k, ink));
 		const gap = devicePixelRatio;
 		const width = Math.min(
@@ -144,7 +150,7 @@
 				reached[side] += value;
 				const to = u.valToPos(reached[side], 'y', true);
 
-				u.ctx.globalAlpha = focus === null || focus === k ? 1 : FADED;
+				u.ctx.globalAlpha = focused.part === null || focused.part === k ? 1 : FADED;
 				u.ctx.fillStyle = fills[k] ?? ink;
 				u.ctx.fillRect(left, Math.min(from, to), width, Math.max(Math.abs(to - from) - gap, 0));
 			});
@@ -158,11 +164,7 @@
 	<div class="plot" role="img" aria-label={label} {@attach chart}></div>
 	<figcaption>
 		{#each parts as part, k (part.key)}
-			<span
-				role="presentation"
-				onpointerenter={() => (focused.part = k)}
-				onpointerleave={() => (focused.part = null)}
-			>
+			<span role="presentation" onpointerenter={() => focus(k)} onpointerleave={() => focus(null)}>
 				<Swatch part={k} />
 				{part.label}
 				<data>{formatAmount(String(shown[part.key] ?? '0'))}</data>

@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen } from '@testing-library/svelte';
 import { createRawSnippet, flushSync } from 'svelte';
 import type uPlot from 'uplot';
 import { describe, expect, it, vi } from 'vitest';
@@ -142,6 +142,20 @@ describe('the bar chart', () => {
 
 		hover(options, 1);
 		expect(line()?.trim()).toBe('Previous');
+	});
+
+	it('fades the other parts while one is focused in the key, repainting the same chart', async () => {
+		const { options } = await drawn();
+		const redraw = vi.fn();
+		options.hooks?.ready?.[0]?.({ redraw } as unknown as uPlot);
+
+		const food = screen.getByText('Food');
+		await fireEvent.pointerEnter(food);
+		expect(redraw).toHaveBeenCalledTimes(1);
+
+		await fireEvent.pointerLeave(food);
+		expect(redraw).toHaveBeenCalledTimes(2);
+		expect(plots).toHaveLength(1);
 	});
 
 	it('hands the summary the bar under the cursor, or none', async () => {

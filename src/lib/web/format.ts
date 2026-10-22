@@ -1,3 +1,5 @@
+import type { Bucket } from '#lib/shared/dates.ts';
+
 const LOCALE = 'en-IN';
 
 const rupees = new Intl.NumberFormat(LOCALE, {
@@ -29,6 +31,11 @@ const shortDays = new Intl.DateTimeFormat(LOCALE, {
 	month: 'short',
 	timeZone: 'UTC',
 });
+const months = new Intl.DateTimeFormat(LOCALE, {
+	month: 'short',
+	year: 'numeric',
+	timeZone: 'UTC',
+});
 const isoDays = new Intl.DateTimeFormat('en-CA');
 const compacts = new Intl.NumberFormat(LOCALE, { notation: 'compact' });
 const shorts = new Intl.NumberFormat(LOCALE, { notation: 'compact', maximumSignificantDigits: 3 });
@@ -37,6 +44,7 @@ const signed = new Intl.NumberFormat(LOCALE, {
 	minimumFractionDigits: 2,
 	maximumFractionDigits: 2,
 });
+const shares = new Intl.NumberFormat(LOCALE, { style: 'percent', maximumFractionDigits: 1 });
 const percents = new Intl.NumberFormat(LOCALE, {
 	style: 'percent',
 	signDisplay: 'exceptZero',
@@ -83,11 +91,22 @@ export const formatIsoDate = (d: Date) => isoDays.format(d);
 /** Formats a UTC day without its year, like `21 Oct`, for chart axes. */
 export const formatShortDate = (d: Date) => shortDays.format(d);
 
+/** Names the bucket an ISO day starts, like 21 Oct, Oct 2026 or 2026. */
+export const formatBucket: Record<Bucket, (d: string) => string> = {
+	day: (d) => shortDays.format(new Date(d)),
+	month: (d) => months.format(new Date(d)),
+	year: (d) => d.slice(0, 4),
+};
+
 /** Formats a number in a few characters, like `12L`, for chart axes. */
 export const formatCompact = (n: number) => compacts.format(n);
 
 /** Formats a ratio like `0.251` as a signed percent, `+25.1%`. */
 export const formatPercent = (r: number) => percents.format(r);
+
+/** A part of a whole, like 12.5%, or nothing without a positive whole. */
+export const formatShare = (p: string, w: string) =>
+	Number(w) > 0 ? shares.format(Number(p) / Number(w)) : null;
 
 /** A gain as a signed share of what it cost, like +25.1%, or nothing without a positive cost. */
 export const formatReturn = (g: string | null, c: string | null) =>

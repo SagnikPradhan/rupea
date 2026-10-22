@@ -1,49 +1,51 @@
 import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
-import { batch } from '#lib/server/shared/result/batch.ts';
+import { batchInOrder } from '#lib/server/shared/result/batch.ts';
 import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
 import {
-	err,
 	errAsync,
+	inOrder,
 	ok,
 	okAsync,
 	type Result,
 	type ResultAsync,
-	sequence,
 } from '#lib/server/shared/result/result.ts';
-import { index, type CandidatePair, type IndexedTransaction } from '../adapters/database';
+import * as DB from '../adapters/database';
 import { counted, EventRole, linksOf } from '../domain/events';
 import { insertLinks, rewriteLinks, type LinkEdit, type Relink } from '../domain/links';
 import type { Ledger, RupeeFile, RupeeTransaction } from '../domain/types';
-import { editFile, getFile } from './files';
+import { editFile, readFile } from './files';
 import { syncIndex } from './sync';
 
-type Candidates = { pairs: CandidatePair[]; transactions: IndexedTransaction[] };
+type Candidates = { pairs: DB.CandidatePair[]; transactions: DB.IndexedTransaction[] };
 
-// Pairs a file's transactions could form events with, and both sides of each.
-export const findCandidates = (ledger: Ledger, key: string): ResultAsync<Candidates> =>
-	index(ledger.id)
-		.candidates(key)
-		.andThen((c) =>
-			index(ledger.id)
-				.byIds([...new Set(c.flatMap((p) => [p.ours, p.theirs]))])
-				.map((t) => ({ pairs: c, transactions: t })),
-		);
-
-export const isEventIdTaken = (l: Ledger, id: string): ResultAsync<boolean> =>
-	index(l.id).eventIdTaken(id);
-
-type EventMember = IndexedTransaction & { role: EventRole; counted: boolean };
+type EventMember = DB.IndexedTransaction & { role: EventRole; counted: boolean };
 
 export type FileEvent = { event: string; members: EventMember[] };
 
+type InFileOptions = { ledger: Ledger; file: string };
+
+// Pairs a file's transactions could form events with, and both sides of each.
+export const listCandidates = ({ ledger, file }: InFileOptions): ResultAsync<Candidates> =>
+	DB.listCandidates(ledger.id, file).andThen((pairs) => {
+		const ids = [...new Set(pairs.flatMap((p) => [p.ours, p.theirs]))];
+		return DB.findTransactions(ledger.id, ids).map((t) => ({ pairs, transactions: t }));
+	});
+
+type IsEventIdTakenOptions = { ledger: Ledger; id: string };
+
+export const isEventIdTaken = ({ ledger, id }: IsEventIdTakenOptions): ResultAsync<boolean> =>
+	DB.isEventIdTaken(ledger.id, id);
+
 // Events with a member in the file, with every member wherever it is written.
-export const eventsIn = (l: Ledger, k: string): ResultAsync<FileEvent[]> =>
-	syncIndex(l)
-		.andThen(() => index(l.id).eventsIn(k))
+export const listEvents = ({ ledger, file }: InFileOptions): ResultAsync<FileEvent[]> =>
+	syncIndex(ledger)
+		.andThen(() => DB.listEventsInFile(ledger.id, file))
 		.map(byEvent);
 
-export const linkEvents = (ledger: Ledger, edits: LinkEdit[]): ResultAsync<RupeeError[]> =>
+type LinkEventsOptions = { ledger: Ledger; edits: LinkEdit[] };
+
+export const linkEvents = ({ ledger, edits }: LinkEventsOptions): ResultAsync<RupeeError[]> =>
 	rewriteFiles(
 		ledger,
 		Object.entries(Object.groupBy(edits, (e) => e.file)).map(([key, group = []]) => ({
@@ -53,11 +55,13 @@ export const linkEvents = (ledger: Ledger, edits: LinkEdit[]): ResultAsync<Rupee
 		})),
 	);
 
-export const renameEvent = (ledger: Ledger, event: string, to: string): ResultAsync<RupeeError[]> =>
+type RenameEventOptions = { ledger: Ledger; event: string; to: string };
+
+export const renameEvent = ({ ledger, event, to }: RenameEventOptions): ResultAsync<RupeeError[]> =>
 	syncIndex(ledger)
-		.andThen(() => isEventIdTaken(ledger, to))
+		.andThen(() => DB.isEventIdTaken(ledger.id, to))
 		.andThen((t) =>
-			t ? errAsync(fault('EventIdTaken', { event: to })) : index(ledger.id).membersOf(event),
+			t ? errAsync(fault('EventIdTaken', { event: to })) : DB.listEventMembers(ledger.id, event),
 		)
 		.andThen((m) =>
 			relinkFiles(ledger, { event, members: m, relink: (_, l) => ({ ...l, event: to }) }),
@@ -66,11 +70,14 @@ export const renameEvent = (ledger: Ledger, event: string, to: string): ResultAs
 type MakePrimaryOptions = { ledger: Ledger; event: string; file: string; line: number };
 
 // The member becomes the one that counts; the old primary becomes evidence.
-export const makePrimary = (options: MakePrimaryOptions): ResultAsync<RupeeError[]> => {
-	const { ledger, event, file, line } = options;
-
+export const makePrimary = ({
+	ledger,
+	event,
+	file,
+	line,
+}: MakePrimaryOptions): ResultAsync<RupeeError[]> => {
 	const isTarget = (t: RupeeTransaction) => t.location.file === file && t.location.line === line;
-	const isPrimary = (t: IndexedTransaction) =>
+	const isPrimary = (t: DB.IndexedTransaction) =>
 		linksOf(t.metadata).some((l) => l.event === event && l.role === EventRole.Primary);
 	const relink: Relink = (t, l) => ({
 		...l,
@@ -78,7 +85,7 @@ export const makePrimary = (options: MakePrimaryOptions): ResultAsync<RupeeError
 	});
 
 	return syncIndex(ledger)
-		.andThen(() => index(ledger.id).membersOf(event))
+		.andThen(() => DB.listEventMembers(ledger.id, event))
 		.andThen((m) =>
 			m.some(isTarget)
 				? okAsync(m)
@@ -89,7 +96,7 @@ export const makePrimary = (options: MakePrimaryOptions): ResultAsync<RupeeError
 		);
 };
 
-type RelinkOptions = { event: string; members: IndexedTransaction[]; relink: Relink };
+type RelinkOptions = { event: string; members: DB.IndexedTransaction[]; relink: Relink };
 
 const relinkFiles = (ledger: Ledger, o: RelinkOptions): ResultAsync<RupeeError[]> => {
 	const relinked = o.members.flatMap((t) =>
@@ -121,35 +128,34 @@ type Prepared = { file: RupeeFile; content: string; primary: boolean };
 // first failure: a link then leaves at worst a primary without its evidence,
 // while a rename or a new primary can leave a broken event for sync to report.
 const rewriteFiles = (l: Ledger, rs: Rewrite[]): ResultAsync<RupeeError[]> =>
-	sequence(rs.map((r) => () => prepare(l, r)))
-		.map(batch)
-		.andThen((b) => (b.failed.length > 0 ? okAsync(b.failed) : writeAll(l, b.succeeded)));
+	batchInOrder(rs.map((r) => () => prepare(l, r))).andThen((b) =>
+		b.failed.length > 0 ? okAsync(b.failed) : writeAll(l, b.succeeded),
+	);
 
-const prepare = (ledger: Ledger, r: Rewrite): ResultAsync<Result<Prepared>[]> =>
-	getFile(ledger, r.key)
-		.andThen((file) =>
-			withContext('config')((c) => r.write(c.ledger, file)).map((content) => ({
-				file,
-				content,
-				primary: r.primary,
-			})),
-		)
-		.map((p) => [ok(p)])
-		.orElse((e) => okAsync([err(e)]));
+const prepare = (ledger: Ledger, r: Rewrite): ResultAsync<Prepared> =>
+	readFile({ ledger, key: r.key }).andThen((file) =>
+		withContext('config')((c) => r.write(c.ledger, file)).map((content) => ({
+			file,
+			content,
+			primary: r.primary,
+		})),
+	);
 
 const writeAll = (ledger: Ledger, prepared: Prepared[]): ResultAsync<RupeeError[]> =>
-	sequence(
+	inOrder(
 		prepared
 			.toSorted((a, b) => Number(b.primary) - Number(a.primary))
-			.map((p) => () => write(ledger, p).map((): RupeeError[] => [])),
-	).orElse((e) => ok([e]));
+			.map((p) => () => write(ledger, p)),
+	)
+		.map((): RupeeError[] => [])
+		.orElse((e) => ok([e]));
 
 const write = (l: Ledger, p: Prepared): ResultAsync<RupeeFile> =>
 	p.content === p.file.content
 		? okAsync(p.file)
 		: editFile({ ledger: l, key: p.file.key, content: p.content, version: p.file.version });
 
-const byEvent = (transactions: IndexedTransaction[]): FileEvent[] => {
+const byEvent = (transactions: DB.IndexedTransaction[]): FileEvent[] => {
 	const members = counted(transactions).transactions.flatMap((t) =>
 		linksOf(t.metadata).map((l) => ({ event: l.event, member: { ...t, role: l.role } })),
 	);

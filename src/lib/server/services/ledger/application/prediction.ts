@@ -1,9 +1,7 @@
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { withLogger } from '#lib/server/shared/context/logger.ts';
 import { okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import type { Ledger } from './ledger';
-import { syncIndex } from './sync';
-import { history } from '../adapters/prediction';
+import * as DB from '../adapters/database';
 import { embedder, MODEL } from '../adapters/prediction-onnx';
 import {
 	classifier,
@@ -16,12 +14,16 @@ import {
 	type Nearest,
 	type Prediction,
 } from '../domain/prediction';
+import type { Ledger } from './ledger';
+import { syncIndex } from './sync';
 
-export const classify = (
-	embed: Embed,
-	nearest: Nearest,
-	options: ClassifierOptions,
-): ResultAsync<Prediction[]> => {
+type ClassifyOptions = { embed: Embed; nearest: Nearest; options: ClassifierOptions };
+
+export const classify = ({
+	embed,
+	nearest,
+	options,
+}: ClassifyOptions): ResultAsync<Prediction[]> => {
 	const c = classifier(options);
 	return embed(c.texts).andThen((v) => nearest(c.asked(v)).map((n) => c.classify(v, n)));
 };
@@ -35,10 +37,11 @@ type PredictOptions<L extends Line> = {
 export type Predicted<L extends Line> = L & { account: string };
 
 // Every line gets an account, Uncategorized when nothing better is known.
-export const predictAccounts = <L extends Line>(
-	options: PredictOptions<L>,
-): ResultAsync<Predicted<L>[]> => {
-	const { ledger, account, lines } = options;
+export const predictAccounts = <L extends Line>({
+	ledger,
+	account,
+	lines,
+}: PredictOptions<L>): ResultAsync<Predicted<L>[]> => {
 	if (lines.length === 0) return okAsync([]);
 
 	const predicted = (p: Prediction[]) =>
@@ -46,16 +49,20 @@ export const predictAccounts = <L extends Line>(
 
 	return withContext('models')((models) =>
 		withLogger('prediction')((logger) => {
-			const h = history(ledger.id, MODEL);
+			const nearest: Nearest = (v) => DB.findNearest(ledger.id, MODEL, v);
 			return syncIndex(ledger)
-				.andThen(h.accounts)
+				.andThen(() => DB.listAccountNames(ledger.id))
 				.andThen((accounts) =>
-					classify(embedder(models), h.nearest, {
-						thresholds: THRESHOLDS,
-						account,
-						lines,
-						accounts,
-						today: Temporal.Now.plainDateISO(),
+					classify({
+						embed: embedder(models),
+						nearest,
+						options: {
+							thresholds: THRESHOLDS,
+							account,
+							lines,
+							accounts,
+							today: Temporal.Now.plainDateISO(),
+						},
 					}),
 				)
 				.andTee((p) => logger.debug({ account, predictions: p }, 'accounts predicted'))

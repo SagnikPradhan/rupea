@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getAccountNames, getIssues, getPostings } from '#lib/endpoints/transactions.remote.ts';
+	import { listAccountNames, sync, listPostings } from '#lib/endpoints/transactions.remote.ts';
 	import { filterOf, type Filter } from '#lib/shared/filter.ts';
 	import Issues from '#lib/web/components/issues/issues.svelte';
 	import Account from '#lib/web/components/ledger-table/account.svelte';
@@ -19,15 +19,15 @@
 	const handle = $derived(data.ledger.handle);
 	const filter = $derived(filterOf(page.url.searchParams));
 
-	const issues = $derived(await getIssues(handle));
-	const accounts = $derived(await getAccountNames(handle));
+	const issues = $derived(await sync(handle));
+	const accounts = $derived(await listAccountNames(handle));
 	const first = $derived(await firstPage(handle, filter));
-	const list = $derived(paged(first, (after) => getPostings({ handle, day, filter, after })));
+	const list = $derived(paged(first, (after) => listPostings({ handle, day, filter, after })));
 
 	/** The list reads the index, which the issues query brings up to date. */
 	async function firstPage(h: string, f: Filter) {
-		await getIssues(h);
-		return getPostings({ handle: h, day, filter: f, after: null });
+		await sync(h);
+		return listPostings({ handle: h, day, filter: f, after: null });
 	}
 </script>
 

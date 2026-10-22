@@ -1,72 +1,88 @@
 import { withContext } from '#lib/server/shared/context/context.ts';
-import { batchInOrder, type Batch } from '#lib/server/shared/result/batch.ts';
+import { batchAsync, batchInOrder, type Batch } from '#lib/server/shared/result/batch.ts';
 import { ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { index } from '../adapters/database';
+import {
+	readText,
+	writeNumberedText,
+	writeText,
+	type Storage,
+} from '#lib/server/shared/storage/storage.ts';
 import { isCounted } from '#lib/shared/folders.ts';
+import * as DB from '../adapters/database';
+import { format } from '../domain/format';
 import { parse } from '../domain/parser';
 import type { Ledger, RupeeFile, RupeeTransaction } from '../domain/types';
-import { ledgerFiles } from './ledger';
-import { indexFile, settle, unindex, type Indexed } from './sync';
+import { openFolder } from './ledger';
+import { indexFile, listLedgerFiles, settle, unindex, type Indexed } from './sync';
 
 export const listFiles = (l: Ledger): ResultAsync<Batch<RupeeFile>> =>
-	ledgerFiles(l).andThen((f) => f.list());
+	openFolder({ ledger: l, folder: 'files' }).andThen((s) =>
+		listLedgerFiles(s).andThen((l) => batchAsync(l.map((e) => readText(s, e.key)))),
+	);
 
-export const getFile = (l: Ledger, k: string): ResultAsync<RupeeFile> =>
-	ledgerFiles(l).andThen((f) => f.read(k));
+type ReadFileOptions = { ledger: Ledger; key: string };
+
+export const readFile = ({ ledger, key }: ReadFileOptions): ResultAsync<RupeeFile> =>
+	openFolder({ ledger, folder: 'files' }).andThen((s) => readText(s, key));
+
+type FindImportedOptions = { ledger: Ledger; checksums: string[] };
 
 /** Of these statement checksums, those a file was imported from. */
-export const findImported = (l: Ledger, c: string[]): ResultAsync<string[]> =>
-	c.length === 0 ? okAsync([]) : index(l.id).imported(c);
+export const findImported = ({ ledger, checksums }: FindImportedOptions): ResultAsync<string[]> =>
+	checksums.length === 0 ? okAsync([]) : DB.findImported(ledger.id, checksums);
+
+type ParseFileOptions = { key: string; content: string };
 
 /** What a file would hold, without storing it. */
-export const parseFile = (k: string, c: string): Batch<RupeeTransaction> =>
-	withContext('config')((f) => parse(f.ledger, { key: k, content: c }));
+export const parseFile = ({ key, content }: ParseFileOptions): Batch<RupeeTransaction> =>
+	withContext('config')((c) => parse(c.ledger, { key, content }));
 
-type CreateFileOptions = {
-	ledger: Ledger;
-	key: string;
-	content: string;
-};
+type FormatFileOptions = { content: string };
 
-export const createFile = (o: CreateFileOptions): ResultAsync<RupeeFile> =>
-	writeFile({ ...o, ifVersion: null });
+/** Tidies a file's whitespace without saving it. */
+export const formatFile = ({ content }: FormatFileOptions): string => format(content);
+
+type CreateFileOptions = { ledger: Ledger; key: string; content: string };
+
+export const createFile = ({ ledger, key, content }: CreateFileOptions): ResultAsync<RupeeFile> =>
+	writeFile({ ledger, key, content, ifVersion: null });
 
 /** Creates a file, numbering its name when it is taken, as nothing reviewed it yet; the same file twice is kept once. */
 export const importFile = ({ ledger, key, content }: CreateFileOptions): ResultAsync<RupeeFile> =>
-	ledgerFiles(ledger)
-		.andThen((f) => f.writeNumbered(key, content))
-		.andTee((w) => reindex(ledger.id, w));
+	openFolder({ ledger, folder: 'files' })
+		.andThen((s) => writeNumberedText(s, key, content))
+		.andTee((f) => indexAndSettle(ledger.id, f));
 
-type EditFileOptions = CreateFileOptions & {
-	version: string;
-};
+type EditFileOptions = { ledger: Ledger; key: string; content: string; version: string };
 
-export const editFile = (options: EditFileOptions): ResultAsync<RupeeFile> => {
-	const { ledger, key, content, version } = options;
-	return writeFile({ ledger, key, content, ifVersion: version });
-};
+export const editFile = ({
+	ledger,
+	key,
+	content,
+	version,
+}: EditFileOptions): ResultAsync<RupeeFile> =>
+	writeFile({ ledger, key, content, ifVersion: version });
 
-type Move = {
-	from: string;
-	to: string;
-};
+type Move = { from: string; to: string };
+
+type RenameFilesOptions = { ledger: Ledger; moves: Move[] };
 
 /** Moves each file on its own, so a name already taken skips only that file. */
-export const renameFiles = (l: Ledger, moves: Move[]): ResultAsync<Batch<RupeeFile>> =>
-	ledgerFiles(l).andThen((f) =>
+export const renameFiles = ({ ledger, moves }: RenameFilesOptions): ResultAsync<Batch<RupeeFile>> =>
+	openFolder({ ledger, folder: 'files' }).andThen((storage) =>
 		changeEach(
-			l.id,
-			moves.map(
-				(m) => () => f.rename(m.from, m.to).andThen((r) => indexed(r, indexMove(l.id, m, r))),
-			),
+			ledger.id,
+			moves.map((m) => () => moveFile(storage, ledger.id, m)),
 		),
 	);
 
-export const deleteFiles = (l: Ledger, keys: string[]): ResultAsync<Batch<string>> =>
-	ledgerFiles(l).andThen((f) =>
+type DeleteFilesOptions = { ledger: Ledger; keys: string[] };
+
+export const deleteFiles = ({ ledger, keys }: DeleteFilesOptions): ResultAsync<Batch<string>> =>
+	openFolder({ ledger, folder: 'files' }).andThen((storage) =>
 		changeEach(
-			l.id,
-			keys.map((k) => () => f.delete(k).andThen(() => indexed(k, unindex(l.id, k)))),
+			ledger.id,
+			keys.map((k) => () => deleteFile(storage, ledger.id, k)),
 		),
 	);
 
@@ -78,14 +94,33 @@ type WriteFileOptions = {
 };
 
 // If indexing fails, the next sync picks the file up.
-const writeFile = (options: WriteFileOptions): ResultAsync<RupeeFile> => {
-	const { ledger, key, content, ifVersion } = options;
-	return ledgerFiles(ledger)
-		.andThen((f) => f.write({ key, content, ifVersion }))
-		.andTee((w) => reindex(ledger.id, w));
-};
+const writeFile = ({ ledger, key, content, ifVersion }: WriteFileOptions): ResultAsync<RupeeFile> =>
+	openFolder({ ledger, folder: 'files' })
+		.andThen((s) => writeText(s, { key, content, ifVersion }))
+		.andTee((f) => indexAndSettle(ledger.id, f));
 
-const reindex = (id: string, f: RupeeFile) => indexFile(id, f).andThen((i) => settle(id, i));
+const indexAndSettle = (id: string, f: RupeeFile) =>
+	indexFile({ ledgerId: id, file: f }).andThen((i) => settle({ ledgerId: id, indexed: i }));
+
+// A move between counted and review folders changes what the file counts, so
+// it is indexed again; otherwise only its key changes.
+const moveFile = (storage: Storage, ledgerId: string, { from, to }: Move) =>
+	storage
+		.rename(from, to)
+		.andThen(() => readText(storage, to))
+		.andThen((file) =>
+			indexed(
+				file,
+				DB.renameIndexedFile(ledgerId, from, to).andThen((t) =>
+					isCounted(from) === isCounted(to)
+						? okAsync({ failed: [], touched: t })
+						: indexFile({ ledgerId, file }),
+				),
+			),
+		);
+
+const deleteFile = (s: Storage, id: string, k: string) =>
+	s.delete(k).andThen(() => indexed(k, unindex({ ledgerId: id, key: k })));
 
 type Changed<T> = { value: T; indexed: Indexed };
 
@@ -93,23 +128,14 @@ type Changed<T> = { value: T; indexed: Indexed };
 const indexed = <T>(v: T, i: ResultAsync<Indexed>): ResultAsync<Changed<T>> =>
 	i.orElse((e) => ok({ failed: [e], touched: [] })).map((x) => ({ value: v, indexed: x }));
 
-const indexMove = (id: string, m: Move, r: RupeeFile): ResultAsync<Indexed> =>
-	index(id)
-		.rename(m.from, m.to)
-		.andThen((t) =>
-			isCounted(m.from) === isCounted(m.to)
-				? okAsync({ failed: [], touched: t })
-				: indexFile(id, r),
-		);
-
 // One file at a time, since embedded Postgres has one connection, and
 // settled once for them all.
-const changeEach = <T>(id: string, steps: (() => ResultAsync<Changed<T>>)[]) =>
+const changeEach = <T>(ledgerId: string, steps: (() => ResultAsync<Changed<T>>)[]) =>
 	batchInOrder(steps).andThen((b) => {
 		const changed = b.succeeded;
 		const failed = [...b.failed, ...changed.flatMap((c) => c.indexed.failed)];
 		const touched = changed.flatMap((c) => c.indexed.touched);
-		return settle(id, { failed, touched }).map((f) => ({
+		return settle({ ledgerId, indexed: { failed, touched } }).map((f) => ({
 			succeeded: changed.map((c) => c.value),
 			failed: f,
 		}));

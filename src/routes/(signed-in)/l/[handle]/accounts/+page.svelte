@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getAccounts } from '#lib/endpoints/accounts.remote.ts';
+	import { listAccounts } from '#lib/endpoints/accounts.remote.ts';
 	import Issues from '#lib/web/components/issues/issues.svelte';
 	import Amount from '#lib/web/components/ledger-table/amount.svelte';
 	import LedgerTable from '#lib/web/components/ledger-table/ledger-table.svelte';
@@ -22,7 +22,7 @@
 
 	const handle = $derived(data.ledger.handle);
 	const day = formatIsoDate(new Date());
-	const response = $derived(await getAccounts({ handle, day }));
+	const response = $derived(await listAccounts({ handle, day }));
 	const trees = $derived(
 		Object.values(Object.groupBy(response.data ?? [], (a) => a.account.split(':')[0] ?? '')),
 	);

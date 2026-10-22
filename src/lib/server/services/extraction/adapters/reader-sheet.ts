@@ -1,6 +1,6 @@
 import { safely } from '#lib/server/shared/control.ts';
 import { fault, unknownError } from '#lib/server/shared/result/error.ts';
-import { attemptWith, errAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
+import { attempt, errAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import officeCrypto from 'officecrypto-tool';
 import { parse } from 'csv-parse/sync';
 import * as XLSX from 'xlsx';
@@ -15,13 +15,13 @@ type SheetOptions = {
 };
 
 export const readCsv = (o: SheetOptions): ResultAsync<Contents> =>
-	attemptWith({
-		try: async () => ({
+	attempt(
+		async () => ({
 			grid: parse(Buffer.from(o.content), { bom: true, relax_column_count: true }),
 			text: [],
 		}),
-		catch: (t) => unreadable(o.name, 'not a readable statement', t),
-	});
+		(t) => unreadable(o.name, 'not a readable statement', t),
+	);
 
 /** An .xls, which banks also send as HTML or text; SheetJS reads whichever it is. */
 export const readXls = (o: SheetOptions): ResultAsync<Contents> => {
@@ -45,10 +45,10 @@ type UnlockOptions = {
 };
 
 export const unlockSheet = (o: UnlockOptions): ResultAsync<Uint8Array> =>
-	attemptWith({
-		try: () => officeCrypto.decrypt(Buffer.from(o.content), { password: o.password }),
-		catch: () => fault('ExtractionLocked', { path: o.name }),
-	}).map((b) => new Uint8Array(b));
+	attempt(
+		() => officeCrypto.decrypt(Buffer.from(o.content), { password: o.password }),
+		() => fault('ExtractionLocked', { path: o.name }),
+	).map((b) => new Uint8Array(b));
 
 // Throws on anything too small to be an encrypted Office file.
 const isEncrypted = (c: Uint8Array) =>
@@ -56,8 +56,8 @@ const isEncrypted = (c: Uint8Array) =>
 
 // A sheet's every cell is in its grid, so no text is left outside it.
 const readFirstSheet = (o: SheetOptions): ResultAsync<Contents> =>
-	attemptWith({
-		try: async () => {
+	attempt(
+		async () => {
 			const book = XLSX.read(o.content, {
 				type: 'buffer',
 				cellDates: true,
@@ -67,8 +67,8 @@ const readFirstSheet = (o: SheetOptions): ResultAsync<Contents> =>
 			const sheet = book.Sheets[book.SheetNames[0] ?? ''];
 			return { grid: sheet ? rows(sheet) : [], text: [] };
 		},
-		catch: (t) => unreadable(o.name, 'not a readable statement', t),
-	});
+		(t) => unreadable(o.name, 'not a readable statement', t),
+	);
 
 const rows = (sheet: XLSX.WorkSheet): Grid =>
 	XLSX.utils

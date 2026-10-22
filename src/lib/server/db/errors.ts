@@ -1,13 +1,12 @@
 import { fault, unknownError, type RupeeError } from '../shared/result/error';
-import { attemptWith, type ResultAsync } from '../shared/result/result';
+import { attempt, type ResultAsync } from '../shared/result/result';
 
 const UNIQUE_VIOLATION = '23505';
 
 type DriverError = Error & { code?: string; constraint?: string };
 
 /** Like `attempt`, but a write that breaks a unique constraint fails with `UniqueViolation`. */
-export const attemptWrite = <T>(f: () => PromiseLike<T>): ResultAsync<T> =>
-	attemptWith({ try: f, catch: fromDriver });
+export const attemptWrite = <T>(f: () => PromiseLike<T>): ResultAsync<T> => attempt(f, fromDriver);
 
 export const violates = (e: RupeeError, c: string): boolean =>
 	e.type === 'UniqueViolation' && e.constraint === c;

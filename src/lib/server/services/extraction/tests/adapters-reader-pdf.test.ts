@@ -15,7 +15,7 @@ const models = files.every(({ file }) => existsSync(join('data/models', file)));
 const plain = () => readFile(join(import.meta.dirname, 'fixtures/sbi-savings.pdf'));
 
 const locked = async () => {
-	const document = await PDFDocument.load(await plain());
+	const document = await plain().then((b) => PDFDocument.load(b));
 	document.encrypt({ userPassword: 'secret', ownerPassword: 'secret' });
 	return document.save();
 };

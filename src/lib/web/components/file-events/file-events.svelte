@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getEvents, makePrimary, renameEvent } from '#lib/endpoints/refinement.remote.ts';
+	import { listEvents, makePrimary, renameEvent } from '#lib/endpoints/refinement.remote.ts';
 	import type { RupeeError } from '#lib/server/shared/result/error.ts';
 	import type { Reply } from '#lib/server/shared/result/reply.ts';
 
@@ -13,7 +13,7 @@
 
 	const { handle, file, locked, onchanged }: Props = $props();
 
-	const response = $derived(await getEvents({ handle, file }));
+	const response = $derived(await listEvents({ handle, file }));
 	const failures = $state({ list: [] as RupeeError[] });
 
 	const describe = (error: RupeeError) =>

@@ -1,12 +1,8 @@
 import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
 import { parseAmount, type Amount } from '#services/ledger/domain/amounts.ts';
 import { parse } from '#services/ledger/domain/parser.ts';
-import { print, viewTransaction } from '#services/ledger/domain/printer.ts';
-import {
-	PriceKind,
-	type RupeeLedgerFile,
-	type RupeeTransaction,
-} from '#services/ledger/domain/types.ts';
+import { print } from '#services/ledger/domain/printer.ts';
+import type { RupeeLedgerFile, RupeeTransaction } from '#services/ledger/domain/types.ts';
 import { describe, expect, it } from 'vitest';
 
 const amount = (t: string) => parseAmount(t) as Amount;
@@ -286,64 +282,5 @@ describe('printing a ledger', () => {
 
 	it('writes nothing for no transactions', () => {
 		expect(print(defaultConfiguration.ledger, ledger([]))).toBe('');
-	});
-});
-
-describe('viewing a transaction', () => {
-	const transaction: RupeeTransaction = {
-		location: { file: 'bank.rupee', line: 12 },
-		date: Temporal.PlainDate.from('2026-08-29'),
-		time: Temporal.PlainTime.from('18:45:30'),
-		description: 'Bought shares',
-		metadata: {},
-		postings: [
-			{
-				account: 'Assets:Broker',
-				amount: amount('10'),
-				commodity: 'INFY',
-				price: { kind: PriceKind.Unit, amount: amount('1500.125'), commodity: 'INR' },
-				cost: null,
-				balance: null,
-				metadata: {},
-			},
-			{
-				account: 'Assets:Bank',
-				amount: amount('-15001.25'),
-				commodity: 'INR',
-				price: null,
-				cost: null,
-				balance: null,
-				metadata: {},
-			},
-		],
-	};
-
-	it('flattens it into plain text for the page', () => {
-		expect(viewTransaction(transaction)).toEqual({
-			file: 'bank.rupee',
-			line: 12,
-			date: '2026-08-29',
-			time: '18:45',
-			description: 'Bought shares',
-			postings: [
-				{ account: 'Assets:Broker', quantity: '10.00 INFY @ 1500.125' },
-				{ account: 'Assets:Bank', quantity: '-15001.25' },
-			],
-		});
-	});
-
-	it('shows a total price with @@', () => {
-		const [first] = transaction.postings;
-		const priced = {
-			...transaction,
-			postings: [
-				{ ...first!, price: { kind: PriceKind.Total, amount: amount('5'), commodity: 'USD' } },
-			],
-		};
-		expect(viewTransaction(priced).postings[0]?.quantity).toBe('10.00 INFY @@ 5.00 USD');
-	});
-
-	it('leaves an untimed transaction without a time', () => {
-		expect(viewTransaction({ ...transaction, time: null }).time).toBeNull();
 	});
 });

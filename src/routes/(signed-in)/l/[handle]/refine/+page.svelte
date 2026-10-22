@@ -1,9 +1,9 @@
 <script lang="ts">
-	import { getFiles } from '#lib/endpoints/files.remote.ts';
+	import { listFiles } from '#lib/endpoints/files.remote.ts';
 	import {
-		acceptSuggestions,
+		linkEvents,
 		dismissSuggestion,
-		getSuggestions,
+		listSuggestions,
 	} from '#lib/endpoints/refinement.remote.ts';
 	import type { RupeeError } from '#lib/server/shared/result/error.ts';
 	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
@@ -11,7 +11,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 
-	type Suggestion = NonNullable<Awaited<ReturnType<typeof getSuggestions>>['data']>[number];
+	type Suggestion = NonNullable<Awaited<ReturnType<typeof listSuggestions>>['data']>[number];
 
 	const KEYS: Record<string, string> = { primary: 'event', evidence: 'same-as' };
 
@@ -20,8 +20,8 @@
 	const handle = $derived(data.ledger.handle);
 	const file = $derived(page.url.searchParams.get('file'));
 
-	const files = $derived(await getFiles(handle));
-	const response = $derived(file === null ? null : await getSuggestions({ handle, file }));
+	const files = $derived(await listFiles(handle));
+	const response = $derived(file === null ? null : await listSuggestions({ handle, file }));
 	const suggestions = $derived(response?.data ?? []);
 	const duplicates = $derived(suggestions.filter((s) => s.confidence === 'duplicate'));
 
@@ -44,7 +44,7 @@
 		s.flatMap((x) => links(x).map((l) => ({ ...l, event: x.event ?? '' })));
 
 	async function accept(s: Suggestion[]) {
-		const accepted = await acceptSuggestions({ handle, edits: edits(s) });
+		const accepted = await linkEvents({ handle, edits: edits(s) });
 		failures.list = [...accepted.errors, ...(accepted.data ?? [])];
 	}
 

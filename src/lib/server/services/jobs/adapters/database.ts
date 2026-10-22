@@ -23,7 +23,7 @@ type NewJob = {
 };
 
 /** Queues a job unless a copy waits. */
-export const insertJob = (j: NewJob): ResultAsync<void> =>
+export const createJob = (j: NewJob): ResultAsync<void> =>
 	withContext('db')((db) =>
 		attempt(async () => {
 			await db
@@ -44,7 +44,7 @@ export type UserJob = {
 	createdAt: Date;
 };
 
-type FindJobsOptions = {
+type ListJobsOptions = {
 	userId: string;
 	name: string;
 	/** Fields the payload holds, such as the ledger it ran in. */
@@ -53,7 +53,7 @@ type FindJobsOptions = {
 };
 
 /** A user's latest jobs of one name, newest first. */
-export const findJobs = (o: FindJobsOptions): ResultAsync<UserJob[]> =>
+export const listJobs = (o: ListJobsOptions): ResultAsync<UserJob[]> =>
 	withContext('db')((db) =>
 		attempt(() =>
 			db
@@ -131,7 +131,7 @@ export const retryJob = (r: Run, error: RupeeError, delay: number): ResultAsync<
 	);
 };
 
-export const findExpired = (limit: number): ResultAsync<Run[]> =>
+export const listExpired = (limit: number): ResultAsync<Run[]> =>
 	withContext('db')((db) =>
 		attempt(() =>
 			db

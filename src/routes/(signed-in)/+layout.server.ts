@@ -6,7 +6,7 @@ export const load: LayoutServerLoad = async ({ locals }) => {
 	const user = locals.user;
 	if (!user) redirect(303, '/sign-in');
 
-	const ledgers = await Ledger.listLedgers(user.id);
+	const ledgers = await Ledger.listLedgers({ user: user.id });
 	return {
 		ledgers: ledgers.match(
 			(l) => l.map((x) => ({ handle: x.handle, name: x.name, owned: x.owner === user.id })),

@@ -4,7 +4,7 @@ import { visit } from './visit.ts';
 
 export const signIn = async (page: Page, server: Server, email: string) => {
 	await requestCodeFor(page, email);
-	await page.getByLabel('Code').fill(await server.codeFor(email));
+	await server.codeFor(email).then((c) => page.getByLabel('Code').fill(c));
 	await page.getByRole('button', { name: 'Sign in' }).click();
 	await page.waitForURL((url) => url.pathname !== '/sign-in');
 };

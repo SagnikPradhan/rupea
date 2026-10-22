@@ -13,5 +13,9 @@ export const importStatement: Job<v.InferOutput<typeof ImportPayload>> = {
 	partition: (p) => p.ledger,
 	dedupe: (p) => `${p.ledger}:${p.checksum}`,
 	run: (p, u) =>
-		withLedger({ user: u, handle: p.ledger, action: (l) => importLedgerFile(l, p.checksum) }),
+		withLedger({
+			user: u,
+			handle: p.ledger,
+			action: (l) => importLedgerFile({ ledger: l, checksum: p.checksum }),
+		}),
 };

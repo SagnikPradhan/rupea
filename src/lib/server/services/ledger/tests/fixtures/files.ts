@@ -1,6 +1,7 @@
 import { scoped, type Storage } from '#lib/server/shared/storage/storage.ts';
-import { index } from '#services/ledger/adapters/database.ts';
+import { listAllTransactions } from '#services/ledger/adapters/database-transactions.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
+import * as Sync from '#services/ledger/application/sync.ts';
 import * as Transactions from '#services/ledger/application/transactions.ts';
 
 export const groceries = '2026-08-29 Groceries\n\tExpenses:Food 100.5\n\tAssets:Bank\n';
@@ -17,7 +18,7 @@ export const put = (storage: Storage, ledger: Ledger, key: string, text: string)
 	});
 
 export const summary = async (ledgerId: string) => {
-	const indexed = await index(ledgerId).transactions();
+	const indexed = await listAllTransactions(ledgerId);
 	return indexed.isOk()
 		? indexed.value.map(
 				({ location, description }) => `${location.file}:${location.line} ${description}`,
@@ -38,3 +39,6 @@ export const listed = async (l: Ledger) =>
 	(
 		await Transactions.listTransactions({ ledger: l, filter: everything, after: null })
 	)._unsafeUnwrap().rows;
+
+/** What a sync reports wrong with the ledger. */
+export const issues = (l: Ledger) => Sync.sync(l).map((b) => b.failed);

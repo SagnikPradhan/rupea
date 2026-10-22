@@ -1,19 +1,19 @@
 <script lang="ts">
 	import {
-		getImports,
-		getInbox,
+		listImports,
+		listInbox,
 		importStatement,
-		openStatement,
+		readStatement,
 		previewStatement,
 		recogniseStatement,
 		unlockStatement,
 		uploadStatements,
 	} from '#lib/endpoints/import.remote.ts';
-	import { getFiles } from '#lib/endpoints/files.remote.ts';
+	import { listFiles } from '#lib/endpoints/files.remote.ts';
 	import {
 		deleteSchema,
-		getSchema,
-		getSchemas,
+		readSchema,
+		listSchemas,
 		saveSchema,
 	} from '#lib/endpoints/schemas.remote.ts';
 	import type { RupeeError } from '#lib/server/shared/result/error.ts';
@@ -48,9 +48,9 @@ fields:
 	const { data } = $props();
 
 	const handle = $derived(data.ledger.handle);
-	const schemas = $derived(await getSchemas(handle));
-	const inbox = $derived(await getInbox(handle));
-	const imports = $derived(await getImports(handle));
+	const schemas = $derived(await listSchemas(handle));
+	const inbox = $derived(await listInbox(handle));
+	const imports = $derived(await listImports(handle));
 	const running = $derived(
 		(imports.data ?? []).some((j) => j.status === 'queued' || j.status === 'running'),
 	);
@@ -128,7 +128,7 @@ fields:
 	}
 
 	async function open(key: string) {
-		const schema = await getSchema({ handle, key });
+		const schema = await readSchema({ handle, key });
 		Object.assign(editor, { errors: schema.errors, saved: false });
 		if (schema.data) Object.assign(editor, { key, content: schema.data.content });
 		await apply(0);
@@ -157,18 +157,17 @@ fields:
 	// One statement uploaded alone opens at once, even one read before.
 	async function readSingle(uploaded: { key: string; queued: boolean }[]) {
 		const single = uploaded.length === 1 ? uploaded[0] : undefined;
-		if (single && !single.queued)
-			await show(await openStatement({ handle, statement: single.key }));
+		if (single && !single.queued) await readStatement({ handle, statement: single.key }).then(show);
 	}
 
 	// Imports run as jobs; poll them until none is left to run, then list the files they made.
 	$effect(() => {
 		if (!running) return;
 
-		const timer = setInterval(() => void getImports(handle).refresh(), 2000);
+		const timer = setInterval(() => void listImports(handle).refresh(), 2000);
 		return () => {
 			clearInterval(timer);
-			void getFiles(handle).refresh();
+			void listFiles(handle).refresh();
 		};
 	});
 </script>
@@ -223,7 +222,7 @@ fields:
 	<ul>
 		{#each inbox.data ?? [] as row (row.key)}
 			<li>
-				<button onclick={async () => show(await openStatement({ handle, statement: row.key }))}>
+				<button onclick={() => readStatement({ handle, statement: row.key }).then(show)}>
 					{row.key}
 				</button>
 			</li>
@@ -332,14 +331,14 @@ fields:
 				{#each preview.result.errors as error, index (index)}
 					<p role="alert">{describe(error)}</p>
 				{/each}
-				<p>{preview.result.data?.transactions.length ?? 0} transactions</p>
+				<p>{preview.result.data?.length ?? 0} transactions</p>
 				<div class="sheet">
 					<table aria-label="Draft">
 						<thead>
 							<tr><th>Line</th><th>Date</th><th>Description</th><th>Postings</th></tr>
 						</thead>
 						<tbody>
-							{#each preview.result.data?.transactions ?? [] as transaction (transaction.line)}
+							{#each preview.result.data ?? [] as transaction (transaction.line)}
 								<tr>
 									<td>{transaction.line}</td>
 									<td>{transaction.date} {transaction.time ?? ''}</td>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getWorth } from '#lib/endpoints/accounts.remote.ts';
+	import { listWorth } from '#lib/endpoints/accounts.remote.ts';
 	import { Range } from '#lib/shared/dates.ts';
 	import LineChart from '#lib/web/components/line-chart/line-chart.svelte';
 	import RangePicker from '#lib/web/components/range-picker/range-picker.svelte';
@@ -17,7 +17,7 @@
 
 	const range = $derived(v.parse(v.fallback(Range, 'ytd'), page.url.searchParams.get('range')));
 	const day = formatIsoDate(new Date());
-	const worth = $derived((await getWorth({ handle, range, day })).data ?? []);
+	const worth = $derived(await listWorth({ handle, range, day }).then((r) => r.data ?? []));
 
 	const first = $derived(worth[0]);
 	const last = $derived(worth.at(-1));

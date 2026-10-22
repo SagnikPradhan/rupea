@@ -6,7 +6,3 @@ export const safely = <T>(run: () => T): T | undefined => {
 		return undefined;
 	}
 };
-
-export const inOrder = async (l: (() => Promise<unknown>)[]): Promise<void> => {
-	for (const f of l) await f();
-};

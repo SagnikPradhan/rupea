@@ -11,9 +11,9 @@ const Email = v.pipe(
 );
 
 /** Returns the normalised email so the code step can carry it. */
-export const requestCode = form(v.object({ email: Email }), async ({ email }) => {
-	return replyFrom(await Auth.requestCode(email).map(() => ({ email })));
-});
+export const requestCode = form(v.object({ email: Email }), ({ email }) =>
+	replyFrom(Auth.requestCode(email).map(() => ({ email }))),
+);
 
 export const verifyCode = form(
 	v.object({
@@ -21,7 +21,7 @@ export const verifyCode = form(
 		code: v.pipe(v.string(), v.trim(), v.regex(/^\d{6}$/, 'The code is 6 digits.')),
 	}),
 	async ({ email, code }) => {
-		const signedIn = await Auth.signIn(email, code);
+		const signedIn = await Auth.signIn({ email, code });
 		if (signedIn.isErr() && signedIn.error.type === 'AuthInvalidCode')
 			invalid({
 				message: 'That code is wrong or has expired.',

@@ -55,7 +55,7 @@ const later = (ms: number) => vi.setSystemTime(Date.now() + ms);
 const signIn = (context: RupeeContext, email: string) => {
 	const mail = inbox();
 	return provide({ ...signup(context, 'open'), mailer: mail.mailer }, () =>
-		Auth.requestCode(email).andThen(() => Auth.signIn(email, codeIn(mail.sent[0]))),
+		Auth.requestCode(email).andThen(() => Auth.signIn({ email, code: codeIn(mail.sent[0]) })),
 	);
 };
 
@@ -141,7 +141,7 @@ describe('signing in', () => {
 			const user = (await DB.findUserByEmail('fresh@example.com'))._unsafeUnwrap();
 
 			expect(isHandle(user?.username ?? '')).toBe(true);
-			expect(await Ledger.listLedgers(user?.id ?? '')).toMatchObject(
+			expect(await Ledger.listLedgers({ user: user?.id ?? '' })).toMatchObject(
 				ok([{ name: 'Personal', owner: user?.id }]),
 			);
 		}));
@@ -154,7 +154,10 @@ describe('signing in', () => {
 				Auth.requestCode('member@example.com'),
 			);
 
-			const signedIn = await Auth.signIn('member@example.com', codeIn(mail.sent[0]));
+			const signedIn = await Auth.signIn({
+				email: 'member@example.com',
+				code: codeIn(mail.sent[0]),
+			});
 
 			expect(signedIn.isOk()).toBe(true);
 			expect(request.cookies.has('session')).toBe(true);
@@ -169,8 +172,8 @@ describe('signing in', () => {
 			const code = codeIn(mail.sent[0]);
 			const wrong = code === '000000' ? '000001' : '000000';
 
-			const guessed = await Auth.signIn('guess@example.com', wrong);
-			const retried = await Auth.signIn('guess@example.com', code);
+			const guessed = await Auth.signIn({ email: 'guess@example.com', code: wrong });
+			const retried = await Auth.signIn({ email: 'guess@example.com', code });
 
 			expect(guessed._unsafeUnwrapErr().type).toBe('AuthInvalidCode');
 			expect(retried._unsafeUnwrapErr().type).toBe('AuthInvalidCode');
@@ -185,7 +188,7 @@ describe('signing in', () => {
 			);
 			later(10 * MINUTE + 1);
 
-			const signedIn = await Auth.signIn('slow@example.com', codeIn(mail.sent[0]));
+			const signedIn = await Auth.signIn({ email: 'slow@example.com', code: codeIn(mail.sent[0]) });
 
 			expect(signedIn._unsafeUnwrapErr().type).toBe('AuthInvalidCode');
 		}));
@@ -198,7 +201,7 @@ describe('signing in', () => {
 				Auth.requestCode('late@example.com'),
 			);
 
-			const signedIn = await Auth.signIn('late@example.com', codeIn(mail.sent[0]));
+			const signedIn = await Auth.signIn({ email: 'late@example.com', code: codeIn(mail.sent[0]) });
 
 			expect(signedIn._unsafeUnwrapErr().type).toBe('AuthInvalidCode');
 			expect((await DB.findUserByEmail('late@example.com')).unwrapOr(undefined)).toBeNull();

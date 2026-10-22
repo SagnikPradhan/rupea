@@ -1,58 +1,84 @@
-import { ok, type Result, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { replyFrom, replyFromBatch } from '#lib/server/shared/result/reply.ts';
+import { ok } from '#lib/server/shared/result/result.ts';
 import * as Auth from '#services/auth/application/auth.ts';
 import * as Files from '#services/ledger/application/files.ts';
-import * as Ledger from '#services/ledger/application/ledger.ts';
-import { format } from '#services/ledger/application/shared.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
 import { Handle, inLedger, Key } from './shared';
-import { getIssues } from './transactions.remote';
+import { sync } from './transactions.remote';
+import { viewTransaction } from './views';
 
-export const getFiles = query(Handle, async (h) =>
-	replyFromBatch(await inLedger({ handle: h, action: Files.listFiles })),
+export const listFiles = query(Handle, (h) =>
+	replyFromBatch(inLedger({ handle: h, action: Files.listFiles })),
 );
 
 /** A command, not a query: never cached, as the file may change behind the app's back. */
-export const readFile = command(v.object({ handle: Handle, key: Key }), async ({ handle, key }) =>
-	replyFrom(await inLedger({ handle, action: (l) => Files.getFile(l, key) })),
+export const readFile = command(v.object({ handle: Handle, key: Key }), ({ handle, key }) =>
+	replyFrom(inLedger({ handle, action: (l) => Files.readFile({ ledger: l, key }) })),
 );
 
 /** Tidies a draft's whitespace without saving it. */
-export const formatDraft = command(v.object({ content: v.string() }), async ({ content }) =>
-	replyFrom(await Auth.withCurrentUser(() => ok(format(content)))),
+export const formatFile = command(v.object({ content: v.string() }), ({ content }) =>
+	replyFrom(Auth.withCurrentUser(() => ok(Files.formatFile({ content })))),
 );
 
-const mutate = async <T>(
-	handle: string,
-	run: (ledger: Ledger.Ledger) => ResultAsync<T>,
-): Promise<Result<T>> => {
-	const result = await inLedger({ handle, action: run });
-	void getFiles(handle).refresh();
-	void getIssues(handle).refresh();
-	return result;
-};
+export const parseFile = command(v.object({ key: Key, content: v.string() }), ({ key, content }) =>
+	replyFromBatch(
+		Auth.withCurrentUser(() => ok(Files.parseFile({ key, content }))).map((b) => ({
+			...b,
+			succeeded: b.succeeded.map(viewTransaction),
+		})),
+	),
+);
 
 export const createFile = command(
 	v.object({ handle: Handle, key: Key, content: v.string() }),
-	async ({ handle, key, content }) =>
-		replyFrom(await mutate(handle, (l) => Files.createFile({ ledger: l, key, content }))),
+	async ({ handle, key, content }) => {
+		const created = await inLedger({
+			handle,
+			action: (l) => Files.createFile({ ledger: l, key, content }),
+		});
+		void listFiles(handle).refresh();
+		void sync(handle).refresh();
+		return replyFrom(created);
+	},
 );
 
 export const editFile = command(
 	v.object({ handle: Handle, key: Key, content: v.string(), version: v.string() }),
-	async ({ handle, key, content, version }) =>
-		replyFrom(await mutate(handle, (l) => Files.editFile({ ledger: l, key, content, version }))),
+	async ({ handle, key, content, version }) => {
+		const edited = await inLedger({
+			handle,
+			action: (l) => Files.editFile({ ledger: l, key, content, version }),
+		});
+		void listFiles(handle).refresh();
+		void sync(handle).refresh();
+		return replyFrom(edited);
+	},
 );
 
 export const renameFiles = command(
 	v.object({ handle: Handle, moves: v.array(v.object({ from: Key, to: Key })) }),
-	async ({ handle, moves }) =>
-		replyFromBatch(await mutate(handle, (l) => Files.renameFiles(l, moves))),
+	async ({ handle, moves }) => {
+		const renamed = await inLedger({
+			handle,
+			action: (l) => Files.renameFiles({ ledger: l, moves }),
+		});
+		void listFiles(handle).refresh();
+		void sync(handle).refresh();
+		return replyFromBatch(renamed);
+	},
 );
 
 export const deleteFiles = command(
 	v.object({ handle: Handle, keys: v.array(Key) }),
-	async ({ handle, keys }) =>
-		replyFromBatch(await mutate(handle, (l) => Files.deleteFiles(l, keys))),
+	async ({ handle, keys }) => {
+		const deleted = await inLedger({
+			handle,
+			action: (l) => Files.deleteFiles({ ledger: l, keys }),
+		});
+		void listFiles(handle).refresh();
+		void sync(handle).refresh();
+		return replyFromBatch(deleted);
+	},
 );

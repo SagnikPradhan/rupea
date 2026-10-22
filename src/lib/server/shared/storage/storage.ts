@@ -1,6 +1,10 @@
 import { extname } from 'node:path';
+import { safely } from '../control';
 import { fault } from '../result/error';
 import { err, ok, type Result, type ResultAsync } from '../result/result';
+
+const decoder = new TextDecoder('utf-8', { fatal: true });
+const encoder = new TextEncoder();
 
 export enum StorageKind {
 	Local = 'local',
@@ -27,6 +31,21 @@ export interface Storage {
 	delete(key: string): ResultAsync<void>;
 	rename(from: string, to: string): ResultAsync<Entry>;
 }
+
+/** A stored file read as UTF-8 text. */
+export type TextFile = {
+	key: string;
+	size: number;
+	modified: Date;
+	version: string;
+	content: string;
+};
+
+type WriteTextOptions = {
+	key: string;
+	content: string;
+	ifVersion?: string | null;
+};
 
 // Opens a user's storage of each kind.
 export type Storages = Record<StorageKind, (userId: string) => Storage>;
@@ -55,6 +74,26 @@ export const scoped = (storage: Storage, prefix: string): Storage => {
 		rename: (r, o) => checked(r, (f) => checked(o, (t) => storage.rename(f, t).map(outer))),
 	};
 };
+
+export const readText = (storage: Storage, key: string): ResultAsync<TextFile> =>
+	storage
+		.read(key)
+		.mapErr((e) =>
+			fault('CannotReadFile', { path: key, reason: 'failed to read file', cause: [e] }),
+		)
+		.andThen(({ entry, content }) => {
+			const text = safely(() => decoder.decode(content));
+			return text === undefined
+				? err(fault('CannotReadFile', { path: key, reason: 'not valid UTF-8' }))
+				: ok({ ...entry, content: text });
+		});
+
+export const writeText = (s: Storage, o: WriteTextOptions): ResultAsync<TextFile> =>
+	s.write({ ...o, content: encoder.encode(o.content) }).map((e) => ({ ...e, content: o.content }));
+
+/** Writes text as `writeNumbered` writes bytes. */
+export const writeNumberedText = (s: Storage, k: string, t: string): ResultAsync<TextFile> =>
+	writeNumbered(s, k, encoder.encode(t)).map((e) => ({ ...e, content: t }));
 
 /** Writes a new key, or the first of `name-02.ext`, `name-03.ext` and on that is free or holds this content already, so writing again is harmless. */
 export const writeNumbered = (s: Storage, k: string, c: Uint8Array): ResultAsync<Entry> =>

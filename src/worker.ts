@@ -3,8 +3,7 @@ import { provide } from '#lib/server/shared/context/context.ts';
 import { readConfiguration } from '#lib/server/shared/context/config.ts';
 import { createContext, createDatabase } from '#lib/server/shared/context/environment.ts';
 import type { RupeeError } from '#lib/server/shared/result/error.ts';
-import type { ClaimedJob } from '#services/jobs/application/jobs.ts';
-import { runJob } from '#services/jobs/application/worker.ts';
+import { runJob, type ClaimedJob } from '#services/jobs/application/jobs.ts';
 
 const dev = process.env['NODE_ENV'] === 'development';
 

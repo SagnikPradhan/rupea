@@ -1,10 +1,10 @@
 import { Tokenizer } from '@huggingface/tokenizers';
 import { readFile } from 'node:fs/promises';
 import { InferenceSession, Tensor } from 'onnxruntime-node';
-import { batches } from '../batches';
-import type { Namespace } from '../context/logger';
+import { chunks } from '../arrays';
+import type { Logger, Namespace } from '../context/logger';
 import { fault } from '../result/error';
-import { attempt, err, ok, okAsync, type Result, ResultAsync, sequence } from '../result/result';
+import { attempt, err, ok, okAsync, type Result, ResultAsync, inOrder } from '../result/result';
 import {
 	detections,
 	preprocess,
@@ -15,7 +15,7 @@ import {
 	type Output,
 	type Raster,
 } from './detr';
-import { ensure, prepare, type ModelFile, type ModelOptions } from './download';
+import { ensure, prepare, type ModelFile, type ModelMode } from './download';
 import { encode, inputs, vectors, type EmbeddingModel } from './embedding';
 import { remembering, type Embed } from './remembering';
 
@@ -35,15 +35,25 @@ type EmbedOptions = {
 // Vectors kept per embedding model, about 15 MB at 384 dimensions.
 const REMEMBERED = 10_000;
 
-type CreateModelsOptions = Omit<ModelOptions, 'fetch'> &
-	Partial<Pick<ModelOptions, 'fetch'>> & {
-		directory: string;
-		files: ModelFile[];
-		threads: number;
-	};
+type CreateModelsOptions = {
+	directory: string;
+	files: ModelFile[];
+	threads: number;
+	mode: ModelMode;
+	logger: Logger;
+	fetch?: typeof globalThis.fetch;
+};
+
+/** The models Rupee runs on its own. */
+export type Models = {
+	/** Settles once every model is downloaded and checked. */
+	ready: () => ResultAsync<void>;
+	detect: (options: DetectOptions) => ResultAsync<Detection[]>;
+	embed: (options: EmbedOptions) => ResultAsync<Float32Array[]>;
+};
 
 /** Loads each model on first use. */
-export const createModels = (models: CreateModelsOptions) => {
+export const createModels = (models: CreateModelsOptions): Models => {
 	const { directory, files, threads, mode, logger, fetch = globalThis.fetch } = models;
 	const options = {
 		mode,
@@ -95,15 +105,11 @@ export const createModels = (models: CreateModelsOptions) => {
 	};
 
 	return {
-		/** Settles once every model is downloaded and checked. */
-		ready: (): ResultAsync<void> => ResultAsync.combine(files.map(sure)).map(() => undefined),
-		detect: (o: DetectOptions): ResultAsync<Detection[]> =>
-			session(o.model.source).andThen((l) => detr({ ...o, session: l })),
-		embed: (o: EmbedOptions): ResultAsync<Float32Array[]> => embedder(o.model)(o.texts),
+		ready: () => ResultAsync.combine(files.map(sure)).map(() => undefined),
+		detect: (o) => session(o.model.source).andThen((l) => detr({ ...o, session: l })),
+		embed: (o) => embedder(o.model)(o.texts),
 	};
 };
-
-export type Models = ReturnType<typeof createModels>;
 
 /** Loads once per key; a failed load is forgotten, so the next use tries again. */
 const remembered = <T>(
@@ -139,7 +145,7 @@ const detr = (options: DetrOptions): ResultAsync<Detection[]> => {
 };
 
 const loadTokenizer = (p: string): ResultAsync<Tokenizer> =>
-	attempt(async () => new Tokenizer(JSON.parse(await readFile(p, 'utf8')), {}));
+	attempt(() => readFile(p, 'utf8').then((t) => new Tokenizer(JSON.parse(t), {})));
 
 type EmbedRunOptions = EmbedOptions & { session: InferenceSession; tokenizer: Tokenizer };
 
@@ -159,7 +165,7 @@ const embed = (options: EmbedRunOptions): ResultAsync<Float32Array[]> => {
 		).andThen((o) => output(o, 'last_hidden_state').map((h) => vectors(h, encoded)));
 	};
 
-	return sequence(batches(texts, model.batch).map((b) => () => run(b)));
+	return inOrder(chunks(texts, model.batch).map((b) => () => run(b))).map((v) => v.flat());
 };
 
 const output = (values: InferenceSession.OnnxValueMapType, name: string): Result<Output> => {

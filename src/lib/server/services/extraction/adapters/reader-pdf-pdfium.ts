@@ -50,11 +50,13 @@ const wasm = createRequire(import.meta.url).resolve('@embedpdf/pdfium/pdfium.was
 // One instance for the process: pdfium holds no state of ours between documents.
 const kept: { pdfium?: ResultAsync<Pdfium> } = {};
 
-const start = async () => {
-	const module = await init({ wasmBinary: new Uint8Array(await readFile(wasm)).buffer });
-	module.PDFiumExt_Init();
-	return module;
-};
+const start = () =>
+	readFile(wasm)
+		.then((b) => init({ wasmBinary: new Uint8Array(b).buffer }))
+		.then((m) => {
+			m.PDFiumExt_Init();
+			return m;
+		});
 
 const pdfium = (): ResultAsync<Pdfium> => (kept.pdfium ??= attempt(start));
 

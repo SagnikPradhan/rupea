@@ -110,7 +110,7 @@ describe('reading the contents of a file', () => {
 	});
 
 	it('opens a locked PDF with its password', async () => {
-		const document = await PDFDocument.load(await fixture('sbi-savings.pdf'));
+		const document = await fixture('sbi-savings.pdf').then((b) => PDFDocument.load(b));
 		document.encrypt({ userPassword: 'secret', ownerPassword: 'secret' });
 		const locked = await document.save();
 

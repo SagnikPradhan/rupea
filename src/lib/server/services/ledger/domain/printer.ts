@@ -85,28 +85,6 @@ const printDate = (f: string | undefined, d: Temporal.PlainDate) =>
 const printTime = (f: string | undefined, t: Temporal.PlainTime) =>
 	f ? dateFns.format(new Date(1970, 0, 1, t.hour, t.minute, t.second), f) : t.toString();
 
-export type PostingView = { account: string; quantity: string };
-
-export type TransactionView = {
-	file: string;
-	line: number;
-	date: string;
-	time: string | null;
-	description: string;
-	postings: PostingView[];
-};
-
-// For reading, not for writing back: amounts as text, the time to the minute.
-export const viewTransaction = (t: RupeeTransaction): TransactionView => ({
-	file: t.location.file,
-	line: t.location.line,
-	date: t.date.toString(),
-	time: t.time?.toString({ smallestUnit: 'minute' }) ?? null,
-	description: t.description,
-	postings: t.postings.map(viewPosting),
-});
-
-export const viewPosting = (p: RupeePosting): PostingView => ({
-	account: p.account,
-	quantity: [formatQuantity(p), ...printTerms(undefined, p)].join(' '),
-});
+/** A posting's amount with its cost and price, as the page shows it. */
+export const printQuantity = (p: RupeePosting): string =>
+	[formatQuantity(p), ...printTerms(undefined, p)].join(' ');

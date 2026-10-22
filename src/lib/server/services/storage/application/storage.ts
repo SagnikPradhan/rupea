@@ -9,7 +9,7 @@ import {
 	type ResultAsync,
 } from '#lib/server/shared/result/result.ts';
 import type { Storage } from '#lib/server/shared/storage/storage.ts';
-import { findStorage, insertStorage, type StorageRecord } from '../adapters/database';
+import { findStorage, createStorage, type StorageRecord } from '../adapters/database';
 
 export type { StorageRecord };
 
@@ -28,7 +28,7 @@ export const withStorage = <T>(o: WithStorageOptions<T>): ResultAsync<T> =>
 // Made on first use, so every user has one without sign-up making it.
 export const ensureStorage = (u: string): ResultAsync<StorageRecord> =>
 	findStorage(u).andThen((f) =>
-		f ? okAsync(f) : insertStorage({ user: u, kind: DEFAULT_KIND }).andThen(() => found(u)),
+		f ? okAsync(f) : createStorage({ user: u, kind: DEFAULT_KIND }).andThen(() => found(u)),
 	);
 
 const found = (u: string): ResultAsync<StorageRecord> =>

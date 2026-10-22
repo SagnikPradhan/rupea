@@ -11,23 +11,15 @@ export { ok, okAsync } from 'neverthrow';
 export const err = (e: RupeeError): neverthrow.Err<never, RupeeError> => neverthrow.err(e);
 export const errAsync = (e: RupeeError): ResultAsync<never> => neverthrow.errAsync(e);
 
-export const attempt = <T>(f: () => PromiseLike<T>): ResultAsync<T> =>
-	attemptWith({ try: f, catch: unknownError });
+/** Runs an effect that may throw or reject, failing with what `onThrow` makes of it. */
+export const attempt = <T>(
+	f: () => PromiseLike<T>,
+	onThrow: (thrown: unknown) => RupeeError = unknownError,
+): ResultAsync<T> => ResultAsync.fromThrowable(async () => f(), onThrow)();
 
-/** Like `attempt`, for a function that returns a result rather than a promise. */
-export const attemptResult = <T>(f: () => ResultAsync<T>): ResultAsync<T> =>
-	attempt(f).andThen((r) => r);
-
-export type Attempt<T> = {
-	try: () => PromiseLike<T>;
-	catch: (thrown: unknown) => RupeeError;
-};
-
-export const attemptWith = <T>(a: Attempt<T>): ResultAsync<T> =>
-	ResultAsync.fromThrowable(async () => a.try(), a.catch)();
-
-export const sequence = <T>(steps: (() => ResultAsync<T[]>)[]): ResultAsync<T[]> =>
+/** Runs each step once the one before it succeeded, stopping at the first to fail. */
+export const inOrder = <T>(steps: (() => ResultAsync<T>)[]): ResultAsync<T[]> =>
 	steps.reduce<ResultAsync<T[]>>(
-		(d, s) => d.andThen((p) => s().map((n) => [...p, ...n])),
+		(r, s) => r.andThen((d) => s().map((n) => [...d, n])),
 		neverthrow.okAsync([]),
 	);

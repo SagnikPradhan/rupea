@@ -6,7 +6,7 @@ import {
 	deleteSessionCookie,
 	readSessionCookie,
 	setSessionCookie,
-} from '#services/auth/adapters/cookie.ts';
+} from '#services/auth/adapters/request.ts';
 import { provide } from '#lib/server/shared/context/context.ts';
 import { createContext, createDatabase } from '#lib/server/shared/context/environment.ts';
 import { withLogger } from '#lib/server/shared/context/logger.ts';

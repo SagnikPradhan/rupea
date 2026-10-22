@@ -4,13 +4,13 @@
 		createFile,
 		deleteFiles,
 		editFile,
-		formatDraft,
-		getFiles,
+		formatFile,
+		listFiles,
+		parseFile,
 		readFile,
 		renameFiles,
 	} from '#lib/endpoints/files.remote.ts';
-	import { checkDraft } from '#lib/endpoints/import.remote.ts';
-	import { getEvents, getSuggestions } from '#lib/endpoints/refinement.remote.ts';
+	import { listEvents, listSuggestions } from '#lib/endpoints/refinement.remote.ts';
 	import FileEditor from '#lib/web/components/file-editor/file-editor.svelte';
 	import FileEvents from '#lib/web/components/file-events/file-events.svelte';
 	import FileIndex from '#lib/web/components/file-index/file-index.svelte';
@@ -35,23 +35,22 @@
 	const editor = createEditor(
 		{
 			read: (key) => readFile({ handle, key }),
-			check: checkDraft,
-			format: (content) => formatDraft({ content }),
+			check: parseFile,
+			format: (content) => formatFile({ content }),
 			save: async (input) => {
 				const saved = await editFile({ handle, ...input });
 				if (saved.ok)
-					await Promise.all([refine(input.key), getEvents({ handle, file: input.key }).refresh()]);
+					await Promise.all([refine(input.key), listEvents({ handle, file: input.key }).refresh()]);
 				return saved;
 			},
 			create: (input) => createFile({ handle, ...input }),
-			rename: async ({ key, to }) =>
-				only(await renameFiles({ handle, moves: [{ from: key, to }] })),
-			remove: async (key) => only(await deleteFiles({ handle, keys: [key] })),
+			rename: ({ key, to }) => renameFiles({ handle, moves: [{ from: key, to }] }).then(only),
+			remove: (key) => deleteFiles({ handle, keys: [key] }).then(only),
 		},
 		300,
 	);
 
-	const response = $derived(await getFiles(handle));
+	const response = $derived(await listFiles(handle));
 	const selected = $derived(page.url.searchParams.get('file'));
 	const line = $derived(Number(page.url.searchParams.get('line')) || null);
 	const trail = $derived(
@@ -72,7 +71,7 @@
 	});
 
 	async function refine(key: string) {
-		const found = await getSuggestions({ handle, file: key });
+		const found = await listSuggestions({ handle, file: key });
 		Object.assign(matches, { key, count: found.data?.length ?? 0 });
 	}
 

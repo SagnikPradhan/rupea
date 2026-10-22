@@ -24,8 +24,8 @@ describe('the jobs store', () => {
 	it('fails jobs queued for long under a name no server knows', ({ context, db }) =>
 		provide(context, async () => {
 			const user = (await createUser(db)).userId;
-			await Jobs.insertJob(queued(user, 'gone'));
-			await Jobs.insertJob(queued(user, 'known'));
+			await Jobs.createJob(queued(user, 'gone'));
+			await Jobs.createJob(queued(user, 'known'));
 			await db
 				.update(jobs)
 				.set({ runAt: sql`now() - interval '2 days'` })
@@ -44,9 +44,9 @@ describe('the jobs store', () => {
 		provide(context, async () => {
 			const user = (await createUser(db)).userId;
 			const known = [{ name: 'busy', version: 1 }];
-			await Jobs.insertJob({ ...queued(user, 'busy'), dedupe: 'first' });
-			await Jobs.insertJob({ ...queued(user, 'busy'), dedupe: 'second' });
-			await Jobs.insertJob({ ...queued(user, 'busy'), dedupe: 'other', partition: 'other' });
+			await Jobs.createJob({ ...queued(user, 'busy'), dedupe: 'first' });
+			await Jobs.createJob({ ...queued(user, 'busy'), dedupe: 'second' });
+			await Jobs.createJob({ ...queued(user, 'busy'), dedupe: 'other', partition: 'other' });
 
 			const first = await Jobs.claimJob(known, 60_000);
 			const next = await Jobs.claimJob(known, 60_000);
@@ -60,8 +60,8 @@ describe('the jobs store', () => {
 	it('refuses to run two jobs of a partition at once', ({ context, db }) =>
 		provide(context, async () => {
 			const user = (await createUser(db)).userId;
-			await Jobs.insertJob({ ...queued(user, 'single'), dedupe: 'first' });
-			await Jobs.insertJob({ ...queued(user, 'single'), dedupe: 'second' });
+			await Jobs.createJob({ ...queued(user, 'single'), dedupe: 'first' });
+			await Jobs.createJob({ ...queued(user, 'single'), dedupe: 'second' });
 
 			const running = attemptWrite(() =>
 				db.update(jobs).set({ status: JobStatus.Running }).where(eq(jobs.name, 'single')),
@@ -76,9 +76,9 @@ describe('the jobs store', () => {
 		provide(context, async () => {
 			const user = (await createUser(db)).userId;
 			const known = [{ name: 'raced', version: 1 }];
-			await Jobs.insertJob({ ...queued(user, 'raced'), dedupe: 'first' });
-			await Jobs.insertJob({ ...queued(user, 'raced'), dedupe: 'second' });
-			await Jobs.insertJob({ ...queued(user, 'raced'), dedupe: 'other', partition: 'other' });
+			await Jobs.createJob({ ...queued(user, 'raced'), dedupe: 'first' });
+			await Jobs.createJob({ ...queued(user, 'raced'), dedupe: 'second' });
+			await Jobs.createJob({ ...queued(user, 'raced'), dedupe: 'other', partition: 'other' });
 			const [claimed, commit] = [Promise.withResolvers<void>(), Promise.withResolvers<void>()];
 
 			const first = atomically(() =>
@@ -91,8 +91,8 @@ describe('the jobs store', () => {
 			await expect.poll(() => db.$count(sql`pg_locks`, sql`not granted`)).toBe(1);
 			commit.resolve();
 
-			expect(await partitionOf((await first)._unsafeUnwrap()!.id)).toBe(user);
-			expect(await partitionOf((await second)._unsafeUnwrap()!.id)).toBe('other');
+			expect(await first.then((c) => partitionOf(c._unsafeUnwrap()!.id))).toBe(user);
+			expect(await second.then((c) => partitionOf(c._unsafeUnwrap()!.id))).toBe('other');
 		}));
 });
 

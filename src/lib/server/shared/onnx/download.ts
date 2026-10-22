@@ -6,18 +6,12 @@ import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
 import { fault, unknownError } from '../result/error';
-import { attempt, attemptWith, errAsync, okAsync, type ResultAsync } from '../result/result';
+import { attempt, errAsync, okAsync, type ResultAsync } from '../result/result';
 import type { Logger } from '../context/logger';
 
 export type ModelFile = { file: string; url: string; sha256: string };
 
 export type ModelMode = 'download' | 'verify';
-
-export type ModelOptions = {
-	mode: ModelMode;
-	logger: Logger;
-	fetch: typeof globalThis.fetch;
-};
 
 const PROGRESS = 15_000;
 
@@ -35,9 +29,12 @@ export const prepare = (directory: string): ResultAsync<void> =>
 		)
 		.map(() => undefined);
 
-type EnsureOptions = ModelOptions & {
+type EnsureOptions = {
 	directory: string;
 	model: ModelFile;
+	mode: ModelMode;
+	logger: Logger;
+	fetch: typeof globalThis.fetch;
 };
 
 export const ensure = (options: EnsureOptions): ResultAsync<string> => {
@@ -57,15 +54,15 @@ export const ensure = (options: EnsureOptions): ResultAsync<string> => {
 };
 
 const check = (path: string, expected: string): ResultAsync<void> =>
-	attemptWith({
-		try: () => digest(path),
-		catch: (thrown) =>
+	attempt(
+		() => digest(path),
+		(thrown) =>
 			fault('CannotReadFile', {
 				path,
 				reason: 'failed to read model',
 				cause: [unknownError(thrown)],
 			}),
-	}).andThen((actual) => {
+	).andThen((actual) => {
 		if (actual === expected) return okAsync(undefined);
 		return errAsync(fault('ModelHashMismatch', { path, expected, actual }));
 	});
@@ -95,14 +92,11 @@ const download = (options: DownloadOptions): ResultAsync<void> => {
 	const failed = (t: unknown) => fault('ModelDownloadFailed', { url, cause: [unknownError(t)] });
 
 	log.info({ url }, 'model downloading');
-	return attemptWith({ try: () => fetch(url), catch: failed })
+	return attempt(() => fetch(url), failed)
 		.andThen((response) => {
 			if (!response.ok || !response.body)
 				return errAsync(fault('ModelDownloadFailed', { url, status: response.status }));
-			return attemptWith({
-				try: () => save({ response, part, logger: log }),
-				catch: failed,
-			});
+			return attempt(() => save({ response, part, logger: log }), failed);
 		})
 		.andThen((b) => check(part, sha256).map(() => b))
 		.andThen((b) => attempt(() => rename(part, path)).map(() => b))

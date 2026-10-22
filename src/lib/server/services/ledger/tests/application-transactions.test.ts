@@ -1,10 +1,5 @@
 import { provide } from '#lib/server/shared/context/context.ts';
-import {
-	index,
-	type Cursor,
-	type ListFilter,
-	type PostingCursor,
-} from '#services/ledger/adapters/database.ts';
+import * as DB from '#services/ledger/adapters/database.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import { formatAmount } from '#services/ledger/domain/amounts.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
@@ -58,7 +53,7 @@ describe('listing transactions', () => {
 			await Files.createFile({ ledger, key: 'a.rupee', content });
 
 			expect(await listed(ledger)).toMatchObject(
-				Files.parseFile('a.rupee', content).succeeded.toReversed(),
+				Files.parseFile({ key: 'a.rupee', content }).succeeded.toReversed(),
 			);
 		}));
 });
@@ -87,9 +82,9 @@ describe('paging', () => {
 		'',
 	].join('\n');
 
-	const transactionPages = async (ledger: Ledger, after: Cursor | null): Promise<string[]> => {
+	const transactionPages = async (ledger: Ledger, after: DB.Cursor | null): Promise<string[]> => {
 		const page = (
-			await index(ledger.id).transactionPage({ filter: everything, after, limit: 2 })
+			await DB.listTransactions(ledger.id, { filter: everything, after, limit: 2 })
 		)._unsafeUnwrap();
 		const descriptions = page.rows.map((t) => t.description);
 		return page.next
@@ -97,9 +92,12 @@ describe('paging', () => {
 			: descriptions;
 	};
 
-	const postingPages = async (ledger: Ledger, after: PostingCursor | null): Promise<string[]> => {
+	const postingPages = async (
+		ledger: Ledger,
+		after: DB.PostingCursor | null,
+	): Promise<string[]> => {
 		const page = (
-			await index(ledger.id).postingPage({ filter: everything, after, limit: 3 })
+			await DB.listPostings(ledger.id, { filter: everything, after, limit: 3 })
 		)._unsafeUnwrap();
 		const rows = page.rows.map((p) => `${p.description} ${p.posting.account}`);
 		return page.next ? [...rows, ...(await postingPages(ledger, page.next))] : rows;
@@ -156,10 +154,10 @@ describe('filtering', () => {
 		'',
 	].join('\n');
 
-	const descriptions = (ledger: Ledger, filter: ListFilter) =>
-		index(ledger.id)
-			.transactionPage({ filter, after: null, limit: 10 })
-			.map((p) => p.rows.map((t) => t.description));
+	const descriptions = (ledger: Ledger, filter: DB.ListFilter) =>
+		DB.listTransactions(ledger.id, { filter, after: null, limit: 10 }).map((p) =>
+			p.rows.map((t) => t.description),
+		);
 
 	it('keeps transactions between two days, both included', ({ context, db }) =>
 		provide(context, async () => {
@@ -210,7 +208,7 @@ describe('filtering', () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({ ledger, key: 'a.rupee', content });
 
-			const page = await index(ledger.id).postingPage({
+			const page = await DB.listPostings(ledger.id, {
 				filter: { ...everything, account: 'Assets:Card' },
 				after: null,
 				limit: 10,
@@ -235,7 +233,7 @@ describe('counting', () => {
 			await Files.createFile({ ledger, key: 'hdfc.rupee', content: transfer('event') });
 			await Files.createFile({ ledger, key: 'ibkr.rupee', content: transfer('same-as') });
 
-			const page = await index(ledger.id).postingPage({
+			const page = await DB.listPostings(ledger.id, {
 				filter: everything,
 				after: null,
 				limit: 10,
@@ -256,7 +254,7 @@ describe('counting', () => {
 				['hdfc.rupee', true],
 			]);
 
-			await Files.deleteFiles(ledger, ['hdfc.rupee']);
+			await Files.deleteFiles({ ledger, keys: ['hdfc.rupee'] });
 
 			expect((await listed(ledger)).map((t) => [t.location.file, t.counted])).toEqual([
 				['ibkr.rupee', true],

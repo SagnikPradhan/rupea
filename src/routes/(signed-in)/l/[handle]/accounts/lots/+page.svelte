@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { getLots } from '#lib/endpoints/accounts.remote.ts';
+	import { listLots } from '#lib/endpoints/accounts.remote.ts';
 	import Issues from '#lib/web/components/issues/issues.svelte';
 	import Amount from '#lib/web/components/ledger-table/amount.svelte';
 	import LedgerTable from '#lib/web/components/ledger-table/ledger-table.svelte';
@@ -14,7 +14,7 @@
 	const handle = $derived(data.ledger.handle);
 	const account = $derived(page.url.searchParams.get('account') ?? '');
 	const commodity = $derived(page.url.searchParams.get('commodity') ?? '');
-	const response = $derived(await getLots({ handle, account, commodity }));
+	const response = $derived(await listLots({ handle, account, commodity }));
 
 	const trail = $derived([
 		ledgerCrumb(data.ledger),

@@ -35,7 +35,7 @@ describe('accounts', () => {
 			].join('\n');
 			await Files.createFile({ ledger, key: 'a.rupee', content });
 
-			const accounts = (await Accounts.getAccounts(ledger, day))._unsafeUnwrap().succeeded;
+			const accounts = (await Accounts.listAccounts({ ledger, day }))._unsafeUnwrap().succeeded;
 			expect(accounts.map((a) => [a.account, a.total, a.cost, a.gain, a.unpriced])).toEqual([
 				['Assets', 2500_0000000000n, 10900_0000000000n, 1700_0000000000n, 1],
 				['Assets:Bank', -10100_0000000000n, null, null, 0],
@@ -70,7 +70,7 @@ describe('accounts', () => {
 			].join('\n');
 			await Files.createFile({ ledger, key: 'ibkr.rupee', content });
 
-			const accounts = (await Accounts.getAccounts(ledger, day))._unsafeUnwrap().succeeded;
+			const accounts = (await Accounts.listAccounts({ ledger, day }))._unsafeUnwrap().succeeded;
 			expect(accounts.find((a) => a.account === 'Assets:IBKR')?.holdings).toMatchObject([
 				{ commodity: 'AAPL', value: 41500_0000000000n, gain: 8300_0000000000n },
 				{ commodity: 'USD', value: 49800_0000000000n, gain: null },
@@ -98,7 +98,7 @@ describe('accounts', () => {
 			await Files.createFile({ ledger, key: 'a.rupee', content });
 
 			const zerodha = (
-				await Accounts.getLots({ ledger, account: 'Assets:Zerodha', commodity: 'INFY' })
+				await Accounts.listLots({ ledger, account: 'Assets:Zerodha', commodity: 'INFY' })
 			)._unsafeUnwrap();
 			expect(zerodha.succeeded).toMatchObject([
 				{
@@ -117,7 +117,7 @@ describe('accounts', () => {
 			]);
 
 			const groww = (
-				await Accounts.getLots({ ledger, account: 'Assets:Groww', commodity: 'INFY' })
+				await Accounts.listLots({ ledger, account: 'Assets:Groww', commodity: 'INFY' })
 			)._unsafeUnwrap();
 			expect(groww.succeeded).toMatchObject([
 				{ origin: 'transfer', from: 'Assets:Zerodha', remaining: 6_0000000000n, disposals: [] },
@@ -142,8 +142,8 @@ describe('evidence', () => {
 			await Files.createFile({ ledger, key: 'payslip.rupee', content: salary('event') });
 			await Files.createFile({ ledger, key: 'hdfc.rupee', content: salary('same-as') });
 
-			const accounts = (await Accounts.getAccounts(ledger, day))._unsafeUnwrap().succeeded;
-			const worth = (await Accounts.getWorth({ ledger, from: day, to: day }))._unsafeUnwrap();
+			const accounts = (await Accounts.listAccounts({ ledger, day }))._unsafeUnwrap().succeeded;
+			const worth = (await Accounts.listWorth({ ledger, from: day, to: day }))._unsafeUnwrap();
 			expect(accounts.map((a) => [a.account, a.total])).toEqual([
 				['Assets', 500_0000000000n],
 				['Assets:Bank', 500_0000000000n],
@@ -185,7 +185,7 @@ describe('net worth', () => {
 			].join('\n');
 			await Files.createFile({ ledger, key: 'a.rupee', content });
 
-			const worth = (await Accounts.getWorth({ ledger, from, to }))._unsafeUnwrap().succeeded;
+			const worth = (await Accounts.listWorth({ ledger, from, to }))._unsafeUnwrap().succeeded;
 			const days = worth.map((w) => [
 				w.day.toString(),
 				w.assets,
@@ -203,11 +203,11 @@ describe('net worth', () => {
 	it('starts on the first day the ledger has, and is empty without one', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			const empty = (await Accounts.getWorth({ ledger, from, to }))._unsafeUnwrap().succeeded;
+			const empty = (await Accounts.listWorth({ ledger, from, to }))._unsafeUnwrap().succeeded;
 			const content = ['2026-10-02 Salary', '\tAssets:Bank 500', '\tIncome:Salary', ''].join('\n');
 			await Files.createFile({ ledger, key: 'a.rupee', content });
 
-			const worth = (await Accounts.getWorth({ ledger, from, to }))._unsafeUnwrap().succeeded;
+			const worth = (await Accounts.listWorth({ ledger, from, to }))._unsafeUnwrap().succeeded;
 			expect(empty).toEqual([]);
 			expect(worth.map((w) => w.day.toString())).toEqual(['2026-10-02', '2026-10-03']);
 		}));

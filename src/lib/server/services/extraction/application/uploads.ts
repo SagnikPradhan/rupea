@@ -1,10 +1,10 @@
 import { atomically } from '#lib/server/db/atomically.ts';
 import { batchInOrder, type Batch } from '#lib/server/shared/result/batch.ts';
 import { okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { enqueue, findJobs, type UserJob } from '#services/jobs/application/jobs.ts';
+import { enqueue, listJobs, type UserJob } from '#services/jobs/application/jobs.ts';
 import { findImported } from '#services/ledger/application/files.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
-import { findRecentStatements, type StatementRow } from '../adapters/database';
+import * as DB from '../adapters/database';
 import { importStatement } from '../adapters/jobs';
 import { isText, type Upload } from '../adapters/reader';
 import * as v from 'valibot';
@@ -24,24 +24,30 @@ type UploadOptions = {
 type Uploaded = { key: string; queued: boolean };
 
 /** Stores each upload, and queues the import of a ledger file with it; one failing does not stop the rest. */
-export const uploadStatements = (o: UploadOptions): ResultAsync<Batch<Uploaded>> =>
-	batchInOrder(o.uploads.map((u) => () => uploadOne(o, u)));
+export const uploadStatements = ({
+	ledger,
+	user,
+	uploads,
+}: UploadOptions): ResultAsync<Batch<Uploaded>> =>
+	batchInOrder(uploads.map((u) => () => uploadOne({ ledger, user, upload: u })));
 
 /** Statements uploaded lately that wait for a schema to read them, as nothing was imported from them yet. */
-export const listInbox = (ledger: Ledger): ResultAsync<StatementRow[]> =>
-	findRecentStatements(ledger.id, RECENT).andThen((recent) => {
+export const listInbox = (ledger: Ledger): ResultAsync<DB.StatementRow[]> =>
+	DB.listRecentStatements(ledger.id, RECENT).andThen((recent) => {
 		const unread = recent.filter((r) => !isText(r.key));
 		const checksums = unread.map((r) => r.checksum);
-		return findImported(ledger, checksums).andThen((i) => {
+		return findImported({ ledger, checksums }).andThen((i) => {
 			const waiting = unread.filter((r) => !i.includes(r.checksum));
 			const keys = waiting.map((r) => r.key);
-			return dropMissing(ledger, keys).map((k) => waiting.filter((r) => k.includes(r.key)));
+			return dropMissing({ ledger, keys }).map((k) => waiting.filter((r) => k.includes(r.key)));
 		});
 	});
 
+type ListImportsOptions = { ledger: Ledger; user: string };
+
 /** The imports a user queued in this ledger, newest first. */
-export const listImports = (ledger: Ledger, user: string) =>
-	findJobs({
+export const listImports = ({ ledger, user }: ListImportsOptions) =>
+	listJobs({
 		userId: user,
 		name: importStatement.name,
 		payload: { ledger: ledger.handle },
@@ -55,14 +61,16 @@ const viewImport = (j: UserJob) => {
 	return [{ id: j.id, status: j.status, statement: payload.output.name, error: j.error }];
 };
 
-const uploadOne = (o: UploadOptions, upload: Upload): ResultAsync<Uploaded> =>
+type UploadOneOptions = { ledger: Ledger; user: string; upload: Upload };
+
+const uploadOne = ({ ledger, user, upload }: UploadOneOptions): ResultAsync<Uploaded> =>
 	atomically(() =>
-		storeStatement(o.ledger, upload).andThen((s) =>
+		storeStatement({ ledger, upload }).andThen((s) =>
 			isText(s.key)
 				? enqueue({
 						job: importStatement,
-						user: o.user,
-						payload: { ledger: o.ledger.handle, checksum: s.checksum, name: s.key },
+						user,
+						payload: { ledger: ledger.handle, checksum: s.checksum, name: s.key },
 					}).map(() => ({ key: s.key, queued: true }))
 				: okAsync({ key: s.key, queued: false }),
 		),

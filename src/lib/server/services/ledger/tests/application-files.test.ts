@@ -13,10 +13,10 @@ describe('mutations', () => {
 			await Files.createFile({ ledger, key: 'a.rupee', content: groceries });
 			expect(await summary(ledger.id)).toEqual(['a.rupee:1 Groceries']);
 
-			await Files.renameFiles(ledger, [{ from: 'a.rupee', to: 'b.rupee' }]);
+			await Files.renameFiles({ ledger, moves: [{ from: 'a.rupee', to: 'b.rupee' }] });
 			expect(await summary(ledger.id)).toEqual(['b.rupee:1 Groceries']);
 
-			await Files.deleteFiles(ledger, ['b.rupee']);
+			await Files.deleteFiles({ ledger, keys: ['b.rupee'] });
 			expect(await summary(ledger.id)).toEqual([]);
 		}));
 
@@ -43,10 +43,13 @@ describe('moving files', () => {
 			await Files.createFile({ ledger, key: 'b.rupee', content: salary });
 			await Files.createFile({ ledger, key: 'bank/b.rupee', content: salary });
 
-			const moved = await Files.renameFiles(ledger, [
-				{ from: 'a.rupee', to: 'bank/a.rupee' },
-				{ from: 'b.rupee', to: 'bank/b.rupee' },
-			]);
+			const moved = await Files.renameFiles({
+				ledger,
+				moves: [
+					{ from: 'a.rupee', to: 'bank/a.rupee' },
+					{ from: 'b.rupee', to: 'bank/b.rupee' },
+				],
+			});
 
 			expect(moved).toMatchObject(
 				ok({ succeeded: [{ key: 'bank/a.rupee' }], failed: [{ type: 'StorageConflict' }] }),
@@ -64,10 +67,13 @@ describe('moving files', () => {
 			await Files.createFile({ ledger, key: '_/a.rupee', content: groceries });
 			await Files.createFile({ ledger, key: 'b.rupee', content: salary });
 
-			await Files.renameFiles(ledger, [
-				{ from: '_/a.rupee', to: 'a.rupee' },
-				{ from: 'b.rupee', to: '_/b.rupee' },
-			]);
+			await Files.renameFiles({
+				ledger,
+				moves: [
+					{ from: '_/a.rupee', to: 'a.rupee' },
+					{ from: 'b.rupee', to: '_/b.rupee' },
+				],
+			});
 			expect(await summary(ledger.id)).toEqual(['a.rupee:1 Groceries']);
 		}));
 });
@@ -79,7 +85,7 @@ describe('deleting files', () => {
 			await Files.createFile({ ledger, key: 'a.rupee', content: groceries });
 			await Files.createFile({ ledger, key: 'b.rupee', content: salary });
 
-			const deleted = await Files.deleteFiles(ledger, ['a.rupee', 'b.rupee']);
+			const deleted = await Files.deleteFiles({ ledger, keys: ['a.rupee', 'b.rupee'] });
 			expect(deleted).toEqual(ok({ succeeded: ['a.rupee', 'b.rupee'], failed: [] }));
 			expect(await summary(ledger.id)).toEqual([]);
 			expect(await Files.listFiles(ledger)).toEqual(ok({ succeeded: [], failed: [] }));
@@ -92,7 +98,7 @@ describe('reading a file', () => {
 			const ledger = await createLedger(db);
 			await put(storage, ledger, 'a.rupee', groceries);
 
-			const file = await Files.getFile(ledger, 'a.rupee');
+			const file = await Files.readFile({ ledger, key: 'a.rupee' });
 			expect(file.isOk() && file.value).toMatchObject({ key: 'a.rupee', content: groceries });
 			expect(await summary(ledger.id)).toEqual([]);
 		}));
@@ -100,7 +106,7 @@ describe('reading a file', () => {
 	it('fails for a file that is not there', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			expect(await Files.getFile(ledger, 'a.rupee')).toMatchObject({
+			expect(await Files.readFile({ ledger, key: 'a.rupee' })).toMatchObject({
 				error: { type: 'CannotReadFile', path: 'a.rupee' },
 			});
 		}));

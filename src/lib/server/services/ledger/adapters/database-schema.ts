@@ -146,7 +146,7 @@ export const postings = PG.pgTable(
 	],
 );
 
-// What a feed names a commodity; a ledger's own symbols are its commodities, priced by its files.
+/** What a feed calls a commodity; a ledger's own commodities are symbols of the ledger feed. */
 export const symbols = PG.pgTable(
 	'symbols',
 	(t) => ({

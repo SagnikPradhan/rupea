@@ -124,6 +124,31 @@ describe('syncing the ledger', () => {
 			]);
 		}));
 
+	it('prices a commodity on one symbol across files, kept through a reindex', ({
+		context,
+		db,
+		storage,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const own = () =>
+				db
+					.select({ id: symbols.id, symbol: symbols.symbol })
+					.from(symbols)
+					.where(eq(symbols.ledgerId, ledger.id))
+					.orderBy(asc(symbols.symbol));
+
+			await put(storage, ledger, 'a.rupee', 'P 2026-10-17 INFY 1820\n');
+			await put(storage, ledger, 'b.rupee', 'P 2026-10-18 INFY 1830\nP 2026-10-18 TCS 4100\n');
+			await Sync.sync(ledger);
+			const made = await own();
+
+			await put(storage, ledger, 'a.rupee', 'P 2026-10-19 INFY 1840\n');
+			await Sync.sync(ledger);
+			expect(made.map((s) => s.symbol)).toEqual(['INFY', 'TCS']);
+			expect(await own()).toEqual(made);
+		}));
+
 	it('indexes a lot cost and reads it back', ({ context, db, storage }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);

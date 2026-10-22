@@ -74,16 +74,16 @@ export const unindex = ({ ledgerId, key }: UnindexOptions): ResultAsync<Indexed>
 
 type SettleOptions = { ledgerId: string; indexed: Indexed };
 
-/** Settles what spans files once they are indexed: which transactions count, then the lots they book. */
-export const settle = ({ ledgerId, indexed }: SettleOptions): ResultAsync<RupeeError[]> => {
-	const commodities = [...new Set(indexed.touched)];
-
-	return uncountedIn(ledgerId)
-		.andThen((u) => DB.recount(ledgerId, u).map(() => u))
-		.andThen((u) => (commodities.length === 0 ? okAsync() : DB.rebook(ledgerId, commodities, u)))
+/** Settles what spans files once they are indexed: which transactions count, then the lots they book, including those of transactions whose counting changed. */
+export const settle = ({ ledgerId, indexed }: SettleOptions): ResultAsync<RupeeError[]> =>
+	uncountedIn(ledgerId)
+		.andThen((u) => DB.recount(ledgerId, u).map((r) => ({ u, r })))
+		.andThen(({ u, r }) => {
+			const lots = [...new Set([...indexed.touched, ...r])];
+			return lots.length === 0 ? okAsync() : DB.rebook(ledgerId, lots, u);
+		})
 		.map(() => indexed.failed)
 		.orElse((e) => ok([...indexed.failed, e]));
-};
 
 export const checkLots = (l: Ledger): ResultAsync<RupeeError[]> =>
 	DB.listUnmatched(l.id).map((u) => u.map(toLotError));

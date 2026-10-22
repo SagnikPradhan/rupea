@@ -16,6 +16,7 @@ import type { Amount } from '../domain/amounts';
 import { EVENT_KEYS } from '../domain/events';
 import { toMetadata } from '../domain/parser';
 import type { Neighbour } from '../domain/prediction';
+import { CURRENCIES } from '../domain/lots';
 import { BALANCE_TYPES } from '../domain/taxonomy';
 import type { Filled, Unembedded } from '../domain/text';
 import type { RupeeMetadata, RupeeTransaction } from '../domain/types';
@@ -125,25 +126,38 @@ export const listTransactions = (
 		};
 	});
 
-/** Marks these transactions uncounted and every other counted, writing only the rows that change. */
-export const recount = (ledgerId: string, uncounted: string[]): ResultAsync<void> =>
+/** Marks these transactions uncounted and every other counted, writing only the rows that change, and returns the commodities whose lots they post. */
+export const recount = (ledgerId: string, uncounted: string[]): ResultAsync<string[]> =>
 	atomically(() =>
 		withContext('db')((tx) =>
 			attempt(async () => {
-				await tx
+				const counting = await tx
 					.updateTable('transactions')
 					.set({ counted: true })
 					.where('ledgerId', '=', ledgerId)
 					.where('counted', '=', false)
 					.where((e) => noneOf(e.ref('id'), uncounted, 'uuid'))
+					.returning('id')
 					.execute();
-				await tx
+				const uncounting = await tx
 					.updateTable('transactions')
 					.set({ counted: false })
 					.where('ledgerId', '=', ledgerId)
 					.where('counted', '=', true)
 					.where((e) => anyOf(e.ref('id'), uncounted, 'uuid'))
+					.returning('id')
 					.execute();
+				const changed = [...counting, ...uncounting].map((t) => t.id);
+
+				const lots = await tx
+					.selectFrom('postings')
+					.select('commodity')
+					.distinct()
+					.where((e) => anyOf(e.ref('transactionId'), changed, 'uuid'))
+					.where('accountType', 'in', BALANCE_TYPES)
+					.where((e) => noneOf(e.ref('commodity'), CURRENCIES, 'text'))
+					.execute();
+				return lots.map((c) => c.commodity);
 			}),
 		),
 	);

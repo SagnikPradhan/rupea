@@ -63,6 +63,31 @@ describe('accounts', () => {
 			]);
 		}));
 
+	it('sums only the files that remain, as they are edited and deleted', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const bank = async () =>
+				(await Accounts.listAccounts({ ledger, day }))
+					._unsafeUnwrap()
+					.succeeded.find((a) => a.account === 'Assets:Bank')?.total;
+			const file = (amount: number) =>
+				['2026-10-01 Salary', `\tAssets:Bank ${amount}`, '\tIncome:Salary', ''].join('\n');
+			const created = await Files.createFile({ ledger, key: 'a.rupee', content: file(100) });
+			await Files.createFile({ ledger, key: 'b.rupee', content: file(10) });
+			expect(await bank()).toBe(110_0000000000n);
+
+			await Files.editFile({
+				ledger,
+				key: 'a.rupee',
+				content: file(200),
+				version: created._unsafeUnwrap().version,
+			});
+			expect(await bank()).toBe(210_0000000000n);
+
+			await Files.deleteFiles({ ledger, keys: ['a.rupee'] });
+			expect(await bank()).toBe(10_0000000000n);
+		}));
+
 	it('values shares priced in dollars at the price of a dollar', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);

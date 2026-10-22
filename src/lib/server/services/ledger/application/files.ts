@@ -113,7 +113,7 @@ const moveFile = (storage: Storage, ledgerId: string, { from, to }: Move) =>
 				file,
 				DB.renameIndexedFile(ledgerId, from, to).andThen((t) =>
 					isCounted(from) === isCounted(to)
-						? okAsync({ failed: [], touched: t })
+						? okAsync({ failed: [], touched: t, commodities: [] })
 						: indexFile({ ledgerId, file }),
 				),
 			),
@@ -126,7 +126,9 @@ type Changed<T> = { value: T; indexed: Indexed };
 
 // If indexing fails, the next sync picks the file up.
 const indexed = <T>(v: T, i: ResultAsync<Indexed>): ResultAsync<Changed<T>> =>
-	i.orElse((e) => ok({ failed: [e], touched: [] })).map((x) => ({ value: v, indexed: x }));
+	i
+		.orElse((e) => ok({ failed: [e], touched: [], commodities: [] }))
+		.map((x) => ({ value: v, indexed: x }));
 
 // One file at a time, since embedded Postgres has one connection, and
 // settled once for them all.
@@ -135,7 +137,8 @@ const changeEach = <T>(ledgerId: string, steps: (() => ResultAsync<Changed<T>>)[
 		const changed = b.succeeded;
 		const failed = [...b.failed, ...changed.flatMap((c) => c.indexed.failed)];
 		const touched = changed.flatMap((c) => c.indexed.touched);
-		return settle({ ledgerId, indexed: { failed, touched } }).map((f) => ({
+		const commodities = changed.flatMap((c) => c.indexed.commodities);
+		return settle({ ledgerId, indexed: { failed, touched, commodities } }).map((f) => ({
 			succeeded: changed.map((c) => c.value),
 			failed: f,
 		}));

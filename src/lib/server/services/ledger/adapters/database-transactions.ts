@@ -90,25 +90,36 @@ export const listTransactions = (
 		};
 	});
 
-/** Marks these transactions uncounted and every other counted, writing only the rows that change. */
-export const recount = (ledgerId: string, uncounted: string[]): ResultAsync<void> =>
+/** Marks these transactions uncounted and every other counted, writing only the rows that change, and lists the commodities they post. */
+export const recount = (ledgerId: string, uncounted: string[]): ResultAsync<string[]> =>
 	withContext('kysely')((kysely) =>
 		attempt(() =>
 			kysely.transaction().execute(async (tx) => {
-				await tx
+				const counting = await tx
 					.updateTable('transactions')
 					.set({ counted: true })
 					.where('ledgerId', '=', ledgerId)
 					.where('counted', '=', false)
 					.where(noneOf('id', uncounted, 'uuid'))
+					.returning('id')
 					.execute();
-				await tx
+				const uncounting = await tx
 					.updateTable('transactions')
 					.set({ counted: false })
 					.where('ledgerId', '=', ledgerId)
 					.where('counted', '=', true)
 					.where(anyOf('id', uncounted, 'uuid'))
+					.returning('id')
 					.execute();
+				const changed = [...counting, ...uncounting].map((t) => t.id);
+				const commodities = await tx
+					.selectFrom('postings')
+					.select('commodity')
+					.distinct()
+					.where(anyOf('transactionId', changed, 'uuid'))
+					.execute();
+
+				return commodities.map((c) => c.commodity);
 			}),
 		),
 	);

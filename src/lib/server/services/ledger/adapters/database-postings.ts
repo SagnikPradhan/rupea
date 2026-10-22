@@ -15,7 +15,6 @@ import {
 	newestFirst,
 	postingColumns,
 	postingsInFiles,
-	postingsInTransactions,
 	toCost,
 	toPrice,
 	toQuantity,
@@ -115,18 +114,18 @@ export const listHoldings = (ledgerId: string): ResultAsync<Holding[]> =>
 	withContext('kysely')((kysely) =>
 		attempt(() =>
 			kysely
-				.with('balances', () =>
-					postingsInTransactions(kysely)
+				.with('balances', (q) =>
+					q
+						.selectFrom('deltas')
 						.select([
-							'p.account',
-							'p.commodity',
-							sql<string>`sum(${sql.ref('p.amount')})::text`.as('units'),
+							'deltas.account',
+							'deltas.commodity',
+							sql<string>`sum(${sql.ref('deltas.amount')})::text`.as('units'),
 						])
-						.where('p.ledgerId', '=', ledgerId)
-						.where('p.accountType', 'in', BALANCE_TYPES)
-						.where('t.counted', '=', true)
-						.groupBy(['p.account', 'p.commodity'])
-						.having(sql<SqlBool>`sum(${sql.ref('p.amount')}) <> 0`),
+						.where('deltas.ledgerId', '=', ledgerId)
+						.where('deltas.accountType', 'in', BALANCE_TYPES)
+						.groupBy(['deltas.account', 'deltas.commodity'])
+						.having(sql<SqlBool>`sum(${sql.ref('deltas.amount')}) <> 0`),
 				)
 				.with('costs', (qb) =>
 					qb
@@ -207,14 +206,14 @@ export const listBalanceChecks = (
 				)
 				.with('days', (q) =>
 					q
-						.selectFrom('entries')
-						.select([
-							'entries.account',
-							'entries.commodity',
-							'entries.date',
-							total('entries.amount', 'entries.counted').as('total'),
-						])
-						.groupBy(['entries.account', 'entries.commodity', 'entries.date']),
+						.selectFrom('deltas')
+						.innerJoin(asserted(kysely, ledgerId).as('a'), (j) =>
+							j
+								.onRef('a.account', '=', 'deltas.account')
+								.onRef('a.commodity', '=', 'deltas.commodity'),
+						)
+						.select(['deltas.account', 'deltas.commodity', 'deltas.date', 'deltas.amount as total'])
+						.where('deltas.ledgerId', '=', ledgerId),
 				)
 				.with('openings', (q) =>
 					q

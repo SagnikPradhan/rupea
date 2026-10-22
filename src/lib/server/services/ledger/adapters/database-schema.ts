@@ -145,6 +145,32 @@ export const postings = PG.pgTable(
 	],
 );
 
+/** What an account's counted postings of a commodity moved on one day, so balances sum these rows instead of the postings. */
+export const deltas = PG.pgTable(
+	'deltas',
+	(t) => ({
+		...base,
+		ledgerId: t
+			.uuid()
+			.notNull()
+			.references(() => ledgers.id, { onDelete: 'cascade' }),
+		account: t.text().notNull(),
+		accountType: accountType().notNull(),
+		commodity: t.text().notNull(),
+		date: t.date().notNull(),
+		amount: amount().notNull(), // signed ten-billionths
+	}),
+	(t) => [
+		PG.unique('deltas_ledger_id_account_commodity_date').on(
+			t.ledgerId,
+			t.account,
+			t.commodity,
+			t.date,
+		),
+		PG.index('deltas_ledger_id_commodity').on(t.ledgerId, t.commodity), // rebuilt per commodity
+	],
+);
+
 /** What a feed calls a commodity; a ledger's own commodities are symbols of the ledger feed. */
 export const symbols = PG.pgTable(
 	'symbols',

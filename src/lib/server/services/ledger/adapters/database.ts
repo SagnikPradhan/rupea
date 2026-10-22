@@ -1,3 +1,4 @@
+export * from './database-deltas';
 export * from './database-files';
 export * from './database-ledgers';
 export * from './database-lots';

@@ -43,6 +43,13 @@
       "when": 1792675484898,
       "tag": "0005_transactions_sort_time",
       "breakpoints": true
+    },
+    {
+      "idx": 6,
+      "version": "7",
+      "when": 1792676053405,
+      "tag": "0006_deltas",
+      "breakpoints": true
     }
   ]
 }

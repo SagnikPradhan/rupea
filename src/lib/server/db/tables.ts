@@ -1,5 +1,6 @@
 import type { Kyselify } from 'drizzle-orm/kysely';
 import type {
+	deltas,
 	disposals,
 	ledgerFiles,
 	ledgers,
@@ -14,6 +15,7 @@ import type {
 
 /** The tables Kysely queries, named and typed as the database has them. */
 export type Tables = {
+	deltas: Kyselify<typeof deltas>;
 	disposals: Kyselify<typeof disposals>;
 	ledgerFiles: Kyselify<typeof ledgerFiles>;
 	ledgers: Kyselify<typeof ledgers>;

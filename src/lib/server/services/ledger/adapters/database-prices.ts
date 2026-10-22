@@ -57,30 +57,28 @@ export const listWorth = (
 ): ResultAsync<Worth[]> =>
 	withContext('kysely')((kysely) => {
 		const firstDay = sql<string>`(select min(day) from days)`;
-		const isAsset = sql<boolean>`${sql.ref('postings.accountType')} = ${sql.lit(AccountType.Assets)}`;
+		const isAsset = sql<boolean>`${sql.ref('deltas.accountType')} = ${sql.lit(AccountType.Assets)}`;
 
 		return attempt(() =>
 			kysely
 				// Kysely writes with recursive only when the first CTE asks for it
 				.withRecursive('own(id, symbol)', () => ownSymbols(kysely, ledgerId))
-				.with('deltas', (q) =>
+				.with('changes', (q) =>
 					q
-						.selectFrom('postings')
-						.innerJoin('transactions', 'transactions.id', 'postings.transactionId')
+						.selectFrom('deltas')
 						.select([
 							isAsset.as('asset'),
-							'postings.commodity',
-							'transactions.date',
-							sql<bigint>`sum(${sql.ref('postings.amount')})`.as('amount'),
+							'deltas.commodity',
+							'deltas.date',
+							sql<bigint>`sum(${sql.ref('deltas.amount')})`.as('amount'),
 						])
-						.where('postings.ledgerId', '=', ledgerId)
-						.where('postings.accountType', 'in', [AccountType.Assets, AccountType.Liabilities])
-						.where('transactions.date', '<=', to.toString())
-						.where('transactions.counted', '=', true)
-						.groupBy([isAsset, 'postings.commodity', 'transactions.date']),
+						.where('deltas.ledgerId', '=', ledgerId)
+						.where('deltas.accountType', 'in', [AccountType.Assets, AccountType.Liabilities])
+						.where('deltas.date', '<=', to.toString())
+						.groupBy([isAsset, 'deltas.commodity', 'deltas.date']),
 				)
 				.with('first', (q) =>
-					q.selectFrom('deltas').select((e) => e.fn.min('deltas.date').as('day')),
+					q.selectFrom('changes').select((e) => e.fn.min('changes.date').as('day')),
 				)
 				.with('days', (q) =>
 					q
@@ -94,7 +92,7 @@ export const listWorth = (
 				)
 				.with('keys', (q) =>
 					q
-						.selectFrom('deltas as x')
+						.selectFrom('changes as x')
 						.leftJoin('own as o', 'o.symbol', 'x.commodity')
 						.select((e) => [
 							'x.asset',
@@ -108,7 +106,7 @@ export const listWorth = (
 					q
 						.selectFrom('keys as k')
 						.crossJoin('days as d')
-						.leftJoin('deltas as x', (j) =>
+						.leftJoin('changes as x', (j) =>
 							j
 								.onRef('x.asset', '=', 'k.asset')
 								.onRef('x.commodity', '=', 'k.commodity')

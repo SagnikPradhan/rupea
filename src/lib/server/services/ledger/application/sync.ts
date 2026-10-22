@@ -18,7 +18,7 @@ import { openFolder } from './ledger';
 // catches up over a few syncs instead of stalling one.
 const EMBEDDED = 500;
 
-export type Indexed = { failed: RupeeError[]; touched: string[] };
+export type Indexed = { failed: RupeeError[]; touched: string[]; commodities: string[] };
 
 /** Brings the index up to date and checks the ledger, reporting what is wrong with either. */
 export const sync = (l: Ledger): ResultAsync<Batch<never>> =>
@@ -55,14 +55,19 @@ export const indexFile = ({ ledgerId, file }: IndexFileOptions): ResultAsync<Ind
 		const indexed = { metadata: kept.metadata, transactions: kept.succeeded, prices: kept.prices };
 		return DB.indexFile(ledgerId, { key: file.key, version, file: indexed }).map((t) => ({
 			failed: kept.failed,
-			touched: t,
+			touched: t.lots,
+			commodities: t.commodities,
 		}));
 	});
 
 type UnindexOptions = { ledgerId: string; key: string };
 
 export const unindex = ({ ledgerId, key }: UnindexOptions): ResultAsync<Indexed> =>
-	DB.unindexFile(ledgerId, key).map((t) => ({ failed: [], touched: t }));
+	DB.unindexFile(ledgerId, key).map((t) => ({
+		failed: [],
+		touched: t.lots,
+		commodities: t.commodities,
+	}));
 
 type SettleOptions = { ledgerId: string; indexed: Indexed };
 
@@ -71,7 +76,10 @@ export const settle = ({ ledgerId, indexed }: SettleOptions): ResultAsync<RupeeE
 	const commodities = [...new Set(indexed.touched)];
 
 	return uncountedIn(ledgerId)
-		.andThen((u) => DB.recount(ledgerId, u).map(() => u))
+		.andThen((u) => DB.recount(ledgerId, u).map((r) => ({ u, r })))
+		.andThen(({ u, r }) =>
+			DB.rebalance(ledgerId, [...new Set([...indexed.commodities, ...r])]).map(() => u),
+		)
 		.andThen((u) => (commodities.length === 0 ? okAsync() : DB.rebook(ledgerId, commodities, u)))
 		.map(() => indexed.failed)
 		.orElse((e) => ok([...indexed.failed, e]));
@@ -99,11 +107,12 @@ const applyPlan = (storage: Storage, ledgerId: string, p: SyncPlan): ResultAsync
 	return inOrder(steps.map((s) => () => reported(s()))).map((done) => ({
 		failed: done.flatMap((d) => d.failed),
 		touched: done.flatMap((d) => d.touched),
+		commodities: done.flatMap((d) => d.commodities),
 	}));
 };
 
 const reported = (i: ResultAsync<Indexed>): ResultAsync<Indexed> =>
-	i.orElse((e) => ok({ failed: [e], touched: [] }));
+	i.orElse((e) => ok({ failed: [e], touched: [], commodities: [] }));
 
 const embed = (ledgerId: string, failed: RupeeError[]): ResultAsync<RupeeError[]> =>
 	DB.listUnembedded(ledgerId, MODEL, EMBEDDED)

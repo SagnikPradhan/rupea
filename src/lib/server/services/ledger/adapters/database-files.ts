@@ -43,13 +43,15 @@ export const findImported = (ledgerId: string, checksums: string[]): ResultAsync
 
 type IndexFileOptions = { key: string; version: string | null; file: RupeeLedgerFile };
 
+export type Touched = { lots: string[]; commodities: string[] };
+
 // One transaction, so readers see the old file or the new one. A description
 // keeps its embedding through a reindex, so saving a file never re-embeds it.
-// Returns the commodities whose lots the file held before or holds now.
+// Returns the commodities the file posted before or posts now, and those whose lots it held.
 export const indexFile = (
 	ledgerId: string,
 	{ key, version, file }: IndexFileOptions,
-): ResultAsync<string[]> => {
+): ResultAsync<Touched> => {
 	const untyped = untypedAccount(file);
 	if (untyped) return errAsync(untyped);
 
@@ -129,7 +131,8 @@ export const indexFile = (
 					),
 				];
 
-				const before = await lotCommoditiesOf(tx, fileId);
+				const before = await commoditiesOf(tx, fileId);
+				const lotsBefore = await lotCommoditiesOf(tx, fileId);
 				await tx.deleteFrom('metadata').where('fileId', '=', fileId).execute();
 				await tx.deleteFrom('transactions').where('fileId', '=', fileId).execute();
 				await tx.deleteFrom('prices').where('fileId', '=', fileId).execute();
@@ -143,16 +146,20 @@ export const indexFile = (
 					await tx.insertInto('prices').values(chunk).execute();
 				for (const chunk of chunks(metadataRows, ROWS_PER_STATEMENT))
 					await tx.insertInto('metadata').values(chunk).execute();
-				const after = await lotCommoditiesOf(tx, fileId);
+				const after = await commoditiesOf(tx, fileId);
+				const lotsAfter = await lotCommoditiesOf(tx, fileId);
 
-				return [...before, ...after];
+				return {
+					lots: [...lotsBefore, ...lotsAfter],
+					commodities: [...before, ...after],
+				};
 			}),
 		),
 	);
 };
 
-/** Returns the commodities whose lots the file held. */
-export const unindexFile = (ledgerId: string, key: string): ResultAsync<string[]> =>
+/** Returns the commodities the file posted, and those whose lots it held. */
+export const unindexFile = (ledgerId: string, key: string): ResultAsync<Touched> =>
 	withContext('kysely')((kysely) =>
 		attempt(() =>
 			kysely.transaction().execute(async (tx) => {
@@ -162,11 +169,12 @@ export const unindexFile = (ledgerId: string, key: string): ResultAsync<string[]
 					.where('ledgerFiles.ledgerId', '=', ledgerId)
 					.where('ledgerFiles.key', '=', key)
 					.executeTakeFirst();
-				if (!file) return [];
+				if (!file) return { lots: [], commodities: [] };
 
-				const touched = await lotCommoditiesOf(tx, file.id);
+				const lots = await lotCommoditiesOf(tx, file.id);
+				const commodities = await commoditiesOf(tx, file.id);
 				await tx.deleteFrom('ledgerFiles').where('id', '=', file.id).execute();
-				return touched;
+				return { lots, commodities };
 			}),
 		),
 	);
@@ -275,6 +283,16 @@ const withSymbols = async <R>(
 		(byCommodity[s.symbol] ?? []).map((p) => ({ ...p.row, symbolId: s.id })),
 	);
 };
+
+const commoditiesOf = (kysely: Queries, fileId: string): Promise<string[]> =>
+	kysely
+		.selectFrom('postings')
+		.innerJoin('transactions', 'transactions.id', 'postings.transactionId')
+		.select('postings.commodity')
+		.distinct()
+		.where('transactions.fileId', '=', fileId)
+		.execute()
+		.then((r) => r.map((c) => c.commodity));
 
 const lotCommoditiesOf = (kysely: Queries, fileId: string): Promise<string[]> =>
 	kysely

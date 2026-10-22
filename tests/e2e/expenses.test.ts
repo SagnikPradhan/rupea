@@ -47,3 +47,25 @@ test('adds up spending by account over a range, net of refunds', async ({
 	await expect(page).toHaveURL(/postings\?account=Expenses%3AHousing&range=all/);
 	await expect(page.getByRole('rowgroup').filter({ hasText: 'Rent' })).toBeVisible();
 });
+
+test('lays a month of spending out as a calendar, each day leading to its postings', async ({
+	signedIn: page,
+	ledger,
+}) => {
+	const day = Temporal.Now.plainDateISO().subtract({ days: 3 });
+	await createFile(
+		page,
+		ledger,
+		'bank.rupee',
+		[`${day} Dinner`, '\tExpenses:Food 1200', '\tAssets:Bank', ''].join('\n'),
+	);
+
+	await visit(page, `${ledger}/expenses?range=1m`);
+	const cell = page.getByRole('link', { name: /1.2K/ });
+	await cell.hover();
+	await expect(page.locator('.figure')).toHaveText('1,200.00');
+
+	await cell.click();
+	await expect(page).toHaveURL(new RegExp(`postings\\?account=Expenses&from=${day}&to=${day}`));
+	await expect(page.getByRole('rowgroup').filter({ hasText: 'Dinner' })).toBeVisible();
+});

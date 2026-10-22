@@ -3,6 +3,7 @@
 	import { BUCKETS, Range } from '#lib/shared/dates.ts';
 	import { PARTS } from '#lib/web/chart.ts';
 	import BarChart from '#lib/web/components/bar-chart/bar-chart.svelte';
+	import Calendar from '#lib/web/components/calendar/calendar.svelte';
 	import Issues from '#lib/web/components/issues/issues.svelte';
 	import Amount from '#lib/web/components/ledger-table/amount.svelte';
 	import LedgerTable from '#lib/web/components/ledger-table/ledger-table.svelte';
@@ -77,6 +78,9 @@
 	const other = $derived([whole, ...bars].some((b) => b[OTHER] !== '0'));
 
 	const first = $derived(bars[0]?.bucket ?? day);
+	const label = $derived(
+		`Spending from ${formatDate(first)} to ${formatDate(day)}, ${formatAmount(total?.amount ?? '0')} in all`,
+	);
 	const months = $derived(((Date.parse(day) - Date.parse(first)) / DAY_MS + 1) / MONTH_DAYS);
 
 	/** What a bar holds, by part; whatever the parts leave is the other spending. */
@@ -93,6 +97,8 @@
 
 	const postingsOf = (account: string) =>
 		`/l/${handle}/postings?${new URLSearchParams({ account, range })}`;
+	const postingsOn = (day: string) =>
+		`/l/${handle}/postings?${new URLSearchParams({ account: ROOT, from: day, to: day })}`;
 	const perMonth = (amount: string) => (Number(amount) / months).toFixed(2);
 
 	const depthOf = (account: string) => account.split(':').length - 1;
@@ -111,46 +117,49 @@
 <Issues {handle} errors={response.errors} />
 
 <section aria-labelledby="spending">
-	<BarChart
-		rows={bars}
-		x="bucket"
-		{bucket}
-		series={[
-			...parts.map((p) => ({ key: p, label: nameOf(p), role: 'part' as const })),
-			...(other ? [{ key: OTHER, label: OTHER, role: 'part' as const }] : []),
-			...(previous ? [{ key: PREVIOUS, label: PREVIOUS, role: 'reference' as const }] : []),
-		]}
-		{whole}
-		label="Spending from {formatDate(first)} to {formatDate(day)}, {formatAmount(
-			total?.amount ?? '0',
-		)} in all"
-	>
-		{#snippet summary(index: number | null)}
-			{@const bar = index === null ? undefined : bars[index]}
-			{@const shown = bar?.total ?? total?.amount ?? '0'}
-			{@const compared = bar ? bar[PREVIOUS] : previous && before}
-			{@const change = compared ? formatChange(compared, shown) : null}
-			<div class="summary">
-				<div class="heading">
-					<h2 id="spending" class="label">Spending</h2>
-					<RangePicker current={range} />
-				</div>
-				<p class="figure" title={formatExact(shown)}>{formatAmount(shown)}</p>
-				<p>
-					{#if change}
-						<span class="nowrap">
-							{change.amount}{#if change.percent !== null}&nbsp;({change.percent}){/if} vs previous ·
-						</span>
-					{/if}
-					{bar ? formatBucket[bucket](bar.bucket) : `${formatDate(first)} – ${formatDate(day)}`}
-					{#if total && total.unpriced > 0}
-						<span class="nowrap">· excludes {total.unpriced} unpriced</span>
-					{/if}
-				</p>
-			</div>
-		{/snippet}
-	</BarChart>
+	{#if bucket === 'day'}
+		<Calendar rows={bars} x="bucket" y="total" href={postingsOn} {label} {summary} />
+	{:else}
+		<BarChart
+			rows={bars}
+			x="bucket"
+			{bucket}
+			series={[
+				...parts.map((p) => ({ key: p, label: nameOf(p), role: 'part' as const })),
+				...(other ? [{ key: OTHER, label: OTHER, role: 'part' as const }] : []),
+				...(previous ? [{ key: PREVIOUS, label: PREVIOUS, role: 'reference' as const }] : []),
+			]}
+			{whole}
+			{label}
+			{summary}
+		/>
+	{/if}
 </section>
+
+{#snippet summary(index: number | null)}
+	{@const bar = index === null ? undefined : bars[index]}
+	{@const shown = bar?.total ?? total?.amount ?? '0'}
+	{@const compared = bar ? bar[PREVIOUS] : previous && before}
+	{@const change = compared ? formatChange(compared, shown) : null}
+	<div class="summary">
+		<div class="heading">
+			<h2 id="spending" class="label">Spending</h2>
+			<RangePicker current={range} />
+		</div>
+		<p class="figure" title={formatExact(shown)}>{formatAmount(shown)}</p>
+		<p>
+			{#if change}
+				<span class="nowrap">
+					{change.amount}{#if change.percent !== null}&nbsp;({change.percent}){/if} vs previous ·
+				</span>
+			{/if}
+			{bar ? formatBucket[bucket](bar.bucket) : `${formatDate(first)} – ${formatDate(day)}`}
+			{#if total && total.unpriced > 0}
+				<span class="nowrap">· excludes {total.unpriced} unpriced</span>
+			{/if}
+		</p>
+	</div>
+{/snippet}
 
 {#if spending && spending.totals.length > 0}
 	<LedgerTable

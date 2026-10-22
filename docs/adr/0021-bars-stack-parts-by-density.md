@@ -20,3 +20,4 @@ uPlot lays bars over each other when it stacks them, which a hatch would let sho
 
 - A chart with more accounts than five gathers the rest into one part, so the smallest stay readable only in the table.
 - A page sends each bar's total beside its parts in the row, since a ledger knows it exactly and the chart would only add floats.
+- A month is a calendar instead, since thirty bars are too thin to stack. Its days carry their amounts as text, which no hatch can sit under, so a day is shaded in one of four greys by its share of the month's largest day. The greys are tokens mixed from ink, light enough that ink stays legible on the darkest, and a refund keeps its red with no fill.

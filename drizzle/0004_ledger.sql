@@ -155,6 +155,7 @@ CREATE TABLE "transactions" (
 	"line" integer NOT NULL,
 	"date" date NOT NULL,
 	"time" time,
+	"sort_time" time GENERATED ALWAYS AS (coalesce("time", '00:00')) STORED NOT NULL,
 	"description" text NOT NULL,
 	"embedding" vector(384),
 	"embedding_model" text,
@@ -201,6 +202,7 @@ CREATE INDEX "metadata_ledger_id_key_value" ON "metadata" USING btree ("ledger_i
 CREATE INDEX "postings_transaction_id" ON "postings" USING btree ("transaction_id");--> statement-breakpoint
 CREATE INDEX "postings_ledger_id_account_amount" ON "postings" USING btree ("ledger_id","account","commodity","amount");--> statement-breakpoint
 CREATE INDEX "postings_ledger_id_commodity" ON "postings" USING btree ("ledger_id","commodity");--> statement-breakpoint
+CREATE INDEX "postings_ledger_id_lower_account" ON "postings" USING btree ("ledger_id",lower("account") text_pattern_ops);--> statement-breakpoint
 CREATE INDEX "postings_ledger_id_balance" ON "postings" USING btree ("ledger_id","account","commodity") WHERE "postings"."balance" IS NOT NULL;--> statement-breakpoint
 CREATE INDEX "prices_file_id" ON "prices" USING btree ("file_id");--> statement-breakpoint
 CREATE INDEX "prices_symbol_id_date" ON "prices" USING btree ("symbol_id","date");--> statement-breakpoint
@@ -209,7 +211,7 @@ CREATE INDEX "symbol_links_ledger_id_alias" ON "symbol_links" USING btree ("ledg
 CREATE INDEX "symbol_links_file_id" ON "symbol_links" USING btree ("file_id");--> statement-breakpoint
 CREATE INDEX "symbol_links_symbol_id" ON "symbol_links" USING btree ("symbol_id");--> statement-breakpoint
 CREATE INDEX "transactions_file_id" ON "transactions" USING btree ("file_id");--> statement-breakpoint
-CREATE INDEX "transactions_ledger_id_order" ON "transactions" USING btree ("ledger_id","date",coalesce("time", '00:00'),"id");--> statement-breakpoint
+CREATE INDEX "transactions_ledger_id_order" ON "transactions" USING btree ("ledger_id","date","sort_time","id");--> statement-breakpoint
 CREATE INDEX "transactions_ledger_id_uncounted" ON "transactions" USING btree ("ledger_id") WHERE not "transactions"."counted";--> statement-breakpoint
 CREATE INDEX "transactions_description" ON "transactions" USING gin ("description" gin_trgm_ops);--> statement-breakpoint
 CREATE INDEX "transactions_embedding" ON "transactions" USING hnsw ("embedding" vector_cosine_ops);--> statement-breakpoint

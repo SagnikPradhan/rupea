@@ -1,27 +1,29 @@
+import { count } from '#tests/shared/count.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
-import { eq, sql } from 'drizzle-orm';
+import { sql } from 'kysely';
 import { v7 as uuidv7 } from 'uuid';
 import { describe, expect } from 'vitest';
 import { attemptWrite } from '#lib/server/db/errors.ts';
 import type { Database } from '#lib/server/db/index.ts';
 import { AccountType } from '#services/ledger/domain/types.ts';
-import {
-	ledgerFiles,
-	ledgers,
-	metadata,
-	postings,
-	transactions,
-} from '#services/ledger/adapters/database-schema.ts';
-import { storages } from '#services/storage/adapters/database-schema.ts';
-import { users } from '#services/auth/adapters/database-schema.ts';
 
 const findLedger = (db: Database, id: string) =>
+	db.selectFrom('ledgers').selectAll().where('id', '=', id).executeTakeFirst();
+
+const createFile = (db: Database, ledgerId: string) =>
 	db
-		.select()
-		.from(ledgers)
-		.where(eq(ledgers.id, id))
-		.then(([l]) => l);
+		.insertInto('ledgerFiles')
+		.values({ ledgerId, key: 'a' })
+		.returning('id')
+		.executeTakeFirstOrThrow();
+
+const createTransaction = (db: Database, ledgerId: string, fileId: string) =>
+	db
+		.insertInto('transactions')
+		.values({ ledgerId, fileId, line: 1, date: '2026-01-01', description: 'x' })
+		.returning('id')
+		.executeTakeFirstOrThrow();
 
 const pause = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -30,7 +32,7 @@ describe('the database', () => {
 		const id = (await createLedger(db)).id;
 		const before = await findLedger(db, id);
 		await pause(5);
-		await db.update(ledgers).set({ name: 'Renamed' }).where(eq(ledgers.id, id));
+		await db.updateTable('ledgers').set({ name: 'Renamed' }).where('id', '=', id).execute();
 		const after = await findLedger(db, id);
 
 		expect(after?.name).toBe('Renamed');
@@ -39,14 +41,14 @@ describe('the database', () => {
 	});
 
 	it('stamps updatedAt on every table that has one', async ({ db }) => {
-		const unstamped = await db.execute<{ table_name: string }>(sql`
+		const unstamped = await sql<{ tableName: string }>`
 			select c.table_name from information_schema.columns c
 			where c.table_schema = 'public' and c.column_name = 'updated_at'
 				and not exists (
 					select from information_schema.triggers t
 					where t.event_object_table = c.table_name and t.trigger_name = 'set_updated_at'
 				)
-		`);
+		`.execute(db);
 
 		expect(unstamped.rows).toEqual([]);
 	});
@@ -61,27 +63,29 @@ describe('the database', () => {
 
 	it('keeps amounts exact beyond 2^53, in rows and in sums', async ({ db }) => {
 		const ledgerId = (await createLedger(db)).id;
-		const [file] = await db.insert(ledgerFiles).values({ ledgerId, key: 'a' }).returning();
-		const [tx] = await db
-			.insert(transactions)
-			.values({ ledgerId, fileId: file!.id, line: 1, date: '2026-01-01', description: 'x' })
-			.returning();
+		const file = await createFile(db, ledgerId);
+		const tx = await createTransaction(db, ledgerId, file.id);
 		const big = 9_007_199_254_740_993n;
 		const posting = {
 			ledgerId,
-			transactionId: tx!.id,
+			transactionId: tx.id,
 			accountType: AccountType.Assets,
 			commodity: 'INR',
 		};
-		await db.insert(postings).values([
-			{ ...posting, position: 0, account: 'Assets:A', amount: big },
-			{ ...posting, position: 1, account: 'Assets:B', amount: -big },
-		]);
+		await db
+			.insertInto('postings')
+			.values([
+				{ ...posting, position: 0, account: 'Assets:A', amount: big },
+				{ ...posting, position: 1, account: 'Assets:B', amount: -big },
+			])
+			.execute();
 
 		const rows = await db
-			.select({ amount: postings.amount })
-			.from(postings)
-			.orderBy(postings.position);
+			.selectFrom('postings')
+			.select('amount')
+			.where('transactionId', '=', tx.id)
+			.orderBy('position')
+			.execute();
 		expect(rows.map((r) => r.amount)).toEqual([big, -big]);
 	});
 
@@ -89,65 +93,65 @@ describe('the database', () => {
 		const ledgerId = (await createLedger(db)).id;
 		const upsert = (version: string) =>
 			db
-				.insert(ledgerFiles)
+				.insertInto('ledgerFiles')
 				.values({ ledgerId, key: 'a', version })
-				.onConflictDoUpdate({ target: [ledgerFiles.ledgerId, ledgerFiles.key], set: { version } })
-				.returning()
-				.then(([f]) => f);
+				.onConflict((o) => o.columns(['ledgerId', 'key']).doUpdateSet({ version }))
+				.returningAll()
+				.executeTakeFirstOrThrow();
 		const before = await upsert('1');
 		await pause(5);
 		const after = await upsert('2');
 
-		expect(after!.updatedAt.getTime()).toBeGreaterThan(before!.updatedAt.getTime());
+		expect(after.updatedAt.getTime()).toBeGreaterThan(before.updatedAt.getTime());
 	});
 
 	it('writes a transaction all together or not at all', async ({ db }) => {
 		const id = (await createLedger(db)).id;
-		const failing = db.transaction(async (tx) => {
-			await tx.update(ledgers).set({ name: 'Half done' }).where(eq(ledgers.id, id));
-			await tx.insert(ledgerFiles).values({ ledgerId: uuidv7(), key: 'a' });
+		const failing = db.transaction().execute(async (tx) => {
+			await tx.updateTable('ledgers').set({ name: 'Half done' }).where('id', '=', id).execute();
+			await tx.insertInto('ledgerFiles').values({ ledgerId: uuidv7(), key: 'a' }).execute();
 		});
 
-		await expect(failing).rejects.toMatchObject({ cause: { message: /foreign key/ } });
+		await expect(failing).rejects.toMatchObject({ message: /foreign key/ });
 		const row = await findLedger(db, id);
 		expect(row?.name).toBe('Test');
 	});
 
 	it('gives every metadata row exactly one owner', async ({ db }) => {
 		const ledgerId = (await createLedger(db)).id;
-		const [file] = await db.insert(ledgerFiles).values({ ledgerId, key: 'a' }).returning();
-		const [tx] = await db
-			.insert(transactions)
-			.values({ ledgerId, fileId: file!.id, line: 1, date: '2026-01-01', description: 'x' })
-			.returning();
+		const file = await createFile(db, ledgerId);
+		const tx = await createTransaction(db, ledgerId, file.id);
 		const entry = { ledgerId, position: 0, key: 'k', value: 'v' };
+		const insert = (fileId: string | null, transactionId: string | null) =>
+			db
+				.insertInto('metadata')
+				.values({ ...entry, fileId, transactionId })
+				.execute();
 
-		const check = { cause: { message: /metadata_one_owner/ } };
+		const check = { message: /metadata_one_owner/ };
 
-		await expect(db.insert(metadata).values(entry)).rejects.toMatchObject(check);
-		await expect(
-			db.insert(metadata).values({ ...entry, fileId: file!.id, transactionId: tx!.id }),
-		).rejects.toMatchObject(check);
-		await db.insert(metadata).values({ ...entry, transactionId: tx!.id });
-		expect(await db.$count(metadata, eq(metadata.transactionId, tx!.id))).toBe(1);
+		await expect(insert(null, null)).rejects.toMatchObject(check);
+		await expect(insert(file.id, tx.id)).rejects.toMatchObject(check);
+		await insert(null, tx.id);
+		expect(await count(db.selectFrom('metadata').where('transactionId', '=', tx.id))).toBe(1);
 	});
 
 	it('removes what hangs off a row it deletes', async ({ db }) => {
 		const ledgerId = (await createLedger(db)).id;
-		await db.insert(ledgerFiles).values({ ledgerId, key: 'a' });
-		await db.delete(ledgers).where(eq(ledgers.id, ledgerId));
+		await createFile(db, ledgerId);
+		await db.deleteFrom('ledgers').where('id', '=', ledgerId).execute();
 
-		expect(await db.$count(ledgerFiles, eq(ledgerFiles.ledgerId, ledgerId))).toBe(0);
+		expect(await count(db.selectFrom('ledgerFiles').where('ledgerId', '=', ledgerId))).toBe(0);
 	});
 
 	it("takes a user's storage and ledgers with them", async ({ db }) => {
 		const ledger = await createLedger(db);
-		await db.insert(ledgerFiles).values({ ledgerId: ledger.id, key: 'a' });
-		await db.delete(users).where(eq(users.id, ledger.owner));
+		await createFile(db, ledger.id);
+		await db.deleteFrom('users').where('id', '=', ledger.owner).execute();
 
-		expect(await db.$count(storages, eq(storages.userId, ledger.owner))).toBe(0);
-		expect(await db.$count(ledgers, eq(ledgers.id, ledger.id))).toBe(0);
-		expect(await db.$count(ledgerFiles, eq(ledgerFiles.ledgerId, ledger.id))).toBe(0);
+		expect(await count(db.selectFrom('storages').where('userId', '=', ledger.owner))).toBe(0);
+		expect(await count(db.selectFrom('ledgers').where('id', '=', ledger.id))).toBe(0);
+		expect(await count(db.selectFrom('ledgerFiles').where('ledgerId', '=', ledger.id))).toBe(0);
 	});
 
 	it('reads what was just written, however many queries are in flight', async ({ db }) => {
@@ -162,7 +166,9 @@ describe('the database', () => {
 	it('names the unique constraint a write breaks, and nothing else', async ({ db }) => {
 		const ledger = await createLedger(db);
 		const insert = (ownerId: string, handle: string) =>
-			attemptWrite(() => db.insert(ledgers).values({ id: uuidv7(), ownerId, handle, name: 'x' }));
+			attemptWrite(() =>
+				db.insertInto('ledgers').values({ id: uuidv7(), ownerId, handle, name: 'x' }).execute(),
+			);
 
 		expect((await insert(ledger.owner, ledger.handle))._unsafeUnwrapErr()).toEqual({
 			type: 'UniqueViolation',

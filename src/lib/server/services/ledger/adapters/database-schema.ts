@@ -83,6 +83,10 @@ export const transactions = PG.pgTable(
 		line: t.integer().notNull(),
 		date: t.date().notNull(),
 		time: t.time(),
+		sortTime: t
+			.time()
+			.notNull()
+			.generatedAlwaysAs(sql`coalesce("time", '00:00')`), // a missing time sorts as midnight
 		description: t.text().notNull(),
 		embedding: t.vector({ dimensions: EMBEDDING_DIMENSIONS }), // of the description; filled lazily
 		embeddingModel: t.text(),
@@ -90,12 +94,7 @@ export const transactions = PG.pgTable(
 	}),
 	(t) => [
 		PG.index('transactions_file_id').on(t.fileId),
-		PG.index('transactions_ledger_id_order').on(
-			t.ledgerId,
-			t.date,
-			sql`coalesce(${t.time}, '00:00')`,
-			t.id,
-		), // lists page by it
+		PG.index('transactions_ledger_id_order').on(t.ledgerId, t.date, t.sortTime, t.id), // lists page by it
 		PG.index('transactions_ledger_id_uncounted')
 			.on(t.ledgerId)
 			.where(sql`not ${t.counted}`),
@@ -141,6 +140,10 @@ export const postings = PG.pgTable(
 		PG.index('postings_transaction_id').on(t.transactionId),
 		PG.index('postings_ledger_id_account_amount').on(t.ledgerId, t.account, t.commodity, t.amount), // refinement matches
 		PG.index('postings_ledger_id_commodity').on(t.ledgerId, t.commodity), // lots are booked per commodity
+		PG.index('postings_ledger_id_lower_account').on(
+			t.ledgerId,
+			sql`lower(${t.account}) text_pattern_ops`,
+		), // account filters, whatever their case
 		PG.index('postings_ledger_id_balance')
 			.on(t.ledgerId, t.account, t.commodity)
 			.where(sql`${t.balance} IS NOT NULL`),

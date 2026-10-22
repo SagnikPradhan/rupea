@@ -1,7 +1,6 @@
 import { provide } from '#lib/server/shared/context/context.ts';
 import { isHandle, petName } from '#lib/server/shared/names.ts';
 import { err, ok } from '#lib/server/shared/result/result.ts';
-import { memberships } from '#services/ledger/adapters/database-schema.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import { createLedger, createUser } from '#tests/shared/seed.ts';
@@ -24,7 +23,10 @@ describe('reaching a ledger', () => {
 			const ledger = await createLedger(db);
 			const member = await createUser(db);
 			const stranger = await createUser(db);
-			await db.insert(memberships).values({ userId: member.userId, ledgerId: ledger.id });
+			await db
+				.insertInto('memberships')
+				.values({ userId: member.userId, ledgerId: ledger.id })
+				.execute();
 			const reach = (user: string) =>
 				Ledger.withLedger({ user, handle: ledger.handle, action: (l) => ok(l) });
 
@@ -40,7 +42,10 @@ describe('reaching a ledger', () => {
 			const own = await createLedger(db);
 			const shared = await createLedger(db);
 			await createLedger(db);
-			await db.insert(memberships).values({ userId: own.owner, ledgerId: shared.id });
+			await db
+				.insertInto('memberships')
+				.values({ userId: own.owner, ledgerId: shared.id })
+				.execute();
 
 			expect(await Ledger.listLedgers({ user: own.owner })).toEqual(ok([own, shared]));
 		}));

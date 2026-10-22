@@ -1,27 +1,14 @@
+import { literalLike } from '#lib/server/db/index.ts';
+import { labels, noneOf, total, totalBefore } from '#lib/server/db/expressions.ts';
 import { readOnly } from '#lib/server/db/read-only.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { and, asc, eq, inArray, ne, or, sql } from 'drizzle-orm';
-import { AMOUNT_UNIT, type Amount } from '../domain/amounts';
+import { sql, type SqlBool } from 'kysely';
+import type { Amount } from '../domain/amounts';
 import type { Holding } from '../domain/holdings';
 import { BALANCE_TYPES } from '../domain/taxonomy';
 import type { RupeeParseLocation, RupeePosting } from '../domain/types';
-import {
-	ledgerFiles,
-	lots as lotTable,
-	postings,
-	transactions as transactionTable,
-} from './database-schema';
-import {
-	before,
-	inAccount,
-	listed,
-	NEWEST_FIRST,
-	timeKey,
-	toCost,
-	toPrice,
-	toQuantity,
-} from './database-queries';
+import { multiply, toCost, toPrice, toQuantity } from './database-queries';
 import type { Page, PageOptions } from './database-transactions';
 
 /** Where a page of postings starts: just past this one, newest first. */
@@ -46,45 +33,69 @@ export type BalanceCheck = {
 	unordered: string[];
 };
 
-// Evidence is kept but not counted, so it has no postings to list.
+// Evidence is kept but not counted, so it has no postings to list. The account
+// matches through postings_ledger_id_lower_account, and the cursor compares as
+// one tuple, so a page reads on as one range of the order index.
 export const listPostings = (
 	ledgerId: string,
 	{ filter, after, limit }: PageOptions<PostingCursor>,
 ): ResultAsync<Page<ListedPosting, PostingCursor>> =>
 	readOnly(async (db) => {
 		const rows = await db
-			.select({
-				file: ledgerFiles.key,
-				line: transactionTable.line,
-				id: transactionTable.id,
-				date: transactionTable.date,
-				time: sql<string>`${timeKey}::text`,
-				description: transactionTable.description,
-				position: postings.position,
-				account: postings.account,
-				amount: postings.amount,
-				commodity: postings.commodity,
-				priceAmount: postings.priceAmount,
-				priceCommodity: postings.priceCommodity,
-				priceKind: postings.priceKind,
-				costAmount: postings.costAmount,
-				costCommodity: postings.costCommodity,
-				costDate: postings.costDate,
-				balance: postings.balance,
-			})
-			.from(postings)
-			.innerJoin(transactionTable, eq(transactionTable.id, postings.transactionId))
-			.innerJoin(ledgerFiles, eq(ledgerFiles.id, transactionTable.fileId))
-			.where(
-				and(
-					listed(ledgerId, filter),
-					eq(transactionTable.counted, true),
-					filter.account === null ? undefined : inAccount(filter.account),
-					after === null ? undefined : or(before(after), atAfter(after)),
-				),
+			.selectFrom('postings as p')
+			.innerJoin('transactions as t', 't.id', 'p.transactionId')
+			.innerJoin('ledgerFiles as f', 'f.id', 't.fileId')
+			.select([
+				'f.key as file',
+				't.line',
+				't.id',
+				't.date',
+				't.sortTime as time',
+				't.description',
+				'p.position',
+				'p.account',
+				'p.amount',
+				'p.commodity',
+				'p.priceAmount',
+				'p.priceCommodity',
+				'p.priceKind',
+				'p.costAmount',
+				'p.costCommodity',
+				'p.costDate',
+				'p.balance',
+			])
+			.where((e) =>
+				e.and([
+					e('t.ledgerId', '=', ledgerId),
+					e('t.date', '>=', filter.from.toString()),
+					e('t.date', '<=', filter.to.toString()),
+					e('t.counted', '=', true),
+					...(filter.description === null
+						? []
+						: [e('t.description', 'ilike', `%${literalLike(filter.description)}%`)]),
+					...(filter.account === null
+						? []
+						: [
+								sql<SqlBool>`(lower(${e.ref('p.account')}) = lower(${filter.account}) or lower(${e.ref('p.account')}) like lower(${literalLike(filter.account)}) || ':%')`,
+							]),
+					...(after === null
+						? []
+						: [
+								e(
+									e.refTuple('t.date', 't.sortTime', 't.id'),
+									'<=',
+									e.tuple(after.date, after.time, after.id),
+								),
+								e.or([e('t.id', '<>', after.id), e('p.position', '>', after.position)]),
+							]),
+				]),
 			)
-			.orderBy(...NEWEST_FIRST, asc(postings.position))
-			.limit(limit);
+			.orderBy('t.date', 'desc')
+			.orderBy('t.sortTime', 'desc')
+			.orderBy('t.id', 'desc')
+			.orderBy('p.position')
+			.limit(limit)
+			.execute();
 
 		const last = rows.length === limit ? rows.at(-1) : undefined;
 		return {
@@ -114,90 +125,77 @@ export const listAccountNames = (ledgerId: string): ResultAsync<string[]> =>
 	withContext('db')((db) =>
 		attempt(() =>
 			db
-				.selectDistinct({ account: postings.account })
-				.from(postings)
-				.where(eq(postings.ledgerId, ledgerId))
-				.orderBy(asc(postings.account))
-				.then((r) => r.map((a) => a.account)),
-		),
+				.selectFrom('postings as p')
+				.select('p.account')
+				.distinct()
+				.where('p.ledgerId', '=', ledgerId)
+				.orderBy('p.account')
+				.execute(),
+		).map((r) => r.map((a) => a.account)),
 	);
 
 export const listHoldings = (ledgerId: string): ResultAsync<Holding[]> =>
-	withContext('db')((db) => {
-		const balances = db
-			.select({
-				account: postings.account,
-				commodity: postings.commodity,
-				units: sql<string>`sum(${postings.amount})::text`.as('units'),
-			})
-			.from(postings)
-			.innerJoin(transactionTable, eq(transactionTable.id, postings.transactionId))
-			.where(
-				and(
-					eq(postings.ledgerId, ledgerId),
-					inArray(postings.accountType, BALANCE_TYPES),
-					eq(transactionTable.counted, true),
-				),
-			)
-			.groupBy(postings.account, postings.commodity)
-			.having(sql`sum(${postings.amount}) <> 0`)
-			.as('balances');
-		const costs = db
-			.select({
-				account: lotTable.account,
-				commodity: lotTable.commodity,
-				costAmount:
-					sql<string>`sum(round(${lotTable.remaining}::numeric * ${lotTable.costAmount} / ${sql.raw(AMOUNT_UNIT.toString())}))::text`.as(
-						'cost_amount',
-					),
-				costCommodity: sql<
-					string | null
-				>`case when count(distinct ${lotTable.costCommodity}) = 1 then min(${lotTable.costCommodity}) end`.as(
-					'cost_commodity',
-				),
-			})
-			.from(lotTable)
-			.where(and(eq(lotTable.ledgerId, ledgerId), ne(lotTable.remaining, 0n)))
-			.groupBy(lotTable.account, lotTable.commodity)
-			.as('costs');
-
-		return attempt(() =>
+	withContext('db')((db) =>
+		attempt(() =>
 			db
-				.select({
-					account: balances.account,
-					commodity: balances.commodity,
-					units: balances.units,
-					costAmount: costs.costAmount,
-					costCommodity: costs.costCommodity,
-				})
-				.from(balances)
-				.leftJoin(
-					costs,
-					and(eq(costs.account, balances.account), eq(costs.commodity, balances.commodity)),
+				.with('balances', (q) =>
+					q
+						.selectFrom('postings as p')
+						.innerJoin('transactions as t', 't.id', 'p.transactionId')
+						.select(['p.account', 'p.commodity', (e) => e.fn.sum<bigint>('p.amount').as('units')])
+						.where('p.ledgerId', '=', ledgerId)
+						.where('p.accountType', 'in', BALANCE_TYPES)
+						.where('t.counted', '=', true)
+						.groupBy(['p.account', 'p.commodity'])
+						.having((e) => e(e.fn.sum('p.amount'), '<>', 0n)),
 				)
-				.orderBy(asc(balances.account), asc(balances.commodity)),
+				.with('costs', (qb) =>
+					qb
+						.selectFrom('lots')
+						.select((e) => [
+							'lots.account',
+							'lots.commodity',
+							e.fn
+								.sum<bigint>(
+									multiply(e.cast(e.ref('lots.remaining'), 'numeric'), e.ref('lots.costAmount')),
+								)
+								.as('costAmount'),
+							e
+								.case()
+								.when(e(e.fn.count('lots.costCommodity').distinct(), '=', 1))
+								.then(e.fn.min('lots.costCommodity'))
+								.end()
+								.as('costCommodity'),
+						])
+						.where('lots.ledgerId', '=', ledgerId)
+						.where('lots.remaining', '!=', 0n)
+						.groupBy(['lots.account', 'lots.commodity']),
+				)
+				.selectFrom('balances')
+				.leftJoin('costs', (j) =>
+					j
+						.onRef('costs.account', '=', 'balances.account')
+						.onRef('costs.commodity', '=', 'balances.commodity'),
+				)
+				.select([
+					'balances.account',
+					'balances.commodity',
+					'balances.units',
+					'costs.costAmount',
+					'costs.costCommodity',
+				])
+				.orderBy('balances.account')
+				.orderBy('balances.commodity')
+				.execute(),
 		).map((rows) =>
 			rows.map((row) => ({
 				account: row.account,
 				commodity: row.commodity,
-				units: BigInt(row.units) as Amount,
-				cost: toQuantity({
-					amount: row.costAmount === null ? null : BigInt(row.costAmount),
-					commodity: row.costCommodity,
-				}),
+				units: row.units as Amount,
+				cost: toQuantity({ amount: row.costAmount, commodity: row.costCommodity }),
 			})),
-		);
-	});
-
-type BalanceRow = {
-	file: string;
-	line: number;
-	account: string;
-	commodity: string;
-	expected: string;
-	actual: string;
-	unordered: string[];
-};
+		),
+	);
 
 // An assertion is a point in time on its account: every counted posting before
 // it, in any file. A file is a sequence, so its own postings that day are
@@ -208,60 +206,154 @@ export const listBalanceChecks = (
 ): ResultAsync<BalanceCheck[]> =>
 	withContext('db')((db) =>
 		attempt(() =>
-			db.execute<BalanceRow>(sql`
-				with asserted as (
-					select distinct p.account, p.commodity
-					from ${postings} p
-					where p.ledger_id = ${ledgerId} and p.balance is not null
-				),
-				entries as (
-					select f.key as file, t.line, t.date, t.time, p.position, p.account, p.commodity, p.amount, p.balance,
-						t.id <> all(${sql.param(uncounted)}::uuid[]) as counted
-					from ${postings} p
-					join ${transactionTable} t on t.id = p.transaction_id
-					join ${ledgerFiles} f on f.id = t.file_id
-					where p.ledger_id = ${ledgerId} and (p.account, p.commodity) in (select account, commodity from asserted)
-				),
-				days as (
-					select account, commodity, date, sum(case when counted then amount else 0 end) as total
-					from entries
-					group by account, commodity, date
-				),
-				openings as (
-					select account, commodity, date, sum(total) over (partition by account, commodity order by date) - total as opening
-					from days
-				),
-				checks as (
-					select a.file, a.line, a.account, a.commodity, a.balance,
-						o.opening + coalesce(sum(e.amount) filter (where
-							(e.file = a.file and (e.line < a.line or (e.line = a.line and e.position <= a.position)))
-							or (e.file != a.file and e.time < a.time)
-						), 0) as actual,
-						coalesce(array_agg(distinct e.file || ':' || e.line) filter (where
-							e.file != a.file and (e.time is null or a.time is null or e.time = a.time)
-						), '{}') as unordered
-					from entries a
-					join openings o on o.account = a.account and o.commodity = a.commodity and o.date = a.date
-					left join entries e on e.account = a.account and e.commodity = a.commodity and e.date = a.date and e.counted
-					where a.balance is not null
-					group by a.file, a.line, a.position, a.account, a.commodity, a.balance, o.opening
+			db
+				.with('entries', () =>
+					db
+						.selectFrom('postings as p')
+						.innerJoin('transactions as t', 't.id', 'p.transactionId')
+						.innerJoin('ledgerFiles as f', 'f.id', 't.fileId')
+						.innerJoin(
+							(q) =>
+								q
+									.selectFrom('postings')
+									.select(['postings.account', 'postings.commodity'])
+									.distinct()
+									.where('postings.ledgerId', '=', ledgerId)
+									.where('postings.balance', 'is not', null)
+									.as('a'),
+							(j) =>
+								j.onRef('a.account', '=', 'p.account').onRef('a.commodity', '=', 'p.commodity'),
+						)
+						.select((e) => [
+							'f.key as file',
+							't.line',
+							't.date',
+							't.time',
+							'p.position',
+							'p.account',
+							'p.commodity',
+							'p.amount',
+							'p.balance',
+							noneOf(e.ref('t.id'), uncounted, 'uuid').as('counted'),
+						])
+						.where('p.ledgerId', '=', ledgerId),
 				)
-				select file, line, account, commodity, balance::text as expected, actual::text as actual, unordered
-				from checks
-				where balance != actual or cardinality(unordered) > 0
-				order by file, line
-			`),
-		).map((r) =>
-			r.rows.map((c) => ({
+				.with('days', (q) =>
+					q
+						.selectFrom('entries')
+						.select((e) => [
+							'entries.account',
+							'entries.commodity',
+							'entries.date',
+							total(e.ref('entries.amount'), e('entries.counted', '=', true)).as('total'),
+						])
+						.groupBy(['entries.account', 'entries.commodity', 'entries.date']),
+				)
+				.with('openings', (q) =>
+					q
+						.selectFrom('days')
+						.select((e) => [
+							'days.account',
+							'days.commodity',
+							'days.date',
+							totalBefore(
+								e.ref('days.total'),
+								[e.ref('days.account'), e.ref('days.commodity')],
+								e.ref('days.date'),
+							).as('opening'),
+						]),
+				)
+				.with('checks', (q) =>
+					q
+						.selectFrom('entries as a')
+						.innerJoin('openings as o', (j) =>
+							j
+								.onRef('o.account', '=', 'a.account')
+								.onRef('o.commodity', '=', 'a.commodity')
+								.onRef('o.date', '=', 'a.date'),
+						)
+						.leftJoin('entries as e', (j) =>
+							j
+								.onRef('e.account', '=', 'a.account')
+								.onRef('e.commodity', '=', 'a.commodity')
+								.onRef('e.date', '=', 'a.date')
+								.on('e.counted', '=', true),
+						)
+						.select((x) => {
+							const sameFile = x('e.file', '=', x.ref('a.file'));
+							const otherFile = x('e.file', '!=', x.ref('a.file'));
+							const earlierInFile = x.and([
+								sameFile,
+								x.or([
+									x('e.line', '<', x.ref('a.line')),
+									x.and([
+										x('e.line', '=', x.ref('a.line')),
+										x('e.position', '<=', x.ref('a.position')),
+									]),
+								]),
+							]);
+							const earlierInOther = x.and([otherFile, x('e.time', '<', x.ref('a.time'))]);
+							const unsure = x.and([
+								otherFile,
+								x.or([
+									x('e.time', 'is', null),
+									x('a.time', 'is', null),
+									x('e.time', '=', x.ref('a.time')),
+								]),
+							]);
+
+							return [
+								'a.file',
+								'a.line',
+								'a.account',
+								'a.commodity',
+								'a.balance',
+								x(
+									x.ref('o.opening'),
+									'+',
+									total(x.ref('e.amount'), x.or([earlierInFile, earlierInOther])),
+								).as('actual'),
+								labels(x.ref('e.file'), x.ref('e.line'), unsure).as('unordered'),
+							];
+						})
+						.where('a.balance', 'is not', null)
+						.groupBy([
+							'a.file',
+							'a.line',
+							'a.position',
+							'a.account',
+							'a.commodity',
+							'a.balance',
+							'o.opening',
+						]),
+				)
+				.selectFrom('checks')
+				.select([
+					'file',
+					'line',
+					'account',
+					'commodity',
+					'balance as expected',
+					'actual',
+					'unordered',
+				])
+				.where((e) =>
+					e.or([
+						e('balance', '!=', e.ref('actual')),
+						e(e.fn('cardinality', ['unordered']), '>', 0),
+					]),
+				)
+				.orderBy('file')
+				.orderBy('line')
+				.execute(),
+		).map((rows) =>
+			rows.map((c) => ({
 				location: { file: c.file, line: c.line },
 				account: c.account,
 				commodity: c.commodity,
-				expected: BigInt(c.expected) as Amount,
-				actual: BigInt(c.actual) as Amount,
+				expected: c.expected as Amount,
+				actual: c.actual as Amount,
 				unordered: c.unordered,
 			})),
 		),
 	);
-
-const atAfter = (c: PostingCursor) =>
-	sql`(${transactionTable.date}, ${timeKey}, ${transactionTable.id}) = (${c.date}::date, ${c.time}::time, ${c.id}::uuid) and ${postings.position} > ${c.position}`;

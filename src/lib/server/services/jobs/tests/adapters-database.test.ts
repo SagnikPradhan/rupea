@@ -1,13 +1,13 @@
 import { atomically } from '#lib/server/db/atomically.ts';
 import { attemptWrite } from '#lib/server/db/errors.ts';
-import { jobs } from '#services/jobs/adapters/database-schema.ts';
 import { JobStatus } from '#services/jobs/domain/jobs.ts';
 import { provide, withContext } from '#lib/server/shared/context/context.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { ResultAsync } from '#lib/server/shared/result/result.ts';
 import { createUser } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
-import { eq, sql } from 'drizzle-orm';
+import { sql } from 'kysely';
+import { count } from '#tests/shared/count.ts';
 import { describe, expect } from 'vitest';
 import * as Jobs from '#services/jobs/adapters/database.ts';
 
@@ -27,13 +27,19 @@ describe('the jobs store', () => {
 			await Jobs.createJob(queued(user, 'gone'));
 			await Jobs.createJob(queued(user, 'known'));
 			await db
-				.update(jobs)
-				.set({ runAt: sql`now() - interval '2 days'` })
-				.where(eq(jobs.userId, user));
+				.updateTable('jobs')
+				.set({ runAt: sql<Date>`now() - interval '2 days'` })
+				.where('userId', '=', user)
+				.execute();
 
 			await Jobs.sweep(['known']);
 
-			const rows = await db.select().from(jobs).where(eq(jobs.userId, user)).orderBy(jobs.name);
+			const rows = await db
+				.selectFrom('jobs')
+				.selectAll()
+				.where('userId', '=', user)
+				.orderBy('name')
+				.execute();
 			expect(rows).toMatchObject([
 				{ name: 'gone', status: JobStatus.Failed, error: fault('JobUnknown', { name: 'gone' }) },
 				{ name: 'known', status: JobStatus.Queued },
@@ -64,7 +70,11 @@ describe('the jobs store', () => {
 			await Jobs.createJob({ ...queued(user, 'single'), dedupe: 'second' });
 
 			const running = attemptWrite(() =>
-				db.update(jobs).set({ status: JobStatus.Running }).where(eq(jobs.name, 'single')),
+				db
+					.updateTable('jobs')
+					.set({ status: JobStatus.Running })
+					.where('name', '=', 'single')
+					.execute(),
 			);
 
 			expect((await running)._unsafeUnwrapErr()).toEqual(
@@ -88,7 +98,13 @@ describe('the jobs store', () => {
 			);
 			await claimed.promise;
 			const second = Jobs.claimJob(known, 60_000);
-			await expect.poll(() => db.$count(sql`pg_locks`, sql`not granted`)).toBe(1);
+			await expect
+				.poll(() =>
+					count(
+						db.selectFrom(sql<{ granted: boolean }>`pg_locks`.as('l')).where('granted', '=', false),
+					),
+				)
+				.toBe(1);
 			commit.resolve();
 
 			expect(await first.then((c) => partitionOf(c._unsafeUnwrap()!.id))).toBe(user);
@@ -99,8 +115,9 @@ describe('the jobs store', () => {
 const partitionOf = (id: string) =>
 	withContext('db')((db) =>
 		db
-			.select({ partition: jobs.partition })
-			.from(jobs)
-			.where(eq(jobs.id, id))
-			.then(([j]) => j?.partition),
+			.selectFrom('jobs')
+			.select('partition')
+			.where('id', '=', id)
+			.executeTakeFirst()
+			.then((j) => j?.partition),
 	);

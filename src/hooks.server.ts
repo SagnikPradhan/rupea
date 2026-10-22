@@ -16,7 +16,7 @@ import { startServerWorkers } from '#lib/server/workers.ts';
 
 const config = readConfiguration(process.env);
 const database = await createDatabase(config);
-const context = createContext(config, database.orm, dev);
+const context = createContext(config, database.db, dev);
 
 export const init: ServerInit = async () => {
 	await database.migrate();

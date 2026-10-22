@@ -64,17 +64,12 @@ export const listTransactions = (
 ): ResultAsync<Page<CountedTransaction, Cursor>> =>
 	readOnly(async (kysely) => {
 		const keys = await kysely
-			.selectFrom('transactions')
-			.select([
-				'transactions.id',
-				'transactions.date',
-				sql<string>`${timeKey}::text`.as('time'),
-				'transactions.counted',
-			])
-			.where((eb) =>
-				eb.and([
-					listed(ledgerId, filter)(eb),
-					...(filter.account === null ? [] : [hasPostingIn(filter.account)]),
+			.selectFrom('transactions as t')
+			.select(['t.id', 't.date', sql<string>`${timeKey}::text`.as('time'), 't.counted'])
+			.where((e) =>
+				e.and([
+					listed(ledgerId, filter)(e),
+					...(filter.account === null ? [] : [hasPostingIn(filter.account)(e)]),
 					...(after === null ? [] : [before(after)]),
 				]),
 			)
@@ -275,8 +270,15 @@ export const findNearest = (
 	);
 };
 
-const hasPostingIn = (a: string) =>
-	sql<SqlBool>`exists (select 1 from postings where ${sql.ref('postings.transactionId')} = ${sql.ref('transactions.id')} and ${inAccount(a)})`;
+const hasPostingIn =
+	(a: string) => (e: ExpressionBuilder<Tables & { t: Tables['transactions'] }, 't'>) =>
+		e.exists(
+			e
+				.selectFrom('postings as p')
+				.select(sql.lit(1).as('one'))
+				.whereRef('p.transactionId', '=', 't.id')
+				.where(inAccount(a)),
+		);
 
 // The event ids the file's transactions name, through the metadata index.
 const eventsOfFile = (

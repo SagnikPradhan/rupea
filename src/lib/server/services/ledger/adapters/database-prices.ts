@@ -1,7 +1,8 @@
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
+import { runningTotal, total, unset } from '#lib/server/db/expressions.ts';
 import type { Queries } from '#lib/server/db/index.ts';
-import { sql, type Expression } from 'kysely';
+import { sql, type Expression, type SqlBool } from 'kysely';
 import { DEFAULT_COMMODITY, type Amount, type Quantity } from '../domain/amounts';
 import { AccountType, Feed, PriceSource } from '../domain/types';
 import { multiply } from './database-queries';
@@ -52,6 +53,7 @@ export const listWorth = (
 	to: Temporal.PlainDate,
 ): ResultAsync<Worth[]> =>
 	withContext('kysely')((kysely) => {
+		const firstDay = sql<string>`(select min(day) from days)`;
 		const isAsset = sql<boolean>`${sql.ref('postings.accountType')} = ${sql.lit(AccountType.Assets)}`;
 
 		return attempt(() =>
@@ -94,14 +96,7 @@ export const listWorth = (
 							'x.asset',
 							'x.commodity',
 							'o.id as symbolId',
-							e.fn
-								.sum<bigint | null>('x.amount')
-								.filterWhere(
-									'x.date',
-									'<',
-									e.selectFrom('days').select((s) => s.fn.min('days.day').as('day')),
-								)
-								.as('opening'),
+							total('x.amount', e('x.date', '<', firstDay)).as('opening'),
 						])
 						.groupBy(['x.asset', 'x.commodity', 'o.id']),
 				)
@@ -120,7 +115,7 @@ export const listWorth = (
 							'k.commodity',
 							'k.symbolId',
 							'd.day',
-							sql<bigint>`coalesce(${sql.ref('k.opening')}, 0) + sum(coalesce(${sql.ref('x.amount')}, 0)) over (partition by ${sql.ref('k.asset')}, ${sql.ref('k.commodity')} order by ${sql.ref('d.day')})`.as(
+							sql<bigint>`${sql.ref('k.opening')} + ${runningTotal('x.amount', ['k.asset', 'k.commodity'], 'd.day')}`.as(
 								'units',
 							),
 						]),
@@ -157,18 +152,14 @@ export const listWorth = (
 				)
 				.selectFrom('days as d')
 				.leftJoin('valued as v', 'v.day', 'd.day')
-				.select((e) => [
+				.select([
 					'd.day',
-					e.fn
-						.coalesce(e.fn.sum<bigint>('v.value').filterWhere('v.asset', '=', true), sql.lit(0n))
-						.as('assets'),
-					sql<bigint>`coalesce(-sum(${sql.ref('v.value')}) filter (where not ${sql.ref('v.asset')}), 0)`.as(
+					total('v.value', 'v.asset').as('assets'),
+					sql<bigint>`-${total('v.value', sql<SqlBool>`not ${sql.ref('v.asset')}`)}`.as(
 						'liabilities',
 					),
-					e.fn.coalesce(e.fn.sum<bigint>('v.value'), sql.lit(0n)).as('worth'),
-					e
-						.cast<number>(e.fn.count('v.day').filterWhere('v.value', 'is', null), 'integer')
-						.as('unpriced'),
+					total('v.value').as('worth'),
+					unset('v.value', 'v.day').as('unpriced'),
 				])
 				.groupBy('d.day')
 				.orderBy('d.day')

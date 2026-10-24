@@ -11,7 +11,7 @@ const ZIP = [0x50, 0x4b, 0x03, 0x04];
 
 export const readCsv = (o: Upload): ResultAsync<Contents> =>
 	attempt(
-		async () => ({
+		() => ({
 			grid: parse(Buffer.from(o.content), { bom: true, relax_column_count: true }),
 			text: [],
 		}),
@@ -46,7 +46,7 @@ const isEncrypted = (c: Uint8Array) =>
 // A sheet's every cell is in its grid, so no text is left outside it.
 const readFirstSheet = (o: Upload): ResultAsync<Contents> =>
 	attempt(
-		async () => {
+		() => {
 			const book = XLSX.read(o.content, {
 				type: 'buffer',
 				cellDates: true,

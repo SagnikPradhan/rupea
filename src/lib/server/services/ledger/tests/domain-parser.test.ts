@@ -422,6 +422,9 @@ describe('commodities', () => {
 		['a price without an amount', '\tAssets:IBKR @ 180 USD'],
 		['a price without a number', '\tAssets:IBKR 10 AAPL @ USD'],
 		['a negative price', '\tAssets:IBKR 10 AAPL @ -180 USD'],
+		['a negative price in rupees', '\tAssets:IBKR 10 AAPL @ ₹-180'],
+		['a third at sign', '\tAssets:IBKR 10 AAPL @@@ 1800'],
+		['a second price', '\tAssets:IBKR 10 AAPL @ 180 USD @ 181 USD'],
 		['a balance in another commodity', '\tAssets:IBKR 10 AAPL @ 180 USD = 30 USD'],
 	])('rejects %s', (_, line) => {
 		expect(buy([line, '\tAssets:IBKR:Cash']).failed).toMatchObject([
@@ -619,6 +622,9 @@ describe('lot costs', () => {
 		['a lot cost without an amount', '\tAssets:Zerodha {1500}'],
 		['a lot date that is not a date', '\tAssets:Zerodha -4 INFY {1500, June}'],
 		['a lot date without a space after the comma', '\tAssets:Zerodha -4 INFY {1500,2024-06-03}'],
+		['an unclosed lot cost', '\tAssets:Zerodha -4 INFY {1500'],
+		['text after the lot cost', '\tAssets:Zerodha -4 INFY {1500} INR'],
+		['an at sign in the lot cost', '\tAssets:Zerodha -4 INFY {1500 @ 2}'],
 	])('rejects %s', (_, line) => {
 		expect(sell([line, '\tAssets:Bank']).failed).toMatchObject([{ type: 'ParseInvalidPosting' }]);
 	});
@@ -704,6 +710,23 @@ describe('blank lines', () => {
 	});
 });
 
+describe('long lines', () => {
+	const elapsed = (line: string) => {
+		const start = performance.now();
+		run(['2026-08-29 Groceries', line, '\tAssets:Bank']);
+		return performance.now() - start;
+	};
+
+	it.each([
+		['spaces in a posting', `\tExpenses:Food 1${' '.repeat(100_000)}x`],
+		['spaces after a price', `\tExpenses:Food 1 @ 2${' '.repeat(100_000)}@`],
+		['commas in a lot cost', `\tExpenses:Food 1 {2${', '.repeat(50_000)}`],
+		['spaces in metadata', `\t- note: a${' '.repeat(100_000)}`],
+	])('reads %s in linear time', (_, line) => {
+		expect(elapsed(line)).toBeLessThan(1000);
+	});
+});
+
 describe('reading an amount', () => {
 	it.each([
 		['100', 100_0000000000n],
@@ -730,6 +753,7 @@ describe('writing an amount', () => {
 		[1n, '0.0000000001'],
 		[-1n, '-0.0000000001'],
 		[0n, '0.00'],
+		[10_0500000000n, '10.05'],
 	])('writes %s ten-billionths as %j', (am, tx) => {
 		expect(formatAmount(am as Amount)).toBe(tx);
 	});

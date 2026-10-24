@@ -2,7 +2,7 @@ import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
 import { EVENT_KEY, EVENT_KEYS, linksOf, type EventLink, type EventRole } from './events';
-import { parse } from './parser';
+import { parse, readEntry } from './parser';
 import type { RupeeFile, RupeeTransaction } from './types';
 
 // Where a link goes, and what the header there must still say.
@@ -68,24 +68,22 @@ export const rewriteLinks = (
 
 	const lines = members.reduce((l, { transaction, link }) => {
 		const at = linkLine(l, transaction.location.line, event);
-		const written = LINK.exec(l[at] ?? '');
+		const written = readEntry(l[at] ?? '');
 		const next = relink(transaction, link);
 		return at < 0 || !written
 			? l
-			: l.with(at, `${written[1]}- ${EVENT_KEY[next.role]}: ${next.event}`);
+			: l.with(at, `${written.indent}- ${EVENT_KEY[next.role]}: ${next.event}`);
 	}, file.content.split('\n'));
 	return ok(lines.join('\n'));
 };
 
-const LINK = /^(\s*)-\s+([^\s:]+):\s+(\S.*?)\s*$/;
-
 // A link sits under its header, among the transaction's metadata and comments.
 const linkLine = (lines: string[], header: number, event: string): number => {
-	const own = lines.slice(header).findIndex((l) => !l.startsWith(';') && !LINK.test(l));
+	const own = lines.slice(header).findIndex((l) => !l.startsWith(';') && !readEntry(l));
 	const block = lines.slice(header, own < 0 ? lines.length : header + own);
 	const found = block.findIndex((l) => {
-		const m = LINK.exec(l);
-		return m?.[2] !== undefined && EVENT_KEYS.includes(m[2]) && m[3] === event;
+		const entry = readEntry(l);
+		return entry !== undefined && EVENT_KEYS.includes(entry.key) && entry.value === event;
 	});
 	return found < 0 ? found : header + found;
 };

@@ -79,7 +79,9 @@ const columns = ({ fields, records }: RupeeSchema): string[] => {
 
 const column = ({ headers }: Sheet, nm: string): number | null =>
 	headers.get(nm) ??
-	(/^[A-Z]+$/.test(nm) ? [...nm].reduce((n, l) => n * 26 + l.charCodeAt(0) - 64, 0) - 1 : null);
+	(/^[A-Z]+$/.test(nm)
+		? [...nm].reduce((n, l) => n * 26 + (l.codePointAt(0) ?? 0) - 64, 0) - 1
+		: null);
 
 type RowOptions = {
 	schema: RupeeSchema;
@@ -171,7 +173,7 @@ const readPath = ({ sheet, row, path: { from, pipe } }: ReadPathOptions): Read =
 	const { col, row: at, lost } = from.reduce(move(sheet), { col: null, row, lost: false });
 	const cell = col === null || lost ? undefined : sheet.grid[at]?.[col];
 	if (cell === undefined || cell.trim() === '') return { kind: 'missing' };
-	return pipe.reduce(apply, { kind: 'text', text: cell });
+	return pipe.reduce<Read>((r, t) => apply(r, t), { kind: 'text', text: cell });
 };
 
 const move =

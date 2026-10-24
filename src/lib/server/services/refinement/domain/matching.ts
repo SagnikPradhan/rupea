@@ -1,4 +1,5 @@
 import { sha256 } from '#lib/server/shared/hash.ts';
+import { byCodeUnit } from '#lib/server/shared/text.ts';
 import {
 	EventRole,
 	formatQuantity,
@@ -117,14 +118,14 @@ const target = (t: MatchedTransaction, role: EventRole): LinkTarget => ({
 // Changes when either side does, so a dismissal lapses with an edit. The
 // location tells identical charges apart.
 export const fingerprint = (a: RupeeTransaction, b: RupeeTransaction): string =>
-	sha256([identity(a), identity(b)].sort().join('\n'));
+	sha256([identity(a), identity(b)].toSorted(byCodeUnit).join('\n'));
 
 const identity = (t: RupeeTransaction) =>
 	[
 		`${t.location.file}:${t.location.line}`,
 		t.date.toString(),
 		t.description,
-		...t.postings.map((p) => `${p.account} ${formatQuantity(p)}`).sort(),
+		...t.postings.map((p) => `${p.account} ${formatQuantity(p)}`).toSorted(byCodeUnit),
 	].join('|');
 
 const normalise = (d: string) => d.toLowerCase().replace(/\s+/g, ' ').trim();

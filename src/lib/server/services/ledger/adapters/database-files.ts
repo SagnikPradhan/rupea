@@ -5,6 +5,7 @@ import { chunks } from '#lib/server/shared/arrays.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
 import { attempt, errAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
+import { byCodeUnit } from '#lib/server/shared/text.ts';
 import { sql } from 'kysely';
 import { v7 as uuidv7 } from 'uuid';
 import { CURRENCIES } from '../domain/lots';
@@ -259,7 +260,7 @@ type Owner = { feed: Feed; ledgerId: string | null };
  */
 const withSymbols = async <R>(db: Database, owner: Owner, rows: { symbol: string; row: R }[]) => {
 	const bySymbol = Object.groupBy(rows, (r) => r.symbol);
-	const names = Object.keys(bySymbol).toSorted();
+	const names = Object.keys(bySymbol).toSorted(byCodeUnit);
 
 	const known = names.length
 		? await db

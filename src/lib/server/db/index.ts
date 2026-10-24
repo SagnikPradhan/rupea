@@ -22,9 +22,9 @@ type OpenOptions = { url: string | null; directory: string };
 export const openDatabase = (o: OpenOptions): Promise<DatabaseHandle> =>
 	o.url ? connectDatabase(o.url) : embedDatabase(o.directory);
 
-export const connectDatabase = async (url: string): Promise<DatabaseHandle> => {
+export const connectDatabase = (url: string): Promise<DatabaseHandle> => {
 	const pool = new Pool({ connectionString: url, types: columnTypes });
-	return {
+	return Promise.resolve({
 		db: new Kysely<Tables>({
 			dialect: new PostgresDialect({ pool }),
 			plugins: [new CamelCasePlugin()],
@@ -32,7 +32,7 @@ export const connectDatabase = async (url: string): Promise<DatabaseHandle> => {
 		url,
 		migrate: () => migrate(pool),
 		close: () => pool.end(),
-	};
+	});
 };
 
 // Kysely gets what the driver returns, so dates stay text and amounts are exact bigints.

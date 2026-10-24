@@ -132,7 +132,7 @@ export const releaseExpired = (l: Job<unknown>[]): ResultAsync<void> =>
 
 const stopped = (c: RupeeContext) => {
 	c.logger.warn('jobs stopped, since there are no workers');
-	return { stop: async () => undefined };
+	return { stop: () => Promise.resolve() };
 };
 
 const dispatchAndSettle = (o: TickOptions, c: ClaimedJob): ResultAsync<void> =>

@@ -85,6 +85,12 @@ export const formatSize = (bytes: number) => {
 	return `${sizes.format(bytes / 1000 ** power)} ${UNITS[power]}`;
 };
 
+/** A spreadsheet's name for a column, counting from 0: A to Z, then AA. */
+export const formatColumn = (index: number): string => {
+	const prefix = index >= 26 ? formatColumn(Math.floor(index / 26) - 1) : '';
+	return prefix + String.fromCodePoint(65 + (index % 26));
+};
+
 /** Formats the day of a moment in the viewer's time zone as an ISO date, like `2026-10-21`. */
 export const formatIsoDate = (d: Date) => isoDays.format(d);
 

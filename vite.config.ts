@@ -55,6 +55,7 @@ export default defineConfig({
 			include: ['src/**/*.{ts,svelte}'],
 			exclude: ['src/**/tests/**', 'src/**/*.d.ts', 'src/**/database-schema.ts'],
 			reporter: ['text', 'html', 'lcov'],
+			thresholds: { lines: 90, branches: 80, functions: 90 },
 		},
 		projects: [
 			{
@@ -78,7 +79,7 @@ export default defineConfig({
 				plugins: [svelteTesting()],
 				test: {
 					name: 'frontend',
-					include: ['src/lib/web/**/tests/*.test.ts'],
+					include: ['src/lib/web/**/tests/*.test.ts', 'src/routes/**/tests/*.test.ts'],
 					benchmark: { include: [] },
 					environment: 'happy-dom',
 				},

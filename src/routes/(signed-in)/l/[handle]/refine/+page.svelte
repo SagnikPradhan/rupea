@@ -7,6 +7,7 @@
 	} from '#lib/endpoints/refinement.remote.ts';
 	import type { RupeeError } from '#lib/server/shared/result/error.ts';
 	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
+	import { detail } from '#lib/web/errors.ts';
 	import { fileHref, ledgerCrumb } from '#lib/web/links.ts';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -27,9 +28,6 @@
 
 	const failures = $state({ list: [] as RupeeError[] });
 	const swapped = $state<Record<string, boolean>>({});
-
-	const describe = (error: RupeeError) =>
-		[error.type, 'location' in error ? `at ${error.location}` : ''].join(' ');
 
 	// Only a new event has both links to swap; joining one keeps its primary.
 	const links = (s: Suggestion) =>
@@ -82,7 +80,7 @@
 </label>
 
 {#each [...(response?.errors ?? []), ...failures.list] as error, i (i)}
-	<p role="alert">{describe(error)}</p>
+	<p role="alert">{detail(error)}</p>
 {/each}
 
 {#if file !== null && response?.data}

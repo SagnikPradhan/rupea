@@ -2,6 +2,7 @@
 	import { listEvents, makePrimary, renameEvent } from '#lib/endpoints/refinement.remote.ts';
 	import type { RupeeError } from '#lib/server/shared/result/error.ts';
 	import type { Reply } from '#lib/server/shared/result/reply.ts';
+	import { detail } from '#lib/web/errors.ts';
 
 	type Props = {
 		handle: string;
@@ -15,9 +16,6 @@
 
 	const response = $derived(await listEvents({ handle, file }));
 	const failures = $state({ list: [] as RupeeError[] });
-
-	const describe = (error: RupeeError) =>
-		[error.type, 'location' in error ? `at ${error.location}` : ''].join(' ');
 
 	async function run(change: Promise<Reply<RupeeError[]>>) {
 		const changed = await change;
@@ -33,7 +31,7 @@
 </script>
 
 {#each [...response.errors, ...failures.list] as error, i (i)}
-	<p role="alert">{describe(error)}</p>
+	<p role="alert">{detail(error)}</p>
 {/each}
 
 {#if (response.data ?? []).length > 0}

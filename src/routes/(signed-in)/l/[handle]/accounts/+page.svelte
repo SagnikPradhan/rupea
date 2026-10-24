@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { listAccounts } from '#lib/endpoints/accounts.remote.ts';
+	import { depthOf, nameOf, prefixOf } from '#lib/web/accounts.ts';
 	import Issues from '#lib/web/components/issues/issues.svelte';
 	import Amount from '#lib/web/components/ledger-table/amount.svelte';
 	import LedgerTable from '#lib/web/components/ledger-table/ledger-table.svelte';
@@ -32,15 +33,6 @@
 
 	/** A commodity's row is named by it, so its units need no code after them. */
 	const numberOf = (quantity: string | null) => quantity?.split(' ')[0] ?? null;
-	const depthOf = (account: string) => account.split(':').length - 1;
-	const nameOf = (account: string) => account.split(':').at(-1) ?? account;
-	/** The first letter of each parent, like A:C: for Assets:Checking:HDFC. */
-	const prefixOf = (account: string) =>
-		account
-			.split(':')
-			.slice(0, -1)
-			.map((part) => `${part[0]}:`)
-			.join('');
 
 	/** A group adds up sub-accounts or several holdings; any other account reads as its one holding. */
 	const isGroup = (account: { account: string; holdings: Holding[] }, next?: { account: string }) =>

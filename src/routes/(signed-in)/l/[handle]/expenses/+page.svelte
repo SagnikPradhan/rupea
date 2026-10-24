@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { listSpending } from '#lib/endpoints/accounts.remote.ts';
 	import { BUCKETS, Range } from '#lib/shared/dates.ts';
-	import { PARTS } from '#lib/web/chart.ts';
+	import { depthOf, nameOf, prefixOf } from '#lib/web/accounts.ts';
 	import BarChart from '#lib/web/components/bar-chart/bar-chart.svelte';
 	import Calendar from '#lib/web/components/calendar/calendar.svelte';
 	import Issues from '#lib/web/components/issues/issues.svelte';
@@ -20,15 +20,18 @@
 		formatShare,
 	} from '#lib/web/format.ts';
 	import { ledgerCrumb } from '#lib/web/links.ts';
+	import {
+		barsOf,
+		monthsIn,
+		OTHER,
+		partsOf,
+		PREVIOUS,
+		ROOT,
+		totalOf,
+		wholeOf,
+	} from '#lib/web/spending.ts';
 	import { page } from '$app/state';
 	import * as v from 'valibot';
-
-	const ROOT = 'Expenses';
-	const OTHER = 'Other';
-	const PREVIOUS = 'Previous';
-	/** An average month, so a year's spending divides into twelve of them. */
-	const MONTH_DAYS = 365.25 / 12;
-	const DAY_MS = 24 * 60 * 60 * 1000;
 
 	const { data } = $props();
 
@@ -42,74 +45,22 @@
 	const previous = $derived(response.data?.[1]);
 
 	const total = $derived(spending?.totals.find((t) => t.account === ROOT));
-	const before = $derived(previous?.totals.find((t) => t.account === ROOT)?.amount ?? '0');
-
-	/** The largest accounts under Expenses each stack as a part of every bar, the largest at the base. */
-	const parts = $derived(
-		(spending?.totals ?? [])
-			.filter((t) => depthOf(t.account) === 1)
-			.toSorted((a, b) => Number(b.amount) - Number(a.amount))
-			.slice(0, PARTS - 1)
-			.map((t) => t.account),
-	);
-
-	/** Both ranges start as far into their period, so their buckets match from the first one on. */
-	const earlier = $derived.by(() => {
-		const spent = Object.fromEntries(
-			(previous?.spent ?? []).filter((s) => s.account === ROOT).map((s) => [s.bucket, s.amount]),
-		);
-		return (previous?.buckets ?? []).map((b) => spent[b] ?? '0');
-	});
-	const bars = $derived.by(() => {
-		const spent = Object.fromEntries(
-			(spending?.spent ?? []).map((s) => [`${s.account} ${s.bucket}`, Number(s.amount)]),
-		);
-		return (spending?.buckets ?? []).map((b, i) => ({
-			...piled(b, (account) => spent[`${account} ${b}`] ?? 0),
-			[PREVIOUS]: earlier[i] ?? null,
-		}));
-	});
-	const whole = $derived.by(() => {
-		const spent = Object.fromEntries(
-			(spending?.totals ?? []).map((t) => [t.account, Number(t.amount)]),
-		);
-		return { ...piled('', (account) => spent[account] ?? 0), [PREVIOUS]: previous ? before : null };
-	});
+	const parts = $derived(partsOf(spending));
+	const bars = $derived(barsOf({ spending, previous, parts }));
+	const whole = $derived(wholeOf({ spending, previous, parts }));
 	const other = $derived([whole, ...bars].some((b) => b[OTHER] !== '0'));
 
 	const first = $derived(spending?.from ?? day);
 	const label = $derived(
 		`Spending from ${formatDate(first)} to ${formatDate(day)}, ${formatAmount(total?.amount ?? '0')} in all`,
 	);
-	const months = $derived(((Date.parse(day) - Date.parse(first)) / DAY_MS + 1) / MONTH_DAYS);
-
-	/** What a bar holds, by part; whatever the parts leave, to the paisa, is the other spending. */
-	function piled(bucket: string, spentIn: (account: string) => number) {
-		const amounts = parts.map((p) => spentIn(p));
-		const rest = Math.round((spentIn(ROOT) - amounts.reduce((t, a) => t + a, 0)) * 100) / 100;
-		return {
-			bucket,
-			total: String(spentIn(ROOT)),
-			...Object.fromEntries(parts.map((p, i) => [p, String(amounts[i] ?? 0)])),
-			[OTHER]: String(rest),
-		};
-	}
+	const months = $derived(monthsIn(first, day));
 
 	const postingsOf = (account: string) =>
 		`/l/${handle}/postings?${new URLSearchParams({ account, range })}`;
 	const postingsOn = (day: string) =>
 		`/l/${handle}/postings?${new URLSearchParams({ account: ROOT, from: day, to: day })}`;
 	const perMonth = (amount: string) => (Number(amount) / months).toFixed(2);
-
-	const depthOf = (account: string) => account.split(':').length - 1;
-	const nameOf = (account: string) => account.split(':').at(-1) ?? account;
-	/** The first letter of each parent, like E:F: for Expenses:Food:Groceries. */
-	const prefixOf = (account: string) =>
-		account
-			.split(':')
-			.slice(0, -1)
-			.map((part) => `${part[0]}:`)
-			.join('');
 </script>
 
 <PageHeader trail={[ledgerCrumb(data.ledger)]}>Expenses</PageHeader>
@@ -139,7 +90,7 @@
 {#snippet summary(index: number | null)}
 	{@const bar = index === null ? undefined : bars[index]}
 	{@const shown = bar?.total ?? total?.amount ?? '0'}
-	{@const compared = bar ? bar[PREVIOUS] : previous && before}
+	{@const compared = bar ? bar[PREVIOUS] : totalOf(previous)}
 	{@const change = compared ? formatChange(compared, shown) : null}
 	<div class="summary">
 		<div class="heading">

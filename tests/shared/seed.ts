@@ -23,3 +23,10 @@ export const createLedger = async (db: Database): Promise<Ledger> => {
 		.execute();
 	return { id, handle: id, name: 'Test', owner: userId };
 };
+
+/** The ledger's owner, as a signed-in request carries them. */
+export const ownerOf = (l: Ledger) => ({
+	id: l.owner,
+	email: `${l.owner}@example.com`,
+	username: l.owner,
+});

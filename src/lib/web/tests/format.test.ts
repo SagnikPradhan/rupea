@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
 	formatAmount,
 	formatChange,
+	formatColumn,
 	formatCompact,
 	formatDate,
 	formatExact,
@@ -128,5 +129,17 @@ describe('formatChange', () => {
 
 	it.each(['0', '-500'])('gives no percent from a start of %s', (start) => {
 		expect(formatChange(start, '100').percent).toBeNull();
+	});
+});
+
+describe('formatColumn', () => {
+	it.each([
+		[0, 'A'],
+		[25, 'Z'],
+		[26, 'AA'],
+		[701, 'ZZ'],
+		[702, 'AAA'],
+	])('names column %i %s', (index, name) => {
+		expect(formatColumn(index)).toBe(name);
 	});
 });

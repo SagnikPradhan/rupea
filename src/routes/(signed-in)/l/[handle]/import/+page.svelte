@@ -18,6 +18,8 @@
 	} from '#lib/endpoints/schemas.remote.ts';
 	import type { RupeeError } from '#lib/server/shared/result/error.ts';
 	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
+	import { detail } from '#lib/web/errors.ts';
+	import { formatColumn } from '#lib/web/format.ts';
 	import { ledgerCrumb } from '#lib/web/links.ts';
 	import type { Reply } from '#lib/server/shared/result/reply.ts';
 	import { fileHref } from '#lib/web/links.ts';
@@ -68,21 +70,7 @@ fields:
 		statement.errors.flatMap((e) => (e.type === 'ExtractionLocked' ? [e.path] : []))[0],
 	);
 	const width = $derived(Math.max(0, ...statement.grid.map((r) => r.length)));
-	const columns = $derived([...Array(width).keys()].map(letter));
-
-	function letter(index: number): string {
-		const prefix = index >= 26 ? letter(Math.floor(index / 26) - 1) : '';
-		return prefix + String.fromCharCode(65 + (index % 26));
-	}
-
-	const describe = (error: RupeeError) =>
-		[
-			error.type,
-			'location' in error ? `at ${error.location}` : '',
-			'field' in error ? `(${error.field})` : '',
-			'reason' in error ? `: ${error.reason}` : '',
-			'columns' in error ? `: ${error.columns.join(', ')}` : '',
-		].join(' ');
+	const columns = $derived([...Array(width).keys()].map(formatColumn));
 
 	const sleep = (t: number) => new Promise<void>((r) => setTimeout(r, t));
 
@@ -177,7 +165,7 @@ fields:
 <section>
 	<h2>Schemas</h2>
 	{#each schemas.errors as error, index (index)}
-		<p role="alert">{describe(error)}</p>
+		<p role="alert">{detail(error)}</p>
 	{/each}
 	<ul>
 		{#each schemas.data ?? [] as schema (schema.key)}
@@ -212,12 +200,12 @@ fields:
 		<button disabled={uploadStatements.pending > 0}>Upload</button>
 	</form>
 	{#each uploadStatements.result?.errors ?? [] as error, index (index)}
-		<p role="alert">{describe(error)}</p>
+		<p role="alert">{detail(error)}</p>
 	{/each}
 
 	<h3>To read</h3>
 	{#each inbox.errors as error, index (index)}
-		<p role="alert">{describe(error)}</p>
+		<p role="alert">{detail(error)}</p>
 	{/each}
 	<ul>
 		{#each inbox.data ?? [] as row (row.key)}
@@ -235,14 +223,14 @@ fields:
 			<li>
 				{job.statement}: {job.status}
 				{#if job.error}
-					<span role="alert">{describe(job.error)}</span>
+					<span role="alert">{detail(job.error)}</span>
 				{/if}
 			</li>
 		{/each}
 	</ul>
 
 	{#each statement.errors as error, index (index)}
-		<p role="alert">{describe(error)}</p>
+		<p role="alert">{detail(error)}</p>
 	{/each}
 
 	{#if locked}
@@ -309,7 +297,7 @@ fields:
 		<p>Saved.</p>
 	{/if}
 	{#each editor.errors as error, index (index)}
-		<p role="alert">{describe(error)}</p>
+		<p role="alert">{detail(error)}</p>
 	{/each}
 </section>
 
@@ -329,7 +317,7 @@ fields:
 			<input {...importStatement.fields.schema.content.as('hidden', editor.content)} />
 			{#if preview.result}
 				{#each preview.result.errors as error, index (index)}
-					<p role="alert">{describe(error)}</p>
+					<p role="alert">{detail(error)}</p>
 				{/each}
 				<p>{preview.result.data?.length ?? 0} transactions</p>
 				<div class="sheet">
@@ -362,7 +350,7 @@ fields:
 				<p role="alert">{issue.message}</p>
 			{/each}
 			{#each importStatement.result?.errors ?? [] as error, index (index)}
-				<p role="alert">{describe(error)}</p>
+				<p role="alert">{detail(error)}</p>
 			{/each}
 			<button disabled={importStatement.pending > 0}>Save</button>
 		</form>

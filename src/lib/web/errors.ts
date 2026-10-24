@@ -72,6 +72,18 @@ export const explain = (error: RupeeError): string =>
 		.with({ type: 'StorageInvalidKey' }, (e) => `“${e.key}” isn’t a valid file name.`)
 		.otherwise((e) => `Something went wrong (${e.type}).`);
 
+/** Names an error and every detail it carries, for someone writing a schema to read. */
+export const detail = (error: RupeeError) =>
+	[
+		error.type,
+		'location' in error ? `at ${error.location}` : '',
+		'field' in error ? `(${error.field})` : '',
+		'reason' in error ? `: ${error.reason}` : '',
+		'columns' in error ? `: ${error.columns.join(', ')}` : '',
+	]
+		.filter(Boolean)
+		.join(' ');
+
 /** Splits a location like `a.rupee:4, b.rupee:9` into the places it names. */
 export const placesOf = (e: RupeeError): Place[] =>
 	'location' in e ? e.location.split(', ').map(toPlace) : [];

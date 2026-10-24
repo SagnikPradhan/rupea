@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
-import { explain, isWarning, placesOf } from '#lib/web/errors.ts';
+import { detail, explain, isWarning, placesOf } from '#lib/web/errors.ts';
 
 const at = 'a.rupee:4';
 
@@ -140,5 +140,22 @@ describe('isWarning', () => {
 		});
 		expect(isWarning(ambiguous)).toBe(true);
 		expect(isWarning(fault('ParseInvalidPosting', { location: at }))).toBe(false);
+	});
+});
+
+describe('detail', () => {
+	it('names the error and every detail it carries', () => {
+		const invalid = fault('ExtractionInvalidField', {
+			location: 'aug.csv:5',
+			field: 'amount',
+			reason: '"x" is not a number',
+		});
+		expect(detail(invalid)).toBe(
+			'ExtractionInvalidField at aug.csv:5 (amount) : "x" is not a number',
+		);
+	});
+
+	it('names an error that carries nothing', () => {
+		expect(detail(fault('AuthUnauthenticated'))).toBe('AuthUnauthenticated');
 	});
 });

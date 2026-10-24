@@ -24,8 +24,9 @@ export const parseAmount = (text: string): Amount | null => {
 export const formatAmount = (amount: Amount): string => {
 	const digits = (amount < 0n ? -amount : amount).toString().padStart(AMOUNT_SCALE + 1, '0');
 	const whole = digits.slice(0, -AMOUNT_SCALE);
-	const fraction = digits.slice(-AMOUNT_SCALE).replace(/0+$/, '').padEnd(2, '0');
-	return `${amount < 0n ? '-' : ''}${whole}.${fraction}`;
+	const fraction = digits.slice(-AMOUNT_SCALE);
+	const shown = fraction.slice(0, [...fraction].findLastIndex((d) => d !== '0') + 1);
+	return `${amount < 0n ? '-' : ''}${whole}.${shown.padEnd(2, '0')}`;
 };
 
 export const formatQuantity = ({ amount, commodity }: Quantity): string =>

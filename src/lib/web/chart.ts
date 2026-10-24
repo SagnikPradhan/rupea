@@ -40,7 +40,7 @@ export const plotInto = (
 			p.setCursor({ left: e.clientX - box.left, top: e.clientY - box.top });
 		});
 
-	draw();
+	void draw();
 	resize.observe(node);
 	dark.addEventListener('change', draw);
 	node.addEventListener('pointerdown', touch);

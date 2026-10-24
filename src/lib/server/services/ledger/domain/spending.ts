@@ -44,7 +44,7 @@ export const spendingOf = (spent: Spent[], span: Span, bucket: Bucket): Spending
 const rolledUp = (spent: Spent[]): Spent[] => {
 	const groups = Object.groupBy(sharesOf(spent), (s) => `${s.account} ${s.bucket}`);
 	return Object.values(groups)
-		.flatMap((g) => (g?.[0] ? [{ ...g[0], ...added(g) }] : []))
+		.flatMap((g) => (g?.[0] ? [{ ...g[0], ...added(g[0], g) }] : []))
 		.toSorted(
 			(a, b) => byPath(a.account, b.account) || Temporal.PlainDate.compare(a.bucket, b.bucket),
 		);
@@ -54,7 +54,7 @@ const rolledUp = (spent: Spent[]): Spent[] => {
 const totalsOf = (spent: Spent[]): Total[] => {
 	const groups = Object.groupBy(sharesOf(spent), (s) => s.account);
 	return Object.entries(groups)
-		.flatMap(([account, g]) => (g ? [{ account, ...added(g) }] : []))
+		.flatMap(([account, g]) => (g?.[0] ? [{ account, ...added(g[0], g) }] : []))
 		.toSorted((a, b) => byPath(a.account, b.account));
 };
 
@@ -62,10 +62,11 @@ const totalsOf = (spent: Spent[]): Total[] => {
 const sharesOf = (r: Spent[]) =>
 	r.flatMap((s) => parentsOf(s.account).map((a) => ({ ...s, account: a })));
 
-const added = (spent: Spent[]) => ({
-	first: spent
-		.map((s) => s.first)
-		.reduce((a, b) => (Temporal.PlainDate.compare(a, b) <= 0 ? a : b)),
+const added = (head: Spent, spent: Spent[]) => ({
+	first: spent.reduce(
+		(a, s) => (Temporal.PlainDate.compare(a, s.first) <= 0 ? a : s.first),
+		head.first,
+	),
 	amount: sum(spent.map((s) => s.amount)),
 	unpriced: spent.reduce((n, s) => n + s.unpriced, 0),
 });

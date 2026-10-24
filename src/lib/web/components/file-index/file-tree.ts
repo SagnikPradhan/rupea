@@ -29,7 +29,11 @@ export const keysUnder = (l: { key: string }[], d: string) =>
 
 /** Where a file lands when moved into a folder, keeping its name; an empty folder is the top. */
 export const movedTo = (key: string, folder: string) => {
-	const into = folder.trim().replace(/^\/+|\/+$/g, '');
+	const into = folder
+		.split('/')
+		.map((p) => p.trim())
+		.filter(Boolean)
+		.join('/');
 	const name = key.slice(key.lastIndexOf('/') + 1);
 	return into === '' ? name : `${into}/${name}`;
 };

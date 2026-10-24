@@ -13,7 +13,7 @@ export const errAsync = (e: RupeeError): ResultAsync<never> => neverthrow.errAsy
 
 /** Runs an effect that may throw or reject, failing with what `onThrow` makes of it. */
 export const attempt = <T>(
-	f: () => PromiseLike<T>,
+	f: () => T | PromiseLike<T>,
 	onThrow: (thrown: unknown) => RupeeError = unknownError,
 ): ResultAsync<T> => ResultAsync.fromThrowable(async () => f(), onThrow)();
 

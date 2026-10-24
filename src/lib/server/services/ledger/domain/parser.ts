@@ -4,6 +4,7 @@ import { batch, type Batch } from '#lib/server/shared/result/batch.ts';
 import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
 import { drain, takeWhile } from '#lib/server/shared/arrays.ts';
+import { cut } from '#lib/server/shared/text.ts';
 import { match, P } from 'ts-pattern';
 import {
 	DEFAULT_COMMODITY,
@@ -35,10 +36,6 @@ const LINK = /\s(?<feed>[A-Za-z]+):(?<symbol>\S+)\s*$/;
 
 /** The feeds a link can name; a ledger's own symbols are priced by its files, never linked. */
 const LINKED: Record<string, Feed> = { mfapi: Feed.Mfapi, yahoo: Feed.Yahoo };
-
-/** A cost or price only follows an amount, and a price never starts with a minus. */
-const POSTING =
-	/^\s*(?<account>[^\s=@{]+)(?:\s+(?<amount>[^\s@={][^@={]*?)\s*(?:\{(?<lot>[^}]*)\})?\s*(?:(?<priced>@@?)(?![\s₹,]*-)\s*(?<price>[^=@]*?))?)?\s*(?:=\s*(?<balance>.*?))?\s*$/;
 
 export const displayLocation = ({ file, line }: RupeeParseLocation): string => `${file}:${line}`;
 
@@ -163,10 +160,24 @@ const readMetadata = (lines: RupeeLine[]): ReadMetadata => {
 };
 
 const parseMetadata = ({ location, content }: RupeeLine): Result<[string, string]> => {
-	const entry = /^\s*-\s+([^\s:]+):\s+(\S.*?)\s*$/.exec(content);
-	return entry?.[1] && entry[2]
-		? ok([entry[1], entry[2]])
+	const entry = readEntry(content);
+	return entry
+		? ok([entry.key, entry.value])
 		: err(fault('ParseInvalidMetadata', { location: displayLocation(location) }));
+};
+
+/** A metadata line, `- key: value`, with the indent before its dash. */
+export const readEntry = (content: string) => {
+	const body = content.trimStart();
+	const [head, tail = ''] = cut(body.slice(1), ':');
+
+	const key = head.trim();
+	const value = tail.trim();
+	const spaced = /^\s/.test(head) && /^\s/.test(tail);
+	if (!body.startsWith('-') || !spaced || key === '' || /\s/.test(key) || value === '')
+		return undefined;
+
+	return { indent: content.slice(0, content.length - body.length), key, value };
 };
 
 export const isBlank = ({ content }: RupeeLine) => content.trim() === '';
@@ -332,15 +343,16 @@ const readPosting = (
 	{ location, content }: RupeeLine,
 ): Result<WrittenPosting> => {
 	const invalid = err(fault('ParseInvalidPosting', { location: displayLocation(location) }));
-	const { account, amount, lot, priced, price, balance } = POSTING.exec(content)?.groups ?? {};
-	if (!account) return invalid;
+	const parts = splitPosting(content);
+	if (!parts) return invalid;
 
-	const units = readQuantity(amount);
-	const cost = readLotCost(dateFormats, lot);
-	const paid = readQuantity(price);
-	const asserted = readQuantity(balance);
+	const units = readQuantity(parts.amount);
+	const cost = readLotCost(dateFormats, parts.lot);
+	const paid = readQuantity(parts.price);
+	const asserted = readQuantity(parts.balance);
 	if (units === undefined || cost === undefined || paid === undefined || asserted === undefined)
 		return invalid;
+	if (paid && paid.amount < 0n) return invalid;
 
 	const quantity = units ? withDefaultCommodity(units) : null;
 	const assertsOther =
@@ -348,17 +360,45 @@ const readPosting = (
 	if (assertsOther) return invalid;
 
 	return ok({
-		account,
+		account: parts.account,
 		quantity,
 		price: paid
 			? {
 					...withDefaultCommodity(paid),
-					kind: priced === '@@' ? PriceKind.Total : PriceKind.Unit,
+					kind: parts.total ? PriceKind.Total : PriceKind.Unit,
 				}
 			: null,
 		cost,
 		balance: asserted,
 	});
+};
+
+type PostingParts = {
+	account: string;
+	amount: string | undefined;
+	lot: string | undefined;
+	price: string | undefined;
+	total: boolean;
+	balance: string | undefined;
+};
+
+/** Cuts a posting at its marks from the right: `=` for a balance, `@` for a price, `{` for a lot. */
+const splitPosting = (content: string): PostingParts | undefined => {
+	const [head, balance] = cut(content, '=');
+	const [held, priced] = cut(head, '@');
+	const [written, opened] = cut(held, '{');
+	const [lot, trailing] = opened === undefined ? [] : cut(opened, '}');
+
+	const [account = '', ...words] = written.trim().split(/\s+/);
+	const amount = words.length ? words.join(' ') : undefined;
+	const total = priced?.startsWith('@') ?? false;
+	const price = total ? priced?.slice(1) : priced;
+
+	const closed = opened === undefined || trailing?.trim() === '';
+	const valued = amount !== undefined || (lot === undefined && price === undefined);
+	if (account === '' || !closed || !valued || price?.includes('@')) return undefined;
+
+	return { account, amount, lot, price, total, balance };
 };
 
 const checkAccount = (
@@ -379,7 +419,10 @@ const checkAccount = (
 const readLotCost = (formats: string[], text: string | undefined): LotCost | null | undefined => {
 	if (text === undefined) return null;
 
-	const [, written, day] = /^(.*?)(?:,\s+(.*))?$/.exec(text.trim()) ?? [];
+	const trimmed = text.trim();
+	const at = trimmed.search(/,\s/);
+	const written = at < 0 ? trimmed : trimmed.slice(0, at);
+	const day = at < 0 ? undefined : trimmed.slice(at + 1);
 	const cost = readQuantity(written);
 	const date = readDate(formats, day);
 	if (!cost || cost.amount < 0n || date === undefined) return undefined;

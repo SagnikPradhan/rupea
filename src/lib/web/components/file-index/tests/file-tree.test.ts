@@ -43,6 +43,10 @@ describe('movedTo', () => {
 		expect(movedTo('_/imports/20261019/hdfc.rupee', ' bank/2026/ ')).toBe('bank/2026/hdfc.rupee');
 	});
 
+	it('drops empty and padded parts of the folder', () => {
+		expect(movedTo('a.rupee', '//bank// 2026 /')).toBe('bank/2026/a.rupee');
+	});
+
 	it('moves to the top for an empty folder', () => {
 		expect(movedTo('_/imports/20261019/hdfc.rupee', '')).toBe('hdfc.rupee');
 	});

@@ -63,9 +63,8 @@ export default defineConfig({
 				test: {
 					name: 'backend',
 					include: [
-						'src/lib/server/**/tests/*.test.ts',
-						'src/lib/endpoints/tests/*.test.ts',
-						'src/lib/shared/tests/*.test.ts',
+						'src/lib/server/services/*/tests/*.test.ts',
+						'src/lib/server/tests/*.test.ts',
 						'tests/shared/**/*.test.ts',
 					],
 					benchmark: { include: ['src/lib/server/**/tests/*.bench.ts'] },
@@ -79,7 +78,7 @@ export default defineConfig({
 				plugins: [svelteTesting()],
 				test: {
 					name: 'frontend',
-					include: ['src/lib/web/**/tests/*.test.ts', 'src/routes/**/tests/*.test.ts'],
+					include: ['src/lib/web/tests/*.test.ts'],
 					benchmark: { include: [] },
 					environment: 'happy-dom',
 				},

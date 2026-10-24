@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { listAccounts, listWorth } from '#lib/endpoints/accounts.remote.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
-import Page from '../+page.svelte';
+import Page from '#routes/(signed-in)/l/[handle]/accounts/+page.svelte';
 
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({

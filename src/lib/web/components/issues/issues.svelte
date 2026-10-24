@@ -1,7 +1,7 @@
 <script lang="ts">
 	import type { RupeeError } from '#lib/server/shared/result/error.ts';
-	import { explain, isWarning, placesOf } from '#lib/web/errors.ts';
-	import { fileHref } from '#lib/web/links.ts';
+	import { explain, isWarning, placesOf } from '#lib/web/shared/errors.ts';
+	import { fileHref } from '#lib/web/shared/links.ts';
 
 	const { handle, errors }: { handle: string; errors: RupeeError[] } = $props();
 

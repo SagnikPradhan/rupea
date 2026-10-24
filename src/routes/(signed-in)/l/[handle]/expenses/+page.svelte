@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { listSpending } from '#lib/endpoints/accounts.remote.ts';
 	import { BUCKETS, Range } from '#lib/shared/dates.ts';
-	import { depthOf, nameOf, prefixOf } from '#lib/web/accounts.ts';
+	import { depthOf, nameOf, prefixOf } from '#lib/web/shared/accounts.ts';
 	import BarChart from '#lib/web/components/bar-chart/bar-chart.svelte';
 	import Calendar from '#lib/web/components/calendar/calendar.svelte';
 	import Issues from '#lib/web/components/issues/issues.svelte';
@@ -18,8 +18,8 @@
 		formatExact,
 		formatIsoDate,
 		formatShare,
-	} from '#lib/web/format.ts';
-	import { ledgerCrumb } from '#lib/web/links.ts';
+	} from '#lib/web/shared/format.ts';
+	import { ledgerCrumb } from '#lib/web/shared/links.ts';
 	import {
 		barsOf,
 		monthsIn,
@@ -29,7 +29,7 @@
 		ROOT,
 		totalOf,
 		wholeOf,
-	} from '#lib/web/spending.ts';
+	} from '#lib/web/shared/spending.ts';
 	import { page } from '$app/state';
 	import * as v from 'valibot';
 

@@ -8,9 +8,9 @@
 	import ListFilter from '#lib/web/components/list-filter/list-filter.svelte';
 	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
 	import PagedTable from '#lib/web/components/paged-table/paged-table.svelte';
-	import { formatDate, formatIsoDate } from '#lib/web/format.ts';
-	import { ledgerCrumb } from '#lib/web/links.ts';
-	import { paged } from '#lib/web/paged.svelte.ts';
+	import { formatDate, formatIsoDate } from '#lib/web/shared/format.ts';
+	import { ledgerCrumb } from '#lib/web/shared/links.ts';
+	import { paged } from '#lib/web/shared/paged.svelte.ts';
 	import { page } from '$app/state';
 
 	const { data } = $props();

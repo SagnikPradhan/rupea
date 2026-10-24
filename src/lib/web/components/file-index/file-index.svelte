@@ -4,9 +4,9 @@
 	import Button from '#lib/web/components/button/button.svelte';
 	import Issues from '#lib/web/components/issues/issues.svelte';
 	import LedgerTable from '#lib/web/components/ledger-table/ledger-table.svelte';
-	import { formatMoment, formatSize } from '#lib/web/format.ts';
+	import { formatMoment, formatSize } from '#lib/web/shared/format.ts';
 	import { isCounted } from '#lib/shared/folders.ts';
-	import { fileHref } from '#lib/web/links.ts';
+	import { fileHref } from '#lib/web/shared/links.ts';
 	import IconCollapsed from '@tabler/icons-svelte-runes/icons/chevron-right';
 	import IconExpanded from '@tabler/icons-svelte-runes/icons/chevron-down';
 	import { SvelteSet } from 'svelte/reactivity';

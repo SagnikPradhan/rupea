@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { fileHref } from '#lib/web/links.ts';
+	import { fileHref } from '#lib/web/shared/links.ts';
 
 	const { handle, file, line }: { handle: string; file: string; line: number } = $props();
 </script>

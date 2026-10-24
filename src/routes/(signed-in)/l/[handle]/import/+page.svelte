@@ -18,11 +18,11 @@
 	} from '#lib/endpoints/schemas.remote.ts';
 	import type { RupeeError } from '#lib/server/shared/result/error.ts';
 	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
-	import { detail } from '#lib/web/errors.ts';
-	import { formatColumn } from '#lib/web/format.ts';
-	import { ledgerCrumb } from '#lib/web/links.ts';
+	import { detail } from '#lib/web/shared/errors.ts';
+	import { formatColumn } from '#lib/web/shared/format.ts';
+	import { ledgerCrumb } from '#lib/web/shared/links.ts';
 	import type { Reply } from '#lib/server/shared/result/reply.ts';
-	import { fileHref } from '#lib/web/links.ts';
+	import { fileHref } from '#lib/web/shared/links.ts';
 	import { UPLOAD_EXTENSIONS } from '#lib/shared/statements.ts';
 	import { goto } from '$app/navigation';
 

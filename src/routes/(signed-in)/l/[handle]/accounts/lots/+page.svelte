@@ -5,8 +5,8 @@
 	import LedgerTable from '#lib/web/components/ledger-table/ledger-table.svelte';
 	import Source from '#lib/web/components/ledger-table/source.svelte';
 	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
-	import { formatAmount, formatDate, formatExact } from '#lib/web/format.ts';
-	import { fileHref, ledgerCrumb } from '#lib/web/links.ts';
+	import { formatAmount, formatDate, formatExact } from '#lib/web/shared/format.ts';
+	import { fileHref, ledgerCrumb } from '#lib/web/shared/links.ts';
 	import { page } from '$app/state';
 
 	const { data } = $props();

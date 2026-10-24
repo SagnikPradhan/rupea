@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
-import { detail, explain, isWarning, placesOf } from '#lib/web/errors.ts';
+import { detail, explain, isWarning, placesOf } from '#lib/web/shared/errors.ts';
 
 const at = 'a.rupee:4';
 

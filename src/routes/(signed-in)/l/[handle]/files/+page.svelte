@@ -16,7 +16,7 @@
 	import FileIndex from '#lib/web/components/file-index/file-index.svelte';
 	import Issues from '#lib/web/components/issues/issues.svelte';
 	import type { Reply } from '#lib/server/shared/result/reply.ts';
-	import { ledgerCrumb } from '#lib/web/links.ts';
+	import { ledgerCrumb } from '#lib/web/shared/links.ts';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { untrack } from 'svelte';

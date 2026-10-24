@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { paged } from '#lib/web/paged.svelte.ts';
+import { paged } from '#lib/web/shared/paged.svelte.ts';
 
 const page = (rows: string[], next: number | null) => ({
 	ok: true,

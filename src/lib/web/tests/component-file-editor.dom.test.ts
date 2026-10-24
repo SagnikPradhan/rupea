@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { createEditor } from '#lib/web/components/file-editor/file-editor.svelte.ts';
 import FileEditor from '#lib/web/components/file-editor/file-editor.svelte';
-import { fakeApi } from '#lib/web/components/file-editor/tests/fixture.ts';
+import { fakeApi } from '#lib/web/tests/component-file-editor-fixture.ts';
 
 const rendered = async (key: string | null = 'a.rupee') => {
 	const fake = fakeApi({ 'a.rupee': 'one' });

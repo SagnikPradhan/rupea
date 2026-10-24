@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { formatAmount, formatExact, formatShort } from '#lib/web/format.ts';
+	import { formatAmount, formatExact, formatShort } from '#lib/web/shared/format.ts';
 
 	/** A signed amount is green when positive, and any amount is red when negative. Units keep four places, a compact one shortens to three digits, and a note joins the exact amount in the tooltip. */
 	type Props = {

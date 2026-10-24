@@ -1,8 +1,8 @@
 <script lang="ts" generics="Row extends Record<string, unknown>">
 	import type { Bucket } from '#lib/shared/dates.ts';
-	import { axesOf, colorOf, drawZero, fillOf, plotInto } from '#lib/web/chart.ts';
+	import { axesOf, colorOf, drawZero, fillOf, plotInto } from '#lib/web/shared/chart.ts';
 	import Swatch from '#lib/web/components/swatch/swatch.svelte';
-	import { formatAmount, formatBucket, formatCompact } from '#lib/web/format.ts';
+	import { formatAmount, formatBucket, formatCompact } from '#lib/web/shared/format.ts';
 	import type { Snippet } from 'svelte';
 	import uPlot from 'uplot';
 	import 'uplot/dist/uPlot.min.css';

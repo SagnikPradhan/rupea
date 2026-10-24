@@ -72,6 +72,7 @@
 	"imports": {
 		"#lib": "./src/lib/index.js",
 		"#lib/*": "./src/lib/*",
+		"#routes/*": "./src/routes/*",
 		"#services/*": "./src/lib/server/services/*",
 		"#tests/*": "./tests/*"
 	},

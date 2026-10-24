@@ -1,5 +1,5 @@
 <script lang="ts" generics="Row extends Record<string, unknown>">
-	import { formatAmount, formatBucket, formatCompact } from '#lib/web/format.ts';
+	import { formatAmount, formatBucket, formatCompact } from '#lib/web/shared/format.ts';
 	import type { Snippet } from 'svelte';
 
 	type Props = {

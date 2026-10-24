@@ -2,7 +2,7 @@
 	import { listEvents, makePrimary, renameEvent } from '#lib/endpoints/refinement.remote.ts';
 	import type { RupeeError } from '#lib/server/shared/result/error.ts';
 	import type { Reply } from '#lib/server/shared/result/reply.ts';
-	import { detail } from '#lib/web/errors.ts';
+	import { detail } from '#lib/web/shared/errors.ts';
 
 	type Props = {
 		handle: string;

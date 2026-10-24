@@ -1,6 +1,6 @@
 <script lang="ts">
 	import LedgerTable, { type Column } from '../ledger-table/ledger-table.svelte';
-	import type { Paged } from '#lib/web/paged.svelte.ts';
+	import type { Paged } from '#lib/web/shared/paged.svelte.ts';
 	import { createWindowVirtualizer } from '@tanstack/svelte-virtual';
 	import { untrack, type Snippet } from 'svelte';
 

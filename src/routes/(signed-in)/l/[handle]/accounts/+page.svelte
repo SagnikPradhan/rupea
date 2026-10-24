@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { listAccounts } from '#lib/endpoints/accounts.remote.ts';
-	import { depthOf, nameOf, prefixOf } from '#lib/web/accounts.ts';
+	import { depthOf, nameOf, prefixOf } from '#lib/web/shared/accounts.ts';
 	import Issues from '#lib/web/components/issues/issues.svelte';
 	import Amount from '#lib/web/components/ledger-table/amount.svelte';
 	import LedgerTable from '#lib/web/components/ledger-table/ledger-table.svelte';
 	import NetWorth from '#lib/web/components/net-worth/net-worth.svelte';
 	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
-	import { formatAmount, formatIsoDate, formatReturn } from '#lib/web/format.ts';
-	import { ledgerCrumb } from '#lib/web/links.ts';
+	import { formatAmount, formatIsoDate, formatReturn } from '#lib/web/shared/format.ts';
+	import { ledgerCrumb } from '#lib/web/shared/links.ts';
 
 	type Holding = {
 		commodity: string;

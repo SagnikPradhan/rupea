@@ -12,7 +12,7 @@ import {
 	formatShort,
 	formatShortDate,
 	formatSize,
-} from '#lib/web/format.ts';
+} from '#lib/web/shared/format.ts';
 
 describe('formatAmount', () => {
 	it('groups digits the Indian way, keeping two decimals at least', () => {

@@ -9,7 +9,7 @@
 		formatDate,
 		formatExact,
 		formatIsoDate,
-	} from '#lib/web/format.ts';
+	} from '#lib/web/shared/format.ts';
 	import { page } from '$app/state';
 	import * as v from 'valibot';
 

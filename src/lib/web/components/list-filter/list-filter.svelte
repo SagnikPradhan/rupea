@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { RANGE_LABELS } from '#lib/shared/dates.ts';
 	import type { Filter } from '#lib/shared/filter.ts';
-	import { formatDate } from '#lib/web/format.ts';
+	import { formatDate } from '#lib/web/shared/format.ts';
 	import { page } from '$app/state';
 
 	/** How long typing must pause before a description is searched for. */

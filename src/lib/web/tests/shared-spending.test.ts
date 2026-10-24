@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { depthOf, nameOf, prefixOf } from '#lib/web/accounts.ts';
-import { PARTS } from '#lib/web/chart.ts';
+import { depthOf, nameOf, prefixOf } from '#lib/web/shared/accounts.ts';
+import { PARTS } from '#lib/web/shared/chart.ts';
 import {
 	barsOf,
 	monthsIn,
@@ -10,7 +10,7 @@ import {
 	totalOf,
 	wholeOf,
 	type Spent,
-} from '#lib/web/spending.ts';
+} from '#lib/web/shared/spending.ts';
 
 const spending: Spent = {
 	buckets: ['2026-01-01', '2026-02-01'],

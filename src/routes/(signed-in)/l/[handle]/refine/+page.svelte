@@ -7,8 +7,8 @@
 	} from '#lib/endpoints/refinement.remote.ts';
 	import type { RupeeError } from '#lib/server/shared/result/error.ts';
 	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
-	import { detail } from '#lib/web/errors.ts';
-	import { fileHref, ledgerCrumb } from '#lib/web/links.ts';
+	import { detail } from '#lib/web/shared/errors.ts';
+	import { fileHref, ledgerCrumb } from '#lib/web/shared/links.ts';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 

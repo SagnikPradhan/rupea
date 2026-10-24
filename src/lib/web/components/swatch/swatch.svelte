@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { colorOf, fillOf } from '#lib/web/chart.ts';
+	import { colorOf, fillOf } from '#lib/web/shared/chart.ts';
 
 	/** Which part of a stacked bar this stands for, filled at that part's density. */
 	const { part }: { part: number } = $props();

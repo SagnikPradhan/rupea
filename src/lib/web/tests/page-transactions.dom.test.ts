@@ -4,7 +4,7 @@ import { listAccountNames, listTransactions, sync } from '#lib/endpoints/transac
 import { fault } from '#lib/server/shared/result/error.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
-import Page from '../+page.svelte';
+import Page from '#routes/(signed-in)/l/[handle]/transactions/+page.svelte';
 
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/transactions.remote.ts', () => ({

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fileHref, ledgerCrumb } from '#lib/web/links.ts';
+import { fileHref, ledgerCrumb } from '#lib/web/shared/links.ts';
 
 describe('fileHref', () => {
 	it('opens a file, escaping its path', () => {

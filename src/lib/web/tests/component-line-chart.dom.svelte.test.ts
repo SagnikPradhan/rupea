@@ -3,7 +3,7 @@ import { createRawSnippet, flushSync } from 'svelte';
 import type uPlot from 'uplot';
 import { describe, expect, it, vi } from 'vitest';
 import LineChart from '#lib/web/components/line-chart/line-chart.svelte';
-import { formatPercent } from '#lib/web/format.ts';
+import { formatPercent } from '#lib/web/shared/format.ts';
 
 type Plot = { options: uPlot.Options; destroyed: boolean; cursor: unknown };
 

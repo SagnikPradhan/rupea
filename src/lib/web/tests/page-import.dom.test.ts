@@ -22,7 +22,7 @@ import { fault } from '#lib/server/shared/result/error.ts';
 import { goto } from '#tests/shared/app-navigation.ts';
 import { data } from '#tests/shared/app-state.ts';
 import { answer, respond } from '#tests/shared/queries.ts';
-import Page from '../+page.svelte';
+import Page from '#routes/(signed-in)/l/[handle]/import/+page.svelte';
 
 vi.mock('$app/navigation', () => import('#tests/shared/app-navigation.ts'));
 vi.mock('#lib/endpoints/files.remote.ts', () => ({ listFiles: vi.fn() }));

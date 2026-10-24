@@ -7,7 +7,7 @@
 	import FilePath from '#lib/web/components/file-path/file-path.svelte';
 	import Issues from '#lib/web/components/issues/issues.svelte';
 	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
-	import { placesOf } from '#lib/web/errors.ts';
+	import { placesOf } from '#lib/web/shared/errors.ts';
 	import { isCounted } from '#lib/shared/folders.ts';
 
 	type Props = {

@@ -1,6 +1,11 @@
 <script lang="ts" generics="Row extends Record<string, unknown>">
-	import { axesOf, colorOf, drawZero, plotInto } from '#lib/web/chart.ts';
-	import { formatAmount, formatCompact, formatPercent, formatShortDate } from '#lib/web/format.ts';
+	import { axesOf, colorOf, drawZero, plotInto } from '#lib/web/shared/chart.ts';
+	import {
+		formatAmount,
+		formatCompact,
+		formatPercent,
+		formatShortDate,
+	} from '#lib/web/shared/format.ts';
 	import type { Snippet } from 'svelte';
 	import uPlot from 'uplot';
 	import 'uplot/dist/uPlot.min.css';

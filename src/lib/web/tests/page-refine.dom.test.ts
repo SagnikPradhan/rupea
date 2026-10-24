@@ -10,7 +10,7 @@ import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
 import { goto } from '#tests/shared/app-navigation.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
-import Page from '../+page.svelte';
+import Page from '#routes/(signed-in)/l/[handle]/refine/+page.svelte';
 
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('$app/navigation', () => import('#tests/shared/app-navigation.ts'));

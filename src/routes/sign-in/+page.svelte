@@ -15,7 +15,12 @@
 	<p>We'll email you a code to sign in with.</p>
 	<form {...requestCode}>
 		<Field label="Email" issues={requestCode.fields.email.issues()}>
-			<input {...requestCode.fields.email.as('email')} autocomplete="email" required />
+			<input
+				{...requestCode.fields.email.as('email')}
+				placeholder="you@example.com"
+				autocomplete="email"
+				required
+			/>
 		</Field>
 		<Button primary disabled={requestCode.pending > 0}>Email me a code</Button>
 	</form>

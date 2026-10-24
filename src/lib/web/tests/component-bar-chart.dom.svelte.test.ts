@@ -14,7 +14,7 @@ vi.mock('uplot', () => ({
 			plots.push({ options, data });
 			return { destroy: () => {}, setSize: () => {} };
 		}),
-		{ paths: { bars: () => () => null } },
+		{ paths: { bars: () => () => null, spline: () => () => null } },
 	),
 }));
 
@@ -59,8 +59,15 @@ const drawn = async (previous?: (string | null)[]) => {
 	return plot;
 };
 
-const hover = (options: uPlot.Options, idx: number | null) => {
-	options.hooks?.setCursor?.[0]?.({ cursor: { idx } } as uPlot);
+/** Puts the cursor over a group, at a pixel across the plot; bars sit as in the drawing test below. */
+const hover = ({ options, data }: Plot, idx: number | null, left = -1) => {
+	const plot = {
+		data,
+		cursor: { idx, left },
+		bbox: { left: 0, width: 300 },
+		valToPos: (v: number, scale: string) => (scale === 'x' ? v * 100 + 50 : 1000 - v / 10),
+	};
+	options.hooks?.setCursor?.[0]?.(plot as unknown as uPlot);
 	flushSync();
 };
 
@@ -74,7 +81,7 @@ describe('the bar chart', () => {
 		]);
 	});
 
-	it('reaches as far as the parts pile up from zero, and down for refunds', async () => {
+	it('reaches from zero up to the tallest bar, and down for refunds', async () => {
 		const { options, data } = await drawn();
 		const range = options.scales?.['y']?.range;
 		if (typeof range !== 'function') throw new Error('No value range');
@@ -82,7 +89,7 @@ describe('the bar chart', () => {
 		expect(range({ data } as uPlot, 0, 0, 'y')).toEqual([-500, 8000]);
 	});
 
-	it('weighs the bars against a line, which leaves a gap where a value is missing', async () => {
+	it('weighs the bars against a curve, which leaves a gap where a value is missing', async () => {
 		const { options, data } = await drawn(['1000', null, '9000']);
 		const range = options.scales?.['y']?.range;
 		if (typeof range !== 'function') throw new Error('No value range');
@@ -90,15 +97,20 @@ describe('the bar chart', () => {
 		expect(data[3]).toEqual([1000, null, 9000]);
 		expect(range({ data } as uPlot, 0, 0, 'y')).toEqual([-500, 9000]);
 		expect(options.series[3]).toMatchObject({ label: 'Previous', dash: [4, 4] });
+		expect(options.series[3]?.paths).toBeTypeOf('function');
 	});
 
-	it('lays each bar’s parts end to end from zero, refunds below it', async () => {
+	it('stands each part’s bar side by side from zero, refunds below it', async () => {
 		const { options, data } = await drawn();
 		const rects: number[][] = [];
+		const outlines: number[][] = [];
 		const ctx = {
 			save: vi.fn(),
 			restore: vi.fn(),
+			setLineDash: vi.fn(),
+			lineWidth: 1,
 			fillRect: (...r: number[]) => rects.push(r),
+			strokeRect: (...r: number[]) => outlines.push(r),
 			createPattern: () => null,
 		};
 		const plot = {
@@ -110,10 +122,12 @@ describe('the bar chart', () => {
 
 		options.hooks?.draw?.[0]?.(plot);
 		expect(rects.slice(0, 2)).toEqual([
-			[26, 800, 48, 199],
-			[26, 750, 48, 49],
+			[10, 800, 39, 200],
+			[50, 950, 39, 50],
 		]);
-		expect(rects[2]).toEqual([126, 1000, 48, 49]);
+		expect(rects[2]).toEqual([110, 1000, 39, 50]);
+		expect(outlines[0]).toEqual([10.5, 800.5, 38, 199]);
+		expect(ctx.setLineDash).toHaveBeenCalledWith([]);
 	});
 
 	it('names a bar on the axis by its bucket, and nothing between two bars', async () => {
@@ -126,21 +140,21 @@ describe('the bar chart', () => {
 	});
 
 	it('keys each part with the hovered bar’s amount, or the whole’s', async () => {
-		const { options } = await drawn();
+		const plot = await drawn();
 		const key = () => screen.getByRole('figure').querySelector('figcaption')?.textContent;
 		expect(key()).toContain('9,500.00');
 
-		hover(options, 1);
+		hover(plot, 1);
 		expect(key()).toContain('-500.00');
 		expect(key()).toContain('300.00');
 	});
 
 	it('keys the line beside the parts, with the hovered bar’s value or the whole’s', async () => {
-		const { options } = await drawn(['1000', null, '9000']);
+		const plot = await drawn(['1000', null, '9000']);
 		const line = () => screen.getByRole('figure').querySelector('.reference')?.textContent;
 		expect(line()).toContain('Previous 9,800.00');
 
-		hover(options, 1);
+		hover(plot, 1);
 		expect(line()?.trim()).toBe('Previous');
 	});
 
@@ -156,6 +170,53 @@ describe('the bar chart', () => {
 		await fireEvent.pointerLeave(food);
 		expect(redraw).toHaveBeenCalledTimes(2);
 		expect(plots).toHaveLength(1);
+	});
+
+	it('names the bar under the cursor in a tip, fading the other parts in the key', async () => {
+		const plot = await drawn();
+		const tip = () => screen.getByRole('img').querySelector('.tip')?.textContent;
+		const other = () => screen.getByText('Other').closest('span');
+
+		hover(plot, 0, 15);
+		expect(tip()).toContain('Food');
+		expect(tip()).toContain('2,000.00');
+		expect(other()?.classList.contains('faded')).toBe(true);
+
+		hover(plot, 0, 55);
+		expect(tip()).toContain('Other');
+		expect(tip()).toContain('500.00');
+
+		hover(plot, 0, 95);
+		expect(tip()).toBeUndefined();
+	});
+
+	it('spaces values by order of magnitude on a log scale, through zero to the refunds', async () => {
+		plots.splice(0);
+		render(BarChart, {
+			rows: ROWS,
+			x: 'bucket',
+			bucket: 'month',
+			series: [...PARTS],
+			whole: WHOLE,
+			label: 'Spending',
+			scale: 'log',
+		});
+
+		await vi.waitFor(() => expect(plots).toHaveLength(1));
+		expect(plots[0]?.options.scales?.['y']?.distr).toBe(4);
+
+		const values = plots[0]?.options.axes?.[1]?.values;
+		if (typeof values !== 'function') throw new Error('No value labels');
+		expect(values({} as uPlot, [-10, -1, 0, 1, 5, 10, 20, 1000], 0, 0, 0)).toEqual([
+			'-10',
+			'',
+			'0',
+			'',
+			'',
+			'10',
+			'',
+			'1K',
+		]);
 	});
 
 	it('draws nothing once removed while its font was loading', async () => {
@@ -175,13 +236,13 @@ describe('the bar chart', () => {
 	});
 
 	it('hands the summary the bar under the cursor, or none', async () => {
-		const { options } = await drawn();
+		const plot = await drawn();
 		expect(screen.getByTestId('summary').textContent).toBe('null');
 
-		hover(options, 2);
+		hover(plot, 2);
 		expect(screen.getByTestId('summary').textContent).toBe('2');
 
-		hover(options, null);
+		hover(plot, null);
 		expect(screen.getByTestId('summary').textContent).toBe('null');
 	});
 });

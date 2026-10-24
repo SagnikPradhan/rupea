@@ -23,7 +23,7 @@ const spending = [
 	'',
 ].join('\n');
 
-test('adds up spending by account over a range, net of refunds', async ({
+test('adds up spending by account over a period, net of refunds', async ({
 	signedIn: page,
 	ledger,
 }) => {
@@ -60,7 +60,7 @@ test('lays a month of spending out as a calendar, each day leading to its postin
 		[`${day} Dinner`, '\tExpenses:Food 1200', '\tAssets:Bank', ''].join('\n'),
 	);
 
-	await visit(page, `${ledger}/expenses?range=1m`);
+	await visit(page, `${ledger}/expenses?at=${day.toPlainYearMonth()}`);
 	const cell = page.getByRole('link', { name: /1.2K/ });
 	await cell.hover();
 	await expect(page.locator('.figure')).toHaveText('1,200.00');

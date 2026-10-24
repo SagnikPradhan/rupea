@@ -60,6 +60,17 @@ export const findTransactions = (
 		),
 	).map((r) => r.flat());
 
+export const findFirstDay = (ledgerId: string): ResultAsync<Temporal.PlainDate | null> =>
+	withContext('db')((db) =>
+		attempt(() =>
+			db
+				.selectFrom('transactions')
+				.select((e) => e.fn.min('transactions.date').as('date'))
+				.where('transactions.ledgerId', '=', ledgerId)
+				.executeTakeFirst(),
+		).map((r) => (r?.date ? Temporal.PlainDate.from(r.date) : null)),
+	);
+
 // The cursor compares as one tuple, so a page reads on as one range of the
 // order index.
 export const listTransactions = (

@@ -35,3 +35,7 @@ export const listPostings = ({
 
 /** Every account the ledger posts to, by name. */
 export const listAccountNames = (l: Ledger): ResultAsync<string[]> => DB.listAccountNames(l.id);
+
+/** The day of the ledger's first transaction, or none before it has one. */
+export const findFirstDay = (l: Ledger): ResultAsync<Temporal.PlainDate | null> =>
+	DB.findFirstDay(l.id);

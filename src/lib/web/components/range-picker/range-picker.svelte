@@ -31,5 +31,7 @@
 
 	a[aria-current='page'] {
 		color: var(--color-accent);
+		text-decoration: underline 2px;
+		text-underline-offset: var(--size-0);
 	}
 </style>

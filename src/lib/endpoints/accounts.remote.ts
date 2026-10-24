@@ -1,5 +1,5 @@
 import { replyFromBatch } from '#lib/server/shared/result/reply.ts';
-import { BUCKETS, Day, previousOf, Range, startOf } from '#lib/shared/dates.ts';
+import { Day, Period, Range, spansOf, startOf } from '#lib/shared/dates.ts';
 import * as Accounts from '#services/ledger/application/accounts.ts';
 import { query } from '$app/server';
 import * as v from 'valibot';
@@ -26,18 +26,17 @@ export const listWorth = query(
 		),
 );
 
-/** Spending over a range, then over the range before it when there is one. */
+/** Spending over a period, then over the one before it when there is one. */
 export const listSpending = query(
-	v.object({ handle: Handle, range: Range, day: Day }),
-	({ handle, range, day }) => {
-		const current = { from: startOf[range](day), to: day };
-		const previous = previousOf[range](day);
+	v.object({ handle: Handle, day: Day, period: Period }),
+	({ handle, day, period }) => {
+		const { current, previous, bucket } = spansOf(period, day);
 		const spans = previous ? [current, previous] : [current];
 
 		return replyFromBatch(
 			inLedger({
 				handle,
-				action: (l) => Accounts.listSpending({ ledger: l, spans, bucket: BUCKETS[range] }),
+				action: (l) => Accounts.listSpending({ ledger: l, spans, bucket }),
 			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewSpending) })),
 		);
 	},

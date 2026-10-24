@@ -36,6 +36,7 @@ const months = new Intl.DateTimeFormat(LOCALE, {
 	year: 'numeric',
 	timeZone: 'UTC',
 });
+const monthNames = new Intl.DateTimeFormat(LOCALE, { month: 'short', timeZone: 'UTC' });
 const isoDays = new Intl.DateTimeFormat('en-CA');
 const compacts = new Intl.NumberFormat(LOCALE, { notation: 'compact' });
 const shorts = new Intl.NumberFormat(LOCALE, { notation: 'compact', maximumSignificantDigits: 3 });
@@ -103,6 +104,9 @@ export const formatBucket: Record<Bucket, (d: string) => string> = {
 	month: (d) => months.format(new Date(d)),
 	year: (d) => d.slice(0, 4),
 };
+
+/** Names the month of an ISO day without its year, like Oct. */
+export const formatMonth = (d: string) => monthNames.format(new Date(d));
 
 /** Formats a number in a few characters, like `12L`, for chart axes. */
 export const formatCompact = (n: number) => compacts.format(n);

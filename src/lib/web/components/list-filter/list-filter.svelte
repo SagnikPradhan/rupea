@@ -158,6 +158,8 @@
 
 	[aria-current] {
 		color: var(--color-accent);
+		text-decoration: underline 2px;
+		text-underline-offset: var(--size-0);
 	}
 
 	input[type='search'] {

@@ -36,6 +36,10 @@ jobs:
           file: coverage/lcov.info
           flag-name: unit
           parallel: true
+      - uses: actions/upload-artifact@v7
+        with:
+          name: coverage-unit
+          path: coverage/lcov.info
 
   e2e:
     runs-on: ubuntu-latest
@@ -55,14 +59,25 @@ jobs:
           file: coverage/e2e/lcov.info
           flag-name: e2e
           parallel: true
+      - if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-e2e
+          path: coverage/e2e/lcov.info
 
   sonar:
+    needs: [test, e2e]
+    if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 0
       - uses: ./.github/actions/setup
+      - uses: actions/download-artifact@v8
+        with:
+          pattern: coverage-*
+          path: coverage
       - uses: SonarSource/sonarqube-scan-action@v8
         env:
           SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}

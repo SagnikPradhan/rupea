@@ -53,7 +53,7 @@ export default defineConfig({
 		maxWorkers: '50%',
 		coverage: {
 			include: ['src/**/*.{ts,svelte}'],
-			exclude: ['src/**/tests/**', 'src/**/*.d.ts'],
+			exclude: ['src/**/tests/**', 'src/**/*.d.ts', 'src/**/database-schema.ts'],
 			reporter: ['text', 'html', 'lcov'],
 		},
 		projects: [

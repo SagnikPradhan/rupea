@@ -1,6 +1,7 @@
 # Rupee
 
 [![Coverage](https://coveralls.io/repos/github/SagnikPradhan/rupee/badge.svg?branch=master)](https://coveralls.io/github/SagnikPradhan/rupee?branch=master)
+[![Reliability](https://sonarcloud.io/api/project_badges/measure?project=SagnikPradhan_rupee&metric=reliability_rating)](https://sonarcloud.io/summary/overall?id=SagnikPradhan_rupee)
 
 **Know where every rupee went.**
 

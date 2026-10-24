@@ -56,6 +56,17 @@ jobs:
           flag-name: e2e
           parallel: true
 
+  sonar:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - uses: ./.github/actions/setup
+      - uses: SonarSource/sonarqube-scan-action@v8
+        env:
+          SONAR_TOKEN: ${{ secrets.SONAR_TOKEN }}
+
   coverage:
     needs: [test, e2e]
     if: ${{ !cancelled() }}

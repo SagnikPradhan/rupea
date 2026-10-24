@@ -1,18 +1,21 @@
 import uPlot from 'uplot';
+import * as v from 'valibot';
 
 const EDGE = 32;
 
-/** Parts of a stacked bar fill from dense at its base to sparse at its top, all in ink, so colour keeps its meaning. */
-const DENSITIES = [
-	{ kind: 'solid', gap: 0 },
-	{ kind: 'hatch', gap: 3 },
-	{ kind: 'hatch', gap: 6 },
-	{ kind: 'hatch', gap: 10 },
-	{ kind: 'dots', gap: 6 },
-] as const;
+/** How many bars a group can tell apart, one shade of ink each. */
+export const PARTS = 5;
 
-/** How many parts a stacked bar can tell apart. */
-export const PARTS = DENSITIES.length;
+/** The colour token of a part's bar; any past the last share its shade. */
+export const seriesOf = (k: number) => `--color-series-${Math.min(k, PARTS - 1) + 1}`;
+
+/** How a chart spaces its values: evenly, or by order of magnitude. */
+export const Scale = v.picklist(['linear', 'log']);
+
+export type Scale = v.InferOutput<typeof Scale>;
+
+/** How the scale picker labels each scale. */
+export const SCALE_LABELS: Record<Scale, string> = { linear: 'Linear', log: 'Log' };
 
 /** Draws a plot into a node, again when the colour scheme changes, sized to it, and moves its cursor where a finger lands. */
 export const plotInto = (
@@ -20,7 +23,6 @@ export const plotInto = (
 	options: (font: string) => uPlot.Options,
 	data: uPlot.AlignedData,
 ) => {
-	const dark = matchMedia('(prefers-color-scheme: dark)');
 	const plots: uPlot[] = [];
 	const removed = new AbortController();
 
@@ -42,14 +44,27 @@ export const plotInto = (
 
 	void draw();
 	resize.observe(node);
-	dark.addEventListener('change', draw);
+	const unwatch = watchScheme(draw);
 	node.addEventListener('pointerdown', touch);
 	return () => {
 		removed.abort();
 		resize.disconnect();
-		dark.removeEventListener('change', draw);
+		unwatch();
 		node.removeEventListener('pointerdown', touch);
 		plots.forEach((p) => p.destroy());
+	};
+};
+
+/** Calls back when the page's colours change, by the system's scheme or by the theme picked over it. */
+const watchScheme = (changed: () => void) => {
+	const dark = matchMedia('(prefers-color-scheme: dark)');
+	const theme = new MutationObserver(changed);
+
+	dark.addEventListener('change', changed);
+	theme.observe(document.documentElement, { attributeFilter: ['data-theme'] });
+	return () => {
+		dark.removeEventListener('change', changed);
+		theme.disconnect();
 	};
 };
 
@@ -78,7 +93,7 @@ export const axesOf = (
 	];
 };
 
-/** The axis fits the data, so zero is drawn only when the plot crosses it. */
+/** The axis fits the data, so zero is drawn only when the plot crosses it, solid even after a dashed series. */
 export const drawZero = (u: uPlot, color: string) => {
 	const scale = u.scales['y'];
 	if (!scale || (scale.min ?? 0) >= 0 || (scale.max ?? 0) <= 0) return;
@@ -86,6 +101,7 @@ export const drawZero = (u: uPlot, color: string) => {
 	const y = u.valToPos(0, 'y', true);
 	u.ctx.save();
 	u.ctx.strokeStyle = color;
+	u.ctx.setLineDash([]);
 	u.ctx.beginPath();
 	u.ctx.moveTo(u.bbox.left, y);
 	u.ctx.lineTo(u.bbox.left + u.bbox.width, y);
@@ -93,23 +109,12 @@ export const drawZero = (u: uPlot, color: string) => {
 	u.ctx.restore();
 };
 
-/** The fill of a stacked bar's part at its density, in canvas pixels; plain ink where a canvas makes no patterns. */
-export const fillOf = (ctx: CanvasRenderingContext2D, part: number, ink: string) => {
-	const density = DENSITIES[Math.min(part, PARTS - 1)] ?? DENSITIES[0];
-	const size = Math.round(density.gap * devicePixelRatio);
-	const tile = document.createElement('canvas');
-	const pen = tile.getContext('2d');
-	if (density.kind === 'solid' || !pen) return ink;
-
-	tile.width = size;
-	tile.height = size;
-	pen.fillStyle = ink;
-	pen.strokeStyle = ink;
-	pen.lineWidth = devicePixelRatio;
-	if (density.kind === 'dots') pen.fillRect(0, 0, devicePixelRatio * 1.5, devicePixelRatio * 1.5);
-	if (density.kind === 'hatch') hatch(pen, size);
-
-	return ctx.createPattern(tile, 'repeat') ?? ink;
+/** A colour fading from the top of the plot to nothing at its base, to fill under a line. */
+export const fadeOf = (u: uPlot, color: string) => {
+	const fade = u.ctx.createLinearGradient(0, u.bbox.top, 0, u.bbox.top + u.bbox.height);
+	fade.addColorStop(0, color);
+	fade.addColorStop(1, 'transparent');
+	return fade;
 };
 
 /** A canvas cannot read light-dark colours, so each one is resolved through an element. */
@@ -119,16 +124,6 @@ export const colorOf = (node: HTMLElement, token: string) => {
 	const color = getComputedStyle(probe).color;
 	probe.remove();
 	return color;
-};
-
-/** A diagonal through the tile, and its ends again in the opposite corners, so tiles join into unbroken lines. */
-const hatch = (pen: CanvasRenderingContext2D, size: number) => {
-	pen.beginPath();
-	[-size, 0, size].forEach((shift) => {
-		pen.moveTo(shift, size);
-		pen.lineTo(shift + size, 0);
-	});
-	pen.stroke();
 };
 
 const fontOf = async (node: HTMLElement) => {

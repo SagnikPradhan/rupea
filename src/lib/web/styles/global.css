@@ -37,6 +37,18 @@
 	--color-shade-2: color-mix(in srgb, var(--color-ink) 16%, transparent);
 	--color-shade-3: color-mix(in srgb, var(--color-ink) 24%, transparent);
 	--color-shade-4: color-mix(in srgb, var(--color-ink) 32%, transparent);
+	/* Shades of ink for the bars of a group, darkest first, each step apart and the palest still clear of the page. */
+	--color-series-1: color-mix(in srgb, var(--color-ink) 90%, var(--color-surface));
+	--color-series-2: color-mix(in srgb, var(--color-ink) 74%, var(--color-surface));
+	--color-series-3: color-mix(in srgb, var(--color-ink) 59%, var(--color-surface));
+	--color-series-4: color-mix(in srgb, var(--color-ink) 45%, var(--color-surface));
+	--color-series-5: color-mix(in srgb, var(--color-ink) 32%, var(--color-surface));
+	/* Each bar's edge, its own shade pushed toward ink so a pale fill keeps a clear outline. */
+	--color-series-1-edge: color-mix(in oklab, var(--color-series-1), var(--color-ink) 40%);
+	--color-series-2-edge: color-mix(in oklab, var(--color-series-2), var(--color-ink) 40%);
+	--color-series-3-edge: color-mix(in oklab, var(--color-series-3), var(--color-ink) 40%);
+	--color-series-4-edge: color-mix(in oklab, var(--color-series-4), var(--color-ink) 40%);
+	--color-series-5-edge: color-mix(in oklab, var(--color-series-5), var(--color-ink) 40%);
 }
 
 /* The signed-in sidebar sits beside the content from this width, so the content gives way to it. */

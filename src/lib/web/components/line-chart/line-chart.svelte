@@ -1,5 +1,5 @@
 <script lang="ts" generics="Row extends Record<string, unknown>">
-	import { axesOf, colorOf, drawZero, plotInto } from '#lib/web/shared/chart.ts';
+	import { axesOf, colorOf, drawZero, fadeOf, plotInto } from '#lib/web/shared/chart.ts';
 	import {
 		formatAmount,
 		formatCompact,
@@ -67,6 +67,7 @@
 		const ink = colorOf(node, '--color-ink');
 		const muted = colorOf(node, '--color-muted');
 		const border = colorOf(node, '--color-border');
+		const shade = colorOf(node, '--color-shade-2');
 
 		return {
 			width: node.clientWidth,
@@ -83,6 +84,10 @@
 					width: WIDTHS[l.role],
 					dash: DASHES[l.role],
 					points: { show: false },
+					...(l.role === 'primary' && {
+						fill: (u: uPlot) => fadeOf(u, shade),
+						fillTo: (u: uPlot) => u.scales['y']?.min ?? 0,
+					}),
 				})),
 			],
 			axes: axesOf(node, font, (s) => formatShortDate(new Date(s * 1000)), tick),

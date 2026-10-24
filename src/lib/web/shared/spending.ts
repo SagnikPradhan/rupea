@@ -18,7 +18,7 @@ export type Spent = {
 
 type ChartOptions = { spending: Spent | undefined; previous: Spent | undefined; parts: string[] };
 
-/** The largest accounts under Expenses each stack as a part of every bar, the largest at the base. */
+/** The largest accounts under Expenses each get a bar in every group, the largest first. */
 export const partsOf = (spending: Spent | undefined) =>
 	(spending?.totals ?? [])
 		.filter((t) => depthOf(t.account) === 1)

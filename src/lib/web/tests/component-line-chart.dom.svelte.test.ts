@@ -82,6 +82,21 @@ describe('the line chart', () => {
 		]);
 	});
 
+	it('fades a fill under the primary line alone, down to the base of the plot', async () => {
+		const { options } = await drawn();
+		const [worth, ...others] = options.series.slice(1);
+		const fade = { addColorStop: vi.fn() };
+		const plot = {
+			ctx: { createLinearGradient: () => fade },
+			bbox: { top: 0, height: 100 },
+			scales: { y: { min: -50 } },
+		} as unknown as uPlot;
+
+		expect(typeof worth?.fill === 'function' && worth.fill(plot, 1)).toBe(fade);
+		expect(typeof worth?.fillTo === 'function' && worth.fillTo(plot, 1, 0, 0)).toBe(-50);
+		expect(others.map((s) => s.fill)).toEqual([undefined, undefined]);
+	});
+
 	it('captions the other series with their last value, then the one under the cursor', async () => {
 		const { options } = await drawn();
 		expect(caption()).toContain('400.00');
@@ -102,6 +117,7 @@ describe('the line chart', () => {
 		const ctx = {
 			save: vi.fn(),
 			restore: vi.fn(),
+			setLineDash: vi.fn(),
 			beginPath: vi.fn(),
 			moveTo: vi.fn(),
 			lineTo: vi.fn(),
@@ -120,6 +136,7 @@ describe('the line chart', () => {
 
 		draw?.(plot(-10, 20));
 		expect(ctx.stroke).toHaveBeenCalledOnce();
+		expect(ctx.setLineDash).toHaveBeenCalledWith([]);
 	});
 
 	it('leaves out a date the edge of the plot would cut in half', async () => {
@@ -144,6 +161,14 @@ describe('the line chart', () => {
 		await drawn();
 		await fireEvent.pointerDown(screen.getByRole('img'), { clientX: 50, clientY: 60 });
 		expect(plots[0]?.cursor).toEqual({ left: 40, top: 40 });
+	});
+
+	it('draws again in the theme picked over the system’s', async () => {
+		await drawn();
+		document.documentElement.dataset['theme'] = 'dark';
+
+		await vi.waitFor(() => expect(plots).toHaveLength(2));
+		expect(plots[0]?.destroyed).toBe(true);
 	});
 
 	it('lets go of the chart when it leaves the page', async () => {

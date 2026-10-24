@@ -19,9 +19,11 @@ export type Total = {
 	unpriced: number;
 };
 
-/** Spending over a span: the first day it covers, every bucket from there, each account's total, and each account's buckets. */
+/** Spending over a span: the first and last day it covers, what its bars add up, every bucket between, each account's total, and each account's buckets. */
 export type Spending = {
 	from: Temporal.PlainDate;
+	to: Temporal.PlainDate;
+	bucket: Bucket;
 	buckets: Temporal.PlainDate[];
 	totals: Total[];
 	spent: Spent[];
@@ -34,6 +36,8 @@ export const spendingOf = (spent: Spent[], span: Span, bucket: Bucket): Spending
 
 	return {
 		from,
+		to: span.to,
+		bucket,
 		buckets: bucketsIn({ from, to: span.to }, bucket),
 		totals,
 		spent: rolledUp(spent),

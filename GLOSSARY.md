@@ -196,8 +196,12 @@ An event whose members contradict each other, such as no primary or two primarie
 ## Lists
 
 **Range**:
-A span of a ledger's history counted back from today: a month, the year so far, a year, or all of it. Charts and lists share it.
+A span of a ledger's history counted back from today: a month, the year so far, a year, or all of it. Net worth and lists use it.
 _Avoid_: Period, window
+
+**Period**:
+What spending covers: a calendar month or year named like 2026-03 or 2026, all of history, or the days between two picked by hand. Unlike a range a month or year doesn't count back from today: a past one is whole, and the current one runs to today.
+_Avoid_: Calendar span, range, window
 
 **Filter**:
 What a list of transactions or postings is narrowed to: a range or chosen days, an account with the accounts under it, and words in a description. It lives in the page's URL.

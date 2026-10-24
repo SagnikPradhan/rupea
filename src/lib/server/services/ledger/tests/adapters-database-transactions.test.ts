@@ -122,4 +122,17 @@ describe('the embeddings of a ledger', () => {
 			const accounts = (await DB.listAccountNames(ledgerId))._unsafeUnwrap();
 			expect(accounts.toSorted()).toEqual(['Assets:Bank', 'Expenses:Food']);
 		}));
+
+	it('knows the day of its first transaction, and none while it is empty', ({ context, db }) =>
+		provide(context, async () => {
+			const ledgerId = await ledgerWith(
+				db,
+				spend('2026-03-02', 'B', 'Expenses:Food'),
+				spend('2019-07-15', 'A', 'Expenses:Food'),
+			);
+			const empty = (await createLedger(db)).id;
+
+			expect((await DB.findFirstDay(ledgerId))._unsafeUnwrap()?.toString()).toBe('2019-07-15');
+			expect((await DB.findFirstDay(empty))._unsafeUnwrap()).toBeNull();
+		}));
 });

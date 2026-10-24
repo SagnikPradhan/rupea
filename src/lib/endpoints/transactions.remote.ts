@@ -47,6 +47,12 @@ export const listAccountNames = query(Handle, (h) =>
 	replyFrom(inLedger({ handle: h, action: Transactions.listAccountNames })),
 );
 
+export const findFirstDay = query(Handle, (h) =>
+	replyFrom(
+		inLedger({ handle: h, action: Transactions.findFirstDay }).map((d) => d?.toString() ?? null),
+	),
+);
+
 const listed = (filter: Filter, day: Temporal.PlainDate): Transactions.ListFilter => ({
 	from: filter.from ? Temporal.PlainDate.from(filter.from) : startOf[filter.range](day),
 	to: filter.to ? Temporal.PlainDate.from(filter.to) : day,

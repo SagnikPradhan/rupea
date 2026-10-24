@@ -1,6 +1,7 @@
 import { listAccounts, listLots, listSpending, listWorth } from '#lib/endpoints/accounts.remote.ts';
 import { createFile } from '#lib/endpoints/files.remote.ts';
 import {
+	findFirstDay,
 	listAccountNames,
 	listPostings,
 	listTransactions,
@@ -69,6 +70,7 @@ describe('transactions', () => {
 			const postings = await listPostings({ handle, day, filter, after: null });
 			expect(postings.data?.rows).toHaveLength(6);
 			expect((await listAccountNames(handle)).data).toContain('Expenses:Food');
+			expect((await findFirstDay(handle)).data).toMatch(/^\d{4}-\d{2}-\d{2}$/);
 		}));
 });
 
@@ -85,13 +87,13 @@ describe('accounts', () => {
 			expect(lots.data).toHaveLength(1);
 		}));
 
-	it('list spending against the range before it, when there is one', ({
+	it('list spending against the period before it, when there is one', ({
 		context,
 		ledger: handle,
 	}) =>
 		provide(context, async () => {
-			const month = await listSpending({ handle, range: '1m', day });
-			const all = await listSpending({ handle, range: 'all', day });
+			const month = await listSpending({ handle, day, period: { kind: 'month', at: '2026-09' } });
+			const all = await listSpending({ handle, day, period: { kind: 'all' } });
 
 			expect(month.data).toHaveLength(2);
 			expect(all.data).toHaveLength(1);

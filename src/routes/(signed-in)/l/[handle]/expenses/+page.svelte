@@ -1,14 +1,17 @@
 <script lang="ts">
 	import { listSpending } from '#lib/endpoints/accounts.remote.ts';
-	import { BUCKETS, Range } from '#lib/shared/dates.ts';
+	import { findFirstDay } from '#lib/endpoints/transactions.remote.ts';
+	import { periodOf } from '#lib/shared/dates.ts';
 	import { depthOf, nameOf, prefixOf } from '#lib/web/shared/accounts.ts';
+	import { Scale } from '#lib/web/shared/chart.ts';
 	import BarChart from '#lib/web/components/bar-chart/bar-chart.svelte';
 	import Calendar from '#lib/web/components/calendar/calendar.svelte';
 	import Issues from '#lib/web/components/issues/issues.svelte';
 	import Amount from '#lib/web/components/ledger-table/amount.svelte';
 	import LedgerTable from '#lib/web/components/ledger-table/ledger-table.svelte';
 	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
-	import RangePicker from '#lib/web/components/range-picker/range-picker.svelte';
+	import PeriodPicker from '#lib/web/components/period-picker/period-picker.svelte';
+	import ScalePicker from '#lib/web/components/scale-picker/scale-picker.svelte';
 	import Swatch from '#lib/web/components/swatch/swatch.svelte';
 	import {
 		formatAmount,
@@ -37,12 +40,14 @@
 
 	const handle = $derived(data.ledger.handle);
 	const day = formatIsoDate(new Date());
-	const range = $derived(v.parse(v.fallback(Range, 'ytd'), page.url.searchParams.get('range')));
-	const bucket = $derived(BUCKETS[range]);
+	const period = $derived(periodOf(page.url.searchParams, day));
+	const scale = $derived(v.parse(v.fallback(Scale, 'linear'), page.url.searchParams.get('scale')));
 
-	const response = $derived(await listSpending({ handle, range, day }));
+	const response = $derived(await listSpending({ handle, day, period }));
 	const spending = $derived(response.data?.[0]);
 	const previous = $derived(response.data?.[1]);
+	const bucket = $derived(spending?.bucket ?? 'month');
+	const earliest = $derived((await findFirstDay(handle)).data ?? null);
 
 	const total = $derived(spending?.totals.find((t) => t.account === ROOT));
 	const parts = $derived(partsOf(spending));
@@ -51,13 +56,14 @@
 	const other = $derived([whole, ...bars].some((b) => b[OTHER] !== '0'));
 
 	const first = $derived(spending?.from ?? day);
+	const last = $derived(spending?.to ?? day);
 	const label = $derived(
-		`Spending from ${formatDate(first)} to ${formatDate(day)}, ${formatAmount(total?.amount ?? '0')} in all`,
+		`Spending from ${formatDate(first)} to ${formatDate(last)}, ${formatAmount(total?.amount ?? '0')} in all`,
 	);
-	const months = $derived(monthsIn(first, day));
+	const months = $derived(monthsIn(first, last));
 
 	const postingsOf = (account: string) =>
-		`/l/${handle}/postings?${new URLSearchParams({ account, range })}`;
+		`/l/${handle}/postings?${new URLSearchParams({ account, ...(period.kind === 'all' ? { range: 'all' } : { from: first, to: last }) })}`;
 	const postingsOn = (day: string) =>
 		`/l/${handle}/postings?${new URLSearchParams({ account: ROOT, from: day, to: day })}`;
 	const perMonth = (amount: string) => (Number(amount) / months).toFixed(2);
@@ -82,8 +88,11 @@
 			]}
 			{whole}
 			{label}
+			{scale}
 			{summary}
-		/>
+		>
+			{#snippet controls()}<ScalePicker current={scale} />{/snippet}
+		</BarChart>
 	{/if}
 </section>
 
@@ -93,10 +102,8 @@
 	{@const compared = bar ? bar[PREVIOUS] : totalOf(previous)}
 	{@const change = compared ? formatChange(compared, shown) : null}
 	<div class="summary">
-		<div class="heading">
-			<h2 id="spending" class="label">Spending</h2>
-			<RangePicker current={range} />
-		</div>
+		<h2 id="spending" class="label">Spending</h2>
+		<PeriodPicker current={period} shown={{ from: first, to: last }} today={day} first={earliest} />
 		<p class="figure" title={formatExact(shown)}>{formatAmount(shown)}</p>
 		<p>
 			{#if change}
@@ -104,7 +111,7 @@
 					{change.amount}{#if change.percent !== null}&nbsp;({change.percent}){/if} vs previous ·
 				</span>
 			{/if}
-			{bar ? formatBucket[bucket](bar.bucket) : `${formatDate(first)} – ${formatDate(day)}`}
+			{bar ? formatBucket[bucket](bar.bucket) : `${formatDate(first)} – ${formatDate(last)}`}
 			{#if total && total.unpriced > 0}
 				<span class="nowrap">· excludes {total.unpriced} unpriced</span>
 			{/if}
@@ -151,7 +158,7 @@
 		</tbody>
 	</LedgerTable>
 {:else}
-	<p>Nothing spent in this range.</p>
+	<p>Nothing spent in this period.</p>
 {/if}
 
 <style>
@@ -162,12 +169,8 @@
 		margin-bottom: var(--size-2);
 	}
 
-	.heading {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: space-between;
-		align-items: baseline;
-		gap: var(--size-2);
+	h2 {
+		margin: 0;
 	}
 
 	p {

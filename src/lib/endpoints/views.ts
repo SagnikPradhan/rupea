@@ -78,6 +78,8 @@ export const viewWorth = (worth: Accounts.Worth) => ({
 
 export const viewSpending = (spending: Accounts.Spending) => ({
 	from: spending.from.toString(),
+	to: spending.to.toString(),
+	bucket: spending.bucket,
 	buckets: spending.buckets.map((b) => b.toString()),
 	totals: spending.totals.map((t) => ({
 		account: t.account,

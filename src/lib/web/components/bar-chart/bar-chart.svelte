@@ -31,9 +31,21 @@
 		scale?: Scale;
 		/** Drawn above the plot with the row under the cursor, or none. */
 		summary?: Snippet<[number | null]>;
+		/** Drawn at the end of the key, such as a choice of scale. */
+		controls?: Snippet;
 	};
 
-	const { rows, x, bucket, series, whole, label, scale = 'linear', summary }: Props = $props();
+	const {
+		rows,
+		x,
+		bucket,
+		series,
+		whole,
+		label,
+		scale = 'linear',
+		summary,
+		controls,
+	}: Props = $props();
 
 	const WIDTH = { share: 0.8, most: 96 };
 	const FADED = 0.2;
@@ -238,6 +250,7 @@
 				{#if shown[line.key] != null}<data>{formatAmount(String(shown[line.key]))}</data>{/if}
 			</span>
 		{/each}
+		{#if controls}<div class="controls">{@render controls()}</div>{/if}
 	</figcaption>
 </figure>
 
@@ -255,6 +268,10 @@
 		gap: var(--size-0) var(--size-3);
 		color: var(--color-muted);
 		font-size: var(--font-size-0);
+	}
+
+	.controls {
+		margin-left: auto;
 	}
 
 	data {

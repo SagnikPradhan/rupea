@@ -1,14 +1,19 @@
-import { literalLike } from '#lib/server/db/index.ts';
-import { labels, total, totalBefore } from '#lib/server/db/expressions.ts';
+import {
+	atOrBefore,
+	before,
+	containing,
+	labels,
+	total,
+	totalBefore,
+} from '#lib/server/db/expressions.ts';
 import { readOnly } from '#lib/server/db/read-only.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { sql, type SqlBool } from 'kysely';
 import type { Amount } from '../domain/amounts';
 import type { Holding } from '../domain/holdings';
 import { BALANCE_TYPES } from '../domain/taxonomy';
 import type { RupeaParseLocation, RupeaPosting } from '../domain/types';
-import { multiply, toCost, toPrice, toQuantity } from './database-queries';
+import { multiply, toCost, toPrice, toQuantity, underAccount } from './database-queries';
 import type { Page, PageOptions } from './database-transactions';
 
 /** Where a page of postings starts: just past this one, newest first. */
@@ -33,9 +38,9 @@ export type BalanceCheck = {
 	unordered: string[];
 };
 
-// Evidence is kept but not counted, so it has no postings to list. The account
-// matches through postings_ledger_id_lower_account, and the cursor compares as
-// one tuple, so a page reads on as one range of the order index.
+// Evidence is kept but not counted, so it has no postings to list. The cursor
+// reads on as one range of the order index; that range can't hold p.position,
+// so a second tuple, with position negated, breaks ties inside a transaction.
 export const listPostings = (
 	ledgerId: string,
 	{ filter, after, limit }: PageOptions<PostingCursor>,
@@ -64,31 +69,23 @@ export const listPostings = (
 				'p.costDate',
 				'p.balance',
 			])
+			.where('t.ledgerId', '=', ledgerId)
+			.where('t.date', '>=', filter.from.toString())
+			.where('t.date', '<=', filter.to.toString())
+			.where('t.counted', '=', true)
+			.where((e) => containing(e.ref('t.description'), filter.description))
+			.where((e) => underAccount(e.ref('p.account'), filter.account))
 			.where((e) =>
-				e.and([
-					e('t.ledgerId', '=', ledgerId),
-					e('t.date', '>=', filter.from.toString()),
-					e('t.date', '<=', filter.to.toString()),
-					e('t.counted', '=', true),
-					...(filter.description === null
-						? []
-						: [e('t.description', 'ilike', `%${literalLike(filter.description)}%`)]),
-					...(filter.account === null
-						? []
-						: [
-								sql<SqlBool>`(lower(${e.ref('p.account')}) = lower(${filter.account}) or lower(${e.ref('p.account')}) like lower(${literalLike(filter.account)}) || ':%')`,
-							]),
-					...(after === null
-						? []
-						: [
-								e(
-									e.refTuple('t.date', 't.sortTime', 't.id'),
-									'<=',
-									e.tuple(after.date, after.time, after.id),
-								),
-								e.or([e('t.id', '<>', after.id), e('p.position', '>', after.position)]),
-							]),
-				]),
+				atOrBefore(
+					e.refTuple('t.date', 't.sortTime', 't.id'),
+					after && [after.date, after.time, after.id],
+				),
+			)
+			.where((e) =>
+				before(
+					e.tuple(e.ref('t.date'), e.ref('t.sortTime'), e.ref('t.id'), e.neg(e.ref('p.position'))),
+					after && [after.date, after.time, after.id, -after.position],
+				),
 			)
 			.orderBy('t.date', 'desc')
 			.orderBy('t.sortTime', 'desc')
@@ -140,16 +137,16 @@ export const listHoldings = (ledgerId: string): ResultAsync<Holding[]> =>
 			db
 				.with('balances', (q) =>
 					q
-						.selectFrom('deltas')
+						.selectFrom('dailyDeltas')
 						.select([
-							'deltas.account',
-							'deltas.commodity',
-							(e) => e.fn.sum<bigint>('deltas.amount').as('units'),
+							'dailyDeltas.account',
+							'dailyDeltas.commodity',
+							(e) => e.fn.sum<bigint>('dailyDeltas.amount').as('units'),
 						])
-						.where('deltas.ledgerId', '=', ledgerId)
-						.where('deltas.accountType', 'in', BALANCE_TYPES)
-						.groupBy(['deltas.account', 'deltas.commodity'])
-						.having((e) => e(e.fn.sum('deltas.amount'), '<>', 0n)),
+						.where('dailyDeltas.ledgerId', '=', ledgerId)
+						.where('dailyDeltas.accountType', 'in', BALANCE_TYPES)
+						.groupBy(['dailyDeltas.account', 'dailyDeltas.commodity'])
+						.having((e) => e(e.fn.sum('dailyDeltas.amount'), '<>', 0n)),
 				)
 				.with('costs', (qb) =>
 					qb

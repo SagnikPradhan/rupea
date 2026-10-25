@@ -26,7 +26,7 @@ import type { storages } from '#services/storage/adapters/database-schema.ts';
 /** The tables Kysely queries, named and typed as the database has them. */
 export type Tables = {
 	/** A view: what an account's counted postings of a commodity moved on one day. */
-	deltas: {
+	dailyDeltas: {
 		ledgerId: string;
 		account: string;
 		accountType: AccountType;

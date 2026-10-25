@@ -1,10 +1,17 @@
-import { sql, type Expression } from 'kysely';
+import { sql, type Expression, type SqlBool } from 'kysely';
+import { literalLike } from '#lib/server/db/index.ts';
 import { AMOUNT_UNIT, type Amount, type Quantity } from '../domain/amounts';
 import type { LotCost, Price, PriceKind } from '../domain/types';
 
 /** An amount times a price per unit, rounded to a ten-billionth as the domain's multiply is. */
 export const multiply = (a: Expression<unknown>, b: Expression<unknown>) =>
 	sql<bigint>`round(${a} * ${b} / ${sql.lit(AMOUNT_UNIT)})`;
+
+/** This account or any under it, ignoring case, so it reads through postings_ledger_id_lower_account; every account when there is none. */
+export const underAccount = (c: Expression<string>, a: string | null) =>
+	a
+		? sql<SqlBool>`(lower(${c}) = lower(${a}) or lower(${c}) like lower(${literalLike(a)}) || ':%')`
+		: sql<SqlBool>`true`;
 
 type PriceColumns = {
 	priceAmount: bigint | null;

@@ -1,6 +1,7 @@
 import { provide } from '#lib/server/shared/context/context.ts';
 import * as Accounts from '#services/ledger/application/accounts.ts';
 import * as Files from '#services/ledger/application/files.ts';
+import * as Sync from '#services/ledger/application/sync.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { describe } from 'vitest';
@@ -14,7 +15,7 @@ const LEDGERS = [
 	{ name: '50 years, 5 to 7 a day', years: 50, perDay: (i: number) => 5 + (i % 3) },
 ];
 
-describe('net worth', () => {
+describe('accounts', () => {
 	it.for(LEDGERS)(
 		'over $name',
 		{ timeout: 3_600_000 },
@@ -28,10 +29,17 @@ describe('net worth', () => {
 
 				const worth = (f: Temporal.PlainDate) => () =>
 					provide(context, () => Accounts.listWorth({ ledger, from: f, to: TO })).then(() => {});
+				const holdings = () =>
+					provide(context, () => Accounts.listAccounts({ ledger, day: TO })).then(() => {});
+				const checks = () => provide(context, () => Sync.sync(ledger)).then(() => {});
+				const index = () => provide(context, () => Sync.syncIndex(ledger)).then(() => {});
 				await bench.compare(
-					bench('1m', worth(TO.subtract({ months: 1 }))),
-					bench('ytd', worth(TO.with({ month: 1, day: 1 }))),
-					bench('1y', worth(TO.subtract({ years: 1 }))),
+					bench('worth 1m', worth(TO.subtract({ months: 1 }))),
+					bench('worth ytd', worth(TO.with({ month: 1, day: 1 }))),
+					bench('worth 1y', worth(TO.subtract({ years: 1 }))),
+					bench('holdings', holdings),
+					bench('checks', checks),
+					bench('index alone', index),
 					{ iterations: 10, time: 0, warmupIterations: 1 },
 				);
 			}),
@@ -40,7 +48,7 @@ describe('net worth', () => {
 
 const yearsUpTo = (l: number, c: number) => Array.from({ length: c }, (_, i) => l - c + 1 + i);
 
-/** A year of salary, spending on a card and from the bank, card bills, stock buys and daily prices. */
+/** A year of salary, spending on a card and from the bank, card bills asserting the bank's balance, stock buys and daily prices. */
 const yearOf = (year: number, perDay: (i: number) => number) => {
 	const start = Temporal.PlainDate.from({ year, month: 1, day: 1 });
 	const days = Array.from({ length: start.daysInYear }, (_, i) => start.add({ days: i }));
@@ -59,7 +67,7 @@ const transactionOf = (d: Temporal.PlainDate, n: number) => {
 
 	if (n === 0 && d.day === 1) return [`${d} Salary`, '\tAssets:Bank 150000', '\tIncome:Salary', ''];
 	if (n === 0 && d.day === 5)
-		return [`${d} Card bill`, '\tLiabilities:Card 30000', '\tAssets:Bank', ''];
+		return [`${d} Card bill`, '\tLiabilities:Card 30000', '\tAssets:Bank -30000 = 0', ''];
 	if (n === 1 && d.day === 10)
 		return [`${d} Fund`, '\tAssets:IBKR 100 USD @ 83', '\tAssets:Bank', ''];
 	if (n === 1 && d.day === 12)

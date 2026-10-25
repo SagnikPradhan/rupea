@@ -11,6 +11,8 @@ The query starts from the transactions in the range through the index lists alre
 - **A stored daily total per account**: reads stay flat as history grows, but every settle must rewrite it and prices that arrive late must revalue it. Kept for when a measured query is slow.
 - **Grouping sets of account and of bucket**: fewer rows, but the chart could no longer show one account's bars without asking again.
 - **Valuing at today's price**: one lookup per commodity, but a trip abroad years ago would change cost with the exchange rate.
+- **Valuing the change in each bucket's balance**, as hledger's `--valuechange` does: dollars spent in January would cost more rupees in every later bucket the rupee fell, and a bucket with no spending would show some. Net worth values balances this way, since money still held does change in value.
+- **Valuing each bucket's change at its last day's price**, as Fava and hledger's `--value=end` do: one lookup per bucket, but an amount early in a year's bucket takes a rate from months later.
 - **Days as the bucket for every range**: one shape, but decades of days are tens of thousands of bars.
 
 ## Consequences

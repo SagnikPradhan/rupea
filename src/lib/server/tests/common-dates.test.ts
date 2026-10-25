@@ -1,6 +1,6 @@
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
-import { bucketsIn, Day, previousOf, startOf } from '#lib/shared/dates.ts';
+import { bucketsIn, coverOf, Day, previousOf, startOf } from '#lib/shared/dates.ts';
 
 const day = (iso: string) => Temporal.PlainDate.from(iso);
 
@@ -45,5 +45,18 @@ describe('buckets', () => {
 		]);
 		expect(bucketsIn(span, 'year').map(String)).toEqual(['2025-01-01', '2026-01-01']);
 		expect(bucketsIn({ from: span.to, to: span.to }, 'day').map(String)).toEqual(['2026-01-02']);
+	});
+});
+
+describe('a cover', () => {
+	it('runs from the earliest first day to the latest last day, and is none without spans', () => {
+		const spans = [
+			{ from: day('2026-03-01'), to: day('2026-03-31') },
+			{ from: day('1998-07-15'), to: day('1998-07-15') },
+			{ from: day('2024-01-01'), to: day('2026-02-01') },
+		];
+		const cover = coverOf(spans);
+		expect(cover && `${cover.from}..${cover.to}`).toBe('1998-07-15..2026-03-31');
+		expect(coverOf([])).toBeNull();
 	});
 });

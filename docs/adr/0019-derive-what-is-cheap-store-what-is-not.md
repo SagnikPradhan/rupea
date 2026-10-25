@@ -17,3 +17,4 @@ A sync writes what the files say: transactions, postings, prices and metadata. A
 - `daily_deltas` has no Drizzle declaration, so its row type is written out in `Tables`.
 - A sync tracks only the commodities whose lots it touched.
 - Revisit this if reading balances at real scale is too slow; the copied columns are the next step before a table.
+- [ADR 0022](0022-history-before-a-range-from-monthly-deltas.md) took that step: postings now carry date and counted, and monthly deltas and balance checks are stored.

@@ -4,6 +4,7 @@ import type { Batch } from '#lib/server/shared/result/batch.ts';
 import { fault, type RupeaError } from '#lib/server/shared/result/error.ts';
 import { inOrder, ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { readText, type Entry, type Storage } from '#lib/server/shared/storage/storage.ts';
+import { coverOf, type Span } from '#lib/shared/dates.ts';
 import { isCounted, STATEMENTS } from '#lib/shared/folders.ts';
 import { enqueue } from '#services/jobs/application/jobs.ts';
 import * as DB from '../adapters/database';
@@ -21,13 +22,13 @@ import { openFolder } from './ledger';
 // catches up over a few syncs instead of stalling one.
 const EMBEDDED = 500;
 
-export type Indexed = { failed: RupeaError[]; touched: string[] };
+export type Indexed = { failed: RupeaError[]; commodities: string[]; spans: Span[] };
 
 /** Brings the index up to date and checks the ledger, reporting what is wrong with either. */
 export const sync = (l: Ledger): ResultAsync<Batch<never>> =>
 	syncIndex(l).andThen((f) => checkLedger(l).map((e) => ({ succeeded: [], failed: [...f, ...e] })));
 
-/** Brings the index up to date without checking the ledger, which costs a pass over every event and balance assertion. */
+/** Brings the index up to date without checking the ledger, which costs a pass over every event. */
 export const syncIndex = (ledger: Ledger): ResultAsync<RupeaError[]> =>
 	openFolder({ ledger, folder: 'files' }).andThen((s) =>
 		listLedgerFiles(s)
@@ -68,24 +69,29 @@ export const indexFile = ({ ledgerId, file }: IndexFileOptions): ResultAsync<Ind
 		};
 		return DB.indexFile(ledgerId, { key: file.key, version, file: indexed }).map((t) => ({
 			failed: kept.failed,
-			touched: t,
+			...t,
 		}));
 	});
 
 type UnindexOptions = { ledgerId: string; key: string };
 
 export const unindex = ({ ledgerId, key }: UnindexOptions): ResultAsync<Indexed> =>
-	DB.unindexFile(ledgerId, key).map((t) => ({ failed: [], touched: t }));
+	DB.unindexFile(ledgerId, key).map((t) => ({ failed: [], ...t }));
 
 type SettleOptions = { ledgerId: string; indexed: Indexed };
 
-/** Settles what spans files once they are indexed: which transactions count, then the lots they book, including those of transactions whose counting changed. */
+/** Settles what spans files once indexed: which transactions count, then the lots, months and assertions they and the recount touched. */
 export const settle = ({ ledgerId, indexed }: SettleOptions): ResultAsync<RupeaError[]> =>
 	uncountedIn(ledgerId)
-		.andThen((u) => DB.recount(ledgerId, u).map((r) => ({ u, r })))
-		.andThen(({ u, r }) => {
-			const lots = [...new Set([...indexed.touched, ...r])];
-			return lots.length === 0 ? okAsync() : DB.rebook(ledgerId, lots, u);
+		.andThen((u) => DB.recount(ledgerId, u))
+		.andThen((r) => {
+			const commodities = [...indexed.commodities, ...r.commodities];
+			const span = coverOf([...indexed.spans, ...r.spans]);
+
+			return rebook(ledgerId, commodities)
+				.andThen(() => saveMonths(ledgerId, span))
+				.andThen(() => DB.saveCheckedMonths(ledgerId))
+				.andThen(() => saveChecks(ledgerId, span));
 		})
 		.map(() => indexed.failed);
 
@@ -93,7 +99,8 @@ export const settle = ({ ledgerId, indexed }: SettleOptions): ResultAsync<RupeaE
 export const indexEach = (steps: (() => ResultAsync<Indexed>)[]): ResultAsync<Indexed> =>
 	inOrder(steps.map((s) => () => reported(atomically(s)))).map((done) => ({
 		failed: done.flatMap((d) => d.failed),
-		touched: done.flatMap((d) => d.touched),
+		commodities: done.flatMap((d) => d.commodities),
+		spans: done.flatMap((d) => d.spans),
 	}));
 
 export const checkLots = (l: Ledger): ResultAsync<RupeaError[]> =>
@@ -122,7 +129,7 @@ const applyPlan = (storage: Storage, ledgerId: string, p: SyncPlan): ResultAsync
 };
 
 const reported = (i: ResultAsync<Indexed>): ResultAsync<Indexed> =>
-	i.orElse((e) => ok({ failed: [e], touched: [] }));
+	i.orElse((e) => ok({ failed: [e], commodities: [], spans: [] }));
 
 /** A symbol is fetched once a ledger links it, and again on later syncs until a fetch works. */
 const queueFetches = (ledger: Ledger, failed: RupeaError[]): ResultAsync<RupeaError[]> =>
@@ -168,6 +175,17 @@ const checkLinks = (l: Ledger): ResultAsync<RupeaError[]> =>
 			fault('LinkRepeated', { location: k.locations.join(', '), commodity: k.commodity }),
 		),
 	);
+
+const rebook = (id: string, commodities: string[]): ResultAsync<void> => {
+	const lots = [...new Set(commodities)];
+	return lots.length === 0 ? okAsync() : DB.rebook(id, lots);
+};
+
+const saveMonths = (id: string, s: Span | null): ResultAsync<void> =>
+	s ? DB.saveMonthlyDeltas(id, s) : okAsync();
+
+const saveChecks = (id: string, s: Span | null): ResultAsync<void> =>
+	s ? DB.saveBalanceChecks(id, s.from) : okAsync();
 
 const uncountedIn = (id: string): ResultAsync<string[]> =>
 	DB.listEventTransactions(id).map((m) => checkEvents(m).uncounted);

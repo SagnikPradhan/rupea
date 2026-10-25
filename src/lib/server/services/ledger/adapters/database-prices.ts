@@ -1,11 +1,12 @@
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { runningTotal, total, unset } from '#lib/server/db/expressions.ts';
+import { monthOf, runningTotal, total, unset } from '#lib/server/db/expressions.ts';
 import type { Database } from '#lib/server/db/index.ts';
 import type { Bucket } from '#lib/shared/dates.ts';
 import { sql, type Expression } from 'kysely';
 import { AMOUNT_UNIT, DEFAULT_COMMODITY, type Amount, type Quantity } from '../domain/amounts';
 import type { Spent } from '../domain/spending';
+import { BALANCE_TYPES } from '../domain/taxonomy';
 import { AccountType, Feed, PriceSource } from '../domain/types';
 import { multiply } from './database-queries';
 
@@ -55,7 +56,7 @@ export const findLatestPrices = (
 /**
  * Each day values its balances at the latest price on or before it, reaching rupees in at most
  * two prices and rounding each step as multiply does. The first day is the later of from and the
- * ledger's first counted transaction.
+ * ledger's first counted transaction, and what came before the start month is summed by the month.
  */
 export const listWorth = (
 	ledgerId: string,
@@ -63,40 +64,77 @@ export const listWorth = (
 	to: Temporal.PlainDate,
 ): ResultAsync<Worth[]> =>
 	withContext('db')((db) => {
+		const firstMonth = sql<string>`(select min(month) from months)`;
+		const startMonth = sql<string>`(select ${monthOf(sql.ref('day'))} from start)`;
+
 		return attempt(() =>
 			db
 				// Kysely writes with recursive only when the first CTE asks for it
 				.withRecursive('own(id, symbol)', () => ownSymbols(db, ledgerId))
-				.with('changes', (q) =>
+				.with('months', (q) =>
 					q
-						.selectFrom('dailyDeltas')
+						.selectFrom('monthlyDeltas as m')
 						.select((e) => [
-							e('dailyDeltas.accountType', '=', AccountType.Assets).as('asset'),
-							'dailyDeltas.commodity',
-							'dailyDeltas.date',
-							e.fn.sum<bigint>('dailyDeltas.amount').as('amount'),
+							e('m.accountType', '=', AccountType.Assets).as('asset'),
+							'm.commodity',
+							'm.month',
+							e.fn.sum<bigint>('m.amount').as('amount'),
 						])
-						.where('dailyDeltas.ledgerId', '=', ledgerId)
-						.where('dailyDeltas.accountType', 'in', [AccountType.Assets, AccountType.Liabilities])
-						.where('dailyDeltas.date', '<=', to.toString())
-						.groupBy(['dailyDeltas.accountType', 'dailyDeltas.commodity', 'dailyDeltas.date']),
+						.where('m.ledgerId', '=', ledgerId)
+						.where('m.accountType', 'in', BALANCE_TYPES)
+						.where('m.month', '<=', to.toString())
+						.groupBy(['m.accountType', 'm.commodity', 'm.month']),
 				)
-				.with('first', (q) =>
-					q.selectFrom('changes').select((e) => e.fn.min('changes.date').as('day')),
+				.with('start', (q) =>
+					q
+						.selectFrom('dailyDeltas as d')
+						.select((e) =>
+							sql<string>`greatest(${from.toString()}::date, ${e.fn.min('d.date')})`.as('day'),
+						)
+						.where('d.ledgerId', '=', ledgerId)
+						.where('d.accountType', 'in', BALANCE_TYPES)
+						.where('d.date', '>=', firstMonth)
+						.where('d.date', '<', sql<string>`${firstMonth} + interval '1 month'`)
+						.having((e) => e.fn.min('d.date'), 'is not', null),
 				)
 				.with('days', (q) =>
 					q
-						.selectFrom('first')
+						.selectFrom('start')
 						.select((e) =>
-							sql<string>`generate_series(greatest(${from.toString()}::date, ${e.ref('first.day')}), ${to.toString()}::date, interval '1 day')::date`.as(
+							sql<string>`generate_series(${e.ref('start.day')}, ${to.toString()}::date, interval '1 day')::date`.as(
 								'day',
 							),
-						)
-						.where('first.day', 'is not', null),
+						),
+				)
+				.with('changes', (q) =>
+					q
+						.selectFrom('dailyDeltas as d')
+						.select((e) => [
+							e('d.accountType', '=', AccountType.Assets).as('asset'),
+							'd.commodity',
+							'd.date',
+							e.fn.sum<bigint>('d.amount').as('amount'),
+						])
+						.where('d.ledgerId', '=', ledgerId)
+						.where('d.accountType', 'in', BALANCE_TYPES)
+						.where('d.date', '>=', startMonth)
+						.where('d.date', '<=', to.toString())
+						.groupBy(['d.accountType', 'd.commodity', 'd.date']),
+				)
+				.with('history', (q) =>
+					q
+						.selectFrom('months')
+						.select(['months.asset', 'months.commodity', 'months.month as date', 'months.amount'])
+						.where('months.month', '<', startMonth)
+						.unionAll(
+							q
+								.selectFrom('changes')
+								.select(['changes.asset', 'changes.commodity', 'changes.date', 'changes.amount']),
+						),
 				)
 				.with('keys', (q) =>
 					q
-						.selectFrom('changes as x')
+						.selectFrom('history as x')
 						.leftJoin('own as o', 'o.symbol', 'x.commodity')
 						.select((e) => [
 							'x.asset',

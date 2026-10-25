@@ -6,12 +6,14 @@ import { withContext } from '#lib/server/shared/context/context.ts';
 import { fault, type RupeaError } from '#lib/server/shared/result/error.ts';
 import { attempt, errAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { byCodeUnit } from '#lib/server/shared/text.ts';
+import type { Span } from '#lib/shared/dates.ts';
 import { v7 as uuidv7 } from 'uuid';
 import { CURRENCIES } from '../domain/lots';
 import { displayLocation } from '../domain/parser';
 import { marketPrices } from '../domain/prices';
 import { accountType, BALANCE_TYPES } from '../domain/taxonomy';
 import { Feed, type RupeaLedgerFile, type RupeaMetadata } from '../domain/types';
+import { toSpans } from './database-queries';
 
 export type FileVersion = { key: string; version: string | null };
 
@@ -44,14 +46,14 @@ export const findImported = (ledgerId: string, checksums: string[]): ResultAsync
 
 type IndexFileOptions = { key: string; version: string | null; file: RupeaLedgerFile };
 
-/**
- * Replaces what a file indexes, each description keeping its embedding, so saving a file never re-embeds it.
- * Returns the commodities whose lots the file held before or holds now.
- */
+/** What changing a file touched: the commodities whose lots it held before or holds now, and the days its transactions span. */
+export type Touched = { commodities: string[]; spans: Span[] };
+
+/** Replaces what a file indexes, each description keeping its embedding, so saving a file never re-embeds it. */
 export const indexFile = (
 	ledgerId: string,
 	{ key, version, file }: IndexFileOptions,
-): ResultAsync<string[]> => {
+): ResultAsync<Touched> => {
 	const untyped = untypedAccount(file);
 	if (untyped) return errAsync(untyped);
 
@@ -64,6 +66,8 @@ export const indexFile = (
 				const links = await withFeedSymbols(tx, rows.links);
 
 				const lotsBefore = await lotCommoditiesOf(tx, fileId);
+				const spansBefore = await spansOf(tx, fileId);
+
 				await tx.deleteFrom('metadata').where('fileId', '=', fileId).execute();
 				await tx.deleteFrom('prices').where('fileId', '=', fileId).execute();
 				await tx.deleteFrom('symbolLinks').where('fileId', '=', fileId).execute();
@@ -76,14 +80,17 @@ export const indexFile = (
 				await insertAll(tx, 'metadata', rows.metadata);
 
 				const lotsAfter = await lotCommoditiesOf(tx, fileId);
-				return [...lotsBefore, ...lotsAfter];
+				const spansAfter = await spansOf(tx, fileId);
+				return {
+					commodities: [...lotsBefore, ...lotsAfter],
+					spans: [...spansBefore, ...spansAfter],
+				};
 			}),
 		),
 	);
 };
 
-/** Returns the commodities whose lots the file held. */
-export const unindexFile = (ledgerId: string, key: string): ResultAsync<string[]> =>
+export const unindexFile = (ledgerId: string, key: string): ResultAsync<Touched> =>
 	atomically(() =>
 		withContext('db')((tx) =>
 			attempt(async () => {
@@ -93,21 +100,22 @@ export const unindexFile = (ledgerId: string, key: string): ResultAsync<string[]
 					.where('ledgerFiles.ledgerId', '=', ledgerId)
 					.where('ledgerFiles.key', '=', key)
 					.executeTakeFirst();
-				if (!file) return [];
+				if (!file) return { commodities: [], spans: [] };
 
-				const lots = await lotCommoditiesOf(tx, file.id);
+				const commodities = await lotCommoditiesOf(tx, file.id);
+				const spans = await spansOf(tx, file.id);
 				await tx.deleteFrom('ledgerFiles').where('id', '=', file.id).execute();
-				return lots;
+				return { commodities, spans };
 			}),
 		),
 	);
 
-/** Returns the commodities whose lots the file holds. */
+/** A key spans no days, so a rename touches only the commodities whose lots the file holds. */
 export const renameIndexedFile = (
 	ledgerId: string,
 	from: string,
 	to: string,
-): ResultAsync<string[]> =>
+): ResultAsync<Touched> =>
 	withContext('db')((db) =>
 		attempt(() =>
 			db
@@ -117,7 +125,8 @@ export const renameIndexedFile = (
 				.where('key', '=', from)
 				.returning('id')
 				.executeTakeFirst()
-				.then((f) => (f ? lotCommoditiesOf(db, f.id) : [])),
+				.then((f) => (f ? lotCommoditiesOf(db, f.id) : []))
+				.then((c) => ({ commodities: c, spans: [] })),
 		),
 	);
 
@@ -164,7 +173,7 @@ const rowsOf = (ledgerId: string, fileId: string, file: RupeaLedgerFile) => {
 		time: transaction.time?.toString() ?? null,
 		description: transaction.description,
 	}));
-	const postings = indexed.flatMap(({ id, postings: p }) =>
+	const postings = indexed.flatMap(({ id, transaction, postings: p }) =>
 		p.flatMap(({ id: postingId, posting }, position) => {
 			const type = accountType(posting.account);
 			return type
@@ -173,6 +182,7 @@ const rowsOf = (ledgerId: string, fileId: string, file: RupeaLedgerFile) => {
 							id: postingId,
 							ledgerId,
 							transactionId: id,
+							date: transaction.date.toString(),
 							position,
 							account: posting.account,
 							accountType: type,
@@ -328,3 +338,14 @@ const lotCommoditiesOf = (db: Database, fileId: string): Promise<string[]> =>
 		.where((e) => noneOf(e.ref('postings.commodity'), CURRENCIES, 'text'))
 		.execute()
 		.then((r) => r.map((c) => c.commodity));
+
+const spansOf = (db: Database, fileId: string): Promise<Span[]> =>
+	db
+		.selectFrom('transactions')
+		.select((e) => [
+			e.fn.min<string | null>('transactions.date').as('from'),
+			e.fn.max<string | null>('transactions.date').as('to'),
+		])
+		.where('transactions.fileId', '=', fileId)
+		.executeTakeFirstOrThrow()
+		.then(toSpans);

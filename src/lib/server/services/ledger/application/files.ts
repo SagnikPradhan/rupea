@@ -123,7 +123,7 @@ const moveFile = (storage: Storage, ledgerId: string, { from, to }: Move) =>
 			index: () =>
 				DB.renameIndexedFile(ledgerId, from, to).andThen((t) =>
 					isCounted(from) === isCounted(to)
-						? okAsync({ failed: [], touched: t })
+						? okAsync({ failed: [], ...t })
 						: indexFile({ ledgerId, file }),
 				),
 		}));

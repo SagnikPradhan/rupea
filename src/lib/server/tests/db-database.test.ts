@@ -69,6 +69,7 @@ describe('the database', () => {
 		const posting = {
 			ledgerId,
 			transactionId: tx.id,
+			date: '2026-01-01',
 			accountType: AccountType.Assets,
 			commodity: 'INR',
 		};

@@ -1,4 +1,3 @@
-import { noneOf } from '#lib/server/db/expressions.ts';
 import type { Database } from '#lib/server/db/index.ts';
 import { insertAll } from '#lib/server/db/insert.ts';
 import type { Tables } from '#lib/server/db/tables.ts';
@@ -10,7 +9,7 @@ import type { Amount, Quantity } from '../domain/amounts';
 import { book, realised, type BookedPosting, type Booking } from '../domain/lots';
 import { BALANCE_TYPES } from '../domain/taxonomy';
 import type { DisposalKind, LotOrigin, RupeaParseLocation } from '../domain/types';
-import { toCost, toPrice, toQuantity } from './database-queries';
+import { ledgerOrder, toCost, toPrice, toQuantity } from './database-queries';
 
 export type UnmatchedDisposal = {
 	location: RupeaParseLocation;
@@ -40,16 +39,12 @@ export type LotHistory = {
 };
 
 /** Books each commodity's lots again from its counted postings. */
-export const rebook = (
-	ledgerId: string,
-	commodities: string[],
-	uncounted: string[],
-): ResultAsync<void> =>
+export const rebook = (ledgerId: string, commodities: string[]): ResultAsync<void> =>
 	atomically(() =>
 		withContext('db')((tx) =>
 			attempt(async () => {
 				for (const commodity of commodities)
-					await bookedPostings(tx, { ledgerId, commodity, uncounted })
+					await bookedPostings(tx, { ledgerId, commodity }) // NOSONAR -- one transaction's connection runs one statement at a time
 						.then(book)
 						.then((b) => replaceLots(tx, { ledgerId, commodity, booking: b }));
 			}),
@@ -145,10 +140,7 @@ export const listLots = (
 					'disposals.priceCommodity',
 				])
 				.where(inHolding)
-				.orderBy('transactions.date')
-				.orderBy('transactions.time', (o) => o.nullsFirst())
-				.orderBy('ledgerFiles.key')
-				.orderBy('transactions.line')
+				.orderBy(ledgerOrder('transactions', 'ledgerFiles'))
 				.execute();
 
 			const byLot = Object.groupBy(disposals, (d) => d.lot);
@@ -181,11 +173,11 @@ export const listLots = (
 		}),
 	);
 
-type BookedPostingsOptions = { ledgerId: string; commodity: string; uncounted: string[] };
+type BookedPostingsOptions = { ledgerId: string; commodity: string };
 
 const bookedPostings = (
 	db: Database,
-	{ ledgerId, commodity, uncounted }: BookedPostingsOptions,
+	{ ledgerId, commodity }: BookedPostingsOptions,
 ): Promise<BookedPosting[]> =>
 	db
 		.selectFrom('postings')
@@ -207,11 +199,8 @@ const bookedPostings = (
 		])
 		.where('postings.ledgerId', '=', ledgerId)
 		.where('postings.commodity', '=', commodity)
-		.where((e) => noneOf(e.ref('transactions.id'), uncounted, 'uuid'))
-		.orderBy('transactions.date')
-		.orderBy('transactions.time', (o) => o.nullsFirst())
-		.orderBy('ledgerFiles.key')
-		.orderBy('transactions.line')
+		.where('postings.counted', '=', true)
+		.orderBy(ledgerOrder('transactions', 'ledgerFiles'))
 		.orderBy('postings.position')
 		.execute()
 		.then((rows) =>

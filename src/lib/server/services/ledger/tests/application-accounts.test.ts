@@ -4,7 +4,7 @@ import * as DB from '#services/ledger/adapters/database.ts';
 import * as Accounts from '#services/ledger/application/accounts.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
-import { parseAmount, type Amount } from '#services/ledger/domain/amounts.ts';
+import { AMOUNT_UNIT, parseAmount, type Amount } from '#services/ledger/domain/amounts.ts';
 import { Feed, PriceSource } from '#services/ledger/domain/types.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
@@ -280,6 +280,23 @@ describe('net worth', () => {
 			const worth = (await Accounts.listWorth({ ledger, from, to }))._unsafeUnwrap().succeeded;
 			expect(empty).toEqual([]);
 			expect(worth.map((w) => w.day.toString())).toEqual(['2026-10-02', '2026-10-03']);
+		}));
+
+	it('opens with the months before and the days of its month before it', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = ['2026-08-20', '2026-10-02', '2026-10-05']
+				.map((d) => `${d} Salary\n\tAssets:Bank 100\n\tIncome:Salary\n`)
+				.join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const worth = async (f: string, t: string) => {
+				const span = { from: Temporal.PlainDate.from(f), to: Temporal.PlainDate.from(t) };
+				const days = (await Accounts.listWorth({ ledger, ...span }))._unsafeUnwrap().succeeded;
+				return days.map((w) => `${w.day} ${w.worth / AMOUNT_UNIT}`);
+			};
+			expect(await worth('2026-10-04', '2026-10-05')).toEqual(['2026-10-04 200', '2026-10-05 300']);
+			expect(await worth('2026-07-15', '2026-08-21')).toEqual(['2026-08-20 100', '2026-08-21 100']);
 		}));
 });
 

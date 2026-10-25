@@ -13,15 +13,15 @@ export const noneOf = (c: Expression<string>, v: string[], t: ArrayType) =>
 
 /** Rows whose column contains the text anywhere, ignoring case, or every row when there is no text. */
 export const containing = (c: Expression<string>, t: string | null) =>
-	t ? sql<SqlBool>`${c} ilike ${`%${literalLike(t)}%`}` : sql<SqlBool>`true`;
+	t !== null ? sql<SqlBool>`${c} ilike '%' || ${literalLike(t)} || '%'` : sql<SqlBool>`true`;
 
 /** Rows whose tuple sorts before these values, or every row when there are none. */
 export const before = (c: Expression<unknown>, v: unknown[] | null) =>
-	v ? sql<SqlBool>`${c} < (${sql.join(v)})` : sql<SqlBool>`true`;
+	v !== null ? sql<SqlBool>`${c} < (${sql.join(v)})` : sql<SqlBool>`true`;
 
 /** Rows whose tuple sorts before or at these values, or every row when there are none. */
 export const atOrBefore = (c: Expression<unknown>, v: unknown[] | null) =>
-	v ? sql<SqlBool>`${c} <= (${sql.join(v)})` : sql<SqlBool>`true`;
+	v !== null ? sql<SqlBool>`${c} <= (${sql.join(v)})` : sql<SqlBool>`true`;
 
 /** How far apart two pgvector values are, for ordering by the nearest. */
 export const distance = (a: Expression<unknown>, b: Expression<unknown>) =>
@@ -33,9 +33,13 @@ export const total = (c: Expression<bigint | null>, w?: Expression<SqlBool>) =>
 		? sql<bigint>`coalesce(sum(${c}), 0)`
 		: sql<bigint>`coalesce(sum(${c}) filter (where ${w}), 0)`;
 
-/** The distinct "a:b" labels of the rows where a condition holds, or none. */
-export const labels = (a: Expression<unknown>, b: Expression<unknown>, w: Expression<SqlBool>) =>
-	sql<string[]>`coalesce(array_agg(distinct ${a} || ':' || ${b}) filter (where ${w}), '{}')`;
+/** The distinct values of a column in the rows where a condition holds, or none. */
+export const distinctOf = <T>(c: Expression<T | null>, w: Expression<SqlBool>) =>
+	sql<T[]>`coalesce(array_agg(distinct ${c}) filter (where ${w}), '{}')`;
+
+/** The distinct "a:b" labels of the rows, or none. */
+export const labels = (a: Expression<unknown>, b: Expression<unknown>) =>
+	sql<string[]>`coalesce(array_agg(distinct ${a} || ':' || ${b}), '{}')`;
 
 /** The sum of a column over the rows on days before each one's, restarting for each partition. A condition limits it to the rows where it holds. */
 export const totalBefore = (
@@ -45,6 +49,9 @@ export const totalBefore = (
 	w: Expression<SqlBool>,
 ) =>
 	sql<bigint>`coalesce(sum(${c}) filter (where ${w}) over (partition by ${sql.join(p)} order by ${o} range between unbounded preceding and '1 day' preceding), 0)`;
+
+/** The first day of the month a date falls in. */
+export const monthOf = (d: Expression<string>) => sql<string>`date_trunc('month', ${d})::date`;
 
 /** The sum of a column up to each row, restarting for each partition and counting in order. */
 export const runningTotal = (

@@ -1,12 +1,11 @@
 import { anyOf, noneOf } from '#lib/server/db/expressions.ts';
-import { ROWS_PER_STATEMENT, type Database } from '#lib/server/db/index.ts';
+import type { Database } from '#lib/server/db/index.ts';
+import { insertAll } from '#lib/server/db/insert.ts';
 import { atomically } from '#lib/server/db/atomically.ts';
-import { chunks } from '#lib/server/shared/arrays.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { fault, type RupeaError } from '#lib/server/shared/result/error.ts';
 import { attempt, errAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { byCodeUnit } from '#lib/server/shared/text.ts';
-import { sql } from 'kysely';
 import { v7 as uuidv7 } from 'uuid';
 import { CURRENCIES } from '../domain/lots';
 import { displayLocation } from '../domain/parser';
@@ -45,9 +44,10 @@ export const findImported = (ledgerId: string, checksums: string[]): ResultAsync
 
 type IndexFileOptions = { key: string; version: string | null; file: RupeaLedgerFile };
 
-// One transaction, so readers see the old file or the new one. A description
-// keeps its embedding through a reindex, so saving a file never re-embeds it.
-// Returns the commodities whose lots the file held before or holds now.
+/**
+ * Replaces what a file indexes, each description keeping its embedding, so saving a file never re-embeds it.
+ * Returns the commodities whose lots the file held before or holds now.
+ */
 export const indexFile = (
 	ledgerId: string,
 	{ key, version, file }: IndexFileOptions,
@@ -58,110 +58,24 @@ export const indexFile = (
 	return atomically(() =>
 		withContext('db')((tx) =>
 			attempt(async () => {
-				const fileId = await tx
-					.insertInto('ledgerFiles')
-					.values({ ledgerId, key, version })
-					.onConflict((o) => o.columns(['ledgerId', 'key']).doUpdateSet({ version }))
-					.returning('id')
-					.executeTakeFirstOrThrow()
-					.then((f) => f.id);
-				const embedded = await embeddingsIn(tx, fileId);
-
-				const indexed = file.transactions.map((t) => ({
-					id: uuidv7(),
-					transaction: t,
-					postings: t.postings.map((p) => ({ id: uuidv7(), posting: p })),
-				}));
-
-				const transactionRows = indexed.map(({ id, transaction }) => ({
-					id,
-					ledgerId,
-					fileId,
-					line: transaction.location.line,
-					date: transaction.date.toString(),
-					time: transaction.time?.toString() ?? null,
-					description: transaction.description,
-					embedding: embedding(embedded[transaction.description]),
-					embeddingModel: embedded[transaction.description]?.embeddingModel ?? null,
-				}));
-				const postingRows = indexed.flatMap(({ id, postings: p }) =>
-					p.flatMap(({ id: postingId, posting }, position) => {
-						const type = accountType(posting.account);
-						return type
-							? [
-									{
-										id: postingId,
-										ledgerId,
-										transactionId: id,
-										position,
-										account: posting.account,
-										accountType: type,
-										amount: posting.amount,
-										commodity: posting.commodity,
-										priceAmount: posting.price?.amount ?? null,
-										priceCommodity: posting.price?.commodity ?? null,
-										priceKind: posting.price?.kind ?? null,
-										costAmount: posting.cost?.amount ?? null,
-										costCommodity: posting.cost?.commodity ?? null,
-										costDate: posting.cost?.date?.toString() ?? null,
-										balance: posting.balance,
-									},
-								]
-							: [];
-					}),
-				);
-				const priceRows = marketPrices(file).map((p) => ({
-					symbol: p.commodity,
-					row: {
-						fileId,
-						line: p.location.line,
-						date: p.date.toString(),
-						priceAmount: p.price.amount,
-						priceCommodity: p.price.commodity,
-						source: p.source,
-					},
-				}));
-				const linkRows = file.links.map((l) => ({
-					feed: l.feed,
-					symbol: l.symbol,
-					row: {
-						ledgerId,
-						alias: l.commodity,
-						since: l.since?.toString() ?? null,
-						fileId,
-						line: l.location.line,
-					},
-				}));
-				const metadataRows = [
-					...ownedBy({ ledgerId, fileId }, file.metadata),
-					...indexed.flatMap(({ id, transaction }) =>
-						ownedBy({ ledgerId, transactionId: id }, transaction.metadata),
-					),
-					...indexed.flatMap(({ postings: p }) =>
-						p.flatMap(({ id, posting }) => ownedBy({ ledgerId, postingId: id }, posting.metadata)),
-					),
-				];
+				const fileId = await saveVersion(tx, { ledgerId, key, version });
+				const rows = rowsOf(ledgerId, fileId, file);
+				const prices = await withSymbols(tx, { feed: Feed.Ledger, ledgerId }, rows.prices);
+				const links = await withFeedSymbols(tx, rows.links);
 
 				const lotsBefore = await lotCommoditiesOf(tx, fileId);
 				await tx.deleteFrom('metadata').where('fileId', '=', fileId).execute();
-				await tx.deleteFrom('transactions').where('fileId', '=', fileId).execute();
 				await tx.deleteFrom('prices').where('fileId', '=', fileId).execute();
 				await tx.deleteFrom('symbolLinks').where('fileId', '=', fileId).execute();
-				// A transaction's statements share one connection, so they go one at a time.
-				for (const chunk of chunks(transactionRows, ROWS_PER_STATEMENT))
-					await tx.insertInto('transactions').values(chunk).execute();
-				for (const chunk of chunks(postingRows, ROWS_PER_STATEMENT))
-					await tx.insertInto('postings').values(chunk).execute();
-				const priced = await withSymbols(tx, { feed: Feed.Ledger, ledgerId }, priceRows);
-				for (const chunk of chunks(priced, ROWS_PER_STATEMENT))
-					await tx.insertInto('prices').values(chunk).execute();
-				const linked = await withFeedSymbols(tx, linkRows);
-				for (const chunk of chunks(linked, ROWS_PER_STATEMENT))
-					await tx.insertInto('symbolLinks').values(chunk).execute();
-				for (const chunk of chunks(metadataRows, ROWS_PER_STATEMENT))
-					await tx.insertInto('metadata').values(chunk).execute();
-				const lotsAfter = await lotCommoditiesOf(tx, fileId);
 
+				await insertAll(tx, 'transactions', rows.transactions);
+				await replaceOldTransactions(tx, fileId, rows.transactions);
+				await insertAll(tx, 'postings', rows.postings);
+				await insertAll(tx, 'prices', prices);
+				await insertAll(tx, 'symbolLinks', links);
+				await insertAll(tx, 'metadata', rows.metadata);
+
+				const lotsAfter = await lotCommoditiesOf(tx, fileId);
 				return [...lotsBefore, ...lotsAfter];
 			}),
 		),
@@ -207,7 +121,7 @@ export const renameIndexedFile = (
 		),
 	);
 
-// The parser already refuses these; checked again so no posting goes unindexed.
+/** The parser already refuses these; checked again so no posting goes unindexed. */
 const untypedAccount = (file: RupeaLedgerFile): RupeaError | null =>
 	file.transactions
 		.flatMap((t) =>
@@ -222,25 +136,127 @@ const untypedAccount = (file: RupeaLedgerFile): RupeaError | null =>
 		)
 		.at(0) ?? null;
 
-type Embedded = { embedding: string | null; embeddingModel: string | null };
+type VersionOptions = { ledgerId: string; key: string; version: string | null };
 
-// Read as the text pgvector prints, since the driver has no parser for the type.
-const embeddingsIn = (db: Database, fileId: string): Promise<Record<string, Embedded>> =>
+const saveVersion = (db: Database, { ledgerId, key, version }: VersionOptions) =>
 	db
-		.selectFrom('transactions')
-		.select((e) => [
-			'transactions.description',
-			e.cast<string>(e.ref('transactions.embedding'), 'text').as('embedding'),
-			'transactions.embeddingModel',
-		])
-		.distinctOn('transactions.description')
-		.where('transactions.fileId', '=', fileId)
-		.where('transactions.embedding', 'is not', null)
-		.execute()
-		.then((l) => Object.fromEntries(l.map((r) => [r.description, r])));
+		.insertInto('ledgerFiles')
+		.values({ ledgerId, key, version })
+		.onConflict((o) => o.columns(['ledgerId', 'key']).doUpdateSet({ version }))
+		.returning('id')
+		.executeTakeFirstOrThrow()
+		.then((f) => f.id);
 
-const embedding = (e: Embedded | undefined) =>
-	e?.embedding ? sql<number[]>`${e.embedding}::vector` : null;
+/** Each table's rows for a parsed file, its prices and links still to be put on their symbols. */
+const rowsOf = (ledgerId: string, fileId: string, file: RupeaLedgerFile) => {
+	const indexed = file.transactions.map((t) => ({
+		id: uuidv7(),
+		transaction: t,
+		postings: t.postings.map((p) => ({ id: uuidv7(), posting: p })),
+	}));
+
+	const transactions = indexed.map(({ id, transaction }) => ({
+		id,
+		ledgerId,
+		fileId,
+		line: transaction.location.line,
+		date: transaction.date.toString(),
+		time: transaction.time?.toString() ?? null,
+		description: transaction.description,
+	}));
+	const postings = indexed.flatMap(({ id, postings: p }) =>
+		p.flatMap(({ id: postingId, posting }, position) => {
+			const type = accountType(posting.account);
+			return type
+				? [
+						{
+							id: postingId,
+							ledgerId,
+							transactionId: id,
+							position,
+							account: posting.account,
+							accountType: type,
+							amount: posting.amount,
+							commodity: posting.commodity,
+							priceAmount: posting.price?.amount ?? null,
+							priceCommodity: posting.price?.commodity ?? null,
+							priceKind: posting.price?.kind ?? null,
+							costAmount: posting.cost?.amount ?? null,
+							costCommodity: posting.cost?.commodity ?? null,
+							costDate: posting.cost?.date?.toString() ?? null,
+							balance: posting.balance,
+						},
+					]
+				: [];
+		}),
+	);
+	const prices = marketPrices(file).map((p) => ({
+		symbol: p.commodity,
+		row: {
+			fileId,
+			line: p.location.line,
+			date: p.date.toString(),
+			priceAmount: p.price.amount,
+			priceCommodity: p.price.commodity,
+			source: p.source,
+		},
+	}));
+	const links = file.links.map((l) => ({
+		feed: l.feed,
+		symbol: l.symbol,
+		row: {
+			ledgerId,
+			alias: l.commodity,
+			since: l.since?.toString() ?? null,
+			fileId,
+			line: l.location.line,
+		},
+	}));
+	const metadata = [
+		...ownedBy({ ledgerId, fileId }, file.metadata),
+		...indexed.flatMap(({ id, transaction }) =>
+			ownedBy({ ledgerId, transactionId: id }, transaction.metadata),
+		),
+		...indexed.flatMap(({ postings: p }) =>
+			p.flatMap(({ id, posting }) => ownedBy({ ledgerId, postingId: id }, posting.metadata)),
+		),
+	];
+
+	return { transactions, postings, prices, links, metadata };
+};
+
+/**
+ * Replaces a file's old transactions with the rows just inserted, which take the embedding of their description.
+ * The update still sees the deleted rows, as Postgres runs a statement on one snapshot, so it keeps to the new ones.
+ */
+const replaceOldTransactions = (db: Database, fileId: string, rows: { id: string }[]) => {
+	const ids = rows.map((r) => r.id);
+	return db
+		.with('deleted', (db) =>
+			db
+				.deleteFrom('transactions')
+				.where('transactions.fileId', '=', fileId)
+				.where((e) => noneOf(e.ref('transactions.id'), ids, 'uuid'))
+				.returning(['description', 'embedding', 'embeddingModel']),
+		)
+		.with('embedded', (db) =>
+			db
+				.selectFrom('deleted')
+				.select(['deleted.description', 'deleted.embedding', 'deleted.embeddingModel'])
+				.distinctOn('deleted.description')
+				.where('deleted.embedding', 'is not', null),
+		)
+		.updateTable('transactions')
+		.from('embedded')
+		.set((e) => ({
+			embedding: e.ref('embedded.embedding'),
+			embeddingModel: e.ref('embedded.embeddingModel'),
+		}))
+		.where('transactions.fileId', '=', fileId)
+		.whereRef('transactions.description', '=', 'embedded.description')
+		.where((e) => anyOf(e.ref('transactions.id'), ids, 'uuid'))
+		.execute();
+};
 
 type MetadataOwner = { ledgerId: string } & (
 	{ fileId: string } | { transactionId: string } | { postingId: string }

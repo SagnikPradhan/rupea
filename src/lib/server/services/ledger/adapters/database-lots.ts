@@ -1,8 +1,8 @@
 import { noneOf } from '#lib/server/db/expressions.ts';
-import { ROWS_PER_STATEMENT, type Database } from '#lib/server/db/index.ts';
+import type { Database } from '#lib/server/db/index.ts';
+import { insertAll } from '#lib/server/db/insert.ts';
 import type { Tables } from '#lib/server/db/tables.ts';
 import { atomically } from '#lib/server/db/atomically.ts';
-import { chunks } from '#lib/server/shared/arrays.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import type { ExpressionBuilder } from 'kysely';
@@ -265,8 +265,6 @@ const replaceLots = async (db: Database, { ledgerId, commodity, booking }: Repla
 		.where('ledgerId', '=', ledgerId)
 		.where('commodity', '=', commodity)
 		.execute();
-	for (const chunk of chunks(lotRows, ROWS_PER_STATEMENT))
-		await db.insertInto('lots').values(chunk).execute();
-	for (const chunk of chunks(disposalRows, ROWS_PER_STATEMENT))
-		await db.insertInto('disposals').values(chunk).execute();
+	await insertAll(db, 'lots', lotRows);
+	await insertAll(db, 'disposals', disposalRows);
 };

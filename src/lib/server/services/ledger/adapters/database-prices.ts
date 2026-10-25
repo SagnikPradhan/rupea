@@ -69,17 +69,17 @@ export const listWorth = (
 				.withRecursive('own(id, symbol)', () => ownSymbols(db, ledgerId))
 				.with('changes', (q) =>
 					q
-						.selectFrom('deltas')
+						.selectFrom('dailyDeltas')
 						.select((e) => [
-							e('deltas.accountType', '=', AccountType.Assets).as('asset'),
-							'deltas.commodity',
-							'deltas.date',
-							e.fn.sum<bigint>('deltas.amount').as('amount'),
+							e('dailyDeltas.accountType', '=', AccountType.Assets).as('asset'),
+							'dailyDeltas.commodity',
+							'dailyDeltas.date',
+							e.fn.sum<bigint>('dailyDeltas.amount').as('amount'),
 						])
-						.where('deltas.ledgerId', '=', ledgerId)
-						.where('deltas.accountType', 'in', [AccountType.Assets, AccountType.Liabilities])
-						.where('deltas.date', '<=', to.toString())
-						.groupBy(['deltas.accountType', 'deltas.commodity', 'deltas.date']),
+						.where('dailyDeltas.ledgerId', '=', ledgerId)
+						.where('dailyDeltas.accountType', 'in', [AccountType.Assets, AccountType.Liabilities])
+						.where('dailyDeltas.date', '<=', to.toString())
+						.groupBy(['dailyDeltas.accountType', 'dailyDeltas.commodity', 'dailyDeltas.date']),
 				)
 				.with('first', (q) =>
 					q.selectFrom('changes').select((e) => e.fn.min('changes.date').as('day')),

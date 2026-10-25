@@ -1,4 +1,5 @@
 import { sql, type Expression, type SqlBool } from 'kysely';
+import { literalLike } from './index';
 
 type ArrayType = 'text' | 'uuid';
 
@@ -9,6 +10,18 @@ export const anyOf = (c: Expression<string>, v: string[], t: ArrayType) =>
 /** Like `not in`, but a list of any length is one parameter, and an empty list excludes nothing. */
 export const noneOf = (c: Expression<string>, v: string[], t: ArrayType) =>
 	sql<SqlBool>`${c} <> all(${v}::${sql.raw(t)}[])`;
+
+/** Rows whose column contains the text anywhere, ignoring case, or every row when there is no text. */
+export const containing = (c: Expression<string>, t: string | null) =>
+	t ? sql<SqlBool>`${c} ilike ${`%${literalLike(t)}%`}` : sql<SqlBool>`true`;
+
+/** Rows whose tuple sorts before these values, or every row when there are none. */
+export const before = (c: Expression<unknown>, v: unknown[] | null) =>
+	v ? sql<SqlBool>`${c} < (${sql.join(v)})` : sql<SqlBool>`true`;
+
+/** Rows whose tuple sorts before or at these values, or every row when there are none. */
+export const atOrBefore = (c: Expression<unknown>, v: unknown[] | null) =>
+	v ? sql<SqlBool>`${c} <= (${sql.join(v)})` : sql<SqlBool>`true`;
 
 /** How far apart two pgvector values are, for ordering by the nearest. */
 export const distance = (a: Expression<unknown>, b: Expression<unknown>) =>

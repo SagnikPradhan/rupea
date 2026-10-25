@@ -216,7 +216,7 @@ CREATE INDEX "transactions_ledger_id_uncounted" ON "transactions" USING btree ("
 CREATE INDEX "transactions_description" ON "transactions" USING gin ("description" gin_trgm_ops);--> statement-breakpoint
 CREATE INDEX "transactions_embedding" ON "transactions" USING hnsw ("embedding" vector_cosine_ops);--> statement-breakpoint
 -- What an account's counted postings of a commodity moved on one day.
-CREATE VIEW "deltas" AS
+CREATE VIEW "daily_deltas" AS
 	SELECT p.ledger_id, p.account, p.account_type, p.commodity, t.date, sum(p.amount) AS amount
 	FROM postings p JOIN transactions t ON t.id = p.transaction_id
 	WHERE t.counted

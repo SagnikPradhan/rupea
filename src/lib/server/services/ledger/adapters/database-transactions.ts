@@ -1,10 +1,5 @@
-import { anyOf, distance, noneOf } from '#lib/server/db/expressions.ts';
-import {
-	literalLike,
-	ROWS_PER_STATEMENT,
-	vectorText,
-	type Database,
-} from '#lib/server/db/index.ts';
+import { anyOf, before, containing, distance, noneOf } from '#lib/server/db/expressions.ts';
+import { ROWS_PER_STATEMENT, vectorText, type Database } from '#lib/server/db/index.ts';
 import { readOnly } from '#lib/server/db/read-only.ts';
 import type { Tables } from '#lib/server/db/tables.ts';
 import { atomically } from '#lib/server/db/atomically.ts';
@@ -20,7 +15,7 @@ import { CURRENCIES } from '../domain/lots';
 import { BALANCE_TYPES } from '../domain/taxonomy';
 import type { Filled, Unembedded } from '../domain/text';
 import type { RupeaMetadata, RupeaTransaction } from '../domain/types';
-import { toCost, toPrice } from './database-queries';
+import { toCost, toPrice, underAccount } from './database-queries';
 
 // Transactions searched near each line; the domain keeps the best few postings.
 const NEAREST = 50;
@@ -57,8 +52,8 @@ export const findTransactions = (
 		),
 	).map((r) => r.flat());
 
-// The account matches through postings_ledger_id_lower_account, and the cursor
-// compares as one tuple, so a page reads on as one range of the order index.
+// The cursor compares as one tuple, so a page reads on as one range of the
+// order index.
 export const listTransactions = (
 	ledgerId: string,
 	{ filter, after, limit }: PageOptions<Cursor>,
@@ -67,37 +62,26 @@ export const listTransactions = (
 		const keys = await db
 			.selectFrom('transactions as t')
 			.select(['t.id', 't.date', 't.sortTime as time', 't.counted'])
+			.where('t.ledgerId', '=', ledgerId)
+			.where('t.date', '>=', filter.from.toString())
+			.where('t.date', '<=', filter.to.toString())
+			.where((e) => containing(e.ref('t.description'), filter.description))
 			.where((e) =>
-				e.and([
-					e('t.ledgerId', '=', ledgerId),
-					e('t.date', '>=', filter.from.toString()),
-					e('t.date', '<=', filter.to.toString()),
-					...(filter.description === null
-						? []
-						: [e('t.description', 'ilike', `%${literalLike(filter.description)}%`)]),
-					...(filter.account === null
-						? []
-						: [
-								e.exists(
-									e
-										.selectFrom('postings as p')
-										.select(sql.lit(1).as('one'))
-										.whereRef('p.transactionId', '=', 't.id')
-										.where(
-											sql<SqlBool>`(lower(${sql.ref('p.account')}) = lower(${filter.account}) or lower(${sql.ref('p.account')}) like lower(${literalLike(filter.account)}) || ':%')`,
-										),
-								),
-							]),
-					...(after === null
-						? []
-						: [
-								e(
-									e.refTuple('t.date', 't.sortTime', 't.id'),
-									'<',
-									e.tuple(after.date, after.time, after.id),
-								),
-							]),
-				]),
+				filter.account
+					? e.exists(
+							e
+								.selectFrom('postings as p')
+								.select(sql.lit(1).as('one'))
+								.whereRef('p.transactionId', '=', 't.id')
+								.where((x) => underAccount(x.ref('p.account'), filter.account)),
+						)
+					: e.lit(true),
+			)
+			.where((e) =>
+				before(
+					e.refTuple('t.date', 't.sortTime', 't.id'),
+					after && [after.date, after.time, after.id],
+				),
 			)
 			.orderBy('t.date', 'desc')
 			.orderBy('t.sortTime', 'desc')

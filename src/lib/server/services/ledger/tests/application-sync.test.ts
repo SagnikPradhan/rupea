@@ -25,6 +25,8 @@ import {
 	summary,
 } from './fixtures/files';
 
+const vector = `[${Array.from({ length: EMBEDDING_DIMENSIONS }, (_, i) => (i === 0 ? 1 : 0)).join(',')}]`;
+
 const annotated = [
 	'- statement: hdfc-oct.pdf',
 	'',
@@ -262,7 +264,6 @@ describe('syncing the ledger', () => {
 	it('keeps a description embedded through a re-index', ({ context, db, storage }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			const vector = `[${Array.from({ length: EMBEDDING_DIMENSIONS }, (_, i) => (i === 0 ? 1 : 0)).join(',')}]`;
 			await put(storage, ledger, 'a.rupea', groceries);
 			await Sync.sync(ledger);
 			await db
@@ -287,6 +288,42 @@ describe('syncing the ledger', () => {
 			expect(rows).toEqual([
 				{ description: 'Salary', embedding: expect.any(String), model: MODEL },
 				{ description: 'Groceries', embedding: vector, model: MODEL },
+			]);
+		}));
+
+	it('carries an embedding to every new row of its description', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const created = await Files.createFile({
+				ledger,
+				key: 'a.rupea',
+				content: `${groceries}${groceries}`,
+			});
+
+			await db
+				.updateTable('transactions')
+				.set({ embedding: sql<number[]>`${vector}::vector`, embeddingModel: MODEL })
+				.where('ledgerId', '=', ledger.id)
+				.where('line', '=', 1)
+				.execute();
+
+			await Files.editFile({
+				ledger,
+				key: 'a.rupea',
+				content: `${salary}${groceries}${groceries}`,
+				version: created._unsafeUnwrap().version,
+			});
+
+			const rows = await db
+				.selectFrom('transactions')
+				.select(['description', sql<string | null>`${sql.ref('embedding')}::text`.as('embedding')])
+				.where('ledgerId', '=', ledger.id)
+				.orderBy('line')
+				.execute();
+			expect(rows).toEqual([
+				{ description: 'Salary', embedding: null },
+				{ description: 'Groceries', embedding: vector },
+				{ description: 'Groceries', embedding: vector },
 			]);
 		}));
 

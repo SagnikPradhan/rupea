@@ -1,7 +1,7 @@
 import type { ModelFile } from './download';
 
 /** The length of the vectors `textEmbedding` makes. */
-export const EMBEDDING_DIMENSIONS = 384;
+export const EMBEDDING_DIMENSIONS = 256;
 
 export const tableDetection: ModelFile = {
 	file: 'table-detection.onnx',
@@ -16,15 +16,15 @@ export const tableStructure: ModelFile = {
 };
 
 export const textEmbedding: ModelFile = {
-	file: 'text-embedding.onnx',
-	url: 'https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/751bff37182d3f1213fa05d7196b954e230abad9/onnx/model_quantized.onnx',
-	sha256: 'afdb6f1a0e45b715d0bb9b11772f032c399babd23bfc31fed1c170afc848bdb1',
+	file: 'text-embedding.safetensors',
+	url: 'https://huggingface.co/minishlab/potion-base-8M/resolve/bf8b056651a2c21b8d2565580b8569da283cab23/model.safetensors',
+	sha256: 'f65d0f325faadc1e121c319e2faa41170d3fa07d8c89abd48ca5358d9a223de2',
 };
 
 export const textTokenizer: ModelFile = {
 	file: 'text-tokenizer.json',
-	url: 'https://huggingface.co/Xenova/all-MiniLM-L6-v2/resolve/751bff37182d3f1213fa05d7196b954e230abad9/tokenizer.json',
-	sha256: 'da0e79933b9ed51798a3ae27893d3c5fa4a201126cef75586296df9b4d2c62a0',
+	url: 'https://huggingface.co/minishlab/potion-base-8M/resolve/bf8b056651a2c21b8d2565580b8569da283cab23/tokenizer.json',
+	sha256: 'e67e803f624fb4d67dea1c730d06e1067e1b14d830e2c2202569e3ef0f70bb50',
 };
 
 export const models = [tableDetection, tableStructure, textEmbedding, textTokenizer];

@@ -12,7 +12,7 @@ import { it } from '#tests/shared/vitest.ts';
 import { existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { describe, expect, it as plain } from 'vitest';
-import { embedTexts } from '#services/ledger/adapters/prediction-onnx.ts';
+import { embedTexts } from '#services/ledger/adapters/prediction-model2vec.ts';
 import {
 	classify as classifyWith,
 	textsOf,

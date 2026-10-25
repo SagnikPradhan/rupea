@@ -8,7 +8,7 @@ import { isCounted, STATEMENTS } from '#lib/shared/folders.ts';
 import { enqueue } from '#services/jobs/application/jobs.ts';
 import * as DB from '../adapters/database';
 import { fetchQuotes } from '../adapters/jobs';
-import { embedTexts, MODEL } from '../adapters/prediction-onnx';
+import { embedTexts, MODEL } from '../adapters/prediction-model2vec';
 import { formatQuantity, type Amount } from '../domain/amounts';
 import { checkEvents } from '../domain/events';
 import { displayLocation, parse } from '../domain/parser';

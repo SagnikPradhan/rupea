@@ -1,10 +1,9 @@
 import { Tokenizer } from '@huggingface/tokenizers';
 import { readFile } from 'node:fs/promises';
 import { InferenceSession, Tensor } from 'onnxruntime-node';
-import { chunks } from '../arrays';
 import type { Logger, Namespace } from '../context/logger';
 import { fault } from '../result/error';
-import { attempt, err, ok, okAsync, type Result, ResultAsync, inOrder } from '../result/result';
+import { attempt, err, ok, okAsync, type Result, ResultAsync } from '../result/result';
 import {
 	detections,
 	preprocess,
@@ -16,8 +15,7 @@ import {
 	type Raster,
 } from './detr';
 import { ensure, prepare, type ModelFile, type ModelMode } from './download';
-import { encode, inputs, vectors, type EmbeddingModel } from './embedding';
-import { remembering, type Embed } from './remembering';
+import { parseTable, vectors, type EmbeddingModel, type Model2vec } from './embedding';
 
 export type { Box, Detection, DetrModel, EmbeddingModel, Image, Raster };
 
@@ -31,9 +29,6 @@ type EmbedOptions = {
 	model: EmbeddingModel;
 	texts: string[];
 };
-
-// Vectors kept per embedding model, about 15 MB at 384 dimensions.
-const REMEMBERED = 10_000;
 
 type CreateModelsOptions = {
 	directory: string;
@@ -85,24 +80,16 @@ export const createModels = (models: CreateModelsOptions): Models => {
 			),
 		);
 
-	const tokenizers = new Map<string, ResultAsync<Tokenizer>>();
-	const tokenizer = (m: ModelFile) =>
-		remembered(tokenizers, m.file, () => sure(m).andThen(loadTokenizer));
-
-	const embedders: Record<string, Embed> = {};
-	const embedder = (model: EmbeddingModel) =>
-		(embedders[model.source.file] ??= remembering(
-			(x) =>
-				ResultAsync.combine([session(model.source), tokenizer(model.tokenizer)]).andThen(([l, t]) =>
-					embed({ model, texts: x, session: l, tokenizer: t }),
-				),
-			REMEMBERED,
-		));
+	const model2vecs = new Map<string, ResultAsync<Model2vec>>();
+	const model2vec = (m: EmbeddingModel) =>
+		remembered(model2vecs, m.source.file, () =>
+			ResultAsync.combine([sure(m.source), sure(m.tokenizer)]).andThen(loadModel2vec),
+		);
 
 	return {
 		ready: () => ResultAsync.combine(files.map(sure)).map(() => undefined),
 		detect: (o) => session(o.model.source).andThen((l) => detr({ ...o, session: l })),
-		embed: (o) => embedder(o.model)(o.texts),
+		embed: (o) => model2vec(o.model).map((m) => vectors(m, o.texts)),
 	};
 };
 
@@ -139,29 +126,16 @@ const detr = (options: DetrOptions): ResultAsync<Detection[]> => {
 	);
 };
 
+const loadModel2vec = ([source, tokenizer]: [string, string]): ResultAsync<Model2vec> =>
+	ResultAsync.combine([loadTable(source), loadTokenizer(tokenizer)]).map(([t, k]) => ({
+		...t,
+		tokenizer: k,
+	}));
+
+const loadTable = (p: string) => attempt(() => readFile(p)).andThen(parseTable);
+
 const loadTokenizer = (p: string): ResultAsync<Tokenizer> =>
 	attempt(() => readFile(p, 'utf8').then((t) => new Tokenizer(JSON.parse(t), {})));
-
-type EmbedRunOptions = EmbedOptions & { session: InferenceSession; tokenizer: Tokenizer };
-
-const embed = (options: EmbedRunOptions): ResultAsync<Float32Array[]> => {
-	const { model, session, tokenizer, texts } = options;
-
-	const run = (batch: string[]) => {
-		const encoded = batch.map(encode(tokenizer, model.longest));
-		const { ids, mask, shape } = inputs(encoded);
-
-		return attempt(() =>
-			session.run({
-				input_ids: new Tensor('int64', ids, shape),
-				attention_mask: new Tensor('int64', mask, shape),
-				token_type_ids: new Tensor('int64', new BigInt64Array(ids.length), shape),
-			}),
-		).andThen((o) => output(o, 'last_hidden_state').map((h) => vectors(h, encoded)));
-	};
-
-	return inOrder(chunks(texts, model.batch).map((b) => () => run(b))).map((v) => v.flat());
-};
 
 const output = (values: InferenceSession.OnnxValueMapType, name: string): Result<Output> => {
 	const value = values[name];

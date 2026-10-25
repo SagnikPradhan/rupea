@@ -1,6 +1,6 @@
 import { models as pinned } from '#lib/server/shared/onnx/models.ts';
 import { okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import type { Amount, RupeeTransaction } from '#services/ledger/application/shared.ts';
+import type { Amount, RupeaTransaction } from '#services/ledger/application/shared.ts';
 import { provide } from '#lib/server/shared/context/context.ts';
 import type { Models } from '#lib/server/shared/onnx/runtime.ts';
 import * as Files from '#services/ledger/application/files.ts';
@@ -33,7 +33,7 @@ const dot = (a: Float32Array, b: Float32Array) => a.reduce((s, v, i) => s + v * 
 /** What the database search does, over a ledger in memory. */
 const nearestIn = (
 	vectors: Float32Array[],
-	described: RupeeTransaction[],
+	described: RupeaTransaction[],
 	history: Float32Array[],
 ): Neighbour[][] =>
 	vectors.map((v) =>
@@ -51,7 +51,7 @@ type GuessOptions = {
 	account: string;
 	lines: Line[];
 	today: Temporal.PlainDate;
-	transactions: RupeeTransaction[];
+	transactions: RupeaTransaction[];
 };
 
 /** Embeds as the model would, then searches the transactions in memory as the database would. */
@@ -70,7 +70,7 @@ const classify = (embed: Embed, o: GuessOptions) => {
 
 const transaction = (description: string, postings: [string, bigint][], date = '2026-09-01') =>
 	({
-		location: { file: 'a.rupee', line: 1 },
+		location: { file: 'a.rupea', line: 1 },
 		date: Temporal.PlainDate.from(date),
 		time: null,
 		description,
@@ -84,7 +84,7 @@ const transaction = (description: string, postings: [string, bigint][], date = '
 			balance: null,
 			metadata: {},
 		})),
-	}) satisfies RupeeTransaction;
+	}) satisfies RupeaTransaction;
 
 const spend = (description: string, account: string) =>
 	transaction(description, [
@@ -154,7 +154,7 @@ describe('predicting accounts in a ledger', () => {
 
 		return provide({ ...context, models: { ...models, embed } }, async () => {
 			const ledger = await createLedger(db);
-			await Files.createFile({ ledger, key: 'bank.rupee', content: SWIGGY });
+			await Files.createFile({ ledger, key: 'bank.rupea', content: SWIGGY });
 			await syncIndex(ledger);
 			asked.length = 0;
 

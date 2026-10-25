@@ -1,19 +1,19 @@
 import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
-import type { RupeeError } from '#lib/server/shared/result/error.ts';
+import type { RupeaError } from '#lib/server/shared/result/error.ts';
 import { IMPORTS } from '#lib/shared/folders.ts';
 import {
 	accountType,
 	DEFAULT_COMMODITY,
 	print,
 	type Amount,
-	type RupeeTransaction,
+	type RupeaTransaction,
 } from '#services/ledger/application/shared.ts';
-import type { RupeeRecord } from './types';
+import type { RupeaRecord } from './types';
 
-export type Draft = { key: string; content: string; failed: RupeeError[] };
+export type Draft = { key: string; content: string; failed: RupeaError[] };
 
 // A record with the account its money came from or went to.
-export type CategorisedRupeeRecord = RupeeRecord & { account: string };
+export type CategorisedRupeaRecord = RupeaRecord & { account: string };
 
 type Source = {
 	key: string;
@@ -27,14 +27,14 @@ type DraftOptions = {
 	statement: Source;
 	account: string;
 	// In any order; they are written in the statement's.
-	records: CategorisedRupeeRecord[];
-	failed: RupeeError[];
+	records: CategorisedRupeaRecord[];
+	failed: RupeaError[];
 };
 
 // A statement's own category counts only when it names a ledger account.
-export const uncategorised = (l: RupeeRecord[]) => l.filter((r) => categoryAccount(r) === null);
+export const uncategorised = (l: RupeaRecord[]) => l.filter((r) => categoryAccount(r) === null);
 
-export const categorised = (records: RupeeRecord[]): CategorisedRupeeRecord[] =>
+export const categorised = (records: RupeaRecord[]): CategorisedRupeaRecord[] =>
 	records.flatMap((r) => {
 		const account = categoryAccount(r);
 		return account ? [{ ...r, account }] : [];
@@ -72,7 +72,7 @@ export const copy = ({ config, statement, text }: CopyOptions): Draft => ({
 	failed: [],
 });
 
-const draftKey = (s: Source) => `${IMPORTS}/${s.key.replace(/\.[^.]*$/, '')}.rupee`;
+const draftKey = (s: Source) => `${IMPORTS}/${s.key.replace(/\.[^.]*$/, '')}.rupea`;
 
 // The checksum finds the statement wherever it has moved; the path is only what it was called.
 const sourceMetadata = (statement: Source) => ({
@@ -83,7 +83,7 @@ const sourceMetadata = (statement: Source) => ({
 
 const toTransaction =
 	(account: string) =>
-	(record: CategorisedRupeeRecord): RupeeTransaction => ({
+	(record: CategorisedRupeaRecord): RupeaTransaction => ({
 		location: record.location,
 		date: record.date,
 		time: null,
@@ -111,12 +111,12 @@ const toTransaction =
 		],
 	});
 
-const categoryAccount = (record: RupeeRecord): string | null => {
+const categoryAccount = (record: RupeaRecord): string | null => {
 	if (!record.category) return null;
 
 	const account = words(record.category).join('-');
 	return accountType(account) ? account : null;
 };
 
-// A `.rupee` header is one line, and an account a single word.
+// A `.rupea` header is one line, and an account a single word.
 const words = (t: string) => t.trim().split(/\s+/);

@@ -3,7 +3,7 @@ import { ROWS_PER_STATEMENT, type Database } from '#lib/server/db/index.ts';
 import { atomically } from '#lib/server/db/atomically.ts';
 import { chunks } from '#lib/server/shared/arrays.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
-import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
+import { fault, type RupeaError } from '#lib/server/shared/result/error.ts';
 import { attempt, errAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { byCodeUnit } from '#lib/server/shared/text.ts';
 import { sql } from 'kysely';
@@ -12,7 +12,7 @@ import { CURRENCIES } from '../domain/lots';
 import { displayLocation } from '../domain/parser';
 import { marketPrices } from '../domain/prices';
 import { accountType, BALANCE_TYPES } from '../domain/taxonomy';
-import { Feed, type RupeeLedgerFile, type RupeeMetadata } from '../domain/types';
+import { Feed, type RupeaLedgerFile, type RupeaMetadata } from '../domain/types';
 
 export type FileVersion = { key: string; version: string | null };
 
@@ -43,7 +43,7 @@ export const findImported = (ledgerId: string, checksums: string[]): ResultAsync
 		).map((r) => r.map((c) => c.value)),
 	);
 
-type IndexFileOptions = { key: string; version: string | null; file: RupeeLedgerFile };
+type IndexFileOptions = { key: string; version: string | null; file: RupeaLedgerFile };
 
 // One transaction, so readers see the old file or the new one. A description
 // keeps its embedding through a reindex, so saving a file never re-embeds it.
@@ -208,7 +208,7 @@ export const renameIndexedFile = (
 	);
 
 // The parser already refuses these; checked again so no posting goes unindexed.
-const untypedAccount = (file: RupeeLedgerFile): RupeeError | null =>
+const untypedAccount = (file: RupeaLedgerFile): RupeaError | null =>
 	file.transactions
 		.flatMap((t) =>
 			t.postings
@@ -246,7 +246,7 @@ type MetadataOwner = { ledgerId: string } & (
 	{ fileId: string } | { transactionId: string } | { postingId: string }
 );
 
-const ownedBy = (o: MetadataOwner, m: RupeeMetadata) =>
+const ownedBy = (o: MetadataOwner, m: RupeaMetadata) =>
 	Object.entries(m)
 		.flatMap(([key, values]) => values.map((v) => ({ key, value: v })))
 		.map((e, i) => ({ ...o, position: i, ...e }));

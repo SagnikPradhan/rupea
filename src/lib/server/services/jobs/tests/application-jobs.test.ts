@@ -1,7 +1,7 @@
 import { JobStatus } from '#services/jobs/domain/jobs.ts';
 import { atomically } from '#lib/server/db/atomically.ts';
-import { provide, withContext, type RupeeContext } from '#lib/server/shared/context/context.ts';
-import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
+import { provide, withContext, type RupeaContext } from '#lib/server/shared/context/context.ts';
+import { fault, type RupeaError } from '#lib/server/shared/result/error.ts';
 import { attempt, errAsync, okAsync } from '#lib/server/shared/result/result.ts';
 import { createTemporaryDatabase } from '#tests/shared/database.ts';
 import { createUser } from '#tests/shared/seed.ts';
@@ -24,7 +24,7 @@ const it = base.extend<{ user: string }>({
 	user: async ({ db }, use) => use((await createUser(db)).userId),
 });
 
-const recorder = (fail?: RupeeError) => {
+const recorder = (fail?: RupeaError) => {
 	const runs: { word: string; user: string }[] = [];
 	const job: Jobs.Job<Echo> = {
 		name: 'echo',
@@ -252,7 +252,7 @@ describe('workers', () => {
 		await pause(50);
 	};
 
-	const started = async (context: RupeeContext, j: Jobs.Job<Echo>[], ready = Promise.resolve()) => {
+	const started = async (context: RupeaContext, j: Jobs.Job<Echo>[], ready = Promise.resolve()) => {
 		const handle = await createTemporaryDatabase();
 		const ctx = { ...context, db: handle.db };
 		const workers = Orchestrator.orchestrate({
@@ -265,7 +265,7 @@ describe('workers', () => {
 		return { ctx, handle, workers };
 	};
 
-	const succeeded = (ctx: RupeeContext, expected: number) =>
+	const succeeded = (ctx: RupeaContext, expected: number) =>
 		expect
 			.poll(() => count(ctx.db.selectFrom('jobs').where('status', '=', JobStatus.Succeeded)), {
 				timeout: 3000,

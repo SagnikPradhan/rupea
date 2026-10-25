@@ -83,7 +83,7 @@ describe('importing a ledger file', () => {
 			const ledger = await createLedger(db);
 			await uploads(ledger, { 'books.ledger': books });
 			await runImports(ledger);
-			const file = await Files.readFile({ ledger, key: `_/imports/${day()}/books.rupee` });
+			const file = await Files.readFile({ ledger, key: `_/imports/${day()}/books.rupea` });
 
 			expect(file._unsafeUnwrap().content).toMatch(
 				new RegExp(`^- statement: ${day()}/books.ledger\n- checksum: sha256:\\w+\n${books}$`),
@@ -100,7 +100,7 @@ describe('importing a ledger file', () => {
 			await runImports(ledger);
 
 			const listed = (await Files.listFiles(ledger))._unsafeUnwrap().succeeded;
-			expect(listed.map((f) => f.key)).toEqual([`_/imports/${day()}/books.rupee`]);
+			expect(listed.map((f) => f.key)).toEqual([`_/imports/${day()}/books.rupea`]);
 		}));
 
 	it('runs again without a second copy', ({ context, db }) =>
@@ -113,7 +113,7 @@ describe('importing a ledger file', () => {
 			await runImports(ledger);
 
 			const listed = (await Files.listFiles(ledger))._unsafeUnwrap().succeeded;
-			expect(listed.map((f) => f.key)).toEqual([`_/imports/${day()}/books.rupee`]);
+			expect(listed.map((f) => f.key)).toEqual([`_/imports/${day()}/books.rupea`]);
 		}));
 
 	it('leaves only statements nothing was imported from in the inbox', ({ context, db }) =>

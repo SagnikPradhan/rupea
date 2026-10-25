@@ -1,6 +1,6 @@
-# Rupee
+# Rupea
 
-Rupee is a plain-text personal ledger. Bank, card and broker statements are imported into `.rupee` files, which stay the source of truth.
+Rupea is a plain-text personal ledger. Bank, card and broker statements are imported into `.rupea` files, which stay the source of truth.
 
 ## Ledger
 
@@ -9,7 +9,7 @@ Everything one person or household records about their money, made up of ledger 
 _Avoid_: Book, journal
 
 **Ledger file**:
-A `.rupee` text file in a ledger; the files, not anything derived from them, are the truth.
+A `.rupea` text file in a ledger; the files, not anything derived from them, are the truth.
 _Avoid_: Journal file
 
 **Transaction**:
@@ -36,7 +36,7 @@ What a commodity is worth in another, per unit or in total: written on a posting
 _Avoid_: Rate, cost basis (that is a lot cost)
 
 **Feed**:
-Somewhere Rupee fetches market prices from, such as mfapi for mutual funds or Yahoo for shares. A ledger is the feed of its own prices.
+Somewhere Rupea fetches market prices from, such as mfapi for mutual funds or Yahoo for shares. A ledger is the feed of its own prices.
 _Avoid_: Provider, source (that reports money movements)
 
 **Symbol**:
@@ -138,7 +138,7 @@ A description of one kind of statement: how to recognise it, how to read it into
 _Avoid_: Template, parser
 
 **Built-in schema**:
-A schema Rupee ships for a common source, copied into a ledger the first time an import with it is saved.
+A schema Rupea ships for a common source, copied into a ledger the first time an import with it is saved.
 _Avoid_: Template, default schema
 
 **Pattern**:
@@ -216,7 +216,7 @@ _Avoid_: Interval, bin, period
 ## Background work
 
 **Job**:
-A piece of work Rupee does for a user outside a request, like reading a statement they uploaded. Its user can see whether it is waiting, running, done or failed, and why.
+A piece of work Rupea does for a user outside a request, like reading a statement they uploaded. Its user can see whether it is waiting, running, done or failed, and why.
 _Avoid_: Task, queue item, message
 
 **Partition**:
@@ -228,5 +228,5 @@ The part of the server that claims due jobs, dispatches each to a worker and set
 _Avoid_: Scheduler, supervisor, dispatcher
 
 **Worker**:
-A child process of the server that runs the jobs the server claims, one at a time. Every replica runs up to `RUPEE_JOBS_WORKERS` of them, and one left idle for a while exits.
+A child process of the server that runs the jobs the server claims, one at a time. Every replica runs up to `RUPEA_JOBS_WORKERS` of them, and one left idle for a while exits.
 _Avoid_: Consumer, runner

@@ -11,7 +11,7 @@ import { isCounted } from '#lib/shared/folders.ts';
 import * as DB from '../adapters/database';
 import { format } from '../domain/format';
 import { parse } from '../domain/parser';
-import type { Ledger, RupeeFile, RupeeTransaction } from '../domain/types';
+import type { Ledger, RupeaFile, RupeaTransaction } from '../domain/types';
 import { openFolder } from './ledger';
 import {
 	exclusively,
@@ -23,14 +23,14 @@ import {
 	type Indexed,
 } from './sync';
 
-export const listFiles = (l: Ledger): ResultAsync<Batch<RupeeFile>> =>
+export const listFiles = (l: Ledger): ResultAsync<Batch<RupeaFile>> =>
 	openFolder({ ledger: l, folder: 'files' }).andThen((s) =>
 		listLedgerFiles(s).andThen((l) => batchAsync(l.map((e) => readText(s, e.key)))),
 	);
 
 type ReadFileOptions = { ledger: Ledger; key: string };
 
-export const readFile = ({ ledger, key }: ReadFileOptions): ResultAsync<RupeeFile> =>
+export const readFile = ({ ledger, key }: ReadFileOptions): ResultAsync<RupeaFile> =>
 	openFolder({ ledger, folder: 'files' }).andThen((s) => readText(s, key));
 
 type FindImportedOptions = { ledger: Ledger; checksums: string[] };
@@ -42,7 +42,7 @@ export const findImported = ({ ledger, checksums }: FindImportedOptions): Result
 type ParseFileOptions = { key: string; content: string };
 
 /** What a file would hold, without storing it. */
-export const parseFile = ({ key, content }: ParseFileOptions): Batch<RupeeTransaction> =>
+export const parseFile = ({ key, content }: ParseFileOptions): Batch<RupeaTransaction> =>
 	withContext('config')((c) => parse(c.ledger, { key, content }));
 
 type FormatFileOptions = { content: string };
@@ -52,11 +52,11 @@ export const formatFile = ({ content }: FormatFileOptions): string => format(con
 
 type CreateFileOptions = { ledger: Ledger; key: string; content: string };
 
-export const createFile = ({ ledger, key, content }: CreateFileOptions): ResultAsync<RupeeFile> =>
+export const createFile = ({ ledger, key, content }: CreateFileOptions): ResultAsync<RupeaFile> =>
 	writeFile({ ledger, key, content, ifVersion: null });
 
 /** Creates a file, numbering its name when it is taken, as nothing reviewed it yet; the same file twice is kept once. */
-export const importFile = ({ ledger, key, content }: CreateFileOptions): ResultAsync<RupeeFile> =>
+export const importFile = ({ ledger, key, content }: CreateFileOptions): ResultAsync<RupeaFile> =>
 	openFolder({ ledger, folder: 'files' })
 		.andThen((s) => writeNumberedText(s, key, content))
 		.andTee((f) => indexAndSettle(ledger.id, f));
@@ -68,7 +68,7 @@ export const editFile = ({
 	key,
 	content,
 	version,
-}: EditFileOptions): ResultAsync<RupeeFile> =>
+}: EditFileOptions): ResultAsync<RupeaFile> =>
 	writeFile({ ledger, key, content, ifVersion: version });
 
 type Move = { from: string; to: string };
@@ -76,7 +76,7 @@ type Move = { from: string; to: string };
 type RenameFilesOptions = { ledger: Ledger; moves: Move[] };
 
 /** Moves each file on its own, so a name already taken skips only that file. */
-export const renameFiles = ({ ledger, moves }: RenameFilesOptions): ResultAsync<Batch<RupeeFile>> =>
+export const renameFiles = ({ ledger, moves }: RenameFilesOptions): ResultAsync<Batch<RupeaFile>> =>
 	openFolder({ ledger, folder: 'files' }).andThen((storage) =>
 		changeEach(
 			ledger.id,
@@ -102,12 +102,12 @@ type WriteFileOptions = {
 };
 
 // If indexing fails, the next sync picks the file up.
-const writeFile = ({ ledger, key, content, ifVersion }: WriteFileOptions): ResultAsync<RupeeFile> =>
+const writeFile = ({ ledger, key, content, ifVersion }: WriteFileOptions): ResultAsync<RupeaFile> =>
 	openFolder({ ledger, folder: 'files' })
 		.andThen((s) => writeText(s, { key, content, ifVersion }))
 		.andTee((f) => indexAndSettle(ledger.id, f));
 
-const indexAndSettle = (id: string, f: RupeeFile) =>
+const indexAndSettle = (id: string, f: RupeaFile) =>
 	exclusively(id, () =>
 		indexFile({ ledgerId: id, file: f }).andThen((i) => settle({ ledgerId: id, indexed: i })),
 	);

@@ -1,10 +1,10 @@
 import { match } from 'ts-pattern';
-import type { RupeeError } from '#lib/server/shared/result/error.ts';
+import type { RupeaError } from '#lib/server/shared/result/error.ts';
 
 export type Place = { file: string; line: string | null };
 
 /** Says what went wrong in a sentence; where it went wrong is left to `placesOf`. */
-export const explain = (error: RupeeError): string =>
+export const explain = (error: RupeaError): string =>
 	match(error)
 		.with(
 			{ type: 'ParseInvalidTransactionHeader' },
@@ -64,7 +64,7 @@ export const explain = (error: RupeeError): string =>
 		.with({ type: 'FeedSymbolUnknown' }, (e) => `${e.feed} has no symbol ${e.symbol}.`)
 		.with(
 			{ type: 'FeedInvalidResponse' },
-			(e) => `${e.feed} answered for ${e.symbol} in a way Rupee can’t read: ${e.reason}.`,
+			(e) => `${e.feed} answered for ${e.symbol} in a way Rupea can’t read: ${e.reason}.`,
 		)
 		.with({ type: 'CannotReadFile' }, (e) => `This file can’t be read: ${e.reason}.`)
 		.with({ type: 'StorageConflict' }, () => 'This file changed since you opened it.')
@@ -73,7 +73,7 @@ export const explain = (error: RupeeError): string =>
 		.otherwise((e) => `Something went wrong (${e.type}).`);
 
 /** Names an error and every detail it carries, for someone writing a schema to read. */
-export const detail = (error: RupeeError) =>
+export const detail = (error: RupeaError) =>
 	[
 		error.type,
 		'location' in error ? `at ${error.location}` : '',
@@ -84,8 +84,8 @@ export const detail = (error: RupeeError) =>
 		.filter(Boolean)
 		.join(' ');
 
-/** Splits a location like `a.rupee:4, b.rupee:9` into the places it names. */
-export const placesOf = (e: RupeeError): Place[] =>
+/** Splits a location like `a.rupea:4, b.rupea:9` into the places it names. */
+export const placesOf = (e: RupeaError): Place[] =>
 	'location' in e ? e.location.split(', ').map(toPlace) : [];
 
 const toPlace = (text: string): Place => {
@@ -94,5 +94,5 @@ const toPlace = (text: string): Place => {
 };
 
 /** Assertions only check the ledger; nothing is wrong with the data they point at. */
-export const isWarning = (e: RupeeError) =>
+export const isWarning = (e: RupeaError) =>
 	e.type === 'BalanceAssertionFailed' || e.type === 'BalanceAssertionAmbiguous';

@@ -1,4 +1,4 @@
-import { provide, type RupeeContext } from '#lib/server/shared/context/context.ts';
+import { provide, type RupeaContext } from '#lib/server/shared/context/context.ts';
 import type { Mail, Mailer } from '#lib/server/shared/context/mailer.ts';
 import { isHandle } from '#lib/server/shared/names.ts';
 import { ok, okAsync } from '#lib/server/shared/result/result.ts';
@@ -44,7 +44,7 @@ const inbox = () => {
 
 const codeIn = (mail: Mail | undefined) => mail?.subject.match(/(\d{6})$/)?.[1] ?? '';
 
-const signup = (context: RupeeContext, signup: 'open' | 'closed') => ({
+const signup = (context: RupeaContext, signup: 'open' | 'closed') => ({
 	...context,
 	config: { ...context.config, accounts: { signup } },
 });
@@ -52,7 +52,7 @@ const signup = (context: RupeeContext, signup: 'open' | 'closed') => ({
 const later = (ms: number) => vi.setSystemTime(Date.now() + ms);
 
 // Signs in through a mailed code, leaving the session in the cookie jar.
-const signIn = (context: RupeeContext, email: string) => {
+const signIn = (context: RupeaContext, email: string) => {
 	const mail = inbox();
 	return provide({ ...signup(context, 'open'), mailer: mail.mailer }, () =>
 		Auth.requestCode(email).andThen(() => Auth.signIn({ email, code: codeIn(mail.sent[0]) })),

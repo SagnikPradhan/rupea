@@ -23,9 +23,9 @@ test('imports a statement for review, counted once moved out', async ({
 	await expect(draft.getByRole('row').filter({ hasText: 'UPI GROCER' })).toContainText('-1250.50');
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
 
-	await page.waitForURL(/files\?file=_%2Fimports%2F\d{8}%2Fstatement\.rupee$/);
+	await page.waitForURL(/files\?file=_%2Fimports%2F\d{8}%2Fstatement\.rupea$/);
 	await expect(page.getByRole('heading', { level: 1 })).toContainText('Not counted');
-	await moveOut(page, 'bank/statement.rupee');
+	await moveOut(page, 'bank/statement.rupea');
 
 	await visit(page, `${ledger}/transactions`);
 	const transactions = page.getByRole('rowgroup');
@@ -73,7 +73,7 @@ test('imports a ledger file as written, naming its upload', async ({ signedIn: p
 	);
 
 	await visit(page, `${ledger}/files`);
-	await page.getByRole('link', { name: 'books.rupee' }).click();
+	await page.getByRole('link', { name: 'books.rupea' }).click();
 	await expect(page.getByLabel('Ledger file')).toContainText('- statement: ');
 	await expect(page.getByLabel('Ledger file')).toContainText('Expenses:Food 10');
 });

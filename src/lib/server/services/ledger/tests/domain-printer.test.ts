@@ -2,14 +2,14 @@ import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
 import { parseAmount, type Amount } from '#services/ledger/domain/amounts.ts';
 import { parse } from '#services/ledger/domain/parser.ts';
 import { print } from '#services/ledger/domain/printer.ts';
-import type { RupeeLedgerFile, RupeeTransaction } from '#services/ledger/domain/types.ts';
+import type { RupeaLedgerFile, RupeaTransaction } from '#services/ledger/domain/types.ts';
 import { describe, expect, it } from 'vitest';
 
 const amount = (t: string) => parseAmount(t) as Amount;
 
-const transactions: RupeeTransaction[] = [
+const transactions: RupeaTransaction[] = [
 	{
-		location: { file: 'a.rupee', line: 1 },
+		location: { file: 'a.rupea', line: 1 },
 		date: Temporal.PlainDate.from('2026-08-29'),
 		time: Temporal.PlainTime.from('18:45'),
 		description: 'Groceries',
@@ -36,7 +36,7 @@ const transactions: RupeeTransaction[] = [
 		],
 	},
 	{
-		location: { file: 'a.rupee', line: 5 },
+		location: { file: 'a.rupea', line: 5 },
 		date: Temporal.PlainDate.from('2026-08-30'),
 		time: null,
 		description: 'Salary for August',
@@ -64,18 +64,18 @@ const transactions: RupeeTransaction[] = [
 	},
 ];
 
-const ledger = (t: RupeeTransaction[]): RupeeLedgerFile => ({
+const ledger = (t: RupeaTransaction[]): RupeaLedgerFile => ({
 	metadata: {},
 	transactions: t,
 	prices: [],
 	links: [],
 });
 
-const annotated: RupeeLedgerFile = {
+const annotated: RupeaLedgerFile = {
 	metadata: { statement: ['hdfc-card-oct-2026.pdf'] },
 	transactions: [
 		{
-			location: { file: 'a.rupee', line: 3 },
+			location: { file: 'a.rupea', line: 3 },
 			date: Temporal.PlainDate.from('2026-10-01'),
 			time: null,
 			description: 'Amazon order 402-123',
@@ -116,7 +116,7 @@ const annotated: RupeeLedgerFile = {
 };
 
 describe('printing a ledger', () => {
-	it('writes .rupee text in the first configured formats', () => {
+	it('writes .rupea text in the first configured formats', () => {
 		expect(print(defaultConfiguration.ledger, ledger(transactions))).toBe(
 			[
 				'2026-08-29 18:45 Groceries',
@@ -169,7 +169,7 @@ describe('printing a ledger', () => {
 
 	it('reads back as what it wrote', () => {
 		const content = print(defaultConfiguration.ledger, ledger(transactions));
-		expect(parse(defaultConfiguration.ledger, { key: 'a.rupee', content })).toEqual({
+		expect(parse(defaultConfiguration.ledger, { key: 'a.rupea', content })).toEqual({
 			metadata: {},
 			prices: [],
 			links: [],
@@ -198,7 +198,7 @@ describe('printing a ledger', () => {
 
 	it('reads metadata back as what it wrote', () => {
 		const content = print(defaultConfiguration.ledger, annotated);
-		expect(parse(defaultConfiguration.ledger, { key: 'a.rupee', content })).toEqual({
+		expect(parse(defaultConfiguration.ledger, { key: 'a.rupea', content })).toEqual({
 			metadata: annotated.metadata,
 			prices: [],
 			links: [],
@@ -222,7 +222,7 @@ describe('printing a ledger', () => {
 			'\tExpenses:Food 100.50 = 1899.50',
 			'\tAssets:Bank = 1899.50',
 		]);
-		expect(parse(defaultConfiguration.ledger, { key: 'a.rupee', content }).succeeded).toEqual(
+		expect(parse(defaultConfiguration.ledger, { key: 'a.rupea', content }).succeeded).toEqual(
 			asserted.transactions,
 		);
 	});
@@ -236,7 +236,7 @@ describe('printing a ledger', () => {
 			'\tIncome:Gains -2400.00',
 			'',
 		].join('\n');
-		const parsed = parse(defaultConfiguration.ledger, { key: 'a.rupee', content });
+		const parsed = parse(defaultConfiguration.ledger, { key: 'a.rupea', content });
 
 		expect(parsed.failed).toEqual([]);
 		expect(print(defaultConfiguration.ledger, ledger(parsed.succeeded))).toBe(content);
@@ -253,7 +253,7 @@ describe('printing a ledger', () => {
 			'\tAssets:HDFC -8350.00',
 			'',
 		].join('\n');
-		const parsed = parse(defaultConfiguration.ledger, { key: 'a.rupee', content });
+		const parsed = parse(defaultConfiguration.ledger, { key: 'a.rupea', content });
 
 		expect(parsed.failed).toEqual([]);
 		expect(print(defaultConfiguration.ledger, ledger(parsed.succeeded))).toBe(content);
@@ -271,7 +271,7 @@ describe('printing a ledger', () => {
 			'P 2026-01-01 HNFI yahoo:HDFCNIFTY.NS',
 			'',
 		].join('\n');
-		const parsed = parse(defaultConfiguration.ledger, { key: 'a.rupee', content });
+		const parsed = parse(defaultConfiguration.ledger, { key: 'a.rupea', content });
 		const file = { ...ledger(parsed.succeeded), prices: parsed.prices, links: parsed.links };
 
 		expect(parsed.failed).toEqual([]);

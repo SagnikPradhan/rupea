@@ -14,7 +14,7 @@ Schemas belong to the user, not to a ledger. A schema describes how a bank lays 
 
 ## Consequences
 
-- `local` storage is `RUPEE_STORAGE_FILES/users/<user id>/`, named by uuid so renaming a user moves nothing. Paths are checked to stay inside `RUPEE_STORAGE_FILES`.
+- `local` storage is `RUPEA_STORAGE_FILES/users/<user id>/`, named by uuid so renaming a user moves nothing. Paths are checked to stay inside `RUPEA_STORAGE_FILES`.
 - Every user has a storage, even one who owns no ledger, since their schemas live there. It is made, `local`, the first time something opens it, so signup does not have to.
 - Members of a ledger don't see its owner's schemas; they import with their own.
 - Deleting a user deletes their storage row and, by cascade, their ledgers, memberships and index. Their files are never touched. A storage that can't be reached, such as a revoked Drive, keeps its cache and reports an error until the owner reconnects or deletes it.

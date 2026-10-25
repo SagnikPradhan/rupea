@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { listEvents, makePrimary, renameEvent } from '#lib/endpoints/refinement.remote.ts';
-	import type { RupeeError } from '#lib/server/shared/result/error.ts';
+	import type { RupeaError } from '#lib/server/shared/result/error.ts';
 	import type { Reply } from '#lib/server/shared/result/reply.ts';
 	import { detail } from '#lib/web/shared/errors.ts';
 
@@ -15,9 +15,9 @@
 	const { handle, file, locked, onchanged }: Props = $props();
 
 	const response = $derived(await listEvents({ handle, file }));
-	const failures = $state({ list: [] as RupeeError[] });
+	const failures = $state({ list: [] as RupeaError[] });
 
-	async function run(change: Promise<Reply<RupeeError[]>>) {
+	async function run(change: Promise<Reply<RupeaError[]>>) {
 		const changed = await change;
 		failures.list = [...changed.errors, ...(changed.data ?? [])];
 		onchanged();

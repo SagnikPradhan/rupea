@@ -1,12 +1,12 @@
 # AGENTS.md
 
-Rupee is open source and meant to read obviously to a newcomer. Prefer plain TypeScript over bespoke helpers, and names that state how they differ from their siblings. Keep names short.
+Rupea is open source and meant to read obviously to a newcomer. Prefer plain TypeScript over bespoke helpers, and names that state how they differ from their siblings. Keep names short.
 
 Domain terms are in [GLOSSARY.md](GLOSSARY.md), decisions in [docs/adr](docs/adr).
 
 ## Project constraints
 
-- **Scale.** Rupee should run as a hosted service: many users, decades of transactions per ledger. Never load a whole ledger per request or scan unbounded history in app code. Push selection, filtering and search into indexed queries.
+- **Scale.** Rupea should run as a hosted service: many users, decades of transactions per ledger. Never load a whole ledger per request or scan unbounded history in app code. Push selection, filtering and search into indexed queries.
 - **Postgres, served or embedded.** The server connects to `DATABASE_URL` when it is set, and starts its own Postgres from portable-pg otherwise ([ADR 0004](docs/adr/0004-postgres-embedded-or-served.md)). Only use extensions portable-pg ships (pgvector, contrib).
 - **Licensing.** Prefer MIT, BSD or Apache dependencies. Flag GPL and AGPL before suggesting one.
 - **Pinned dependencies.** Add runtime dependencies with exact versions (`pnpm add -E`).
@@ -16,7 +16,7 @@ Domain terms are in [GLOSSARY.md](GLOSSARY.md), decisions in [docs/adr](docs/adr
 - **No singletons.** The context is built once by `createContext()` in `shared/context/environment.ts` and provided per request in `hooks.server.ts`. Functions declare what they need with `withContext('db')((db) => ...)` or `withContext('db', 'mailer')(({ db, mailer }) => ...)`. Callers don't thread `db` through parameters. Callback parameters use the key name verbatim.
 - **Schema.** Drizzle declares tables, with `casing: 'snake_case'` and plural names; queries go through Kysely ([ADR 0018](docs/adr/0018-queries-with-kysely.md)). A new table also goes in `Tables`. Every table spreads `base`: a uuidv7 `id`, plus `created_at` and `updated_at`. A new table needs `select attach_updated_at()` in a custom migration. Natural keys are unique constraints, not the primary key. Fixed value sets use `pgEnum`.
 - **Generic helpers go in `src/lib/server/shared/`**, not in the module that first needed them. If a helper would make sense without its module, it belongs in `shared/`.
-- **Modules export only what's used outside them.** Values and functions get no `rupee` prefix.
+- **Modules export only what's used outside them.** Values and functions get no `rupea` prefix.
 - **Service function names and shapes** ([ADR 0016](docs/adr/0016-service-functions-names-and-shapes.md)). `find` looks up a row or a few, `list` returns many or a page, `read` fetches content from storage, `create` makes a record, and `save`, `delete` and `rename` change one. There is no `get`. An application function takes `ledger` alone or one options object, destructured in its parameters. Adapters are plain functions that take their dependency first, and the application imports them as a namespace (`DB.findLedger`). Endpoints take the name of the application function they call.
 
 ## Code style

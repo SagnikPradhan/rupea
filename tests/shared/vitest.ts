@@ -1,6 +1,6 @@
 import type { Database, DatabaseHandle } from '#lib/server/db/index.ts';
 import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
-import type { RupeeContext } from '#lib/server/shared/context/context.ts';
+import type { RupeaContext } from '#lib/server/shared/context/context.ts';
 import { createLogger } from '#lib/server/shared/context/logger.ts';
 import { logMailer } from '#lib/server/shared/context/mailer.ts';
 import { models as files } from '#lib/server/shared/onnx/models.ts';
@@ -19,10 +19,10 @@ export const it = base.extend<{
 	handle: DatabaseHandle;
 	db: Database;
 	models: Models;
-	context: RupeeContext;
+	context: RupeaContext;
 }>({
 	root: async ({}, use) => {
-		const root = await mkdtemp(join(tmpdir(), 'rupee-'));
+		const root = await mkdtemp(join(tmpdir(), 'rupea-'));
 		await use(root);
 		await rm(root, { recursive: true, force: true });
 	},

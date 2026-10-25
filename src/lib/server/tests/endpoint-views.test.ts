@@ -13,18 +13,18 @@ import {
 	DisposalKind,
 	LotOrigin,
 	PriceKind,
-	type RupeeTransaction,
+	type RupeaTransaction,
 } from '#services/ledger/domain/types.ts';
 import { describe, expect, it } from 'vitest';
 
 const amount = (t: string) => parseAmount(t) as Amount;
 
 const day = Temporal.PlainDate.from('2026-08-29');
-const location = { file: 'bank.rupee', line: 12 };
+const location = { file: 'bank.rupea', line: 12 };
 
 describe('viewing a transaction', () => {
-	const transaction: RupeeTransaction = {
-		location: { file: 'bank.rupee', line: 12 },
+	const transaction: RupeaTransaction = {
+		location: { file: 'bank.rupea', line: 12 },
 		date: Temporal.PlainDate.from('2026-08-29'),
 		time: Temporal.PlainTime.from('18:45:30'),
 		description: 'Bought shares',
@@ -53,7 +53,7 @@ describe('viewing a transaction', () => {
 
 	it('flattens it into plain text for the page', () => {
 		expect(viewTransaction(transaction)).toEqual({
-			file: 'bank.rupee',
+			file: 'bank.rupea',
 			line: 12,
 			date: '2026-08-29',
 			time: '18:45',
@@ -82,7 +82,7 @@ describe('viewing a transaction', () => {
 });
 
 describe('viewing what a transaction is listed as', () => {
-	const transaction: RupeeTransaction = {
+	const transaction: RupeaTransaction = {
 		location,
 		date: day,
 		time: null,
@@ -126,7 +126,7 @@ describe('viewing what a transaction is listed as', () => {
 		};
 		expect(viewPosting(listed)).toEqual({
 			key: 't1:2',
-			file: 'bank.rupee',
+			file: 'bank.rupea',
 			line: 12,
 			date: '2026-08-29',
 			description: 'Groceries',
@@ -217,7 +217,7 @@ describe('viewing net worth', () => {
 
 describe('viewing a lot', () => {
 	const sale = {
-		location: { file: 'bank.rupee', line: 20 },
+		location: { file: 'bank.rupea', line: 20 },
 		date: Temporal.PlainDate.from('2026-09-01'),
 		kind: DisposalKind.Sale,
 		units: amount('3'),
@@ -237,7 +237,7 @@ describe('viewing a lot', () => {
 
 	it('shows the lot and each disposal from it as text', () => {
 		expect(viewLot(lot)).toEqual({
-			file: 'bank.rupee',
+			file: 'bank.rupea',
 			line: 12,
 			date: '2026-08-29',
 			origin: 'buy',
@@ -247,7 +247,7 @@ describe('viewing a lot', () => {
 			cost: '1700.00',
 			disposals: [
 				{
-					file: 'bank.rupee',
+					file: 'bank.rupea',
 					line: 20,
 					date: '2026-09-01',
 					kind: 'sale',

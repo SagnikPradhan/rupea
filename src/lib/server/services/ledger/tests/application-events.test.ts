@@ -53,18 +53,18 @@ describe('changing an event', () => {
 	it('lists the events a file takes part in, with members from every file', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			await Files.createFile({ ledger, key: 'hdfc.rupee', content: linkedHdfc });
-			await Files.createFile({ ledger, key: 'ibkr.rupee', content: linkedIbkr });
+			await Files.createFile({ ledger, key: 'hdfc.rupea', content: linkedHdfc });
+			await Files.createFile({ ledger, key: 'ibkr.rupea', content: linkedIbkr });
 
-			const events = (await Events.listEvents({ ledger, file: 'hdfc.rupee' }))._unsafeUnwrap();
+			const events = (await Events.listEvents({ ledger, file: 'hdfc.rupea' }))._unsafeUnwrap();
 			expect(
 				events.map((e) => [e.event, e.members.map((m) => [m.location.file, m.role, m.counted])]),
 			).toEqual([
 				[
 					'transfer-otter',
 					[
-						['hdfc.rupee', 'evidence', false],
-						['ibkr.rupee', 'primary', true],
+						['hdfc.rupea', 'evidence', false],
+						['ibkr.rupea', 'primary', true],
 					],
 				],
 			]);
@@ -73,21 +73,21 @@ describe('changing an event', () => {
 	it('makes evidence the primary, and the old primary evidence', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			await Files.createFile({ ledger, key: 'hdfc.rupee', content: linkedHdfc });
-			await Files.createFile({ ledger, key: 'ibkr.rupee', content: linkedIbkr });
+			await Files.createFile({ ledger, key: 'hdfc.rupea', content: linkedHdfc });
+			await Files.createFile({ ledger, key: 'ibkr.rupea', content: linkedIbkr });
 
 			expect(
 				await Events.makePrimary({
 					ledger,
 					event: 'transfer-otter',
-					file: 'hdfc.rupee',
+					file: 'hdfc.rupea',
 					line: 1,
 				}),
 			).toEqual(ok([]));
-			expect((await Files.readFile({ ledger, key: 'hdfc.rupee' }))._unsafeUnwrap().content).toBe(
+			expect((await Files.readFile({ ledger, key: 'hdfc.rupea' }))._unsafeUnwrap().content).toBe(
 				linkedHdfc.replace('same-as:', 'event:'),
 			);
-			expect((await Files.readFile({ ledger, key: 'ibkr.rupee' }))._unsafeUnwrap().content).toBe(
+			expect((await Files.readFile({ ledger, key: 'ibkr.rupea' }))._unsafeUnwrap().content).toBe(
 				linkedIbkr.replace('event:', 'same-as:'),
 			);
 			expect(await issues(ledger)).toEqual(ok([]));
@@ -97,29 +97,29 @@ describe('changing an event', () => {
 	it('refuses to make primary a transaction outside the event', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			await Files.createFile({ ledger, key: 'hdfc.rupee', content: linkedHdfc });
-			await Files.createFile({ ledger, key: 'ibkr.rupee', content: linkedIbkr });
+			await Files.createFile({ ledger, key: 'hdfc.rupea', content: linkedHdfc });
+			await Files.createFile({ ledger, key: 'ibkr.rupea', content: linkedIbkr });
 
 			expect(
 				(
 					await Events.makePrimary({
 						ledger,
 						event: 'transfer-otter',
-						file: 'hdfc.rupee',
+						file: 'hdfc.rupea',
 						line: 6,
 					})
 				)._unsafeUnwrapErr(),
-			).toEqual({ type: 'EventStale', location: 'hdfc.rupee:6' });
+			).toEqual({ type: 'EventStale', location: 'hdfc.rupea:6' });
 		}));
 
 	it('renames an event in every file, and refuses a name in use', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			await Files.createFile({ ledger, key: 'hdfc.rupee', content: linkedHdfc });
-			await Files.createFile({ ledger, key: 'ibkr.rupee', content: linkedIbkr });
+			await Files.createFile({ ledger, key: 'hdfc.rupea', content: linkedHdfc });
+			await Files.createFile({ ledger, key: 'ibkr.rupea', content: linkedIbkr });
 			await Files.createFile({
 				ledger,
-				key: 'cash.rupee',
+				key: 'cash.rupea',
 				content: '2026-10-04 ATM\n\t- event: taken\n\tAssets:Cash 5\n\tAssets:HDFC\n',
 			});
 
@@ -129,10 +129,10 @@ describe('changing an event', () => {
 			expect(
 				await Events.renameEvent({ ledger, event: 'transfer-otter', to: 'ibkr-funding' }),
 			).toEqual(ok([]));
-			expect((await Files.readFile({ ledger, key: 'hdfc.rupee' }))._unsafeUnwrap().content).toBe(
+			expect((await Files.readFile({ ledger, key: 'hdfc.rupea' }))._unsafeUnwrap().content).toBe(
 				linkedHdfc.replace('transfer-otter', 'ibkr-funding'),
 			);
-			expect((await Files.readFile({ ledger, key: 'ibkr.rupee' }))._unsafeUnwrap().content).toBe(
+			expect((await Files.readFile({ ledger, key: 'ibkr.rupea' }))._unsafeUnwrap().content).toBe(
 				linkedIbkr.replace('transfer-otter', 'ibkr-funding'),
 			);
 			expect(await issues(ledger)).toEqual(ok([]));
@@ -142,9 +142,9 @@ describe('changing an event', () => {
 	it('writes no file of the event when one cannot be read', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			await Files.createFile({ ledger, key: 'hdfc.rupee', content: linkedHdfc });
-			await Files.createFile({ ledger, key: 'ibkr.rupee', content: linkedIbkr });
-			const unreadable = fault('CannotReadFile', { path: 'hdfc.rupee', reason: 'gone' });
+			await Files.createFile({ ledger, key: 'hdfc.rupea', content: linkedHdfc });
+			await Files.createFile({ ledger, key: 'ibkr.rupea', content: linkedIbkr });
+			const unreadable = fault('CannotReadFile', { path: 'hdfc.rupea', reason: 'gone' });
 			const content = async (key: string) =>
 				(await Files.readFile({ ledger, key: key }))._unsafeUnwrap().content;
 
@@ -155,10 +155,10 @@ describe('changing an event', () => {
 
 			vi.mocked(Files.readFile).mockReturnValueOnce(errAsync(unreadable));
 			expect(
-				await Events.makePrimary({ ledger, event: 'transfer-otter', file: 'hdfc.rupee', line: 1 }),
+				await Events.makePrimary({ ledger, event: 'transfer-otter', file: 'hdfc.rupea', line: 1 }),
 			).toEqual(ok([unreadable]));
 
-			expect(await Promise.all([content('hdfc.rupee'), content('ibkr.rupee')])).toEqual([
+			expect(await Promise.all([content('hdfc.rupea'), content('ibkr.rupea')])).toEqual([
 				linkedHdfc,
 				linkedIbkr,
 			]);

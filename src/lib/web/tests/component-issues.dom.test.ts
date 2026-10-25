@@ -4,7 +4,7 @@ import { fault } from '#lib/server/shared/result/error.ts';
 import Issues from '#lib/web/components/issues/issues.svelte';
 
 const unbalanced = fault('ParseUnbalancedTransaction', {
-	location: 'a.rupee:4, b.rupee',
+	location: 'a.rupea:4, b.rupea',
 	residual: '20',
 });
 
@@ -18,17 +18,17 @@ describe('issues', () => {
 		render(Issues, { handle: 'h', errors: [unbalanced] });
 
 		expect(screen.getByRole('alert').textContent).toContain('This transaction is off by 20.');
-		expect(screen.getByRole('link', { name: 'a.rupee:4' }).getAttribute('href')).toBe(
-			'/l/h/files?file=a.rupee&line=4',
+		expect(screen.getByRole('link', { name: 'a.rupea:4' }).getAttribute('href')).toBe(
+			'/l/h/files?file=a.rupea&line=4',
 		);
-		expect(screen.getByRole('link', { name: 'b.rupee' }).getAttribute('href')).toBe(
-			'/l/h/files?file=b.rupee',
+		expect(screen.getByRole('link', { name: 'b.rupea' }).getAttribute('href')).toBe(
+			'/l/h/files?file=b.rupea',
 		);
 	});
 
 	it('reports assertions as status, after the problems', () => {
 		const assertion = fault('BalanceAssertionFailed', {
-			location: 'a.rupee:9',
+			location: 'a.rupea:9',
 			account: 'Assets:Bank',
 			expected: '10',
 			actual: '20',

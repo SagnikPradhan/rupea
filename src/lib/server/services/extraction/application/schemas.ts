@@ -40,11 +40,11 @@ export const saveSchema = ({ ledger, key, content }: SaveSchemaOptions): ResultA
 		openSchemas(ledger).andThen((s) => writeText(s, { key, content })),
 	);
 
-/** The schemas Rupee ships for common sources. */
+/** The schemas Rupea ships for common sources. */
 export const builtinSchemas = (): SchemaText[] =>
 	Object.entries(files).map(([path, content]) => ({ key: basename(path), content }));
 
-/** Whether a schema is one Rupee ships, unedited. */
+/** Whether a schema is one Rupea ships, unedited. */
 export const isBuiltin = (s: SchemaText) =>
 	builtins.some((b) => b.key === s.key && b.content === s.content);
 

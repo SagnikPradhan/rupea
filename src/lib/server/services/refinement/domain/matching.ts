@@ -5,7 +5,7 @@ import {
 	formatQuantity,
 	linksOf,
 	type LinkEdit,
-	type RupeeTransaction,
+	type RupeaTransaction,
 } from '#services/ledger/application/shared.ts';
 
 export enum Confidence {
@@ -13,7 +13,7 @@ export enum Confidence {
 	Possible = 'possible',
 }
 
-export type MatchedTransaction = RupeeTransaction & { id: string };
+export type MatchedTransaction = RupeaTransaction & { id: string };
 
 export type CandidatePair = { ours: string; theirs: string };
 
@@ -117,10 +117,10 @@ const target = (t: MatchedTransaction, role: EventRole): LinkTarget => ({
 
 // Changes when either side does, so a dismissal lapses with an edit. The
 // location tells identical charges apart.
-export const fingerprint = (a: RupeeTransaction, b: RupeeTransaction): string =>
+export const fingerprint = (a: RupeaTransaction, b: RupeaTransaction): string =>
 	sha256([identity(a), identity(b)].toSorted(byCodeUnit).join('\n'));
 
-const identity = (t: RupeeTransaction) =>
+const identity = (t: RupeaTransaction) =>
 	[
 		`${t.location.file}:${t.location.line}`,
 		t.date.toString(),

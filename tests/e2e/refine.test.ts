@@ -27,10 +27,10 @@ const importTwice = async (page: Page, ledger: string) => {
 	await page.getByRole('button', { name: 'Save schema' }).click();
 	await expect(page.getByText('Saved.')).toBeVisible();
 
-	await importAs(page, ledger, 'imports/aug.rupee');
-	await importAs(page, ledger, 'imports/aug-again.rupee');
+	await importAs(page, ledger, 'imports/aug.rupea');
+	await importAs(page, ledger, 'imports/aug-again.rupea');
 
-	await visit(page, `${ledger}/refine?file=imports/aug-again.rupee`);
+	await visit(page, `${ledger}/refine?file=imports/aug-again.rupea`);
 };
 
 test('reviews the duplicates of a statement imported twice', async ({ signedIn: page, ledger }) => {
@@ -38,20 +38,20 @@ test('reviews the duplicates of a statement imported twice', async ({ signedIn: 
 	await expect(page.getByText('2 possible matches.')).toBeVisible();
 	await expect(page.getByRole('article')).toHaveCount(2);
 	await page.getByRole('button', { name: 'Accept all 2 duplicates' }).click();
-	await expect(page.getByText('No possible matches for imports/aug-again.rupee.')).toBeVisible();
+	await expect(page.getByText('No possible matches for imports/aug-again.rupea.')).toBeVisible();
 
 	await visit(page, `${ledger}/postings`);
 	await expect(page.getByRole('rowgroup').filter({ hasText: 'UPI GROCER' })).toHaveCount(2);
 	await expect(page.getByRole('rowgroup').filter({ hasText: 'SALARY' })).toHaveCount(2);
 
-	await visit(page, `${ledger}/files?file=imports/aug.rupee`);
+	await visit(page, `${ledger}/files?file=imports/aug.rupea`);
 	const events = page.getByRole('region', { name: 'Events' });
 	await expect(events.getByRole('article')).toHaveCount(2);
 	const salary = events.getByRole('article').filter({ hasText: 'SALARY' });
-	await expect(salary.getByText('Evidence, not counted: imports/aug.rupee')).toBeVisible();
+	await expect(salary.getByText('Evidence, not counted: imports/aug.rupea')).toBeVisible();
 
 	await salary.getByRole('button', { name: 'Make primary' }).click();
-	await expect(salary.getByText('Evidence, not counted: imports/aug-again.rupee')).toBeVisible();
+	await expect(salary.getByText('Evidence, not counted: imports/aug-again.rupea')).toBeVisible();
 	await expect(page.getByLabel('Ledger file')).toContainText(/SALARY\s*- event: /);
 
 	page.once('dialog', (d) => void d.accept('august-salary'));
@@ -73,5 +73,5 @@ test('dismisses one match, and accepts the other with its primary swapped', asyn
 
 	await matches.getByRole('button', { name: 'Swap primary' }).click();
 	await matches.getByRole('button', { name: 'Accept', exact: true }).click();
-	await expect(page.getByText('No possible matches for imports/aug-again.rupee.')).toBeVisible();
+	await expect(page.getByText('No possible matches for imports/aug-again.rupea.')).toBeVisible();
 });

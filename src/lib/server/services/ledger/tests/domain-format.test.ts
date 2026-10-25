@@ -43,7 +43,7 @@ describe('format', () => {
 
 	it('reads back as the same ledger', () => {
 		const read = (content: string) => {
-			const parsed = parse(defaultConfiguration.ledger, { key: 'a.rupee', content });
+			const parsed = parse(defaultConfiguration.ledger, { key: 'a.rupea', content });
 			return {
 				metadata: parsed.metadata,
 				transactions: parsed.succeeded.map((t) => ({ ...t, location: null })),

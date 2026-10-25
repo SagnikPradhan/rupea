@@ -46,7 +46,7 @@ const session: Handle = ({ event, resolve }) =>
 const theme: Handle = ({ event, resolve }) => {
 	const chosen = readTheme();
 	return resolve(event, {
-		transformPageChunk: ({ html }) => html.replace('%rupee.theme%', chosen),
+		transformPageChunk: ({ html }) => html.replace('%rupea.theme%', chosen),
 	});
 };
 

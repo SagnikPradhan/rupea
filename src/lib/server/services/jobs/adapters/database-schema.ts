@@ -1,7 +1,7 @@
 import { sql } from 'drizzle-orm';
 import * as PG from 'drizzle-orm/pg-core';
 import { base } from '#lib/server/db/columns.ts';
-import type { RupeeError } from '#lib/server/shared/result/error.ts';
+import type { RupeaError } from '#lib/server/shared/result/error.ts';
 import { users } from '#services/auth/adapters/database-schema.ts';
 import { JobStatus } from '../domain/jobs';
 
@@ -25,7 +25,7 @@ export const jobs = PG.pgTable(
 		attempts: t.integer().notNull().default(0),
 		runAt: t.timestamp({ withTimezone: true }).notNull().defaultNow(),
 		leasedUntil: t.timestamp({ withTimezone: true }),
-		error: t.jsonb().$type<RupeeError>(),
+		error: t.jsonb().$type<RupeaError>(),
 	}),
 	(t) => [
 		PG.uniqueIndex('jobs_user_id_name_dedupe_queued')

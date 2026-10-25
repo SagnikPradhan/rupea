@@ -1,12 +1,12 @@
 import type { Batch } from './batch';
-import type { RupeeError } from './error';
+import type { RupeaError } from './error';
 import type { Result } from './result';
 
 // `ok` is false whenever errors rode along, even with `data` present.
 export type Reply<T> = {
 	ok: boolean;
 	data: T | null;
-	errors: RupeeError[];
+	errors: RupeaError[];
 };
 
 /** Takes a result, or one on its way, such as a `ResultAsync`, whose own `then` is typed too loosely for a remote function. */

@@ -1,11 +1,11 @@
 import { describe, expect, it } from 'vitest';
-import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
+import { fault, type RupeaError } from '#lib/server/shared/result/error.ts';
 import { detail, explain, isWarning, placesOf } from '#lib/web/shared/errors.ts';
 
-const at = 'a.rupee:4';
+const at = 'a.rupea:4';
 
 describe('explain', () => {
-	it.each<[RupeeError, string]>([
+	it.each<[RupeaError, string]>([
 		[
 			fault('ParseInvalidTransactionHeader', { location: at }),
 			'This line should start a transaction with a date and a description.',
@@ -40,7 +40,7 @@ describe('explain', () => {
 		[fault('FeedSymbolUnknown', { feed: 'mfapi', symbol: '999' }), 'mfapi has no symbol 999.'],
 		[
 			fault('FeedInvalidResponse', { feed: 'yahoo', symbol: 'X', reason: 'currency Rs' }),
-			'yahoo answered for X in a way Rupee can’t read: currency Rs.',
+			'yahoo answered for X in a way Rupea can’t read: currency Rs.',
 		],
 		[
 			fault('ParseUnknownFeed', { location: at, feed: 'google' }),
@@ -89,19 +89,19 @@ describe('explain', () => {
 			fault('BalanceAssertionAmbiguous', {
 				location: at,
 				account: 'Assets:Bank',
-				unordered: 'b.rupee:2',
+				unordered: 'b.rupea:2',
 			}),
-			'Assets:Bank could fall either side of b.rupee:2. Add a time to order them.',
+			'Assets:Bank could fall either side of b.rupea:2. Add a time to order them.',
 		],
 		[
-			fault('CannotReadFile', { path: 'a.rupee', reason: 'too big' }),
+			fault('CannotReadFile', { path: 'a.rupea', reason: 'too big' }),
 			'This file can’t be read: too big.',
 		],
 		[
-			fault('StorageConflict', { key: 'a.rupee', expected: null, actual: null }),
+			fault('StorageConflict', { key: 'a.rupea', expected: null, actual: null }),
 			'This file changed since you opened it.',
 		],
-		[fault('StorageNotFound', { key: 'a.rupee' }), 'This file no longer exists.'],
+		[fault('StorageNotFound', { key: 'a.rupea' }), 'This file no longer exists.'],
 		[fault('StorageInvalidKey', { key: 'a.txt' }), '“a.txt” isn’t a valid file name.'],
 		[fault('AuthInvalidCode'), 'Something went wrong (AuthInvalidCode).'],
 	])('explains %o', (error, sentence) => {
@@ -113,21 +113,21 @@ describe('placesOf', () => {
 	it('splits a location into each file and line it names', () => {
 		const error = fault('EventWithManyPrimaries', {
 			event: 'rent',
-			location: 'a.rupee:4, b/c.rupee:9',
+			location: 'a.rupea:4, b/c.rupea:9',
 		});
 		expect(placesOf(error)).toEqual([
-			{ file: 'a.rupee', line: '4' },
-			{ file: 'b/c.rupee', line: '9' },
+			{ file: 'a.rupea', line: '4' },
+			{ file: 'b/c.rupea', line: '9' },
 		]);
 	});
 
 	it('keeps a place without a line as just its file', () => {
-		const error = fault('ParseInvalidPosting', { location: 'a.rupee' });
-		expect(placesOf(error)).toEqual([{ file: 'a.rupee', line: null }]);
+		const error = fault('ParseInvalidPosting', { location: 'a.rupea' });
+		expect(placesOf(error)).toEqual([{ file: 'a.rupea', line: null }]);
 	});
 
 	it('names no places for an error without a location', () => {
-		expect(placesOf(fault('StorageNotFound', { key: 'a.rupee' }))).toEqual([]);
+		expect(placesOf(fault('StorageNotFound', { key: 'a.rupea' }))).toEqual([]);
 	});
 });
 

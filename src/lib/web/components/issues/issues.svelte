@@ -1,15 +1,15 @@
 <script lang="ts">
-	import type { RupeeError } from '#lib/server/shared/result/error.ts';
+	import type { RupeaError } from '#lib/server/shared/result/error.ts';
 	import { explain, isWarning, placesOf } from '#lib/web/shared/errors.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';
 
-	const { handle, errors }: { handle: string; errors: RupeeError[] } = $props();
+	const { handle, errors }: { handle: string; errors: RupeaError[] } = $props();
 
 	const problems = $derived(errors.filter((e) => !isWarning(e)));
 	const warnings = $derived(errors.filter(isWarning));
 </script>
 
-{#snippet list(shown: RupeeError[], warning: boolean)}
+{#snippet list(shown: RupeaError[], warning: boolean)}
 	{#if shown.length > 0}
 		<ul role="list" class:warning>
 			{#each shown as error, i (i)}

@@ -71,7 +71,7 @@ describe('built-in schemas', () => {
 		]);
 	});
 
-	it('are the ones Rupee ships, unedited', () => {
+	it('are the ones Rupea ships, unedited', () => {
 		const hdfc = builtin('hdfc-card.yml');
 		expect(Schemas.isBuiltin(hdfc)).toBe(true);
 		expect(Schemas.isBuiltin({ key: hdfc.key, content: `${hdfc.content}# edited\n` })).toBe(false);

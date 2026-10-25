@@ -37,7 +37,7 @@ vi.mock('#lib/endpoints/refinement.remote.ts', () => ({
 afterEach(() => vi.clearAllMocks());
 
 const bank = {
-	key: 'bank.rupee',
+	key: 'bank.rupea',
 	content: 'one',
 	version: '1',
 	size: 3,
@@ -79,17 +79,17 @@ describe('the files page', () => {
 	});
 
 	it('opens the chosen file, and offers to find its matches', async () => {
-		showing('/l/h/files?file=bank.rupee');
+		showing('/l/h/files?file=bank.rupea');
 
-		await waitFor(() => expect(readFile).toHaveBeenCalledWith({ handle: 'h', key: 'bank.rupee' }));
+		await waitFor(() => expect(readFile).toHaveBeenCalledWith({ handle: 'h', key: 'bank.rupea' }));
 		expect((await screen.findByRole('link', { name: 'Find matches' })).getAttribute('href')).toBe(
-			'/l/h/refine?file=bank.rupee',
+			'/l/h/refine?file=bank.rupea',
 		);
 		expect(screen.getByRole('link', { name: 'Files' }).getAttribute('href')).toBe('/l/h/files');
 	});
 
 	it('counts the matches a save turned up, and holds navigation while unsaved', async () => {
-		const user = showing('/l/h/files?file=bank.rupee');
+		const user = showing('/l/h/files?file=bank.rupea');
 		await screen.findByRole('link', { name: 'Find matches' });
 		const view = EditorView.findFromDOM(screen.getByRole('textbox'));
 		view?.dispatch({ changes: { from: 3, insert: ' two' } });
@@ -100,7 +100,7 @@ describe('the files page', () => {
 
 		await user.click(screen.getByRole('button', { name: 'Save' }));
 		expect(await screen.findByRole('link', { name: '2 possible matches: review' })).toBeTruthy();
-		expect(listSuggestions).toHaveBeenCalledWith({ handle: 'h', file: 'bank.rupee' });
+		expect(listSuggestions).toHaveBeenCalledWith({ handle: 'h', file: 'bank.rupea' });
 		expect(goto).not.toHaveBeenCalled();
 	});
 });

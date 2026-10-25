@@ -2,7 +2,7 @@ import {
 	EventRole,
 	parseAmount,
 	type Amount,
-	type RupeeMetadata,
+	type RupeaMetadata,
 } from '#services/ledger/application/shared.ts';
 import { describe, expect, it } from 'vitest';
 import {
@@ -19,10 +19,10 @@ const transaction = (
 		['Liabilities:Card', '-1299'],
 		['Expenses:Shopping', '1299'],
 	],
-	metadata: RupeeMetadata = {},
+	metadata: RupeaMetadata = {},
 ): MatchedTransaction => ({
 	id,
-	location: { file: `${id.split('/')[0]}.rupee`, line: Number(id.split('/')[1] ?? 1) },
+	location: { file: `${id.split('/')[0]}.rupea`, line: Number(id.split('/')[1] ?? 1) },
 	date: Temporal.PlainDate.from('2026-10-01'),
 	time: null,
 	description,
@@ -61,7 +61,7 @@ describe('suggesting events', () => {
 			[
 				null,
 				Confidence.Possible,
-				[`amazon.rupee:4 ${EventRole.Primary}`, `card.rupee:1 ${EventRole.Evidence}`],
+				[`amazon.rupea:4 ${EventRole.Primary}`, `card.rupea:1 ${EventRole.Evidence}`],
 			],
 		]);
 	});
@@ -74,7 +74,7 @@ describe('suggesting events', () => {
 			[
 				null,
 				Confidence.Duplicate,
-				[`oct.rupee:1 ${EventRole.Primary}`, `sep.rupee:3 ${EventRole.Evidence}`],
+				[`oct.rupea:1 ${EventRole.Primary}`, `sep.rupea:3 ${EventRole.Evidence}`],
 			],
 		]);
 	});
@@ -85,11 +85,11 @@ describe('suggesting events', () => {
 		const csv = transaction('csv/1', 'AMAZON', undefined, { 'same-as': ['e2'] });
 
 		expect(roles(run([order, card], [['card/1', 'amazon/1']]))).toEqual([
-			['e1', Confidence.Possible, [`card.rupee:1 ${EventRole.Evidence}`]],
+			['e1', Confidence.Possible, [`card.rupea:1 ${EventRole.Evidence}`]],
 		]);
 		expect(roles(run([order, csv], [['amazon/1', 'csv/1']]))).toEqual([]);
 		expect(roles(run([card, csv], [['card/1', 'csv/1']]))).toEqual([
-			['e2', Confidence.Duplicate, [`card.rupee:1 ${EventRole.Evidence}`]],
+			['e2', Confidence.Duplicate, [`card.rupea:1 ${EventRole.Evidence}`]],
 		]);
 	});
 

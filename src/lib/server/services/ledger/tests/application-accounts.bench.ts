@@ -23,7 +23,7 @@ describe('net worth', () => {
 				const ledger = await createLedger(db);
 				const started = performance.now();
 				for (const year of yearsUpTo(TO.year, years))
-					await Files.createFile({ ledger, key: `${year}.rupee`, content: yearOf(year, perDay) });
+					await Files.createFile({ ledger, key: `${year}.rupea`, content: yearOf(year, perDay) });
 				console.info(`seeded in ${Math.round(performance.now() - started)} ms`);
 
 				const worth = (f: Temporal.PlainDate) => () =>

@@ -1,7 +1,7 @@
 // Parse locations are pre-rendered (`file:line`) to keep this free of domain imports.
-export type RupeeError =
-	| { type: 'CannotReadDirectory'; path: string; cause?: RupeeError[] }
-	| { type: 'CannotReadFile'; path: string; reason: string; cause?: RupeeError[] }
+export type RupeaError =
+	| { type: 'CannotReadDirectory'; path: string; cause?: RupeaError[] }
+	| { type: 'CannotReadFile'; path: string; reason: string; cause?: RupeaError[] }
 	| { type: 'StorageInvalidKey'; key: string }
 	| { type: 'StorageNotFound'; key: string }
 	| { type: 'StorageConflict'; key: string; expected: string | null; actual: string | null }
@@ -50,8 +50,8 @@ export type RupeeError =
 	| { type: 'LotNotOpen'; location: string; account: string; units: string }
 	| { type: 'ExtractionInvalidSchema'; path: string; reason: string }
 	| { type: 'ExtractionUnsupportedFile'; path: string }
-	| { type: 'ExtractionMissingModel'; path: string; cause?: RupeeError[] }
-	| { type: 'ModelDownloadFailed'; url: string; status?: number; cause?: RupeeError[] }
+	| { type: 'ExtractionMissingModel'; path: string; cause?: RupeaError[] }
+	| { type: 'ModelDownloadFailed'; url: string; status?: number; cause?: RupeaError[] }
 	| { type: 'ModelHashMismatch'; path: string; expected: string; actual: string }
 	| { type: 'ExtractionLocked'; path: string }
 	| { type: 'ExtractionUnrecognised'; path: string }
@@ -66,11 +66,11 @@ export type RupeeError =
 	| { type: 'JobTimedOut'; name: string; timeout: number }
 	| { type: 'UnknownError'; message: string };
 
-type Variant<T extends RupeeError['type']> = Extract<RupeeError, { type: T }>;
-type Fields<T extends RupeeError['type']> = Omit<Variant<T>, 'type'>;
+type Variant<T extends RupeaError['type']> = Extract<RupeaError, { type: T }>;
+type Fields<T extends RupeaError['type']> = Omit<Variant<T>, 'type'>;
 
 // Errors carrying nothing beyond their type take no fields.
-export const fault = <T extends RupeeError['type']>(
+export const fault = <T extends RupeaError['type']>(
 	t: T,
 	...[f]: object extends Fields<T> ? [] : [Fields<T>]
 ): Variant<T> => ({ type: t, ...f }) as Variant<T>;

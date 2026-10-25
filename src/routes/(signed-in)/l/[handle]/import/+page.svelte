@@ -16,7 +16,7 @@
 		listSchemas,
 		saveSchema,
 	} from '#lib/endpoints/schemas.remote.ts';
-	import type { RupeeError } from '#lib/server/shared/result/error.ts';
+	import type { RupeaError } from '#lib/server/shared/result/error.ts';
 	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
 	import { detail } from '#lib/web/shared/errors.ts';
 	import { formatColumn } from '#lib/web/shared/format.ts';
@@ -28,7 +28,7 @@
 
 	type Preview = Awaited<ReturnType<typeof previewStatement>>;
 
-	/** A starting point: Rupee's built-in HDFC savings schema, which the manual walks through. */
+	/** A starting point: Rupea's built-in HDFC savings schema, which the manual walks through. */
 	const example = `version: v1
 name: HDFC Bank savings account
 match:
@@ -57,11 +57,11 @@ fields:
 		(imports.data ?? []).some((j) => j.status === 'queued' || j.status === 'running'),
 	);
 
-	const statement = $state({ key: '', grid: [] as string[][], errors: [] as RupeeError[] });
+	const statement = $state({ key: '', grid: [] as string[][], errors: [] as RupeaError[] });
 	const editor = $state({
 		key: 'my-bank.yml',
 		content: example,
-		errors: [] as RupeeError[],
+		errors: [] as RupeaError[],
 		saved: false,
 	});
 	const preview = $state({ ticket: 0, result: null as Preview | null });

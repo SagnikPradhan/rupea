@@ -27,7 +27,7 @@ const member = (file: string, role: string, counted: boolean) => ({
 
 const transfer = {
 	event: 'transfer-otter',
-	members: [member('ibkr.rupee', 'primary', true), member('hdfc.rupee', 'evidence', false)],
+	members: [member('ibkr.rupea', 'primary', true), member('hdfc.rupea', 'evidence', false)],
 };
 
 const rendered = (locked = false) => {
@@ -35,11 +35,11 @@ const rendered = (locked = false) => {
 	vi.mocked(renameEvent).mockResolvedValue({ ok: true, data: [], errors: [] });
 	vi.mocked(makePrimary).mockResolvedValue({
 		ok: true,
-		data: [fault('EventStale', { location: 'hdfc.rupee:1' })],
+		data: [fault('EventStale', { location: 'hdfc.rupea:1' })],
 		errors: [],
 	});
 	const onchanged = vi.fn();
-	render(FileEvents, { handle: 'h', file: 'ibkr.rupee', locked, onchanged });
+	render(FileEvents, { handle: 'h', file: 'ibkr.rupea', locked, onchanged });
 	return { onchanged };
 };
 
@@ -65,7 +65,7 @@ describe('the file events', () => {
 		await waitFor(() => expect(onchanged).toHaveBeenCalled());
 		expect(renameEvent).toHaveBeenCalledWith({
 			handle: 'h',
-			file: 'ibkr.rupee',
+			file: 'ibkr.rupea',
 			event: 'transfer-otter',
 			to: 'salary',
 		});
@@ -75,12 +75,12 @@ describe('the file events', () => {
 		rendered();
 		await fireEvent.click(await screen.findByRole('button', { name: 'Make primary' }));
 
-		expect((await screen.findByRole('alert')).textContent).toBe('EventStale at hdfc.rupee:1');
+		expect((await screen.findByRole('alert')).textContent).toBe('EventStale at hdfc.rupea:1');
 		expect(makePrimary).toHaveBeenCalledWith({
 			handle: 'h',
-			file: 'ibkr.rupee',
+			file: 'ibkr.rupea',
 			event: 'transfer-otter',
-			member: { file: 'hdfc.rupee', line: 1 },
+			member: { file: 'hdfc.rupea', line: 1 },
 		});
 	});
 

@@ -3,15 +3,15 @@ import { describe, expect, it } from 'vitest';
 
 describe('the configuration', () => {
 	it('falls back to its defaults for variables left unset or empty', () => {
-		expect(readConfiguration({ RUPEE_STORAGE_FILES: '' })).toEqual(defaultConfiguration);
+		expect(readConfiguration({ RUPEA_STORAGE_FILES: '' })).toEqual(defaultConfiguration);
 	});
 
 	it('reads each variable into the field it names', () => {
 		const env = {
-			RUPEE_MODELS_THREADS: '3',
-			RUPEE_JOBS_WORKERS: '0',
-			RUPEE_LEDGER_DATE_FORMATS: 'yyyy-MM-dd | d MMM yyyy',
-			RUPEE_ACCOUNTS_SIGNUP: 'open',
+			RUPEA_MODELS_THREADS: '3',
+			RUPEA_JOBS_WORKERS: '0',
+			RUPEA_LEDGER_DATE_FORMATS: 'yyyy-MM-dd | d MMM yyyy',
+			RUPEA_ACCOUNTS_SIGNUP: 'open',
 		};
 
 		expect(readConfiguration(env)).toMatchObject({
@@ -23,7 +23,7 @@ describe('the configuration', () => {
 	});
 
 	it('names every field it refuses', () => {
-		const env = { RUPEE_MODELS_THREADS: 'many', RUPEE_LEDGER_DATE_FORMATS: 'MM/yyyy' };
+		const env = { RUPEA_MODELS_THREADS: 'many', RUPEA_LEDGER_DATE_FORMATS: 'MM/yyyy' };
 
 		expect(() => readConfiguration(env)).toThrow(/models\.threads[\s\S]*ledger\.dateFormats/);
 	});

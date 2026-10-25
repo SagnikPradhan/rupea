@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { deleteFiles, listFiles, renameFiles } from '#lib/endpoints/files.remote.ts';
-	import type { RupeeError } from '#lib/server/shared/result/error.ts';
+	import type { RupeaError } from '#lib/server/shared/result/error.ts';
 	import Button from '#lib/web/components/button/button.svelte';
 	import Issues from '#lib/web/components/issues/issues.svelte';
 	import LedgerTable from '#lib/web/components/ledger-table/ledger-table.svelte';
@@ -18,7 +18,7 @@
 
 	const selected = new SvelteSet<string>();
 	const collapsed = new SvelteSet<string>();
-	const step = $state({ now: 'choosing' as Step, folder: '', errors: [] as RupeeError[] });
+	const step = $state({ now: 'choosing' as Step, folder: '', errors: [] as RupeaError[] });
 	const last = { key: null as string | null };
 
 	const response = $derived(await listFiles(handle));
@@ -65,7 +65,7 @@
 		return deleteFiles({ handle, keys: chosen }).then((r) => done(r.errors));
 	}
 
-	function done(errors: RupeeError[]) {
+	function done(errors: RupeaError[]) {
 		Object.assign(step, { now: 'choosing', errors });
 		selected.clear();
 	}

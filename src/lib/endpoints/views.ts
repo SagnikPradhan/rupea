@@ -6,13 +6,13 @@ import {
 	formatQuantity,
 	printQuantity,
 	type Amount,
-	type RupeeTransaction,
+	type RupeaTransaction,
 } from '#services/ledger/application/shared.ts';
 import type * as Transactions from '#services/ledger/application/transactions.ts';
 import type * as Refinement from '#services/refinement/application/refinement.ts';
 
 /** For reading, not for writing back: amounts as text, the time to the minute. */
-export const viewTransaction = (transaction: RupeeTransaction) => ({
+export const viewTransaction = (transaction: RupeaTransaction) => ({
 	file: transaction.location.file,
 	line: transaction.location.line,
 	date: transaction.date.toString(),

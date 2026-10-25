@@ -12,7 +12,7 @@ export { print, printQuantity } from '../domain/printer';
 export { accountType } from '../domain/taxonomy';
 export {
 	AccountType,
-	type RupeeMetadata,
-	type RupeeParseLocation,
-	type RupeeTransaction,
+	type RupeaMetadata,
+	type RupeaParseLocation,
+	type RupeaTransaction,
 } from '../domain/types';

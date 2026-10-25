@@ -25,8 +25,8 @@ const it = base.extend<{ ledger: string }>({
 		const handle = ledger.handle;
 		signIn(ownerOf(ledger));
 		await provide(context, async () => {
-			await createFile({ handle, key: 'hdfc.rupee', content: hdfc });
-			await createFile({ handle, key: 'ibkr.rupee', content: ibkr });
+			await createFile({ handle, key: 'hdfc.rupea', content: hdfc });
+			await createFile({ handle, key: 'ibkr.rupea', content: ibkr });
 		});
 		await use(handle);
 		signIn(null);
@@ -36,39 +36,39 @@ const it = base.extend<{ ledger: string }>({
 describe('a suggested event', () => {
 	it('is linked, renamed and given a new primary', ({ context, ledger: handle }) =>
 		provide(context, async () => {
-			const [transfer] = (await listSuggestions({ handle, file: 'ibkr.rupee' })).data ?? [];
+			const [transfer] = (await listSuggestions({ handle, file: 'ibkr.rupea' })).data ?? [];
 			const event = transfer?.event ?? '';
 			const edits = (transfer?.links ?? []).map((l) => ({ ...l, event }));
 			expect(await linkEvents({ handle, edits })).toMatchObject({ ok: true });
 
-			const renamed = await renameEvent({ handle, file: 'ibkr.rupee', event, to: 'transfer' });
-			const member = { file: 'hdfc.rupee', line: 1 };
-			const made = await makePrimary({ handle, file: 'ibkr.rupee', event: 'transfer', member });
+			const renamed = await renameEvent({ handle, file: 'ibkr.rupea', event, to: 'transfer' });
+			const member = { file: 'hdfc.rupea', line: 1 };
+			const made = await makePrimary({ handle, file: 'ibkr.rupea', event: 'transfer', member });
 			expect(renamed.ok).toBe(true);
 			expect(made.ok).toBe(true);
 
-			const [listed] = (await listEvents({ handle, file: 'ibkr.rupee' })).data ?? [];
+			const [listed] = (await listEvents({ handle, file: 'ibkr.rupea' })).data ?? [];
 			expect(listed?.members.map((m) => [m.file, m.role])).toEqual([
-				['hdfc.rupee', 'primary'],
-				['ibkr.rupee', 'evidence'],
+				['hdfc.rupea', 'primary'],
+				['ibkr.rupea', 'evidence'],
 			]);
 		}));
 
 	it('is no longer suggested once dismissed', ({ context, ledger: handle }) =>
 		provide(context, async () => {
-			const [transfer] = (await listSuggestions({ handle, file: 'hdfc.rupee' })).data ?? [];
+			const [transfer] = (await listSuggestions({ handle, file: 'hdfc.rupea' })).data ?? [];
 			const fingerprint = transfer?.fingerprint ?? '';
 
-			expect(await dismissSuggestion({ handle, file: 'hdfc.rupee', fingerprint })).toMatchObject({
+			expect(await dismissSuggestion({ handle, file: 'hdfc.rupea', fingerprint })).toMatchObject({
 				ok: true,
 			});
-			expect(await listSuggestions({ handle, file: 'hdfc.rupee' })).toMatchObject({ data: [] });
+			expect(await listSuggestions({ handle, file: 'hdfc.rupea' })).toMatchObject({ data: [] });
 		}));
 
 	it('refuses an event id of more than one word', ({ context, ledger: handle }) =>
 		provide(context, async () => {
 			await expect(
-				renameEvent({ handle, file: 'ibkr.rupee', event: 'a', to: 'two words' }),
+				renameEvent({ handle, file: 'ibkr.rupea', event: 'a', to: 'two words' }),
 			).rejects.toThrow('Invalid input');
 		}));
 });

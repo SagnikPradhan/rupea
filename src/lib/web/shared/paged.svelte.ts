@@ -1,4 +1,4 @@
-import type { RupeeError } from '#lib/server/shared/result/error.ts';
+import type { RupeaError } from '#lib/server/shared/result/error.ts';
 import type { Reply } from '#lib/server/shared/result/reply.ts';
 
 type Page<T, C> = { rows: T[]; next: C | null };
@@ -6,7 +6,7 @@ type Page<T, C> = { rows: T[]; next: C | null };
 /** A list that grows a page at a time, and stops at its last page or its first failure. */
 export type Paged<T> = {
 	readonly rows: T[];
-	readonly errors: RupeeError[];
+	readonly errors: RupeaError[];
 	more: () => Promise<void>;
 };
 

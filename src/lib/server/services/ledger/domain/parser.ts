@@ -1,7 +1,7 @@
 import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
 import { parseDate, parseTime, type ReadOptions } from '#lib/server/shared/dates.ts';
 import { batch, type Batch } from '#lib/server/shared/result/batch.ts';
-import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
+import { fault, type RupeaError } from '#lib/server/shared/result/error.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
 import { drain, takeWhile } from '#lib/server/shared/arrays.ts';
 import { cut } from '#lib/server/shared/text.ts';
@@ -22,13 +22,13 @@ import {
 	PriceKind,
 	type LotCost,
 	type Price,
-	type RupeeFile,
-	type RupeeLink,
-	type RupeeMarketPrice,
-	type RupeeMetadata,
-	type RupeeParseLocation,
-	type RupeePosting,
-	type RupeeTransaction,
+	type RupeaFile,
+	type RupeaLink,
+	type RupeaMarketPrice,
+	type RupeaMetadata,
+	type RupeaParseLocation,
+	type RupeaPosting,
+	type RupeaTransaction,
 } from './types';
 
 const COMMODITY = /^[A-Za-z][A-Za-z0-9._-]*$/;
@@ -37,19 +37,19 @@ const LINK = /\s(?<feed>[A-Za-z]+):(?<symbol>\S+)\s*$/;
 /** The feeds a link can name; a ledger's own symbols are priced by its files, never linked. */
 const LINKED: Record<string, Feed> = { mfapi: Feed.Mfapi, yahoo: Feed.Yahoo };
 
-export const displayLocation = ({ file, line }: RupeeParseLocation): string => `${file}:${line}`;
+export const displayLocation = ({ file, line }: RupeaParseLocation): string => `${file}:${line}`;
 
-type RupeeParsedFile = Batch<RupeeTransaction> & {
-	metadata: RupeeMetadata;
-	prices: RupeeMarketPrice[];
-	links: RupeeLink[];
+type RupeaParsedFile = Batch<RupeaTransaction> & {
+	metadata: RupeaMetadata;
+	prices: RupeaMarketPrice[];
+	links: RupeaLink[];
 };
 
 /** Metadata above the first transaction belongs to the file. */
 export const parse = (
 	c: LedgerConfiguration,
-	{ key, content }: Pick<RupeeFile, 'key' | 'content'>,
-): RupeeParsedFile => {
+	{ key, content }: Pick<RupeaFile, 'key' | 'content'>,
+): RupeaParsedFile => {
 	const input = lines(key, content).filter((l) => !isComment(l));
 	const preamble = readMetadata(
 		takeWhile(input, (l) => isBlank(l) || isMetadata(l)).filter(isMetadata),
@@ -66,7 +66,7 @@ export const parse = (
 	};
 };
 
-export const toMetadata = (entries: [string, string][]): RupeeMetadata =>
+export const toMetadata = (entries: [string, string][]): RupeaMetadata =>
 	Object.fromEntries(
 		Object.entries(Object.groupBy(entries, ([key]) => key)).map(([key, group = []]) => [
 			key,
@@ -74,9 +74,9 @@ export const toMetadata = (entries: [string, string][]): RupeeMetadata =>
 		]),
 	);
 
-export type RupeeLine = { location: RupeeParseLocation; content: string };
+export type RupeaLine = { location: RupeaParseLocation; content: string };
 
-export const lines = (file: string, content: string): RupeeLine[] =>
+export const lines = (file: string, content: string): RupeaLine[] =>
 	content
 		.split('\n')
 		.slice(0, content.endsWith('\n') ? -1 : undefined)
@@ -88,10 +88,10 @@ export const lines = (file: string, content: string): RupeeLine[] =>
 /** A bad line drops its transaction; a bad header ends the parse, as the next one can't be found. */
 const parseTransactions = (
 	configuration: LedgerConfiguration,
-	input: RupeeLine[],
-): Batch<RupeeTransaction> => {
+	input: RupeaLine[],
+): Batch<RupeaTransaction> => {
 	const lines = input.filter((l) => !isComment(l));
-	const results: Result<RupeeTransaction>[] = [];
+	const results: Result<RupeaTransaction>[] = [];
 
 	for (const line of drain(lines)) {
 		if (isBlank(line) || isPLine(line)) continue;
@@ -124,12 +124,12 @@ const parseTransactions = (
 	return batch(results);
 };
 
-type MetadataPosting = WrittenPosting & { metadata: RupeeMetadata };
+type MetadataPosting = WrittenPosting & { metadata: RupeaMetadata };
 
-type Body = { metadata: RupeeMetadata; postings: MetadataPosting[]; failed: RupeeError[] };
+type Body = { metadata: RupeaMetadata; postings: MetadataPosting[]; failed: RupeaError[] };
 
 /** Metadata belongs to the nearest line above it that is not metadata. */
-const readBody = (c: LedgerConfiguration, lines: RupeeLine[]): Body => {
+const readBody = (c: LedgerConfiguration, lines: RupeaLine[]): Body => {
 	const own = readMetadata(takeWhile(lines, isMetadata));
 	// Array.from maps as it drains, so each posting takes the metadata under it.
 	const postings = Array.from(drain(lines), (l) => ({
@@ -152,14 +152,14 @@ const readBody = (c: LedgerConfiguration, lines: RupeeLine[]): Body => {
 	};
 };
 
-type ReadMetadata = { metadata: RupeeMetadata; failed: RupeeError[] };
+type ReadMetadata = { metadata: RupeaMetadata; failed: RupeaError[] };
 
-const readMetadata = (lines: RupeeLine[]): ReadMetadata => {
+const readMetadata = (lines: RupeaLine[]): ReadMetadata => {
 	const entries = batch(lines.map(parseMetadata));
 	return { metadata: toMetadata(entries.succeeded), failed: entries.failed };
 };
 
-const parseMetadata = ({ location, content }: RupeeLine): Result<[string, string]> => {
+const parseMetadata = ({ location, content }: RupeaLine): Result<[string, string]> => {
 	const entry = readEntry(content);
 	return entry
 		? ok([entry.key, entry.value])
@@ -180,29 +180,29 @@ export const readEntry = (content: string) => {
 	return { indent: content.slice(0, content.length - body.length), key, value };
 };
 
-export const isBlank = ({ content }: RupeeLine) => content.trim() === '';
+export const isBlank = ({ content }: RupeaLine) => content.trim() === '';
 
-export const isComment = ({ content }: RupeeLine) => content.startsWith(';');
+export const isComment = ({ content }: RupeaLine) => content.startsWith(';');
 
 /** Indentation means nothing to a metadata line; the dash does. */
-export const isMetadata = ({ content }: RupeeLine) => /^\s*-(\s|$)/.test(content);
+export const isMetadata = ({ content }: RupeaLine) => /^\s*-(\s|$)/.test(content);
 
-export const isPosting = (l: RupeeLine) =>
+export const isPosting = (l: RupeaLine) =>
 	/^(\t| {2})/.test(l.content) && !isBlank(l) && !isMetadata(l);
 
 /** A P line prices a commodity, or links it to a feed. */
-const isPLine = ({ content }: RupeeLine) => /^P\s/.test(content);
-const isPrice = (p: RupeeMarketPrice | RupeeLink): p is RupeeMarketPrice => 'price' in p;
-const isLink = (p: RupeeMarketPrice | RupeeLink): p is RupeeLink => 'feed' in p;
+const isPLine = ({ content }: RupeaLine) => /^P\s/.test(content);
+const isPrice = (p: RupeaMarketPrice | RupeaLink): p is RupeaMarketPrice => 'price' in p;
+const isLink = (p: RupeaMarketPrice | RupeaLink): p is RupeaLink => 'feed' in p;
 
-const parsePLine = (c: LedgerConfiguration, l: RupeeLine): Result<RupeeMarketPrice | RupeeLink> =>
+const parsePLine = (c: LedgerConfiguration, l: RupeaLine): Result<RupeaMarketPrice | RupeaLink> =>
 	readLink(c, l) ?? parsePriceLine(c, l);
 
 /** Each commodity nets to zero by weight; a posting without an amount takes what is left. */
 const balance = (
-	location: RupeeParseLocation,
+	location: RupeaParseLocation,
 	written: MetadataPosting[],
-): Result<RupeePosting[]> => {
+): Result<RupeaPosting[]> => {
 	const at = { location: displayLocation(location) };
 	if (written.length < 2) return err(fault('ParseMissingTransactionBody', at));
 
@@ -253,7 +253,7 @@ const weight = (p: Weighed, transaction: Weighed[]): Quantity => {
 
 const parseHeader = (
 	{ dateFormats, timeFormats }: LedgerConfiguration,
-	{ location, content }: RupeeLine,
+	{ location, content }: RupeaLine,
 ): Result<{
 	date: Temporal.PlainDate;
 	time: Temporal.PlainTime | null;
@@ -285,8 +285,8 @@ const readWords = <T>(
 /** P date commodity price [commodity], as ledger writes it. */
 const parsePriceLine = (
 	{ dateFormats }: LedgerConfiguration,
-	{ location, content }: RupeeLine,
-): Result<RupeeMarketPrice> => {
+	{ location, content }: RupeaLine,
+): Result<RupeaMarketPrice> => {
 	const date = readWords(dateFormats, content.trim().split(/\s+/).slice(1), parseDate);
 	const [commodity = '', ...price] = date?.rest ?? [];
 	const quantity = readQuantity(price.join(' '));
@@ -307,8 +307,8 @@ const parsePriceLine = (
  */
 const readLink = (
 	{ dateFormats }: LedgerConfiguration,
-	{ location, content }: RupeeLine,
-): Result<RupeeLink> | null => {
+	{ location, content }: RupeaLine,
+): Result<RupeaLink> | null => {
 	const { feed = '', symbol = '' } = LINK.exec(content)?.groups ?? {};
 	const words = content.trim().split(/\s+/).slice(1, -1);
 	const since =
@@ -340,7 +340,7 @@ type WrittenPosting = {
 /** Account [amount [commodity] [{lot cost}] [@ price | @@ total]] [= balance] */
 const readPosting = (
 	{ dateFormats }: LedgerConfiguration,
-	{ location, content }: RupeeLine,
+	{ location, content }: RupeaLine,
 ): Result<WrittenPosting> => {
 	const invalid = err(fault('ParseInvalidPosting', { location: displayLocation(location) }));
 	const parts = splitPosting(content);
@@ -402,7 +402,7 @@ const splitPosting = (content: string): PostingParts | undefined => {
 };
 
 const checkAccount = (
-	location: RupeeParseLocation,
+	location: RupeaParseLocation,
 	posting: WrittenPosting,
 ): Result<WrittenPosting> => {
 	if (accountType(posting.account)) return ok(posting);

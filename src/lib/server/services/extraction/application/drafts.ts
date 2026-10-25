@@ -4,12 +4,12 @@ import { fault } from '#lib/server/shared/result/error.ts';
 import { err, ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { findImported, importFile, parseFile } from '#services/ledger/application/files.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
-import type { RupeeTransaction } from '#services/ledger/application/shared.ts';
+import type { RupeaTransaction } from '#services/ledger/application/shared.ts';
 import { predictAccounts } from '#services/ledger/application/prediction.ts';
 import { categorised, copy, draft, uncategorised, type Draft } from '../domain/draft';
 import { readRecords } from '../domain/runtime';
 import { parseSchema } from '../domain/schema';
-import type { RupeeRecord } from '../domain/types';
+import type { RupeaRecord } from '../domain/types';
 import { addSchema, isBuiltin, type SchemaText } from './schemas';
 import { readByChecksum, readStatement, type Statement } from './statements';
 
@@ -29,7 +29,7 @@ export const extract = ({ ledger, statement, schema }: ExtractOptions): ResultAs
 	);
 
 /** A draft checked as the ledger would read it, with the errors of both steps. */
-export const previewStatement = (options: ExtractOptions): ResultAsync<Batch<RupeeTransaction>> =>
+export const previewStatement = (options: ExtractOptions): ResultAsync<Batch<RupeaTransaction>> =>
 	extract(options).map((d) => {
 		const checked = parseFile({ key: d.key, content: d.content });
 		return { succeeded: checked.succeeded, failed: [...d.failed, ...checked.failed] };
@@ -72,7 +72,7 @@ type DraftedOptions = {
 	ledger: Ledger;
 	statement: Statement;
 	account: string;
-	records: Batch<RupeeRecord>;
+	records: Batch<RupeaRecord>;
 };
 
 const drafted = ({ ledger, statement, account, records }: DraftedOptions): ResultAsync<Draft> =>

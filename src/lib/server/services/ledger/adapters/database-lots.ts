@@ -9,11 +9,11 @@ import type { ExpressionBuilder } from 'kysely';
 import type { Amount, Quantity } from '../domain/amounts';
 import { book, realised, type BookedPosting, type Booking } from '../domain/lots';
 import { BALANCE_TYPES } from '../domain/taxonomy';
-import type { DisposalKind, LotOrigin, RupeeParseLocation } from '../domain/types';
+import type { DisposalKind, LotOrigin, RupeaParseLocation } from '../domain/types';
 import { toCost, toPrice, toQuantity } from './database-queries';
 
 export type UnmatchedDisposal = {
-	location: RupeeParseLocation;
+	location: RupeaParseLocation;
 	account: string;
 	commodity: string;
 	kind: DisposalKind;
@@ -22,7 +22,7 @@ export type UnmatchedDisposal = {
 };
 
 export type LotHistory = {
-	location: RupeeParseLocation;
+	location: RupeaParseLocation;
 	date: Temporal.PlainDate;
 	origin: LotOrigin;
 	from: string | null;
@@ -30,7 +30,7 @@ export type LotHistory = {
 	remaining: Amount;
 	cost: Quantity;
 	disposals: {
-		location: RupeeParseLocation;
+		location: RupeaParseLocation;
 		date: Temporal.PlainDate;
 		kind: DisposalKind;
 		units: Amount;

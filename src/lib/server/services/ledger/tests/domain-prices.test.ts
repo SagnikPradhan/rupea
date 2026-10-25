@@ -7,7 +7,7 @@ import { describe, expect, it } from 'vitest';
 
 const pricesIn = (lines: string[]) => {
 	const parsed = parse(defaultConfiguration.ledger, {
-		key: 'a.rupee',
+		key: 'a.rupea',
 		content: `${lines.join('\n')}\n`,
 	});
 	const file = { ...parsed, transactions: parsed.succeeded };

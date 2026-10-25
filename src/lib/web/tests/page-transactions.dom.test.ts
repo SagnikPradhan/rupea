@@ -16,7 +16,7 @@ vi.mock('#lib/endpoints/transactions.remote.ts', () => ({
 const groceries = {
 	id: '1',
 	counted: true,
-	file: 'bank.rupee',
+	file: 'bank.rupea',
 	line: 4,
 	date: '2026-08-29',
 	time: '18:45',
@@ -30,7 +30,7 @@ const evidence = { ...groceries, id: '2', counted: false, time: null, descriptio
 
 const answering = (rows: unknown[]) => {
 	vi.mocked(sync).mockReturnValue(
-		answer([], [fault('ParseInvalidPosting', { location: 'a.rupee:2' })]),
+		answer([], [fault('ParseInvalidPosting', { location: 'a.rupea:2' })]),
 	);
 	vi.mocked(listAccountNames).mockReturnValue(answer(['Assets:Bank', 'Expenses:Food']));
 	vi.mocked(listTransactions).mockReturnValue(answer({ rows, next: null }));

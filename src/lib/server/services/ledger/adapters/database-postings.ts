@@ -7,7 +7,7 @@ import { sql, type SqlBool } from 'kysely';
 import type { Amount } from '../domain/amounts';
 import type { Holding } from '../domain/holdings';
 import { BALANCE_TYPES } from '../domain/taxonomy';
-import type { RupeeParseLocation, RupeePosting } from '../domain/types';
+import type { RupeaParseLocation, RupeaPosting } from '../domain/types';
 import { multiply, toCost, toPrice, toQuantity } from './database-queries';
 import type { Page, PageOptions } from './database-transactions';
 
@@ -17,15 +17,15 @@ export type PostingCursor = { date: string; time: string; id: string; position: 
 export type ListedPosting = {
 	transaction: string;
 	position: number;
-	location: RupeeParseLocation;
+	location: RupeaParseLocation;
 	date: Temporal.PlainDate;
 	description: string;
-	posting: RupeePosting;
+	posting: RupeaPosting;
 };
 
 // `unordered` holds postings that could fall either side of the assertion.
 export type BalanceCheck = {
-	location: RupeeParseLocation;
+	location: RupeaParseLocation;
 	account: string;
 	commodity: string;
 	expected: Amount;

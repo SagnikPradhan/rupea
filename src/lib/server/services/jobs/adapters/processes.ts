@@ -1,4 +1,4 @@
-import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
+import { fault, type RupeaError } from '#lib/server/shared/result/error.ts';
 import { attempt, errAsync, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { Tinypool } from 'tinypool';
 import type { ClaimedJob } from './database';
@@ -42,7 +42,7 @@ export const processes = (o: ProcessesOptions): Processes => {
 	const dispatch: Dispatch = (c, timeout) => {
 		const signal = AbortSignal.timeout(timeout);
 		const timedOut = fault('JobTimedOut', { name: c.name, timeout });
-		return attempt<RupeeError | null>(() => pool.run(c, { signal }))
+		return attempt<RupeaError | null>(() => pool.run(c, { signal }))
 			.mapErr((e) => (signal.aborted ? timedOut : e))
 			.andThen((e) => (e ? errAsync(e) : okAsync(undefined)));
 	};

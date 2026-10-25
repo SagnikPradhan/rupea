@@ -15,7 +15,7 @@ test('loads older transactions on scrolling, and narrows them by filter', async 
 	signedIn: page,
 	ledger,
 }) => {
-	await createFile(page, ledger, 'bank.rupee', [...shopping, rent].join('\n'));
+	await createFile(page, ledger, 'bank.rupea', [...shopping, rent].join('\n'));
 
 	await visit(page, `${ledger}/transactions`);
 	const rows = page.getByRole('rowgroup');
@@ -50,7 +50,7 @@ test('loads older transactions on scrolling, and narrows them by filter', async 
 });
 
 test('lists counted postings, narrowed to an account', async ({ signedIn: page, ledger }) => {
-	await createFile(page, ledger, 'bank.rupee', rent);
+	await createFile(page, ledger, 'bank.rupea', rent);
 
 	await visit(page, `${ledger}/postings?account=Assets`);
 	const rows = page.getByRole('rowgroup');
@@ -64,7 +64,7 @@ test('lists the postings of chosen days, then any range again', async ({
 	signedIn: page,
 	ledger,
 }) => {
-	await createFile(page, ledger, 'bank.rupee', [...shopping, rent].join('\n'));
+	await createFile(page, ledger, 'bank.rupea', [...shopping, rent].join('\n'));
 
 	await visit(page, `${ledger}/postings?account=Expenses&from=2025-05-30&to=2025-06-15`);
 	const rows = page.getByRole('rowgroup');

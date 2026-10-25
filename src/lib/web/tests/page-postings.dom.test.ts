@@ -21,7 +21,7 @@ const answering = (rows: unknown[]) => {
 describe('the postings page', () => {
 	const food = {
 		key: '1:0',
-		file: 'bank.rupee',
+		file: 'bank.rupea',
 		line: 5,
 		date: '2026-08-29',
 		description: 'Groceries',

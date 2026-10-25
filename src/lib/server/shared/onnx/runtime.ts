@@ -44,7 +44,7 @@ type CreateModelsOptions = {
 	fetch?: typeof globalThis.fetch;
 };
 
-/** The models Rupee runs on its own. */
+/** The models Rupea runs on its own. */
 export type Models = {
 	/** Settles once every model is downloaded and checked. */
 	ready: () => ResultAsync<void>;

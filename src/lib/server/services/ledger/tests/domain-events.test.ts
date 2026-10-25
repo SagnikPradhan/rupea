@@ -1,18 +1,18 @@
 import { parseAmount, type Amount } from '#services/ledger/domain/amounts.ts';
 import { checkEvents, counted, type EventMember } from '#services/ledger/domain/events.ts';
-import type { RupeeMetadata } from '#services/ledger/domain/types.ts';
+import type { RupeaMetadata } from '#services/ledger/domain/types.ts';
 import { describe, expect, it } from 'vitest';
 
 const member = (
 	id: string,
-	metadata: RupeeMetadata,
+	metadata: RupeaMetadata,
 	postings: [string, string][] = [
 		['Liabilities:Card', '-1299'],
 		['Expenses:Shopping', '1299'],
 	],
 ): EventMember => ({
 	id,
-	location: { file: `${id}.rupee`, line: 1 },
+	location: { file: `${id}.rupea`, line: 1 },
 	metadata,
 	postings: postings.map(([account, amount]) => ({
 		account,
@@ -59,7 +59,7 @@ describe('checking events', () => {
 				{
 					type: 'EventWithoutPrimary',
 					event: ID,
-					location: 'a.rupee:1, b.rupee:1',
+					location: 'a.rupea:1, b.rupea:1',
 				},
 			],
 		});
@@ -78,7 +78,7 @@ describe('checking events', () => {
 				{
 					type: 'EventWithManyPrimaries',
 					event: ID,
-					location: 'a.rupee:1, b.rupee:1',
+					location: 'a.rupea:1, b.rupea:1',
 				},
 			],
 		});
@@ -90,7 +90,7 @@ describe('checking events', () => {
 	])('counts a transaction with %s on its own', (_, metadata) => {
 		expect(checkEvents([member('a', { event: [ID] }), member('b', metadata)])).toEqual({
 			uncounted: [],
-			failed: [{ type: 'EventInvalidMembership', location: 'b.rupee:1' }],
+			failed: [{ type: 'EventInvalidMembership', location: 'b.rupea:1' }],
 		});
 	});
 
@@ -111,7 +111,7 @@ describe('checking events', () => {
 			failed: ['Assets:IBKR', 'Assets:HDFC'].map((account) => ({
 				type: 'EventDisagreement',
 				event: ID,
-				location: 'ibkr.rupee:1',
+				location: 'ibkr.rupea:1',
 				account,
 				expected: account === 'Assets:IBKR' ? '1000.00' : '-1000.00',
 				actual: account === 'Assets:IBKR' ? '999.00' : '-999.00',

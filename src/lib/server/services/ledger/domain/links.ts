@@ -3,7 +3,7 @@ import { fault } from '#lib/server/shared/result/error.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
 import { EVENT_KEY, EVENT_KEYS, linksOf, type EventLink, type EventRole } from './events';
 import { parse, readEntry } from './parser';
-import type { RupeeFile, RupeeTransaction } from './types';
+import type { RupeaFile, RupeaTransaction } from './types';
 
 // Where a link goes, and what the header there must still say.
 export type LinkEdit = {
@@ -19,7 +19,7 @@ export type LinkEdit = {
 // header must still be the one suggested, with no link of its own.
 export const insertLinks = (
 	config: LedgerConfiguration,
-	file: Pick<RupeeFile, 'key' | 'content'>,
+	file: Pick<RupeaFile, 'key' | 'content'>,
 	edits: LinkEdit[],
 ): Result<string> => {
 	const headers = Object.fromEntries(
@@ -49,13 +49,13 @@ export const insertLinks = (
 	return ok(lines.join('\n'));
 };
 
-export type Relink = (t: RupeeTransaction, l: EventLink) => EventLink;
+export type Relink = (t: RupeaTransaction, l: EventLink) => EventLink;
 
 // Rewrites, in place, each link a transaction in the file has to the event;
 // formatting, comments and other metadata stay as they were.
 export const rewriteLinks = (
 	config: LedgerConfiguration,
-	file: Pick<RupeeFile, 'key' | 'content'>,
+	file: Pick<RupeaFile, 'key' | 'content'>,
 	event: string,
 	relink: Relink,
 ): Result<string> => {

@@ -27,19 +27,19 @@ describe('a ledger file', () => {
 			const handle = ledger.handle;
 			signIn(ownerOf(ledger));
 
-			const created = await createFile({ handle, key: 'a.rupee', content: groceries });
-			const read = await readFile({ handle, key: 'a.rupee' });
+			const created = await createFile({ handle, key: 'a.rupea', content: groceries });
+			const read = await readFile({ handle, key: 'a.rupea' });
 			expect(created.ok).toBe(true);
-			expect(read.data).toMatchObject({ key: 'a.rupee', content: groceries });
+			expect(read.data).toMatchObject({ key: 'a.rupea', content: groceries });
 
 			const version = read.data?.version ?? '';
-			const edited = await editFile({ handle, key: 'a.rupee', content: groceries, version });
-			const moved = await renameFiles({ handle, moves: [{ from: 'a.rupee', to: 'b.rupee' }] });
+			const edited = await editFile({ handle, key: 'a.rupea', content: groceries, version });
+			const moved = await renameFiles({ handle, moves: [{ from: 'a.rupea', to: 'b.rupea' }] });
 			expect(edited.ok).toBe(true);
-			expect(moved).toMatchObject({ ok: true, data: [{ key: 'b.rupee' }] });
+			expect(moved).toMatchObject({ ok: true, data: [{ key: 'b.rupea' }] });
 
-			expect(await listFiles(handle)).toMatchObject({ ok: true, data: [{ key: 'b.rupee' }] });
-			expect(await deleteFiles({ handle, keys: ['b.rupee'] })).toMatchObject({ ok: true });
+			expect(await listFiles(handle)).toMatchObject({ ok: true, data: [{ key: 'b.rupea' }] });
+			expect(await deleteFiles({ handle, keys: ['b.rupea'] })).toMatchObject({ ok: true });
 			expect(await listFiles(handle)).toMatchObject({ ok: true, data: [] });
 		}));
 
@@ -63,7 +63,7 @@ describe('a draft', () => {
 			const formatted = await formatFile({
 				content: '2026-08-29 Groceries\n  Expenses:Food 100\n  Assets:Bank',
 			});
-			const parsed = await parseFile({ key: 'a.rupee', content: groceries });
+			const parsed = await parseFile({ key: 'a.rupea', content: groceries });
 			expect(formatted.ok).toBe(true);
 			expect(parsed).toMatchObject({ ok: true, data: [{ description: 'Groceries' }] });
 		}));

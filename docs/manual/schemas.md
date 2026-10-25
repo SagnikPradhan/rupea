@@ -1,26 +1,26 @@
 # Writing schemas
 
-A schema teaches Rupee to read one kind of statement, such as an HDFC savings account statement. It says three things:
+A schema teaches Rupea to read one kind of statement, such as an HDFC savings account statement. It says three things:
 
-- how to **recognise** the statement, so Rupee knows the schema fits it,
+- how to **recognise** the statement, so Rupea knows the schema fits it,
 - which **account** its transactions belong to, and
 - how to **read** each transaction: its date, amount and description.
 
 Once a schema exists, every statement of that kind imports by itself. You write it once per bank and layout, not once per statement.
 
-Rupee ships schemas for some common banks, called built-in schemas. Check the [list of what they cover](#built-in-schemas) before writing your own.
+Rupea ships schemas for some common banks, called built-in schemas. Check the [list of what they cover](#built-in-schemas) before writing your own.
 
 ## Where schemas live
 
 Schemas belong to a ledger, in its `schemas/` folder. Everyone who shares the ledger imports with the same schemas.
 
-To write one, open **Import a statement** in your ledger. Upload a statement, then press **New schema**. The editor starts with Rupee's built-in schema for HDFC savings accounts, which this page walks through. Edit it, give it a name like `axis-savings.yml` and press **Save schema**. The draft below the editor updates as you type, so you can see straight away what your schema reads.
+To write one, open **Import a statement** in your ledger. Upload a statement, then press **New schema**. The editor starts with Rupea's built-in schema for HDFC savings accounts, which this page walks through. Edit it, give it a name like `axis-savings.yml` and press **Save schema**. The draft below the editor updates as you type, so you can see straight away what your schema reads.
 
 Schemas are written in [YAML](https://learnxinyminutes.com/yaml/), a plain text format where indentation matters. Use spaces, not tabs.
 
-## How Rupee sees a statement
+## How Rupea sees a statement
 
-Rupee first turns any statement, whether CSV, Excel or PDF, into a **grid**: rows and columns of text, like a spreadsheet. The import page shows this grid under your statement. Columns are lettered A, B, C and rows are numbered, just like a spreadsheet.
+Rupea first turns any statement, whether CSV, Excel or PDF, into a **grid**: rows and columns of text, like a spreadsheet. The import page shows this grid under your statement. Columns are lettered A, B, C and rows are numbered, just like a spreadsheet.
 
 A schema reads that grid. Each row that holds a transaction becomes a **record**, and each record becomes a transaction in the draft.
 
@@ -57,7 +57,7 @@ It reads a statement whose grid looks like this:
 | 4   | 30/08/26       | SALARY AUG | 0000124      |                 | 50,000.00    | 98,749.50       |
 
 - **`version: v1`** is the version of the schema format. Always write `v1`.
-- **`name`** is a description for you. Rupee doesn't read it.
+- **`name`** is a description for you. Rupea doesn't read it.
 - **`match`** recognises the statement: this one fits any statement that mentions HDFC.
 - **`account`** is the account every transaction goes to. A schema can't import without one.
 - **`header`** finds the row of column names: the row with a cell that says `Narration`.
@@ -69,7 +69,7 @@ The rest of this page goes through each part.
 
 ## Recognising a statement
 
-When you upload a statement, Rupee looks for the one schema that fits it. A schema fits when **any one** of its `match` patterns is found, **and** the statement has the header and every column the schema reads.
+When you upload a statement, Rupea looks for the one schema that fits it. A schema fits when **any one** of its `match` patterns is found, **and** the statement has the header and every column the schema reads.
 
 ```yaml
 match:
@@ -84,10 +84,10 @@ There are three kinds of pattern:
 
 Most schemas only need the bank's name. The header and columns already tell two layouts from one bank apart: an HDFC savings statement has a `Narration` column, an HDFC card statement doesn't.
 
-Rupee tries your ledger's schemas first, and its built-in schemas only when none of yours fit. If you see one of these instead of a draft:
+Rupea tries your ledger's schemas first, and its built-in schemas only when none of yours fit. If you see one of these instead of a draft:
 
 - **`ExtractionUnrecognised`**: no schema fits. Write one, or check that its `match` words appear in the statement and its column names are spelled exactly as in the grid.
-- **`ExtractionAmbiguous`**: more than one schema fits. Rupee never guesses between them, so make one `match` more specific, for example by adding the account type: `text: Savings Account`.
+- **`ExtractionAmbiguous`**: more than one schema fits. Rupea never guesses between them, so make one `match` more specific, for example by adding the account type: `text: Savings Account`.
 - **`ExtractionWithoutAccount`**: the schema that fits has no `account`. Add one.
 
 ### The account
@@ -105,7 +105,7 @@ header:
   text: Narration
 ```
 
-The header is the row of column names. Rupee takes the first row with a cell that is exactly `Narration`. Pick a column name no other row is likely to repeat. Without a `header`, Rupee takes the first row that isn't blank.
+The header is the row of column names. Rupea takes the first row with a cell that is exactly `Narration`. Pick a column name no other row is likely to repeat. Without a `header`, Rupea takes the first row that isn't blank.
 
 If the column names vary a little between statements, use a regular expression instead:
 
@@ -114,7 +114,7 @@ header:
   regex: '^Txn\s+Date$'
 ```
 
-Every row below the header whose date reads is a record. Headers repeated on each page of a PDF are skipped. If no row's date reads, Rupee doesn't quietly import nothing: every row reports why its date didn't read, which usually means the date format is wrong.
+Every row below the header whose date reads is a record. Headers repeated on each page of a PDF are skipped. If no row's date reads, Rupea doesn't quietly import nothing: every row reports why its date didn't read, which usually means the date format is wrong.
 
 Rarely, a row whose date reads isn't a transaction. Then `records` with a `where` replaces the date rule: a row is a record only when its cell in one column matches a regular expression. This keeps the rows that have a reference number:
 
@@ -128,15 +128,15 @@ records:
 
 ## Reading fields
 
-A record has five fields. Rupee needs the first three:
+A record has five fields. Rupea needs the first three:
 
 | Field         | What it holds                                                                                                                                                     |
 | ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `date`        | The day of the transaction.                                                                                                                                       |
 | `amount`      | Money in is positive, money out is negative, as the account sees it.                                                                                              |
 | `description` | What the statement says about the transaction.                                                                                                                    |
-| `category`    | Optional. A category the statement gives. It counts only when it names an account, like `Expenses:Food`; otherwise Rupee guesses one from your past transactions. |
-| `balance`     | Optional. The running balance the statement prints after each row. Rupee checks your ledger against it.                                                           |
+| `category`    | Optional. A category the statement gives. It counts only when it names an account, like `Expenses:Food`; otherwise Rupea guesses one from your past transactions. |
+| `balance`     | Optional. The running balance the statement prints after each row. Rupea checks your ledger against it.                                                           |
 
 Each field is a **path**: `from` says where the value is, and `pipe` turns the text found there into a value.
 
@@ -148,7 +148,7 @@ This reads: take the cell in the `Date` column of the record's row, and read it 
 
 ### Where a value is: locators
 
-`from` is a list of **locators**. Rupee starts at the record's row and follows them in order.
+`from` is a list of **locators**. Rupea starts at the record's row and follows them in order.
 
 - **`header: Date`** goes to the column named `Date`. The name must match the header cell exactly.
 - **`col: B`** goes to column B. Use it when a column has no name, or its name changes.
@@ -173,7 +173,7 @@ Most fields need one locator. Moving matters when a statement doesn't keep a val
 
 ### Debits and credits: two paths
 
-Many statements put money out and money in in two columns. Give a field a list of paths, and Rupee takes the first one that reads:
+Many statements put money out and money in in two columns. Give a field a list of paths, and Rupea takes the first one that reads:
 
 ```yaml
 amount:
@@ -183,11 +183,11 @@ amount:
     pipe: [number]
 ```
 
-On a withdrawal row the first path reads, and the amount goes out. On a deposit row the withdrawal cell is empty, so Rupee tries the second.
+On a withdrawal row the first path reads, and the amount goes out. On a deposit row the withdrawal cell is empty, so Rupea tries the second.
 
 ## PDF statements
 
-A PDF has no real columns, so Rupee finds the tables on each page and lines their words up into a grid. Check the grid on the import page before writing the fields; the columns may not be where the printed page suggests.
+A PDF has no real columns, so Rupea finds the tables on each page and lines their words up into a grid. Check the grid on the import page before writing the fields; the columns may not be where the printed page suggests.
 
 PDFs often mark an amount with `DR` or `CR` in the next cell instead of using two columns. The built-in schema for IDFC FIRST Bank credit cards reads them with locators that move:
 
@@ -225,13 +225,13 @@ A credit cell still ends in ` CR` after the first path's `replace`, so it doesn'
 
 ## Built-in schemas
 
-Rupee ships schemas for:
+Rupea ships schemas for:
 
 - HDFC Bank savings accounts and credit cards
 - IDFC FIRST Bank credit cards
 - State Bank of India savings accounts
 
-A built-in schema is used only when none of your own schemas fit. The first time you save an import with one, Rupee copies it into your ledger's `schemas/` folder. From then on it is yours: change its `account` to the one you use, and edit it like any other schema.
+A built-in schema is used only when none of your own schemas fit. The first time you save an import with one, Rupea copies it into your ledger's `schemas/` folder. From then on it is yours: change its `account` to the one you use, and edit it like any other schema.
 
 ## Reference
 

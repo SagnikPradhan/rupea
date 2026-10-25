@@ -1,4 +1,4 @@
-import { isBlank, isComment, isMetadata, isPosting, lines, type RupeeLine } from './parser';
+import { isBlank, isComment, isMetadata, isPosting, lines, type RupeaLine } from './parser';
 
 /**
  * Tidies whitespace only: every line keeps its place and meaning, so comments survive.
@@ -27,9 +27,9 @@ export const format = (content: string): string => {
 	return squeeze(output);
 };
 
-const wordsOf = (l: RupeeLine) => l.content.trim().split(/\s+/);
+const wordsOf = (l: RupeaLine) => l.content.trim().split(/\s+/);
 
-const posting = (l: RupeeLine, column: number) => {
+const posting = (l: RupeaLine, column: number) => {
 	const [account = '', ...rest] = wordsOf(l);
 	return rest.length === 0 ? `\t${account}` : `\t${account.padEnd(column)}${rest.join(' ')}`;
 };

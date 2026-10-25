@@ -4,7 +4,7 @@ import pg from 'pg';
 import { inject } from 'vitest';
 
 // Migrated once per run by `postgres.ts`; every test file gets a copy.
-export const TEMPLATE = 'rupee_template';
+export const TEMPLATE = 'rupea_template';
 
 export const createTemporaryDatabase = async (): Promise<DatabaseHandle> => {
 	const server = inject('postgres');

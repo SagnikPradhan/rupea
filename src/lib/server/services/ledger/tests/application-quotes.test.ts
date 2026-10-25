@@ -1,5 +1,5 @@
 import type { Database } from '#lib/server/db/index.ts';
-import { provide, type RupeeContext } from '#lib/server/shared/context/context.ts';
+import { provide, type RupeaContext } from '#lib/server/shared/context/context.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { err, ok } from '#lib/server/shared/result/result.ts';
 import { listJobs, runJob } from '#services/jobs/application/jobs.ts';
@@ -51,7 +51,7 @@ const queued = async (l: Ledger) =>
 		await listJobs({ userId: l.owner, name: fetchQuotes.name, payload: {}, limit: 10 })
 	)._unsafeUnwrap();
 
-const fetchedWith = (context: RupeeContext, fetch: typeof globalThis.fetch, symbolId: string) =>
+const fetchedWith = (context: RupeaContext, fetch: typeof globalThis.fetch, symbolId: string) =>
 	provide({ ...context, fetch }, () => Quotes.fetchQuotes({ symbolId }));
 
 const valueOf = async (ledger: Ledger) =>
@@ -66,7 +66,7 @@ describe('fetching quotes', () => {
 	}) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			await Files.createFile({ ledger, key: 'a.rupee', content: fund('100001') });
+			await Files.createFile({ ledger, key: 'a.rupea', content: fund('100001') });
 			await Accounts.listAccounts({ ledger, day });
 			const [symbolId = ''] = await symbolOf(db, '100001');
 			const [job] = await queued(ledger);
@@ -91,7 +91,7 @@ describe('fetching quotes', () => {
 	it('asks only from its latest quote on, the next time', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			await Files.createFile({ ledger, key: 'a.rupee', content: fund('100002') });
+			await Files.createFile({ ledger, key: 'a.rupea', content: fund('100002') });
 			const [symbolId = ''] = await symbolOf(db, '100002');
 			const fetch = navs({ '17-10-2026': '160.5' });
 
@@ -107,7 +107,7 @@ describe('fetching quotes', () => {
 	it('records when fetches began failing, until one works', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			await Files.createFile({ ledger, key: 'a.rupee', content: fund('100003') });
+			await Files.createFile({ ledger, key: 'a.rupea', content: fund('100003') });
 			const [symbolId = ''] = await symbolOf(db, '100003');
 			const down = vi.fn(async () => new Response('', { status: 503 }));
 			const health = () =>
@@ -140,12 +140,12 @@ describe('fetching quotes', () => {
 		provide(context, async () => {
 			const first = await createLedger(db);
 			const second = await createLedger(db);
-			await Files.createFile({ ledger: first, key: 'a.rupee', content: fund('100004') });
+			await Files.createFile({ ledger: first, key: 'a.rupea', content: fund('100004') });
 			await Accounts.listAccounts({ ledger: first, day });
 			const [symbolId = ''] = await symbolOf(db, '100004');
 			await fetchedWith(context, navs({ '17-10-2026': '160.5' }), symbolId);
 
-			await Files.createFile({ ledger: second, key: 'a.rupee', content: fund('100004') });
+			await Files.createFile({ ledger: second, key: 'a.rupea', content: fund('100004') });
 			await Accounts.listAccounts({ ledger: second, day });
 
 			expect(await symbolOf(db, '100004')).toEqual([symbolId]);
@@ -161,7 +161,7 @@ describe('fetching quotes', () => {
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			const content = `${fund('100006')}P * NIFTY mfapi:100007\n`;
-			await Files.createFile({ ledger, key: 'a.rupee', content });
+			await Files.createFile({ ledger, key: 'a.rupea', content });
 			const [down = ''] = await symbolOf(db, '100006');
 			const [missing = ''] = await symbolOf(db, '100007');
 			await fetchedWith(
@@ -185,7 +185,7 @@ describe('fetching quotes', () => {
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			const content = fund('100008').replace('mfapi:100008', 'yahoo:TWICE.NS');
-			await Files.createFile({ ledger, key: 'a.rupee', content });
+			await Files.createFile({ ledger, key: 'a.rupea', content });
 			const symbol = await db
 				.selectFrom('symbols')
 				.select('id')
@@ -213,7 +213,7 @@ describe('fetching quotes', () => {
 	it('fails with the feed’s error even when recording it fails too', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			await Files.createFile({ ledger, key: 'a.rupee', content: fund('100009') });
+			await Files.createFile({ ledger, key: 'a.rupea', content: fund('100009') });
 			const [symbolId = ''] = await symbolOf(db, '100009');
 			const removing = vi.fn(async () => {
 				await db.deleteFrom('symbols').where('id', '=', symbolId).execute();
@@ -228,7 +228,7 @@ describe('fetching quotes', () => {
 	it('leaves alone a symbol since removed, and one a ledger prices itself', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			await Files.createFile({ ledger, key: 'a.rupee', content: fund('100005') });
+			await Files.createFile({ ledger, key: 'a.rupea', content: fund('100005') });
 			const own = await db
 				.selectFrom('symbols')
 				.select('id')

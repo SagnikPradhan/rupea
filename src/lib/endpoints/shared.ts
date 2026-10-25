@@ -9,7 +9,7 @@ export const Handle = v.pipe(v.string(), v.check(isHandle, 'Not a ledger handle.
 export const Key = v.pipe(
 	v.string(),
 	v.nonEmpty(),
-	v.endsWith('.rupee', 'Ledger files end in .rupee.'),
+	v.endsWith('.rupea', 'Ledger files end in .rupea.'),
 );
 
 export const SchemaKey = v.pipe(

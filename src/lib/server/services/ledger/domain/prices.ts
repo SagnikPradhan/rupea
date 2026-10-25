@@ -3,11 +3,11 @@ import {
 	PriceKind,
 	PriceSource,
 	type Price,
-	type RupeeLedgerFile,
-	type RupeeTransaction,
+	type RupeaLedgerFile,
+	type RupeaTransaction,
 } from './types';
 
-export const marketPrices = (file: RupeeLedgerFile) => [
+export const marketPrices = (file: RupeaLedgerFile) => [
 	...file.prices.map((p) => ({ ...p, source: PriceSource.Line })),
 	...file.transactions.flatMap(postingPrices),
 ];
@@ -21,7 +21,7 @@ export const unitPrice = (p: { amount: Amount; price: Price | null }): Quantity 
 	return { amount: divide(p.price.amount, units), commodity: p.price.commodity };
 };
 
-const postingPrices = (t: RupeeTransaction) =>
+const postingPrices = (t: RupeaTransaction) =>
 	t.postings.flatMap((p) => {
 		const price = unitPrice(p);
 		if (price === null) return [];

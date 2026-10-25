@@ -10,7 +10,7 @@ vi.mock('#lib/endpoints/accounts.remote.ts', () => ({ listLots: vi.fn() }));
 
 describe('the lots page', () => {
 	const lot = {
-		file: 'broker.rupee',
+		file: 'broker.rupea',
 		line: 3,
 		date: '2026-01-05',
 		origin: 'bought',
@@ -20,7 +20,7 @@ describe('the lots page', () => {
 		cost: '1500 INR',
 		disposals: [
 			{
-				file: 'broker.rupee',
+				file: 'broker.rupea',
 				line: 9,
 				date: '2026-06-01',
 				kind: 'sold',
@@ -38,7 +38,7 @@ describe('the lots page', () => {
 
 		expect(await screen.findByText('INFY in Assets:Broker')).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'sold' }).getAttribute('href')).toBe(
-			'/l/h/files?file=broker.rupee&line=9',
+			'/l/h/files?file=broker.rupea&line=9',
 		);
 		expect(screen.getByText(/left/).textContent).toContain('1');
 	});

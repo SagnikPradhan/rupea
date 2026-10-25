@@ -1,10 +1,10 @@
 import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
 import { parseAmount, formatAmount, type Amount } from '#services/ledger/domain/amounts.ts';
 import { displayLocation, parse } from '#services/ledger/domain/parser.ts';
-import { Feed, PriceKind, type RupeePosting } from '#services/ledger/domain/types.ts';
+import { Feed, PriceKind, type RupeaPosting } from '#services/ledger/domain/types.ts';
 import { describe, expect, it } from 'vitest';
 
-const file = 'random.rupee';
+const file = 'random.rupea';
 const at = displayLocation({ file, line: 1 });
 const run = (n: string[]) => {
 	const { succeeded, failed } = parse(defaultConfiguration.ledger, {
@@ -18,7 +18,7 @@ const transaction = (
 	header: number,
 	date: string,
 	description: string,
-	postings: RupeePosting[],
+	postings: RupeaPosting[],
 ) => ({
 	location: { file, line: header },
 	date: Temporal.PlainDate.from(date),
@@ -28,7 +28,7 @@ const transaction = (
 	postings,
 });
 
-const posting = (account: string, amount: string): RupeePosting => ({
+const posting = (account: string, amount: string): RupeaPosting => ({
 	account,
 	amount: parseAmount(amount) as Amount,
 	commodity: 'INR',
@@ -358,8 +358,8 @@ describe('commodities', () => {
 		account: string,
 		amount: string,
 		commodity: string,
-		price: RupeePosting['price'] = null,
-	): RupeePosting => ({ ...posting(account, amount), commodity, price });
+		price: RupeaPosting['price'] = null,
+	): RupeaPosting => ({ ...posting(account, amount), commodity, price });
 	const unit = (amount: string, commodity: string) => ({
 		amount: parseAmount(amount) as Amount,
 		commodity,
@@ -555,7 +555,7 @@ describe('links', () => {
 
 describe('lot costs', () => {
 	const sell = (lines: string[]) => run(['2026-10-01 Sell INFY', ...lines]);
-	const sold = (cost: RupeePosting['cost'], price: RupeePosting['price'] = null): RupeePosting => ({
+	const sold = (cost: RupeaPosting['cost'], price: RupeaPosting['price'] = null): RupeaPosting => ({
 		...posting('Assets:Zerodha', '-4'),
 		commodity: 'INFY',
 		cost,

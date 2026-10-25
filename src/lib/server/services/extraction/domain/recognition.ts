@@ -3,10 +3,10 @@ import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
 import { matchesGlob } from 'node:path';
 import { match, P } from 'ts-pattern';
 import { layout } from './runtime';
-import type { Pattern, RupeeSchema } from './schema';
+import type { Pattern, RupeaSchema } from './schema';
 import type { Grid } from './types';
 
-export type ParsedSchema = { key: string; content: string; schema: RupeeSchema };
+export type ParsedSchema = { key: string; content: string; schema: RupeaSchema };
 
 type RecogniseOptions = {
 	statement: string;

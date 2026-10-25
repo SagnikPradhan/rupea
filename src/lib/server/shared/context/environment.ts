@@ -1,7 +1,7 @@
 import { resolve } from 'node:path';
 import { openDatabase, type Database, type DatabaseHandle } from '../../db/index';
-import type { RupeeConfiguration } from './config';
-import type { RupeeContext } from './context';
+import type { RupeaConfiguration } from './config';
+import type { RupeaContext } from './context';
 import { createLogger } from './logger';
 import { logMailer } from './mailer';
 import { models } from '../onnx/models';
@@ -10,13 +10,13 @@ import { localStorage } from '../storage/local';
 import { scoped, type Storages } from '../storage/storage';
 
 /** One for every user, so writes to the same file wait for each other. */
-const createStorages = (c: RupeeConfiguration): Storages => {
+const createStorages = (c: RupeaConfiguration): Storages => {
 	const data = localStorage(resolve(c.storage.files));
 	return { local: (u) => scoped(data, `users/${u}`) };
 };
 
 /** Kept across dev reloads, since a second embedded server on the same directory fails to start. */
-export const createDatabase = (c: RupeeConfiguration): Promise<DatabaseHandle> => {
+export const createDatabase = (c: RupeaConfiguration): Promise<DatabaseHandle> => {
 	const kept: Promise<DatabaseHandle> | undefined = import.meta.hot?.data.database;
 	if (kept) return kept;
 
@@ -29,10 +29,10 @@ export const createDatabase = (c: RupeeConfiguration): Promise<DatabaseHandle> =
 };
 
 export const createContext = (
-	config: RupeeConfiguration,
+	config: RupeaConfiguration,
 	db: Database,
 	dev: boolean,
-): RupeeContext => {
+): RupeaContext => {
 	const logger = createLogger(config.log.level, dev);
 	return {
 		config,

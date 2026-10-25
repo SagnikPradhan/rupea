@@ -18,7 +18,7 @@ const content = [
 ].join('\n');
 
 const edit = (line: number, description: string, date: string, role: EventRole): LinkEdit => ({
-	file: 'a.rupee',
+	file: 'a.rupea',
 	line,
 	date,
 	description,
@@ -27,7 +27,7 @@ const edit = (line: number, description: string, date: string, role: EventRole):
 });
 
 const insert = (e: LinkEdit[], text = content) =>
-	insertLinks(defaultConfiguration.ledger, { key: 'a.rupee', content: text }, e);
+	insertLinks(defaultConfiguration.ledger, { key: 'a.rupea', content: text }, e);
 
 describe('inserting links', () => {
 	it('puts each link under its header and leaves the rest alone', () => {
@@ -62,7 +62,7 @@ describe('inserting links', () => {
 	])('refuses a target with %s', (_, e) => {
 		expect(insert([e])._unsafeUnwrapErr()).toEqual({
 			type: 'EventStale',
-			location: `a.rupee:${e.line}`,
+			location: `a.rupea:${e.line}`,
 		});
 	});
 
@@ -95,7 +95,7 @@ describe('rewriting links', () => {
 	const rewrite = (text: string) =>
 		rewriteLinks(
 			defaultConfiguration.ledger,
-			{ key: 'a.rupee', content: text },
+			{ key: 'a.rupea', content: text },
 			'tea-otter',
 			() => ({
 				event: 'tea-cat',
@@ -112,7 +112,7 @@ describe('rewriting links', () => {
 	it('refuses a file with no member of the event', () => {
 		expect(rewrite(content)._unsafeUnwrapErr()).toEqual({
 			type: 'EventStale',
-			location: 'a.rupee',
+			location: 'a.rupea',
 		});
 	});
 });

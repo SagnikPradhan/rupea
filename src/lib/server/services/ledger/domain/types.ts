@@ -46,7 +46,7 @@ export enum DisposalKind {
 /** The owner is the user whose storage holds the ledger. */
 export type Ledger = { id: string; handle: string; name: string; owner: string };
 
-export type RupeeFile = {
+export type RupeaFile = {
 	key: string;
 	size: number;
 	modified: Date;
@@ -54,15 +54,15 @@ export type RupeeFile = {
 	content: string;
 };
 
-export type RupeeParseLocation = { file: string; line: number };
+export type RupeaParseLocation = { file: string; line: number };
 
 /** A repeated key collects its values in the order they were written. */
-export type RupeeMetadata = Record<string, string[]>;
+export type RupeaMetadata = Record<string, string[]>;
 
 export type Price = Quantity & { kind: PriceKind };
 export type LotCost = Quantity & { date: Temporal.PlainDate | null };
 
-export type RupeePosting = {
+export type RupeaPosting = {
 	account: string;
 	amount: Amount;
 	commodity: string;
@@ -70,37 +70,37 @@ export type RupeePosting = {
 	cost: LotCost | null;
 	/** What the account holds of the posting's commodity after it, if the file asserts it. */
 	balance: Amount | null;
-	metadata: RupeeMetadata;
+	metadata: RupeaMetadata;
 };
 
-export type RupeeTransaction = {
-	location: RupeeParseLocation;
+export type RupeaTransaction = {
+	location: RupeaParseLocation;
 	date: Temporal.PlainDate;
 	time: Temporal.PlainTime | null;
 	description: string;
-	metadata: RupeeMetadata;
-	postings: RupeePosting[];
+	metadata: RupeaMetadata;
+	postings: RupeaPosting[];
 };
 
-export type RupeeMarketPrice = {
-	location: RupeeParseLocation;
+export type RupeaMarketPrice = {
+	location: RupeaParseLocation;
 	date: Temporal.PlainDate;
 	commodity: string;
 	price: Quantity;
 };
 
 /** Prices a commodity by a feed's symbol from a day on, or from the start when since is null. */
-export type RupeeLink = {
-	location: RupeeParseLocation;
+export type RupeaLink = {
+	location: RupeaParseLocation;
 	since: Temporal.PlainDate | null;
 	commodity: string;
 	feed: Feed;
 	symbol: string;
 };
 
-export type RupeeLedgerFile = {
-	metadata: RupeeMetadata;
-	transactions: RupeeTransaction[];
-	prices: RupeeMarketPrice[];
-	links: RupeeLink[];
+export type RupeaLedgerFile = {
+	metadata: RupeaMetadata;
+	transactions: RupeaTransaction[];
+	prices: RupeaMarketPrice[];
+	links: RupeaLink[];
 };

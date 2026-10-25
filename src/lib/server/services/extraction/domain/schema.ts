@@ -89,13 +89,13 @@ const Schema = v.strictObject({
 	}),
 });
 
-export type RupeeSchema = v.InferOutput<typeof Schema>;
+export type RupeaSchema = v.InferOutput<typeof Schema>;
 export type Path = v.InferOutput<typeof Path>;
 export type Pattern = v.InferOutput<typeof Pattern>;
 export type Locator = v.InferOutput<typeof Locator>;
 export type Transform = v.InferOutput<typeof Transform>;
 
-export const parseSchema = (key: string, content: string): Result<RupeeSchema> => {
+export const parseSchema = (key: string, content: string): Result<RupeaSchema> => {
 	const document = parseDocument(content);
 	const [syntax] = document.errors;
 	if (syntax) return invalid(key, syntax.message);

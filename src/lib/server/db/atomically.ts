@@ -1,7 +1,7 @@
 import { sql } from 'kysely';
 import type { Database } from './index';
 import { provide, withContext } from '../shared/context/context';
-import { unknownError, type RupeeError } from '../shared/result/error';
+import { unknownError, type RupeaError } from '../shared/result/error';
 import { attempt, type ResultAsync } from '../shared/result/result';
 
 const ROLLBACK = 'rolled back';
@@ -42,4 +42,4 @@ const unwrap = async <T>(f: () => ResultAsync<T>): Promise<T> => {
 };
 
 const rolledBack = (t: unknown) =>
-	t instanceof Error && t.message === ROLLBACK ? (t.cause as RupeeError) : undefined;
+	t instanceof Error && t.message === ROLLBACK ? (t.cause as RupeaError) : undefined;

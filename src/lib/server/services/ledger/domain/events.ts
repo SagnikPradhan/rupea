@@ -1,8 +1,8 @@
-import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
+import { fault, type RupeaError } from '#lib/server/shared/result/error.ts';
 import { formatQuantity, sum } from './amounts';
 import { displayLocation } from './parser';
 import { accountType, BALANCE_TYPES } from './taxonomy';
-import { type RupeeMetadata, type RupeeParseLocation, type RupeePosting } from './types';
+import { type RupeaMetadata, type RupeaParseLocation, type RupeaPosting } from './types';
 
 export enum EventRole {
 	Primary = 'primary',
@@ -19,12 +19,12 @@ export const EVENT_KEYS = Object.values(EVENT_KEY);
 
 export type EventMember = {
 	id: string;
-	location: RupeeParseLocation;
-	metadata: RupeeMetadata;
-	postings: RupeePosting[];
+	location: RupeaParseLocation;
+	metadata: RupeaMetadata;
+	postings: RupeaPosting[];
 };
 
-export type EventCheck = { uncounted: string[]; failed: RupeeError[] };
+export type EventCheck = { uncounted: string[]; failed: RupeaError[] };
 
 export type EventLink = { event: string; role: EventRole };
 
@@ -54,7 +54,7 @@ export const checkEvents = (transactions: EventMember[]): EventCheck => {
 };
 
 /** More than one link is a mistake `checkEvents` reports. */
-export const linksOf = (m: RupeeMetadata): EventLink[] =>
+export const linksOf = (m: RupeaMetadata): EventLink[] =>
 	Object.values(EventRole).flatMap((r) =>
 		(m[EVENT_KEY[r]] ?? []).map((e) => ({ event: e, role: r })),
 	);
@@ -104,7 +104,7 @@ const disagreements = (
 	event: string,
 	primary: EventMember,
 	evidence: EventMember,
-): RupeeError[] => {
+): RupeaError[] => {
 	const expected = balances(primary);
 
 	return balances(evidence).flatMap((actual) => {

@@ -1,7 +1,7 @@
-import { provide, withContext, type RupeeContext } from '#lib/server/shared/context/context.ts';
+import { provide, withContext, type RupeaContext } from '#lib/server/shared/context/context.ts';
 import { withLogger } from '#lib/server/shared/context/logger.ts';
 import { batchAsync } from '#lib/server/shared/result/batch.ts';
-import { unknownError, type RupeeError } from '#lib/server/shared/result/error.ts';
+import { unknownError, type RupeaError } from '#lib/server/shared/result/error.ts';
 import { okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { once } from 'node:events';
 import { setTimeout } from 'node:timers/promises';
@@ -36,7 +36,7 @@ type StartOptions = {
 	entry: string;
 	execArgv: string[];
 	env: Record<string, string>;
-	context: RupeeContext;
+	context: RupeaContext;
 	jobs: Job<unknown>[];
 	/** Settles once the workers' models are ready; nothing is claimed before. */
 	ready: Promise<void>;
@@ -69,7 +69,7 @@ export const startWorkers = (o: StartOptions) => {
 };
 
 type OrchestrateOptions = {
-	context: RupeeContext;
+	context: RupeaContext;
 	jobs: Job<unknown>[];
 	dispatch: Dispatch;
 	count: number;
@@ -130,7 +130,7 @@ export const releaseExpired = (l: Job<unknown>[]): ResultAsync<void> =>
 		.andThen((e) => batchAsync(e.map((r) => settle(r, abandoned(l, r)))))
 		.map((b) => b.failed.forEach(logged));
 
-const stopped = (c: RupeeContext) => {
+const stopped = (c: RupeaContext) => {
 	c.logger.warn('jobs stopped, since there are no workers');
 	return { stop: () => Promise.resolve() };
 };
@@ -177,5 +177,5 @@ const settle = (r: Run, e: Ending): ResultAsync<void> =>
 		return finishJob(r, e.error);
 	});
 
-const logged = (e: RupeeError) =>
+const logged = (e: RupeaError) =>
 	withLogger('jobs')((l) => l.error({ error: e }, 'jobs could not be run'));

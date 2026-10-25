@@ -6,7 +6,7 @@
 
 - [x] Import PDF, CSV, XLS and XLSX statements
 - [x] Unlock password-protected PDFs and spreadsheets
-- [x] Teach Rupee a statement with a schema, and review the draft
+- [x] Teach Rupea a statement with a schema, and review the draft
 - [ ] Import from common Indian banks and cards without writing a schema
   - [x] HDFC Bank savings account
   - [x] HDFC Bank credit card
@@ -28,7 +28,7 @@
 
 ### Transactions
 
-- [x] Keep your ledger in plain `.rupee` files
+- [x] Keep your ledger in plain `.rupea` files
 - [x] Edit ledger files in the browser
 - [x] Browse transactions and postings
 - [ ] Add and edit a transaction from a form
@@ -83,8 +83,8 @@
 - [ ] Create and rename ledgers
 - [ ] Invite members and let them write
 - [ ] Back up your storage and restore it
-- [ ] Use Rupee in a phone browser
-- [ ] Use Rupee as a desktop app
+- [ ] Use Rupea in a phone browser
+- [ ] Use Rupea as a desktop app
 
 ## Internals
 

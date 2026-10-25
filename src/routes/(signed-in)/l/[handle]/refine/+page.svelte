@@ -5,7 +5,7 @@
 		dismissSuggestion,
 		listSuggestions,
 	} from '#lib/endpoints/refinement.remote.ts';
-	import type { RupeeError } from '#lib/server/shared/result/error.ts';
+	import type { RupeaError } from '#lib/server/shared/result/error.ts';
 	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
 	import { detail } from '#lib/web/shared/errors.ts';
 	import { fileHref, ledgerCrumb } from '#lib/web/shared/links.ts';
@@ -26,7 +26,7 @@
 	const suggestions = $derived(response?.data ?? []);
 	const duplicates = $derived(suggestions.filter((s) => s.confidence === 'duplicate'));
 
-	const failures = $state({ list: [] as RupeeError[] });
+	const failures = $state({ list: [] as RupeaError[] });
 	const swapped = $state<Record<string, boolean>>({});
 
 	// Only a new event has both links to swap; joining one keeps its primary.

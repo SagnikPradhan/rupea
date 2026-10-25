@@ -3,7 +3,7 @@ import { atomically } from '#lib/server/db/atomically.ts';
 import { json, noneOf } from '#lib/server/db/expressions.ts';
 import type { Tables } from '#lib/server/db/tables.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
-import type { RupeeError } from '#lib/server/shared/result/error.ts';
+import type { RupeaError } from '#lib/server/shared/result/error.ts';
 import { attempt, errAsync, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { sql, type Expression, type ExpressionBuilder } from 'kysely';
 import { JobStatus } from '../domain/jobs';
@@ -43,7 +43,7 @@ export type UserJob = {
 	id: string;
 	status: JobStatus;
 	payload: unknown;
-	error: RupeeError | null;
+	error: RupeaError | null;
 	createdAt: Date;
 };
 
@@ -110,7 +110,7 @@ export const renewLease = (r: Run, lease: number): ResultAsync<void> =>
 		}),
 	);
 
-export const finishJob = (r: Run, error: RupeeError | null): ResultAsync<void> => {
+export const finishJob = (r: Run, error: RupeaError | null): ResultAsync<void> => {
 	const status = error ? JobStatus.Failed : JobStatus.Succeeded;
 	return updateRun(r, { status, error });
 };
@@ -119,7 +119,7 @@ export const finishJob = (r: Run, error: RupeeError | null): ResultAsync<void> =
  * Queues a run again after `delay`, or deletes it when a copy was queued while it ran. The requeue
  * runs in a savepoint, since the copy's unique violation aborts the transaction it happens in.
  */
-export const retryJob = (r: Run, error: RupeeError, delay: number): ResultAsync<void> => {
+export const retryJob = (r: Run, error: RupeaError, delay: number): ResultAsync<void> => {
 	const queued = { status: JobStatus.Queued, error, runAt: later(delay) };
 	return atomically(() => updateRun(r, queued)).orElse((e) =>
 		violates(e, 'jobs_user_id_name_dedupe_queued') ? deleteRun(r) : errAsync(e),
@@ -149,7 +149,7 @@ const failUnknown = (known: string[]): ResultAsync<void> =>
 				.updateTable('jobs')
 				.set((e) => ({
 					status: JobStatus.Failed,
-					error: sql<RupeeError>`jsonb_build_object('type', 'JobUnknown', 'name', ${e.ref('name')})`,
+					error: sql<RupeaError>`jsonb_build_object('type', 'JobUnknown', 'name', ${e.ref('name')})`,
 				}))
 				.where('status', '=', JobStatus.Queued)
 				.where('runAt', '<=', ago(UNKNOWN_KEPT))
@@ -227,7 +227,7 @@ const due = (known: Known[]) => (e: ExpressionBuilder<Tables, 'jobs'>) =>
 		e.or(known.map((k) => e.and([e('name', '=', k.name), e('version', '<=', k.version)]))),
 	]);
 
-type RunUpdate = { status: JobStatus; error: RupeeError | null; runAt?: Expression<Date> };
+type RunUpdate = { status: JobStatus; error: RupeaError | null; runAt?: Expression<Date> };
 
 const updateRun = (r: Run, e: RunUpdate): ResultAsync<void> =>
 	withContext('db')((db) =>

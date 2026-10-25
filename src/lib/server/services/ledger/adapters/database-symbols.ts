@@ -2,7 +2,7 @@ import { json } from '#lib/server/db/expressions.ts';
 import { ROWS_PER_STATEMENT } from '#lib/server/db/index.ts';
 import { chunks } from '#lib/server/shared/arrays.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
-import type { RupeeError } from '#lib/server/shared/result/error.ts';
+import type { RupeaError } from '#lib/server/shared/result/error.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { sql } from 'kysely';
 import { displayLocation } from '../domain/parser';
@@ -73,7 +73,7 @@ export const saveQuotes = (
 	);
 
 /** A fetch that worked clears the error; one that failed keeps when the failing began. */
-export const saveFetch = (symbolId: string, error: RupeeError | null): ResultAsync<void> =>
+export const saveFetch = (symbolId: string, error: RupeaError | null): ResultAsync<void> =>
 	withContext('db')((db) =>
 		attempt(async () => {
 			const now = new Date();

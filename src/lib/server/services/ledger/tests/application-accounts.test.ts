@@ -48,7 +48,7 @@ describe('accounts', () => {
 				'P 2026-10-20 INFY 2000',
 				'',
 			].join('\n');
-			await Files.createFile({ ledger, key: 'a.rupee', content });
+			await Files.createFile({ ledger, key: 'a.rupea', content });
 
 			const accounts = (await Accounts.listAccounts({ ledger, day }))._unsafeUnwrap().succeeded;
 			expect(accounts.map((a) => [a.account, a.total, a.cost, a.gain, a.unpriced])).toEqual([
@@ -77,19 +77,19 @@ describe('accounts', () => {
 					.succeeded.find((a) => a.account === 'Assets:Bank')?.total;
 			const file = (amount: number) =>
 				['2026-10-01 Salary', `\tAssets:Bank ${amount}`, '\tIncome:Salary', ''].join('\n');
-			const created = await Files.createFile({ ledger, key: 'a.rupee', content: file(100) });
-			await Files.createFile({ ledger, key: 'b.rupee', content: file(10) });
+			const created = await Files.createFile({ ledger, key: 'a.rupea', content: file(100) });
+			await Files.createFile({ ledger, key: 'b.rupea', content: file(10) });
 			expect(await bank()).toBe(110_0000000000n);
 
 			await Files.editFile({
 				ledger,
-				key: 'a.rupee',
+				key: 'a.rupea',
 				content: file(200),
 				version: created._unsafeUnwrap().version,
 			});
 			expect(await bank()).toBe(210_0000000000n);
 
-			await Files.deleteFiles({ ledger, keys: ['a.rupee'] });
+			await Files.deleteFiles({ ledger, keys: ['a.rupea'] });
 			expect(await bank()).toBe(10_0000000000n);
 		}));
 
@@ -108,7 +108,7 @@ describe('accounts', () => {
 				'P 2026-10-03 AAPL 250 USD',
 				'',
 			].join('\n');
-			await Files.createFile({ ledger, key: 'ibkr.rupee', content });
+			await Files.createFile({ ledger, key: 'ibkr.rupea', content });
 
 			const accounts = (await Accounts.listAccounts({ ledger, day }))._unsafeUnwrap().succeeded;
 			expect(accounts.find((a) => a.account === 'Assets:IBKR')?.holdings).toMatchObject([
@@ -122,7 +122,7 @@ describe('accounts', () => {
 			const values = await Promise.all(
 				[1600, 2000].map(async (price) => {
 					const ledger = await createLedger(db);
-					await Files.createFile({ ledger, key: 'a.rupee', content: bought(price) });
+					await Files.createFile({ ledger, key: 'a.rupea', content: bought(price) });
 
 					const accounts = (await Accounts.listAccounts({ ledger, day }))._unsafeUnwrap();
 					return accounts.succeeded.find((a) => a.account === 'Assets:Zerodha')?.holdings[0]?.value;
@@ -150,14 +150,14 @@ describe('accounts', () => {
 				'\tAssets:Groww 6 INFY',
 				'',
 			].join('\n');
-			await Files.createFile({ ledger, key: 'a.rupee', content });
+			await Files.createFile({ ledger, key: 'a.rupea', content });
 
 			const zerodha = (
 				await Accounts.listLots({ ledger, account: 'Assets:Zerodha', commodity: 'INFY' })
 			)._unsafeUnwrap();
 			expect(zerodha.succeeded).toMatchObject([
 				{
-					location: { file: 'a.rupee', line: 1 },
+					location: { file: 'a.rupea', line: 1 },
 					origin: 'buy',
 					remaining: 0n,
 					disposals: [
@@ -194,8 +194,8 @@ describe('evidence', () => {
 	it('counts an event once in what accounts hold and what they are worth', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			await Files.createFile({ ledger, key: 'payslip.rupee', content: salary('event') });
-			await Files.createFile({ ledger, key: 'hdfc.rupee', content: salary('same-as') });
+			await Files.createFile({ ledger, key: 'payslip.rupea', content: salary('event') });
+			await Files.createFile({ ledger, key: 'hdfc.rupea', content: salary('same-as') });
 
 			const accounts = (await Accounts.listAccounts({ ledger, day }))._unsafeUnwrap().succeeded;
 			const worth = (await Accounts.listWorth({ ledger, from: day, to: day }))._unsafeUnwrap();
@@ -238,7 +238,7 @@ describe('net worth', () => {
 				'P 2026-10-03 AAPL 50 USD',
 				'',
 			].join('\n');
-			await Files.createFile({ ledger, key: 'a.rupee', content });
+			await Files.createFile({ ledger, key: 'a.rupea', content });
 
 			const worth = (await Accounts.listWorth({ ledger, from, to }))._unsafeUnwrap().succeeded;
 			const days = worth.map((w) => [
@@ -260,7 +260,7 @@ describe('net worth', () => {
 			const worths = await Promise.all(
 				[1600, 2000].map(async (price) => {
 					const ledger = await createLedger(db);
-					await Files.createFile({ ledger, key: 'a.rupee', content: bought(price) });
+					await Files.createFile({ ledger, key: 'a.rupea', content: bought(price) });
 
 					const worth = (await Accounts.listWorth({ ledger, from, to }))._unsafeUnwrap();
 					return worth.succeeded.at(-1)?.worth;
@@ -275,7 +275,7 @@ describe('net worth', () => {
 			const ledger = await createLedger(db);
 			const empty = (await Accounts.listWorth({ ledger, from, to }))._unsafeUnwrap().succeeded;
 			const content = ['2026-10-02 Salary', '\tAssets:Bank 500', '\tIncome:Salary', ''].join('\n');
-			await Files.createFile({ ledger, key: 'a.rupee', content });
+			await Files.createFile({ ledger, key: 'a.rupea', content });
 
 			const worth = (await Accounts.listWorth({ ledger, from, to }))._unsafeUnwrap().succeeded;
 			expect(empty).toEqual([]);
@@ -319,7 +319,7 @@ describe('linked feeds', () => {
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			const content = held('P * HNFI yahoo:RANK.NS', 'P 2026-10-10 HNFI 120');
-			await Files.createFile({ ledger, key: 'a.rupee', content });
+			await Files.createFile({ ledger, key: 'a.rupea', content });
 
 			await quoted(db, Feed.Yahoo, 'RANK.NS', { '2026-10-05': '105', '2026-10-10': '110' });
 			const sameDay = await valueOf(ledger);
@@ -336,7 +336,7 @@ describe('linked feeds', () => {
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			const content = held('P * HNFI mfapi:200001', 'P 2026-10-10 HNFI yahoo:SWITCH.NS');
-			await Files.createFile({ ledger, key: 'a.rupee', content });
+			await Files.createFile({ ledger, key: 'a.rupea', content });
 			await quoted(db, Feed.Mfapi, '200001', { '2026-10-05': '105', '2026-10-12': '999' });
 			await quoted(db, Feed.Yahoo, 'SWITCH.NS', { '2026-10-08': '888', '2026-10-11': '111' });
 
@@ -356,7 +356,7 @@ describe('linked feeds', () => {
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			const content = held('P * HNFI mfapi:200002', 'P * HNFI yahoo:LATER.NS');
-			await Files.createFile({ ledger, key: 'a.rupee', content });
+			await Files.createFile({ ledger, key: 'a.rupea', content });
 			await quoted(db, Feed.Mfapi, '200002', { '2026-10-12': '999' });
 			await quoted(db, Feed.Yahoo, 'LATER.NS', { '2026-10-10': '150' });
 
@@ -379,7 +379,7 @@ describe('linked feeds', () => {
 				'P * USD yahoo:USDINR=X',
 				'',
 			].join('\n');
-			await Files.createFile({ ledger, key: 'ibkr.rupee', content });
+			await Files.createFile({ ledger, key: 'ibkr.rupea', content });
 			await quoted(db, Feed.Yahoo, 'AAPL', { '2026-10-10': '250 USD' });
 			await quoted(db, Feed.Yahoo, 'USDINR=X', { '2026-10-10': '83' });
 
@@ -394,10 +394,10 @@ describe('linked feeds', () => {
 			const unlinked = await createLedger(db);
 			await Files.createFile({
 				ledger: linked,
-				key: 'a.rupee',
+				key: 'a.rupea',
 				content: held('P * HNFI yahoo:OWN.NS'),
 			});
-			await Files.createFile({ ledger: unlinked, key: 'a.rupee', content: held('') });
+			await Files.createFile({ ledger: unlinked, key: 'a.rupea', content: held('') });
 			await quoted(db, Feed.Yahoo, 'OWN.NS', { '2026-10-10': '150' });
 
 			expect(await valueOf(linked)).toBe(150_0000000000n);
@@ -443,7 +443,7 @@ describe('spending', () => {
 	}) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			await Files.createFile({ ledger, key: 'a.rupee', content });
+			await Files.createFile({ ledger, key: 'a.rupea', content });
 
 			const spending = await Accounts.listSpending({
 				ledger,
@@ -483,7 +483,7 @@ describe('spending', () => {
 	it('reads each span on its own, by day or year', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			await Files.createFile({ ledger, key: 'a.rupee', content });
+			await Files.createFile({ ledger, key: 'a.rupea', content });
 
 			const byDay = await Accounts.listSpending({
 				ledger,
@@ -513,7 +513,7 @@ describe('spending', () => {
 	}) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			await Files.createFile({ ledger, key: 'a.rupee', content });
+			await Files.createFile({ ledger, key: 'a.rupea', content });
 
 			const spending = await Accounts.listSpending({
 				ledger,
@@ -538,8 +538,8 @@ describe('spending', () => {
 				'\tAssets:Bank',
 				'',
 			];
-			await Files.createFile({ ledger, key: 'a.rupee', content: dinner('event').join('\n') });
-			await Files.createFile({ ledger, key: 'b.rupee', content: dinner('same-as').join('\n') });
+			await Files.createFile({ ledger, key: 'a.rupea', content: dinner('event').join('\n') });
+			await Files.createFile({ ledger, key: 'b.rupea', content: dinner('same-as').join('\n') });
 
 			const spending = await Accounts.listSpending({
 				ledger,

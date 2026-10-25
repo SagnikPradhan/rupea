@@ -3,11 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { Key, SchemaKey } from '#lib/endpoints/shared.ts';
 
 describe('ledger file keys', () => {
-	it.each(['a.rupee', 'bank/2026/hdfc.rupee'])('accepts %j', (key) => {
+	it.each(['a.rupea', 'bank/2026/hdfc.rupea'])('accepts %j', (key) => {
 		expect(v.parse(Key, key)).toBe(key);
 	});
 
-	it.each(['', 'notes.txt', 'a.rupee.bak'])('rejects %j', (key) => {
+	it.each(['', 'notes.txt', 'a.rupea.bak'])('rejects %j', (key) => {
 		expect(v.safeParse(Key, key).success).toBe(false);
 	});
 });

@@ -4,12 +4,12 @@ import { formatQuantity } from './amounts';
 import {
 	PriceKind,
 	type LotCost,
-	type RupeeLedgerFile,
-	type RupeeLink,
-	type RupeeMarketPrice,
-	type RupeeMetadata,
-	type RupeePosting,
-	type RupeeTransaction,
+	type RupeaLedgerFile,
+	type RupeaLink,
+	type RupeaMarketPrice,
+	type RupeaMetadata,
+	type RupeaPosting,
+	type RupeaTransaction,
 } from './types';
 
 export const PRICE_SIGN: Record<PriceKind, string> = {
@@ -17,7 +17,7 @@ export const PRICE_SIGN: Record<PriceKind, string> = {
 	[PriceKind.Total]: '@@',
 };
 
-export const print = (c: LedgerConfiguration, file: RupeeLedgerFile): string => {
+export const print = (c: LedgerConfiguration, file: RupeaLedgerFile): string => {
 	const pLines = [
 		...file.prices.map((p) => printPrice(c, p)),
 		...file.links.map((l) => printLink(c, l)),
@@ -35,7 +35,7 @@ export const print = (c: LedgerConfiguration, file: RupeeLedgerFile): string => 
 // With prices or several commodities every amount is spelled out.
 const printTransaction = (
 	{ dateFormats, timeFormats }: LedgerConfiguration,
-	{ date, time, description, metadata, postings }: RupeeTransaction,
+	{ date, time, description, metadata, postings }: RupeaTransaction,
 ): string => {
 	const header = [
 		printDate(dateFormats[0], date),
@@ -57,7 +57,7 @@ const printTransaction = (
 };
 
 // Posting metadata sits a level deeper only for the reader; the parser ignores indentation.
-const printPosting = (f: string | undefined, p: RupeePosting, elided: boolean): string => {
+const printPosting = (f: string | undefined, p: RupeaPosting, elided: boolean): string => {
 	const line = [
 		p.account,
 		...(elided ? [] : [formatQuantity(p)]),
@@ -69,7 +69,7 @@ const printPosting = (f: string | undefined, p: RupeePosting, elided: boolean): 
 	return `\t${line}\n${printMetadata('\t\t', p.metadata)}`;
 };
 
-const printTerms = (f: string | undefined, p: RupeePosting): string[] => [
+const printTerms = (f: string | undefined, p: RupeaPosting): string[] => [
 	...(p.cost === null ? [] : [printCost(f, p.cost)]),
 	...(p.price === null ? [] : [PRICE_SIGN[p.price.kind], formatQuantity(p.price)]),
 ];
@@ -77,13 +77,13 @@ const printTerms = (f: string | undefined, p: RupeePosting): string[] => [
 const printCost = (f: string | undefined, c: LotCost): string =>
 	`{${[formatQuantity(c), ...(c.date ? [printDate(f, c.date)] : [])].join(', ')}}`;
 
-const printPrice = ({ dateFormats }: LedgerConfiguration, p: RupeeMarketPrice): string =>
+const printPrice = ({ dateFormats }: LedgerConfiguration, p: RupeaMarketPrice): string =>
 	`P ${printDate(dateFormats[0], p.date)} ${p.commodity} ${formatQuantity(p.price)}\n`;
 
-const printLink = ({ dateFormats }: LedgerConfiguration, l: RupeeLink): string =>
+const printLink = ({ dateFormats }: LedgerConfiguration, l: RupeaLink): string =>
 	`P ${l.since ? printDate(dateFormats[0], l.since) : '*'} ${l.commodity} ${l.feed}:${l.symbol}\n`;
 
-const printMetadata = (t: string, m: RupeeMetadata): string =>
+const printMetadata = (t: string, m: RupeaMetadata): string =>
 	Object.entries(m)
 		.flatMap(([key, values]) => values.map((v) => `${t}- ${key}: ${v}\n`))
 		.join('');
@@ -95,5 +95,5 @@ const printTime = (f: string | undefined, t: Temporal.PlainTime) =>
 	f ? dateFns.format(new Date(1970, 0, 1, t.hour, t.minute, t.second), f) : t.toString();
 
 /** A posting's amount with its cost and price, as the page shows it. */
-export const printQuantity = (p: RupeePosting): string =>
+export const printQuantity = (p: RupeaPosting): string =>
 	[formatQuantity(p), ...printTerms(undefined, p)].join(' ');

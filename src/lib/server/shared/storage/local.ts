@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { glob, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, sep } from 'node:path';
 import { sha256 } from '../hash';
-import { fault, type RupeeError, unknownError } from '../result/error';
+import { fault, type RupeaError, unknownError } from '../result/error';
 import { attempt, err, ok, okAsync, type Result, ResultAsync, inOrder } from '../result/result';
 import { validateKey, type Entry, type Storage } from './storage';
 
@@ -17,7 +17,7 @@ const filesystem = <T>(k: string, f: () => Promise<T>): ResultAsync<T> =>
 
 const whenMissing =
 	<T>(fb: T) =>
-	(e: RupeeError): Result<T> =>
+	(e: RupeaError): Result<T> =>
 		e.type === 'StorageNotFound' ? ok(fb) : err(e);
 
 export const localStorage = (root: string): Storage => {

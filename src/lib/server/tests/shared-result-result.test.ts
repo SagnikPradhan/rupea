@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
-import { fault, type RupeeError, unknownError } from '#lib/server/shared/result/error.ts';
+import { fault, type RupeaError, unknownError } from '#lib/server/shared/result/error.ts';
 import { attempt, err, errAsync, inOrder, ok, okAsync } from '#lib/server/shared/result/result.ts';
 
-const error: RupeeError = { type: 'UnknownError', message: 'boom' };
+const error: RupeaError = { type: 'UnknownError', message: 'boom' };
 
 describe('building an error', () => {
 	it('tags the fields with their type', () => {

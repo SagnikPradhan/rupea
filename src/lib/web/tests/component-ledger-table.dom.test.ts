@@ -73,10 +73,10 @@ describe('an account', () => {
 
 describe('a source', () => {
 	it('names the file by its last part, and links to its line', () => {
-		render(Source, { handle: 'h', file: 'bank/aug.rupee', line: 4 });
+		render(Source, { handle: 'h', file: 'bank/aug.rupea', line: 4 });
 
-		const link = screen.getByRole('link', { name: 'bank/aug.rupee:4' });
-		expect(link.textContent?.trim()).toBe('aug.rupee:4');
-		expect(link.getAttribute('href')).toBe('/l/h/files?file=bank%2Faug.rupee&line=4');
+		const link = screen.getByRole('link', { name: 'bank/aug.rupea:4' });
+		expect(link.textContent?.trim()).toBe('aug.rupea:4');
+		expect(link.getAttribute('href')).toBe('/l/h/files?file=bank%2Faug.rupea&line=4');
 	});
 });

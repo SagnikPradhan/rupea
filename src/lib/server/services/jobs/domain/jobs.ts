@@ -1,4 +1,4 @@
-import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
+import { fault, type RupeaError } from '#lib/server/shared/result/error.ts';
 import { err, ok, type Result, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { sha256 } from '#lib/server/shared/hash.ts';
 import * as v from 'valibot';
@@ -6,7 +6,7 @@ import * as v from 'valibot';
 const MAX_ATTEMPTS = 5;
 const FIRST_DELAY = 10_000;
 const TIMEOUT = 5 * 60 * 1000;
-const RETRIED: RupeeError['type'][] = ['UnknownError'];
+const RETRIED: RupeaError['type'][] = ['UnknownError'];
 
 export enum JobStatus {
 	Queued = 'queued',
@@ -25,7 +25,7 @@ export type Job<P> = {
 	version: number;
 	payload: v.GenericSchema<unknown, P>;
 	/** The errors worth another attempt, `UnknownError` when left out. */
-	retries?: RupeeError['type'][];
+	retries?: RupeaError['type'][];
 	/** Jobs of this name with the same partition run one at a time, the user's by default. */
 	partition?(payload: P, user: string): string;
 	/** A job whose dedupe key is already queued is not queued again, the payload by default. */
@@ -62,11 +62,11 @@ export const readPayload = <P>(job: Job<P>, stored: Stored): Result<P> => {
 
 export type Ending =
 	| { type: 'succeeded' }
-	| { type: 'retried'; error: RupeeError; delay: number }
-	| { type: 'failed'; error: RupeeError };
+	| { type: 'retried'; error: RupeaError; delay: number }
+	| { type: 'failed'; error: RupeaError };
 
 /** How a run that ended with `e` settles: retried while attempts are left and `retried` lists it. */
-export const endingOf = (attempts: number, e: RupeeError | null, retried = RETRIED): Ending => {
+export const endingOf = (attempts: number, e: RupeaError | null, retried = RETRIED): Ending => {
 	if (!e) return { type: 'succeeded' };
 	if (attempts < MAX_ATTEMPTS && retried.includes(e.type))
 		return { type: 'retried', error: e, delay: delayAfter(attempts) };

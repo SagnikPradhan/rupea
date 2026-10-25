@@ -20,7 +20,7 @@ export default defineConfig({
 		}),
 		{
 			// Workers run a build in dev too, as they are processes of their own that Vite does not serve.
-			name: 'rupee:worker',
+			name: 'rupea:worker',
 			buildApp: {
 				order: 'post',
 				handler: () => build({ configFile: WORKER }).then(() => undefined),
@@ -38,7 +38,7 @@ export default defineConfig({
 				watcher.on('event', async (e) => {
 					if (e.code === 'BUNDLE_END' || e.code === 'ERROR') await e.result.close();
 					if (e.code === 'BUNDLE_END')
-						server.environments.ssr.hot.send({ type: 'custom', event: 'rupee:worker-built' });
+						server.environments.ssr.hot.send({ type: 'custom', event: 'rupea:worker-built' });
 					if (e.code === 'ERROR') server.config.logger.error(`worker build: ${e.error.message}`);
 				});
 				server.httpServer?.once('close', () => void watcher.close());

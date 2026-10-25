@@ -1,7 +1,7 @@
-import type { RupeeError } from './error';
+import type { RupeaError } from './error';
 import { ResultAsync, type Result } from './result';
 
-export type Batch<T> = { succeeded: T[]; failed: RupeeError[] };
+export type Batch<T> = { succeeded: T[]; failed: RupeaError[] };
 
 export const batch = <T>(results: Result<T>[]): Batch<T> => ({
 	succeeded: results.flatMap((r) => (r.isOk() ? [r.value] : [])),

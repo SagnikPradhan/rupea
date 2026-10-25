@@ -82,7 +82,7 @@
 					<Button onclick={() => begin('renaming', state.file?.key)}>Rename</Button>
 					<Button onclick={() => begin('deleting')}>Delete</Button>
 				{:else}
-					<Button primary onclick={() => begin('creating', 'new.rupee')}>New file</Button>
+					<Button primary onclick={() => begin('creating', 'new.rupea')}>New file</Button>
 				{/if}
 				<span>{@render links?.()}</span>
 			</div>

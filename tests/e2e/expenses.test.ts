@@ -27,7 +27,7 @@ test('adds up spending by account over a range, net of refunds', async ({
 	signedIn: page,
 	ledger,
 }) => {
-	await createFile(page, ledger, 'bank.rupee', spending);
+	await createFile(page, ledger, 'bank.rupea', spending);
 
 	await visit(page, `${ledger}/expenses`);
 	await expect(page.locator('.figure')).toHaveText('10,000.00');
@@ -56,7 +56,7 @@ test('lays a month of spending out as a calendar, each day leading to its postin
 	await createFile(
 		page,
 		ledger,
-		'bank.rupee',
+		'bank.rupea',
 		[`${day} Dinner`, '\tExpenses:Food 1200', '\tAssets:Bank', ''].join('\n'),
 	);
 

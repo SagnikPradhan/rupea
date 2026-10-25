@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 
 const booked = (lines: string[], commodity = 'INFY') => {
 	const content = `${lines.join('\n')}\n`;
-	const parsed = parse(defaultConfiguration.ledger, { key: 'a.rupee', content });
+	const parsed = parse(defaultConfiguration.ledger, { key: 'a.rupea', content });
 	if (parsed.failed.length > 0) throw new Error(JSON.stringify(parsed.failed));
 
 	const postings: BookedPosting[] = parsed.succeeded.flatMap((t) =>

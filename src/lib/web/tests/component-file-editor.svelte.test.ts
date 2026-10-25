@@ -5,10 +5,10 @@ import { fakeApi, parseError } from '#lib/web/tests/component-file-editor-fixtur
 beforeEach(() => vi.useFakeTimers());
 afterEach(() => vi.useRealTimers());
 
-const opened = async (files: Record<string, string> = { 'a.rupee': 'one' }) => {
+const opened = async (files: Record<string, string> = { 'a.rupea': 'one' }) => {
 	const fake = fakeApi(files);
 	const editor = createEditor(fake.api, 300);
-	await editor.open('a.rupee');
+	await editor.open('a.rupea');
 	return { ...fake, editor };
 };
 
@@ -17,7 +17,7 @@ describe('opening a file', () => {
 		const { editor, api } = await opened();
 		expect(editor.state.content).toBe('one');
 		expect(editor.dirty).toBe(false);
-		expect(api.check).toHaveBeenCalledWith({ key: 'a.rupee', content: 'one' });
+		expect(api.check).toHaveBeenCalledWith({ key: 'a.rupea', content: 'one' });
 	});
 
 	it('reports a file that cannot be read', async () => {
@@ -46,23 +46,23 @@ describe('editing', () => {
 		const { editor, disk } = await opened();
 		editor.edit('bad');
 		await editor.save();
-		expect(disk.get('a.rupee')?.content).toBe('bad');
+		expect(disk.get('a.rupea')?.content).toBe('bad');
 		expect(editor.dirty).toBe(false);
 	});
 
 	it('formats without saving', async () => {
-		const { editor, disk } = await opened({ 'a.rupee': '  one  ' });
+		const { editor, disk } = await opened({ 'a.rupea': '  one  ' });
 		await editor.format();
 		expect(editor.state.content).toBe('one');
 		expect(editor.dirty).toBe(true);
-		expect(disk.get('a.rupee')?.content).toBe('  one  ');
+		expect(disk.get('a.rupea')?.content).toBe('  one  ');
 	});
 });
 
 describe('a conflict', () => {
 	const conflicted = async () => {
 		const opening = await opened();
-		opening.touch('a.rupee', 'elsewhere');
+		opening.touch('a.rupea', 'elsewhere');
 		opening.editor.edit('mine');
 		await opening.editor.save();
 		return opening;
@@ -85,23 +85,23 @@ describe('a conflict', () => {
 		const { editor, disk } = await conflicted();
 		await editor.overwrite();
 		expect(editor.state.conflict).toBe(false);
-		expect(disk.get('a.rupee')?.content).toBe('mine');
+		expect(disk.get('a.rupea')?.content).toBe('mine');
 	});
 });
 
 describe('file operations', () => {
 	it('creates an empty file and opens it', async () => {
 		const { editor, disk } = await opened();
-		expect(await editor.create('b.rupee')).toBe(true);
-		expect(disk.get('b.rupee')?.content).toBe('');
-		expect(editor.state.file?.key).toBe('b.rupee');
+		expect(await editor.create('b.rupea')).toBe(true);
+		expect(disk.get('b.rupea')?.content).toBe('');
+		expect(editor.state.file?.key).toBe('b.rupea');
 	});
 
 	it('renames the open file', async () => {
 		const { editor, disk } = await opened();
-		expect(await editor.rename('b.rupee')).toBe(true);
-		expect([...disk.keys()]).toEqual(['b.rupee']);
-		expect(editor.state.file?.key).toBe('b.rupee');
+		expect(await editor.rename('b.rupea')).toBe(true);
+		expect([...disk.keys()]).toEqual(['b.rupea']);
+		expect(editor.state.file?.key).toBe('b.rupea');
 	});
 
 	it('deletes the open file and closes it', async () => {

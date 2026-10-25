@@ -38,7 +38,7 @@ export const requestCode = (email: string): ResultAsync<void> =>
 			return DB.saveEmailCode({ email, ...fresh.stored }).andThen(() =>
 				mailer.send({
 					to: email,
-					subject: `Your Rupee sign-in code: ${fresh.code}`,
+					subject: `Your Rupea sign-in code: ${fresh.code}`,
 					text: `Your sign-in code is ${fresh.code}. It expires in 10 minutes.`,
 				}),
 			);

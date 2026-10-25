@@ -1,6 +1,6 @@
 import { base } from '#lib/server/db/columns.ts';
 import { EMBEDDING_DIMENSIONS } from '#lib/server/shared/onnx/models.ts';
-import type { RupeeError } from '#lib/server/shared/result/error.ts';
+import type { RupeaError } from '#lib/server/shared/result/error.ts';
 import { users } from '#services/auth/adapters/database-schema.ts';
 import { sql } from 'drizzle-orm';
 import * as PG from 'drizzle-orm/pg-core';
@@ -235,7 +235,7 @@ export const symbolFetches = PG.pgTable('symbol_fetches', (t) => ({
 		.references(() => symbols.id, { onDelete: 'cascade' }),
 	fetchedAt: t.timestamp({ withTimezone: true }),
 	failingSince: t.timestamp({ withTimezone: true }),
-	error: t.jsonb().$type<RupeeError>(),
+	error: t.jsonb().$type<RupeaError>(),
 }));
 
 export const lots = PG.pgTable(

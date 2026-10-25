@@ -6,10 +6,10 @@ import { DATE_FORMATS, isDateFormat, isTimeFormat, TIME_FORMATS } from '../dates
 const LOG_LEVELS = ['trace', 'debug', 'info', 'warn', 'error', 'fatal', 'silent'] as const;
 const QUARTER_OF_CORES = Math.max(1, Math.floor(availableParallelism() / 4));
 
-export type RupeeConfiguration = v.InferOutput<typeof configuration>;
-export type LedgerConfiguration = RupeeConfiguration['ledger'];
+export type RupeaConfiguration = v.InferOutput<typeof configuration>;
+export type LedgerConfiguration = RupeaConfiguration['ledger'];
 
-export const defaultConfiguration: RupeeConfiguration = {
+export const defaultConfiguration: RupeaConfiguration = {
 	storage: { database: null, files: 'data' },
 	models: { dir: 'data/models', mode: 'download', threads: QUARTER_OF_CORES },
 	jobs: { workers: 1 },
@@ -19,7 +19,7 @@ export const defaultConfiguration: RupeeConfiguration = {
 };
 
 /** The defaults, overridden by each variable the environment sets. */
-export const readConfiguration = (e: NodeJS.ProcessEnv): RupeeConfiguration =>
+export const readConfiguration = (e: NodeJS.ProcessEnv): RupeaConfiguration =>
 	validate(combine(defaultConfiguration, fromEnv(e)));
 
 const fromEnv = (env: NodeJS.ProcessEnv) => {
@@ -31,19 +31,19 @@ const fromEnv = (env: NodeJS.ProcessEnv) => {
 			.map((f) => f.trim());
 
 	return {
-		storage: { database: read('DATABASE_URL'), files: read('RUPEE_STORAGE_FILES') },
+		storage: { database: read('DATABASE_URL'), files: read('RUPEA_STORAGE_FILES') },
 		models: {
-			dir: read('RUPEE_MODELS_DIR'),
-			mode: read('RUPEE_MODELS_MODE'),
-			threads: number('RUPEE_MODELS_THREADS'),
+			dir: read('RUPEA_MODELS_DIR'),
+			mode: read('RUPEA_MODELS_MODE'),
+			threads: number('RUPEA_MODELS_THREADS'),
 		},
-		jobs: { workers: number('RUPEE_JOBS_WORKERS') },
+		jobs: { workers: number('RUPEA_JOBS_WORKERS') },
 		ledger: {
-			dateFormats: list('RUPEE_LEDGER_DATE_FORMATS'),
-			timeFormats: list('RUPEE_LEDGER_TIME_FORMATS'),
+			dateFormats: list('RUPEA_LEDGER_DATE_FORMATS'),
+			timeFormats: list('RUPEA_LEDGER_TIME_FORMATS'),
 		},
-		accounts: { signup: read('RUPEE_ACCOUNTS_SIGNUP') },
-		log: { level: read('RUPEE_LOG_LEVEL') },
+		accounts: { signup: read('RUPEA_ACCOUNTS_SIGNUP') },
+		log: { level: read('RUPEA_LOG_LEVEL') },
 	};
 };
 
@@ -56,7 +56,7 @@ const combine = (d: Layer, e: Layer) =>
 		}),
 	);
 
-const validate = (raw: unknown): RupeeConfiguration => {
+const validate = (raw: unknown): RupeaConfiguration => {
 	const parsed = v.safeParse(configuration, raw);
 	// eslint-disable-next-line functional/no-throw-statements -- the server cannot start without it
 	if (!parsed.success) throw new Error(`Invalid configuration\n${v.summarize(parsed.issues)}`);

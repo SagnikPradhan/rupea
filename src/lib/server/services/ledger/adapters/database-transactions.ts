@@ -19,7 +19,7 @@ import type { Neighbour } from '../domain/prediction';
 import { CURRENCIES } from '../domain/lots';
 import { BALANCE_TYPES } from '../domain/taxonomy';
 import type { Filled, Unembedded } from '../domain/text';
-import type { RupeeMetadata, RupeeTransaction } from '../domain/types';
+import type { RupeaMetadata, RupeaTransaction } from '../domain/types';
 import { toCost, toPrice } from './database-queries';
 
 // Transactions searched near each line; the domain keeps the best few postings.
@@ -28,7 +28,7 @@ const NEAREST = 50;
 // Candidates the index keeps while searching; at least `NEAREST`.
 const SEARCHED = 200;
 
-export type IndexedTransaction = RupeeTransaction & { id: string };
+export type IndexedTransaction = RupeaTransaction & { id: string };
 
 export type CountedTransaction = IndexedTransaction & { counted: boolean };
 
@@ -420,7 +420,7 @@ const compareTimes = (a: Temporal.PlainTime | null, b: Temporal.PlainTime | null
 type MetadataRow = { owner: string | null; key: string; value: string };
 
 // Rows come in written order, which `toMetadata` keeps.
-const byOwner = (rows: MetadataRow[]): Record<string, RupeeMetadata> =>
+const byOwner = (rows: MetadataRow[]): Record<string, RupeaMetadata> =>
 	Object.fromEntries(
 		Object.entries(Object.groupBy(rows, (r) => r.owner ?? '')).map(([owner, group = []]) => [
 			owner,

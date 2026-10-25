@@ -47,7 +47,7 @@ const untilMailed = async (mails: Mail[], email: string): Promise<string> => {
 };
 
 export const withServer = async (use: (server: Server) => Promise<void>) => {
-	const directory = await mkdtemp(join(tmpdir(), 'rupee-e2e-'));
+	const directory = await mkdtemp(join(tmpdir(), 'rupea-e2e-'));
 	const port = await freePort();
 	const url = `http://127.0.0.1:${port}`;
 	const child = spawn('node', ['build'], {
@@ -57,11 +57,11 @@ export const withServer = async (use: (server: Server) => Promise<void>) => {
 			PORT: String(port),
 			// adapter-node assumes https unless a header says otherwise.
 			PROTOCOL_HEADER: 'x-forwarded-proto',
-			RUPEE_STORAGE_FILES: directory,
-			RUPEE_MODELS_MODE: 'verify',
-			RUPEE_MODELS_DIR: resolve('data/models'),
-			RUPEE_LOG_LEVEL: 'info',
-			RUPEE_ACCOUNTS_SIGNUP: 'open',
+			RUPEA_STORAGE_FILES: directory,
+			RUPEA_MODELS_MODE: 'verify',
+			RUPEA_MODELS_DIR: resolve('data/models'),
+			RUPEA_LOG_LEVEL: 'info',
+			RUPEA_ACCOUNTS_SIGNUP: 'open',
 		},
 		stdio: ['ignore', 'pipe', 'inherit'],
 	});

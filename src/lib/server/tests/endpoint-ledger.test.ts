@@ -38,7 +38,7 @@ const it = base.extend<{ ledger: string }>({
 		const ledger = await createLedger(db);
 		const handle = ledger.handle;
 		signIn(ownerOf(ledger));
-		await provide(context, () => createFile({ handle, key: 'a.rupee', content: books }));
+		await provide(context, () => createFile({ handle, key: 'a.rupea', content: books }));
 		await use(handle);
 		signIn(null);
 	},

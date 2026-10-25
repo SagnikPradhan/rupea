@@ -1,7 +1,7 @@
-# Rupee manual
+# Rupea manual
 
-How to use Rupee, for the people keeping their money in it. Words with a special meaning in Rupee are in the [glossary](../../GLOSSARY.md).
+How to use Rupea, for the people keeping their money in it. Words with a special meaning in Rupea are in the [glossary](../../GLOSSARY.md).
 
 ## Importing
 
-- [Writing schemas](schemas.md): teach Rupee to read a bank, card or broker statement.
+- [Writing schemas](schemas.md): teach Rupea to read a bank, card or broker statement.

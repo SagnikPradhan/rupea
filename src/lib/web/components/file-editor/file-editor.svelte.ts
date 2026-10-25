@@ -1,4 +1,4 @@
-import type { RupeeError } from '#lib/server/shared/result/error.ts';
+import type { RupeaError } from '#lib/server/shared/result/error.ts';
 import type { Reply } from '#lib/server/shared/result/reply.ts';
 
 export type EditorFile = { key: string; content: string; version: string };
@@ -15,12 +15,12 @@ export type EditorApi = {
 
 const sleep = (t: number) => new Promise<void>((r) => setTimeout(r, t));
 
-const isConflict = (e: RupeeError[]) => e.some((x) => x.type === 'StorageConflict');
+const isConflict = (e: RupeaError[]) => e.some((x) => x.type === 'StorageConflict');
 
 type EditorState = {
 	file: EditorFile | null;
 	content: string;
-	errors: { parse: RupeeError[]; operation: RupeeError[] };
+	errors: { parse: RupeaError[]; operation: RupeaError[] };
 	conflict: boolean;
 	saving: boolean;
 };

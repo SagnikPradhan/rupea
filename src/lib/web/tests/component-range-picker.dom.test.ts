@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import RangePicker from '#lib/web/components/range-picker/range-picker.svelte';
 
 vi.mock('$app/state', () => ({
-	page: { url: new URL('https://rupee.test/l/h/accounts?range=1m&account=Assets') },
+	page: { url: new URL('https://rupea.test/l/h/accounts?range=1m&account=Assets') },
 }));
 
 describe('the range picker', () => {

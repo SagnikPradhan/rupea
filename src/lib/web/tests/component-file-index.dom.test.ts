@@ -23,7 +23,7 @@ const rendered = (keys: string[]) => {
 	return userEvent.setup();
 };
 
-const keys = ['bank/a.rupee', 'bank/b.rupee', 'bank/c.rupee', 'imports/x.csv'];
+const keys = ['bank/a.rupea', 'bank/b.rupea', 'bank/c.rupea', 'imports/x.csv'];
 
 describe('the file index', () => {
 	it('says when there are no files', async () => {
@@ -55,8 +55,8 @@ describe('the file index', () => {
 
 	it('marks the files between two clicks when shift is held', async () => {
 		rendered(keys);
-		await fireEvent.click(await screen.findByLabelText('Select bank/a.rupee'));
-		await fireEvent.click(screen.getByLabelText('Select bank/c.rupee'), { shiftKey: true });
+		await fireEvent.click(await screen.findByLabelText('Select bank/a.rupea'));
+		await fireEvent.click(screen.getByLabelText('Select bank/c.rupea'), { shiftKey: true });
 
 		expect(screen.getByText('3 selected')).toBeTruthy();
 		expect(screen.getByLabelText('Select imports/x.csv')).toHaveProperty('checked', false);
@@ -79,7 +79,7 @@ describe('the file index', () => {
 		const user = rendered(keys);
 		await user.click(await screen.findByRole('button', { name: 'bank/' }));
 
-		expect(screen.queryByLabelText('Select bank/a.rupee')).toBeNull();
+		expect(screen.queryByLabelText('Select bank/a.rupea')).toBeNull();
 		expect(screen.getByRole('button', { name: 'bank/' }).getAttribute('aria-expanded')).toBe(
 			'false',
 		);

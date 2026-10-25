@@ -22,14 +22,14 @@ const ledgerFile = [
 test('shows what each account holds and what it is worth', async ({ signedIn: page, ledger }) => {
 	await visit(page, `${ledger}/files`);
 	await page.getByRole('button', { name: 'New file' }).click();
-	await page.getByLabel('New file').fill('shares.rupee');
+	await page.getByLabel('New file').fill('shares.rupea');
 	await page.getByRole('button', { name: 'Create' }).click();
-	await expect(page.getByRole('heading', { name: 'shares.rupee' })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'shares.rupea' })).toBeVisible();
 	await page
 		.getByRole('navigation', { name: 'Breadcrumb' })
 		.getByRole('link', { name: 'Files' })
 		.click();
-	await page.getByRole('link', { name: 'shares.rupee' }).click();
+	await page.getByRole('link', { name: 'shares.rupea' }).click();
 	await page.getByLabel('Ledger file').fill(ledgerFile);
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
 	await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();

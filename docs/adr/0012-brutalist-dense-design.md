@@ -1,6 +1,6 @@
 # A brutalist, dense design language
 
-Rupee reads like a sharp accountant's working paper: numbers first, structure on show, nothing decorative. Every screen follows the same few rules, so a new page needs no design of its own. Print-minded sites such as [railroadladies.com](https://railroadladies.com) and [lelism.com](https://www.lelism.com) set the tone.
+Rupea reads like a sharp accountant's working paper: numbers first, structure on show, nothing decorative. Every screen follows the same few rules, so a new page needs no design of its own. Print-minded sites such as [railroadladies.com](https://railroadladies.com) and [lelism.com](https://www.lelism.com) set the tone.
 
 **Plain HTML is the structure.** Pages are documents: headings, paragraphs, tables, underlined links. Alignment and whitespace separate things, never cards, boxes, panels or shadows. Controls like buttons and inputs may keep a small radius; nothing else is rounded or filled.
 
@@ -28,7 +28,7 @@ Rupee reads like a sharp accountant's working paper: numbers first, structure on
 
 - **A conventional app look** (cards, soft shadows, rounded panels): familiar, but it spends space on chrome and hides the data's own structure.
 - **Pure black and white**: sharper, but a loss would read only from its minus sign.
-- **Grey below AA for unimportant text**: a crisper hierarchy, but some people could not read it, and Rupee is a hosted service for many users.
+- **Grey below AA for unimportant text**: a crisper hierarchy, but some people could not read it, and Rupea is a hosted service for many users.
 
 ## Consequences
 

@@ -21,7 +21,7 @@
 
 <header>
 	<div>
-		<a href="/">Rupee</a>
+		<a href="/">Rupea</a>
 		<ThemeToggle theme={data.theme} />
 	</div>
 </header>

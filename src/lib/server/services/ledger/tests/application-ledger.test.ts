@@ -54,11 +54,11 @@ describe('reaching a ledger', () => {
 		provide(context, async () => {
 			const { userId } = await createUser(db);
 			const created = (await Ledger.createLedger({ user: userId, name: 'Home' }))._unsafeUnwrap();
-			await Files.createFile({ ledger: created, key: 'a.rupee', content: groceries });
+			await Files.createFile({ ledger: created, key: 'a.rupea', content: groceries });
 
 			expect(created).toMatchObject({ name: 'Home', owner: userId });
 			expect(isHandle(created.handle)).toBe(true);
-			expect((await stored(storage, created).read('a.rupee')).isOk()).toBe(true);
+			expect((await stored(storage, created).read('a.rupea')).isOk()).toBe(true);
 		}));
 
 	it('tries another handle when one is taken, and gives up after a few', ({ context, db }) =>

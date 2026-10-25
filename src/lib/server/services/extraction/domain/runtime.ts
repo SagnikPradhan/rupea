@@ -4,8 +4,8 @@ import { fault } from '#lib/server/shared/result/error.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
 import { displayLocation, parseAmount, type Amount } from '#services/ledger/application/shared.ts';
 import { match, P } from 'ts-pattern';
-import type { Locator, Path, RupeeSchema, Transform } from './schema';
-import { STATEMENT_ERA, type Grid, type RupeeRecord } from './types';
+import type { Locator, Path, RupeaSchema, Transform } from './schema';
+import { STATEMENT_ERA, type Grid, type RupeaRecord } from './types';
 
 type Sheet = { file: string; grid: Grid; headers: Map<string, number> };
 
@@ -20,7 +20,7 @@ type Read =
 	| { kind: 'failed'; reason: string };
 
 type ReadRecordsOptions = {
-	schema: RupeeSchema;
+	schema: RupeaSchema;
 	file: string;
 	grid: Grid;
 };
@@ -29,7 +29,7 @@ export const readRecords = ({
 	schema,
 	grid,
 	file,
-}: ReadRecordsOptions): Result<Batch<RupeeRecord>> =>
+}: ReadRecordsOptions): Result<Batch<RupeaRecord>> =>
 	layout({ schema, grid, file }).map(({ sheet, header }) => {
 		// A statement may repeat its header, as on every page of a PDF.
 		const repeats = (c: string[]) => c.join('\t').trim() === (grid[header] ?? []).join('\t').trim();
@@ -65,10 +65,10 @@ export const layout = ({
 
 const isBlank = (c: string[]) => c.every((c) => c.trim() === '');
 
-const isHeader = (h: RupeeSchema['header'], c: string) =>
+const isHeader = (h: RupeaSchema['header'], c: string) =>
 	h !== undefined && ('text' in h ? c.trim() === h.text : h.regex.test(c));
 
-const columns = ({ fields, records }: RupeeSchema): string[] => {
+const columns = ({ fields, records }: RupeaSchema): string[] => {
 	const paths = Object.values(fields).flatMap((p) => p ?? []);
 	const headers = paths
 		.flatMap(({ from }) => from)
@@ -84,7 +84,7 @@ const column = ({ headers }: Sheet, nm: string): number | null =>
 		: null);
 
 type RowOptions = {
-	schema: RupeeSchema;
+	schema: RupeaSchema;
 	sheet: Sheet;
 	row: number;
 };
@@ -105,12 +105,12 @@ type InvalidOptions = {
 	expected: string;
 };
 
-const record = ({ schema, sheet, row }: RowOptions): Result<RupeeRecord> => {
+const record = ({ schema, sheet, row }: RowOptions): Result<RupeaRecord> => {
 	const fields = schema.fields;
 	const location = { file: sheet.file, line: row + 1 };
 
 	const get = (p: Path[], k: Read['kind']) => readField({ sheet, row, paths: p, kind: k });
-	const invalid = ({ field, read, expected }: InvalidOptions): Result<RupeeRecord> =>
+	const invalid = ({ field, read, expected }: InvalidOptions): Result<RupeaRecord> =>
 		err(
 			fault('ExtractionInvalidField', {
 				location: displayLocation(location),

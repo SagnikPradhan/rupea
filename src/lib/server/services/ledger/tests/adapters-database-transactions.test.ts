@@ -19,7 +19,7 @@ const spend = (date: string, description: string, account: string) =>
 
 const ledgerWith = async (db: Database, ...transactions: string[]) => {
 	const ledger = await createLedger(db);
-	await Files.createFile({ ledger, key: 'a.rupee', content: transactions.join('\n') });
+	await Files.createFile({ ledger, key: 'a.rupea', content: transactions.join('\n') });
 	return ledger.id;
 };
 

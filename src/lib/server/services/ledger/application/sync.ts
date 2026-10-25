@@ -1,7 +1,7 @@
 import { atomically } from '#lib/server/db/atomically.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import type { Batch } from '#lib/server/shared/result/batch.ts';
-import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
+import { fault, type RupeaError } from '#lib/server/shared/result/error.ts';
 import { inOrder, ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { readText, type Entry, type Storage } from '#lib/server/shared/storage/storage.ts';
 import { isCounted, STATEMENTS } from '#lib/shared/folders.ts';
@@ -14,21 +14,21 @@ import { checkEvents } from '../domain/events';
 import { displayLocation, parse } from '../domain/parser';
 import { plan, type SyncPlan } from '../domain/sync';
 import { filled, wordsOf, type Unembedded } from '../domain/text';
-import { DisposalKind, type Ledger, type RupeeFile } from '../domain/types';
+import { DisposalKind, type Ledger, type RupeaFile } from '../domain/types';
 import { openFolder } from './ledger';
 
 // Past transactions embedded per sync, latest first, so a large ledger
 // catches up over a few syncs instead of stalling one.
 const EMBEDDED = 500;
 
-export type Indexed = { failed: RupeeError[]; touched: string[] };
+export type Indexed = { failed: RupeaError[]; touched: string[] };
 
 /** Brings the index up to date and checks the ledger, reporting what is wrong with either. */
 export const sync = (l: Ledger): ResultAsync<Batch<never>> =>
 	syncIndex(l).andThen((f) => checkLedger(l).map((e) => ({ succeeded: [], failed: [...f, ...e] })));
 
 /** Brings the index up to date without checking the ledger, which costs a pass over every event and balance assertion. */
-export const syncIndex = (ledger: Ledger): ResultAsync<RupeeError[]> =>
+export const syncIndex = (ledger: Ledger): ResultAsync<RupeaError[]> =>
 	openFolder({ ledger, folder: 'files' }).andThen((s) =>
 		listLedgerFiles(s)
 			.andThen((f) => exclusively(ledger.id, () => update(s, ledger.id, f)).orElse((e) => ok([e])))
@@ -45,9 +45,9 @@ export const listLedgerFiles = (storage: Storage): ResultAsync<Entry[]> =>
 	storage
 		.list()
 		.mapErr((e) => fault('CannotReadDirectory', { path: '', cause: [e] }))
-		.map((e) => e.filter((f) => f.key.endsWith('.rupee') && !f.key.startsWith(`${STATEMENTS}/`)));
+		.map((e) => e.filter((f) => f.key.endsWith('.rupea') && !f.key.startsWith(`${STATEMENTS}/`)));
 
-type IndexFileOptions = { ledgerId: string; file: RupeeFile };
+type IndexFileOptions = { ledgerId: string; file: RupeaFile };
 
 /** A file waiting for review keeps only its metadata, so where it came from is known, but nothing in it counts or fails. */
 export const indexFile = ({ ledgerId, file }: IndexFileOptions): ResultAsync<Indexed> =>
@@ -80,7 +80,7 @@ export const unindex = ({ ledgerId, key }: UnindexOptions): ResultAsync<Indexed>
 type SettleOptions = { ledgerId: string; indexed: Indexed };
 
 /** Settles what spans files once they are indexed: which transactions count, then the lots they book, including those of transactions whose counting changed. */
-export const settle = ({ ledgerId, indexed }: SettleOptions): ResultAsync<RupeeError[]> =>
+export const settle = ({ ledgerId, indexed }: SettleOptions): ResultAsync<RupeaError[]> =>
 	uncountedIn(ledgerId)
 		.andThen((u) => DB.recount(ledgerId, u).map((r) => ({ u, r })))
 		.andThen(({ u, r }) => {
@@ -96,14 +96,14 @@ export const indexEach = (steps: (() => ResultAsync<Indexed>)[]): ResultAsync<In
 		touched: done.flatMap((d) => d.touched),
 	}));
 
-export const checkLots = (l: Ledger): ResultAsync<RupeeError[]> =>
+export const checkLots = (l: Ledger): ResultAsync<RupeaError[]> =>
 	DB.listUnmatched(l.id).map((u) => u.map(toLotError));
 
 // Storage is listed before the lock, so the transaction lasts only while the
 // index changes. Most syncs find nothing changed, and then nothing needs
 // settling. A settle that fails undoes what this sync indexed, so the next one
 // tries again.
-const update = (s: Storage, id: string, stored: Entry[]): ResultAsync<RupeeError[]> =>
+const update = (s: Storage, id: string, stored: Entry[]): ResultAsync<RupeaError[]> =>
 	DB.listIndexedFiles(id).andThen((indexed) => {
 		const p = plan(stored, indexed);
 		return p.changed.length + p.gone.length === 0
@@ -125,7 +125,7 @@ const reported = (i: ResultAsync<Indexed>): ResultAsync<Indexed> =>
 	i.orElse((e) => ok({ failed: [e], touched: [] }));
 
 /** A symbol is fetched once a ledger links it, and again on later syncs until a fetch works. */
-const queueFetches = (ledger: Ledger, failed: RupeeError[]): ResultAsync<RupeeError[]> =>
+const queueFetches = (ledger: Ledger, failed: RupeaError[]): ResultAsync<RupeaError[]> =>
 	DB.listUnfetched(ledger.id)
 		.andThen((ids) =>
 			inOrder(
@@ -137,7 +137,7 @@ const queueFetches = (ledger: Ledger, failed: RupeeError[]): ResultAsync<RupeeEr
 		.map(() => failed)
 		.orElse((e) => ok([...failed, e]));
 
-const embed = (ledgerId: string, failed: RupeeError[]): ResultAsync<RupeeError[]> =>
+const embed = (ledgerId: string, failed: RupeaError[]): ResultAsync<RupeaError[]> =>
 	DB.listUnembedded(ledgerId, MODEL, EMBEDDED)
 		.andThen((r) => (r.length === 0 ? okAsync(undefined) : fill(ledgerId, r)))
 		.map(() => failed)
@@ -152,7 +152,7 @@ const fill = (ledgerId: string, rows: Unembedded[]): ResultAsync<void> =>
 
 // Events and balances span files, so they are checked after every file is in
 // place. Evidence is not counted: an event's money moves at its primary.
-const checkLedger = (ledger: Ledger): ResultAsync<RupeeError[]> =>
+const checkLedger = (ledger: Ledger): ResultAsync<RupeaError[]> =>
 	DB.listEventTransactions(ledger.id)
 		.map(checkEvents)
 		.andThen((e) =>
@@ -162,7 +162,7 @@ const checkLedger = (ledger: Ledger): ResultAsync<RupeeError[]> =>
 		.andThen((f) => checkLinks(ledger).map((l) => [...f, ...l]))
 		.orElse((e) => ok([e]));
 
-const checkLinks = (l: Ledger): ResultAsync<RupeeError[]> =>
+const checkLinks = (l: Ledger): ResultAsync<RupeaError[]> =>
 	DB.listRepeatedLinks(l.id).map((r) =>
 		r.map((k) =>
 			fault('LinkRepeated', { location: k.locations.join(', '), commodity: k.commodity }),
@@ -173,7 +173,7 @@ const uncountedIn = (id: string): ResultAsync<string[]> =>
 	DB.listEventTransactions(id).map((m) => checkEvents(m).uncounted);
 
 // An assertion that could go either way is not checked; a time on either side settles it.
-const toBalanceError = (c: DB.BalanceCheck): RupeeError =>
+const toBalanceError = (c: DB.BalanceCheck): RupeaError =>
 	c.unordered.length > 0
 		? fault('BalanceAssertionAmbiguous', {
 				location: displayLocation(c.location),
@@ -187,7 +187,7 @@ const toBalanceError = (c: DB.BalanceCheck): RupeeError =>
 				actual: formatQuantity({ amount: c.actual, commodity: c.commodity }),
 			});
 
-const toLotError = (disposal: DB.UnmatchedDisposal): RupeeError =>
+const toLotError = (disposal: DB.UnmatchedDisposal): RupeaError =>
 	disposal.kind === DisposalKind.Sale && !disposal.named
 		? fault('LotCostMissing', {
 				location: displayLocation(disposal.location),

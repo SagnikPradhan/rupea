@@ -2,10 +2,10 @@ import { err } from '#lib/server/shared/result/result.ts';
 import { formatAmount } from '#services/ledger/application/shared.ts';
 import { describe, expect, it } from 'vitest';
 import { readRecords } from '#services/extraction/domain/runtime.ts';
-import { parseSchema, type RupeeSchema } from '#services/extraction/domain/schema.ts';
+import { parseSchema, type RupeaSchema } from '#services/extraction/domain/schema.ts';
 import type { Grid } from '#services/extraction/domain/types.ts';
 
-const schema = (text: string): RupeeSchema => {
+const schema = (text: string): RupeaSchema => {
 	const parsed = parseSchema('test.yml', `version: v1\nname: Test\n${text}`);
 	if (parsed.isErr()) throw new Error(JSON.stringify(parsed.error));
 	return parsed.value;

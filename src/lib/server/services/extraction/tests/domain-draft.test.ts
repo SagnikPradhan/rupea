@@ -2,7 +2,7 @@ import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
 import { parse, parseAmount, type Amount } from '#services/ledger/application/shared.ts';
 import { describe, expect, it } from 'vitest';
 import { categorised, copy, draft, uncategorised } from '#services/extraction/domain/draft.ts';
-import type { RupeeRecord } from '#services/extraction/domain/types.ts';
+import type { RupeaRecord } from '#services/extraction/domain/types.ts';
 
 const config = defaultConfiguration.ledger;
 
@@ -14,16 +14,16 @@ const record = (description: string, amount: string, category: string | null = n
 		description,
 		category,
 		balance: null,
-	}) satisfies RupeeRecord;
+	}) satisfies RupeaRecord;
 
-const at = (line: number, account: string, r: RupeeRecord) => ({
+const at = (line: number, account: string, r: RupeaRecord) => ({
 	...r,
 	location: { file: 'hdfc.csv', line },
 	account,
 });
 
 const counterparts = (content: string) =>
-	parse(config, { key: 'imports/hdfc.rupee', content }).succeeded.map(
+	parse(config, { key: 'imports/hdfc.rupea', content }).succeeded.map(
 		(t) => t.postings[1]?.account,
 	);
 
@@ -60,7 +60,7 @@ describe('drafting a ledger file', () => {
 			records: [],
 			failed: [],
 		});
-		expect(drafted.key).toBe('_/imports/20260829/hdfc-aug.2026.rupee');
+		expect(drafted.key).toBe('_/imports/20260829/hdfc-aug.2026.rupea');
 	});
 
 	it('copies a ledger file as written, below the metadata of where it came from', () => {
@@ -70,7 +70,7 @@ describe('drafting a ledger file', () => {
 			text: ['- owner: me', '', '2026-08-29 Tea', '\tExpenses:Food 10', '\tAssets:Cash', ''],
 		});
 
-		expect(copied.key).toBe('_/imports/20260829/books.rupee');
+		expect(copied.key).toBe('_/imports/20260829/books.rupea');
 		expect(copied.content).toBe(
 			[
 				'- statement: 20260829/books.ledger',

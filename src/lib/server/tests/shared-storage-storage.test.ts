@@ -20,7 +20,7 @@ const keys = async (s: Storage, prefix?: string) => {
 };
 
 describe('storage keys', () => {
-	it.each(['a.rupee', 'bank/2026/hdfc.rupee', '.hidden'])('accepts %j', (k) => {
+	it.each(['a.rupea', 'bank/2026/hdfc.rupea', '.hidden'])('accepts %j', (k) => {
 		expect(validateKey(k)).toEqual(ok(k));
 	});
 
@@ -32,11 +32,11 @@ describe('storage keys', () => {
 describe('local storage', () => {
 	it('writes and reads back, creating directories', async ({ storage }) => {
 		const written = await storage.write({
-			key: 'bank/a.rupee',
+			key: 'bank/a.rupea',
 			content: text('hello'),
 		});
-		expect(written).toMatchObject(ok({ key: 'bank/a.rupee', size: 5 }));
-		const read = await storage.read('bank/a.rupee');
+		expect(written).toMatchObject(ok({ key: 'bank/a.rupea', size: 5 }));
+		const read = await storage.read('bank/a.rupea');
 		expect(read.isOk() && new TextDecoder().decode(read.value.content)).toBe('hello');
 		expect(read.isOk() && read.value.entry.version).toBe(written.isOk() && written.value.version);
 	});
@@ -161,19 +161,19 @@ describe('scoped storage', () => {
 	it('confines keys to its prefix and hides the prefix', async ({ storage }) => {
 		const one = scoped(storage, 'ledgers/one');
 		const two = scoped(storage, 'ledgers/two');
-		await one.write({ key: 'a.rupee', content: text('1') });
-		await two.write({ key: 'b.rupee', content: text('2') });
+		await one.write({ key: 'a.rupea', content: text('1') });
+		await two.write({ key: 'b.rupea', content: text('2') });
 
-		expect(await keys(one)).toEqual(['a.rupee']);
-		expect(await keys(two)).toEqual(['b.rupee']);
-		expect(await keys(storage)).toEqual(['ledgers/one/a.rupee', 'ledgers/two/b.rupee']);
-		expect(await one.read('b.rupee')).toMatchObject({ error: { type: 'StorageNotFound' } });
+		expect(await keys(one)).toEqual(['a.rupea']);
+		expect(await keys(two)).toEqual(['b.rupea']);
+		expect(await keys(storage)).toEqual(['ledgers/one/a.rupea', 'ledgers/two/b.rupea']);
+		expect(await one.read('b.rupea')).toMatchObject({ error: { type: 'StorageNotFound' } });
 	});
 
 	it('cannot be escaped with ..', async ({ storage }) => {
 		const one = scoped(storage, 'ledgers/one');
-		expect(await one.read('../two/b.rupee')).toMatchObject({
-			error: { type: 'StorageInvalidKey', key: '../two/b.rupee' },
+		expect(await one.read('../two/b.rupea')).toMatchObject({
+			error: { type: 'StorageInvalidKey', key: '../two/b.rupea' },
 		});
 	});
 
@@ -185,24 +185,24 @@ describe('scoped storage', () => {
 
 describe('text files', () => {
 	it('are written and read back as text', async ({ storage }) => {
-		await writeText(storage, { key: 'a.rupee', content: 'hello' });
-		expect(await readText(storage, 'a.rupee')).toMatchObject(
-			ok({ key: 'a.rupee', content: 'hello' }),
+		await writeText(storage, { key: 'a.rupea', content: 'hello' });
+		expect(await readText(storage, 'a.rupea')).toMatchObject(
+			ok({ key: 'a.rupea', content: 'hello' }),
 		);
 	});
 
 	it('cannot be read when they are not UTF-8', async ({ storage }) => {
-		await storage.write({ key: 'bad.rupee', content: new Uint8Array([0xff, 0xfe]) });
-		expect(await readText(storage, 'bad.rupee')).toMatchObject({
-			error: { type: 'CannotReadFile', path: 'bad.rupee', reason: 'not valid UTF-8' },
+		await storage.write({ key: 'bad.rupea', content: new Uint8Array([0xff, 0xfe]) });
+		expect(await readText(storage, 'bad.rupea')).toMatchObject({
+			error: { type: 'CannotReadFile', path: 'bad.rupea', reason: 'not valid UTF-8' },
 		});
 	});
 
 	it('cannot be read when missing', async ({ storage }) => {
-		expect(await readText(storage, 'missing.rupee')).toMatchObject({
+		expect(await readText(storage, 'missing.rupea')).toMatchObject({
 			error: {
 				type: 'CannotReadFile',
-				path: 'missing.rupee',
+				path: 'missing.rupea',
 				cause: [{ type: 'StorageNotFound' }],
 			},
 		});

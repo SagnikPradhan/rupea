@@ -1,7 +1,7 @@
-# Rupee
+# Rupea
 
-[![Coverage](https://coveralls.io/repos/github/SagnikPradhan/rupee/badge.svg?branch=master)](https://coveralls.io/github/SagnikPradhan/rupee?branch=master)
-[![Reliability](https://sonarcloud.io/api/project_badges/measure?project=SagnikPradhan_rupee&metric=reliability_rating)](https://sonarcloud.io/summary/overall?id=SagnikPradhan_rupee)
+[![Coverage](https://coveralls.io/repos/github/SagnikPradhan/rupea/badge.svg?branch=master)](https://coveralls.io/github/SagnikPradhan/rupea?branch=master)
+[![Reliability](https://sonarcloud.io/api/project_badges/measure?project=rupea&metric=reliability_rating)](https://sonarcloud.io/summary/overall?id=rupea)
 
 **Know where every rupee went.**
 
@@ -68,7 +68,7 @@ cp .env.example .env
 pnpm dev
 ```
 
-The first run downloads the ML models for statement import into `data/models`. How to use Rupee is in the [manual](docs/manual/README.md).
+The first run downloads the ML models for statement import into `data/models`. How to use Rupea is in the [manual](docs/manual/README.md).
 
 ## Development
 

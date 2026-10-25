@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
-import { provide, withContext, type RupeeContext } from '#lib/server/shared/context/context.ts';
+import { provide, withContext, type RupeaContext } from '#lib/server/shared/context/context.ts';
 import { createLogger } from '#lib/server/shared/context/logger.ts';
 import { logMailer } from '#lib/server/shared/context/mailer.ts';
 import { createModels } from '#lib/server/shared/onnx/runtime.ts';
@@ -10,7 +10,7 @@ const logger = createLogger('silent', false);
 
 const context = {
 	config: defaultConfiguration,
-	db: {} as RupeeContext['db'],
+	db: {} as RupeaContext['db'],
 	storages: { local: () => localStorage('/nowhere') },
 	models: createModels({
 		directory: '/nowhere',
@@ -22,7 +22,7 @@ const context = {
 	mailer: logMailer,
 	fetch: globalThis.fetch,
 	logger,
-} satisfies RupeeContext;
+} satisfies RupeaContext;
 
 describe('the runtime context', () => {
 	it('hands over one dependency by key', () => {

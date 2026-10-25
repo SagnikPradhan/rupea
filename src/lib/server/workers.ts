@@ -2,7 +2,7 @@ import { startWorkers } from '#services/jobs/application/orchestrator.ts';
 import { fileURLToPath } from 'node:url';
 import type { ViteHotContext } from 'vite/types/hot.d.ts';
 import { jobs } from './jobs';
-import type { RupeeContext } from './shared/context/context';
+import type { RupeaContext } from './shared/context/context';
 
 /** Worker entries, relative to this module: `vite dev` watches one into .svelte-kit, and the build puts the other in build/server/entries. */
 const WORKER = {
@@ -13,7 +13,7 @@ const WORKER = {
 type ServerWorkersOptions = {
 	/** Where workers reach the server's database. */
 	database: string;
-	context: RupeeContext;
+	context: RupeaContext;
 	dev: boolean;
 };
 
@@ -40,15 +40,15 @@ const watchBuilds = (
 	hot: ViteHotContext,
 	workers: { kill: () => Promise<void>; recycle: () => Promise<void> },
 ) => {
-	if (hot.data.recycle) hot.off('rupee:worker-built', hot.data.recycle);
+	if (hot.data.recycle) hot.off('rupea:worker-built', hot.data.recycle);
 
 	hot.data.killWorkers = workers.kill;
 	hot.data.recycle = () => void workers.recycle();
-	hot.on('rupee:worker-built', hot.data.recycle);
+	hot.on('rupea:worker-built', hot.data.recycle);
 };
 
 /** Jobs wait for the server to download the models, which workers then only check. */
-const modelsReady = (c: RupeeContext) =>
+const modelsReady = (c: RupeaContext) =>
 	c.models.ready().match(
 		() => undefined,
 		(e) => c.logger.warn({ error: e }, 'models not downloaded, jobs that need them fail'),
@@ -57,6 +57,6 @@ const modelsReady = (c: RupeeContext) =>
 /** Workers read their configuration as the server does, from these variables over its own. */
 const workerEnv = (o: ServerWorkersOptions) => ({
 	DATABASE_URL: o.database,
-	RUPEE_MODELS_MODE: 'verify',
+	RUPEA_MODELS_MODE: 'verify',
 	NODE_ENV: o.dev ? 'development' : 'production',
 });

@@ -1,7 +1,7 @@
 import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { batchInOrder } from '#lib/server/shared/result/batch.ts';
-import { fault, type RupeeError } from '#lib/server/shared/result/error.ts';
+import { fault, type RupeaError } from '#lib/server/shared/result/error.ts';
 import {
 	errAsync,
 	inOrder,
@@ -13,7 +13,7 @@ import {
 import * as DB from '../adapters/database';
 import { counted, EventRole, linksOf } from '../domain/events';
 import { insertLinks, rewriteLinks, type LinkEdit, type Relink } from '../domain/links';
-import type { Ledger, RupeeFile, RupeeTransaction } from '../domain/types';
+import type { Ledger, RupeaFile, RupeaTransaction } from '../domain/types';
 import { editFile, readFile } from './files';
 import { syncIndex } from './sync';
 
@@ -45,7 +45,7 @@ export const listEvents = ({ ledger, file }: InFileOptions): ResultAsync<FileEve
 
 type LinkEventsOptions = { ledger: Ledger; edits: LinkEdit[] };
 
-export const linkEvents = ({ ledger, edits }: LinkEventsOptions): ResultAsync<RupeeError[]> =>
+export const linkEvents = ({ ledger, edits }: LinkEventsOptions): ResultAsync<RupeaError[]> =>
 	rewriteFiles(
 		ledger,
 		Object.entries(Object.groupBy(edits, (e) => e.file)).map(([key, group = []]) => ({
@@ -57,7 +57,7 @@ export const linkEvents = ({ ledger, edits }: LinkEventsOptions): ResultAsync<Ru
 
 type RenameEventOptions = { ledger: Ledger; event: string; to: string };
 
-export const renameEvent = ({ ledger, event, to }: RenameEventOptions): ResultAsync<RupeeError[]> =>
+export const renameEvent = ({ ledger, event, to }: RenameEventOptions): ResultAsync<RupeaError[]> =>
 	syncIndex(ledger)
 		.andThen(() => DB.isEventIdTaken(ledger.id, to))
 		.andThen((t) =>
@@ -75,8 +75,8 @@ export const makePrimary = ({
 	event,
 	file,
 	line,
-}: MakePrimaryOptions): ResultAsync<RupeeError[]> => {
-	const isTarget = (t: RupeeTransaction) => t.location.file === file && t.location.line === line;
+}: MakePrimaryOptions): ResultAsync<RupeaError[]> => {
+	const isTarget = (t: RupeaTransaction) => t.location.file === file && t.location.line === line;
 	const isPrimary = (t: DB.IndexedTransaction) =>
 		linksOf(t.metadata).some((l) => l.event === event && l.role === EventRole.Primary);
 	const relink: Relink = (t, l) => ({
@@ -98,7 +98,7 @@ export const makePrimary = ({
 
 type RelinkOptions = { event: string; members: DB.IndexedTransaction[]; relink: Relink };
 
-const relinkFiles = (ledger: Ledger, o: RelinkOptions): ResultAsync<RupeeError[]> => {
+const relinkFiles = (ledger: Ledger, o: RelinkOptions): ResultAsync<RupeaError[]> => {
 	const relinked = o.members.flatMap((t) =>
 		linksOf(t.metadata)
 			.filter((l) => l.event === o.event)
@@ -118,16 +118,16 @@ const relinkFiles = (ledger: Ledger, o: RelinkOptions): ResultAsync<RupeeError[]
 type Rewrite = {
 	key: string;
 	primary: boolean;
-	write: (c: LedgerConfiguration, f: RupeeFile) => Result<string>;
+	write: (c: LedgerConfiguration, f: RupeaFile) => Result<string>;
 };
 
-type Prepared = { file: RupeeFile; content: string; primary: boolean };
+type Prepared = { file: RupeaFile; content: string; primary: boolean };
 
 // Every file is prepared before any is written, and files gaining a primary
 // go first, each only if unchanged since it was read. Writing stops at the
 // first failure: a link then leaves at worst a primary without its evidence,
 // while a rename or a new primary can leave a broken event for sync to report.
-const rewriteFiles = (l: Ledger, rs: Rewrite[]): ResultAsync<RupeeError[]> =>
+const rewriteFiles = (l: Ledger, rs: Rewrite[]): ResultAsync<RupeaError[]> =>
 	batchInOrder(rs.map((r) => () => prepare(l, r))).andThen((b) =>
 		b.failed.length > 0 ? okAsync(b.failed) : writeAll(l, b.succeeded),
 	);
@@ -141,16 +141,16 @@ const prepare = (ledger: Ledger, r: Rewrite): ResultAsync<Prepared> =>
 		})),
 	);
 
-const writeAll = (ledger: Ledger, prepared: Prepared[]): ResultAsync<RupeeError[]> =>
+const writeAll = (ledger: Ledger, prepared: Prepared[]): ResultAsync<RupeaError[]> =>
 	inOrder(
 		prepared
 			.toSorted((a, b) => Number(b.primary) - Number(a.primary))
 			.map((p) => () => write(ledger, p)),
 	)
-		.map((): RupeeError[] => [])
+		.map((): RupeaError[] => [])
 		.orElse((e) => ok([e]));
 
-const write = (l: Ledger, p: Prepared): ResultAsync<RupeeFile> =>
+const write = (l: Ledger, p: Prepared): ResultAsync<RupeaFile> =>
 	p.content === p.file.content
 		? okAsync(p.file)
 		: editFile({ ledger: l, key: p.file.key, content: p.content, version: p.file.version });

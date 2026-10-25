@@ -100,10 +100,10 @@ describe('the import page', () => {
 	it('saves the draft and opens the file it made', async () => {
 		const { user } = showing();
 		await user.click(await screen.findByRole('button', { name: 'hdfc.xls' }));
-		respond(importStatement, { key: 'imports/hdfc.rupee' });
+		respond(importStatement, { key: 'imports/hdfc.rupea' });
 		await user.click(await screen.findByRole('button', { name: 'Save' }));
 
-		await waitFor(() => expect(goto).toHaveBeenCalledWith('/l/h/files?file=imports%2Fhdfc.rupee'));
+		await waitFor(() => expect(goto).toHaveBeenCalledWith('/l/h/files?file=imports%2Fhdfc.rupea'));
 	});
 
 	it('asks for the password of a locked statement, then reads it', async () => {

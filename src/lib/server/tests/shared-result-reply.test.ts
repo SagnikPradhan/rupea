@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
-import type { RupeeError } from '#lib/server/shared/result/error.ts';
+import type { RupeaError } from '#lib/server/shared/result/error.ts';
 import { replyFrom, replyFromBatch } from '#lib/server/shared/result/reply.ts';
 import { err, ok } from '#lib/server/shared/result/result.ts';
 
-const error: RupeeError = { type: 'UnknownError', message: 'boom' };
+const error: RupeaError = { type: 'UnknownError', message: 'boom' };
 
 describe('a result as a reply', () => {
 	it('wraps a success as ok with no errors', async () => {

@@ -4,6 +4,7 @@ import * as Files from '#services/ledger/application/files.ts';
 import * as Sync from '#services/ledger/application/sync.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
+import { sql } from 'kysely';
 import { describe } from 'vitest';
 
 const TO = Temporal.PlainDate.from('2026-10-21');
@@ -26,6 +27,7 @@ describe('accounts', () => {
 				for (const year of yearsUpTo(TO.year, years))
 					await Files.createFile({ ledger, key: `${year}.rupea`, content: yearOf(year, perDay) });
 				console.info(`seeded in ${Math.round(performance.now() - started)} ms`);
+				await sql`analyze`.execute(db);
 
 				const worth = (f: Temporal.PlainDate) => () =>
 					provide(context, () => Accounts.listWorth({ ledger, from: f, to: TO })).then(() => {});

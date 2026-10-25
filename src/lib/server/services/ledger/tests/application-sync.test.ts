@@ -12,6 +12,7 @@ import { broken } from '#tests/shared/embedding.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { count } from '#tests/shared/count.ts';
+import { drift, months } from './fixtures/deltas';
 import { sql } from 'kysely';
 import { describe, expect } from 'vitest';
 import {
@@ -669,6 +670,143 @@ describe('balance assertions', () => {
 
 			expect(await issues(ledger)).toEqual(ok([]));
 		}));
+
+	it('opens with the months before and the days of its month before it', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const months = ['2026-05-10', '2026-06-30', '2026-09-03']
+				.map((d) => `${d} Salary\n\tAssets:Bank 100\n\tIncome:Salary\n`)
+				.join('\n');
+			await Files.createFile({ ledger, key: 'salary.rupea', content: months });
+			await Files.createFile({
+				ledger,
+				key: 'hdfc.rupea',
+				content: [
+					'2026-09-01 TEA',
+					'\tAssets:Bank -10 = 190',
+					'\tExpenses:Food',
+					'',
+					'2026-09-20 TEA',
+					'\tAssets:Bank -10 = 280',
+					'\tExpenses:Food',
+					'',
+				].join('\n'),
+			});
+
+			expect(await issues(ledger)).toEqual(ok([]));
+		}));
+
+	it('keeps whether a posting counts in step with its transaction', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const counted = () =>
+				db
+					.selectFrom('postings as p')
+					.innerJoin('transactions as t', 't.id', 'p.transactionId')
+					.select(['p.counted as posting', 't.counted as transaction'])
+					.distinct()
+					.where('p.ledgerId', '=', ledger.id)
+					.orderBy('p.counted')
+					.execute();
+			await Files.createFile({ ledger, key: 'opening.rupea', content: opening });
+			await Files.createFile({
+				ledger,
+				key: 'hdfc.rupea',
+				content: '2026-08-02 BOOKS\n\t- same-as: books\n\tAssets:Bank -50\n\tExpenses:Books\n',
+			});
+			await Files.createFile({
+				ledger,
+				key: 'amazon.rupea',
+				content: '2026-08-02 Amazon order\n\t- event: books\n\tAssets:Bank -50\n\tExpenses:Books\n',
+			});
+			expect(await counted()).toEqual([
+				{ posting: false, transaction: false },
+				{ posting: true, transaction: true },
+			]);
+
+			await Files.deleteFiles({ ledger, keys: ['amazon.rupea'] });
+			expect(await counted()).toEqual([{ posting: true, transaction: true }]);
+		}));
+
+	it('reports where an account goes off, not every assertion after', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = statement.replace('-100 = 900', '-150 = 900').replace('= 1050', '= 1100');
+			await Files.createFile({ ledger, key: 'opening.rupea', content: opening });
+			await Files.createFile({ ledger, key: 'hdfc.rupea', content });
+
+			expect((await issues(ledger))._unsafeUnwrap()).toEqual([
+				expect.objectContaining({ location: 'hdfc.rupea:1', expected: '900.00', actual: '850.00' }),
+				expect.objectContaining({
+					location: 'hdfc.rupea:9',
+					expected: '1100.00',
+					actual: '1000.00',
+				}),
+			]);
+		}));
+
+	it('reports nothing after an account comes back', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = statement.replace('-100 = 900', '-150 = 900').replace('-50 = 850', '0 = 850');
+			await Files.createFile({ ledger, key: 'opening.rupea', content: opening });
+			await Files.createFile({ ledger, key: 'hdfc.rupea', content });
+
+			expect((await issues(ledger))._unsafeUnwrap()).toEqual([
+				expect.objectContaining({ type: 'BalanceAssertionFailed', location: 'hdfc.rupea:1' }),
+			]);
+		}));
+
+	it('checks again from an earlier file that changed, keeping what came before', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const july = (a: string) => `2026-07-01 Opening\n\tAssets:Bank ${a}\n\tEquity:Opening\n`;
+			await Files.createFile({
+				ledger,
+				key: 'june.rupea',
+				content: '2026-06-01 Cash\n\tAssets:Cash 10 = 20\n\tEquity:Opening\n',
+			});
+			const created = await Files.createFile({ ledger, key: 'july.rupea', content: july('1000') });
+			await Files.createFile({ ledger, key: 'hdfc.rupea', content: statement });
+			expect((await issues(ledger))._unsafeUnwrap()).toEqual([
+				expect.objectContaining({ location: 'june.rupea:1' }),
+			]);
+
+			await Files.editFile({
+				ledger,
+				key: 'july.rupea',
+				content: july('900'),
+				version: created._unsafeUnwrap().version,
+			});
+			expect((await issues(ledger))._unsafeUnwrap()).toEqual([
+				expect.objectContaining({ location: 'hdfc.rupea:1', expected: '900.00', actual: '800.00' }),
+				expect.objectContaining({ location: 'june.rupea:1' }),
+			]);
+		}));
+
+	it('names a transaction it cannot order by its file as it is now', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'opening.rupea', content: opening });
+			await Files.createFile({
+				ledger,
+				key: 'hdfc.rupea',
+				content: '2026-08-02 TEA\n\tAssets:Bank -100 = 900\n\tExpenses:Food\n',
+			});
+			await Files.createFile({
+				ledger,
+				key: 'cash.rupea',
+				content: '2026-08-02 ATM\n\tAssets:Bank -10\n\tAssets:Cash\n',
+			});
+			await Files.renameFiles({ ledger, moves: [{ from: 'cash.rupea', to: 'atm.rupea' }] });
+
+			expect((await issues(ledger))._unsafeUnwrap()).toEqual([
+				expect.objectContaining({ location: 'hdfc.rupea:1', unordered: 'atm.rupea:1' }),
+			]);
+		}));
 });
 
 describe('lots', () => {
@@ -880,3 +1018,162 @@ describe('syncing past a failure', () => {
 			expect(await summary(ledger.id)).toEqual(['a.rupea:1 Groceries']);
 		}));
 });
+
+describe('monthly deltas', () => {
+	const july = '2026-07-15 Rent\n\tExpenses:Rent 300\n\tAssets:Bank\n';
+	const august = '2026-08-01 Salary\n\tAssets:Bank 1000\n\tIncome:Salary\n';
+
+	it('sum what each account moved in each month', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content: `${july}\n${august}` });
+			await Files.createFile({ ledger, key: 'b.rupea', content: august });
+
+			expect(await months(db, ledger.id)).toEqual([
+				'Assets:Bank INR 2026-07-01 -300',
+				'Assets:Bank INR 2026-08-01 2000',
+				'Expenses:Rent INR 2026-07-01 300',
+				'Income:Salary INR 2026-08-01 -2000',
+			]);
+			expect(await drift(db, ledger.id)).toEqual([]);
+		}));
+
+	it('rewrite the months a file left and the months it moved to', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const file = (
+				await Files.createFile({ ledger, key: 'a.rupea', content: july })
+			)._unsafeUnwrap();
+			await Files.editFile({
+				ledger,
+				key: 'a.rupea',
+				content: july.replace('2026-07-15', '2026-09-15'),
+				version: file.version,
+			});
+
+			expect(await months(db, ledger.id)).toEqual([
+				'Assets:Bank INR 2026-09-01 -300',
+				'Expenses:Rent INR 2026-09-01 300',
+			]);
+			expect(await drift(db, ledger.id)).toEqual([]);
+		}));
+
+	it('keep a month whose postings cancel out', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const refund = '2026-07-20 Refund\n\tExpenses:Rent -300\n\tAssets:Bank\n';
+			await Files.createFile({ ledger, key: 'a.rupea', content: `${july}\n${refund}` });
+
+			expect(await months(db, ledger.id)).toEqual([
+				'Assets:Bank INR 2026-07-01 0',
+				'Expenses:Rent INR 2026-07-01 0',
+			]);
+		}));
+
+	it('drop the months of a deleted file, or one moved out for review', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content: july });
+			await Files.createFile({ ledger, key: 'b.rupea', content: august });
+			await Files.deleteFiles({ ledger, keys: ['a.rupea'] });
+			await Files.renameFiles({ ledger, moves: [{ from: 'b.rupea', to: '_/b.rupea' }] });
+
+			expect(await months(db, ledger.id)).toEqual([]);
+			expect(await drift(db, ledger.id)).toEqual([]);
+		}));
+
+	it('rewrite the month of evidence another file uncounts', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({
+				ledger,
+				key: 'hdfc.rupea',
+				content: '2026-07-31 BOOKS\n\t- same-as: books\n\tAssets:Bank -50\n\tExpenses:Books\n',
+			});
+			await Files.createFile({
+				ledger,
+				key: 'amazon.rupea',
+				content: '2026-08-01 Amazon order\n\t- event: books\n\tAssets:Bank -50\n\tExpenses:Books\n',
+			});
+
+			expect(await months(db, ledger.id)).toEqual([
+				'Assets:Bank INR 2026-08-01 -50',
+				'Expenses:Books INR 2026-08-01 50',
+			]);
+			expect(await drift(db, ledger.id)).toEqual([]);
+		}));
+});
+
+describe('monthly deltas that drift', () => {
+	const july = '2026-07-15 Rent\n\tExpenses:Rent 300\n\tAssets:Bank\n';
+	const august = '2026-08-01 Salary\n\tAssets:Bank 1000\n\tIncome:Salary\n';
+	const errors = [
+		{
+			name: 'a wrong amount',
+			introduce: (id: string) =>
+				sql`update monthly_deltas set amount = amount + 1 where ledger_id = ${id} and month = '2026-07-01'`,
+		},
+		{
+			name: 'a missing month',
+			introduce: (id: string) =>
+				sql`delete from monthly_deltas where ledger_id = ${id} and month = '2026-07-01'`,
+		},
+		{
+			name: 'stray months before and after the ledger',
+			introduce: (id: string) =>
+				sql`insert into monthly_deltas (ledger_id, account, account_type, commodity, month, amount)
+					select ${id}, 'Assets:Bank', 'Assets', 'INR', m, 1 from unnest('{2001-01-01,2030-01-01}'::date[]) m`,
+		},
+		{
+			name: 'every month dropped',
+			introduce: (id: string) => sql`delete from monthly_deltas where ledger_id = ${id}`,
+		},
+		{
+			name: 'a posting changed without a settle',
+			introduce: (id: string) =>
+				sql`update postings set amount = amount * 2 where ledger_id = ${id} and account = 'Expenses:Rent'`,
+		},
+	];
+
+	it.for(errors)('put right $name on the next settle', ({ introduce }, { context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content: `${july}\n${august}` });
+			await introduce(ledger.id).execute(db);
+			expect(await drift(db, ledger.id)).not.toEqual([]);
+
+			await Files.createFile({ ledger, key: 'b.rupea', content: august });
+
+			expect(await drift(db, ledger.id)).toEqual([]);
+		}),
+	);
+
+	it('come round to every month, twelve at a time', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const rent = july.replace('2026-07-15', '2023-01-15');
+			const lunch = '2024-06-10 Lunch\n\tExpenses:Food 10\n\tAssets:Bank\n';
+			await Files.createFile({ ledger, key: 'a.rupea', content: `${rent}\n${august}` });
+			await sql`update ledgers set checked_through = null`.execute(db);
+			await sql`update monthly_deltas set amount = 0 where month = '2026-08-01'`.execute(db);
+
+			const checked: (string | null)[] = [];
+			const drifted: number[] = [];
+			for (const n of [1, 2, 3, 4]) {
+				await Files.createFile({ ledger, key: `${n}.rupea`, content: lunch });
+				checked.push(await checkedThrough(db, ledger.id));
+				drifted.push((await drift(db, ledger.id)).length);
+			}
+
+			expect(checked).toEqual(['2023-12-31', '2024-12-31', '2025-12-31', null]);
+			expect(drifted).toEqual([2, 2, 2, 0]);
+		}));
+});
+
+const checkedThrough = (db: Database, id: string) =>
+	db
+		.selectFrom('ledgers')
+		.select('checkedThrough')
+		.where('id', '=', id)
+		.executeTakeFirstOrThrow()
+		.then((r) => r.checkedThrough);

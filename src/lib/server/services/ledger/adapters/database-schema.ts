@@ -34,6 +34,7 @@ export const ledgers = PG.pgTable(
 			.references(() => users.id, { onDelete: 'cascade' }),
 		handle: t.text().notNull().unique('ledgers_handle_unique'),
 		name: t.text().notNull(),
+		checkedThrough: t.date(), // the last day monthly deltas were rebuilt to, or none to start again
 	}),
 	(t) => [PG.index('ledgers_owner_id').on(t.ownerId)],
 );
@@ -115,6 +116,8 @@ export const postings = PG.pgTable(
 			.uuid()
 			.notNull()
 			.references(() => transactions.id, { onDelete: 'cascade' }),
+		date: t.date().notNull(), // its transaction's, so an account's days are read without joining it
+		counted: t.boolean().notNull().default(true), // its transaction's, so counted postings are read without joining it
 		position: t.integer().notNull(),
 		account: t.text().notNull(),
 		accountType: accountType().notNull(),
@@ -135,10 +138,15 @@ export const postings = PG.pgTable(
 
 		// What the account holds of this commodity after this posting, when the file asserts it.
 		balance: amount(),
+
+		// What the ledger says it holds there, and the transactions that could fall either side; set when settled.
+		actual: amount(),
+		unordered: t.uuid().array(),
 	}),
 	(t) => [
 		PG.index('postings_transaction_id').on(t.transactionId),
 		PG.index('postings_ledger_id_account_amount').on(t.ledgerId, t.account, t.commodity, t.amount), // refinement matches
+		PG.index('postings_ledger_id_account_date').on(t.ledgerId, t.account, t.commodity, t.date), // an account's days
 		PG.index('postings_ledger_id_commodity').on(t.ledgerId, t.commodity), // lots are booked per commodity
 		PG.index('postings_ledger_id_lower_account').on(
 			t.ledgerId,
@@ -264,6 +272,31 @@ export const lots = PG.pgTable(
 		PG.index('lots_ledger_id_commodity_account').on(t.ledgerId, t.commodity, t.account),
 		PG.index('lots_posting_id').on(t.postingId),
 		PG.index('lots_source_id').on(t.sourceId),
+	],
+);
+
+/** What an account's counted postings of a commodity moved in one month, so history before a day is summed by the month. */
+export const monthlyDeltas = PG.pgTable(
+	'monthly_deltas',
+	(t) => ({
+		...base,
+		ledgerId: t
+			.uuid()
+			.notNull()
+			.references(() => ledgers.id, { onDelete: 'cascade' }),
+		account: t.text().notNull(),
+		accountType: accountType().notNull(),
+		commodity: t.text().notNull(),
+		month: t.date().notNull(), // its first day
+		amount: amount().notNull(),
+	}),
+	(t) => [
+		PG.unique('monthly_deltas_ledger_id_account_commodity_month').on(
+			t.ledgerId,
+			t.account,
+			t.commodity,
+			t.month,
+		),
 	],
 );
 

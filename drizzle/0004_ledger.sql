@@ -35,6 +35,7 @@ CREATE TABLE "ledgers" (
 	"owner_id" uuid NOT NULL,
 	"handle" text NOT NULL,
 	"name" text NOT NULL,
+	"checked_through" date,
 	CONSTRAINT "ledgers_handle_unique" UNIQUE("handle")
 );
 --> statement-breakpoint
@@ -78,12 +79,27 @@ CREATE TABLE "metadata" (
 	CONSTRAINT "metadata_one_owner" CHECK (num_nonnulls("metadata"."file_id", "metadata"."transaction_id", "metadata"."posting_id") = 1)
 );
 --> statement-breakpoint
+CREATE TABLE "monthly_deltas" (
+	"id" uuid PRIMARY KEY DEFAULT uuidv7() NOT NULL,
+	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
+	"ledger_id" uuid NOT NULL,
+	"account" text NOT NULL,
+	"account_type" "account_type" NOT NULL,
+	"commodity" text NOT NULL,
+	"month" date NOT NULL,
+	"amount" numeric(38, 0) NOT NULL,
+	CONSTRAINT "monthly_deltas_ledger_id_account_commodity_month" UNIQUE("ledger_id","account","commodity","month")
+);
+--> statement-breakpoint
 CREATE TABLE "postings" (
 	"id" uuid PRIMARY KEY DEFAULT uuidv7() NOT NULL,
 	"created_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"updated_at" timestamp with time zone DEFAULT now() NOT NULL,
 	"ledger_id" uuid NOT NULL,
 	"transaction_id" uuid NOT NULL,
+	"date" date NOT NULL,
+	"counted" boolean DEFAULT true NOT NULL,
 	"position" integer NOT NULL,
 	"account" text NOT NULL,
 	"account_type" "account_type" NOT NULL,
@@ -95,7 +111,9 @@ CREATE TABLE "postings" (
 	"cost_amount" numeric(38, 0),
 	"cost_commodity" text,
 	"cost_date" date,
-	"balance" numeric(38, 0)
+	"balance" numeric(38, 0),
+	"actual" numeric(38, 0),
+	"unordered" uuid[]
 );
 --> statement-breakpoint
 CREATE TABLE "prices" (
@@ -176,6 +194,7 @@ ALTER TABLE "metadata" ADD CONSTRAINT "metadata_ledger_id_ledgers_id_fk" FOREIGN
 ALTER TABLE "metadata" ADD CONSTRAINT "metadata_file_id_ledger_files_id_fk" FOREIGN KEY ("file_id") REFERENCES "public"."ledger_files"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "metadata" ADD CONSTRAINT "metadata_transaction_id_transactions_id_fk" FOREIGN KEY ("transaction_id") REFERENCES "public"."transactions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "metadata" ADD CONSTRAINT "metadata_posting_id_postings_id_fk" FOREIGN KEY ("posting_id") REFERENCES "public"."postings"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
+ALTER TABLE "monthly_deltas" ADD CONSTRAINT "monthly_deltas_ledger_id_ledgers_id_fk" FOREIGN KEY ("ledger_id") REFERENCES "public"."ledgers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "postings" ADD CONSTRAINT "postings_ledger_id_ledgers_id_fk" FOREIGN KEY ("ledger_id") REFERENCES "public"."ledgers"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "postings" ADD CONSTRAINT "postings_transaction_id_transactions_id_fk" FOREIGN KEY ("transaction_id") REFERENCES "public"."transactions"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
 ALTER TABLE "prices" ADD CONSTRAINT "prices_symbol_id_symbols_id_fk" FOREIGN KEY ("symbol_id") REFERENCES "public"."symbols"("id") ON DELETE cascade ON UPDATE no action;--> statement-breakpoint
@@ -201,6 +220,7 @@ CREATE INDEX "metadata_posting_id" ON "metadata" USING btree ("posting_id");--> 
 CREATE INDEX "metadata_ledger_id_key_value" ON "metadata" USING btree ("ledger_id","key","value");--> statement-breakpoint
 CREATE INDEX "postings_transaction_id" ON "postings" USING btree ("transaction_id");--> statement-breakpoint
 CREATE INDEX "postings_ledger_id_account_amount" ON "postings" USING btree ("ledger_id","account","commodity","amount");--> statement-breakpoint
+CREATE INDEX "postings_ledger_id_account_date" ON "postings" USING btree ("ledger_id","account","commodity","date");--> statement-breakpoint
 CREATE INDEX "postings_ledger_id_commodity" ON "postings" USING btree ("ledger_id","commodity");--> statement-breakpoint
 CREATE INDEX "postings_ledger_id_lower_account" ON "postings" USING btree ("ledger_id",lower("account") text_pattern_ops);--> statement-breakpoint
 CREATE INDEX "postings_ledger_id_balance" ON "postings" USING btree ("ledger_id","account","commodity") WHERE "postings"."balance" IS NOT NULL;--> statement-breakpoint
@@ -217,8 +237,8 @@ CREATE INDEX "transactions_description" ON "transactions" USING gin ("descriptio
 CREATE INDEX "transactions_embedding" ON "transactions" USING hnsw ("embedding" vector_cosine_ops);--> statement-breakpoint
 -- What an account's counted postings of a commodity moved on one day.
 CREATE VIEW "daily_deltas" AS
-	SELECT p.ledger_id, p.account, p.account_type, p.commodity, t.date, sum(p.amount) AS amount
-	FROM postings p JOIN transactions t ON t.id = p.transaction_id
-	WHERE t.counted
-	GROUP BY p.ledger_id, p.account, p.account_type, p.commodity, t.date;--> statement-breakpoint
+	SELECT ledger_id, account, account_type, commodity, date, sum(amount) AS amount
+	FROM postings
+	WHERE counted
+	GROUP BY ledger_id, account, account_type, commodity, date;--> statement-breakpoint
 SELECT attach_updated_at();

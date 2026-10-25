@@ -13,6 +13,7 @@ import type {
 	lots,
 	memberships,
 	metadata,
+	monthlyDeltas,
 	postings,
 	prices,
 	symbolFetches,
@@ -43,6 +44,7 @@ export type Tables = {
 	lots: Kyselify<typeof lots>;
 	memberships: Kyselify<typeof memberships>;
 	metadata: Kyselify<typeof metadata>;
+	monthlyDeltas: Kyselify<typeof monthlyDeltas>;
 	postings: Kyselify<typeof postings>;
 	prices: Kyselify<typeof prices>;
 	sessions: Kyselify<typeof sessions>;

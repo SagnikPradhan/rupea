@@ -2,7 +2,7 @@ import { withContext } from '#lib/server/shared/context/context.ts';
 import { withLogger } from '#lib/server/shared/context/logger.ts';
 import { okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import * as DB from '../adapters/database';
-import { embedTexts, MODEL } from '../adapters/prediction-onnx';
+import { embedTexts, MODEL } from '../adapters/prediction-model2vec';
 import {
 	classify,
 	fallback,

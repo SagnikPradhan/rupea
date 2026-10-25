@@ -4,7 +4,7 @@ import { EMBEDDING_DIMENSIONS } from '#lib/server/shared/onnx/models.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { errAsync, ok, ResultAsync } from '#lib/server/shared/result/result.ts';
 import { scoped } from '#lib/server/shared/storage/storage.ts';
-import { MODEL } from '#services/ledger/adapters/prediction-onnx.ts';
+import { MODEL } from '#services/ledger/adapters/prediction-model2vec.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import * as Sync from '#services/ledger/application/sync.ts';
 import { Feed, PriceSource } from '#services/ledger/domain/types.ts';

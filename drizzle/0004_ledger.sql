@@ -157,7 +157,7 @@ CREATE TABLE "transactions" (
 	"time" time,
 	"sort_time" time GENERATED ALWAYS AS (coalesce("time", '00:00')) STORED NOT NULL,
 	"description" text NOT NULL,
-	"embedding" vector(384),
+	"embedding" vector(256),
 	"embedding_model" text,
 	"counted" boolean DEFAULT true NOT NULL
 );

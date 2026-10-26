@@ -7,6 +7,7 @@ import type {
 } from '#services/extraction/adapters/database-schema.ts';
 import type { jobs } from '#services/jobs/adapters/database-schema.ts';
 import type {
+	accounts,
 	disposals,
 	ledgerFiles,
 	ledgers,
@@ -26,6 +27,7 @@ import type { storages } from '#services/storage/adapters/database-schema.ts';
 
 /** The tables Kysely queries, named and typed as the database has them. */
 export type Tables = {
+	accounts: Kyselify<typeof accounts>;
 	/** A view: what an account's counted postings of a commodity moved on one day. */
 	dailyDeltas: {
 		ledgerId: string;

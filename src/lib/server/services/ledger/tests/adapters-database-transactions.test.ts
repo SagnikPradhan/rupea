@@ -123,6 +123,37 @@ describe('the embeddings of a ledger', () => {
 			expect(accounts.toSorted()).toEqual(['Assets:Bank', 'Expenses:Food']);
 		}));
 
+	it('names an account written in two cases once', ({ context, db }) =>
+		provide(context, async () => {
+			const ledgerId = await ledgerWith(
+				db,
+				spend('2026-01-01', 'A', 'Expenses:Food'),
+				spend('2026-01-02', 'B', 'expenses:food'),
+			);
+
+			const accounts = (await DB.listAccountNames(ledgerId))._unsafeUnwrap();
+			expect(accounts).toEqual(['Assets:Bank', 'Expenses:Food']);
+		}));
+
+	it('forgets the accounts of a deleted file', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({
+				ledger,
+				key: 'a.rupea',
+				content: spend('2026-01-01', 'A', 'Expenses:Food'),
+			});
+			await Files.createFile({
+				ledger,
+				key: 'b.rupea',
+				content: spend('2026-01-02', 'B', 'Expenses:Rent'),
+			});
+			await Files.deleteFiles({ ledger, keys: ['b.rupea'] });
+
+			const accounts = (await DB.listAccountNames(ledger.id))._unsafeUnwrap();
+			expect(accounts).toEqual(['Assets:Bank', 'Expenses:Food']);
+		}));
+
 	it('knows the day of its first transaction, and none while it is empty', ({ context, db }) =>
 		provide(context, async () => {
 			const ledgerId = await ledgerWith(

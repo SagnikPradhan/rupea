@@ -60,6 +60,7 @@ test('shows what each account holds and what it is worth', async ({ signedIn: pa
 	await expect(page.getByRole('row').filter({ hasText: 'Zerodha' })).toHaveCount(0);
 	await account.getByRole('link', { name: 'All', exact: true }).click();
 	await expect(page).not.toHaveURL(/account=/);
+	await expect(page.getByRole('row').filter({ hasText: 'Zerodha' })).not.toHaveCount(0);
 
 	await page
 		.getByRole('navigation', { name: 'Chart' })

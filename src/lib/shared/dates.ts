@@ -41,27 +41,8 @@ export const coverOf = (spans: Span[]): Span | null => {
 	return from && to ? { from, to } : null;
 };
 
-/** The one before a range, as long and as far into its year, which its spending is weighed against; all has none. */
-export const previousOf: Record<Range, (last: Temporal.PlainDate) => Span | null> = {
-	'1m': (d) => ({ from: d.subtract({ months: 2 }), to: d.subtract({ months: 1, days: 1 }) }),
-	ytd: (d) => ({
-		from: d.with({ month: 1, day: 1 }).subtract({ years: 1 }),
-		to: d.subtract({ years: 1 }),
-	}),
-	'1y': (d) => ({ from: d.subtract({ years: 2 }), to: d.subtract({ years: 1, days: 1 }) }),
-	all: () => null,
-};
-
 /** The days a chart adds up into one bar. */
 export type Bucket = 'day' | 'month' | 'year';
-
-/** A range's bars: a month by day, a year by month, and all of history by year. */
-export const BUCKETS: Record<Range, Bucket> = {
-	'1m': 'day',
-	ytd: 'month',
-	'1y': 'month',
-	all: 'year',
-};
 
 const MONTH_NAME = /^\d{4}-(0[1-9]|1[0-2])$/;
 const YEAR_NAME = /^\d{4}$/;
@@ -107,22 +88,14 @@ export const periodOf = (
 };
 
 /** What a chart of spending covers: its span, the one before to weigh it against, and its buckets. */
-export type Spans = { current: Span; previous: Span | null; bucket: Bucket };
+type Spans = { current: Span; previous: Span | null; bucket: Bucket };
 
-/** A range, counted back from its last day. */
-export const spansOver = (range: Range, day: Temporal.PlainDate): Spans => ({
-	current: { from: startOf[range](day), to: day },
-	previous: previousOf[range](day),
-	bucket: BUCKETS[range],
-});
-
-/** A period's spans; a month or year runs up to the day while it runs, and days are weighed against as many before them. */
+/** A period's spans, each cut short at the day; a month or year is weighed against the one before, as far in, and days against as many before them. */
 export const spansOf = (period: Period, day: Temporal.PlainDate): Spans => {
-	if (period.kind === 'all') return spansOver('all', day);
-	if (period.kind === 'custom')
-		return spansBetween(Temporal.PlainDate.from(period.from), Temporal.PlainDate.from(period.to));
+	if (period.kind === 'all') return spansEver(day);
+	if (period.kind === 'custom') return spansBetween(period, day);
 
-	return spansIn(period.kind, period.at, day);
+	return spansIn(period, day);
 };
 
 const UNITS = { day: 'days', month: 'months', year: 'years' } as const;
@@ -149,9 +122,12 @@ const CALENDARS = {
 } as const;
 
 /** A month or a year against the one before it, as far in. */
-const spansIn = (kind: 'month' | 'year', at: string, day: Temporal.PlainDate): Spans => {
-	const { unit, bucket, first } = CALENDARS[kind];
-	const start = Temporal.PlainDate.from(first(at));
+const spansIn = (
+	period: { kind: 'month' | 'year'; at: string },
+	day: Temporal.PlainDate,
+): Spans => {
+	const { unit, bucket, first } = CALENDARS[period.kind];
+	const start = Temporal.PlainDate.from(first(period.at));
 	const before = start.subtract({ [unit]: 1 });
 
 	return {
@@ -162,7 +138,9 @@ const spansIn = (kind: 'month' | 'year', at: string, day: Temporal.PlainDate): S
 };
 
 /** Days picked by hand, against as many days just before them. */
-const spansBetween = (from: Temporal.PlainDate, to: Temporal.PlainDate): Spans => {
+const spansBetween = (period: { from: string; to: string }, day: Temporal.PlainDate): Spans => {
+	const from = Temporal.PlainDate.from(period.from);
+	const to = earlier(Temporal.PlainDate.from(period.to), day);
 	const days = from.until(to).days + 1;
 
 	return {
@@ -171,6 +149,13 @@ const spansBetween = (from: Temporal.PlainDate, to: Temporal.PlainDate): Spans =
 		bucket: bucketBetween(from, to),
 	};
 };
+
+/** All of history by the year, with nothing before it. */
+const spansEver = (day: Temporal.PlainDate): Spans => ({
+	current: { from: Temporal.PlainDate.from(BEGINNING), to: day },
+	previous: null,
+	bucket: 'year',
+});
 
 const bucketBetween = (from: Temporal.PlainDate, to: Temporal.PlainDate): Bucket => {
 	if (from.until(to).days < MOST_DAYS) return 'day';

@@ -1,65 +1,100 @@
 <script lang="ts">
-	import { listWorth } from '#lib/endpoints/accounts.remote.ts';
-	import { Range } from '#lib/shared/dates.ts';
 	import LineChart from '#lib/web/components/line-chart/line-chart.svelte';
-	import RangePicker from '#lib/web/components/range-picker/range-picker.svelte';
-	import {
-		formatAmount,
-		formatChange,
-		formatDate,
-		formatExact,
-		formatIsoDate,
-	} from '#lib/web/shared/format.ts';
-	import { page } from '$app/state';
-	import * as v from 'valibot';
+	import TreemapChart from '#lib/web/components/treemap-chart/treemap-chart.svelte';
+	import { ASSETS } from '#lib/shared/filter.ts';
+	import type { Chart } from '#lib/web/shared/choices.ts';
+	import { formatAmount, formatChange, formatDate, formatExact } from '#lib/web/shared/format.ts';
+	import { areasOf, withAreas } from '#lib/web/shared/worth.ts';
+	import type { Snippet } from 'svelte';
 
-	const { handle }: { handle: string } = $props();
+	type Worth = {
+		day: string;
+		assets: string;
+		liabilities: string;
+		worth: string;
+		parts: Record<string, string>;
+		unpriced: number;
+	};
 
-	const range = $derived(v.parse(v.fallback(Range, 'ytd'), page.url.searchParams.get('range')));
-	const day = formatIsoDate(new Date());
-	const worth = $derived(await listWorth({ handle, range, day }).then((r) => r.data ?? []));
+	type Props = {
+		/** Net worth at the end of each day shown, as the endpoint returns it. */
+		worth: Worth[];
+		/** Balance accounts at the end of the last day, for the boxes of each one. */
+		accounts: {
+			account: string;
+			total: string;
+			holdings: { commodity: string; value: string | null }[];
+		}[];
+		/** The account narrowed to, or none for every balance account; the treemap boxes assets then, as owing has no size. */
+		account: string | null;
+		chart: Chart;
+		/** Drawn below the chart, such as a choice of chart. */
+		controls?: Snippet;
+	};
+
+	const { worth, accounts, account, chart, controls }: Props = $props();
 
 	const first = $derived(worth[0]);
 	const last = $derived(worth.at(-1));
+	const areas = $derived(areasOf(worth));
+	const rows = $derived(withAreas(worth, areas));
+	const owing = $derived(worth.some((w) => Number(w.liabilities) !== 0));
 </script>
 
 {#if first && last}
 	<section aria-labelledby="worth">
-		<LineChart
-			rows={worth}
-			x="day"
-			series={[
-				{ key: 'worth', label: 'Net worth', role: 'primary' },
-				{ key: 'assets', label: 'Assets', role: 'context' },
-				{ key: 'liabilities', label: 'Owed', role: 'reference' },
-			]}
-			label="Net worth from {formatDate(first.day)} to {formatDate(last.day)}, {formatAmount(
-				first.worth,
-			)} to {formatAmount(last.worth)}"
-		>
-			{#snippet summary(index: number)}
-				{@const shown = worth[index] ?? last}
-				{@const change = formatChange(first.worth, shown.worth)}
-				<div class="summary">
-					<div class="heading">
-						<h2 id="worth" class="label">Net worth</h2>
-						<RangePicker current={range} />
-					</div>
-					<p class="figure" title={formatExact(shown.worth)}>{formatAmount(shown.worth)}</p>
-					<p>
-						<span class={change.negative ? 'negative' : 'positive'}>
-							{change.amount}{#if change.percent !== null}&nbsp;({change.percent}){/if}
-						</span>
-						{formatDate(first.day)} – {formatDate(shown.day)}
-						{#if shown.unpriced > 0}
-							<span class="nowrap">· excludes {shown.unpriced} unpriced</span>
-						{/if}
-					</p>
-				</div>
-			{/snippet}
-		</LineChart>
+		{#if chart === 'flow'}
+			<TreemapChart
+				rows={accounts}
+				account={account ?? ASSETS}
+				label="What {account ?? ASSETS} held on {formatDate(last.day)}, by account"
+				{controls}
+			>
+				{#snippet summary()}{@render worthOn(worth.length - 1)}{/snippet}
+			</TreemapChart>
+		{:else}
+			<LineChart
+				{rows}
+				x="day"
+				series={[
+					{ key: 'worth', label: 'Net worth', role: 'primary' },
+					...areas.map((a) => ({
+						key: a.key,
+						label: a.label,
+						role: 'part' as const,
+						shade: a.shade,
+					})),
+					...(owing ? [{ key: 'liabilities', label: 'Owed', role: 'negative' as const }] : []),
+				]}
+				label="Net worth from {formatDate(first.day)} to {formatDate(last.day)}, {formatAmount(
+					first.worth,
+				)} to {formatAmount(last.worth)}"
+				summary={worthOn}
+				{controls}
+			/>
+		{/if}
 	</section>
 {/if}
+
+{#snippet worthOn(index: number)}
+	{@const shown = worth[index] ?? last}
+	{#if first && shown}
+		{@const change = formatChange(first.worth, shown.worth)}
+		<div class="summary">
+			<h2 id="worth" class="label">Net worth</h2>
+			<p class="figure" title={formatExact(shown.worth)}>{formatAmount(shown.worth)}</p>
+			<p>
+				<span class={change.negative ? 'negative' : 'positive'}>
+					{change.amount}{#if change.percent !== null}&nbsp;({change.percent}){/if}
+				</span>
+				{formatDate(first.day)} – {formatDate(shown.day)}
+				{#if shown.unpriced > 0}
+					<span class="nowrap">· excludes {shown.unpriced} unpriced</span>
+				{/if}
+			</p>
+		</div>
+	{/if}
+{/snippet}
 
 <style>
 	.summary {
@@ -69,12 +104,8 @@
 		margin-bottom: var(--size-2);
 	}
 
-	.heading {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: space-between;
-		align-items: baseline;
-		gap: var(--size-2);
+	h2 {
+		margin: 0;
 	}
 
 	p {

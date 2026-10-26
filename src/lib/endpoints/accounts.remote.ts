@@ -1,42 +1,53 @@
 import { replyFromBatch } from '#lib/server/shared/result/reply.ts';
-import { Day, Period, Range, spansOf, startOf } from '#lib/shared/dates.ts';
+import { Day, Period, spansOf } from '#lib/shared/dates.ts';
+import { BalanceAccount, ExpenseAccount } from '#lib/shared/filter.ts';
 import * as Accounts from '#services/ledger/application/accounts.ts';
 import { query } from '$app/server';
 import * as v from 'valibot';
 import { Handle, inLedger } from './shared';
 import { viewAccount, viewLot, viewSpending, viewWorth } from './views';
 
-export const listAccounts = query(v.object({ handle: Handle, day: Day }), ({ handle, day }) =>
-	replyFromBatch(
-		inLedger({ handle, action: (l) => Accounts.listAccounts({ ledger: l, day }) }).map((b) => ({
-			...b,
-			succeeded: b.succeeded.map(viewAccount),
-		})),
-	),
-);
-
-export const listWorth = query(
-	v.object({ handle: Handle, range: Range, day: Day }),
-	({ handle, range, day }) =>
-		replyFromBatch(
-			inLedger({
-				handle,
-				action: (l) => Accounts.listWorth({ ledger: l, from: startOf[range](day), to: day }),
-			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewWorth) })),
-		),
-);
-
-/** Spending over a period, then over the one before it when there is one. */
-export const listSpending = query(
+/** What each balance account held at the end of a period, valued at that day's prices. */
+export const listAccounts = query(
 	v.object({ handle: Handle, day: Day, period: Period }),
 	({ handle, day, period }) => {
+		const end = spansOf(period, day).current.to;
+
+		return replyFromBatch(
+			inLedger({
+				handle,
+				action: (l) => Accounts.listAccounts({ ledger: l, day: end }),
+			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewAccount) })),
+		);
+	},
+);
+
+/** Net worth at the end of each day of a period. */
+export const listWorth = query(
+	v.object({ handle: Handle, day: Day, period: Period, account: BalanceAccount }),
+	({ handle, day, period, account }) => {
+		const { from, to } = spansOf(period, day).current;
+
+		return replyFromBatch(
+			inLedger({
+				handle,
+				action: (l) => Accounts.listWorth({ ledger: l, from, to, account }),
+			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewWorth) })),
+		);
+	},
+);
+
+/** Spending under an account over a period, then over the one before it when there is one. */
+export const listSpending = query(
+	v.object({ handle: Handle, day: Day, period: Period, account: ExpenseAccount }),
+	({ handle, day, period, account }) => {
 		const { current, previous, bucket } = spansOf(period, day);
 		const spans = previous ? [current, previous] : [current];
 
 		return replyFromBatch(
 			inLedger({
 				handle,
-				action: (l) => Accounts.listSpending({ ledger: l, spans, bucket }),
+				action: (l) => Accounts.listSpending({ ledger: l, spans, bucket, account }),
 			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewSpending) })),
 		);
 	},

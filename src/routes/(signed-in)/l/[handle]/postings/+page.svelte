@@ -5,7 +5,9 @@
 	import Account from '#lib/web/components/ledger-table/account.svelte';
 	import Amount from '#lib/web/components/ledger-table/amount.svelte';
 	import Source from '#lib/web/components/ledger-table/source.svelte';
+	import FilterRail from '#lib/web/components/filter-rail/filter-rail.svelte';
 	import ListFilter from '#lib/web/components/list-filter/list-filter.svelte';
+	import ListSearch from '#lib/web/components/list-search/list-search.svelte';
 	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
 	import PagedTable from '#lib/web/components/paged-table/paged-table.svelte';
 	import { formatDate, formatIsoDate } from '#lib/web/shared/format.ts';
@@ -31,41 +33,44 @@
 	}
 </script>
 
-<PageHeader trail={[ledgerCrumb(data.ledger)]}>
-	Postings
-	{#snippet actions()}<ListFilter {filter} accounts={accounts.data ?? []} />{/snippet}
-</PageHeader>
+<PageHeader trail={[ledgerCrumb(data.ledger)]}>Postings</PageHeader>
 
-<Issues {handle} errors={[...issues.errors, ...list.errors]} />
+<FilterRail>
+	{#snippet filters()}<ListFilter {filter} accounts={accounts.data ?? []} />{/snippet}
 
-<PagedTable
-	columns={[
-		{ label: 'Date', kind: 'date' },
-		{ label: 'Account' },
-		{ label: 'Amount', kind: 'amount' },
-	]}
-	{list}
-	height={48}
-	empty="No postings match."
->
-	{#snippet row(index: number)}
-		{@const posting = list.rows[index]}
-		{#if posting}
-			<tr>
-				<td class="date"><time datetime={posting.date}>{formatDate(posting.date)}</time></td>
-				<th scope="row">
-					<Account account={posting.account} />
-				</th>
-				<Amount value={posting.quantity} />
-			</tr>
-			<tr class="child">
-				<td></td>
-				<td class="truncate" title={posting.description}>{posting.description}</td>
-				<Source {handle} file={posting.file} line={posting.line} />
-			</tr>
-		{/if}
-	{/snippet}
-</PagedTable>
+	<ListSearch {filter} />
+
+	<Issues {handle} errors={[...issues.errors, ...list.errors]} />
+
+	<PagedTable
+		columns={[
+			{ label: 'Date', kind: 'date' },
+			{ label: 'Account' },
+			{ label: 'Amount', kind: 'amount' },
+		]}
+		{list}
+		height={48}
+		empty="No postings match."
+	>
+		{#snippet row(index: number)}
+			{@const posting = list.rows[index]}
+			{#if posting}
+				<tr>
+					<td class="date"><time datetime={posting.date}>{formatDate(posting.date)}</time></td>
+					<th scope="row">
+						<Account account={posting.account} />
+					</th>
+					<Amount value={posting.quantity} />
+				</tr>
+				<tr class="child">
+					<td></td>
+					<td class="truncate" title={posting.description}>{posting.description}</td>
+					<Source {handle} file={posting.file} line={posting.line} />
+				</tr>
+			{/if}
+		{/snippet}
+	</PagedTable>
+</FilterRail>
 
 <style>
 	th {

@@ -30,7 +30,9 @@ describe('accounts', () => {
 				await sql`analyze`.execute(db);
 
 				const worth = (f: Temporal.PlainDate) => () =>
-					provide(context, () => Accounts.listWorth({ ledger, from: f, to: TO })).then(() => {});
+					provide(context, () =>
+						Accounts.listWorth({ ledger, from: f, to: TO, account: null }),
+					).then(() => {});
 				const holdings = () =>
 					provide(context, () => Accounts.listAccounts({ ledger, day: TO })).then(() => {});
 				const checks = () => provide(context, () => Sync.sync(ledger)).then(() => {});

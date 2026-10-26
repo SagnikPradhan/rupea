@@ -36,7 +36,7 @@ const ROWS = [
 const SERIES = [
 	{ key: 'worth', label: 'Net worth', role: 'primary' },
 	{ key: 'assets', label: 'Assets', role: 'context' },
-	{ key: 'liabilities', label: 'Owed', role: 'reference' },
+	{ key: 'liabilities', label: 'Owed', role: 'negative' },
 ] as const;
 
 const summary = createRawSnippet((index: () => number) => ({
@@ -75,10 +75,10 @@ describe('the line chart', () => {
 		const { options } = await drawn();
 		const series = options.series.slice(1);
 
-		expect(series.map((s) => [s.label, s.width, s.dash])).toEqual([
-			['Net worth', 2, []],
-			['Assets', 1, []],
-			['Owed', 1, [4, 4]],
+		expect(series.map((s) => [s.label, s.width])).toEqual([
+			['Net worth', 2],
+			['Assets', 1],
+			['Owed', 1],
 		]);
 	});
 
@@ -175,5 +175,84 @@ describe('the line chart', () => {
 		const { view } = await drawn();
 		view.unmount();
 		expect(plots[0]?.destroyed).toBe(true);
+	});
+});
+
+describe('the line chart with parts', () => {
+	const rows = [
+		{ day: '2026-01-01', worth: '40', bank: '30', shares: '20', card: '-10' },
+		{ day: '2026-01-02', worth: '50', bank: '40', shares: '20', card: '-10' },
+	];
+	const series = [
+		{ key: 'worth', label: 'Net worth', role: 'primary' },
+		{ key: 'bank', label: 'Bank', role: 'part', shade: '--color-series-1' },
+		{ key: 'shares', label: 'Shares', role: 'part', shade: '--color-series-2' },
+		{ key: 'card', label: 'Card', role: 'part', shade: '--color-owed-1' },
+	] as const;
+
+	const piled = async () => {
+		plots.splice(0);
+		render(LineChart, { rows, x: 'day', series: [...series], label: 'Net worth' });
+		await vi.waitFor(() => expect(plots).toHaveLength(1));
+		const options = plots[0]?.options;
+		const points: number[][] = [];
+		const plot = {
+			data: [
+				[0, 1],
+				[40, 50],
+				[30, 40],
+				[20, 20],
+				[-10, -10],
+			],
+			valToPos: (v: number) => v,
+			posToVal: (v: number) => v,
+			redraw: vi.fn(),
+			cursor: { idx: 1, top: 45 },
+			ctx: {
+				save: () => {},
+				restore: () => {},
+				beginPath: () => points.push([]),
+				lineTo: (_: number, y: number) => points.at(-1)?.push(y),
+				closePath: () => {},
+				fill: () => {},
+			},
+		} as unknown as uPlot;
+		return { options, plot, points };
+	};
+
+	it('piles each part on the parts before it that run its way, under the lines', async () => {
+		const { options, plot, points } = await piled();
+		options?.hooks?.drawClear?.[0]?.(plot);
+
+		expect(points).toEqual([
+			[30, 40, 0, 0],
+			[50, 60, 40, 30],
+			[-10, -10, 0, 0],
+		]);
+		expect(options?.series.slice(2).map((s) => typeof s.paths)).toEqual([
+			'function',
+			'function',
+			'function',
+		]);
+	});
+
+	it('fits the piles each way, and keys each part with its shade', async () => {
+		const { options, plot } = await piled();
+		const range = options?.scales?.['y']?.range;
+
+		expect(typeof range === 'function' && range(plot, 0, 0, 'y')).toEqual([-10, 60]);
+		expect(caption()).toContain('Shares');
+		expect(screen.getByRole('figure').querySelectorAll('.part span[aria-hidden]')).toHaveLength(3);
+	});
+
+	it('names the part under the cursor and fades the others', async () => {
+		const { options, plot } = await piled();
+		options?.hooks?.ready?.[0]?.(plot);
+		options?.hooks?.setCursor?.[0]?.(plot);
+		flushSync();
+
+		expect(screen.getByText('Shares', { selector: '.tip' }).textContent).toMatch(/Shares\s+20\.00/);
+		expect(plot.redraw).toHaveBeenCalledOnce();
+		expect(screen.getByRole('figure').querySelectorAll('figcaption .faded')).toHaveLength(2);
 	});
 });

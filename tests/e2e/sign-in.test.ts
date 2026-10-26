@@ -4,7 +4,7 @@ import { requestCodeFor } from './support/sign-in.ts';
 
 test('a new user signs in with an emailed code, and gets a pet name', async ({ signedIn }) => {
 	await visit(signedIn, '/');
-	await expect(signedIn.getByText(/^Signed in as [a-z]+-[a-z]+$/)).toBeVisible();
+	await expect(signedIn.getByText(/^[a-z]+-[a-z]+$/)).toBeVisible();
 	await expect(signedIn.getByRole('link', { name: 'Personal' })).toBeVisible();
 });
 

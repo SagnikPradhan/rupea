@@ -1,28 +1,22 @@
 <script lang="ts" generics="Row extends Record<string, unknown>">
 	import type { Bucket } from '#lib/shared/dates.ts';
-	import {
-		axesOf,
-		colorOf,
-		drawZero,
-		plotInto,
-		seriesOf,
-		type Scale,
-	} from '#lib/web/shared/chart.ts';
+	import { axesOf, colorOf, drawZero, pileOf, plotInto, seriesOf } from '#lib/web/shared/chart.ts';
+	import type { Scale } from '#lib/web/shared/choices.ts';
 	import Swatch from '#lib/web/components/swatch/swatch.svelte';
 	import { formatAmount, formatBucket, formatCompact } from '#lib/web/shared/format.ts';
 	import type { Snippet } from 'svelte';
 	import uPlot from 'uplot';
 	import 'uplot/dist/uPlot.min.css';
 
-	/** A field of the rows to plot: a part with a bar in every group, in order from the left, or a dashed curve they are weighed against. */
+	/** A field of the rows to plot: a part piled into every bar, in order from zero, or a dashed curve they are weighed against. */
 	type Series = { key: keyof Row & string; label: string; role: 'part' | 'reference' };
 
 	type Props = {
-		/** One row per group of bars, as an endpoint returns them, with exact decimals. */
+		/** One row per bar, as an endpoint returns them, with exact decimals. */
 		rows: Row[];
-		/** The field holding the ISO day each group starts on. */
+		/** The field holding the ISO day each bar starts on. */
 		x: keyof Row & string;
-		/** How many days one group adds up, which names it on the axis. */
+		/** How many days one bar adds up, which names it on the axis. */
 		bucket: Bucket;
 		series: Series[];
 		/** What the key reads while no bar is under the cursor, such as the parts' totals. */
@@ -47,7 +41,7 @@
 		controls,
 	}: Props = $props();
 
-	const WIDTH = { share: 0.8, most: 96 };
+	const WIDTH = { share: 0.6, most: 48 };
 	const FADED = 0.2;
 	const CURVE = uPlot.paths.spline?.();
 	/** A log scale by arcsinh runs through zero to the refunds, and names only its powers of ten, since its ticks crowd in between. */
@@ -88,7 +82,7 @@
 		plotted.forEach((u) => u.redraw(false, false));
 	};
 
-	/** Finds the group and the bar under the cursor, fading the other parts while it is there. */
+	/** Finds the bar and the part of it under the cursor, fading the other parts while it is there. */
 	const point = (u: uPlot) => {
 		const index = u.cursor.idx ?? null;
 		const part = index === null ? null : partAt(u, index);
@@ -99,7 +93,7 @@
 		if (part !== focused.part) focus(part);
 	};
 
-	/** Groups stand at their index, so a month or a year is as wide as a day; a missing value leaves a gap in a line. */
+	/** Bars stand at their index, so a month or a year is as wide as a day; a missing value leaves a gap in a line. */
 	const data = (): uPlot.AlignedData => [
 		rows.map((_, i) => i),
 		...[...parts, ...references].map((s) =>
@@ -151,22 +145,25 @@
 			hooks: {
 				ready: [(u) => plotted.splice(0, plotted.length, u)],
 				setCursor: [point],
-				draw: [(u) => group(u, fills, edges), (u) => drawZero(u, border)],
+				draw: [(u) => stack(u, fills, edges), (u) => drawZero(u, border)],
 			},
 		};
 	};
 
 	/** How far the bars and lines reach, from zero up for spending and down for refunds. */
 	const extentOf = (u: uPlot): uPlot.Range.MinMax => {
-		const values = u.data.slice(1).flatMap((d) => [...d].filter((v) => typeof v === 'number'));
-		const low = Math.min(0, ...values);
-		const high = Math.max(0, ...values);
+		const piles = rows.flatMap((_, i) => [pileOf(amountsAt(u, i), 1), pileOf(amountsAt(u, i), -1)]);
+		const lines = u.data
+			.slice(parts.length + 1)
+			.flatMap((d) => [...d].filter((v) => typeof v === 'number'));
+		const low = Math.min(0, ...piles, ...lines);
+		const high = Math.max(0, ...piles, ...lines);
 
 		return [low, high === low ? low + 1 : high];
 	};
 
-	/** Stands each part's bar side by side in its group, from zero. */
-	const group = (u: uPlot, fills: string[], edges: string[]) => {
+	/** Piles each part on the ones before it, spending up from zero and refunds down. */
+	const stack = (u: uPlot, fills: string[], edges: string[]) => {
 		u.ctx.save();
 		u.ctx.lineWidth = devicePixelRatio;
 		u.ctx.setLineDash([]);
@@ -181,34 +178,46 @@
 		u.ctx.restore();
 	};
 
-	/** Where a part's bar stands in its group, in canvas pixels, with a hairline before the next. */
+	/** Where a part stands in its bar, in canvas pixels, on top of the parts before it that run the same way. */
 	const barAt = (u: uPlot, i: number, k: number): Box => {
 		const width = Math.min(
 			(u.bbox.width / rows.length) * WIDTH.share,
 			WIDTH.most * devicePixelRatio,
 		);
-		const bar = width / parts.length;
-		const zero = u.valToPos(0, 'y', true);
-		const top = u.valToPos(u.data[k + 1]?.[i] ?? 0, 'y', true);
+		const amounts = amountsAt(u, i);
+		const amount = amounts[k] ?? 0;
+		const base = pileOf(amounts.slice(0, k), Math.sign(amount));
+		const from = u.valToPos(base, 'y', true);
+		const to = u.valToPos(base + amount, 'y', true);
 
 		return {
-			left: u.valToPos(i, 'x', true) - width / 2 + k * bar,
-			top: Math.min(top, zero),
-			width: bar - devicePixelRatio,
-			height: Math.abs(top - zero),
+			left: u.valToPos(i, 'x', true) - width / 2,
+			top: Math.min(from, to),
+			width,
+			height: Math.abs(to - from),
 		};
 	};
 
-	/** The part whose bar the cursor is over, counting the hairline after it, or none between groups. */
+	/** The part the cursor is over, or none beside the bar or above it. */
 	const partAt = (u: uPlot, i: number) => {
 		const left = (u.cursor.left ?? -1) * devicePixelRatio + u.bbox.left;
+		const top = (u.cursor.top ?? -1) * devicePixelRatio + u.bbox.top;
 		const k = parts.findIndex((_, k) => {
 			const bar = barAt(u, i, k);
-			return left >= bar.left && left < bar.left + bar.width + devicePixelRatio;
+			return (
+				left >= bar.left &&
+				left < bar.left + bar.width &&
+				top >= bar.top &&
+				top < bar.top + bar.height
+			);
 		});
 
 		return k < 0 ? null : k;
 	};
+
+	const amountsAt = (u: uPlot, i: number) => parts.map((_, k) => u.data[k + 1]?.[i] ?? 0);
+
+	/** What the amounts running one way add up to: up for spending, down for refunds. */
 
 	type Box = { left: number; top: number; width: number; height: number };
 
@@ -232,24 +241,26 @@
 		{/if}
 	</div>
 	<figcaption>
-		{#each parts as part, k (part.key)}
-			<span
-				role="presentation"
-				class:faded={hovered.part !== null && hovered.part !== k}
-				onpointerenter={() => focus(k)}
-				onpointerleave={() => focus(null)}
-			>
-				<Swatch part={k} />
-				{part.label}
-				<data>{formatAmount(String(shown[part.key] ?? '0'))}</data>
-			</span>
-		{/each}
-		{#each references as line (line.key)}
-			<span class="reference">
-				{line.label}
-				{#if shown[line.key] != null}<data>{formatAmount(String(shown[line.key]))}</data>{/if}
-			</span>
-		{/each}
+		<div class="key">
+			{#each parts as part, k (part.key)}
+				<span
+					role="presentation"
+					class:faded={hovered.part !== null && hovered.part !== k}
+					onpointerenter={() => focus(k)}
+					onpointerleave={() => focus(null)}
+				>
+					<Swatch shade={seriesOf(k)} />
+					{part.label}
+					<data>{formatAmount(String(shown[part.key] ?? '0'))}</data>
+				</span>
+			{/each}
+			{#each references as line (line.key)}
+				<span class="reference">
+					{line.label}
+					{#if shown[line.key] != null}<data>{formatAmount(String(shown[line.key]))}</data>{/if}
+				</span>
+			{/each}
+		</div>
 		{#if controls}<div class="controls">{@render controls()}</div>{/if}
 	</figcaption>
 </figure>
@@ -265,12 +276,25 @@
 	figcaption {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--size-0) var(--size-3);
+		justify-content: space-between;
+		align-items: start;
+		gap: var(--size-2) var(--size-5);
 		color: var(--color-muted);
 		font-size: var(--font-size-0);
 	}
 
+	.key {
+		flex: 1 1 var(--sidebar);
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--size-0) var(--size-3);
+	}
+
 	.controls {
+		display: flex;
+		flex-wrap: wrap;
+		justify-content: end;
+		gap: var(--size-1) var(--size-3);
 		margin-left: auto;
 	}
 
@@ -290,7 +314,7 @@
 
 	.plot {
 		position: relative;
-		height: 16rem;
+		height: var(--plot);
 		touch-action: pan-y;
 	}
 

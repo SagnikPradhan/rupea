@@ -1,15 +1,6 @@
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
-import {
-	bucketsIn,
-	coverOf,
-	Day,
-	Period,
-	periodOf,
-	previousOf,
-	spansOf,
-	startOf,
-} from '#lib/shared/dates.ts';
+import { bucketsIn, coverOf, Day, Period, periodOf, spansOf, startOf } from '#lib/shared/dates.ts';
 
 const day = (iso: string) => Temporal.PlainDate.from(iso);
 
@@ -27,20 +18,6 @@ describe('a range', () => {
 		expect(startOf.ytd(last).toString()).toBe('2026-01-01');
 		expect(startOf['1y'](last).toString()).toBe('2025-03-31');
 		expect(startOf.all(last).toString()).toBe('0001-01-01');
-	});
-});
-
-describe('the range before', () => {
-	it('is as long, or as far into the year before, and all has none', () => {
-		const last = day('2026-03-31');
-		const span = (r: keyof typeof previousOf) => {
-			const before = previousOf[r](last);
-			return before && `${before.from}..${before.to}`;
-		};
-		expect(span('1m')).toBe('2026-01-31..2026-02-27');
-		expect(span('ytd')).toBe('2025-01-01..2025-03-31');
-		expect(span('1y')).toBe('2024-03-31..2025-03-30');
-		expect(span('all')).toBeNull();
 	});
 });
 
@@ -148,6 +125,12 @@ describe('a period’s spans', () => {
 			'2026-02-28..2026-03-09',
 			'day',
 		]);
+	});
+
+	it('cuts days picked past today short at today', () => {
+		expect(spans({ kind: 'custom', from: '2026-10-20', to: '2026-12-31' }, '2026-10-24')[0]).toBe(
+			'2026-10-20..2026-10-24',
+		);
 	});
 
 	it('bars days by the day up to a month, by the month up to three years, then by the year', () => {

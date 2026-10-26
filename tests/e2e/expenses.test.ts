@@ -39,11 +39,20 @@ test('adds up spending by account over a period, net of refunds', async ({
 	await page.getByRole('img', { name: /^Spending/ }).hover({ position: { x: 105, y: 120 } });
 	await expect(page.locator('.figure')).toHaveText('8,000.00');
 
-	await page.getByRole('link', { name: 'All', exact: true }).click();
+	await page.getByRole('link', { name: 'Expenses:Food' }).click();
+	await expect(page).toHaveURL(/account=Expenses%3AFood/);
+	await expect(page.locator('.figure')).toHaveText('2,000.00');
+
+	const period = page.getByRole('navigation', { name: 'Period' });
+	await period.getByRole('link', { name: 'All', exact: true }).click();
 	await expect(page).toHaveURL(/range=all/);
+	await expect(page.locator('.figure')).toHaveText('2,000.00');
+
+	const account = page.getByRole('navigation', { name: 'Account' });
+	await account.getByRole('link', { name: 'All', exact: true }).click();
 	await expect(page.locator('.figure')).toHaveText('15,000.00');
 
-	await page.getByRole('link', { name: 'Housing' }).click();
+	await page.getByRole('table').getByRole('link', { name: 'Housing' }).click();
 	await expect(page).toHaveURL(/postings\?account=Expenses%3AHousing&range=all/);
 	await expect(page.getByRole('rowgroup').filter({ hasText: 'Rent' })).toBeVisible();
 });

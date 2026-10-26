@@ -68,6 +68,41 @@ describe('accounts', () => {
 			]);
 		}));
 
+	it('holds what was there at the end of an earlier day, at the cost of the lots open then', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = [
+				'2026-01-02 Buy',
+				'\tAssets:Zerodha 10 INFY @ 1500',
+				'\tAssets:Bank',
+				'',
+				'2026-03-01 Sell',
+				'\tAssets:Zerodha -4 INFY {1500} @ 1700',
+				'\tAssets:Bank 6800',
+				'\tIncome:Gains -800',
+				'',
+				'2026-03-20 Buy',
+				'\tAssets:Zerodha 1 INFY @ 1600',
+				'\tAssets:Bank',
+				'',
+			].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const zerodha = async (on: string) => {
+				const day = Temporal.PlainDate.from(on);
+				const accounts = (await Accounts.listAccounts({ ledger, day }))._unsafeUnwrap();
+				const holding = accounts.succeeded.find((a) => a.account === 'Assets:Zerodha');
+				return [holding?.holdings[0]?.units, holding?.cost];
+			};
+			expect(await zerodha('2026-01-01')).toEqual([undefined, undefined]);
+			expect(await zerodha('2026-02-28')).toEqual([10_0000000000n, 15000_0000000000n]);
+			expect(await zerodha('2026-03-01')).toEqual([6_0000000000n, 9000_0000000000n]);
+			expect(await zerodha('2026-03-20')).toEqual([7_0000000000n, 10600_0000000000n]);
+		}));
+
 	it('sums only the files that remain, as they are edited and deleted', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
@@ -198,7 +233,9 @@ describe('evidence', () => {
 			await Files.createFile({ ledger, key: 'hdfc.rupea', content: salary('same-as') });
 
 			const accounts = (await Accounts.listAccounts({ ledger, day }))._unsafeUnwrap().succeeded;
-			const worth = (await Accounts.listWorth({ ledger, from: day, to: day }))._unsafeUnwrap();
+			const worth = (
+				await Accounts.listWorth({ ledger, from: day, to: day, account: null })
+			)._unsafeUnwrap();
 			expect(accounts.map((a) => [a.account, a.total])).toEqual([
 				['Assets', 500_0000000000n],
 				['Assets:Bank', 500_0000000000n],
@@ -240,7 +277,8 @@ describe('net worth', () => {
 			].join('\n');
 			await Files.createFile({ ledger, key: 'a.rupea', content });
 
-			const worth = (await Accounts.listWorth({ ledger, from, to }))._unsafeUnwrap().succeeded;
+			const worth = (await Accounts.listWorth({ ledger, from, to, account: null }))._unsafeUnwrap()
+				.succeeded;
 			const days = worth.map((w) => [
 				w.day.toString(),
 				w.assets,
@@ -249,9 +287,9 @@ describe('net worth', () => {
 				w.unpriced,
 			]);
 			expect(days).toEqual([
-				['2026-10-01', 100000_0000000000n, 2000_0000000000n, 98000_0000000000n, 0],
-				['2026-10-02', 100000_0000000000n, 2000_0000000000n, 98000_0000000000n, 1],
-				['2026-10-03', 101660_0000000000n, 2000_0000000000n, 99660_0000000000n, 1],
+				['2026-10-01', 100000_0000000000n, -2000_0000000000n, 98000_0000000000n, 0],
+				['2026-10-02', 100000_0000000000n, -2000_0000000000n, 98000_0000000000n, 1],
+				['2026-10-03', 101660_0000000000n, -2000_0000000000n, 99660_0000000000n, 1],
 			]);
 		}));
 
@@ -262,7 +300,9 @@ describe('net worth', () => {
 					const ledger = await createLedger(db);
 					await Files.createFile({ ledger, key: 'a.rupea', content: bought(price) });
 
-					const worth = (await Accounts.listWorth({ ledger, from, to }))._unsafeUnwrap();
+					const worth = (
+						await Accounts.listWorth({ ledger, from, to, account: null })
+					)._unsafeUnwrap();
 					return worth.succeeded.at(-1)?.worth;
 				}),
 			);
@@ -273,13 +313,103 @@ describe('net worth', () => {
 	it('starts on the first day the ledger has, and is empty without one', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			const empty = (await Accounts.listWorth({ ledger, from, to }))._unsafeUnwrap().succeeded;
+			const empty = (await Accounts.listWorth({ ledger, from, to, account: null }))._unsafeUnwrap()
+				.succeeded;
 			const content = ['2026-10-02 Salary', '\tAssets:Bank 500', '\tIncome:Salary', ''].join('\n');
 			await Files.createFile({ ledger, key: 'a.rupea', content });
 
-			const worth = (await Accounts.listWorth({ ledger, from, to }))._unsafeUnwrap().succeeded;
+			const worth = (await Accounts.listWorth({ ledger, from, to, account: null }))._unsafeUnwrap()
+				.succeeded;
 			expect(empty).toEqual([]);
 			expect(worth.map((w) => w.day.toString())).toEqual(['2026-10-02', '2026-10-03']);
+		}));
+
+	it('narrows to an account and those under it, by the month and by the day', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = [
+				'2026-08-20 Salary\n\tAssets:Bank:Savings 100\n\tIncome:Salary\n',
+				'2026-10-02 Withdraw\n\tAssets:Cash 30\n\tAssets:Bank:Savings\n',
+			].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const worth = async (account: string) => {
+				const days = (await Accounts.listWorth({ ledger, from, to, account }))._unsafeUnwrap();
+				return days.succeeded.map((w) => `${w.day} ${w.worth / AMOUNT_UNIT}`);
+			};
+			expect(await worth('assets:bank')).toEqual([
+				'2026-10-01 100',
+				'2026-10-02 70',
+				'2026-10-03 70',
+			]);
+			expect(await worth('Assets:Cash')).toEqual(['2026-10-02 30', '2026-10-03 30']);
+		}));
+
+	it('splits each day at the first level under the account that divides, or its commodities without one', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = [
+				'2026-08-20 Salary\n\tAssets:Bank:Savings:HDFC 100\n\tAssets:Bank:Savings:SBI 10\n\tIncome:Salary\n',
+				'2026-10-02 Dinner\n\tExpenses:Food 20\n\tLiabilities:Card\n',
+				'2026-10-03 Withdraw\n\tAssets:Cash 30\n\tAssets:Bank:Savings:HDFC\n',
+			].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const parts = async (account: string | null) => {
+				const days = (await Accounts.listWorth({ ledger, from, to, account }))
+					._unsafeUnwrap()
+					.succeeded.map((w) => Object.entries(w.parts).map(([p, v]) => `${p} ${v / AMOUNT_UNIT}`));
+				return days.at(-1)?.toSorted();
+			};
+			expect(await parts(null)).toEqual([
+				'Assets:Bank 80',
+				'Assets:Cash 30',
+				'Liabilities:Card -20',
+			]);
+			expect(await parts('assets:bank')).toEqual([
+				'Assets:Bank:Savings:HDFC 70',
+				'Assets:Bank:Savings:SBI 10',
+			]);
+			expect(await parts('Assets:Bank:Savings:HDFC')).toEqual(['INR 70']);
+		}));
+
+	it('keeps what top accounts hold themselves apart, by account', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = [
+				'2026-08-20 Salary\n\tAssets 100\n\tIncome:Salary\n',
+				'2026-10-02 Dinner\n\tExpenses:Food 40\n\tLiabilities\n',
+			].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const days = (await Accounts.listWorth({ ledger, from, to, account: null }))._unsafeUnwrap()
+				.succeeded;
+			expect(days.at(-1)?.parts).toEqual({
+				Assets: 100n * AMOUNT_UNIT,
+				Liabilities: -40n * AMOUNT_UNIT,
+			});
+		}));
+
+	it('splits an account written in two cases as one', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = [
+				'2026-08-20 Salary\n\tAssets:Bank:Savings:HDFC 100\n\tIncome:Salary\n',
+				'2026-08-21 Salary\n\tAssets:bank:savings:sbi 10\n\tIncome:Salary\n',
+				'2026-08-22 Salary\n\tAssets:bank:savings:hdfc 5\n\tIncome:Salary\n',
+			].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const days = (
+				await Accounts.listWorth({ ledger, from, to, account: 'Assets:Bank' })
+			)._unsafeUnwrap().succeeded;
+			expect(days.at(-1)?.parts).toEqual({
+				'Assets:Bank:Savings:HDFC': 105n * AMOUNT_UNIT,
+				'Assets:bank:savings:sbi': 10n * AMOUNT_UNIT,
+			});
 		}));
 
 	it('opens with the months before and the days of its month before it', ({ context, db }) =>
@@ -292,7 +422,8 @@ describe('net worth', () => {
 
 			const worth = async (f: string, t: string) => {
 				const span = { from: Temporal.PlainDate.from(f), to: Temporal.PlainDate.from(t) };
-				const days = (await Accounts.listWorth({ ledger, ...span }))._unsafeUnwrap().succeeded;
+				const days = (await Accounts.listWorth({ ledger, ...span, account: null }))._unsafeUnwrap()
+					.succeeded;
 				return days.map((w) => `${w.day} ${w.worth / AMOUNT_UNIT}`);
 			};
 			expect(await worth('2026-10-04', '2026-10-05')).toEqual(['2026-10-04 200', '2026-10-05 300']);
@@ -359,7 +490,8 @@ describe('linked feeds', () => {
 
 			const from = Temporal.PlainDate.from('2026-10-09');
 			const to = Temporal.PlainDate.from('2026-10-12');
-			const worth = (await Accounts.listWorth({ ledger, from, to }))._unsafeUnwrap().succeeded;
+			const worth = (await Accounts.listWorth({ ledger, from, to, account: null }))._unsafeUnwrap()
+				.succeeded;
 
 			expect(worth.map((w) => [w.day.toString(), w.worth])).toEqual([
 				['2026-10-09', 5_0000000000n],
@@ -400,7 +532,7 @@ describe('linked feeds', () => {
 			await quoted(db, Feed.Yahoo, 'AAPL', { '2026-10-10': '250 USD' });
 			await quoted(db, Feed.Yahoo, 'USDINR=X', { '2026-10-10': '83' });
 
-			const worth = await Accounts.listWorth({ ledger, from: day, to: day });
+			const worth = await Accounts.listWorth({ ledger, from: day, to: day, account: null });
 			expect(await valueOf(ledger, 'Assets:IBKR')).toBe(41500_0000000000n);
 			expect(worth._unsafeUnwrap().succeeded.map((w) => w.worth)).toEqual([9500_0000000000n]);
 		}));
@@ -466,6 +598,7 @@ describe('spending', () => {
 				ledger,
 				spans: [span('2026-01-01', '2026-12-31')],
 				bucket: 'month',
+				account: 'Expenses',
 			});
 			const [year] = spending._unsafeUnwrap().succeeded;
 			expect(buckets(year)).toEqual([
@@ -497,6 +630,45 @@ describe('spending', () => {
 			]);
 		}));
 
+	it('narrows to an account and those under it, ignoring case', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const spending = await Accounts.listSpending({
+				ledger,
+				spans: [span('2026-01-01', '2026-12-31')],
+				bucket: 'month',
+				account: 'expenses:food',
+			});
+			expect(totals(spending._unsafeUnwrap().succeeded[0])).toEqual([
+				['Expenses', 800_0000000000n, 0],
+				['Expenses:Food', 800_0000000000n, 0],
+				['Expenses:Food:Groceries', 800_0000000000n, 0],
+			]);
+		}));
+
+	it('adds up an account written in two cases as one', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = [
+				'2026-01-02 Lunch\n\tExpenses:Food 100\n\tAssets:Bank\n',
+				'2026-01-03 Dinner\n\tExpenses:food 50\n\tAssets:Bank\n',
+			].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const spending = await Accounts.listSpending({
+				ledger,
+				spans: [span('2026-01-01', '2026-01-31')],
+				bucket: 'month',
+				account: 'Expenses',
+			});
+			expect(totals(spending._unsafeUnwrap().succeeded[0])).toEqual([
+				['Expenses', 150_0000000000n, 0],
+				['Expenses:Food', 150_0000000000n, 0],
+			]);
+		}));
+
 	it('reads each span on its own, by day or year', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
@@ -506,11 +678,13 @@ describe('spending', () => {
 				ledger,
 				spans: [span('2026-01-15', '2026-01-31'), span('2026-01-01', '2026-01-14')],
 				bucket: 'day',
+				account: 'Expenses',
 			});
 			const byYear = await Accounts.listSpending({
 				ledger,
 				spans: [span('0001-01-01', '2026-12-31')],
 				bucket: 'year',
+				account: 'Expenses',
 			});
 			const [later, earlier] = byDay._unsafeUnwrap().succeeded;
 			expect(buckets(later)?.[0]).toEqual(['Expenses', '2026-01-20', -200_0000000000n, 0]);
@@ -536,6 +710,7 @@ describe('spending', () => {
 				ledger,
 				spans: [span('2025-11-15', '2026-01-31'), span('0001-01-01', '2026-12-31')],
 				bucket: 'month',
+				account: 'Expenses',
 			});
 			const [range, all] = spending._unsafeUnwrap().succeeded;
 			expect(range?.from.toString()).toBe('2025-11-15');
@@ -562,6 +737,7 @@ describe('spending', () => {
 				ledger,
 				spans: [span('2026-10-01', '2026-10-31')],
 				bucket: 'month',
+				account: 'Expenses',
 			});
 			expect(totals(spending._unsafeUnwrap().succeeded[0])).toEqual([
 				['Expenses', 500_0000000000n, 0],

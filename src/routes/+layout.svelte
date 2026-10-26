@@ -1,6 +1,7 @@
 <script lang="ts">
 	import { onMount } from 'svelte';
 	import favicon from '#lib/assets/favicon.svg';
+	import { signOut } from '#lib/endpoints/auth.remote.ts';
 	import ThemeToggle from '#lib/web/components/theme-toggle/theme-toggle.svelte';
 	import '@fontsource/poppins/400.css';
 	import '@fontsource/poppins/500.css';
@@ -22,7 +23,15 @@
 <header>
 	<div>
 		<a href="/">Rupea</a>
-		<ThemeToggle theme={data.theme} />
+		<div class="end">
+			{#if data.user}
+				<form {...signOut}>
+					<span>{data.user.username}</span>
+					<button>Sign out</button>
+				</form>
+			{/if}
+			<ThemeToggle theme={data.theme} />
+		</div>
 	</div>
 </header>
 
@@ -33,14 +42,26 @@
 <style>
 	header,
 	main {
-		padding-inline: var(--inset);
+		padding-inline: var(--inset) var(--inset-end);
 	}
 
-	header div {
+	header > div {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
 		padding-block: var(--size-1);
+	}
+
+	.end,
+	form {
+		display: flex;
+		gap: var(--size-2);
+		align-items: center;
+	}
+
+	form {
+		color: var(--color-muted);
+		font-size: var(--font-size-0);
 	}
 
 	header a {

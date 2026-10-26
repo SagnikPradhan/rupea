@@ -14,9 +14,10 @@ export type { Spending };
 
 type ListAccountsOptions = { ledger: Ledger; day: Temporal.PlainDate };
 
+/** What each balance account held at the end of a day, valued at that day's prices. */
 export const listAccounts = ({ ledger, day }: ListAccountsOptions): ResultAsync<Batch<Account>> =>
 	syncIndex(ledger).andThen((failed) =>
-		DB.listHoldings(ledger.id)
+		DB.listHoldings(ledger.id, day)
 			.andThen((h) => valuedOn(ledger.id, day, h))
 			.andThen((accounts) =>
 				checkLots(ledger).map((unmatched) => ({
@@ -26,24 +27,39 @@ export const listAccounts = ({ ledger, day }: ListAccountsOptions): ResultAsync<
 			),
 	);
 
-type ListWorthOptions = { ledger: Ledger; from: Temporal.PlainDate; to: Temporal.PlainDate };
+type ListWorthOptions = {
+	ledger: Ledger;
+	from: Temporal.PlainDate;
+	to: Temporal.PlainDate;
+	/** Narrows the balances to an account and those under it; every balance account without one. */
+	account: string | null;
+};
 
 /** What balance accounts were worth in rupees at the end of each day, from the ledger's first day at the earliest. */
-export const listWorth = ({ ledger, from, to }: ListWorthOptions): ResultAsync<Batch<DB.Worth>> =>
+export const listWorth = ({
+	ledger,
+	from,
+	to,
+	account,
+}: ListWorthOptions): ResultAsync<Batch<DB.Worth>> =>
 	syncIndex(ledger).andThen((f) =>
-		DB.listWorth(ledger.id, from, to).map((w) => ({ succeeded: w, failed: f })),
+		DB.listWorth(ledger.id, { from, to, account }).map((w) => ({
+			succeeded: w,
+			failed: f,
+		})),
 	);
 
-type ListSpendingOptions = { ledger: Ledger; spans: Span[]; bucket: Bucket };
+type ListSpendingOptions = { ledger: Ledger; spans: Span[]; bucket: Bucket; account: string };
 
-/** What Expenses accounts gained in rupees over each span, one spending per span. */
+/** What an Expenses account and those under it gained in rupees over each span, one spending per span. */
 export const listSpending = ({
 	ledger,
 	spans,
 	bucket,
+	account,
 }: ListSpendingOptions): ResultAsync<Batch<Spending>> => {
 	const spending = (s: Span) =>
-		DB.listSpending(ledger.id, { ...s, bucket }).map((r) => spendingOf(r, s, bucket));
+		DB.listSpending(ledger.id, { ...s, bucket, account }).map((r) => spendingOf(r, s, bucket));
 
 	return syncIndex(ledger).andThen((f) =>
 		ResultAsync.combine(spans.map(spending)).map((s) => ({ succeeded: s, failed: f })),

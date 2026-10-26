@@ -16,8 +16,11 @@
 	--size-7: 9rem; /* 144px */
 
 	--measure: 64rem;
-	--sidebar: 12rem;
+	--sidebar: 16rem;
+	--plot: 16rem;
+	--plot-short: 12rem;
 	--inset: max(var(--size-3), (100% - var(--measure)) / 2);
+	--inset-end: var(--inset);
 	--radius: 8px;
 
 	--font-body: 'Poppins', sans-serif;
@@ -29,32 +32,42 @@
 	--color-border: light-dark(lightgray, #3a3a3a);
 	--color-ink: light-dark(rgba(0, 0, 0, 0.9), rgba(255, 255, 255, 0.9));
 	--color-muted: light-dark(#707070, #858585);
-	--color-accent: light-dark(#6b7a2a, #b5c46a);
+	--color-accent: light-dark(#704214, #c8a27a);
 	--color-positive: light-dark(#0a7a3d, #4cc47f);
 	--color-negative: light-dark(#c62828, #ff7b72);
 	/* Fills ranked by amount, light enough that ink stays above 4.5:1 on the darkest. */
-	--color-shade-1: color-mix(in srgb, var(--color-ink) 8%, transparent);
-	--color-shade-2: color-mix(in srgb, var(--color-ink) 16%, transparent);
-	--color-shade-3: color-mix(in srgb, var(--color-ink) 24%, transparent);
-	--color-shade-4: color-mix(in srgb, var(--color-ink) 32%, transparent);
-	/* Shades of ink for the bars of a group, darkest first, each step apart and the palest still clear of the page. */
-	--color-series-1: color-mix(in srgb, var(--color-ink) 90%, var(--color-surface));
-	--color-series-2: color-mix(in srgb, var(--color-ink) 74%, var(--color-surface));
-	--color-series-3: color-mix(in srgb, var(--color-ink) 59%, var(--color-surface));
-	--color-series-4: color-mix(in srgb, var(--color-ink) 45%, var(--color-surface));
-	--color-series-5: color-mix(in srgb, var(--color-ink) 32%, var(--color-surface));
+	--color-shade-1: color-mix(in srgb, var(--color-accent) 12%, transparent);
+	--color-shade-2: color-mix(in srgb, var(--color-accent) 24%, transparent);
+	--color-shade-3: color-mix(in srgb, var(--color-accent) 36%, transparent);
+	--color-shade-4: color-mix(in srgb, var(--color-accent) 48%, transparent);
+	/* Shades of the accent for the parts of a bar, darkest first, each step apart and the palest still clear of the page. */
+	--color-series-1: color-mix(in srgb, var(--color-accent) 90%, var(--color-surface));
+	--color-series-2: color-mix(in srgb, var(--color-accent) 74%, var(--color-surface));
+	--color-series-3: color-mix(in srgb, var(--color-accent) 59%, var(--color-surface));
+	--color-series-4: color-mix(in srgb, var(--color-accent) 45%, var(--color-surface));
+	--color-series-5: color-mix(in srgb, var(--color-accent) 32%, var(--color-surface));
 	/* Each bar's edge, its own shade pushed toward ink so a pale fill keeps a clear outline. */
 	--color-series-1-edge: color-mix(in oklab, var(--color-series-1), var(--color-ink) 40%);
 	--color-series-2-edge: color-mix(in oklab, var(--color-series-2), var(--color-ink) 40%);
 	--color-series-3-edge: color-mix(in oklab, var(--color-series-3), var(--color-ink) 40%);
 	--color-series-4-edge: color-mix(in oklab, var(--color-series-4), var(--color-ink) 40%);
 	--color-series-5-edge: color-mix(in oklab, var(--color-series-5), var(--color-ink) 40%);
+	/* Shades of negative for the parts of what is owed, darkest first, the palest steps of the series. */
+	--color-owed-1: color-mix(in srgb, var(--color-negative) 59%, var(--color-surface));
+	--color-owed-2: color-mix(in srgb, var(--color-negative) 45%, var(--color-surface));
+	--color-owed-3: color-mix(in srgb, var(--color-negative) 32%, var(--color-surface));
+	--color-owed-1-edge: color-mix(in oklab, var(--color-owed-1), var(--color-ink) 40%);
+	--color-owed-2-edge: color-mix(in oklab, var(--color-owed-2), var(--color-ink) 40%);
+	--color-owed-3-edge: color-mix(in oklab, var(--color-owed-3), var(--color-ink) 40%);
+	/* One level of a treemap, see-through so each level inside another reads darker. */
+	--color-layer: color-mix(in srgb, var(--color-accent) 22%, transparent);
 }
 
-/* The signed-in sidebar sits beside the content from this width, so the content gives way to it. */
+/* A page's filters sit beside the content from this width, so the content gives way to them on the left. */
 @media (width >= 80rem) {
 	:root {
 		--inset: max(var(--size-3) + var(--sidebar) + var(--size-5), (100% - var(--measure)) / 2);
+		--inset-end: max(var(--size-3), (100% - var(--measure)) / 2);
 	}
 }
 
@@ -152,6 +165,38 @@ a.plain {
 
 a.plain:hover {
 	text-decoration: underline;
+}
+
+.picker {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-1);
+}
+
+.picker > span {
+	color: var(--color-muted);
+}
+
+.picker > nav {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-1) var(--size-3);
+	align-items: center;
+}
+
+.picker a {
+	color: var(--color-ink);
+	text-decoration: none;
+}
+
+.picker a:hover {
+	text-decoration: underline;
+}
+
+a[aria-current] {
+	color: var(--color-accent);
+	text-decoration: underline 2px;
+	text-underline-offset: var(--size-0);
 }
 
 code {

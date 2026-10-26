@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/svelte';
+import { render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import { listSpending } from '#lib/endpoints/accounts.remote.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
@@ -68,5 +68,63 @@ describe('the expenses page', () => {
 
 		await screen.findByTitle('Expenses:Food');
 		expect(screen.queryByRole('columnheader', { name: 'Per month' })).toBeNull();
+	});
+
+	it('narrows to an account, listing it and those under it against its own total', async () => {
+		visit('/l/h/expenses?account=Expenses:Food');
+		vi.mocked(listSpending).mockReturnValue(answer([spending]));
+		render(Page, { data });
+
+		await screen.findByTitle('Expenses:Food');
+		expect(vi.mocked(listSpending)).toHaveBeenCalledWith(
+			expect.objectContaining({ account: 'Expenses:Food' }),
+		);
+		expect(screen.queryByTitle('Expenses')).toBeNull();
+		expect(screen.queryByTitle('Expenses:Rent')).toBeNull();
+		expect(
+			within(screen.getByRole('navigation', { name: 'Account' }))
+				.getByRole('link', { name: 'All' })
+				.getAttribute('href'),
+		).toBe('?account=Expenses');
+		expect(screen.getByRole('link', { name: 'Expenses:Food' }).getAttribute('aria-current')).toBe(
+			'page',
+		);
+	});
+
+	it('picks from the accounts right under Expenses', async () => {
+		visit('/l/h/expenses');
+		vi.mocked(listSpending).mockReturnValue(answer([spending]));
+		render(Page, { data });
+
+		const rent = await screen.findByRole('link', { name: 'Expenses:Rent' });
+		expect(rent.getAttribute('href')).toBe('?account=Expenses%3ARent');
+		expect(
+			within(screen.getByRole('navigation', { name: 'Account' }))
+				.getByRole('link', { name: 'All' })
+				.getAttribute('aria-current'),
+		).toBe('page');
+	});
+
+	it('switches to how the spending divides by account, keeping the rest of the query', async () => {
+		visit('/l/h/expenses?at=2026&chart=flow');
+		vi.mocked(listSpending).mockReturnValue(answer([spending]));
+		render(Page, { data });
+
+		expect(await screen.findByRole('img', { name: /^How Expenses divides/ })).toBeTruthy();
+		const charts = within(screen.getByRole('navigation', { name: 'Chart' }));
+		expect(charts.getByRole('link', { name: 'Over time' }).getAttribute('href')).toBe(
+			'?at=2026&chart=time',
+		);
+		expect(screen.queryByRole('navigation', { name: 'Scale' })).toBeNull();
+	});
+
+	it('offers no switch when nothing lies under the account', async () => {
+		visit('/l/h/expenses?account=Expenses:Rent&chart=flow');
+		vi.mocked(listSpending).mockReturnValue(answer([spending]));
+		render(Page, { data });
+
+		await screen.findByTitle('Expenses:Rent');
+		expect(screen.queryByRole('navigation', { name: 'Chart' })).toBeNull();
+		expect(screen.getByRole('navigation', { name: 'Scale' })).toBeTruthy();
 	});
 });

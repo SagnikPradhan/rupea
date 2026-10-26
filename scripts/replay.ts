@@ -19,7 +19,12 @@ import { parseArgs } from 'node:util';
 
 const NEAREST = 50;
 
-const root = resolve(parseArgs({ allowPositionals: true }).positionals[0] ?? '.');
+const args = parseArgs({
+	allowPositionals: true,
+	options: { cold: { type: 'boolean', default: false } },
+});
+const root = resolve(args.positionals[0] ?? '.');
+const cold = args.values.cold;
 const config = readConfiguration(process.env);
 
 const logger = createLogger(config.log.level, process.stdout.isTTY);
@@ -44,7 +49,7 @@ const history: Remembered[] = [];
 const outcomes: { right: boolean; source: Prediction['source'] }[] = [];
 for (const statement of statements) {
 	outcomes.push(...(await predictStatement(statement)));
-	history.push(...(await remember(statement.transactions)));
+	if (!cold) history.push(...(await remember(statement.transactions)));
 }
 
 const right = outcomes.filter((o) => o.right).length;
@@ -61,7 +66,7 @@ console.table({
 /** Predicts each line of a statement from the statements before it, as an import would. */
 async function predictStatement(statement: Statement) {
 	const lines = statement.transactions.flatMap((t) => lineOf(statement.account, t));
-	if (lines.length === 0 || history.length === 0) return [];
+	if (lines.length === 0 || (!cold && history.length === 0)) return [];
 
 	const options = {
 		thresholds: THRESHOLDS,

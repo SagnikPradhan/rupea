@@ -51,7 +51,9 @@ jobs:
           path: data/models
           key: models-${{ hashFiles('src/lib/server/shared/onnx/models.ts') }}
       - run: pnpm models
-      - run: pnpm playwright install --with-deps chromium
+      # The runner image already has the libraries Chrome needs, and installing
+      # them again through apt has taken up to 14 minutes on a slow mirror.
+      - run: pnpm playwright install --only-shell chromium
       - run: pnpm test:e2e:coverage
       - if: ${{ !cancelled() }}
         uses: coverallsapp/github-action@v2

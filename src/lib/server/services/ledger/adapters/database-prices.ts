@@ -3,22 +3,24 @@ import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { monthOf, runningTotal, total, unset } from '#lib/server/db/expressions.ts';
 import type { Database } from '#lib/server/db/index.ts';
 import type { Bucket } from '#lib/shared/dates.ts';
-import { sql, type Expression } from 'kysely';
+import { sql, type Expression, type SqlBool } from 'kysely';
 import { AMOUNT_UNIT, DEFAULT_COMMODITY, type Amount, type Quantity } from '../domain/amounts';
 import type { Spent } from '../domain/spending';
 import { BALANCE_TYPES } from '../domain/taxonomy';
 import { AccountType, Feed, PriceSource } from '../domain/types';
-import { multiply } from './database-queries';
+import { multiply, partOf, underAccount } from './database-queries';
 
 /** The most prices a commodity is converted through on its way to rupees. */
 const MAX_PRICES = 2;
 
-/** What balance accounts were worth in rupees at the end of one day, and how many commodities had no price. */
+/** What balance accounts were worth in rupees at the end of one day, owing below zero as the accounts hold it, and how many commodities had no price. */
 export type Worth = {
 	day: Temporal.PlainDate;
 	assets: Amount;
 	liabilities: Amount;
 	worth: Amount;
+	/** What each account a level under the one asked for was worth, or each commodity of an account with none under it. */
+	parts: Record<string, Amount>;
 	unpriced: number;
 };
 
@@ -53,37 +55,57 @@ export const findLatestPrices = (
 		),
 	);
 
+type WorthOptions = {
+	from: Temporal.PlainDate;
+	to: Temporal.PlainDate;
+	account: string | null;
+};
+
 /**
  * Each day values its balances at the latest price on or before it, reaching rupees in at most
  * two prices and rounding each step as multiply does. The first day is the later of from and the
  * ledger's first counted transaction, and what came before the start month is summed by the month.
+ * An account narrows the balances to it and those under it.
  */
 export const listWorth = (
 	ledgerId: string,
-	from: Temporal.PlainDate,
-	to: Temporal.PlainDate,
+	{ from, to, account }: WorthOptions,
 ): ResultAsync<Worth[]> =>
 	withContext('db')((db) => {
 		const firstMonth = sql<string>`(select min(month) from months)`;
 		const startMonth = sql<string>`(select ${monthOf(sql.ref('day'))} from start)`;
+		const split = sql<number>`(select level from split)`;
 
 		return attempt(() =>
 			db
 				// Kysely writes with recursive only when the first CTE asks for it
 				.withRecursive('own(id, symbol)', () => ownSymbols(db, ledgerId))
+				.with('split', () => splitLevel(db, ledgerId, account))
 				.with('months', (q) =>
 					q
 						.selectFrom('monthlyDeltas as m')
+						.innerJoin('accounts as a', (j) =>
+							j
+								.onRef('a.ledgerId', '=', 'm.ledgerId')
+								.on(sql<SqlBool>`lower(${sql.ref('a.name')}) = lower(${sql.ref('m.account')})`),
+						)
 						.select((e) => [
 							e('m.accountType', '=', AccountType.Assets).as('asset'),
+							partOf(e.ref('a.name'), e.ref('m.commodity'), { split, account }).as('part'),
 							'm.commodity',
 							'm.month',
 							e.fn.sum<bigint>('m.amount').as('amount'),
 						])
 						.where('m.ledgerId', '=', ledgerId)
 						.where('m.accountType', 'in', BALANCE_TYPES)
+						.where((e) => underAccount(e.ref('m.account'), account))
 						.where('m.month', '<=', to.toString())
-						.groupBy(['m.accountType', 'm.commodity', 'm.month']),
+						.groupBy((e) => [
+							e.ref('m.accountType'),
+							sql.ref('part'),
+							e.ref('m.commodity'),
+							e.ref('m.month'),
+						]),
 				)
 				.with('start', (q) =>
 					q
@@ -93,6 +115,7 @@ export const listWorth = (
 						)
 						.where('d.ledgerId', '=', ledgerId)
 						.where('d.accountType', 'in', BALANCE_TYPES)
+						.where((e) => underAccount(e.ref('d.account'), account))
 						.where('d.date', '>=', firstMonth)
 						.where('d.date', '<', sql<string>`${firstMonth} + interval '1 month'`)
 						.having((e) => e.fn.min('d.date'), 'is not', null),
@@ -109,27 +132,51 @@ export const listWorth = (
 				.with('changes', (q) =>
 					q
 						.selectFrom('dailyDeltas as d')
+						.innerJoin('accounts as a', (j) =>
+							j
+								.onRef('a.ledgerId', '=', 'd.ledgerId')
+								.on(sql<SqlBool>`lower(${sql.ref('a.name')}) = lower(${sql.ref('d.account')})`),
+						)
 						.select((e) => [
 							e('d.accountType', '=', AccountType.Assets).as('asset'),
+							partOf(e.ref('a.name'), e.ref('d.commodity'), { split, account }).as('part'),
 							'd.commodity',
 							'd.date',
 							e.fn.sum<bigint>('d.amount').as('amount'),
 						])
 						.where('d.ledgerId', '=', ledgerId)
 						.where('d.accountType', 'in', BALANCE_TYPES)
+						.where((e) => underAccount(e.ref('d.account'), account))
 						.where('d.date', '>=', startMonth)
 						.where('d.date', '<=', to.toString())
-						.groupBy(['d.accountType', 'd.commodity', 'd.date']),
+						.groupBy((e) => [
+							e.ref('d.accountType'),
+							sql.ref('part'),
+							e.ref('d.commodity'),
+							e.ref('d.date'),
+						]),
 				)
 				.with('history', (q) =>
 					q
 						.selectFrom('months')
-						.select(['months.asset', 'months.commodity', 'months.month as date', 'months.amount'])
+						.select([
+							'months.asset',
+							'months.part',
+							'months.commodity',
+							'months.month as date',
+							'months.amount',
+						])
 						.where('months.month', '<', startMonth)
 						.unionAll(
 							q
 								.selectFrom('changes')
-								.select(['changes.asset', 'changes.commodity', 'changes.date', 'changes.amount']),
+								.select([
+									'changes.asset',
+									'changes.part',
+									'changes.commodity',
+									'changes.date',
+									'changes.amount',
+								]),
 						),
 				)
 				.with('keys', (q) =>
@@ -138,6 +185,7 @@ export const listWorth = (
 						.leftJoin('own as o', 'o.symbol', 'x.commodity')
 						.select((e) => [
 							'x.asset',
+							'x.part',
 							'x.commodity',
 							'o.id as symbolId',
 							total(
@@ -149,7 +197,7 @@ export const listWorth = (
 								),
 							).as('opening'),
 						])
-						.groupBy(['x.asset', 'x.commodity', 'o.id']),
+						.groupBy(['x.asset', 'x.part', 'x.commodity', 'o.id']),
 				)
 				.with('balances', (q) =>
 					q
@@ -158,11 +206,13 @@ export const listWorth = (
 						.leftJoin('changes as x', (j) =>
 							j
 								.onRef('x.asset', '=', 'k.asset')
+								.onRef('x.part', '=', 'k.part')
 								.onRef('x.commodity', '=', 'k.commodity')
 								.onRef('x.date', '=', 'd.day'),
 						)
 						.select((e) => [
 							'k.asset',
+							'k.part',
 							'k.commodity',
 							'k.symbolId',
 							'd.day',
@@ -171,7 +221,7 @@ export const listWorth = (
 								'+',
 								runningTotal(
 									e.ref('x.amount'),
-									[e.ref('k.asset'), e.ref('k.commodity')],
+									[e.ref('k.asset'), e.ref('k.part'), e.ref('k.commodity')],
 									e.ref('d.day'),
 								),
 							).as('units'),
@@ -227,6 +277,8 @@ export const listWorth = (
 						.select((e) => [
 							'b.day',
 							'b.asset',
+							'b.part',
+							'b.commodity',
 							e
 								.case()
 								.when('b.commodity', '=', DEFAULT_COMMODITY)
@@ -237,14 +289,31 @@ export const listWorth = (
 						])
 						.where('b.units', '<>', 0n),
 				)
+				.with('shares', (q) =>
+					q
+						.selectFrom('valued as v')
+						.select((e) => ['v.day', 'v.part', e.fn.sum<bigint>('v.value').as('value')])
+						.where('v.value', 'is not', null)
+						.groupBy(['v.day', 'v.part']),
+				)
 				.selectFrom('days as d')
 				.leftJoin('valued as v', 'v.day', 'd.day')
 				.select((e) => [
 					'd.day',
 					total(e.ref('v.value'), e('v.asset', '=', true)).as('assets'),
-					sql<bigint>`-${total(e.ref('v.value'), e('v.asset', '=', false))}`.as('liabilities'),
+					total(e.ref('v.value'), e('v.asset', '=', false)).as('liabilities'),
 					total(e.ref('v.value')).as('worth'),
-					unset(e.ref('v.value'), e.ref('v.day')).as('unpriced'),
+					e
+						.selectFrom('shares as s')
+						.select(
+							sql<
+								Record<string, string>
+							>`coalesce(jsonb_object_agg(s.part, s.value::text), '{}')`.as('parts'),
+						)
+						.whereRef('s.day', '=', 'd.day')
+						.where('s.value', '<>', 0n)
+						.as('parts'),
+					unset(e.ref('v.value'), e.ref('v.commodity')).as('unpriced'),
 				])
 				.groupBy('d.day')
 				.orderBy('d.day')
@@ -255,20 +324,28 @@ export const listWorth = (
 				assets: w.assets as Amount,
 				liabilities: w.liabilities as Amount,
 				worth: w.worth as Amount,
+				parts: Object.fromEntries(
+					Object.entries(w.parts ?? {}).map(([p, v]) => [p, BigInt(v) as Amount]),
+				),
 				unpriced: w.unpriced,
 			})),
 		);
 	});
 
-type SpendingOptions = { from: Temporal.PlainDate; to: Temporal.PlainDate; bucket: Bucket };
+type SpendingOptions = {
+	from: Temporal.PlainDate;
+	to: Temporal.PlainDate;
+	bucket: Bucket;
+	account: string;
+};
 
 /**
- * Values each counted amount at the latest price on or before its own day, as worth does, and
- * adds them up by account and the bucket its day falls in.
+ * Values each counted amount under an account at the latest price on or before its own day, as
+ * worth does, and adds them up by account and the bucket its day falls in.
  */
 export const listSpending = (
 	ledgerId: string,
-	{ from, to, bucket }: SpendingOptions,
+	{ from, to, bucket, account }: SpendingOptions,
 ): ResultAsync<Spent[]> =>
 	withContext('db')((db) =>
 		attempt(() =>
@@ -278,9 +355,14 @@ export const listSpending = (
 					q
 						.selectFrom('postings as p')
 						.innerJoin('transactions as t', 't.id', 'p.transactionId')
+						.innerJoin('accounts as a', (j) =>
+							j
+								.onRef('a.ledgerId', '=', 'p.ledgerId')
+								.on(sql<SqlBool>`lower(${sql.ref('a.name')}) = lower(${sql.ref('p.account')})`),
+						)
 						.leftJoin('own as o', 'o.symbol', 'p.commodity')
 						.select((e) => [
-							'p.account',
+							'a.name as account',
 							't.date',
 							'p.commodity',
 							'o.id as symbolId',
@@ -289,10 +371,11 @@ export const listSpending = (
 						])
 						.where('p.ledgerId', '=', ledgerId)
 						.where('p.accountType', '=', AccountType.Expenses)
+						.where((e) => underAccount(e.ref('p.account'), account))
 						.where('t.date', '>=', from.toString())
 						.where('t.date', '<=', to.toString())
 						.where('t.counted', '=', true)
-						.groupBy(['p.account', 't.date', 'p.commodity', 'o.id']),
+						.groupBy(['a.name', 't.date', 'p.commodity', 'o.id']),
 				)
 				.withRecursive('rates(origin, day, commodity, at, rate, hops)', (q) =>
 					q
@@ -379,6 +462,28 @@ export const listSpending = (
 			})),
 		),
 	);
+
+/**
+ * How many levels past the first a part keeps: the first level from the account asked for that
+ * divides, so an account alone in between hides none under it. Every account starts at one.
+ */
+const splitLevel = (db: Database, ledgerId: string, account: string | null) => {
+	const start = account === null ? 1 : account.split(':').length;
+	const names = db
+		.selectFrom('accounts as a')
+		.select(sql<string[]>`string_to_array(lower(${sql.ref('a.name')}), ':')`.as('levels'))
+		.where('a.ledgerId', '=', ledgerId)
+		.where('a.type', 'in', BALANCE_TYPES)
+		.where((e) => underAccount(e.ref('a.name'), account));
+
+	return sql<{ level: number }>`(
+		with names as (${names})
+		select coalesce(min(l), ${start}) as level
+		from generate_series(${start}, (select max(cardinality(levels)) from names)) l
+		where exists (select from names where cardinality(levels) = l)
+			or (select count(distinct levels[l + 1]) from names where cardinality(levels) > l) <> 1
+	)`;
+};
 
 /** The ledger's own symbols, so each commodity is looked up once rather than once a day. */
 const ownSymbols = (db: Database, ledgerId: string) =>

@@ -7,6 +7,7 @@ import {
 	OTHER,
 	partsOf,
 	PREVIOUS,
+	rowsOf,
 	totalOf,
 	wholeOf,
 	type Spent,
@@ -46,8 +47,16 @@ describe('account names', () => {
 
 describe('the parts of a bar', () => {
 	it('are the largest accounts right under Expenses, largest first', () => {
-		expect(partsOf(spending)).toEqual(['Expenses:Food', 'Expenses:Rent']);
-		expect(partsOf(undefined)).toEqual([]);
+		expect(partsOf(spending, 'Expenses')).toEqual(['Expenses:Food', 'Expenses:Rent']);
+		expect(partsOf(undefined, 'Expenses')).toEqual([]);
+	});
+
+	it('are the accounts right under the one narrowed to', () => {
+		expect(partsOf(spending, 'Expenses:Food')).toEqual(['Expenses:Food:Groceries']);
+		expect(rowsOf(spending.totals, 'Expenses:Food').map((t) => t.account)).toEqual([
+			'Expenses:Food',
+			'Expenses:Food:Groceries',
+		]);
 	});
 
 	it('leave room for the other spending', () => {
@@ -55,15 +64,16 @@ describe('the parts of a bar', () => {
 			account: `Expenses:${i}`,
 			amount: String(i),
 		}));
-		expect(partsOf({ ...spending, totals: many })).toHaveLength(PARTS - 1);
+		expect(partsOf({ ...spending, totals: many }, 'Expenses')).toHaveLength(PARTS - 1);
 	});
 });
 
 describe('the bars', () => {
+	const account = 'Expenses';
 	const parts = ['Expenses:Food', 'Expenses:Rent'];
 
 	it('pile each part, and leave the rest to other, to the paisa', () => {
-		expect(barsOf({ spending, previous: undefined, parts })).toEqual([
+		expect(barsOf({ spending, previous: undefined, account, parts })).toEqual([
 			{
 				bucket: '2026-01-01',
 				total: '700',
@@ -84,25 +94,26 @@ describe('the bars', () => {
 	});
 
 	it('set each bucket against the one as far into the range before', () => {
-		const bars = barsOf({ spending, previous, parts });
+		const bars = barsOf({ spending, previous, account, parts });
 		expect(bars.map((b) => b[PREVIOUS])).toEqual(['800', null]);
 	});
 
 	it('add up to the whole range, set against the whole range before', () => {
-		expect(wholeOf({ spending, previous, parts })).toMatchObject({
+		expect(wholeOf({ spending, previous, account, parts })).toMatchObject({
 			total: '1000',
 			[OTHER]: '99.75',
 			[PREVIOUS]: '800',
 		});
-		expect(wholeOf({ spending, previous: undefined, parts })[PREVIOUS]).toBeNull();
+		expect(wholeOf({ spending, previous: undefined, account, parts })[PREVIOUS]).toBeNull();
 	});
 });
 
 describe('totals', () => {
 	it('read what a range spent in all, and nothing without a range', () => {
-		expect(totalOf(spending)).toBe('1000');
-		expect(totalOf({ ...spending, totals: [] })).toBe('0');
-		expect(totalOf(undefined)).toBeNull();
+		expect(totalOf(spending, 'Expenses')).toBe('1000');
+		expect(totalOf(spending, 'Expenses:Food')).toBe('600');
+		expect(totalOf({ ...spending, totals: [] }, 'Expenses')).toBe('0');
+		expect(totalOf(undefined, 'Expenses')).toBeNull();
 	});
 
 	it('count months in a span, both of its days included', () => {

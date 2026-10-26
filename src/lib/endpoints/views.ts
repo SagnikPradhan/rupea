@@ -73,6 +73,7 @@ export const viewWorth = (worth: Accounts.Worth) => ({
 	assets: formatAmount(worth.assets),
 	liabilities: formatAmount(worth.liabilities),
 	worth: formatAmount(worth.worth),
+	parts: Object.fromEntries(Object.entries(worth.parts).map(([p, v]) => [p, formatAmount(v)])),
 	unpriced: worth.unpriced,
 });
 

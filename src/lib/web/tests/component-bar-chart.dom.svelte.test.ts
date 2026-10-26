@@ -59,12 +59,12 @@ const drawn = async (previous?: (string | null)[]) => {
 	return plot;
 };
 
-/** Puts the cursor over a group, at a pixel across the plot; bars sit as in the drawing test below. */
-const hover = ({ options, data }: Plot, idx: number | null, left = -1) => {
+/** Puts the cursor over a bar, at a pixel in the plot; bars sit as in the drawing test below. */
+const hover = ({ options, data }: Plot, idx: number | null, left = -1, top = -1) => {
 	const plot = {
 		data,
-		cursor: { idx, left },
-		bbox: { left: 0, width: 300 },
+		cursor: { idx, left, top },
+		bbox: { left: 0, top: 0, width: 300 },
 		valToPos: (v: number, scale: string) => (scale === 'x' ? v * 100 + 50 : 1000 - v / 10),
 	};
 	options.hooks?.setCursor?.[0]?.(plot as unknown as uPlot);
@@ -100,7 +100,7 @@ describe('the bar chart', () => {
 		expect(options.series[3]?.paths).toBeTypeOf('function');
 	});
 
-	it('stands each part’s bar side by side from zero, refunds below it', async () => {
+	it('piles each part on the one before, spending up from zero and refunds down', async () => {
 		const { options, data } = await drawn();
 		const rects: number[][] = [];
 		const outlines: number[][] = [];
@@ -122,11 +122,14 @@ describe('the bar chart', () => {
 
 		options.hooks?.draw?.[0]?.(plot);
 		expect(rects.slice(0, 2)).toEqual([
-			[10, 800, 39, 200],
-			[50, 950, 39, 50],
+			[26, 800, 48, 200],
+			[26, 750, 48, 50],
 		]);
-		expect(rects[2]).toEqual([110, 1000, 39, 50]);
-		expect(outlines[0]).toEqual([10.5, 800.5, 38, 199]);
+		expect(rects.slice(2, 4)).toEqual([
+			[126, 1000, 48, 50],
+			[126, 970, 48, 30],
+		]);
+		expect(outlines[0]).toEqual([26.5, 800.5, 47, 199]);
 		expect(ctx.setLineDash).toHaveBeenCalledWith([]);
 	});
 
@@ -177,16 +180,19 @@ describe('the bar chart', () => {
 		const tip = () => screen.getByRole('img').querySelector('.tip')?.textContent;
 		const other = () => screen.getByText('Other').closest('span');
 
-		hover(plot, 0, 15);
+		hover(plot, 0, 50, 900);
 		expect(tip()).toContain('Food');
 		expect(tip()).toContain('2,000.00');
 		expect(other()?.classList.contains('faded')).toBe(true);
 
-		hover(plot, 0, 55);
+		hover(plot, 0, 50, 775);
 		expect(tip()).toContain('Other');
 		expect(tip()).toContain('500.00');
 
-		hover(plot, 0, 95);
+		hover(plot, 0, 50, 700);
+		expect(tip()).toBeUndefined();
+
+		hover(plot, 0, 95, 900);
 		expect(tip()).toBeUndefined();
 	});
 

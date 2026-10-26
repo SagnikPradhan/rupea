@@ -60,9 +60,9 @@ export const runningTotal = (
 	o: Expression<unknown>,
 ) => sql<bigint>`sum(coalesce(${c}, 0)) over (partition by ${sql.join(p)} order by ${o})`;
 
-/** How many rows have a key but no value in a column, as an integer. */
+/** How many distinct keys have a row with no value in a column, as an integer. */
 export const unset = (c: Expression<unknown>, k: Expression<unknown>) =>
-	sql<number>`(count(${k}) filter (where ${c} is null))::integer`;
+	sql<number>`(count(distinct ${k}) filter (where ${c} is null))::integer`;
 
 /** A value for a jsonb column, which the driver would otherwise send as a Postgres array when it is one. */
 export const json = <T>(v: T) => sql<T>`${JSON.stringify(v)}::jsonb`;

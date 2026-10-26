@@ -1,14 +1,9 @@
 <script lang="ts">
-	import { seriesOf } from '#lib/web/shared/chart.ts';
-
-	/** Which part of a bar chart this stands for, in that part's shade. */
-	const { part }: { part: number } = $props();
+	/** The colour token of the part this stands for, which has an edge token beside it. */
+	const { shade }: { shade: string } = $props();
 </script>
 
-<span
-	aria-hidden="true"
-	style:background="var({seriesOf(part)})"
-	style:border-color="var({seriesOf(part)}-edge)"
+<span aria-hidden="true" style:background="var({shade})" style:border-color="var({shade}-edge)"
 ></span>
 
 <style>

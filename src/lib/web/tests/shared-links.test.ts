@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fileHref, ledgerCrumb } from '#lib/web/shared/links.ts';
+import { fileHref, hrefWith, ledgerCrumb } from '#lib/web/shared/links.ts';
 
 describe('fileHref', () => {
 	it('opens a file, escaping its path', () => {
@@ -19,5 +19,20 @@ describe('ledgerCrumb', () => {
 			href: '/l/quiet-heron/transactions',
 			label: 'Personal',
 		});
+	});
+});
+
+describe('hrefWith', () => {
+	it('changes some values and keeps the rest of the query', () => {
+		const params = new URLSearchParams('at=2026&chart=flow');
+		expect(hrefWith(params, { chart: 'time', account: 'Assets' })).toBe(
+			'?at=2026&chart=time&account=Assets',
+		);
+	});
+
+	it('drops a key whose value is empty', () => {
+		expect(hrefWith(new URLSearchParams('at=2026&account=Assets'), { account: '' })).toBe(
+			'?at=2026',
+		);
 	});
 });

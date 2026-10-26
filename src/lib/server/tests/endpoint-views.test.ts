@@ -197,12 +197,13 @@ describe('viewing an account', () => {
 });
 
 describe('viewing net worth', () => {
-	it('shows each side as text', () => {
+	it('shows each side and part as text', () => {
 		const worth = {
 			day,
 			assets: amount('500'),
 			liabilities: amount('-200'),
 			worth: amount('300'),
+			parts: { 'Assets:Bank': amount('500'), 'Liabilities:Card': amount('-200') },
 			unpriced: 1,
 		};
 		expect(viewWorth(worth)).toEqual({
@@ -210,6 +211,7 @@ describe('viewing net worth', () => {
 			assets: '500.00',
 			liabilities: '-200.00',
 			worth: '300.00',
+			parts: { 'Assets:Bank': '500.00', 'Liabilities:Card': '-200.00' },
 			unpriced: 1,
 		});
 	});

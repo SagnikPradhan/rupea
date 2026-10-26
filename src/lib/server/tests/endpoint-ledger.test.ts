@@ -77,13 +77,16 @@ describe('transactions', () => {
 describe('accounts', () => {
 	it('list balances, worth and lots', ({ context, ledger: handle }) =>
 		provide(context, async () => {
-			const accounts = await listAccounts({ handle, day });
-			const worth = await listWorth({ handle, range: '1y', day });
+			const year = { kind: 'year', at: '2026' } as const;
+			const accounts = await listAccounts({ handle, day, period: year });
+			const worth = await listWorth({ handle, day, period: year, account: null });
+			const bank = await listWorth({ handle, day, period: year, account: 'assets:bank' });
 			const lots = await listLots({ handle, account: 'Assets:Broker', commodity: 'INFY' });
 
 			expect(accounts.ok).toBe(true);
 			expect(accounts.data?.map((a) => a.account)).toContain('Assets:Bank');
 			expect(worth.ok).toBe(true);
+			expect(bank.data?.at(-1)?.worth).not.toBe(worth.data?.at(-1)?.worth);
 			expect(lots.data).toHaveLength(1);
 		}));
 
@@ -92,8 +95,13 @@ describe('accounts', () => {
 		ledger: handle,
 	}) =>
 		provide(context, async () => {
-			const month = await listSpending({ handle, day, period: { kind: 'month', at: '2026-09' } });
-			const all = await listSpending({ handle, day, period: { kind: 'all' } });
+			const month = await listSpending({
+				handle,
+				day,
+				period: { kind: 'month', at: '2026-09' },
+				account: 'Expenses',
+			});
+			const all = await listSpending({ handle, day, period: { kind: 'all' }, account: 'Expenses' });
 
 			expect(month.data).toHaveLength(2);
 			expect(all.data).toHaveLength(1);

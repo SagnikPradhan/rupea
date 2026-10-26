@@ -14,9 +14,11 @@
 		href: (day: string) => string;
 		/** Drawn above the calendar with the row under the cursor, or none. */
 		summary?: Snippet<[number | null]>;
+		/** Drawn below the calendar, such as a choice of chart. */
+		controls?: Snippet;
 	};
 
-	const { rows, x, y, label, href, summary }: Props = $props();
+	const { rows, x, y, label, href, summary, controls }: Props = $props();
 
 	const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 	const SHADES = 4;
@@ -84,6 +86,7 @@
 			{/each}
 		</tbody>
 	</table>
+	{#if controls}<figcaption>{@render controls()}</figcaption>{/if}
 </figure>
 
 <style>
@@ -92,6 +95,11 @@
 		flex-direction: column;
 		gap: var(--size-1);
 		margin: 0;
+	}
+
+	figcaption {
+		display: flex;
+		justify-content: flex-end;
 	}
 
 	table {

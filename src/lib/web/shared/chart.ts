@@ -1,5 +1,4 @@
 import uPlot from 'uplot';
-import * as v from 'valibot';
 
 const EDGE = 32;
 
@@ -9,13 +8,16 @@ export const PARTS = 5;
 /** The colour token of a part's bar; any past the last share its shade. */
 export const seriesOf = (k: number) => `--color-series-${Math.min(k, PARTS - 1) + 1}`;
 
-/** How a chart spaces its values: evenly, or by order of magnitude. */
-export const Scale = v.picklist(['linear', 'log']);
+/** How many parts of what is owed have a shade of their own, which are fewer than what is held. */
+export const OWED = 3;
 
-export type Scale = v.InferOutput<typeof Scale>;
+/** The colour token of a part of what is owed; any past the last share its shade. */
+export const owedOf = (k: number) => `--color-owed-${Math.min(k, OWED - 1) + 1}`;
 
-/** How the scale picker labels each scale. */
-export const SCALE_LABELS: Record<Scale, string> = { linear: 'Linear', log: 'Log' };
+export const sumOf = (n: number[]) => n.reduce((t, x) => t + x, 0);
+
+/** What the amounts of one sign add up to, as a stack piles them on its side of zero. */
+export const pileOf = (n: number[], s: number) => sumOf(n.filter((x) => Math.sign(x) === s));
 
 /** Draws a plot into a node, again when the colour scheme changes, sized to it, and moves its cursor where a finger lands. */
 export const plotInto = (
@@ -52,6 +54,36 @@ export const plotInto = (
 		unwatch();
 		node.removeEventListener('pointerdown', touch);
 		plots.forEach((p) => p.destroy());
+	};
+};
+
+/** Paints a canvas filling a node, again when it resizes or the colour scheme changes; painting again keeps the canvas, so nothing blinks. */
+export const paintInto = (
+	node: HTMLElement,
+	paint: (ctx: CanvasRenderingContext2D, font: string) => void,
+) => {
+	const canvas = node.querySelector('canvas') ?? node.appendChild(document.createElement('canvas'));
+	const removed = new AbortController();
+
+	const draw = async () => {
+		const font = await fontOf(node);
+		const ctx = canvas.getContext('2d');
+		if (removed.signal.aborted || !ctx) return;
+
+		canvas.width = node.clientWidth * devicePixelRatio;
+		canvas.height = node.clientHeight * devicePixelRatio;
+		ctx.scale(devicePixelRatio, devicePixelRatio);
+		paint(ctx, font);
+	};
+	const resize = new ResizeObserver(() => void draw());
+
+	void draw();
+	resize.observe(node);
+	const unwatch = watchScheme(() => void draw());
+	return () => {
+		removed.abort();
+		resize.disconnect();
+		unwatch();
 	};
 };
 

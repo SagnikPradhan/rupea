@@ -5,7 +5,9 @@
 	import Account from '#lib/web/components/ledger-table/account.svelte';
 	import Amount from '#lib/web/components/ledger-table/amount.svelte';
 	import Source from '#lib/web/components/ledger-table/source.svelte';
+	import FilterRail from '#lib/web/components/filter-rail/filter-rail.svelte';
 	import ListFilter from '#lib/web/components/list-filter/list-filter.svelte';
+	import ListSearch from '#lib/web/components/list-search/list-search.svelte';
 	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
 	import PagedTable from '#lib/web/components/paged-table/paged-table.svelte';
 	import { formatDate, formatIsoDate } from '#lib/web/shared/format.ts';
@@ -31,49 +33,52 @@
 	}
 </script>
 
-<PageHeader trail={[ledgerCrumb(data.ledger)]}>
-	Transactions
-	{#snippet actions()}<ListFilter {filter} accounts={accounts.data ?? []} />{/snippet}
-</PageHeader>
+<PageHeader trail={[ledgerCrumb(data.ledger)]}>Transactions</PageHeader>
 
-<Issues {handle} errors={[...issues.errors, ...list.errors]} />
+<FilterRail>
+	{#snippet filters()}<ListFilter {filter} accounts={accounts.data ?? []} />{/snippet}
 
-<PagedTable
-	columns={[
-		{ label: 'Date', kind: 'date' },
-		{ label: 'Description' },
-		{ label: 'Amount', kind: 'amount' },
-	]}
-	{list}
-	height={64}
-	empty="No transactions match."
->
-	{#snippet row(index: number)}
-		{@const transaction = list.rows[index]}
-		{#if transaction}
-			<tr class:evidence={!transaction.counted}>
-				<td class="date">
-					<time datetime={transaction.date}>{formatDate(transaction.date)}</time>
-					{#if transaction.time}<span>{transaction.time}</span>{/if}
-				</td>
-				<th scope="row" class="truncate" title={transaction.description}>
-					{#if !transaction.counted}<span class="tag">evidence</span>{/if}
-					{transaction.description}
-				</th>
-				<Source {handle} file={transaction.file} line={transaction.line} />
-			</tr>
-			{#each transaction.postings as posting, position (position)}
-				<tr class="child" class:evidence={!transaction.counted}>
-					<td></td>
-					<td>
-						<Account account={posting.account} />
+	<ListSearch {filter} />
+
+	<Issues {handle} errors={[...issues.errors, ...list.errors]} />
+
+	<PagedTable
+		columns={[
+			{ label: 'Date', kind: 'date' },
+			{ label: 'Description' },
+			{ label: 'Amount', kind: 'amount' },
+		]}
+		{list}
+		height={64}
+		empty="No transactions match."
+	>
+		{#snippet row(index: number)}
+			{@const transaction = list.rows[index]}
+			{#if transaction}
+				<tr class:evidence={!transaction.counted}>
+					<td class="date">
+						<time datetime={transaction.date}>{formatDate(transaction.date)}</time>
+						{#if transaction.time}<span>{transaction.time}</span>{/if}
 					</td>
-					<Amount value={posting.quantity} />
+					<th scope="row" class="truncate" title={transaction.description}>
+						{#if !transaction.counted}<span class="tag">evidence</span>{/if}
+						{transaction.description}
+					</th>
+					<Source {handle} file={transaction.file} line={transaction.line} />
 				</tr>
-			{/each}
-		{/if}
-	{/snippet}
-</PagedTable>
+				{#each transaction.postings as posting, position (position)}
+					<tr class="child" class:evidence={!transaction.counted}>
+						<td></td>
+						<td>
+							<Account account={posting.account} />
+						</td>
+						<Amount value={posting.quantity} />
+					</tr>
+				{/each}
+			{/if}
+		{/snippet}
+	</PagedTable>
+</FilterRail>
 
 <style>
 	tr.child td {

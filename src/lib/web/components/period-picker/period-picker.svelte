@@ -2,6 +2,7 @@
 	import type { Period } from '#lib/shared/dates.ts';
 	import Button from '#lib/web/components/button/button.svelte';
 	import { formatMonth } from '#lib/web/shared/format.ts';
+	import { hrefWith } from '#lib/web/shared/links.ts';
 	import { page } from '$app/state';
 
 	type Props = {
@@ -17,17 +18,17 @@
 
 	const { current, shown, today, first }: Props = $props();
 
-	const PICKED = ['at', 'range', 'from', 'to'];
+	const PICKED = { at: '', range: '', from: '', to: '' };
 	const MONTHS = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
 
-	const kept = $derived([...page.url.searchParams].filter(([key]) => !PICKED.includes(key)));
+	const kept = $derived([...page.url.searchParams].filter(([key]) => !(key in PICKED)));
 	const firstMonth = $derived((first ?? today).slice(0, 7));
 	const lastMonth = $derived(today.slice(0, 7));
 	const at = $derived('at' in current ? current.at : today.slice(0, 7));
 
 	/** A period replaces the one picked, keeping the rest of the query. */
 	const hrefOf = (picked: Record<string, string>) =>
-		`?${new URLSearchParams({ ...Object.fromEntries(kept), ...picked })}`;
+		hrefWith(page.url.searchParams, { ...PICKED, ...picked });
 
 	/** The same month in another year, or the nearest one the ledger has. */
 	const monthIn = (year: string) => {
@@ -60,8 +61,10 @@
 			<a href={tab.href} aria-current={kind === current.kind ? 'page' : undefined}>{tab.name}</a>
 		{/each}
 	</nav>
+</div>
 
-	{#if current.kind === 'month' || current.kind === 'year'}
+{#if current.kind === 'month' || current.kind === 'year'}
+	<div class="picker">
 		<span id="year">Year</span>
 		<nav aria-labelledby="year">
 			{#each years as y (y)}
@@ -71,9 +74,11 @@
 				>
 			{/each}
 		</nav>
-	{/if}
+	</div>
+{/if}
 
-	{#if current.kind === 'month'}
+{#if current.kind === 'month'}
+	<div class="picker">
 		<span id="month">Month</span>
 		<nav aria-labelledby="month">
 			{#each MONTHS as m (m)}
@@ -87,78 +92,42 @@
 				{/if}
 			{/each}
 		</nav>
-	{/if}
+	</div>
+{/if}
 
-	{#if current.kind === 'custom'}
-		<form method="GET">
-			{#each kept as [key, value] (key)}
-				<input type="hidden" name={key} {value} />
-			{/each}
-			<input
-				type="date"
-				name="from"
-				value={current.from}
-				min={first}
-				max={today}
-				required
-				aria-label="From"
-			/>
-			<input
-				type="date"
-				name="to"
-				value={current.to}
-				min={first}
-				max={today}
-				required
-				aria-label="To"
-			/>
-			<Button>Apply</Button>
-		</form>
-	{/if}
-</div>
+{#if current.kind === 'custom'}
+	<form method="GET" class="picker">
+		{#each kept as [key, value] (key)}
+			<input type="hidden" name={key} {value} />
+		{/each}
+		<input
+			type="date"
+			name="from"
+			value={current.from}
+			min={first}
+			max={today}
+			required
+			aria-label="From"
+		/>
+		<input
+			type="date"
+			name="to"
+			value={current.to}
+			min={first}
+			max={today}
+			required
+			aria-label="To"
+		/>
+		<Button>Apply</Button>
+	</form>
+{/if}
 
 <style>
-	.picker {
-		display: grid;
-		grid-template-columns: var(--size-6) 1fr;
-		gap: var(--size-1) var(--size-3);
-		align-items: baseline;
-		margin-bottom: var(--size-2);
-	}
-
-	.picker > span {
-		color: var(--color-muted);
-	}
-
-	nav {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--size-1) var(--size-3);
-	}
-
-	a {
-		color: var(--color-ink);
-		text-decoration: none;
-	}
-
-	a:hover {
-		text-decoration: underline;
-	}
-
-	a[aria-current] {
-		color: var(--color-accent);
-		text-decoration: underline 2px;
-		text-underline-offset: var(--size-0);
-	}
-
 	nav span {
 		color: var(--color-muted);
 	}
 
 	form {
-		display: flex;
-		flex-wrap: wrap;
-		grid-column: 2;
-		gap: var(--size-1);
+		align-items: start;
 	}
 </style>

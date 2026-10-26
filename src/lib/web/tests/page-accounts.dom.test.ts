@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/svelte';
+import { render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import { listAccounts, listWorth } from '#lib/endpoints/accounts.remote.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
@@ -9,6 +9,9 @@ vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
 	listAccounts: vi.fn(),
 	listWorth: vi.fn(),
+}));
+vi.mock('#lib/endpoints/transactions.remote.ts', () => ({
+	findFirstDay: vi.fn(() => answer('2025-03-14')),
 }));
 vi.mock('uplot', () => ({
 	default: vi.fn(function () {
@@ -68,8 +71,22 @@ const accounts = [
 ];
 
 const worth = [
-	{ day: '2026-01-01', assets: '1000', liabilities: '0', worth: '1000', unpriced: 0 },
-	{ day: '2026-09-01', assets: '51500', liabilities: '0', worth: '51500', unpriced: 0 },
+	{
+		day: '2026-01-01',
+		assets: '1000',
+		liabilities: '0',
+		worth: '1000',
+		parts: { 'Assets:Bank': '1000' },
+		unpriced: 0,
+	},
+	{
+		day: '2026-09-01',
+		assets: '51500',
+		liabilities: '-1500',
+		worth: '50000',
+		parts: { 'Assets:Bank': '50000', 'Assets:Broker': '1500', 'Liabilities:Card': '-1500' },
+		unpriced: 0,
+	},
 ];
 
 describe('the accounts page', () => {
@@ -84,5 +101,55 @@ describe('the accounts page', () => {
 			'/l/h/accounts/lots?account=Assets%3ABroker&commodity=INFY',
 		);
 		expect(screen.getByText('1 unpriced')).toBeTruthy();
+	});
+
+	it('shows the period picked beside the graph, each part and owing below zero as the accounts hold it', async () => {
+		visit('/l/h/accounts?at=2026-09');
+		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
+		vi.mocked(listWorth).mockReturnValue(answer(worth));
+		render(Page, { data });
+
+		expect(await screen.findByText(/^Owed/)).toBeTruthy();
+		const key = within(screen.getByRole('figure'));
+		expect(key.getByText(/^Broker/).textContent).toContain('1,500.00');
+		expect(key.getByText(/^Card/).textContent).toContain('-1,500.00');
+		expect(screen.getByText(/^Owed/).textContent).toContain('-1,500.00');
+		expect(vi.mocked(listWorth)).toHaveBeenCalledWith(
+			expect.objectContaining({ period: { kind: 'month', at: '2026-09' } }),
+		);
+		expect(screen.getByRole('link', { name: 'Month' }).getAttribute('aria-current')).toBe('page');
+	});
+
+	it('narrows the graph and the table to the account picked, offering those under it', async () => {
+		visit('/l/h/accounts?account=Assets:Broker');
+		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
+		vi.mocked(listWorth).mockReturnValue(answer(worth));
+		render(Page, { data });
+
+		const picker = within(await screen.findByRole('navigation', { name: 'Account' }));
+		expect(vi.mocked(listWorth)).toHaveBeenCalledWith(
+			expect.objectContaining({ account: 'Assets:Broker' }),
+		);
+		expect(screen.getByTitle('Assets:Broker')).toBeTruthy();
+		expect(screen.queryByTitle('Assets:Bank')).toBeNull();
+		expect(picker.getByRole('link', { name: 'All' }).getAttribute('href')).toBe('?');
+	});
+
+	it('switches the graph for boxes of what each account holds at the end of the period', async () => {
+		visit('/l/h/accounts?chart=flow&at=2026');
+		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
+		vi.mocked(listWorth).mockReturnValue(answer(worth));
+		render(Page, { data });
+
+		const chart = within(await screen.findByRole('navigation', { name: 'Chart' }));
+		expect(
+			screen.getByRole('img', { name: 'What Assets held on 1 Sept 2026, by account' }),
+		).toBeTruthy();
+		expect(vi.mocked(listAccounts)).toHaveBeenCalledWith(
+			expect.objectContaining({ period: { kind: 'year', at: '2026' } }),
+		);
+		expect(chart.getByRole('link', { name: 'Over time' }).getAttribute('href')).toContain(
+			'chart=time',
+		);
 	});
 });

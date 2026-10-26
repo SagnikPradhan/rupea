@@ -88,6 +88,8 @@ pnpm check
 pnpm lint
 ```
 
+`pnpm replay <folder>` predicts each statement in a ledger folder from the ones before it, and reports how many lines it got right. Run it before and after a change to prediction.
+
 Domain terms are in [GLOSSARY.md](GLOSSARY.md), decisions in [docs/adr](docs/adr), plans in [ROADMAP.md](ROADMAP.md).
 
 ## License

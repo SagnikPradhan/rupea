@@ -167,6 +167,21 @@ describe('predicting from a name the line spells out', () => {
 		expect(predict(knowledge({ accounts: both }))(line('github')).source).toBe('fallback');
 	});
 
+	it('spells an account through what a known merchant sells', () => {
+		const server = ['Expenses:Utility:Server'];
+		expect(predict(knowledge({ accounts: server }))(line('OVHCLOUD'))).toMatchObject({
+			account: 'Expenses:Utility:Server',
+			source: 'spelled',
+		});
+	});
+
+	it("prefers a merchant's own name over what it sells", () => {
+		const food = ['Expenses:Food:Zomato', 'Expenses:Food:Restaurant'];
+		expect(predict(knowledge({ accounts: food }))(line('ZOMATO')).account).toBe(
+			'Expenses:Food:Zomato',
+		);
+	});
+
 	it('never names a global account the ledger does not have', () => {
 		const names = [{ account: 'Expenses:Transport:Taxi', vector: axis(1) }];
 		expect(predict(knowledge({ names }))(line('TAXI STAND')).source).toBe('fallback');
@@ -199,15 +214,15 @@ describe('classifying lines', () => {
 
 	it('searches near each distinct line once, and never names a guessed account', () => {
 		const lines = [
-			{ amount: amount(-1n), description: 'swiggy' },
-			{ amount: amount(-2n), description: 'SWIGGY' },
+			{ amount: amount(-1n), description: 'sharma' },
+			{ amount: amount(-2n), description: 'SHARMA' },
 			{ amount: amount(-3n), description: '123456' },
 		];
 		const texts = textsOf({ ...options, lines });
 		expect(texts.texts).not.toContain('expenses uncategorized');
-		expect(texts.texts.slice(0, texts.searched)).toEqual(['swiggy']);
+		expect(texts.texts.slice(0, texts.searched)).toEqual(['sharma']);
 
-		const vectors = texts.texts.map((t) => (t === 'swiggy' ? axis(0) : axis(3)));
+		const vectors = texts.texts.map((t) => (t === 'sharma' ? axis(0) : axis(3)));
 		expect(
 			classify({ ...options, lines }, vectors, [[neighbour('Expenses:Food')]]).map((p) => [
 				p.account,
@@ -218,5 +233,25 @@ describe('classifying lines', () => {
 			['Expenses:Food', 'history'],
 			['Expenses:Uncategorized', 'fallback'],
 		]);
+	});
+
+	it('compares what a known merchant sells with account names', () => {
+		const lines = [{ amount: amount(-1n), description: 'SWIGGY' }];
+		const bank = { ...options, accounts: ['Assets:Bank'], lines };
+		const texts = textsOf(bank);
+		expect(texts.texts).toContain('swiggy food delivery restaurants');
+
+		const vectors = texts.texts.map((t) => (t.includes('restaurants') ? axis(1) : axis(3)));
+		expect(classify(bank, vectors, [[]])[0]).toMatchObject({
+			account: 'Expenses:Food:Restaurants',
+			source: 'name',
+		});
+	});
+
+	it('leaves out a global account when the ledger has one of the same last name', () => {
+		const accounts = ['Assets:Bank', 'Expenses:Utility:Phone'];
+		const texts = textsOf({ ...options, accounts, lines: [] });
+		expect(texts.texts).toContain('expenses utility phone');
+		expect(texts.texts.some((t) => t.startsWith('expenses phone'))).toBe(false);
 	});
 });

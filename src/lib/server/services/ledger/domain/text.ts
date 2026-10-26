@@ -48,6 +48,16 @@ export const clean = (description: string): string =>
 const namesPayee = (t: string) =>
 	t !== '' && !STUB.test(t) && !FILLERS.has(t) && !CODES.some((c) => c.test(t));
 
+/** How long a name must be to count when it is spelled inside a word, not as one. */
+const SPELLED = 5;
+
+/** Whether cleaned words spell a name, as words of their own or, when it is long enough, inside one. */
+export const spells = (words: string, name: string): boolean => {
+	const compact = name.replaceAll(' ', '');
+	const inside = compact.length >= SPELLED && words.replaceAll(' ', '').includes(compact);
+	return ` ${words} `.includes(` ${name} `) || inside;
+};
+
 export const accountText = (account: string): string =>
 	account
 		.toLowerCase()

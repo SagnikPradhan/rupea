@@ -1,13 +1,12 @@
 import { type Amount } from './amounts';
 import { taxonomy, accountType } from './taxonomy';
-import { accountText, clean, lookup, wordsOf } from './text';
+import { described } from './merchants';
+import { accountText, clean, lookup, spells, wordsOf } from './text';
 import { AccountType } from './types';
 
 const NEIGHBOURS = 5;
 const HALF_LIFE = 365;
 const PRIOR = 0.25;
-/** How long a name must be to count when it is spelled inside a word, not as one. */
-const SPELLED = 5;
 
 /** How alike a line must be to past spending, or to an account's name, to be guessed from it; spelled is what past spending needs to win over an account the line spells out. */
 export const THRESHOLDS: Thresholds = { history: 0.15, spelled: 0.5, name: 0.35 };
@@ -54,11 +53,15 @@ export type ClassifyOptions = {
 
 type TextsOptions = { lines: Line[]; accounts: string[] };
 
-/** What to embed: the words of each distinct line, which are searched near, then the accounts' names. */
+/** What to embed: the words of each distinct line, which are searched near, then what they say of known merchants, then the accounts' names. */
 export const textsOf = ({ lines, accounts }: TextsOptions) => {
 	const searched = wordsOf(lines.map((l) => l.description));
+	const merchants = searched.map(described);
 	const named = candidates(accounts).map((c) => c.text);
-	return { texts: [...new Set([...searched, ...named])], searched: searched.length };
+	return {
+		texts: [...new Set([...searched, ...merchants, ...named])],
+		searched: searched.length,
+	};
 };
 
 /** The vectors are those of the texts to embed, and nearest is what was found near the searched ones. */
@@ -78,7 +81,7 @@ export const classify = (
 	const guess = predict({ ...options, names });
 	return options.lines.map((l) => {
 		const words = clean(l.description);
-		return guess({ ...l, vector: found(words), neighbours: near(words) ?? [] });
+		return guess({ ...l, vector: found(described(words)), neighbours: near(words) ?? [] });
 	});
 };
 
@@ -123,7 +126,9 @@ export const predict =
 				.entries()
 				.map(([account, score]) => [account, score + PRIOR * (nameScores.get(account) ?? 0)]),
 		);
-		const spelled = spelledIn(line.description, knowledge.accounts.filter(fits));
+		const own = knowledge.accounts.filter(fits);
+		const words = clean(line.description);
+		const spelled = spelledIn(words, own) ?? spelledIn(described(words), own);
 		const bar = spelled ? knowledge.thresholds.spelled : knowledge.thresholds.history;
 		if (remembered && remembered[1] >= bar)
 			return { account: remembered[0], score: Math.min(1, remembered[1]), source: 'history' };
@@ -148,27 +153,23 @@ export const fallback = (amount: Amount): Prediction => ({
 	source: 'fallback',
 });
 
-/** The user's own accounts, by name, and the global ones only where they have none. */
+/** The user's own accounts, by name, and the global ones only where they have none of the same last name. */
 const candidates = (accounts: string[]) => {
 	const ours = accounts.filter((a) => !GUESSED.test(a));
-	const owned = new Set(ours);
+	const owned = new Set(ours.map(lastOf));
 	return [
 		...ours.map((a) => ({ account: a, text: accountText(a) })),
 		...Object.entries(taxonomy)
-			.filter(([a]) => !owned.has(a))
+			.filter(([a]) => !owned.has(lastOf(a)))
 			.map(([a, about]) => ({ account: a, text: `${accountText(a)} ${about}` })),
 	];
 };
 
-/** The one account whose last part the line spells out, as a word or, when long enough, inside one. */
-const spelledIn = (description: string, accounts: string[]) => {
-	const words = clean(description).split(' ');
-	const joined = words.join('');
-	const spelled = accounts.filter((a) => {
-		const last = accountText(a.split(':').at(-1) ?? '').replaceAll(' ', '');
-		return words.includes(last) || (last.length >= SPELLED && joined.includes(last));
-	});
+const lastOf = (a: string) => accountText(a.split(':').at(-1) ?? '');
 
+/** The one account whose last part the line spells out. */
+const spelledIn = (words: string, accounts: string[]) => {
+	const spelled = accounts.filter((a) => spells(words, lastOf(a)));
 	return spelled.length === 1 ? spelled[0] : undefined;
 };
 

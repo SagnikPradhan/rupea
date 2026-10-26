@@ -73,7 +73,7 @@
 - [ ] View a balance sheet and an income statement
 - [ ] Summarise a month or a year
 - [ ] Report in one currency
-- [ ] Chart spending, income, net worth and budgets over time (net worth done)
+- [ ] Chart spending, income, net worth and budgets over time (spending and net worth done)
 - [ ] Export as CSV
 
 ### Sharing
@@ -95,6 +95,6 @@
       ([ADR 0008](docs/adr/0008-statements-and-schemas-belong-to-the-ledger.md))
 - [x] Pick a chart library ([ADR 0013](docs/adr/0013-charts-with-uplot.md))
 - [ ] Value net worth in under 100 ms on decades of history. Over 20 years at 10 transactions
-      a day it takes about 390 ms for any range (`pnpm bench`): about 130 ms syncing the index
-      and 160 ms summing every past posting for the opening balances.
+      a day it takes about 230 ms for a month and 380 ms for a year (`pnpm bench`). Syncing the
+      index alone takes about 240 ms, so most of it is the sync.
 - [ ] Bundle the migrations into the build, so the server starts from any directory

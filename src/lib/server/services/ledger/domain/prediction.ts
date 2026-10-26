@@ -6,9 +6,11 @@ import { AccountType } from './types';
 const NEIGHBOURS = 5;
 const HALF_LIFE = 365;
 const PRIOR = 0.25;
+/** How long a name must be to count when it is spelled inside a word, not as one. */
+const SPELLED = 5;
 
-/** How alike a line must be to past spending, or to an account's name, to be guessed from it. */
-export const THRESHOLDS: Thresholds = { history: 0.15, name: 0.35 };
+/** How alike a line must be to past spending, or to an account's name, to be guessed from it; spelled is what past spending needs to win over an account the line spells out. */
+export const THRESHOLDS: Thresholds = { history: 0.15, spelled: 0.5, name: 0.35 };
 
 /** Uncategorised postings are unsettled guesses; learning from them would only make the guess surer. */
 const GUESSED = /(^|:)Uncategorized$/;
@@ -18,7 +20,7 @@ const TYPES: Record<'out' | 'in', AccountType[]> = {
 	out: [AccountType.Expenses, AccountType.Liabilities, AccountType.Equity, AccountType.Assets],
 };
 
-export type Source = 'history' | 'name' | 'fallback';
+export type Source = 'history' | 'spelled' | 'name' | 'fallback';
 
 export type Prediction = {
 	account: string;
@@ -40,7 +42,7 @@ export type Neighbour = {
 	similarity: number;
 };
 
-export type Thresholds = { history: number; name: number };
+export type Thresholds = { history: number; spelled: number; name: number };
 
 export type ClassifyOptions = {
 	thresholds: Thresholds;
@@ -86,6 +88,8 @@ export type Knowledge = {
 	thresholds: Thresholds;
 	account: string;
 	today: Temporal.PlainDate;
+	/** The ledger's own accounts, which a line can spell out by name. */
+	accounts: string[];
 	names: Named[];
 };
 
@@ -119,8 +123,12 @@ export const predict =
 				.entries()
 				.map(([account, score]) => [account, score + PRIOR * (nameScores.get(account) ?? 0)]),
 		);
-		if (remembered && remembered[1] >= knowledge.thresholds.history)
+		const spelled = spelledIn(line.description, knowledge.accounts.filter(fits));
+		const bar = spelled ? knowledge.thresholds.spelled : knowledge.thresholds.history;
+		if (remembered && remembered[1] >= bar)
 			return { account: remembered[0], score: Math.min(1, remembered[1]), source: 'history' };
+
+		if (spelled) return { account: spelled, score: 1, source: 'spelled' };
 
 		const named = best(nameScores.entries());
 		if (named && named[1] >= knowledge.thresholds.name)
@@ -150,6 +158,18 @@ const candidates = (accounts: string[]) => {
 			.filter(([a]) => !owned.has(a))
 			.map(([a, about]) => ({ account: a, text: `${accountText(a)} ${about}` })),
 	];
+};
+
+/** The one account whose last part the line spells out, as a word or, when long enough, inside one. */
+const spelledIn = (description: string, accounts: string[]) => {
+	const words = clean(description).split(' ');
+	const joined = words.join('');
+	const spelled = accounts.filter((a) => {
+		const last = accountText(a.split(':').at(-1) ?? '').replaceAll(' ', '');
+		return words.includes(last) || (last.length >= SPELLED && joined.includes(last));
+	});
+
+	return spelled.length === 1 ? spelled[0] : undefined;
 };
 
 const allowed = (account: string, amount: Amount) => {

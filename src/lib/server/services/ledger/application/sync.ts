@@ -80,7 +80,7 @@ export const unindex = ({ ledgerId, key }: UnindexOptions): ResultAsync<Indexed>
 
 type SettleOptions = { ledgerId: string; indexed: Indexed };
 
-/** Settles what spans files once indexed: which transactions count, then the lots, months and assertions they and the recount touched. */
+/** Settles what spans files once indexed: which transactions count, then the lots, accounts, months and assertions they and the recount touched. */
 export const settle = ({ ledgerId, indexed }: SettleOptions): ResultAsync<RupeaError[]> =>
 	uncountedIn(ledgerId)
 		.andThen((u) => DB.recount(ledgerId, u))
@@ -89,6 +89,7 @@ export const settle = ({ ledgerId, indexed }: SettleOptions): ResultAsync<RupeaE
 			const span = coverOf([...indexed.spans, ...r.spans]);
 
 			return rebook(ledgerId, commodities)
+				.andThen(() => DB.saveAccounts(ledgerId))
 				.andThen(() => saveMonths(ledgerId, span))
 				.andThen(() => DB.saveCheckedMonths(ledgerId))
 				.andThen(() => saveChecks(ledgerId, span));

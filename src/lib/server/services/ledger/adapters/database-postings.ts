@@ -122,19 +122,6 @@ export const listPostings = (
 		};
 	});
 
-export const listAccountNames = (ledgerId: string): ResultAsync<string[]> =>
-	withContext('db')((db) =>
-		attempt(() =>
-			db
-				.selectFrom('postings as p')
-				.select('p.account')
-				.distinct()
-				.where('p.ledgerId', '=', ledgerId)
-				.orderBy('p.account')
-				.execute(),
-		).map((r) => r.map((a) => a.account)),
-	);
-
 export const listHoldings = (ledgerId: string): ResultAsync<Holding[]> =>
 	withContext('db')((db) =>
 		attempt(() =>

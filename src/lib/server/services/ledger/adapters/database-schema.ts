@@ -158,6 +158,26 @@ export const postings = PG.pgTable(
 	],
 );
 
+/** The accounts a ledger's postings name, one per name whatever its case, rebuilt on every sync that changes the index. */
+export const accounts = PG.pgTable(
+	'accounts',
+	(t) => ({
+		...base,
+		ledgerId: t
+			.uuid()
+			.notNull()
+			.references(() => ledgers.id, { onDelete: 'cascade' }),
+		name: t.text().notNull(),
+		type: accountType().notNull(),
+	}),
+	(t) => [
+		PG.uniqueIndex('accounts_ledger_id_lower_name').on(
+			t.ledgerId,
+			sql`lower(${t.name}) text_pattern_ops`,
+		),
+	],
+);
+
 /** What a feed calls a commodity; a ledger's own commodities are symbols of the ledger feed. */
 export const symbols = PG.pgTable(
 	'symbols',

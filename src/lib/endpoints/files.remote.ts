@@ -12,6 +12,12 @@ export const listFiles = query(Handle, (h) =>
 	replyFromBatch(inLedger({ handle: h, action: Files.listFiles })),
 );
 
+export const findLatestFile = query(
+	v.object({ handle: Handle, account: v.string() }),
+	({ handle, account }) =>
+		replyFrom(inLedger({ handle, action: (l) => Files.findLatestFile({ ledger: l, account }) })),
+);
+
 /** A command, not a query: never cached, as the file may change behind the app's back. */
 export const readFile = command(v.object({ handle: Handle, key: Key }), ({ handle, key }) =>
 	replyFrom(inLedger({ handle, action: (l) => Files.readFile({ ledger: l, key }) })),
@@ -67,6 +73,19 @@ export const renameFiles = command(
 		void listFiles(handle).refresh();
 		void sync(handle).refresh();
 		return replyFromBatch(renamed);
+	},
+);
+
+export const addFile = command(
+	v.object({ handle: Handle, from: Key, to: Key }),
+	async ({ handle, from, to }) => {
+		const added = await inLedger({
+			handle,
+			action: (l) => Files.addFile({ ledger: l, from, to }),
+		});
+		void listFiles(handle).refresh();
+		void sync(handle).refresh();
+		return replyFrom(added);
 	},
 );
 

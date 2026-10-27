@@ -1,4 +1,5 @@
 import { isCounted } from '#lib/shared/folders.ts';
+import { isLedgerFile } from '#lib/shared/statements.ts';
 
 export type Status = 'added' | 'ready' | 'reading' | 'setup' | 'failed' | 'new';
 
@@ -24,6 +25,22 @@ export function statusOf(
 	return 'new';
 }
 
-/** A home in the ledger for a statement's transactions: its name, without its day or extension. */
-export const suggestedFile = (s: string) =>
-	`${s.replace(/^.*\//, '').replace(/\.[^.]*$/, '')}.rupea`;
+/** The account a statement's transactions came from; a ledger file names many. */
+export const accountOf = (s: string, f: { postings: { account: string }[] }[]) =>
+	isLedgerFile(s) ? undefined : f[0]?.postings[0]?.account;
+
+/** A new home for a statement's transactions: its account's last name and the month they end in, or a ledger file's own name. */
+export function suggestedFile(
+	statement: string,
+	found: { date: string; postings: { account: string }[] }[],
+) {
+	const name = accountOf(statement, found)?.split(':').at(-1)?.toLowerCase();
+	const month = found
+		.map((t) => t.date)
+		.sort()
+		.at(-1)
+		?.slice(0, 7);
+	if (name && month) return `${name}/${month}.rupea`;
+
+	return `${statement.replace(/^.*\//, '').replace(/\.[^.]*$/, '')}.rupea`;
+}

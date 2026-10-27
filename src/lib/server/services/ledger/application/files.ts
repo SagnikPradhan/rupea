@@ -2,6 +2,7 @@ import { withContext } from '#lib/server/shared/context/context.ts';
 import { batchAsync, batchInOrder, type Batch } from '#lib/server/shared/result/batch.ts';
 import { ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import {
+	findText,
 	readText,
 	writeNumberedText,
 	writeText,
@@ -10,6 +11,7 @@ import {
 import { isCounted } from '#lib/shared/folders.ts';
 import * as DB from '../adapters/database';
 import { format } from '../domain/format';
+import { merge } from '../domain/merge';
 import { parse } from '../domain/parser';
 import type { Ledger, RupeaFile, RupeaTransaction } from '../domain/types';
 import { openFolder } from './ledger';
@@ -41,6 +43,14 @@ export const findImported = ({
 	checksums,
 }: FindImportedOptions): ResultAsync<{ checksum: string; file: string }[]> =>
 	checksums.length === 0 ? okAsync([]) : DB.findImported(ledger.id, checksums);
+
+type FindLatestFileOptions = { ledger: Ledger; account: string };
+
+/** The counted file holding an account's latest transaction, where its next ones likely go. */
+export const findLatestFile = ({
+	ledger,
+	account,
+}: FindLatestFileOptions): ResultAsync<string | null> => DB.findLatestFile(ledger.id, account);
 
 type ParseFileOptions = { key: string; content: string };
 
@@ -87,6 +97,30 @@ export const renameFiles = ({ ledger, moves }: RenameFilesOptions): ResultAsync<
 		),
 	);
 
+type AddFileOptions = { ledger: Ledger; from: string; to: string };
+
+/** What adding a draft did, with what undoing it takes: the file as it was, if any, and the draft. */
+export type Addition = {
+	file: RupeaFile;
+	added: number;
+	skipped: number;
+	before: string | null;
+	draft: string;
+};
+
+/** Moves a draft to a new file, or merges it into the file there and deletes it. */
+export const addFile = ({ ledger, from, to }: AddFileOptions): ResultAsync<Addition> =>
+	openFolder({ ledger, folder: 'files' }).andThen((s) =>
+		readText(s, from)
+			.andThen((d) =>
+				findText(s, to).andThen((f) =>
+					f ? mergeFile(s, ledger.id, d, f) : moveDraft(s, ledger.id, d, to),
+				),
+			)
+			.andTee((c) => settleChange(ledger.id, c))
+			.map((c) => c.value),
+	);
+
 type DeleteFilesOptions = { ledger: Ledger; keys: string[] };
 
 export const deleteFiles = ({ ledger, keys }: DeleteFilesOptions): ResultAsync<Batch<string>> =>
@@ -110,6 +144,9 @@ const writeFile = ({ ledger, key, content, ifVersion }: WriteFileOptions): Resul
 		.andThen((s) => writeText(s, { key, content, ifVersion }))
 		.andTee((f) => indexAndSettle(ledger.id, f));
 
+const settleChange = <T>(id: string, c: Changed<T>) =>
+	exclusively(id, () => c.index().andThen((i) => settle({ ledgerId: id, indexed: i })));
+
 const indexAndSettle = (id: string, f: RupeaFile) =>
 	exclusively(id, () =>
 		indexFile({ ledgerId: id, file: f }).andThen((i) => settle({ ledgerId: id, indexed: i })),
@@ -130,6 +167,49 @@ const moveFile = (storage: Storage, ledgerId: string, { from, to }: Move) =>
 						: indexFile({ ledgerId, file }),
 				),
 		}));
+
+const moveDraft = (
+	s: Storage,
+	ledgerId: string,
+	draft: RupeaFile,
+	to: string,
+): ResultAsync<Changed<Addition>> =>
+	moveFile(s, ledgerId, { from: draft.key, to }).map((c) => ({
+		...c,
+		value: {
+			file: c.value,
+			added: parseFile(draft).succeeded.length,
+			skipped: 0,
+			before: null,
+			draft: draft.content,
+		},
+	}));
+
+// Written only if the file is unchanged since it was read.
+const mergeFile = (
+	s: Storage,
+	ledgerId: string,
+	draft: RupeaFile,
+	file: RupeaFile,
+): ResultAsync<Changed<Addition>> =>
+	withContext('config')((c) => merge(c.ledger, { draft, file })).asyncAndThen((m) =>
+		writeText(s, { key: file.key, content: m.content, ifVersion: file.version })
+			.andThrough(() => s.delete(draft.key))
+			.map((written) => ({
+				value: {
+					file: written,
+					added: m.added,
+					skipped: m.skipped,
+					before: file.content,
+					draft: draft.content,
+				},
+				index: () =>
+					indexEach([
+						() => indexFile({ ledgerId, file: written }),
+						() => unindex({ ledgerId, key: draft.key }),
+					]),
+			})),
+	);
 
 const deleteFile = (s: Storage, id: string, k: string) =>
 	s.delete(k).map(() => ({ value: k, index: () => unindex({ ledgerId: id, key: k }) }));

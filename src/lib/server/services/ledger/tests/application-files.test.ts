@@ -78,6 +78,50 @@ describe('moving files', () => {
 		}));
 });
 
+describe('adding a draft', () => {
+	it('moves it to a new file, counting what it holds', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: '_/a.rupea', content: groceries });
+			const added = await Files.addFile({ ledger, from: '_/a.rupea', to: 'hdfc/a.rupea' });
+
+			expect(added).toMatchObject(
+				ok({ file: { key: 'hdfc/a.rupea' }, added: 1, skipped: 0, before: null, draft: groceries }),
+			);
+			expect(await summary(ledger.id)).toEqual(['hdfc/a.rupea:1 Groceries']);
+		}));
+
+	it('merges it into a file there, and deletes it', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'hdfc.rupea', content: salary });
+			await Files.createFile({ ledger, key: '_/a.rupea', content: `${groceries}\n${salary}` });
+			const added = await Files.addFile({ ledger, from: '_/a.rupea', to: 'hdfc.rupea' });
+
+			expect(added).toMatchObject(ok({ added: 1, skipped: 1, before: salary }));
+			expect(await summary(ledger.id)).toEqual(['hdfc.rupea:1 Salary', 'hdfc.rupea:5 Groceries']);
+			expect(await Files.readFile({ ledger, key: '_/a.rupea' })).toMatchObject({
+				error: { type: 'CannotReadFile' },
+			});
+		}));
+
+	it('finds the file an account was last added to', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'old.rupea', content: salary });
+			await Files.createFile({ ledger, key: 'new.rupea', content: groceries });
+			await Files.createFile({
+				ledger,
+				key: '_/later.rupea',
+				content: groceries.replace('08-29', '09-30'),
+			});
+
+			const latest = (account: string) => Files.findLatestFile({ ledger, account });
+			expect(await latest('Assets:Bank')).toEqual(ok('new.rupea'));
+			expect(await latest('Assets:Cash')).toEqual(ok(null));
+		}));
+});
+
 describe('deleting files', () => {
 	it('removes each from storage and the index', ({ context, db }) =>
 		provide(context, async () => {

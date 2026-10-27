@@ -88,6 +88,14 @@ export const readText = (storage: Storage, key: string): ResultAsync<TextFile> =
 				: ok({ ...entry, content: text });
 		});
 
+/** Reads text as readText does, or null when nothing is stored at the key. */
+export const findText = (storage: Storage, key: string): ResultAsync<TextFile | null> =>
+	readText(storage, key)
+		.map((f): TextFile | null => f)
+		.orElse((e) =>
+			e.type === 'CannotReadFile' && e.cause?.[0]?.type === 'StorageNotFound' ? ok(null) : err(e),
+		);
+
 export const writeText = (s: Storage, o: WriteTextOptions): ResultAsync<TextFile> =>
 	s.write({ ...o, content: encoder.encode(o.content) }).map((e) => ({ ...e, content: o.content }));
 

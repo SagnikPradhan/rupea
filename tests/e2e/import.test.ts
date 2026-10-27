@@ -31,12 +31,39 @@ test('reads a statement it learns, and adds it to the ledger', async ({
 	await page.getByRole('button', { name: 'Add to ledger' }).click();
 	await page.getByLabel('Add to file').fill('bank/statement.rupea');
 	await page.getByRole('button', { name: 'Add', exact: true }).click();
-	await expect(page.getByText('Its transactions are in the ledger')).toBeVisible();
+	await expect(page.getByText(/^Added \d+ to/)).toBeVisible();
 
 	await visit(page, `${ledger}/transactions`);
 	const transactions = page.getByRole('rowgroup');
 	await expect(transactions.filter({ hasText: 'UPI GROCER' })).toContainText('-1,250.50');
 	await expect(transactions.filter({ hasText: 'SALARY' })).toContainText('50,000.00');
+});
+
+test('adds a later statement to the file its account went to, and undoes it', async ({
+	signedIn: page,
+	ledger,
+}) => {
+	await describeStatement(page, ledger);
+	await page.getByRole('button', { name: 'Save format' }).click();
+	await page.getByRole('button', { name: 'Add to ledger' }).click();
+	await page.getByLabel('Add to file').fill('bank.rupea');
+	await page.getByRole('button', { name: 'Add', exact: true }).click();
+	await expect(page.getByText(/^Added \d+ to/)).toBeVisible();
+
+	const again = (await readFile(data('statement.csv'), 'utf8')) + '\n';
+	await visit(page, `${ledger}/import`);
+	await page
+		.getByLabel('Statements')
+		.setInputFiles({ name: 'later.csv', mimeType: 'text/csv', buffer: Buffer.from(again) });
+	await page.getByRole('button', { name: 'Add to ledger' }).click();
+	await expect(page.getByLabel('Add to file')).toHaveValue('bank.rupea');
+	await page.getByRole('button', { name: 'Add', exact: true }).click();
+	await expect(page.getByText('Added 0 to')).toContainText('already there');
+
+	await page.getByRole('button', { name: 'Undo' }).click();
+	await expect(page.getByRole('button', { name: 'Add to ledger' })).toBeVisible();
+	await visit(page, `${ledger}/import`);
+	await expect(page.getByRole('row', { name: /later\.csv/ })).toContainText('Ready to add');
 });
 
 test('files a draft for review to edit its transactions', async ({ signedIn: page, ledger }) => {

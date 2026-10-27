@@ -20,7 +20,7 @@ const addTo = async (page: Page, key: string) => {
 	await page.getByRole('button', { name: 'Add to ledger' }).click();
 	await page.getByLabel('Add to file').fill(key);
 	await page.getByRole('button', { name: 'Add', exact: true }).click();
-	await expect(page.getByText('Its transactions are in the ledger')).toBeVisible();
+	await expect(page.getByText(/^Added \d+ to/)).toBeVisible();
 };
 
 const importTwice = async (page: Page, ledger: string) => {

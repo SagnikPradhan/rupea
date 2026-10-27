@@ -1,5 +1,15 @@
 <script lang="ts">
-	import { deleteFiles, parseFile, readFile, renameFiles } from '#lib/endpoints/files.remote.ts';
+	import {
+		addFile,
+		createFile,
+		deleteFiles,
+		editFile,
+		findLatestFile,
+		listFiles,
+		parseFile,
+		readFile,
+		renameFiles,
+	} from '#lib/endpoints/files.remote.ts';
 	import {
 		importStatement,
 		listImports,
@@ -21,13 +31,24 @@
 	import StatementFormat from '#lib/web/components/statement-format/statement-format.svelte';
 	import { formatDate } from '#lib/web/shared/format.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';
-	import { statusOf, suggestedFile } from '#lib/web/shared/statements.ts';
+	import { accountOf, statusOf, suggestedFile } from '#lib/web/shared/statements.ts';
 	import { goto } from '$app/navigation';
 	import { untrack } from 'svelte';
 
 	type Found = Awaited<ReturnType<typeof previewStatement>>;
 
 	type Schema = { key: string; content: string };
+
+	type Addition = {
+		statement: string;
+		from: string;
+		to: string;
+		version: string;
+		added: number;
+		skipped: number;
+		before: string | null;
+		draft: string;
+	};
 
 	const { handle, statement }: { handle: string; statement: string } = $props();
 
@@ -47,6 +68,7 @@
 		errors: [] as RupeaError[],
 	});
 	const action = $state({ step: 'reading' as 'reading' | 'adding' | 'restarting', to: '' });
+	const done = $state({ addition: null as Addition | null });
 
 	const locked = $derived(
 		view.errors.flatMap((e) => (e.type === 'ExtractionLocked' ? [e.path] : []))[0],
@@ -57,7 +79,11 @@
 			(e) => !(view.setup && e.type === 'ExtractionUnrecognised'),
 		),
 	);
-	const account = $derived(found[0]?.postings[0]?.account);
+	const account = $derived(accountOf(statement, found));
+	const latest = $derived(account ? (await findLatestFile({ handle, account })).data : null);
+	const files = $derived(await listFiles(handle));
+	const counted = $derived((files.data ?? []).map((f) => f.key).filter(isCounted));
+	const addition = $derived(done.addition?.statement === statement ? done.addition : null);
 
 	const sleep = (t: number) => new Promise<void>((r) => setTimeout(r, t));
 
@@ -71,7 +97,7 @@
 	async function load(key: string, at: string | null) {
 		const ticket = ++view.ticket;
 		Object.assign(view, { grid: [], schema: null, setup: false, found: null, errors: [] });
-		Object.assign(action, { step: 'reading', to: suggestedFile(key) });
+		action.step = 'reading';
 		if (at !== null && isCounted(at)) return;
 		if (at !== null) return showDraft(ticket, at);
 
@@ -133,14 +159,49 @@
 		return made.data?.key ?? null;
 	}
 
+	/** The file this account went to last, or a new one named after it. */
+	function startAdding() {
+		Object.assign(action, { step: 'adding', to: latest ?? suggestedFile(statement, found) });
+	}
+
 	async function add(event: SubmitEvent) {
 		event.preventDefault();
 		const from = await draft();
 		if (from === null) return;
 
-		const moved = await renameFiles({ handle, moves: [{ from, to: action.to.trim() }] });
-		view.errors = moved.errors;
-		if (moved.ok) await listStatements(handle).refresh();
+		const added = await addFile({ handle, from, to: action.to.trim() });
+		view.errors = added.errors;
+		if (!added.data) return;
+
+		const a = added.data;
+		done.addition = {
+			statement,
+			from,
+			to: a.file.key,
+			version: a.file.version,
+			added: a.added,
+			skipped: a.skipped,
+			before: a.before,
+			draft: a.draft,
+		};
+		await listStatements(handle).refresh();
+	}
+
+	/** Puts the file back as it was, and the draft back in review. */
+	async function undo() {
+		const a = addition;
+		if (a === null) return;
+
+		const undone =
+			a.before === null
+				? [await renameFiles({ handle, moves: [{ from: a.to, to: a.from }] })]
+				: [
+						await editFile({ handle, key: a.to, content: a.before, version: a.version }),
+						await createFile({ handle, key: a.from, content: a.draft }),
+					];
+		view.errors = undone.flatMap((u) => u.errors);
+		done.addition = null;
+		await listStatements(handle).refresh();
 	}
 
 	async function edit() {
@@ -160,6 +221,14 @@
 <section>
 	{#if row === undefined}
 		<p class="hint">This statement is no longer here.</p>
+	{:else if addition}
+		<div class="toolbar">
+			<p>
+				Added {addition.added} to <a href={fileHref(handle, addition.to)}>{addition.to}</a>.
+				{#if addition.skipped > 0}Left out {addition.skipped} already there.{/if}
+			</p>
+			<Button onclick={undo}>Undo</Button>
+		</div>
 	{:else if status === 'added' && file !== null}
 		<p>
 			Its transactions are in the ledger, in <a href={fileHref(handle, file)}>{file}</a>.
@@ -212,11 +281,7 @@
 					</h2>
 					{#if action.step === 'reading'}
 						<div class="toolbar">
-							<Button
-								primary
-								disabled={found.length === 0}
-								onclick={() => (action.step = 'adding')}
-							>
+							<Button primary disabled={found.length === 0} onclick={startAdding}>
 								Add to ledger
 							</Button>
 							<Button onclick={edit} disabled={found.length === 0}>Edit transactions</Button>
@@ -231,11 +296,19 @@
 					<form class="toolbar" onsubmit={add}>
 						<label>
 							Add to file
-							<input bind:value={action.to} required />
+							<input bind:value={action.to} list="ledger-files" required />
 						</label>
+						<datalist id="ledger-files">
+							{#each counted as key (key)}<option value={key}></option>{/each}
+						</datalist>
 						<Button primary>Add</Button>
 						<Button type="button" onclick={() => (action.step = 'reading')}>Cancel</Button>
 					</form>
+					<p class="hint">
+						{counted.includes(action.to.trim())
+							? 'Adds them to this file by date, leaving out any it holds already.'
+							: 'Makes a new file.'}
+					</p>
 				{/if}
 				{#if action.step === 'restarting'}
 					<div class="toolbar" role="group" aria-label="Confirm start over">

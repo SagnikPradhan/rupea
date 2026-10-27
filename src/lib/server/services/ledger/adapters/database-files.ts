@@ -47,6 +47,23 @@ export const findImported = (
 		),
 	);
 
+/** The counted file holding an account's latest posting, if any. */
+export const findLatestFile = (ledgerId: string, account: string): ResultAsync<string | null> =>
+	withContext('db')((db) =>
+		attempt(() =>
+			db
+				.selectFrom('postings')
+				.innerJoin('transactions', 'transactions.id', 'postings.transactionId')
+				.innerJoin('ledgerFiles', 'ledgerFiles.id', 'transactions.fileId')
+				.select('ledgerFiles.key')
+				.where('postings.ledgerId', '=', ledgerId)
+				.where('postings.account', '=', account)
+				.orderBy('postings.date', 'desc')
+				.limit(1)
+				.executeTakeFirst(),
+		).map((r) => r?.key ?? null),
+	);
+
 type IndexFileOptions = { key: string; version: string | null; file: RupeaLedgerFile };
 
 /** What changing a file touched: the commodities whose lots it held before or holds now, and the days its transactions span. */

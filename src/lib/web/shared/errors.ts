@@ -67,6 +67,10 @@ export const explain = (error: RupeaError): string =>
 			(e) => `${e.feed} answered for ${e.symbol} in a way Rupea can’t read: ${e.reason}.`,
 		)
 		.with({ type: 'CannotReadFile' }, (e) => `This file can’t be read: ${e.reason}.`)
+		.with(
+			{ type: 'CannotMergeFile' },
+			() => 'Only transactions can be added to another file. Add these to a new file instead.',
+		)
 		.with({ type: 'StorageConflict' }, () => 'This file changed since you opened it.')
 		.with({ type: 'StorageNotFound' }, () => 'This file no longer exists.')
 		.with({ type: 'StorageInvalidKey' }, (e) => `“${e.key}” isn’t a valid file name.`)

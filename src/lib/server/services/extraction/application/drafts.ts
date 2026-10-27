@@ -2,6 +2,7 @@ import { withContext } from '#lib/server/shared/context/context.ts';
 import type { Batch } from '#lib/server/shared/result/batch.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { err, errAsync, ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
+import { isLedgerFile } from '#lib/shared/statements.ts';
 import { findImported, importFile, parseFile } from '#services/ledger/application/files.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
 import type { RupeaTransaction } from '#services/ledger/application/shared.ts';
@@ -10,7 +11,6 @@ import { categorised, copy, draft, uncategorised, type Draft } from '../domain/d
 import { readRecords } from '../domain/runtime';
 import { parseSchema } from '../domain/schema';
 import type { RupeaRecord } from '../domain/types';
-import { isText } from '../adapters/reader';
 import { addSchema, isBuiltin, recogniseStatement, type SchemaText } from './schemas';
 import { readByChecksum, readStatement, type Statement } from './statements';
 
@@ -57,7 +57,7 @@ export const draftUpload = ({ ledger, checksum }: DraftUploadOptions): ResultAsy
 		.orElse((e) => (WAITING.includes(e.type) ? okAsync(undefined) : errAsync(e)));
 
 const fileDraft = (ledger: Ledger, s: Statement): ResultAsync<void> => {
-	if (!isText(s.key))
+	if (!isLedgerFile(s.key))
 		return recogniseStatement({ ledger, statement: s.key })
 			.andThen((r) => importStatement({ ledger, statement: s.key, schema: r }))
 			.map(() => undefined);

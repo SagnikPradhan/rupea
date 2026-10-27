@@ -1,7 +1,9 @@
 import {
+	addFile,
 	createFile,
 	deleteFiles,
 	editFile,
+	findLatestFile,
 	formatFile,
 	listFiles,
 	parseFile,
@@ -66,5 +68,19 @@ describe('a draft', () => {
 			const parsed = await parseFile({ key: 'a.rupea', content: groceries });
 			expect(formatted.ok).toBe(true);
 			expect(parsed).toMatchObject({ ok: true, data: [{ description: 'Groceries' }] });
+		}));
+
+	it('is added to the ledger, in the file its account was last added to', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const handle = ledger.handle;
+			signIn(ownerOf(ledger));
+			await createFile({ handle, key: 'hdfc.rupea', content: groceries });
+			await createFile({ handle, key: '_/sep.rupea', content: groceries.replace('29', '30') });
+
+			const latest = await findLatestFile({ handle, account: 'Assets:Bank' });
+			const added = await addFile({ handle, from: '_/sep.rupea', to: latest.data ?? '' });
+			expect(latest.data).toBe('hdfc.rupea');
+			expect(added).toMatchObject({ ok: true, data: { added: 1, skipped: 0 } });
 		}));
 });

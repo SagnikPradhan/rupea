@@ -2,7 +2,11 @@ import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import {
+	addFile,
+	createFile,
 	deleteFiles,
+	editFile,
+	findLatestFile,
 	listFiles,
 	parseFile,
 	readFile,
@@ -34,7 +38,11 @@ import Page from '#routes/(signed-in)/l/[handle]/import/+page.svelte';
 vi.mock('$app/navigation', () => import('#tests/shared/app-navigation.ts'));
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/files.remote.ts', () => ({
+	addFile: vi.fn(),
+	createFile: vi.fn(),
 	deleteFiles: vi.fn(),
+	editFile: vi.fn(),
+	findLatestFile: vi.fn(),
 	listFiles: vi.fn(),
 	parseFile: vi.fn(),
 	readFile: vi.fn(),
@@ -85,6 +93,14 @@ const found = {
 	],
 };
 
+const addition = {
+	file: { key: 'hdfc/2026-10.rupea', version: '2' },
+	added: 1,
+	skipped: 0,
+	before: null,
+	draft: 'drafted',
+};
+
 const statements = [
 	{ key: 'hdfc.xls', file: null },
 	{ key: 'sep.xls', file: '_/imports/sep.rupea' },
@@ -108,7 +124,10 @@ const showing = (path = '/l/h/import', running: unknown[] = jobs, vary = () => {
 	visit(path);
 	vi.mocked(listStatements).mockReturnValue(answer(statements));
 	vi.mocked(listImports).mockReturnValue(answer(running));
-	vi.mocked(listFiles).mockReturnValue(answer([]));
+	vi.mocked(listFiles).mockReturnValue(
+		answer([{ key: 'hdfc.rupea' }, { key: '_/imports/sep.rupea' }]),
+	);
+	vi.mocked(findLatestFile).mockReturnValue(answer(null));
 	vi.mocked(listSchemas).mockReturnValue(answer([{ key: 'hdfc.yml' }]));
 	vi.mocked(readStatement).mockReturnValue(ok({ key: 'hdfc.xls', grid }));
 	vi.mocked(recogniseStatement).mockReturnValue(ok({ key: 'hdfc.yml', content: 'name: HDFC' }));
@@ -117,6 +136,9 @@ const showing = (path = '/l/h/import', running: unknown[] = jobs, vary = () => {
 	vi.mocked(readFile).mockReturnValue(ok({ key: '_/imports/sep.rupea', content: 'x' }));
 	vi.mocked(parseFile).mockReturnValue(ok([found]));
 	vi.mocked(renameFiles).mockReturnValue(ok([{ key: 'hdfc.rupea' }]));
+	vi.mocked(addFile).mockReturnValue(ok(addition));
+	vi.mocked(editFile).mockReturnValue(ok({ key: 'hdfc.rupea' }));
+	vi.mocked(createFile).mockReturnValue(ok({ key: '_/imports/hdfc.rupea' }));
 	vi.mocked(deleteFiles).mockReturnValue(ok(['_/imports/sep.rupea']));
 	vi.mocked(deleteStatements).mockReturnValue(ok(['hdfc.xls']));
 	vi.mocked(readSchema).mockReturnValue(ok({ content: 'name: Saved' }));
@@ -170,7 +192,7 @@ describe('the import page', () => {
 });
 
 describe('a statement Rupea knows', () => {
-	it('shows what it found, and adds it to the file asked for', async () => {
+	it('shows what it found, and adds it to a new file named for its account and month', async () => {
 		const { user } = showing('/l/h/import?statement=hdfc.xls');
 		expect(await screen.findByText(/1 transaction found/)).toBeTruthy();
 		expect(screen.getByRole('table', { name: 'Transactions found' }).textContent).toContain('NEFT');
@@ -178,19 +200,76 @@ describe('a statement Rupea knows', () => {
 
 		await user.click(screen.getByRole('button', { name: 'Add to ledger' }));
 		const where = screen.getByLabelText<HTMLInputElement>('Add to file');
-		expect(where.value).toBe('hdfc.rupea');
+		expect(where.value).toBe('hdfc/2026-10.rupea');
+		expect(screen.getByText('Makes a new file.')).toBeTruthy();
 		await user.click(screen.getByRole('button', { name: 'Add' }));
 
 		await waitFor(() =>
-			expect(renameFiles).toHaveBeenCalledWith({
+			expect(addFile).toHaveBeenCalledWith({
 				handle: 'h',
-				moves: [{ from: '_/imports/hdfc.rupea', to: 'hdfc.rupea' }],
+				from: '_/imports/hdfc.rupea',
+				to: 'hdfc/2026-10.rupea',
 			}),
 		);
 		expect(importStatement).toHaveBeenCalledWith({
 			handle: 'h',
 			statement: 'hdfc.xls',
 			schema: { key: 'hdfc.yml', content: 'name: HDFC' },
+		});
+		expect((await screen.findByText(/Added 1 to/)).textContent).not.toContain('Left out');
+	});
+
+	it('offers the file its account was last added to', async () => {
+		const { user } = showing('/l/h/import?statement=hdfc.xls', jobs, () =>
+			vi.mocked(findLatestFile).mockReturnValue(answer('hdfc.rupea')),
+		);
+		await user.click(await screen.findByRole('button', { name: 'Add to ledger' }));
+
+		expect(screen.getByLabelText<HTMLInputElement>('Add to file').value).toBe('hdfc.rupea');
+		expect(screen.getByText(/Adds them to this file by date/)).toBeTruthy();
+		expect(findLatestFile).toHaveBeenCalledWith({ handle: 'h', account: 'Assets:Bank:HDFC' });
+	});
+
+	it('undoes a move by moving the file back to review', async () => {
+		const { user } = showing('/l/h/import?statement=hdfc.xls');
+		await user.click(await screen.findByRole('button', { name: 'Add to ledger' }));
+		await user.click(screen.getByRole('button', { name: 'Add' }));
+		await user.click(await screen.findByRole('button', { name: 'Undo' }));
+
+		expect(renameFiles).toHaveBeenCalledWith({
+			handle: 'h',
+			moves: [{ from: 'hdfc/2026-10.rupea', to: '_/imports/hdfc.rupea' }],
+		});
+		expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
+	});
+
+	it('undoes a merge by putting the file back as it was, and the draft in review', async () => {
+		const merged = {
+			...addition,
+			file: { key: 'hdfc.rupea', version: '2' },
+			skipped: 2,
+			before: 'old',
+		};
+		const { user } = showing('/l/h/import?statement=hdfc.xls', jobs, () =>
+			vi.mocked(addFile).mockReturnValue(ok(merged)),
+		);
+		await user.click(await screen.findByRole('button', { name: 'Add to ledger' }));
+		await user.click(screen.getByRole('button', { name: 'Add' }));
+		expect((await screen.findByText(/Added 1 to/)).textContent).toContain(
+			'Left out 2 already there.',
+		);
+		await user.click(screen.getByRole('button', { name: 'Undo' }));
+
+		expect(editFile).toHaveBeenCalledWith({
+			handle: 'h',
+			key: 'hdfc.rupea',
+			content: 'old',
+			version: '2',
+		});
+		expect(createFile).toHaveBeenCalledWith({
+			handle: 'h',
+			key: '_/imports/hdfc.rupea',
+			content: 'drafted',
 		});
 	});
 
@@ -221,9 +300,10 @@ describe('a statement with a draft in review', () => {
 		await user.click(screen.getByRole('button', { name: 'Add' }));
 
 		await waitFor(() =>
-			expect(renameFiles).toHaveBeenCalledWith({
+			expect(addFile).toHaveBeenCalledWith({
 				handle: 'h',
-				moves: [{ from: '_/imports/sep.rupea', to: 'sep.rupea' }],
+				from: '_/imports/sep.rupea',
+				to: 'hdfc/2026-10.rupea',
 			}),
 		);
 		expect(importStatement).not.toHaveBeenCalled();

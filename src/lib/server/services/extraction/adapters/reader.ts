@@ -26,9 +26,6 @@ const unlockers: Record<string, (upload: LockedUpload) => ResultAsync<Uint8Array
 
 export const isReadable = (n: string) => extension(n) in readers;
 
-/** A ledger file already, which imports as it is written, with no schema. */
-export const isText = (n: string) => TEXT_EXTENSIONS.includes(extension(n));
-
 export const readContents = (upload: Upload): ResultAsync<Contents> => {
 	const read = readers[extension(upload.name)];
 	return read ? read(upload) : errAsync(fault('ExtractionUnsupportedFile', { path: upload.name }));

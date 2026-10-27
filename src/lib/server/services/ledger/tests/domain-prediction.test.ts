@@ -9,6 +9,8 @@ import {
 	type Knowledge,
 	type Neighbour,
 } from '#services/ledger/domain/prediction.ts';
+import { described } from '#services/ledger/domain/merchants.ts';
+import { clean } from '#services/ledger/domain/text.ts';
 
 const amount = (n: bigint) => n as Amount;
 const axis = (i: number) => Float32Array.from({ length: 4 }, (_, d) => (d === i ? 1 : 0));
@@ -23,16 +25,18 @@ const neighbour = (account: string, over: Partial<Neighbour> = {}): Neighbour =>
 });
 
 const knowledge = (over: Partial<Knowledge> = {}): Knowledge => ({
-	thresholds: { history: 0.15, name: 0.35 },
+	thresholds: { history: 0.15, spelled: 0.5, name: 0.35 },
 	account: 'Assets:Bank',
 	today,
+	accounts: [],
 	names: [],
 	...over,
 });
 
 const out = (neighbours: Neighbour[] = [], vector: Float32Array | null = axis(0)): Embedded => ({
 	amount: amount(-100n),
-	description: 'x',
+	words: '',
+	about: '',
 	vector,
 	neighbours,
 });
@@ -131,6 +135,75 @@ describe('predicting from names', () => {
 	});
 });
 
+describe('predicting from a name the line spells out', () => {
+	const accounts = ['Expenses:Utility:Github', 'Expenses:Health:Pharmacy:Apollo'];
+	const line = (description: string, neighbours: Neighbour[] = []) => ({
+		...out(neighbours),
+		words: clean(description),
+		about: described(clean(description)),
+	});
+
+	it('names the account whose last part is a word of the line', () => {
+		expect(predict(knowledge({ accounts }))(line('GITHUB, SAN FRANCISCO'))).toMatchObject({
+			account: 'Expenses:Utility:Github',
+			source: 'spelled',
+		});
+	});
+
+	it('finds a long enough name inside a word', () => {
+		const guess = predict(knowledge({ accounts }))(line('UPI-APOLLOPHARMACY-1234567890'));
+		expect(guess.account).toBe('Expenses:Health:Pharmacy:Apollo');
+	});
+
+	it('lets sure history win over a spelled name', () => {
+		const sure = Array(5).fill(neighbour('Expenses:Software'));
+		const guess = predict(knowledge({ accounts }))(line('github', sure));
+		expect(guess).toMatchObject({ account: 'Expenses:Software', source: 'history' });
+	});
+
+	it('wins over unsure history', () => {
+		const unsure = [neighbour('Expenses:Software', { similarity: 0.9 })];
+		expect(predict(knowledge({ accounts }))(line('github', unsure)).source).toBe('spelled');
+	});
+
+	it('names nothing when two accounts are spelled', () => {
+		const both = [...accounts, 'Expenses:Shopping:Github'];
+		expect(predict(knowledge({ accounts: both }))(line('github')).source).toBe('fallback');
+	});
+
+	it('takes the deepest account when the line spells a parent too', () => {
+		const tree = ['Expenses:Pharmacy', 'Expenses:Pharmacy:Apollo'];
+		expect(predict(knowledge({ accounts: tree }))(line('APOLLO PHARMACY')).account).toBe(
+			'Expenses:Pharmacy:Apollo',
+		);
+	});
+
+	it('never spells a bank or card account', () => {
+		const card = ['Liabilities:Card:Amazon'];
+		expect(predict(knowledge({ accounts: card }))(line('AMAZON')).source).toBe('fallback');
+	});
+
+	it('spells an account through what a known merchant sells', () => {
+		const server = ['Expenses:Utility:Server'];
+		expect(predict(knowledge({ accounts: server }))(line('OVHCLOUD'))).toMatchObject({
+			account: 'Expenses:Utility:Server',
+			source: 'spelled',
+		});
+	});
+
+	it("prefers a merchant's own name over what it sells", () => {
+		const food = ['Expenses:Food:Zomato', 'Expenses:Food:Restaurant'];
+		expect(predict(knowledge({ accounts: food }))(line('ZOMATO')).account).toBe(
+			'Expenses:Food:Zomato',
+		);
+	});
+
+	it('never names a global account the ledger does not have', () => {
+		const names = [{ account: 'Expenses:Transport:Taxi', vector: axis(1) }];
+		expect(predict(knowledge({ names }))(line('TAXI STAND')).source).toBe('fallback');
+	});
+});
+
 describe('leaving a line uncategorised', () => {
 	it('does so when nothing fits', () => {
 		expect(predict(knowledge())(out())).toEqual(fallback(amount(-100n)));
@@ -149,7 +222,7 @@ describe('leaving a line uncategorised', () => {
 
 describe('classifying lines', () => {
 	const options = {
-		thresholds: { history: 0.15, name: 0.35 },
+		thresholds: { history: 0.15, spelled: 0.5, name: 0.35 },
 		account: 'Assets:Bank',
 		today,
 		accounts: ['Assets:Bank', 'Expenses:Food', 'Expenses:Uncategorized'],
@@ -157,15 +230,15 @@ describe('classifying lines', () => {
 
 	it('searches near each distinct line once, and never names a guessed account', () => {
 		const lines = [
-			{ amount: amount(-1n), description: 'swiggy' },
-			{ amount: amount(-2n), description: 'SWIGGY' },
+			{ amount: amount(-1n), description: 'sharma' },
+			{ amount: amount(-2n), description: 'SHARMA' },
 			{ amount: amount(-3n), description: '123456' },
 		];
 		const texts = textsOf({ ...options, lines });
 		expect(texts.texts).not.toContain('expenses uncategorized');
-		expect(texts.texts.slice(0, texts.searched)).toEqual(['swiggy']);
+		expect(texts.texts.slice(0, texts.searched)).toEqual(['sharma']);
 
-		const vectors = texts.texts.map((t) => (t === 'swiggy' ? axis(0) : axis(3)));
+		const vectors = texts.texts.map((t) => (t === 'sharma' ? axis(0) : axis(3)));
 		expect(
 			classify({ ...options, lines }, vectors, [[neighbour('Expenses:Food')]]).map((p) => [
 				p.account,
@@ -176,5 +249,30 @@ describe('classifying lines', () => {
 			['Expenses:Food', 'history'],
 			['Expenses:Uncategorized', 'fallback'],
 		]);
+	});
+
+	it('spells an account through what a known merchant sells, without embedding it', () => {
+		const lines = [{ amount: amount(-1n), description: 'SWIGGY' }];
+		const food = { ...options, accounts: ['Assets:Bank', 'Expenses:Food:Restaurants'], lines };
+		const texts = textsOf(food);
+		expect(texts.texts).not.toContain('swiggy food delivery restaurants');
+
+		const vectors = texts.texts.map(() => axis(3));
+		expect(classify(food, vectors, [[]])[0]).toMatchObject({
+			account: 'Expenses:Food:Restaurants',
+			source: 'spelled',
+		});
+	});
+
+	it('leaves out a global account when the ledger has one of the same last name', () => {
+		const accounts = ['Assets:Bank', 'Expenses:Utility:Phone'];
+		const texts = textsOf({ ...options, accounts, lines: [] });
+		expect(texts.texts).toContain('expenses utility phone');
+		expect(texts.texts.some((t) => t.startsWith('expenses phone'))).toBe(false);
+	});
+
+	it('keeps a global account when the one of the same last name is of another type', () => {
+		const texts = textsOf({ ...options, accounts: ['Income:Interest'], lines: [] });
+		expect(texts.texts.some((t) => t.startsWith('expenses loan interest'))).toBe(true);
 	});
 });

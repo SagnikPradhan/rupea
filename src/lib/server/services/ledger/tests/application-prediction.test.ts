@@ -93,7 +93,7 @@ const spend = (description: string, account: string) =>
 	]);
 
 const options = {
-	thresholds: { history: 0.15, name: 0.3 },
+	thresholds: { history: 0.15, spelled: 0.5, name: 0.3 },
 	account: 'Assets:Bank',
 	today: Temporal.PlainDate.from('2026-10-01'),
 };

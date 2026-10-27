@@ -43,13 +43,15 @@ type Statement = { account: string; first: string; transactions: RupeaTransactio
 type Remembered = { vector: Float32Array; transaction: RupeaTransaction };
 
 const statements = (await readStatements(root)).toSorted((a, b) => a.first.localeCompare(b.first));
-const accounts = [...new Set(statements.flatMap((s) => s.transactions.flatMap(accountsOf)))];
+/** Accounts used by the statements before the one predicted, as a real import would know them. */
+const accounts = new Set<string>();
 
 const history: Remembered[] = [];
 const outcomes: { right: boolean; source: Prediction['source'] }[] = [];
 for (const statement of statements) {
 	outcomes.push(...(await predictStatement(statement)));
 	if (!cold) history.push(...(await remember(statement.transactions)));
+	for (const account of statement.transactions.flatMap(accountsOf)) accounts.add(account);
 }
 
 const right = outcomes.filter((o) => o.right).length;
@@ -72,7 +74,7 @@ async function predictStatement(statement: Statement) {
 		thresholds: THRESHOLDS,
 		account: statement.account,
 		lines,
-		accounts,
+		accounts: [...accounts],
 		today: Temporal.PlainDate.from(statement.first),
 	};
 	const texts = textsOf(options);

@@ -1,9 +1,16 @@
 <script lang="ts">
 	import type { RupeaError } from '#lib/server/shared/result/error.ts';
-	import { explain, isWarning, placesOf } from '#lib/web/shared/errors.ts';
+	import { detail, explain, isWarning, placesOf } from '#lib/web/shared/errors.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';
 
-	const { handle, errors }: { handle: string; errors: RupeaError[] } = $props();
+	type Props = {
+		handle: string;
+		errors: RupeaError[];
+		/** Names every detail an error carries, for someone writing a schema. */
+		detailed?: boolean;
+	};
+
+	const { handle, errors, detailed = false }: Props = $props();
 
 	const problems = $derived(errors.filter((e) => !isWarning(e)));
 	const warnings = $derived(errors.filter(isWarning));
@@ -14,7 +21,7 @@
 		<ul role="list" class:warning>
 			{#each shown as error, i (i)}
 				<li role={warning ? 'status' : 'alert'}>
-					{explain(error)}
+					{detailed ? detail(error) : explain(error)}
 					{#each placesOf(error) as place (`${place.file}:${place.line}`)}
 						<a href={fileHref(handle, place.file, place.line)}
 							>{place.line ? `${place.file}:${place.line}` : place.file}</a

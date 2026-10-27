@@ -3,6 +3,7 @@ import { provide } from '#lib/server/shared/context/context.ts';
 import { ok } from '#lib/server/shared/result/result.ts';
 import * as Drafts from '#services/extraction/application/drafts.ts';
 import { importStatement } from '#services/extraction/adapters/jobs.ts';
+import * as Statements from '#services/extraction/application/statements.ts';
 import * as Uploads from '#services/extraction/application/uploads.ts';
 import { listJobs } from '#services/jobs/application/jobs.ts';
 import { JobStatus } from '#services/jobs/domain/jobs.ts';
@@ -116,20 +117,18 @@ describe('importing a ledger file', () => {
 			expect(listed.map((f) => f.key)).toEqual([`_/imports/${day()}/books.rupea`]);
 		}));
 
-	it('leaves only statements nothing was imported from in the inbox', ({ context, db }) =>
-		provide({ ...context, models: broken(context.models) }, async () => {
+	it('lists a ledger file as one a job imports', ({ context, db }) =>
+		provide(context, async () => {
 			const ledger = await createLedger(db);
-			await uploads(ledger, { 'books.ledger': books, 'aug.csv': statement });
-			const before = await Uploads.listInbox(ledger);
-			await Drafts.importStatement({ ledger, statement: `${day()}/aug.csv`, schema: bank });
-			const after = await Uploads.listInbox(ledger);
+			await uploads(ledger, { 'books.ledger': books });
 
-			expect(before._unsafeUnwrap().map((s) => s.key)).toEqual([`${day()}/aug.csv`]);
-			expect(after).toEqual(ok([]));
+			expect(await Uploads.listStatements(ledger)).toEqual(
+				ok([{ key: `${day()}/books.ledger`, file: null, queued: true }]),
+			);
 		}));
 });
 
-describe('the inbox and the imports', () => {
+describe('the statements and the imports', () => {
 	it('leave out a statement deleted since, and a job that no longer reads', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
@@ -140,7 +139,51 @@ describe('the inbox and the imports', () => {
 				.set({ payload: json({ ledger: ledger.handle }) })
 				.execute();
 
-			expect(await Uploads.listInbox(ledger)).toEqual(ok([]));
+			const listed = (await Uploads.listStatements(ledger))._unsafeUnwrap();
+			expect(listed.map((s) => s.key)).toEqual([`${day()}/books.ledger`]);
 			expect(await Uploads.listImports({ ledger, user: ledger.owner })).toEqual(ok([]));
+		}));
+});
+
+describe('the uploaded statements', () => {
+	it('list every one, with the file each was imported into', ({ context, db }) =>
+		provide({ ...context, models: broken(context.models) }, async () => {
+			const ledger = await createLedger(db);
+			await uploads(ledger, { 'aug.csv': statement, 'sep.csv': `${statement}\n` });
+			await Drafts.importStatement({ ledger, statement: `${day()}/aug.csv`, schema: bank });
+
+			expect(await Uploads.listStatements(ledger)).toEqual(
+				ok([
+					{ key: `${day()}/sep.csv`, file: null, queued: false },
+					{ key: `${day()}/aug.csv`, file: `_/imports/${day()}/aug.rupea`, queued: false },
+				]),
+			);
+		}));
+
+	it('name the counted file once a draft is added to the ledger', ({ context, db }) =>
+		provide({ ...context, models: broken(context.models) }, async () => {
+			const ledger = await createLedger(db);
+			await uploads(ledger, { 'aug.csv': statement });
+			await Drafts.importStatement({ ledger, statement: `${day()}/aug.csv`, schema: bank });
+			const from = `_/imports/${day()}/aug.rupea`;
+			await Files.renameFiles({ ledger, moves: [{ from, to: 'hdfc/aug.rupea' }] });
+
+			const [listed] = (await Uploads.listStatements(ledger))._unsafeUnwrap();
+			expect(listed?.file).toBe('hdfc/aug.rupea');
+		}));
+
+	it('are deleted one by one, a bad key failing alone', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await uploads(ledger, { 'aug.csv': statement });
+			const keys = ['../aug.csv', `${day()}/aug.csv`];
+			const deleted = await Statements.deleteStatements({ ledger, keys });
+
+			expect(deleted).toMatchObject(
+				ok({ succeeded: [`${day()}/aug.csv`], failed: [{ type: 'StorageInvalidKey' }] }),
+			);
+			expect(await Uploads.listStatements(ledger)).toEqual(ok([]));
+			const rows = db.selectFrom('statements').select('key').where('ledgerId', '=', ledger.id);
+			expect(await rows.execute()).toEqual([]);
 		}));
 });

@@ -35,8 +35,11 @@ export const readFile = ({ ledger, key }: ReadFileOptions): ResultAsync<RupeaFil
 
 type FindImportedOptions = { ledger: Ledger; checksums: string[] };
 
-/** Of these statement checksums, those a file was imported from. */
-export const findImported = ({ ledger, checksums }: FindImportedOptions): ResultAsync<string[]> =>
+/** Of these statement checksums, those a file was imported from, with each such file. */
+export const findImported = ({
+	ledger,
+	checksums,
+}: FindImportedOptions): ResultAsync<{ checksum: string; file: string }[]> =>
 	checksums.length === 0 ? okAsync([]) : DB.findImported(ledger.id, checksums);
 
 type ParseFileOptions = { key: string; content: string };

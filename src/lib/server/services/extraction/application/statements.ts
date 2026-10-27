@@ -1,4 +1,5 @@
 import { sha256 } from '#lib/server/shared/hash.ts';
+import { batchInOrder, type Batch } from '#lib/server/shared/result/batch.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { errAsync, inOrder, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { writeNumbered, type Storage } from '#lib/server/shared/storage/storage.ts';
@@ -101,6 +102,17 @@ export const dropMissing = ({ ledger, keys }: DropMissingOptions): ResultAsync<s
 		});
 };
 
+type DeleteStatementsOptions = { ledger: Ledger; keys: string[] };
+
+/** Deletes each statement on its own, so one that fails leaves the rest. */
+export const deleteStatements = ({
+	ledger,
+	keys,
+}: DeleteStatementsOptions): ResultAsync<Batch<string>> =>
+	openStatements(ledger).andThen((s) =>
+		batchInOrder(keys.map((k) => () => deleteStored(s, ledger.id, k))),
+	);
+
 const openStatements = (l: Ledger) => openFolder({ ledger: l, folder: 'statements' });
 
 const uploadDay = () => Temporal.Now.plainDateISO().toString().replaceAll('-', '');
@@ -151,6 +163,12 @@ const findByChecksum = (
 					: findByChecksum(storage, ledgerId, sum),
 			);
 	});
+
+const deleteStored = (storage: Storage, ledgerId: string, key: string): ResultAsync<string> =>
+	storage
+		.delete(key)
+		.andThen(() => DB.deleteStatements(ledgerId, [key]))
+		.map(() => key);
 
 const writeNew = (o: Storage, id: string, s: Stored): ResultAsync<Stored> =>
 	writeNumbered(o, s.key, s.content).andThen((e) => record(id, { ...s, key: e.key }));

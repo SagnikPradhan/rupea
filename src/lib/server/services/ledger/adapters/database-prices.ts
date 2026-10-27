@@ -3,7 +3,7 @@ import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { monthOf, runningTotal, total, unset } from '#lib/server/db/expressions.ts';
 import type { Database } from '#lib/server/db/index.ts';
 import type { Bucket, Span } from '#lib/shared/dates.ts';
-import { sql, type Expression } from 'kysely';
+import { sql, type Expression, type ExpressionBuilder } from 'kysely';
 import { AMOUNT_UNIT, DEFAULT_COMMODITY, type Amount, type Quantity } from '../domain/amounts';
 import type { Flow } from '../domain/returns';
 import type { Spent } from '../domain/spending';
@@ -234,30 +234,7 @@ export const listWorth = (
 						])
 						.distinct()
 						.where('b.commodity', '<>', DEFAULT_COMMODITY)
-						.unionAll((r) =>
-							r
-								.selectFrom('rates as r')
-								.innerJoinLateral(
-									(e) =>
-										priceOn(db, ledgerId, {
-											symbolId: e.ref('r.at'),
-											commodity: e.ref('r.commodity'),
-											day: e.ref('r.day'),
-										}).as('p'),
-									(j) => j.onTrue(),
-								)
-								.leftJoin('own as o', 'o.symbol', 'p.currency')
-								.select((e) => [
-									'r.origin',
-									'r.day',
-									'p.currency as commodity',
-									'o.id as at',
-									multiply(e.ref('r.rate'), e.ref('p.amount')).as('rate'),
-									e('r.hops', '+', 1).as('hops'),
-								])
-								.where('r.commodity', '<>', DEFAULT_COMMODITY)
-								.where('r.hops', '<', MAX_PRICES),
-						),
+						.unionAll(nextRate(db, ledgerId)),
 				)
 				.with('valued', (q) =>
 					q
@@ -387,30 +364,7 @@ export const listSpending = (
 						])
 						.distinct()
 						.where('s.commodity', '<>', DEFAULT_COMMODITY)
-						.unionAll((r) =>
-							r
-								.selectFrom('rates as r')
-								.innerJoinLateral(
-									(e) =>
-										priceOn(db, ledgerId, {
-											symbolId: e.ref('r.at'),
-											commodity: e.ref('r.commodity'),
-											day: e.ref('r.day'),
-										}).as('p'),
-									(j) => j.onTrue(),
-								)
-								.leftJoin('own as o', 'o.symbol', 'p.currency')
-								.select((e) => [
-									'r.origin',
-									'r.day',
-									'p.currency as commodity',
-									'o.id as at',
-									multiply(e.ref('r.rate'), e.ref('p.amount')).as('rate'),
-									e('r.hops', '+', 1).as('hops'),
-								])
-								.where('r.commodity', '<>', DEFAULT_COMMODITY)
-								.where('r.hops', '<', MAX_PRICES),
-						),
+						.unionAll(nextRate(db, ledgerId)),
 				)
 				.with('valued', (q) =>
 					q
@@ -525,30 +479,7 @@ export const listFlows = (ledgerId: string, { from, to }: Span): ResultAsync<Flo
 						])
 						.distinct()
 						.where('m.commodity', '<>', DEFAULT_COMMODITY)
-						.unionAll((r) =>
-							r
-								.selectFrom('rates as r')
-								.innerJoinLateral(
-									(e) =>
-										priceOn(db, ledgerId, {
-											symbolId: e.ref('r.at'),
-											commodity: e.ref('r.commodity'),
-											day: e.ref('r.day'),
-										}).as('p'),
-									(j) => j.onTrue(),
-								)
-								.leftJoin('own as o', 'o.symbol', 'p.currency')
-								.select((e) => [
-									'r.origin',
-									'r.day',
-									'p.currency as commodity',
-									'o.id as at',
-									multiply(e.ref('r.rate'), e.ref('p.amount')).as('rate'),
-									e('r.hops', '+', 1).as('hops'),
-								])
-								.where('r.commodity', '<>', DEFAULT_COMMODITY)
-								.where('r.hops', '<', MAX_PRICES),
-						),
+						.unionAll(nextRate(db, ledgerId)),
 				)
 				.with('valued', (q) =>
 					q
@@ -657,6 +588,43 @@ const ownSymbols = (db: Database, ledgerId: string) =>
 		.select(['symbols.id', 'symbols.symbol'])
 		.where('symbols.feed', '=', Feed.Ledger)
 		.where('symbols.ledgerId', '=', ledgerId);
+
+type Converting = {
+	rates: {
+		origin: string;
+		day: string;
+		commodity: string;
+		at: string | null;
+		rate: bigint;
+		hops: number;
+	};
+	own: { id: string; symbol: string };
+};
+
+/** Each commodity's next price on its way to rupees, from the one the rate reached last. */
+const nextRate = (db: Database, ledgerId: string) => (r: ExpressionBuilder<Converting, never>) =>
+	r
+		.selectFrom('rates as r')
+		.innerJoinLateral(
+			(e) =>
+				priceOn(db, ledgerId, {
+					symbolId: e.ref('r.at'),
+					commodity: e.ref('r.commodity'),
+					day: e.ref('r.day'),
+				}).as('p'),
+			(j) => j.onTrue(),
+		)
+		.leftJoin('own as o', 'o.symbol', 'p.currency')
+		.select((e) => [
+			'r.origin',
+			'r.day',
+			'p.currency as commodity',
+			'o.id as at',
+			multiply(e.ref('r.rate'), e.ref('p.amount')).as('rate'),
+			e('r.hops', '+', 1).as('hops'),
+		])
+		.where('r.commodity', '<>', DEFAULT_COMMODITY)
+		.where('r.hops', '<', MAX_PRICES);
 
 type PriceOnOptions = {
 	symbolId: Expression<string | null>;

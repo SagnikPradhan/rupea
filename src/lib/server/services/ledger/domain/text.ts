@@ -1,25 +1,107 @@
 const WORDS = /[^\p{L}\p{N}]+/u;
 const TOKENS = /[^\p{L}\p{N}@.]+/u;
 
-/** Words a bank writes around the payee, by what they are. Places stay, since they tell merchants apart. */
-const FILLER: Record<string, string[]> = {
-	rail: ['upi', 'neft', 'imps', 'rtgs', 'pos', 'ach', 'nach', 'ecs', 'inb', 'ib', 'billpay'],
-	steps: ['to', 'by', 'transfer', 'cr', 'dr', 'debit', 'card', 'purchase', 'gross', 'via', 'pay'],
-	ids: ['utr', 'no', 'oid', 'na', 'p2a', 'othpg', 'autopay', 'mandaterequest'],
-	gateway: ['raz', 'razorpay', 'rz', 'rzp', 'rsp', 'payu', 'payvia'],
-	wallet: ['ptm', 'paytm', 'pytm', 'gpay'],
-	processor: ['bharatpe', 'easebuzz', 'easeb', 'cashfree', 'ppsl'],
-	bank: ['utib', 'yesb', 'icic', 'karb', 'sbin', 'hdfc', 'ubin', 'barb', 'bkid', 'fdrl', 'idib'],
-	branch: ['unba', 'idfb', 'scbl', 'kkbk', 'airp'],
-	handle: ['axl', 'ybl', 'ibl', 'apl', 'yapl', 'fbpe', 'okaxis', 'okicici', 'okhdfcbank', 'oksbi'],
-	provider: ['axisbank', 'hdfcbank'],
-	legal: ['limited', 'ltd', 'pvt', 'private', 'limite', 'limi', 'lim', 'inc', 'llp', 'co', 'pv'],
-	web: ['https', 'http', 'www', 'com', 'in'],
-};
+/**
+ * Words a bank writes around the payee: how the money moved, through whom,
+ * and legal or web suffixes. Places stay, since they tell merchants apart.
+ */
+const FILLER = new Set([
+	'upi',
+	'neft',
+	'imps',
+	'rtgs',
+	'pos',
+	'ach',
+	'nach',
+	'ecs',
+	'inb',
+	'ib',
+	'billpay',
+	'autopay',
+	'mandaterequest',
+	'utr',
+	'no',
+	'oid',
+	'na',
+	'p2a',
+	'othpg',
+	'to',
+	'by',
+	'transfer',
+	'via',
+	'cr',
+	'dr',
+	'debit',
+	'card',
+	'purchase',
+	'gross',
+	'pay',
+	'ptm',
+	'paytm',
+	'pytm',
+	'gpay',
+	'raz',
+	'razorpay',
+	'rz',
+	'rzp',
+	'rsp',
+	'payu',
+	'payvia',
+	'bharatpe',
+	'easebuzz',
+	'easeb',
+	'cashfree',
+	'ppsl',
+	'utib',
+	'yesb',
+	'icic',
+	'karb',
+	'sbin',
+	'hdfc',
+	'ubin',
+	'barb',
+	'bkid',
+	'fdrl',
+	'idib',
+	'unba',
+	'idfb',
+	'scbl',
+	'kkbk',
+	'airp',
+	'axisbank',
+	'hdfcbank',
+	'axl',
+	'ybl',
+	'ibl',
+	'apl',
+	'yapl',
+	'fbpe',
+	'okaxis',
+	'okicici',
+	'okhdfcbank',
+	'oksbi',
+	'limited',
+	'ltd',
+	'pvt',
+	'private',
+	'limite',
+	'limi',
+	'lim',
+	'inc',
+	'llp',
+	'co',
+	'pv',
+	'https',
+	'http',
+	'www',
+	'com',
+	'in',
+]);
 
-const FILLERS = new Set(Object.values(FILLER).flat());
-
-/** A UPI handle, an IFSC code, a masked card or account number, a reference with letters and digits, or a name with a counter after it. */
+/**
+ * A UPI handle, an IFSC code, a masked card or account number, a reference
+ * with letters and digits, or a name with a counter after it.
+ */
 const CODES = [
 	/@/,
 	/^[a-z]{4}0[a-z0-9]{6}$/,
@@ -45,7 +127,7 @@ export const clean = (description: string): string =>
 		.join(' ');
 
 const namesPayee = (t: string) =>
-	t !== '' && !STUB.test(t) && !FILLERS.has(t) && !CODES.some((c) => c.test(t));
+	t !== '' && !STUB.test(t) && !FILLER.has(t) && !CODES.some((c) => c.test(t));
 
 /** Whether cleaned words spell a name, as words of their own or, when it is long enough, inside one. */
 export const spells = (words: string, name: string): boolean => {

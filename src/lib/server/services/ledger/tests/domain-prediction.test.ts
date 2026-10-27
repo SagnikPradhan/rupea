@@ -9,6 +9,8 @@ import {
 	type Knowledge,
 	type Neighbour,
 } from '#services/ledger/domain/prediction.ts';
+import { described } from '#services/ledger/domain/merchants.ts';
+import { clean } from '#services/ledger/domain/text.ts';
 
 const amount = (n: bigint) => n as Amount;
 const axis = (i: number) => Float32Array.from({ length: 4 }, (_, d) => (d === i ? 1 : 0));
@@ -33,7 +35,8 @@ const knowledge = (over: Partial<Knowledge> = {}): Knowledge => ({
 
 const out = (neighbours: Neighbour[] = [], vector: Float32Array | null = axis(0)): Embedded => ({
 	amount: amount(-100n),
-	description: 'x',
+	words: '',
+	about: '',
 	vector,
 	neighbours,
 });
@@ -136,7 +139,8 @@ describe('predicting from a name the line spells out', () => {
 	const accounts = ['Expenses:Utility:Github', 'Expenses:Health:Pharmacy:Apollo'];
 	const line = (description: string, neighbours: Neighbour[] = []) => ({
 		...out(neighbours),
-		description,
+		words: clean(description),
+		about: described(clean(description)),
 	});
 
 	it('names the account whose last part is a word of the line', () => {

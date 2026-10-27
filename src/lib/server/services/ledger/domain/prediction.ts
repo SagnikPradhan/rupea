@@ -8,7 +8,6 @@ const NEIGHBOURS = 5;
 const HALF_LIFE = 365;
 const PRIOR = 0.25;
 
-/** How alike a line must be to past spending, or to an account's name, to be guessed from it; spelled is what past spending needs to win over an account the line spells out. */
 export const THRESHOLDS: Thresholds = { history: 0.15, spelled: 0.5, name: 0.35 };
 
 /** Uncategorised postings are unsettled guesses; learning from them would only make the guess surer. */
@@ -41,7 +40,13 @@ export type Neighbour = {
 	similarity: number;
 };
 
-export type Thresholds = { history: number; spelled: number; name: number };
+/** How alike a line must be to what it is guessed from. */
+export type Thresholds = {
+	history: number;
+	/** What past spending needs to win over an account the line spells out. */
+	spelled: number;
+	name: number;
+};
 
 export type ClassifyOptions = {
 	thresholds: Thresholds;
@@ -81,7 +86,8 @@ export const classify = (
 	const guess = predict({ ...options, names });
 	return options.lines.map((l) => {
 		const words = clean(l.description);
-		return guess({ ...l, vector: found(described(words)), neighbours: near(words) ?? [] });
+		const about = described(words);
+		return guess({ ...l, words, about, vector: found(about), neighbours: near(words) ?? [] });
 	});
 };
 
@@ -96,7 +102,14 @@ export type Knowledge = {
 	names: Named[];
 };
 
-export type Embedded = Line & { vector: Float32Array | null; neighbours: Neighbour[] };
+export type Embedded = {
+	amount: Amount;
+	/** The line's cleaned words, and those with what the merchants they name sell. */
+	words: string;
+	about: string;
+	vector: Float32Array | null;
+	neighbours: Neighbour[];
+};
 
 export const predict =
 	(knowledge: Knowledge) =>
@@ -127,8 +140,7 @@ export const predict =
 				.map(([account, score]) => [account, score + PRIOR * (nameScores.get(account) ?? 0)]),
 		);
 		const own = knowledge.accounts.filter(fits);
-		const words = clean(line.description);
-		const spelled = spelledIn(words, own) ?? spelledIn(described(words), own);
+		const spelled = spelledIn(line.words, own) ?? spelledIn(line.about, own);
 		const bar = spelled ? knowledge.thresholds.spelled : knowledge.thresholds.history;
 		if (remembered && remembered[1] >= bar)
 			return { account: remembered[0], score: Math.min(1, remembered[1]), source: 'history' };

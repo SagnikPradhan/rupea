@@ -111,7 +111,7 @@ describe('classifying statement lines', () => {
 	plain('uses the global accounts when the ledger has nothing to say', async () => {
 		const lines = [{ amount: amount(90000n), description: 'salary' }];
 		const guesses = await classify(hashed, { ...options, lines, transactions: [] });
-		expect(guesses._unsafeUnwrap()).toMatchObject([{ account: 'Income:Salary' }]);
+		expect(guesses._unsafeUnwrap()).toMatchObject([{ account: 'Income:Salary', source: 'name' }]);
 	});
 
 	plain('prefers an account the user has over a global one of the same name', async () => {

@@ -1,23 +1,13 @@
 const WORDS = /[^\p{L}\p{N}]+/u;
+const TOKENS = /[^\p{L}\p{N}@.]+/u;
 
 /** Words a bank writes around the payee, by what they are. Places stay, since they tell merchants apart. */
 const FILLER: Record<string, string[]> = {
 	rail: ['upi', 'neft', 'imps', 'rtgs', 'pos', 'ach', 'nach', 'ecs', 'inb', 'ib', 'billpay'],
 	steps: ['to', 'by', 'transfer', 'cr', 'dr', 'debit', 'card', 'purchase', 'gross', 'via', 'pay'],
 	ids: ['utr', 'no', 'oid', 'na', 'p2a', 'othpg', 'autopay', 'mandaterequest'],
-	gateway: [
-		'raz',
-		'razorpay',
-		'rsp',
-		'payu',
-		'ptm',
-		'paytm',
-		'pytm',
-		'rz',
-		'rzp',
-		'gpay',
-		'payvia',
-	],
+	gateway: ['raz', 'razorpay', 'rz', 'rzp', 'rsp', 'payu', 'payvia'],
+	wallet: ['ptm', 'paytm', 'pytm', 'gpay'],
 	processor: ['bharatpe', 'easebuzz', 'easeb', 'cashfree', 'ppsl'],
 	bank: ['utib', 'yesb', 'icic', 'karb', 'sbin', 'hdfc', 'ubin', 'barb', 'bkid', 'fdrl', 'idib'],
 	branch: ['unba', 'idfb', 'scbl', 'kkbk', 'airp'],
@@ -35,21 +25,21 @@ const CODES = [/@/, /^[a-z]{4}0[a-z0-9]{6}$/, /x{3}/, /^(?=.*\d)(?=.*[a-z]).{6,}
 /** A letter left alone where a bank cut a name short. */
 const STUB = /^\p{L}$/u;
 
+/** How long a name must be to count when it is spelled inside a word, not as one. */
+const SPELLED = 5;
+
 /** The words of a bank's description that say who was paid, without the codes and filler around them. */
 export const clean = (description: string): string =>
 	description
 		.toLowerCase()
 		.replace(/\d{4,}/g, ' ')
-		.split(/[^\p{L}\p{N}@.]+/u)
+		.split(TOKENS)
 		.flatMap((t) => (t.includes('@') ? [t] : t.split('.')))
 		.filter(namesPayee)
 		.join(' ');
 
 const namesPayee = (t: string) =>
 	t !== '' && !STUB.test(t) && !FILLERS.has(t) && !CODES.some((c) => c.test(t));
-
-/** How long a name must be to count when it is spelled inside a word, not as one. */
-const SPELLED = 5;
 
 /** Whether cleaned words spell a name, as words of their own or, when it is long enough, inside one. */
 export const spells = (words: string, name: string): boolean => {

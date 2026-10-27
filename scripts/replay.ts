@@ -145,7 +145,10 @@ function statementOf(transactions: RupeaTransaction[]): Statement[] {
 	const account = Object.entries(named).toSorted(
 		(a, b) => (b[1]?.length ?? 0) - (a[1]?.length ?? 0),
 	)[0]?.[0];
-	const first = transactions.map((t) => t.date.toString()).toSorted()[0];
+	const first = transactions
+		.map((t) => t.date)
+		.toSorted(Temporal.PlainDate.compare)[0]
+		?.toString();
 	if (!account || !first) return [];
 
 	return [{ account, first, transactions }];

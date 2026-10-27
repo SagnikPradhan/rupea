@@ -66,6 +66,23 @@ test('formats a file from the toolbar', async ({ signedIn: page, ledger }) => {
 	await expect(lines).toHaveCount(4);
 });
 
+test('finds and replaces text with the keyboard', async ({ signedIn: page, ledger }) => {
+	await visit(page, `${ledger}/files`);
+	await page.getByRole('button', { name: 'New file' }).click();
+	await page.getByLabel('New file').fill('tea.rupea');
+	await page.getByRole('button', { name: 'Create' }).click();
+
+	await page.getByLabel('Ledger file').click();
+	await page.keyboard.type('2026-09-01 TEA\n\tExpenses:Food 20\n\tAssets:Cash\n');
+	await page.keyboard.press('ControlOrMeta+f');
+	await page.getByRole('textbox', { name: 'Find' }).fill('Assets:Cash');
+	await page.getByRole('textbox', { name: 'Replace' }).fill('Assets:Wallet');
+	await page.getByRole('button', { name: 'Replace all' }).click();
+
+	await expect(page.locator('.cm-line').nth(2)).toHaveText('\tAssets:Wallet');
+	await expect(page.getByText('Unsaved')).toBeVisible();
+});
+
 test('asks before leaving unsaved changes, and stays when told to', async ({
 	signedIn: page,
 	ledger,

@@ -86,10 +86,11 @@ const found = {
 };
 
 const statements = [
-	{ key: 'hdfc.xls', file: null, queued: false },
-	{ key: 'sep.xls', file: '_/imports/sep.rupea', queued: false },
-	{ key: 'aug.xls', file: 'hdfc/aug.rupea', queued: false },
-	{ key: 'b.ledger', file: null, queued: true },
+	{ key: 'hdfc.xls', file: null },
+	{ key: 'sep.xls', file: '_/imports/sep.rupea' },
+	{ key: 'aug.xls', file: 'hdfc/aug.rupea' },
+	{ key: 'b.ledger', file: null },
+	{ key: 'odd.csv', file: null },
 ];
 
 const jobs = [
@@ -99,6 +100,7 @@ const jobs = [
 		status: 'failed',
 		error: fault('CannotReadFile', { path: 'b.ledger', reason: 'bad' }),
 	},
+	{ id: '2', statement: 'odd.csv', status: 'succeeded', error: null },
 ];
 
 /** Renders the page at a path; `vary` changes a mock after the defaults are set. */
@@ -135,12 +137,13 @@ describe('the import page', () => {
 		expect((await rowOf(/sep\.xls/)).textContent).toContain('Ready to add');
 		expect((await rowOf(/aug\.xls/)).textContent).toContain('Added');
 		expect((await rowOf(/b\.ledger/)).textContent).toContain('Failed');
+		expect((await rowOf(/odd\.csv/)).textContent).toContain('Needs setup');
 		expect(screen.getByText('CannotReadFile : bad')).toBeTruthy();
 	});
 
 	it('opens a statement uploaded alone', async () => {
 		const { user } = showing();
-		respond(uploadStatements, [{ key: 'new.xls', queued: false }]);
+		respond(uploadStatements, ['new.xls']);
 		await user.upload(await screen.findByLabelText('Statements'), new File(['x'], 'new.xls'));
 
 		await waitFor(() => expect(goto).toHaveBeenCalledWith('?statement=new.xls'));

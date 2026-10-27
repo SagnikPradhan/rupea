@@ -278,7 +278,7 @@
 					</LedgerTable>
 				{/if}
 
-				{#if status === 'new' && view.grid.length > 0 && !view.setup}
+				{#if file === null && view.grid.length > 0 && !view.setup}
 					<p class="hint">
 						Read as {view.schema?.key}.
 						<button class="link" onclick={() => (view.setup = true)}>

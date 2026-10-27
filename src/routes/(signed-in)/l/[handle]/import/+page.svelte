@@ -29,9 +29,9 @@
 	const picker = $state({ input: null as HTMLInputElement | null });
 
 	// One statement uploaded alone opens at once.
-	async function openSingle(uploads: { key: string; queued: boolean }[]) {
-		const single = uploads.length === 1 ? uploads[0] : undefined;
-		if (single) await goto(`?statement=${encodeURIComponent(single.key)}`);
+	async function openSingle(keys: string[]) {
+		const single = keys.length === 1 ? keys[0] : undefined;
+		if (single) await goto(`?statement=${encodeURIComponent(single)}`);
 	}
 
 	// Imports run as jobs; poll them until none is left to run, then list what they made.

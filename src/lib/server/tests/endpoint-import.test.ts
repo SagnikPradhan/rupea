@@ -73,11 +73,7 @@ describe('a statement', () => {
 			const [uploaded] = (await listStatements(handle)).data ?? [];
 			const key = uploaded?.key ?? '';
 
-			expect(uploaded).toEqual({
-				key: expect.stringMatching(/aug\.csv$/),
-				file: null,
-				queued: false,
-			});
+			expect(uploaded).toEqual({ key: expect.stringMatching(/aug\.csv$/), file: null });
 			expect(await deleteStatements({ handle, keys: [key] })).toMatchObject({ data: [key] });
 			expect(await listStatements(handle)).toMatchObject({ data: [] });
 		}));

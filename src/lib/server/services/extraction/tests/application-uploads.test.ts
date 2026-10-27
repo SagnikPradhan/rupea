@@ -1,6 +1,9 @@
+import { readFile } from 'node:fs/promises';
+import { join } from 'node:path';
 import { json } from '#lib/server/db/expressions.ts';
 import { provide } from '#lib/server/shared/context/context.ts';
 import { ok } from '#lib/server/shared/result/result.ts';
+import * as Schemas from '#services/extraction/application/schemas.ts';
 import * as Drafts from '#services/extraction/application/drafts.ts';
 import { importStatement } from '#services/extraction/adapters/jobs.ts';
 import * as Statements from '#services/extraction/application/statements.ts';
@@ -26,39 +29,42 @@ const uploads = (l: Ledger, files: Record<string, string>) =>
 		uploads: Object.entries(files).map(([name, t]) => ({ name, content: encode(t) })),
 	});
 
-/** Runs each queued import as a worker would, oldest first. */
+/** Runs each queued import as a worker would, oldest first, and returns how each ended. */
 const runImports = async (l: Ledger) => {
 	const queued = (
 		await listJobs({ userId: l.owner, name: importStatement.name, payload: {}, limit: 50 })
 	)._unsafeUnwrap();
+	const ended = [];
 	for (const job of queued.toReversed().filter((j) => j.status === 'queued'))
-		await runJob([importStatement], {
-			id: job.id,
-			userId: l.owner,
-			name: importStatement.name,
-			version: importStatement.version,
-			payload: job.payload,
-			attempts: 1,
-		});
+		ended.push(
+			await runJob([importStatement], {
+				id: job.id,
+				userId: l.owner,
+				name: importStatement.name,
+				version: importStatement.version,
+				payload: job.payload,
+				attempts: 1,
+			}),
+		);
+	return ended;
 };
 
 describe('uploading statements', () => {
-	it('stores each upload and queues an import for each ledger file', ({ context, db }) =>
+	it('stores each upload and queues an import for it', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			const uploaded = await uploads(ledger, { 'books.ledger': books, 'aug.csv': statement });
 			const queued = await Uploads.listImports({ ledger, user: ledger.owner });
 
 			expect(uploaded).toEqual(
-				ok({
-					succeeded: [
-						{ key: `${day()}/books.ledger`, queued: true },
-						{ key: `${day()}/aug.csv`, queued: false },
-					],
-					failed: [],
-				}),
+				ok({ succeeded: [`${day()}/books.ledger`, `${day()}/aug.csv`], failed: [] }),
 			);
-			expect(queued).toMatchObject(ok([{ status: 'queued', statement: `${day()}/books.ledger` }]));
+			expect(queued).toMatchObject(
+				ok([
+					{ status: 'queued', statement: `${day()}/aug.csv` },
+					{ status: 'queued', statement: `${day()}/books.ledger` },
+				]),
+			);
 		}));
 
 	it('stores the rest when one cannot be read', ({ context, db }) =>
@@ -68,7 +74,7 @@ describe('uploading statements', () => {
 
 			expect(uploaded).toMatchObject(
 				ok({
-					succeeded: [{ key: `${day()}/books.ledger`, queued: true }],
+					succeeded: [`${day()}/books.ledger`],
 					failed: [{ type: 'ExtractionUnsupportedFile' }],
 				}),
 			);
@@ -116,14 +122,45 @@ describe('importing a ledger file', () => {
 			const listed = (await Files.listFiles(ledger))._unsafeUnwrap().succeeded;
 			expect(listed.map((f) => f.key)).toEqual([`_/imports/${day()}/books.rupea`]);
 		}));
+});
 
-	it('lists a ledger file as one a job imports', ({ context, db }) =>
-		provide(context, async () => {
+describe('drafting a statement', () => {
+	it('files a draft with the format that recognises it', ({ context, db }) =>
+		provide({ ...context, models: broken(context.models) }, async () => {
 			const ledger = await createLedger(db);
-			await uploads(ledger, { 'books.ledger': books });
+			await Schemas.saveSchema({ ledger, ...bank });
+			await uploads(ledger, { 'aug.csv': statement });
+			await runImports(ledger);
 
 			expect(await Uploads.listStatements(ledger)).toEqual(
-				ok([{ key: `${day()}/books.ledger`, file: null, queued: true }]),
+				ok([{ key: `${day()}/aug.csv`, file: `_/imports/${day()}/aug.rupea` }]),
+			);
+		}));
+
+	it('leaves a statement no format recognises for its user to describe', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await uploads(ledger, { 'aug.csv': statement });
+
+			expect(await runImports(ledger)).toEqual([ok(undefined)]);
+			expect(await Uploads.listStatements(ledger)).toEqual(
+				ok([{ key: `${day()}/aug.csv`, file: null }]),
+			);
+		}));
+
+	it('leaves a locked statement for its user to unlock', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = await readFile(join(import.meta.dirname, 'fixtures', 'locked.xls'));
+			await Uploads.uploadStatements({
+				ledger,
+				user: ledger.owner,
+				uploads: [{ name: 'locked.xls', content }],
+			});
+
+			expect(await runImports(ledger)).toEqual([ok(undefined)]);
+			expect(await Uploads.listStatements(ledger)).toEqual(
+				ok([{ key: `${day()}/locked.xls`, file: null }]),
 			);
 		}));
 });
@@ -154,8 +191,8 @@ describe('the uploaded statements', () => {
 
 			expect(await Uploads.listStatements(ledger)).toEqual(
 				ok([
-					{ key: `${day()}/sep.csv`, file: null, queued: false },
-					{ key: `${day()}/aug.csv`, file: `_/imports/${day()}/aug.rupea`, queued: false },
+					{ key: `${day()}/sep.csv`, file: null },
+					{ key: `${day()}/aug.csv`, file: `_/imports/${day()}/aug.rupea` },
 				]),
 			);
 		}));

@@ -88,7 +88,8 @@
 		color: var(--color-muted);
 	}
 
-	td.ready {
+	td.ready,
+	td.setup {
 		color: var(--color-accent);
 	}
 

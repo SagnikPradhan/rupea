@@ -1,16 +1,17 @@
 import { isCounted } from '#lib/shared/folders.ts';
 
-export type Status = 'added' | 'ready' | 'reading' | 'failed' | 'new';
+export type Status = 'added' | 'ready' | 'reading' | 'setup' | 'failed' | 'new';
 
 export const STATUS_LABELS: Record<Status, string> = {
 	added: 'Added',
 	ready: 'Ready to add',
 	reading: 'Reading…',
+	setup: 'Needs setup',
 	failed: 'Failed',
 	new: 'New',
 };
 
-/** Where a statement stands: added once a counted file cites it, ready while its draft waits in review. */
+/** Where a statement stands: added once a counted file cites it, ready while its draft waits in review, and waiting for setup when its job drafted nothing. */
 export function statusOf(
 	statement: { file: string | null },
 	job: { status: string } | undefined,
@@ -18,6 +19,7 @@ export function statusOf(
 	if (statement.file !== null) return isCounted(statement.file) ? 'added' : 'ready';
 	if (job?.status === 'failed') return 'failed';
 	if (job?.status === 'queued' || job?.status === 'running') return 'reading';
+	if (job?.status === 'succeeded') return 'setup';
 
 	return 'new';
 }

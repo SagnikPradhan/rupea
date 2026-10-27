@@ -1,13 +1,12 @@
 import { atomically } from '#lib/server/db/atomically.ts';
 import { batchInOrder, type Batch } from '#lib/server/shared/result/batch.ts';
-import { okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
+import type { ResultAsync } from '#lib/server/shared/result/result.ts';
 import { enqueue, listJobs, type UserJob } from '#services/jobs/application/jobs.ts';
 import { findImported } from '#services/ledger/application/files.ts';
 import { isCounted } from '#lib/shared/folders.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
 import * as DB from '../adapters/database';
 import { importStatement } from '../adapters/jobs';
-import { isText } from '../adapters/reader';
 import type { Upload } from '../domain/types';
 import * as v from 'valibot';
 import { dropMissing, storeStatement } from './statements';
@@ -22,21 +21,18 @@ type UploadOptions = {
 	uploads: Upload[];
 };
 
-/** A stored upload, and whether a job imports it, as it needs no schema. */
-type Uploaded = { key: string; queued: boolean };
-
-/** Stores each upload, and queues the import of a ledger file with it; one failing does not stop the rest. */
+/** Stores each upload, and queues a job that drafts it; one failing does not stop the rest. */
 export const uploadStatements = ({
 	ledger,
 	user,
 	uploads,
-}: UploadOptions): ResultAsync<Batch<Uploaded>> =>
+}: UploadOptions): ResultAsync<Batch<string>> =>
 	batchInOrder(uploads.map((u) => () => uploadOne({ ledger, user, upload: u })));
 
-/** Statements uploaded lately, newest first, the file each was imported into, and whether a job imports it. */
+/** Statements uploaded lately, newest first, with the file each was imported into. */
 export const listStatements = (
 	ledger: Ledger,
-): ResultAsync<{ key: string; file: string | null; queued: boolean }[]> =>
+): ResultAsync<{ key: string; file: string | null }[]> =>
 	DB.listRecentStatements(ledger.id, RECENT).andThen((recent) => {
 		const checksums = recent.map((r) => r.checksum);
 		return findImported({ ledger, checksums }).andThen((i) => {
@@ -44,7 +40,7 @@ export const listStatements = (
 			return dropMissing({ ledger, keys }).map((k) =>
 				recent
 					.filter((r) => k.includes(r.key))
-					.map((r) => ({ key: r.key, file: fileOf(i, r.checksum), queued: isText(r.key) })),
+					.map((r) => ({ key: r.key, file: fileOf(i, r.checksum) })),
 			);
 		});
 	});
@@ -69,16 +65,14 @@ const viewImport = (j: UserJob) => {
 
 type UploadOneOptions = { ledger: Ledger; user: string; upload: Upload };
 
-const uploadOne = ({ ledger, user, upload }: UploadOneOptions): ResultAsync<Uploaded> =>
+const uploadOne = ({ ledger, user, upload }: UploadOneOptions): ResultAsync<string> =>
 	atomically(() =>
 		storeStatement({ ledger, upload }).andThen((s) =>
-			isText(s.key)
-				? enqueue({
-						job: importStatement,
-						user,
-						payload: { ledger: ledger.handle, checksum: s.checksum, name: s.key },
-					}).map(() => ({ key: s.key, queued: true }))
-				: okAsync({ key: s.key, queued: false }),
+			enqueue({
+				job: importStatement,
+				user,
+				payload: { ledger: ledger.handle, checksum: s.checksum, name: s.key },
+			}).map(() => s.key),
 		),
 	);
 

@@ -1,7 +1,7 @@
 import { withContext } from '#lib/server/shared/context/context.ts';
 import type { Batch } from '#lib/server/shared/result/batch.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
-import { err, ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
+import { err, errAsync, ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { findImported, importFile, parseFile } from '#services/ledger/application/files.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
 import type { RupeaTransaction } from '#services/ledger/application/shared.ts';
@@ -10,8 +10,12 @@ import { categorised, copy, draft, uncategorised, type Draft } from '../domain/d
 import { readRecords } from '../domain/runtime';
 import { parseSchema } from '../domain/schema';
 import type { RupeaRecord } from '../domain/types';
-import { addSchema, isBuiltin, type SchemaText } from './schemas';
+import { isText } from '../adapters/reader';
+import { addSchema, isBuiltin, recogniseStatement, type SchemaText } from './schemas';
 import { readByChecksum, readStatement, type Statement } from './statements';
+
+/** Why a statement waits for its user to unlock it or describe it, which no job can. */
+const WAITING = ['ExtractionLocked', 'ExtractionUnrecognised'];
 
 type ExtractOptions = {
 	ledger: Ledger;
@@ -43,23 +47,24 @@ export const importStatement = ({ ledger, statement, schema }: ExtractOptions) =
 		),
 	);
 
-type ImportLedgerFileOptions = { ledger: Ledger; checksum: string };
+type DraftUploadOptions = { ledger: Ledger; checksum: string };
 
-/** Files an uploaded ledger file for review as written, unless it was imported already. */
-export const importLedgerFile = ({
-	ledger,
-	checksum,
-}: ImportLedgerFileOptions): ResultAsync<void> =>
+/** Files an upload for review, unless a file has it already: a ledger file as written, a statement read with the schema that recognises it. */
+export const draftUpload = ({ ledger, checksum }: DraftUploadOptions): ResultAsync<void> =>
 	findImported({ ledger, checksums: [checksum] })
 		.andThen((i) => (i.length > 0 ? okAsync(null) : readByChecksum({ ledger, checksum })))
-		.andThen((s) => {
-			if (!s) return okAsync(undefined);
+		.andThen((s) => (s ? fileDraft(ledger, s) : okAsync(undefined)))
+		.orElse((e) => (WAITING.includes(e.type) ? okAsync(undefined) : errAsync(e)));
 
-			const d = withContext('config')((c) =>
-				copy({ config: c.ledger, statement: s, text: s.text }),
-			);
-			return importFile({ ledger, key: d.key, content: d.content }).map(() => undefined);
-		});
+const fileDraft = (ledger: Ledger, s: Statement): ResultAsync<void> => {
+	if (!isText(s.key))
+		return recogniseStatement({ ledger, statement: s.key })
+			.andThen((r) => importStatement({ ledger, statement: s.key, schema: r }))
+			.map(() => undefined);
+
+	const d = withContext('config')((c) => copy({ config: c.ledger, statement: s, text: s.text }));
+	return importFile({ ledger, key: d.key, content: d.content }).map(() => undefined);
+};
 
 const withAccount = ({ key, content }: SchemaText) =>
 	parseSchema(key, content).andThen((p) =>

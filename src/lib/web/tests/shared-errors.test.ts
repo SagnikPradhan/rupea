@@ -11,6 +11,14 @@ describe('explain', () => {
 			'This line should start a transaction with a date and a description.',
 		],
 		[fault('ParseMissingTransactionBody', { location: at }), 'This transaction has no postings.'],
+		[
+			fault('ReturnUnpriced', { account: 'Assets:Broker', unpriced: 2 }),
+			'Assets:Broker has no XIRR: 2 of its holdings or flows have no price. Add a P line for them.',
+		],
+		[
+			fault('ReturnUnsolved', { account: 'Assets:Bank' }),
+			'Assets:Bank has no XIRR: no rate makes its flows and values add up.',
+		],
 		[fault('ParseInvalidPosting', { location: at }), 'This posting can’t be read.'],
 		[
 			fault('ParseInvalidAccount', { location: at, account: 'bad' }),
@@ -132,13 +140,14 @@ describe('placesOf', () => {
 });
 
 describe('isWarning', () => {
-	it('treats balance assertions as warnings and the rest as problems', () => {
+	it('treats balance assertions and XIRR as warnings and the rest as problems', () => {
 		const ambiguous = fault('BalanceAssertionAmbiguous', {
 			location: at,
 			account: 'Assets:Bank',
 			unordered: at,
 		});
 		expect(isWarning(ambiguous)).toBe(true);
+		expect(isWarning(fault('ReturnUnsolved', { account: 'Assets:Bank' }))).toBe(true);
 		expect(isWarning(fault('ParseInvalidPosting', { location: at }))).toBe(false);
 	});
 });

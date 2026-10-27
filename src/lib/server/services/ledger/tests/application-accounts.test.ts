@@ -6,6 +6,7 @@ import * as Files from '#services/ledger/application/files.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
 import { AMOUNT_UNIT, parseAmount, type Amount } from '#services/ledger/domain/amounts.ts';
 import { Feed, PriceSource } from '#services/ledger/domain/types.ts';
+import { BEGINNING } from '#lib/shared/dates.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { describe, expect } from 'vitest';
@@ -549,6 +550,176 @@ describe('linked feeds', () => {
 
 			expect(await valueOf(linked)).toBe(150_0000000000n);
 			expect(await valueOf(unlinked)).toBe(100_0000000000n);
+		}));
+});
+
+describe('returns', () => {
+	const year = {
+		from: Temporal.PlainDate.from('2025-01-01'),
+		to: Temporal.PlainDate.from('2025-12-31'),
+	};
+	const content = [
+		'2024-12-01 Opening',
+		'\tAssets:Bank 200000',
+		'\tEquity:Opening',
+		'',
+		'2025-01-01 Buy',
+		'\tAssets:Zerodha 100 INFY @ 1000',
+		'\tAssets:Bank',
+		'',
+		'2025-03-01 Salary',
+		'\tAssets:Bank 80000',
+		'\tIncome:Salary',
+		'',
+		'2025-04-01 Lunch',
+		'\tExpenses:Food 3000',
+		'\tAssets:Bank',
+		'',
+		'2025-06-30 Interest',
+		'\tAssets:Bank 1000',
+		'\tIncome:Interest:Savings',
+		'',
+		'2025-07-01 Buy',
+		'\tAssets:Zerodha 50 INFY @ 1000',
+		'\tExpenses:Fees:Brokerage 20',
+		'\tAssets:Bank',
+		'',
+		'2025-10-01 Dividend',
+		'\tAssets:Zerodha 500',
+		'\tIncome:Dividends:INFY',
+		'',
+		'P 2025-12-31 INFY 1100',
+		'',
+	].join('\n');
+	const rows = (returns: Accounts.Returns[]) =>
+		returns.map((r) => [r.account, r.netIn, r.yearly, r.unpriced]);
+
+	it('weighs what flowed in and out against what each account held at both ends, counting interest, dividends and fees as earned', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const returns = (await Accounts.listReturns({ ledger, ...year }))._unsafeUnwrap();
+			expect(rows(returns.succeeded)).toEqual([
+				['Assets', 77000_0000000000n, true, 0],
+				['Assets:Bank', -73020_0000000000n, true, 0],
+				['Assets:Zerodha', 150020_0000000000n, true, 0],
+			]);
+			expect(returns.succeeded.map((r) => r.xirr)).toEqual([
+				expect.closeTo(0.062358, 6),
+				expect.closeTo(0.007153, 6),
+				expect.closeTo(0.124785, 6),
+			]);
+			expect(returns.failed).toEqual([]);
+		}));
+
+	it('gives the return over a span shorter than a year, and starts all of history at nothing', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const month = (
+				await Accounts.listReturns({
+					ledger,
+					from: Temporal.PlainDate.from('2025-12-01'),
+					to: Temporal.PlainDate.from('2025-12-31'),
+				})
+			)._unsafeUnwrap().succeeded;
+			const ever = (
+				await Accounts.listReturns({
+					ledger,
+					from: Temporal.PlainDate.from(BEGINNING),
+					to: year.to,
+				})
+			)._unsafeUnwrap().succeeded;
+			expect(month.find((r) => r.account === 'Assets:Zerodha')).toEqual({
+				account: 'Assets:Zerodha',
+				netIn: 0n,
+				xirr: expect.closeTo(0.099668, 6),
+				yearly: false,
+				unpriced: 0,
+			});
+			expect(ever.find((r) => r.account === 'Assets')).toMatchObject({
+				netIn: 277000_0000000000n,
+				yearly: true,
+			});
+		}));
+
+	it('leaves out what has no price, naming only the deepest account it reaches', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const unpriced = ['2025-02-01 Bonus', '\tAssets:Zerodha 1 TCS', '\tIncome:Bonus', ''];
+			await Files.createFile({
+				ledger,
+				key: 'a.rupea',
+				content: [content, ...unpriced].join('\n'),
+			});
+
+			const returns = (await Accounts.listReturns({ ledger, ...year }))._unsafeUnwrap();
+			expect(returns.succeeded.map((r) => [r.account, r.xirr === null, r.unpriced])).toEqual([
+				['Assets', true, 2],
+				['Assets:Bank', false, 0],
+				['Assets:Zerodha', true, 2],
+			]);
+			expect(returns.failed).toEqual([
+				{ type: 'ReturnUnpriced', account: 'Assets:Zerodha', unpriced: 2 },
+			]);
+		}));
+
+	it('names an account no rate solves, as one that only ever earned', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const earned = ['2025-06-30 Interest', '\tAssets:Bank 1000', '\tIncome:Interest', ''];
+			await Files.createFile({ ledger, key: 'a.rupea', content: earned.join('\n') });
+
+			const returns = (await Accounts.listReturns({ ledger, ...year }))._unsafeUnwrap();
+			expect(returns.succeeded.map((r) => [r.account, r.netIn, r.xirr])).toEqual([
+				['Assets', 0n, null],
+				['Assets:Bank', 0n, null],
+			]);
+			expect(returns.failed).toEqual([{ type: 'ReturnUnsolved', account: 'Assets:Bank' }]);
+		}));
+
+	it('splits a transaction’s fees equally between what it holds other than rupees, the first taking what does not divide', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const moved = [
+				'2025-01-01 Opening',
+				'\tAssets:Zerodha 10 INFY @ 1000',
+				'\tEquity:Opening',
+				'',
+				'2025-02-01 Move',
+				'\tAssets:Zerodha -10 INFY',
+				'\tAssets:IBKR 10 INFY',
+				'\tExpenses:Fees 0.0000000003',
+				'\tAssets:Bank',
+				'',
+				'P 2025-02-01 INFY 1200',
+				'',
+			].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content: moved });
+
+			const flows = await DB.listFlows(ledger.id, {
+				from: Temporal.PlainDate.from('2025-02-01'),
+				to: Temporal.PlainDate.from('2025-02-01'),
+			});
+			expect(flows._unsafeUnwrap().map((f) => [f.account, f.amount])).toEqual([
+				['Assets:Bank', -3n],
+				['Assets:IBKR', 12000_0000000001n],
+				['Assets:Zerodha', -11999_9999999998n],
+			]);
 		}));
 });
 

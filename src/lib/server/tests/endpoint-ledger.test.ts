@@ -2,6 +2,7 @@ import {
 	listAccounts,
 	listAccountTree,
 	listLots,
+	listReturns,
 	listSpending,
 	listWorth,
 } from '#lib/endpoints/accounts.remote.ts';
@@ -80,18 +81,25 @@ describe('transactions', () => {
 });
 
 describe('accounts', () => {
-	it('list balances, worth and lots', ({ context, ledger: handle }) =>
+	it('list balances, worth, returns and lots', ({ context, ledger: handle }) =>
 		provide(context, async () => {
 			const year = { kind: 'year', at: '2026' } as const;
 			const accounts = await listAccounts({ handle, day, period: year });
 			const worth = await listWorth({ handle, day, period: year, account: null });
 			const bank = await listWorth({ handle, day, period: year, account: 'assets:bank' });
+			const returns = await listReturns({ handle, day, period: year });
 			const lots = await listLots({ handle, account: 'Assets:Broker', commodity: 'INFY' });
 
 			expect(accounts.ok).toBe(true);
 			expect(accounts.data?.map((a) => a.account)).toContain('Assets:Bank');
 			expect(worth.ok).toBe(true);
 			expect(bank.data?.at(-1)?.worth).not.toBe(worth.data?.at(-1)?.worth);
+			expect(returns.data).toContainEqual({
+				account: 'Assets:Broker',
+				netIn: '3000.00',
+				xirr: expect.closeTo(0, 6),
+				yearly: false,
+			});
 			expect(lots.data).toHaveLength(1);
 		}));
 

@@ -48,6 +48,8 @@ export type RupeaError =
 	| { type: 'BalanceAssertionAmbiguous'; location: string; account: string; unordered: string }
 	| { type: 'LotCostMissing'; location: string; account: string }
 	| { type: 'LotNotOpen'; location: string; account: string; units: string }
+	| { type: 'ReturnUnpriced'; account: string; unpriced: number }
+	| { type: 'ReturnUnsolved'; account: string }
 	| { type: 'ExtractionInvalidSchema'; path: string; reason: string }
 	| { type: 'ExtractionUnsupportedFile'; path: string }
 	| { type: 'ExtractionMissingModel'; path: string; cause?: RupeaError[] }

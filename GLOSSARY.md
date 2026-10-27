@@ -107,6 +107,22 @@ _Avoid_: Sell, redemption
 A posting taking units out of a holding against the same commodity into another balance account; the lots move with their date and cost.
 _Avoid_: Move
 
+**Flow**:
+Value moved into or out of an Assets account from outside it, as a deposit, a withdrawal or an opening balance, at what it was worth that day. Net investment income is not a flow. Short for external cash flow.
+_Avoid_: Cash flow (also covers income), transfer (lots moving in kind), contribution
+
+**Net in**:
+What flowed into an account over a range, less what flowed out.
+_Avoid_: Net invested (reads wrong on a bank), cost (open lots only)
+
+**Net investment income**:
+Interest and dividends an account receives, less the fees it pays: postings from `Income:Interest` or `Income:Dividends`, or to `Expenses:Fees`, and the accounts under them, whatever their names below that. It goes to the transaction's postings of commodities other than rupees, or to its rupee ones when it has none, split equally. It is part of the account's return, not a flow.
+_Avoid_: Earnings (a company's profit), income (an account type), gain (a sale's)
+
+**XIRR**:
+An Assets account's money-weighted return: the yearly rate at which its value at the start of a range, its flows and its value at the end, each discounted from its own day, add up to zero. A range under a year shows the same return over its own length rather than per year.
+_Avoid_: CAGR (ignores flows), time-weighted return, IRR (assumes evenly spaced flows)
+
 ## Storage and access
 
 **Storage**:

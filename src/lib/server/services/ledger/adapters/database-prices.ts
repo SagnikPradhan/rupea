@@ -2,12 +2,13 @@ import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { monthOf, runningTotal, total, unset } from '#lib/server/db/expressions.ts';
 import type { Database } from '#lib/server/db/index.ts';
-import type { Bucket } from '#lib/shared/dates.ts';
+import type { Bucket, Span } from '#lib/shared/dates.ts';
 import { sql, type Expression } from 'kysely';
 import { AMOUNT_UNIT, DEFAULT_COMMODITY, type Amount, type Quantity } from '../domain/amounts';
+import type { Flow } from '../domain/returns';
 import type { Spent } from '../domain/spending';
-import { BALANCE_TYPES } from '../domain/taxonomy';
-import { AccountType, Feed, PriceSource } from '../domain/types';
+import { BALANCE_TYPES, INVESTMENT_INCOME } from '../domain/taxonomy';
+import { AccountType, Feed, PriceKind, PriceSource } from '../domain/types';
 import { multiply, underAccount } from './database-queries';
 
 /** The most prices a commodity is converted through on its way to rupees. */
@@ -455,6 +456,196 @@ export const listSpending = (
 				first: Temporal.PlainDate.from(s.first),
 				amount: s.amount as Amount,
 				unpriced: s.unpriced,
+			})),
+		),
+	);
+
+/**
+ * What flowed into each Assets account on each day in rupees: the value of its counted postings,
+ * less its share of their transaction's net investment income. That income goes to the
+ * transaction's Assets postings of commodities other than rupees, or to its rupee ones when it has
+ * none, split equally with what does not divide going to the first. A posting is valued at its own
+ * price when it names one, then at the latest price on or before its day, as worth does.
+ */
+export const listFlows = (ledgerId: string, { from, to }: Span): ResultAsync<Flow[]> =>
+	withContext('db')((db) =>
+		attempt(() =>
+			db
+				.withRecursive('own(id, symbol)', () => ownSymbols(db, ledgerId))
+				.with('earning', (q) =>
+					q
+						.selectFrom('accounts as a')
+						.select('a.id')
+						.where('a.ledgerId', '=', ledgerId)
+						.where((e) => e.or(INVESTMENT_INCOME.map((n) => underAccount(e.ref('a.name'), n)))),
+				)
+				.with('moved', (q) =>
+					q
+						.selectFrom('postings as p')
+						.innerJoin('transactions as t', 't.id', 'p.transactionId')
+						.innerJoin('accounts as a', 'a.id', 'p.accountId')
+						.leftJoin('earning as g', 'g.id', 'p.accountId')
+						.select((e) => [
+							'p.transactionId',
+							'p.position',
+							'a.name as account',
+							't.date',
+							e('g.id', 'is not', null).as('earned'),
+							e('p.commodity', '<>', DEFAULT_COMMODITY).as('held'),
+							e.fn.coalesce('p.priceCommodity', 'p.commodity').as('commodity'),
+							e
+								.case()
+								.when('p.priceKind', '=', PriceKind.Unit)
+								.then(multiply(e.ref('p.amount'), e.ref('p.priceAmount')))
+								.when('p.priceKind', '=', PriceKind.Total)
+								.then(sql<bigint>`sign(${e.ref('p.amount')}) * ${e.ref('p.priceAmount')}`)
+								.else(e.ref('p.amount'))
+								.end()
+								.as('amount'),
+						])
+						.where('p.ledgerId', '=', ledgerId)
+						.where('t.date', '>=', from.toString())
+						.where('t.date', '<=', to.toString())
+						.where('t.counted', '=', true)
+						.where((e) =>
+							e.or([e('p.accountType', '=', AccountType.Assets), e('g.id', 'is not', null)]),
+						),
+				)
+				.withRecursive('rates(origin, day, commodity, at, rate, hops)', (q) =>
+					q
+						.selectFrom('moved as m')
+						.leftJoin('own as o', 'o.symbol', 'm.commodity')
+						.select([
+							'm.commodity as origin',
+							'm.date as day',
+							'm.commodity',
+							'o.id as at',
+							sql<bigint>`${sql.lit(AMOUNT_UNIT)}::numeric`.as('rate'),
+							sql<number>`0`.as('hops'),
+						])
+						.distinct()
+						.where('m.commodity', '<>', DEFAULT_COMMODITY)
+						.unionAll((r) =>
+							r
+								.selectFrom('rates as r')
+								.innerJoinLateral(
+									(e) =>
+										priceOn(db, ledgerId, {
+											symbolId: e.ref('r.at'),
+											commodity: e.ref('r.commodity'),
+											day: e.ref('r.day'),
+										}).as('p'),
+									(j) => j.onTrue(),
+								)
+								.leftJoin('own as o', 'o.symbol', 'p.currency')
+								.select((e) => [
+									'r.origin',
+									'r.day',
+									'p.currency as commodity',
+									'o.id as at',
+									multiply(e.ref('r.rate'), e.ref('p.amount')).as('rate'),
+									e('r.hops', '+', 1).as('hops'),
+								])
+								.where('r.commodity', '<>', DEFAULT_COMMODITY)
+								.where('r.hops', '<', MAX_PRICES),
+						),
+				)
+				.with('valued', (q) =>
+					q
+						.selectFrom('moved as m')
+						.leftJoin('rates as r', (j) =>
+							j
+								.onRef('r.origin', '=', 'm.commodity')
+								.onRef('r.day', '=', 'm.date')
+								.on('r.commodity', '=', DEFAULT_COMMODITY),
+						)
+						.select((e) => [
+							'm.transactionId',
+							'm.position',
+							'm.account',
+							'm.date',
+							'm.earned',
+							'm.held',
+							e
+								.case()
+								.when('m.commodity', '=', DEFAULT_COMMODITY)
+								.then(e.ref('m.amount'))
+								.else(multiply(e.ref('m.amount'), e.ref('r.rate')))
+								.end()
+								.as('value'),
+						]),
+				)
+				.with('earned', (q) =>
+					q
+						.selectFrom('valued as v')
+						.selectAll('v')
+						.select((e) => {
+							const within = sql`over (partition by ${e.ref('v.transactionId')})`;
+							const income = sql`sum(${e.ref('v.value')}) filter (where ${e.ref('v.earned')}) ${within}`;
+							const unknown = sql`count(*) filter (where ${e.ref('v.earned')} and ${e.ref('v.value')} is null) ${within}`;
+
+							return [
+								sql<bigint | null>`case when ${unknown} = 0 then -coalesce(${income}, 0) end`.as(
+									'income',
+								),
+								sql<boolean>`coalesce(bool_or(${e.ref('v.held')}) filter (where not ${e.ref('v.earned')}) ${within}, false)`.as(
+									'anyHeld',
+								),
+							];
+						}),
+				)
+				.with('shared', (q) =>
+					q
+						.selectFrom('earned as x')
+						.selectAll('x')
+						.select((e) => {
+							const target = sql<boolean>`not ${e.ref('x.earned')} and (${e.ref('x.held')} or not ${e.ref('x.anyHeld')})`;
+							const within = sql`over (partition by ${e.ref('x.transactionId')})`;
+
+							return [
+								target.as('target'),
+								sql<number>`count(*) filter (where ${target}) ${within}`.as('targets'),
+								sql<number>`row_number() over (partition by ${e.ref('x.transactionId')} order by ${target} desc, ${e.ref('x.position')})`.as(
+									'rank',
+								),
+							];
+						}),
+				)
+				.with('flows', (q) =>
+					q
+						.selectFrom('shared as s')
+						.select((e) => {
+							const each = sql<bigint>`trunc(${e.ref('s.income')} / ${e.ref('s.targets')})`;
+							const rest = sql<bigint>`${e.ref('s.income')} - ${each} * ${e.ref('s.targets')}`;
+							const share = sql<bigint>`case when not ${e.ref('s.target')} then 0 when ${e.ref('s.rank')} = 1 then ${each} + ${rest} else ${each} end`;
+
+							return [
+								's.account',
+								's.date',
+								sql<bigint | null>`${e.ref('s.value')} - ${share}`.as('amount'),
+							];
+						})
+						.where('s.earned', '=', false),
+				)
+				.selectFrom('flows as f')
+				.select((e) => [
+					'f.account',
+					'f.date',
+					total(e.ref('f.amount')).as('amount'),
+					sql<number>`(count(*) filter (where ${e.ref('f.amount')} is null))::integer`.as(
+						'unpriced',
+					),
+				])
+				.groupBy(['f.account', 'f.date'])
+				.orderBy('f.account')
+				.orderBy('f.date')
+				.execute(),
+		).map((rows) =>
+			rows.map((f) => ({
+				account: f.account,
+				day: Temporal.PlainDate.from(f.date),
+				amount: f.amount as Amount,
+				unpriced: f.unpriced,
 			})),
 		),
 	);

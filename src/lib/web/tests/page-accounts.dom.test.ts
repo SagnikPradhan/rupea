@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
-import { listAccounts, listWorth } from '#lib/endpoints/accounts.remote.ts';
+import { listAccounts, listReturns, listWorth } from '#lib/endpoints/accounts.remote.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
 import Page from '#routes/(signed-in)/l/[handle]/accounts/+page.svelte';
@@ -8,6 +8,7 @@ import Page from '#routes/(signed-in)/l/[handle]/accounts/+page.svelte';
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
 	listAccounts: vi.fn(),
+	listReturns: vi.fn(() => answer([])),
 	listWorth: vi.fn(),
 }));
 vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
@@ -157,6 +158,35 @@ describe('the accounts page', () => {
 		);
 		expect(chart.getByRole('link', { name: 'Over time' }).getAttribute('href')).toContain(
 			'chart=time',
+		);
+	});
+
+	it('shows what flowed into each Assets account and its XIRR, per year only over a year', async () => {
+		visit('/l/h/accounts?at=2026-09');
+		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
+		vi.mocked(listWorth).mockReturnValue(answer(worth));
+		vi.mocked(listReturns).mockReturnValue(
+			answer(
+				[
+					{ account: 'Assets', netIn: '1500', xirr: null, yearly: false },
+					{ account: 'Assets:Bank', netIn: '-1500', xirr: 0.035, yearly: true },
+					{ account: 'Assets:Broker', netIn: '1500', xirr: -0.02, yearly: false },
+				],
+				[{ type: 'ReturnUnsolved', account: 'Assets' }],
+			),
+		);
+		render(Page, { data });
+
+		const bank = (await screen.findByTitle('Assets:Bank')).closest('tr');
+		const broker = screen.getByTitle('Assets:Broker').closest('tr');
+		expect(bank?.textContent).toContain('3.5%');
+		expect(within(bank as HTMLElement).getByTitle('XIRR, per year').textContent).toContain('p.a.');
+		expect(within(broker as HTMLElement).getByTitle('Return over the period').textContent).toBe(
+			'-2%',
+		);
+		expect(screen.getByText(/Assets has no XIRR/)).toBeTruthy();
+		expect(vi.mocked(listReturns)).toHaveBeenCalledWith(
+			expect.objectContaining({ period: { kind: 'month', at: '2026-09' } }),
 		);
 	});
 });

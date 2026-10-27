@@ -150,6 +150,7 @@ describe('viewing an account', () => {
 	};
 	const account = {
 		account: 'Assets:Broker',
+		parent: 'Assets',
 		holdings: [holding],
 		total: amount('12600'),
 		cost: amount('10900'),
@@ -160,6 +161,7 @@ describe('viewing an account', () => {
 	it('shows amounts as text', () => {
 		expect(viewAccount(account)).toEqual({
 			account: 'Assets:Broker',
+			parent: 'Assets',
 			total: '12600.00',
 			cost: '10900.00',
 			gain: '1700.00',
@@ -203,7 +205,10 @@ describe('viewing net worth', () => {
 			assets: amount('500'),
 			liabilities: amount('-200'),
 			worth: amount('300'),
-			parts: { 'Assets:Bank': amount('500'), 'Liabilities:Card': amount('-200') },
+			parts: [
+				{ account: 'Assets:Bank', commodity: null, amount: amount('500') },
+				{ account: 'Assets:Bank', commodity: 'USD', amount: amount('-200') },
+			],
 			unpriced: 1,
 		};
 		expect(viewWorth(worth)).toEqual({
@@ -211,7 +216,10 @@ describe('viewing net worth', () => {
 			assets: '500.00',
 			liabilities: '-200.00',
 			worth: '300.00',
-			parts: { 'Assets:Bank': '500.00', 'Liabilities:Card': '-200.00' },
+			parts: [
+				{ account: 'Assets:Bank', commodity: null, amount: '500.00' },
+				{ account: 'Assets:Bank', commodity: 'USD', amount: '-200.00' },
+			],
 			unpriced: 1,
 		});
 	});

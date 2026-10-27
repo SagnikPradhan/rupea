@@ -37,7 +37,8 @@ export const predictAccounts = <L extends Line>({
 
 	return withLogger('prediction')((logger) =>
 		syncIndex(ledger)
-			.andThen(() => DB.listAccountNames(ledger.id))
+			.andThen(() => DB.listAccountTree(ledger.id))
+			.map((t) => t.filter((a) => a.posted).map((a) => a.name))
 			.andThen((accounts) =>
 				guess(ledger, {
 					thresholds: THRESHOLDS,

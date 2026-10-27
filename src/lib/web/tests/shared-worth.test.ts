@@ -1,8 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { OTHER } from '#lib/web/shared/spending.ts';
-import { areasOf, OTHER_OWED, withAreas } from '#lib/web/shared/worth.ts';
+import { OTHER, OTHER_OWED } from '#lib/web/shared/chart.ts';
+import { areasOf, withAreas } from '#lib/web/shared/worth.ts';
 
-const day = (parts: Record<string, string>) => ({ day: '2026-01-01', parts });
+/** A day's parts, each an account or, after a space, one commodity it holds. */
+const day = (parts: Record<string, string>) => ({
+	day: '2026-01-01',
+	parts: Object.entries(parts).map(([key, amount]) => {
+		const [account = key, commodity = null] = key.split(' ');
+		return { account, commodity, amount };
+	}),
+});
 
 describe('the areas', () => {
 	it('give the largest held then the largest owed a shade, by the last day, folding the rest of each side', () => {
@@ -35,12 +42,17 @@ describe('the areas', () => {
 	});
 
 	it('keep every part when each side fits, and add up a folded area each day', () => {
-		const worth = [day({ INFY: '30', TCS: '20' }), day({ INFY: '40' })];
+		const worth = [
+			day({ 'Assets:Broker INFY': '30', 'Assets:Broker TCS': '20' }),
+			day({ 'Assets:Broker INFY': '40' }),
+		];
 		const areas = areasOf(worth);
 
-		expect(areas.map((a) => a.key)).toEqual(['INFY', 'TCS']);
-		expect(
-			withAreas(worth, [{ ...areas[0]!, parts: ['INFY', 'TCS'] }]).map((r) => r['INFY']),
-		).toEqual(['50', '40']);
+		expect(areas.map((a) => [a.key, a.label])).toEqual([
+			['Assets:Broker INFY', 'INFY'],
+			['Assets:Broker TCS', 'TCS'],
+		]);
+		const folded = { ...areas[0]!, parts: areas.flatMap((a) => a.parts) };
+		expect(withAreas(worth, [folded]).map((r) => r['Assets:Broker INFY'])).toEqual(['50', '40']);
 	});
 });

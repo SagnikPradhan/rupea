@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
-import { listAccounts, listWorth } from '#lib/endpoints/accounts.remote.ts';
+import { listAccounts, listReturns, listWorth } from '#lib/endpoints/accounts.remote.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
 import Page from '#routes/(signed-in)/l/[handle]/accounts/+page.svelte';
@@ -8,9 +8,10 @@ import Page from '#routes/(signed-in)/l/[handle]/accounts/+page.svelte';
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
 	listAccounts: vi.fn(),
+	listReturns: vi.fn(() => answer([])),
 	listWorth: vi.fn(),
 }));
-vi.mock('#lib/endpoints/transactions.remote.ts', () => ({
+vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
 	findFirstDay: vi.fn(() => answer('2025-03-14')),
 }));
 vi.mock('uplot', () => ({
@@ -35,6 +36,7 @@ const rupees = (total: string) => ({
 const accounts = [
 	{
 		account: 'Assets',
+		parent: null,
 		total: '51500',
 		cost: '1500',
 		gain: '500',
@@ -43,6 +45,7 @@ const accounts = [
 	},
 	{
 		account: 'Assets:Bank',
+		parent: 'Assets',
 		total: '50000',
 		cost: null,
 		gain: null,
@@ -51,6 +54,7 @@ const accounts = [
 	},
 	{
 		account: 'Assets:Broker',
+		parent: 'Assets',
 		total: '2000',
 		cost: '1500',
 		gain: '500',
@@ -76,7 +80,7 @@ const worth = [
 		assets: '1000',
 		liabilities: '0',
 		worth: '1000',
-		parts: { 'Assets:Bank': '1000' },
+		parts: [{ account: 'Assets:Bank', commodity: null, amount: '1000' }],
 		unpriced: 0,
 	},
 	{
@@ -84,7 +88,11 @@ const worth = [
 		assets: '51500',
 		liabilities: '-1500',
 		worth: '50000',
-		parts: { 'Assets:Bank': '50000', 'Assets:Broker': '1500', 'Liabilities:Card': '-1500' },
+		parts: [
+			{ account: 'Assets:Bank', commodity: null, amount: '50000' },
+			{ account: 'Assets:Broker', commodity: null, amount: '1500' },
+			{ account: 'Liabilities:Card', commodity: null, amount: '-1500' },
+		],
 		unpriced: 0,
 	},
 ];
@@ -136,7 +144,7 @@ describe('the accounts page', () => {
 	});
 
 	it('switches the graph for boxes of what each account holds at the end of the period', async () => {
-		visit('/l/h/accounts?chart=flow&at=2026');
+		visit('/l/h/accounts?chart=treemap&at=2026');
 		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
 		vi.mocked(listWorth).mockReturnValue(answer(worth));
 		render(Page, { data });
@@ -150,6 +158,35 @@ describe('the accounts page', () => {
 		);
 		expect(chart.getByRole('link', { name: 'Over time' }).getAttribute('href')).toContain(
 			'chart=time',
+		);
+	});
+
+	it('shows what flowed into each Assets account and its XIRR, per year only over a year', async () => {
+		visit('/l/h/accounts?at=2026-09');
+		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
+		vi.mocked(listWorth).mockReturnValue(answer(worth));
+		vi.mocked(listReturns).mockReturnValue(
+			answer(
+				[
+					{ account: 'Assets', netIn: '1500', xirr: null, yearly: false },
+					{ account: 'Assets:Bank', netIn: '-1500', xirr: 0.035, yearly: true },
+					{ account: 'Assets:Broker', netIn: '1500', xirr: -0.02, yearly: false },
+				],
+				[{ type: 'ReturnUnsolved', account: 'Assets' }],
+			),
+		);
+		render(Page, { data });
+
+		const bank = (await screen.findByTitle('Assets:Bank')).closest('tr');
+		const broker = screen.getByTitle('Assets:Broker').closest('tr');
+		expect(bank?.textContent).toContain('3.5%');
+		expect(within(bank as HTMLElement).getByTitle('XIRR, per year').textContent).toContain('p.a.');
+		expect(within(broker as HTMLElement).getByTitle('Return over the period').textContent).toBe(
+			'-2%',
+		);
+		expect(screen.getByText(/Assets has no XIRR/)).toBeTruthy();
+		expect(vi.mocked(listReturns)).toHaveBeenCalledWith(
+			expect.objectContaining({ period: { kind: 'month', at: '2026-09' } }),
 		);
 	});
 });

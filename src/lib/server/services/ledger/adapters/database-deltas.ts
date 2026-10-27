@@ -52,13 +52,13 @@ const rewrite = async (tx: Database, ledgerId: string, first: string, after: str
 		.execute();
 	await tx
 		.insertInto('monthlyDeltas')
-		.columns(['ledgerId', 'account', 'accountType', 'commodity', 'month', 'amount'])
+		.columns(['ledgerId', 'accountId', 'accountType', 'commodity', 'month', 'amount'])
 		.expression(
 			tx
 				.selectFrom('dailyDeltas as d')
 				.select((e) => [
 					'd.ledgerId',
-					'd.account',
+					'd.accountId',
 					'd.accountType',
 					'd.commodity',
 					month.as('month'),
@@ -67,7 +67,7 @@ const rewrite = async (tx: Database, ledgerId: string, first: string, after: str
 				.where('d.ledgerId', '=', ledgerId)
 				.where('d.date', '>=', first)
 				.where('d.date', '<', after)
-				.groupBy(['d.ledgerId', 'd.account', 'd.accountType', 'd.commodity', month]),
+				.groupBy(['d.ledgerId', 'd.accountId', 'd.accountType', 'd.commodity', month]),
 		)
 		.execute();
 };

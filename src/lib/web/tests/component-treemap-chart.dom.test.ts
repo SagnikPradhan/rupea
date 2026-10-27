@@ -6,9 +6,19 @@ Object.defineProperty(HTMLElement.prototype, 'clientWidth', { get: () => 400 });
 Object.defineProperty(HTMLElement.prototype, 'clientHeight', { get: () => 200 });
 
 const ROWS = [
-	{ account: 'Assets', total: '1000', holdings: [] },
-	{ account: 'Assets:Bank', total: '600', holdings: [{ commodity: 'INR', value: '600' }] },
-	{ account: 'Assets:Cash', total: '400', holdings: [{ commodity: 'INR', value: '400' }] },
+	{ account: 'Assets', parent: null, total: '1000', holdings: [] },
+	{
+		account: 'Assets:Bank',
+		parent: 'Assets',
+		total: '600',
+		holdings: [{ commodity: 'INR', value: '600' }],
+	},
+	{
+		account: 'Assets:Cash',
+		parent: 'Assets',
+		total: '400',
+		holdings: [{ commodity: 'INR', value: '400' }],
+	},
 ];
 
 describe('the treemap chart', () => {

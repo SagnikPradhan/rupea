@@ -1,6 +1,6 @@
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
-import { bucketsIn, coverOf, Day, Period, periodOf, spansOf, startOf } from '#lib/shared/dates.ts';
+import { bucketsIn, coverOf, Day, Period, paramsOf, periodOf, spansOf } from '#lib/shared/dates.ts';
 
 const day = (iso: string) => Temporal.PlainDate.from(iso);
 
@@ -8,16 +8,6 @@ describe('a day', () => {
 	it('reads an ISO date, and refuses anything else', () => {
 		expect(v.parse(Day, '2026-10-21').equals(day('2026-10-21'))).toBe(true);
 		expect(v.safeParse(Day, '21/10/2026').success).toBe(false);
-	});
-});
-
-describe('a range', () => {
-	it('starts a month, a year, the year’s first day, or the first day ever before its last', () => {
-		const last = day('2026-03-31');
-		expect(startOf['1m'](last).toString()).toBe('2026-02-28');
-		expect(startOf.ytd(last).toString()).toBe('2026-01-01');
-		expect(startOf['1y'](last).toString()).toBe('2025-03-31');
-		expect(startOf.all(last).toString()).toBe('0001-01-01');
 	});
 });
 
@@ -48,8 +38,8 @@ describe('a cover', () => {
 });
 
 describe('a period', () => {
-	const TODAY = '2026-10-24';
-	const read = (query: string) => periodOf(new URLSearchParams(query), TODAY);
+	const THIS_YEAR = { kind: 'year', at: '2026' } as const;
+	const read = (query: string) => periodOf(new URLSearchParams(query), THIS_YEAR);
 
 	it('is a month or year by name, all of history, or the days between two', () => {
 		expect(read('at=2026-03')).toEqual({ kind: 'month', at: '2026-03' });
@@ -62,7 +52,7 @@ describe('a period', () => {
 		});
 	});
 
-	it('is this year when the URL picks none, or picks one badly', () => {
+	it('is the fallback when the URL picks none, or picks one badly', () => {
 		expect(read('')).toEqual({ kind: 'year', at: '2026' });
 		expect(read('at=2026-13')).toEqual({ kind: 'year', at: '2026' });
 		expect(read('range=1m')).toEqual({ kind: 'year', at: '2026' });
@@ -72,6 +62,17 @@ describe('a period', () => {
 
 	it('refuses days that are only shaped like one', () => {
 		expect(v.is(Period, { kind: 'custom', from: '2026-02-30', to: '2026-03-01' })).toBe(false);
+	});
+
+	it('is read back from the parameters it is written as', () => {
+		const periods: Period[] = [
+			{ kind: 'month', at: '2026-03' },
+			THIS_YEAR,
+			{ kind: 'all' },
+			{ kind: 'custom', from: '2026-01-05', to: '2026-02-10' },
+		];
+		const back = periods.map((p) => read(new URLSearchParams(paramsOf(p)).toString()));
+		expect(back).toEqual(periods);
 	});
 });
 

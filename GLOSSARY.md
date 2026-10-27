@@ -21,7 +21,11 @@ One line of a transaction moving an amount into or out of one account.
 _Avoid_: Split, leg
 
 **Account**:
-A colon-separated name whose first segment is its account type.
+A colon-separated name whose first segment is its account type. Each is a row of its own, under its parent, named as first written; any case of the name means the same account.
+
+**Account tree**:
+How charts and pickers divide accounts. An account with nothing posted to it and one account right under it is left out, and the one under it takes its place; a top account is always kept.
+_Avoid_: Hierarchy, chart of accounts
 
 **Account type**:
 One of Assets, Liabilities, Income, Expenses or Equity; every account has exactly one.
@@ -102,6 +106,22 @@ _Avoid_: Sell, redemption
 **Transfer**:
 A posting taking units out of a holding against the same commodity into another balance account; the lots move with their date and cost.
 _Avoid_: Move
+
+**Flow**:
+Value moved into or out of an Assets account from outside it, as a deposit, a withdrawal or an opening balance, at what it was worth that day. Net investment income is not a flow. Short for external cash flow.
+_Avoid_: Cash flow (also covers income), transfer (lots moving in kind), contribution
+
+**Net in**:
+What flowed into an account over a range, less what flowed out.
+_Avoid_: Net invested (reads wrong on a bank), cost (open lots only)
+
+**Net investment income**:
+Interest and dividends an account receives, less the fees it pays: postings from `Income:Interest` or `Income:Dividends`, or to `Expenses:Fees`, and the accounts under them, whatever their names below that. It goes to the transaction's postings of commodities other than rupees, or to its rupee ones when it has none, split equally. It is part of the account's return, not a flow.
+_Avoid_: Earnings (a company's profit), income (an account type), gain (a sale's)
+
+**XIRR**:
+An Assets account's money-weighted return: the yearly rate at which its value at the start of a range, its flows and its value at the end, each discounted from its own day, add up to zero. A range under a year shows the same return over its own length rather than per year.
+_Avoid_: CAGR (ignores flows), time-weighted return, IRR (assumes evenly spaced flows)
 
 ## Storage and access
 
@@ -195,26 +215,22 @@ An event whose members contradict each other, such as no primary or two primarie
 
 ## Lists
 
-**Range**:
-A span of a ledger's history counted back from today: a month, the year so far, a year, or all of it. Net worth and lists use it.
-_Avoid_: Period, window
-
 **Period**:
-What spending covers: a calendar month or year named like 2026-03 or 2026, all of history, or the days between two picked by hand. Unlike a range a month or year doesn't count back from today: a past one is whole, and the current one runs to today.
-_Avoid_: Calendar span, range, window
+What a page covers: a calendar month or year named like 2026-03 or 2026, all of history, or the days between two picked by hand. A past month or year is whole, and the current one runs to today. Spending, net worth and lists all use it.
+_Avoid_: Range, calendar span, window
 
 **Filter**:
-What a list of transactions or postings is narrowed to: a range or chosen days, an account with the accounts under it, and words in a description. It lives in the page's URL.
+What a list of transactions or postings is narrowed to: a period, an account with the accounts under it, and words in a description. It lives in the page's URL.
 _Avoid_: Query (kept for a future query language), search
 
 ## Spending
 
 **Spending**:
-What Expenses accounts gained over a range, in rupees at the prices known by each posting's day, net of refunds and counting only counted transactions. An amount with no price yet is left out and counted as unpriced.
+What Expenses accounts gained over a period, in rupees at the prices known by each posting's day, net of refunds and counting only counted transactions. An amount with no price yet is left out and counted as unpriced.
 _Avoid_: Expenses (an account type), outflow, burn
 
 **Bucket**:
-The days a chart adds up into one bar: a day, a month or a year, set by the range.
+The days a chart adds up into one bar: a day, a month or a year, set by the period.
 _Avoid_: Interval, bin, period
 
 ## Background work

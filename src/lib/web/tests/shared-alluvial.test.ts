@@ -1,16 +1,16 @@
 import { describe, expect, it } from 'vitest';
 import { edgeAt, flowsOf, layoutOf, NODE, nodeAt } from '#lib/web/shared/alluvial.ts';
-import { OTHER } from '#lib/web/shared/spending.ts';
+import { OTHER } from '#lib/web/shared/chart.ts';
 
 const rows = [
-	{ account: 'Expenses', amount: '1000' },
-	{ account: 'Expenses:Food', amount: '600' },
-	{ account: 'Expenses:Food:Groceries', amount: '400' },
-	{ account: 'Expenses:Food:Snacks', amount: '-50' },
-	{ account: 'Expenses:Food:Dining', amount: '250' },
-	{ account: 'Expenses:Food:Gum', amount: '10' },
-	{ account: 'Expenses:Rent', amount: '300' },
-	{ account: 'Expenses:Phone', amount: '100' },
+	{ account: 'Expenses', parent: null, amount: '1000' },
+	{ account: 'Expenses:Food', parent: 'Expenses', amount: '600' },
+	{ account: 'Expenses:Food:Groceries', parent: 'Expenses:Food', amount: '400' },
+	{ account: 'Expenses:Food:Snacks', parent: 'Expenses:Food', amount: '-50' },
+	{ account: 'Expenses:Food:Dining', parent: 'Expenses:Food', amount: '250' },
+	{ account: 'Expenses:Food:Gum', parent: 'Expenses:Food', amount: '10' },
+	{ account: 'Expenses:Rent', parent: 'Expenses', amount: '300' },
+	{ account: 'Expenses:Phone', parent: 'Expenses', amount: '100' },
 ];
 const flows = flowsOf({ rows, account: 'Expenses', parts: ['Expenses:Food', 'Expenses:Rent'] });
 
@@ -29,12 +29,13 @@ describe('the flows', () => {
 	it('name only the largest accounts under the parts, so a long history still fits', () => {
 		const many = Array.from({ length: 60 }, (_, i) => ({
 			account: `Expenses:Food:${i}`,
+			parent: 'Expenses:Food',
 			amount: String(i + 1),
 		}));
 		const crowded = flowsOf({
 			rows: [
-				{ account: 'Expenses', amount: '1830' },
-				{ account: 'Expenses:Food', amount: '1830' },
+				{ account: 'Expenses', parent: null, amount: '1830' },
+				{ account: 'Expenses:Food', parent: 'Expenses', amount: '1830' },
 				...many,
 			],
 			account: 'Expenses',
@@ -50,9 +51,9 @@ describe('the flows', () => {
 	it('run into the accounts under a part whatever their case', () => {
 		const cased = flowsOf({
 			rows: [
-				{ account: 'Expenses', amount: '600' },
-				{ account: 'Expenses:Food', amount: '600' },
-				{ account: 'Expenses:food:Groceries', amount: '600' },
+				{ account: 'Expenses', parent: null, amount: '600' },
+				{ account: 'Expenses:Food', parent: 'Expenses', amount: '600' },
+				{ account: 'Expenses:food:Groceries', parent: 'Expenses:Food', amount: '600' },
 			],
 			account: 'Expenses',
 			parts: ['Expenses:Food'],
@@ -63,8 +64,8 @@ describe('the flows', () => {
 	it('leave out other when the parts are all of it', () => {
 		const whole = flowsOf({
 			rows: [
-				{ account: 'Expenses', amount: '600' },
-				{ account: 'Expenses:Food', amount: '600' },
+				{ account: 'Expenses', parent: null, amount: '600' },
+				{ account: 'Expenses:Food', parent: 'Expenses', amount: '600' },
 			],
 			account: 'Expenses',
 			parts: ['Expenses:Food'],

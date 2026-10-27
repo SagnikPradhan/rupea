@@ -1,11 +1,16 @@
 <script lang="ts">
 	import { listSpending } from '#lib/endpoints/accounts.remote.ts';
-	import { findFirstDay } from '#lib/endpoints/transactions.remote.ts';
-	import { periodOf } from '#lib/shared/dates.ts';
-	import { ExpenseAccount, EXPENSES } from '#lib/shared/filter.ts';
+	import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
+	import { paramsOf, periodOf } from '#lib/shared/dates.ts';
+	import { ExpenseAccount, EXPENSES } from '#lib/shared/accounts.ts';
 	import { depthOf, nameOf, prefixOf } from '#lib/web/shared/accounts.ts';
-	import { seriesOf } from '#lib/web/shared/chart.ts';
-	import { Chart, CHART_LABELS, Scale, SCALE_LABELS } from '#lib/web/shared/choices.ts';
+	import { OTHER, seriesOf } from '#lib/web/shared/chart.ts';
+	import {
+		Scale,
+		SCALE_LABELS,
+		SpendingChart,
+		SPENDING_CHART_LABELS,
+	} from '#lib/web/shared/choices.ts';
 	import AlluvialChart from '#lib/web/components/alluvial-chart/alluvial-chart.svelte';
 	import AccountPicker from '#lib/web/components/account-picker/account-picker.svelte';
 	import BarChart from '#lib/web/components/bar-chart/bar-chart.svelte';
@@ -31,7 +36,6 @@
 	import {
 		barsOf,
 		monthsIn,
-		OTHER,
 		partsOf,
 		PREVIOUS,
 		rowsOf,
@@ -45,10 +49,12 @@
 
 	const handle = $derived(data.ledger.handle);
 	const day = formatIsoDate(new Date());
-	const period = $derived(periodOf(page.url.searchParams, day));
+	const period = $derived(periodOf(page.url.searchParams, { kind: 'year', at: day.slice(0, 4) }));
 	const account = $derived(v.parse(ExpenseAccount, page.url.searchParams.get('account')));
 	const scale = $derived(v.parse(v.fallback(Scale, 'linear'), page.url.searchParams.get('scale')));
-	const chart = $derived(v.parse(v.fallback(Chart, 'time'), page.url.searchParams.get('chart')));
+	const chart = $derived(
+		v.parse(v.fallback(SpendingChart, 'time'), page.url.searchParams.get('chart')),
+	);
 
 	const response = $derived(await listSpending({ handle, day, period, account }));
 	const spending = $derived(response.data?.[0]);
@@ -72,7 +78,7 @@
 	const months = $derived(monthsIn(first, last));
 
 	const postingsOf = (a: string) =>
-		`/l/${handle}/postings?${new URLSearchParams({ account: a, ...(period.kind === 'all' ? { range: 'all' } : { from: first, to: last }) })}`;
+		`/l/${handle}/postings?${new URLSearchParams({ account: a, ...paramsOf(period) })}`;
 	const postingsOn = (day: string) =>
 		`/l/${handle}/postings?${new URLSearchParams({ account, from: day, to: day })}`;
 	const perMonth = (amount: string) => (Number(amount) / months).toFixed(2);
@@ -83,17 +89,13 @@
 <FilterRail>
 	{#snippet filters()}
 		<PeriodPicker current={period} shown={{ from: first, to: last }} today={day} first={earliest} />
-		<AccountPicker
-			current={account}
-			accounts={(spending?.totals ?? []).map((t) => t.account)}
-			top={EXPENSES}
-		/>
+		<AccountPicker current={account} accounts={spending?.totals ?? []} top={EXPENSES} />
 	{/snippet}
 
 	<Issues {handle} errors={response.errors} />
 
 	<section aria-labelledby="spending">
-		{#if divides && chart === 'flow'}
+		{#if divides && chart === 'alluvial'}
 			<AlluvialChart
 				{rows}
 				{account}
@@ -132,7 +134,7 @@
 
 	{#snippet charts()}
 		{#if divides}
-			<ChoicePicker param="chart" label="Chart" choices={CHART_LABELS} current={chart} />
+			<ChoicePicker param="chart" label="Chart" choices={SPENDING_CHART_LABELS} current={chart} />
 		{/if}
 	{/snippet}
 

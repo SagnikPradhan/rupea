@@ -1,8 +1,8 @@
 <script lang="ts">
 	import LineChart from '#lib/web/components/line-chart/line-chart.svelte';
 	import TreemapChart from '#lib/web/components/treemap-chart/treemap-chart.svelte';
-	import { ASSETS } from '#lib/shared/filter.ts';
-	import type { Chart } from '#lib/web/shared/choices.ts';
+	import { ASSETS } from '#lib/shared/accounts.ts';
+	import type { WorthChart } from '#lib/web/shared/choices.ts';
 	import { formatAmount, formatChange, formatDate, formatExact } from '#lib/web/shared/format.ts';
 	import { areasOf, withAreas } from '#lib/web/shared/worth.ts';
 	import type { Snippet } from 'svelte';
@@ -12,7 +12,7 @@
 		assets: string;
 		liabilities: string;
 		worth: string;
-		parts: Record<string, string>;
+		parts: { account: string; commodity: string | null; amount: string }[];
 		unpriced: number;
 	};
 
@@ -22,12 +22,13 @@
 		/** Balance accounts at the end of the last day, for the boxes of each one. */
 		accounts: {
 			account: string;
+			parent: string | null;
 			total: string;
 			holdings: { commodity: string; value: string | null }[];
 		}[];
 		/** The account narrowed to, or none for every balance account; the treemap boxes assets then, as owing has no size. */
 		account: string | null;
-		chart: Chart;
+		chart: WorthChart;
 		/** Drawn below the chart, such as a choice of chart. */
 		controls?: Snippet;
 	};
@@ -43,7 +44,7 @@
 
 {#if first && last}
 	<section aria-labelledby="worth">
-		{#if chart === 'flow'}
+		{#if chart === 'treemap'}
 			<TreemapChart
 				rows={accounts}
 				account={account ?? ASSETS}

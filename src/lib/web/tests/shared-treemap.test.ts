@@ -4,16 +4,17 @@ import { boxesOf, tileOf, type Box } from '#lib/web/shared/treemap.ts';
 const rupees = (value: string | null, commodity = 'INR') => ({ commodity, value });
 
 const rows = [
-	{ account: 'Assets', total: '950', holdings: [] },
-	{ account: 'Assets:Bank', total: '600', holdings: [rupees('600')] },
+	{ account: 'Assets', parent: null, total: '950', holdings: [] },
+	{ account: 'Assets:Bank', parent: 'Assets', total: '600', holdings: [rupees('600')] },
 	{
 		account: 'Assets:Broker',
+		parent: 'Assets',
 		total: '400',
 		holdings: [rupees('300', 'INFY'), rupees('100', 'TCS'), rupees(null, 'XYZ')],
 	},
-	{ account: 'Assets:Loan', total: '-50', holdings: [rupees('-50')] },
-	{ account: 'Liabilities', total: '-500', holdings: [] },
-	{ account: 'Liabilities:Card', total: '-500', holdings: [rupees('-500')] },
+	{ account: 'Assets:Loan', parent: 'Assets', total: '-50', holdings: [rupees('-50')] },
+	{ account: 'Liabilities', parent: null, total: '-500', holdings: [] },
+	{ account: 'Liabilities:Card', parent: 'Liabilities', total: '-500', holdings: [rupees('-500')] },
 ];
 
 type Shape = { label: string; amount: number; tiles: Shape[] };
@@ -82,9 +83,9 @@ describe('the layout', () => {
 
 	it('leaves out boxes too thin to see, filling the space with the rest', () => {
 		const sliver = [
-			{ account: 'Assets', total: '1000', holdings: [] },
-			{ account: 'Assets:Bank', total: '999', holdings: [rupees('999')] },
-			{ account: 'Assets:Cash', total: '1', holdings: [rupees('1')] },
+			{ account: 'Assets', parent: null, total: '1000', holdings: [] },
+			{ account: 'Assets:Bank', parent: 'Assets', total: '999', holdings: [rupees('999')] },
+			{ account: 'Assets:Cash', parent: 'Assets', total: '1', holdings: [rupees('1')] },
 		];
 		const laid = boxesOf(tileOf(sliver, 'Assets'), { width: 400, height: 200 });
 		expect(laid.map((b) => [b.label, b.width, b.height])).toEqual([['Bank', 400, 200]]);

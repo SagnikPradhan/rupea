@@ -58,6 +58,15 @@ export const explain = (error: RupeaError): string =>
 			(e) => `${e.account} could fall either side of ${e.unordered}. Add a time to order them.`,
 		)
 		.with(
+			{ type: 'ReturnUnpriced' },
+			(e) =>
+				`${e.account} has no XIRR: ${e.unpriced} of its holdings or flows have no price. Add a P line for them.`,
+		)
+		.with(
+			{ type: 'ReturnUnsolved' },
+			(e) => `${e.account} has no XIRR: no rate makes its flows and values add up.`,
+		)
+		.with(
 			{ type: 'FeedUnavailable' },
 			(e) => `${e.feed} couldn’t be reached for ${e.symbol}. It will be tried again.`,
 		)
@@ -93,6 +102,9 @@ const toPlace = (text: string): Place => {
 	return found?.[1] && found[2] ? { file: found[1], line: found[2] } : { file: text, line: null };
 };
 
-/** Assertions only check the ledger; nothing is wrong with the data they point at. */
+/** Assertions and XIRR only report on the ledger; nothing is wrong with the data they point at. */
 export const isWarning = (e: RupeaError) =>
-	e.type === 'BalanceAssertionFailed' || e.type === 'BalanceAssertionAmbiguous';
+	e.type === 'BalanceAssertionFailed' ||
+	e.type === 'BalanceAssertionAmbiguous' ||
+	e.type === 'ReturnUnpriced' ||
+	e.type === 'ReturnUnsolved';

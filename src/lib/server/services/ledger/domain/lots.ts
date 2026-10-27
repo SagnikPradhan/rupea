@@ -17,7 +17,7 @@ export const movesInKind = (u: Amount[]) => sum(u) === 0n;
 export type BookedPosting = {
 	id: string;
 	transaction: string;
-	account: string;
+	accountId: string;
 	held: boolean;
 	date: Temporal.PlainDate;
 	amount: Amount;
@@ -30,7 +30,7 @@ export type Lot = {
 	id: string;
 	posting: string;
 	source: string | null;
-	account: string;
+	accountId: string;
 	origin: LotOrigin;
 	date: Temporal.PlainDate;
 	units: Amount;
@@ -199,7 +199,7 @@ const openLot = ({ booking, posting, origin, cost, units = posting.amount, from 
 		id: uuidv7(),
 		posting: posting.id,
 		source: from?.id ?? null,
-		account: posting.account,
+		accountId: posting.accountId,
 		origin,
 		date: from?.date ?? posting.date,
 		units,
@@ -211,7 +211,7 @@ const openLotsFor = (booking: Booking, posting: BookedPosting): Lot[] =>
 	booking.lots
 		.filter(
 			(l) =>
-				l.account === posting.account &&
+				l.accountId === posting.accountId &&
 				l.remaining * posting.amount < 0n &&
 				(posting.cost === null || isNamedBy(l, posting.cost)),
 		)

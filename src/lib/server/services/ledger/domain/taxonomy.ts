@@ -3,6 +3,9 @@ import { AccountType } from './types';
 /** Where real money sits; Income and Expenses only say what it was for. */
 export const BALANCE_TYPES = [AccountType.Assets, AccountType.Liabilities];
 
+/** Accounts whose postings, and those under them, are an account's net investment income rather than a flow. */
+export const INVESTMENT_INCOME = ['Income:Interest', 'Income:Dividends', 'Expenses:Fees'];
+
 export const taxonomy: Record<string, string> = {
 	'Expenses:Food:Groceries': 'groceries, supermarket, vegetables, milk, kirana',
 	'Expenses:Food:Restaurants': 'restaurants, cafe, coffee, food delivery',

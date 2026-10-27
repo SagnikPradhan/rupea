@@ -62,6 +62,7 @@ export const listPostings = (
 			.selectFrom('postings as p')
 			.innerJoin('transactions as t', 't.id', 'p.transactionId')
 			.innerJoin('ledgerFiles as f', 'f.id', 't.fileId')
+			.innerJoin('accounts as a', 'a.id', 'p.accountId')
 			.select([
 				'f.key as file',
 				't.line',
@@ -70,7 +71,7 @@ export const listPostings = (
 				't.sortTime as time',
 				't.description',
 				'p.position',
-				'p.account',
+				'a.name as account',
 				'p.amount',
 				'p.commodity',
 				'p.priceAmount',
@@ -86,7 +87,7 @@ export const listPostings = (
 			.where('t.date', '<=', filter.to.toString())
 			.where('t.counted', '=', true)
 			.where((e) => containing(e.ref('t.description'), filter.description))
-			.where((e) => underAccount(e.ref('p.account'), filter.account))
+			.where((e) => underAccount(e.ref('a.name'), filter.account))
 			.where(() => atOrBefore(listingKey('t'), after && [after.date, after.time, after.id]))
 			.where((e) =>
 				before(
@@ -134,14 +135,14 @@ export const listHoldings = (ledgerId: string, day: Temporal.PlainDate): ResultA
 				.with('deltas', (q) =>
 					q
 						.selectFrom('monthlyDeltas as m')
-						.select(['m.account', 'm.commodity', 'm.amount'])
+						.select(['m.accountId', 'm.commodity', 'm.amount'])
 						.where('m.ledgerId', '=', ledgerId)
 						.where('m.accountType', 'in', BALANCE_TYPES)
 						.where('m.month', '<', month)
 						.unionAll(
 							q
 								.selectFrom('dailyDeltas as d')
-								.select(['d.account', 'd.commodity', 'd.amount'])
+								.select(['d.accountId', 'd.commodity', 'd.amount'])
 								.where('d.ledgerId', '=', ledgerId)
 								.where('d.accountType', 'in', BALANCE_TYPES)
 								.where('d.date', '>=', month)
@@ -152,11 +153,11 @@ export const listHoldings = (ledgerId: string, day: Temporal.PlainDate): ResultA
 					q
 						.selectFrom('deltas')
 						.select([
-							'deltas.account',
+							'deltas.accountId',
 							'deltas.commodity',
 							(e) => e.fn.sum<bigint>('deltas.amount').as('units'),
 						])
-						.groupBy(['deltas.account', 'deltas.commodity'])
+						.groupBy(['deltas.accountId', 'deltas.commodity'])
 						.having((e) => e(e.fn.sum('deltas.amount'), '<>', 0n)),
 				)
 				.with('open', () => lotsOpenOn(db, ledgerId, on))
@@ -164,7 +165,7 @@ export const listHoldings = (ledgerId: string, day: Temporal.PlainDate): ResultA
 					q
 						.selectFrom('open')
 						.select((e) => [
-							'open.account',
+							'open.accountId',
 							'open.commodity',
 							e.fn
 								.sum<bigint>(
@@ -179,22 +180,23 @@ export const listHoldings = (ledgerId: string, day: Temporal.PlainDate): ResultA
 								.as('costCommodity'),
 						])
 						.where('open.remaining', '!=', 0n)
-						.groupBy(['open.account', 'open.commodity']),
+						.groupBy(['open.accountId', 'open.commodity']),
 				)
 				.selectFrom('balances')
+				.innerJoin('accounts as a', 'a.id', 'balances.accountId')
 				.leftJoin('costs', (j) =>
 					j
-						.onRef('costs.account', '=', 'balances.account')
+						.onRef('costs.accountId', '=', 'balances.accountId')
 						.onRef('costs.commodity', '=', 'balances.commodity'),
 				)
 				.select([
-					'balances.account',
+					'a.name as account',
 					'balances.commodity',
 					'balances.units',
 					'costs.costAmount',
 					'costs.costCommodity',
 				])
-				.orderBy('balances.account')
+				.orderBy('a.name')
 				.orderBy('balances.commodity')
 				.execute(),
 		).map((rows) =>
@@ -214,10 +216,10 @@ export const saveBalanceChecks = (ledgerId: string, from: Temporal.PlainDate): R
 			const first = from.with({ day: 1 }).toString();
 
 			await db
-				.with('accounts', () =>
+				.with('held', () =>
 					db
 						.selectFrom('postings as p')
-						.select(['p.account', 'p.commodity'])
+						.select(['p.accountId', 'p.commodity'])
 						.distinct()
 						.where('p.ledgerId', '=', ledgerId)
 						.where('p.balance', 'is not', null)
@@ -225,20 +227,20 @@ export const saveBalanceChecks = (ledgerId: string, from: Temporal.PlainDate): R
 				)
 				.with('openings', (q) =>
 					q
-						.selectFrom('accounts as k')
+						.selectFrom('held as k')
 						.leftJoin('monthlyDeltas as m', (j) =>
 							j
-								.onRef('m.account', '=', 'k.account')
+								.onRef('m.accountId', '=', 'k.accountId')
 								.onRef('m.commodity', '=', 'k.commodity')
 								.on('m.ledgerId', '=', ledgerId)
 								.on('m.month', '<', first),
 						)
-						.select((e) => ['k.account', 'k.commodity', total(e.ref('m.amount')).as('amount')])
-						.groupBy(['k.account', 'k.commodity']),
+						.select((e) => ['k.accountId', 'k.commodity', total(e.ref('m.amount')).as('amount')])
+						.groupBy(['k.accountId', 'k.commodity']),
 				)
 				.with('entries', (q) =>
 					q
-						.selectFrom('accounts as k')
+						.selectFrom('held as k')
 						.innerJoinLateral(
 							(e) =>
 								db
@@ -253,7 +255,7 @@ export const saveBalanceChecks = (ledgerId: string, from: Temporal.PlainDate): R
 										'p.counted',
 									])
 									.where('p.ledgerId', '=', ledgerId)
-									.where('p.account', '=', e.ref('k.account'))
+									.where('p.accountId', '=', e.ref('k.accountId'))
 									.where('p.commodity', '=', e.ref('k.commodity'))
 									.where('p.date', '>=', first)
 									.as('p'),
@@ -261,11 +263,11 @@ export const saveBalanceChecks = (ledgerId: string, from: Temporal.PlainDate): R
 						)
 						.selectAll('p')
 						.select((e) => [
-							'k.account',
+							'k.accountId',
 							'k.commodity',
 							totalBefore(
 								e.ref('p.amount'),
-								[e.ref('k.account'), e.ref('k.commodity')],
+								[e.ref('k.accountId'), e.ref('k.commodity')],
 								e.ref('p.date'),
 								e('p.counted', '=', true),
 							).as('before'),
@@ -276,7 +278,7 @@ export const saveBalanceChecks = (ledgerId: string, from: Temporal.PlainDate): R
 						.selectFrom('entries as a')
 						.innerJoin('transactions as t', 't.id', 'a.transactionId')
 						.innerJoin('openings as o', (j) =>
-							j.onRef('o.account', '=', 'a.account').onRef('o.commodity', '=', 'a.commodity'),
+							j.onRef('o.accountId', '=', 'a.accountId').onRef('o.commodity', '=', 'a.commodity'),
 						)
 						.leftJoinLateral(
 							(e) =>
@@ -292,7 +294,7 @@ export const saveBalanceChecks = (ledgerId: string, from: Temporal.PlainDate): R
 										'p.amount',
 									])
 									.where('p.ledgerId', '=', ledgerId)
-									.where('p.account', '=', e.ref('a.account'))
+									.where('p.accountId', '=', e.ref('a.accountId'))
 									.where('p.commodity', '=', e.ref('a.commodity'))
 									.where('p.date', '=', e.ref('a.date'))
 									.where('p.counted', '=', true)
@@ -359,14 +361,15 @@ export const listBalanceChecks = (ledgerId: string): ResultAsync<BalanceCheck[]>
 						.selectFrom('postings as p')
 						.innerJoin('transactions as t', 't.id', 'p.transactionId')
 						.innerJoin('ledgerFiles as f', 'f.id', 't.fileId')
+						.innerJoin('accounts as k', 'k.id', 'p.accountId')
 						.select((e) => {
 							const error = e(e.ref('p.actual'), '-', e.ref('p.balance'));
-							const previous = sql<bigint>`lag(${error}, 1, 0) over (partition by p.account, p.commodity order by ${ledgerOrder('t', 'f')}, p.position)`;
+							const previous = sql<bigint>`lag(${error}, 1, 0) over (partition by p.account_id, p.commodity order by ${ledgerOrder('t', 'f')}, p.position)`;
 
 							return [
 								'f.key as file',
 								't.line',
-								'p.account',
+								'k.name as account',
 								'p.commodity',
 								'p.balance',
 								'p.actual',
@@ -425,7 +428,7 @@ const lotsOpenOn = (db: Database, ledgerId: string, on: string) =>
 		.selectFrom('lots as l')
 		.innerJoin('postings as o', 'o.id', 'l.postingId')
 		.select((e) => [
-			'l.account',
+			'l.accountId',
 			'l.commodity',
 			'l.costAmount',
 			'l.costCommodity',

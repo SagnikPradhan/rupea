@@ -7,29 +7,8 @@ export const Day = v.pipe(
 	v.transform((d) => Temporal.PlainDate.from(d)),
 );
 
-/** The spans a chart or list of a ledger's history covers. */
-export const Range = v.picklist(['1m', 'ytd', '1y', 'all']);
-
-export type Range = v.InferOutput<typeof Range>;
-
-/** How the range picker labels each range. */
-export const RANGE_LABELS: Record<Range, string> = {
-	'1m': '1M',
-	ytd: 'YTD',
-	'1y': '1Y',
-	all: 'All',
-};
-
 /** The first day of all of history, which a ledger starts long after. */
 export const BEGINNING = '0001-01-01';
-
-/** The first day a range covers, counting back from its last. */
-export const startOf: Record<Range, (last: Temporal.PlainDate) => Temporal.PlainDate> = {
-	'1m': (d) => d.subtract({ months: 1 }),
-	ytd: (d) => d.with({ month: 1, day: 1 }),
-	'1y': (d) => d.subtract({ years: 1 }),
-	all: () => Temporal.PlainDate.from(BEGINNING),
-};
 
 /** The first and last day of a span, both included. */
 export type Span = { from: Temporal.PlainDate; to: Temporal.PlainDate };
@@ -56,9 +35,9 @@ const exists = (d: string) =>
 	!Number.isNaN(Date.parse(d)) && new Date(d).toISOString().startsWith(d);
 
 /** An ISO day that exists, kept as text. */
-export const IsoDay = v.pipe(v.string(), v.isoDate(), v.check(exists));
+const IsoDay = v.pipe(v.string(), v.isoDate(), v.check(exists));
 
-/** What spending covers: a calendar month or year, all of history, or the days between two. */
+/** What a page of a ledger's history covers: a calendar month or year, all of history, or the days between two. */
 export const Period = v.variant('kind', [
 	v.object({ kind: v.literal('month'), at: v.pipe(v.string(), v.regex(MONTH_NAME)) }),
 	v.object({ kind: v.literal('year'), at: v.pipe(v.string(), v.regex(YEAR_NAME)) }),
@@ -71,10 +50,10 @@ export const Period = v.variant('kind', [
 
 export type Period = v.InferOutput<typeof Period>;
 
-/** The period a URL picks with at, range=all, or from and to; this year when it picks none. */
+/** The period a URL picks with at, range=all, or from and to; the fallback when it picks none. */
 export const periodOf = (
 	params: { get: (key: string) => string | null },
-	today: string,
+	fallback: Period,
 ): Period => {
 	const at = params.get('at');
 	const picked = [
@@ -84,7 +63,15 @@ export const periodOf = (
 		{ kind: 'custom', from: params.get('from'), to: params.get('to') },
 	].find((p) => v.is(Period, p));
 
-	return picked ?? { kind: 'year', at: today.slice(0, 4) };
+	return picked ?? fallback;
+};
+
+/** The URL parameters that pick a period, as periodOf reads them. */
+export const paramsOf = (period: Period): Record<string, string> => {
+	if (period.kind === 'all') return { range: 'all' };
+	if (period.kind === 'custom') return { from: period.from, to: period.to };
+
+	return { at: period.at };
 };
 
 /** What a chart of spending covers: its span, the one before to weigh it against, and its buckets. */

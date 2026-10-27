@@ -26,20 +26,7 @@ export const ledgerOrder = (t: string, f: string) =>
 export const multiply = (a: Expression<unknown>, b: Expression<unknown>) =>
 	sql<bigint>`round(${a} * ${b} / ${sql.lit(AMOUNT_UNIT)})`;
 
-type PartOptions = { split: Expression<number>; account: string | null };
-
-/** An account's first split + 1 levels, or the commodity of what the account asked for holds itself. */
-export const partOf = (
-	a: Expression<string>,
-	c: Expression<string>,
-	{ split, account }: PartOptions,
-) =>
-	sql<string>`case
-		when cardinality(string_to_array(${a}, ':')) > ${split} then array_to_string((string_to_array(${a}, ':'))[1:${split} + 1], ':')
-		when lower(${a}) = lower(${account}) then ${c}
-		else ${a} end`;
-
-/** This account or any under it, ignoring case, so it reads through postings_ledger_id_lower_account; every account when there is none. */
+/** This account or any under it, ignoring case, so it reads through accounts_ledger_id_lower_name; every account when there is none. */
 export const underAccount = (c: Expression<string>, a: string | null) =>
 	a !== null
 		? sql<SqlBool>`(lower(${c}) = lower(${a}) or lower(${c}) like lower(${literalLike(a)}) || ':%')`

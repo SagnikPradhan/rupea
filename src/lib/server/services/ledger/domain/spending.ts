@@ -14,6 +14,8 @@ export type Spent = {
 /** What one Expenses account and the accounts under it gained over a whole span. */
 export type Total = {
 	account: string;
+	/** The account it is drawn under, as parentsIn divides them. */
+	parent: string | null;
 	first: Temporal.PlainDate;
 	amount: Amount;
 	unpriced: number;
@@ -29,9 +31,14 @@ export type Spending = {
 	spent: Spent[];
 };
 
+type SpendingOfOptions = { span: Span; bucket: Bucket; parents: Record<string, string | null> };
+
 /** All of history starts long before a ledger does, so it starts on the first day anything was spent. */
-export const spendingOf = (spent: Spent[], span: Span, bucket: Bucket): Spending => {
-	const totals = totalsOf(spent);
+export const spendingOf = (
+	spent: Spent[],
+	{ span, bucket, parents }: SpendingOfOptions,
+): Spending => {
+	const totals = totalsOf(spent, parents);
 	const from = span.from.toString() === BEGINNING ? (totals[0]?.first ?? span.to) : span.from;
 
 	return {
@@ -54,11 +61,15 @@ const rolledUp = (spent: Spent[]): Spent[] => {
 		);
 };
 
-/** Each account's spending and its parents' over every bucket, by path. */
-const totalsOf = (spent: Spent[]): Total[] => {
+/** Each account's spending and its parents' over every bucket, by path, leaving out those not drawn. */
+const totalsOf = (spent: Spent[], parents: Record<string, string | null>): Total[] => {
 	const groups = Object.groupBy(sharesOf(spent), (s) => s.account);
 	return Object.entries(groups)
-		.flatMap(([account, g]) => (g?.[0] ? [{ account, ...added(g[0], g) }] : []))
+		.flatMap(([account, g]) =>
+			g?.[0] && Object.hasOwn(parents, account)
+				? [{ account, parent: parents[account] ?? null, ...added(g[0], g) }]
+				: [],
+		)
 		.toSorted((a, b) => byPath(a.account, b.account));
 };
 

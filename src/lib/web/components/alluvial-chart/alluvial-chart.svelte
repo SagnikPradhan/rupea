@@ -13,8 +13,8 @@
 	import type { Snippet } from 'svelte';
 
 	type Props = {
-		/** An account and every account under it, with what each spent. */
-		rows: { account: string; amount: string }[];
+		/** An account and every account under it, with what each spent and the account the server draws it under. */
+		rows: { account: string; parent: string | null; amount: string }[];
 		/** The account everything flows from. */
 		account: string;
 		/** The accounts right under it with a shade of their own, as the bars have them. */

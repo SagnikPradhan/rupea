@@ -1,11 +1,11 @@
-import { replyFromBatch } from '#lib/server/shared/result/reply.ts';
+import { replyFrom, replyFromBatch } from '#lib/server/shared/result/reply.ts';
 import { Day, Period, spansOf } from '#lib/shared/dates.ts';
-import { BalanceAccount, ExpenseAccount } from '#lib/shared/filter.ts';
+import { BalanceAccount, ExpenseAccount } from '#lib/shared/accounts.ts';
 import * as Accounts from '#services/ledger/application/accounts.ts';
 import { query } from '$app/server';
 import * as v from 'valibot';
 import { Handle, inLedger } from './shared';
-import { viewAccount, viewLot, viewSpending, viewWorth } from './views';
+import { viewAccount, viewLot, viewReturns, viewSpending, viewWorth } from './views';
 
 /** What each balance account held at the end of a period, valued at that day's prices. */
 export const listAccounts = query(
@@ -37,6 +37,21 @@ export const listWorth = query(
 	},
 );
 
+/** What flowed into each Assets account over a period less what flowed out, and its XIRR. */
+export const listReturns = query(
+	v.object({ handle: Handle, day: Day, period: Period }),
+	({ handle, day, period }) => {
+		const { from, to } = spansOf(period, day).current;
+
+		return replyFromBatch(
+			inLedger({
+				handle,
+				action: (l) => Accounts.listReturns({ ledger: l, from, to }),
+			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewReturns) })),
+		);
+	},
+);
+
 /** Spending under an account over a period, then over the one before it when there is one. */
 export const listSpending = query(
 	v.object({ handle: Handle, day: Day, period: Period, account: ExpenseAccount }),
@@ -61,4 +76,8 @@ export const listLots = query(
 				(b) => ({ ...b, succeeded: b.succeeded.map(viewLot) }),
 			),
 		),
+);
+
+export const listAccountTree = query(Handle, (h) =>
+	replyFrom(inLedger({ handle: h, action: Accounts.listAccountTree })),
 );

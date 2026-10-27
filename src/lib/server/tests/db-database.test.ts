@@ -66,6 +66,13 @@ describe('the database', () => {
 		const file = await createFile(db, ledgerId);
 		const tx = await createTransaction(db, ledgerId, file.id);
 		const big = 9_007_199_254_740_993n;
+		const [a, b] = await db
+			.insertInto('accounts')
+			.values(
+				['Assets:A', 'Assets:B'].map((name) => ({ ledgerId, name, type: AccountType.Assets })),
+			)
+			.returning('id')
+			.execute();
 		const posting = {
 			ledgerId,
 			transactionId: tx.id,
@@ -76,8 +83,8 @@ describe('the database', () => {
 		await db
 			.insertInto('postings')
 			.values([
-				{ ...posting, position: 0, account: 'Assets:A', amount: big },
-				{ ...posting, position: 1, account: 'Assets:B', amount: -big },
+				{ ...posting, position: 0, accountId: a?.id ?? '', amount: big },
+				{ ...posting, position: 1, accountId: b?.id ?? '', amount: -big },
 			])
 			.execute();
 

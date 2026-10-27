@@ -1,33 +1,30 @@
 <script lang="ts">
-	import { childrenOf, nameOf, prefixOf } from '#lib/web/shared/accounts.ts';
+	import { nameOf, prefixOf } from '#lib/web/shared/accounts.ts';
 	import { hrefWith } from '#lib/web/shared/links.ts';
 	import { page } from '$app/state';
 
 	type Props = {
 		/** The account picked, or none for every account. */
 		current: string | null;
-		/** Every account that can be picked, of which those right under the current one are offered. */
-		accounts: string[];
+		/** Every account that can be picked and the one the server draws it under; those under the current one are offered. */
+		accounts: { account: string; parent: string | null }[];
 		/** The account every choice is under, offered first as All, or none for every account. */
 		top: string | null;
 	};
 
 	const { current, accounts, top }: Props = $props();
 
+	const parents = $derived(Object.fromEntries(accounts.map((a) => [a.account, a.parent])));
 	const choices = $derived([
 		top,
-		...pathTo(current).filter((a) => a.length > (top?.length ?? 0)),
-		...childrenOf(accounts, current),
+		...pathTo(current),
+		...accounts.filter((a) => a.parent === current).map((a) => a.account),
 	]);
 
-	/** An account and the accounts above it, the topmost first. */
-	function pathTo(a: string | null) {
-		const parts = a?.split(':') ?? [];
-		return parts.map((_, i) => parts.slice(0, i + 1).join(':'));
-	}
-
-	function same(a: string | null, b: string | null) {
-		return a?.toLowerCase() === b?.toLowerCase();
+	/** An account and those it is drawn under, up to the top one, the topmost first. */
+	function pathTo(a: string | null): string[] {
+		if (a === null || a === top) return [];
+		return [...pathTo(parents[a] ?? null), a];
 	}
 </script>
 
@@ -38,7 +35,7 @@
 			<a
 				href={hrefWith(page.url.searchParams, { account: account ?? '' })}
 				aria-label={account === top ? null : account}
-				aria-current={same(account, current) ? 'page' : undefined}
+				aria-current={account === current ? 'page' : undefined}
 			>
 				{#if account === null || account === top}All{:else}<span class="prefix"
 						>{prefixOf(account)}</span

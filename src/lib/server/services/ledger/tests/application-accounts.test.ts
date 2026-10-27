@@ -6,6 +6,7 @@ import * as Files from '#services/ledger/application/files.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
 import { AMOUNT_UNIT, parseAmount, type Amount } from '#services/ledger/domain/amounts.ts';
 import { Feed, PriceSource } from '#services/ledger/domain/types.ts';
+import { BEGINNING } from '#lib/shared/dates.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { describe, expect } from 'vitest';
@@ -247,6 +248,8 @@ describe('evidence', () => {
 describe('net worth', () => {
 	const from = Temporal.PlainDate.from('2026-10-01');
 	const to = Temporal.PlainDate.from('2026-10-03');
+	const partsOf = (worth: DB.Worth | undefined) =>
+		worth?.parts.map((p) => `${p.commodity ?? p.account} ${p.amount / AMOUNT_UNIT}`).toSorted();
 
 	it('values each day at the prices known by then, owing liabilities', ({ context, db }) =>
 		provide(context, async () => {
@@ -345,7 +348,7 @@ describe('net worth', () => {
 			expect(await worth('Assets:Cash')).toEqual(['2026-10-02 30', '2026-10-03 30']);
 		}));
 
-	it('splits each day at the first level under the account that divides, or its commodities without one', ({
+	it('splits each day at the first account under the one that divides, or its commodities without one', ({
 		context,
 		db,
 	}) =>
@@ -359,13 +362,12 @@ describe('net worth', () => {
 			await Files.createFile({ ledger, key: 'a.rupea', content });
 
 			const parts = async (account: string | null) => {
-				const days = (await Accounts.listWorth({ ledger, from, to, account }))
-					._unsafeUnwrap()
-					.succeeded.map((w) => Object.entries(w.parts).map(([p, v]) => `${p} ${v / AMOUNT_UNIT}`));
-				return days.at(-1)?.toSorted();
+				const days = (await Accounts.listWorth({ ledger, from, to, account }))._unsafeUnwrap()
+					.succeeded;
+				return partsOf(days.at(-1));
 			};
 			expect(await parts(null)).toEqual([
-				'Assets:Bank 80',
+				'Assets:Bank:Savings 80',
 				'Assets:Cash 30',
 				'Liabilities:Card -20',
 			]);
@@ -387,10 +389,7 @@ describe('net worth', () => {
 
 			const days = (await Accounts.listWorth({ ledger, from, to, account: null }))._unsafeUnwrap()
 				.succeeded;
-			expect(days.at(-1)?.parts).toEqual({
-				Assets: 100n * AMOUNT_UNIT,
-				Liabilities: -40n * AMOUNT_UNIT,
-			});
+			expect(partsOf(days.at(-1))).toEqual(['Assets 100', 'Liabilities -40']);
 		}));
 
 	it('splits an account written in two cases as one', ({ context, db }) =>
@@ -406,10 +405,10 @@ describe('net worth', () => {
 			const days = (
 				await Accounts.listWorth({ ledger, from, to, account: 'Assets:Bank' })
 			)._unsafeUnwrap().succeeded;
-			expect(days.at(-1)?.parts).toEqual({
-				'Assets:Bank:Savings:HDFC': 105n * AMOUNT_UNIT,
-				'Assets:bank:savings:sbi': 10n * AMOUNT_UNIT,
-			});
+			expect(partsOf(days.at(-1))).toEqual([
+				'Assets:Bank:Savings:HDFC 105',
+				'Assets:bank:savings:sbi 10',
+			]);
 		}));
 
 	it('opens with the months before and the days of its month before it', ({ context, db }) =>
@@ -554,6 +553,176 @@ describe('linked feeds', () => {
 		}));
 });
 
+describe('returns', () => {
+	const year = {
+		from: Temporal.PlainDate.from('2025-01-01'),
+		to: Temporal.PlainDate.from('2025-12-31'),
+	};
+	const content = [
+		'2024-12-01 Opening',
+		'\tAssets:Bank 200000',
+		'\tEquity:Opening',
+		'',
+		'2025-01-01 Buy',
+		'\tAssets:Zerodha 100 INFY @ 1000',
+		'\tAssets:Bank',
+		'',
+		'2025-03-01 Salary',
+		'\tAssets:Bank 80000',
+		'\tIncome:Salary',
+		'',
+		'2025-04-01 Lunch',
+		'\tExpenses:Food 3000',
+		'\tAssets:Bank',
+		'',
+		'2025-06-30 Interest',
+		'\tAssets:Bank 1000',
+		'\tIncome:Interest:Savings',
+		'',
+		'2025-07-01 Buy',
+		'\tAssets:Zerodha 50 INFY @ 1000',
+		'\tExpenses:Fees:Brokerage 20',
+		'\tAssets:Bank',
+		'',
+		'2025-10-01 Dividend',
+		'\tAssets:Zerodha 500',
+		'\tIncome:Dividends:INFY',
+		'',
+		'P 2025-12-31 INFY 1100',
+		'',
+	].join('\n');
+	const rows = (returns: Accounts.Returns[]) =>
+		returns.map((r) => [r.account, r.netIn, r.yearly, r.unpriced]);
+
+	it('weighs what flowed in and out against what each account held at both ends, counting interest, dividends and fees as earned', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const returns = (await Accounts.listReturns({ ledger, ...year }))._unsafeUnwrap();
+			expect(rows(returns.succeeded)).toEqual([
+				['Assets', 77000_0000000000n, true, 0],
+				['Assets:Bank', -73020_0000000000n, true, 0],
+				['Assets:Zerodha', 150020_0000000000n, true, 0],
+			]);
+			expect(returns.succeeded.map((r) => r.xirr)).toEqual([
+				expect.closeTo(0.062358, 6),
+				expect.closeTo(0.007153, 6),
+				expect.closeTo(0.124785, 6),
+			]);
+			expect(returns.failed).toEqual([]);
+		}));
+
+	it('gives the return over a span shorter than a year, and starts all of history at nothing', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const month = (
+				await Accounts.listReturns({
+					ledger,
+					from: Temporal.PlainDate.from('2025-12-01'),
+					to: Temporal.PlainDate.from('2025-12-31'),
+				})
+			)._unsafeUnwrap().succeeded;
+			const ever = (
+				await Accounts.listReturns({
+					ledger,
+					from: Temporal.PlainDate.from(BEGINNING),
+					to: year.to,
+				})
+			)._unsafeUnwrap().succeeded;
+			expect(month.find((r) => r.account === 'Assets:Zerodha')).toEqual({
+				account: 'Assets:Zerodha',
+				netIn: 0n,
+				xirr: expect.closeTo(0.099668, 6),
+				yearly: false,
+				unpriced: 0,
+			});
+			expect(ever.find((r) => r.account === 'Assets')).toMatchObject({
+				netIn: 277000_0000000000n,
+				yearly: true,
+			});
+		}));
+
+	it('leaves out what has no price, naming only the deepest account it reaches', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const unpriced = ['2025-02-01 Bonus', '\tAssets:Zerodha 1 TCS', '\tIncome:Bonus', ''];
+			await Files.createFile({
+				ledger,
+				key: 'a.rupea',
+				content: [content, ...unpriced].join('\n'),
+			});
+
+			const returns = (await Accounts.listReturns({ ledger, ...year }))._unsafeUnwrap();
+			expect(returns.succeeded.map((r) => [r.account, r.xirr === null, r.unpriced])).toEqual([
+				['Assets', true, 2],
+				['Assets:Bank', false, 0],
+				['Assets:Zerodha', true, 2],
+			]);
+			expect(returns.failed).toEqual([
+				{ type: 'ReturnUnpriced', account: 'Assets:Zerodha', unpriced: 2 },
+			]);
+		}));
+
+	it('names an account no rate solves, as one that only ever earned', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const earned = ['2025-06-30 Interest', '\tAssets:Bank 1000', '\tIncome:Interest', ''];
+			await Files.createFile({ ledger, key: 'a.rupea', content: earned.join('\n') });
+
+			const returns = (await Accounts.listReturns({ ledger, ...year }))._unsafeUnwrap();
+			expect(returns.succeeded.map((r) => [r.account, r.netIn, r.xirr])).toEqual([
+				['Assets', 0n, null],
+				['Assets:Bank', 0n, null],
+			]);
+			expect(returns.failed).toEqual([{ type: 'ReturnUnsolved', account: 'Assets:Bank' }]);
+		}));
+
+	it('splits a transaction’s fees equally between what it holds other than rupees, the first taking what does not divide', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const moved = [
+				'2025-01-01 Opening',
+				'\tAssets:Zerodha 10 INFY @ 1000',
+				'\tEquity:Opening',
+				'',
+				'2025-02-01 Move',
+				'\tAssets:Zerodha -10 INFY',
+				'\tAssets:IBKR 10 INFY',
+				'\tExpenses:Fees 0.0000000003',
+				'\tAssets:Bank',
+				'',
+				'P 2025-02-01 INFY 1200',
+				'',
+			].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content: moved });
+
+			const flows = await DB.listFlows(ledger.id, {
+				from: Temporal.PlainDate.from('2025-02-01'),
+				to: Temporal.PlainDate.from('2025-02-01'),
+			});
+			expect(flows._unsafeUnwrap().map((f) => [f.account, f.amount])).toEqual([
+				['Assets:Bank', -3n],
+				['Assets:IBKR', 12000_0000000001n],
+				['Assets:Zerodha', -11999_9999999998n],
+			]);
+		}));
+});
+
 describe('spending', () => {
 	const span = (from: string, to: string) => ({
 		from: Temporal.PlainDate.from(from),
@@ -584,9 +753,9 @@ describe('spending', () => {
 	const buckets = (spending: Accounts.Spending | undefined) =>
 		spending?.spent.map((s) => [s.account, s.bucket.toString(), s.amount, s.unpriced]);
 	const totals = (spending: Accounts.Spending | undefined) =>
-		spending?.totals.map((t) => [t.account, t.amount, t.unpriced]);
+		spending?.totals.map((t) => [t.account, t.parent, t.amount, t.unpriced]);
 
-	it('adds up each account and its parents by bucket, net of refunds, at its own day’s price, counting each unpriced amount', ({
+	it('adds up each account and its parents by bucket, leaving out one in between, net of refunds, at its own day’s price, counting each unpriced amount', ({
 		context,
 		db,
 	}) =>
@@ -623,10 +792,9 @@ describe('spending', () => {
 				'2026-12-01',
 			]);
 			expect(totals(year)).toEqual([
-				['Expenses', 9100_0000000000n, 2],
-				['Expenses:Food', 800_0000000000n, 0],
-				['Expenses:Food:Groceries', 800_0000000000n, 0],
-				['Expenses:Travel', 8300_0000000000n, 2],
+				['Expenses', null, 9100_0000000000n, 2],
+				['Expenses:Food:Groceries', 'Expenses', 800_0000000000n, 0],
+				['Expenses:Travel', 'Expenses', 8300_0000000000n, 2],
 			]);
 		}));
 
@@ -642,9 +810,8 @@ describe('spending', () => {
 				account: 'expenses:food',
 			});
 			expect(totals(spending._unsafeUnwrap().succeeded[0])).toEqual([
-				['Expenses', 800_0000000000n, 0],
-				['Expenses:Food', 800_0000000000n, 0],
-				['Expenses:Food:Groceries', 800_0000000000n, 0],
+				['Expenses', null, 800_0000000000n, 0],
+				['Expenses:Food:Groceries', 'Expenses', 800_0000000000n, 0],
 			]);
 		}));
 
@@ -664,8 +831,8 @@ describe('spending', () => {
 				account: 'Expenses',
 			});
 			expect(totals(spending._unsafeUnwrap().succeeded[0])).toEqual([
-				['Expenses', 150_0000000000n, 0],
-				['Expenses:Food', 150_0000000000n, 0],
+				['Expenses', null, 150_0000000000n, 0],
+				['Expenses:Food', 'Expenses', 150_0000000000n, 0],
 			]);
 		}));
 
@@ -740,8 +907,8 @@ describe('spending', () => {
 				account: 'Expenses',
 			});
 			expect(totals(spending._unsafeUnwrap().succeeded[0])).toEqual([
-				['Expenses', 500_0000000000n, 0],
-				['Expenses:Food', 500_0000000000n, 0],
+				['Expenses', null, 500_0000000000n, 0],
+				['Expenses:Food', 'Expenses', 500_0000000000n, 0],
 			]);
 		}));
 });

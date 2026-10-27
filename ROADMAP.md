@@ -55,8 +55,9 @@
 - [ ] Track loans: what's left, and the interest in each payment
 - [ ] Report capital gains for an Indian financial year
 - [ ] Track currency gains on foreign money spent on foreign shares
-- [ ] Show what went into and came out of each account, and its XIRR. Both need each
+- [x] Show what went into and came out of each account, and its XIRR. Both need each
       account's dated flows, so benchmark them on decades of history like net worth
+- [ ] Count a dividend paid to the bank towards the account holding its shares
 
 ### Budgets and bills
 

@@ -1,5 +1,7 @@
 <script lang="ts">
-	import { listAccountNames, sync, listPostings } from '#lib/endpoints/transactions.remote.ts';
+	import { listAccountTree } from '#lib/endpoints/accounts.remote.ts';
+	import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
+	import { sync, listPostings } from '#lib/endpoints/transactions.remote.ts';
 	import { filterOf, type Filter } from '#lib/shared/filter.ts';
 	import Issues from '#lib/web/components/issues/issues.svelte';
 	import Account from '#lib/web/components/ledger-table/account.svelte';
@@ -22,7 +24,8 @@
 	const filter = $derived(filterOf(page.url.searchParams));
 
 	const issues = $derived(await sync(handle));
-	const accounts = $derived(await listAccountNames(handle));
+	const accounts = $derived(await listAccountTree(handle));
+	const earliest = $derived((await findFirstDay(handle)).data ?? null);
 	const first = $derived(await firstPage(handle, filter));
 	const list = $derived(paged(first, (after) => listPostings({ handle, day, filter, after })));
 
@@ -36,7 +39,9 @@
 <PageHeader trail={[ledgerCrumb(data.ledger)]}>Postings</PageHeader>
 
 <FilterRail>
-	{#snippet filters()}<ListFilter {filter} accounts={accounts.data ?? []} />{/snippet}
+	{#snippet filters()}
+		<ListFilter {filter} accounts={accounts.data ?? []} today={day} first={earliest} />
+	{/snippet}
 
 	<ListSearch {filter} />
 

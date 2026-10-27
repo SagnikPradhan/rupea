@@ -1,5 +1,5 @@
 import { replyFrom, replyFromBatch } from '#lib/server/shared/result/reply.ts';
-import { Day, startOf } from '#lib/shared/dates.ts';
+import { Day, spansOf } from '#lib/shared/dates.ts';
 import { Filter } from '#lib/shared/filter.ts';
 import * as Sync from '#services/ledger/application/sync.ts';
 import * as Transactions from '#services/ledger/application/transactions.ts';
@@ -43,19 +43,8 @@ export const listPostings = query(
 		),
 );
 
-export const listAccountNames = query(Handle, (h) =>
-	replyFrom(inLedger({ handle: h, action: Transactions.listAccountNames })),
-);
-
-export const findFirstDay = query(Handle, (h) =>
-	replyFrom(
-		inLedger({ handle: h, action: Transactions.findFirstDay }).map((d) => d?.toString() ?? null),
-	),
-);
-
 const listed = (filter: Filter, day: Temporal.PlainDate): Transactions.ListFilter => ({
-	from: filter.from ? Temporal.PlainDate.from(filter.from) : startOf[filter.range](day),
-	to: filter.to ? Temporal.PlainDate.from(filter.to) : day,
+	...spansOf(filter.period, day).current,
 	account: filter.account || null,
 	description: filter.description || null,
 });

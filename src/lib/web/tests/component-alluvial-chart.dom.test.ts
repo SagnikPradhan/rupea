@@ -23,10 +23,10 @@ Object.defineProperty(HTMLElement.prototype, 'clientWidth', { get: () => 400 });
 Object.defineProperty(HTMLElement.prototype, 'clientHeight', { get: () => 200 });
 
 const ROWS = [
-	{ account: 'Expenses', amount: '1000' },
-	{ account: 'Expenses:Food', amount: '600' },
-	{ account: 'Expenses:Food:Groceries', amount: '600' },
-	{ account: 'Expenses:Rent', amount: '400' },
+	{ account: 'Expenses', parent: null, amount: '1000' },
+	{ account: 'Expenses:Food', parent: 'Expenses', amount: '600' },
+	{ account: 'Expenses:Food:Groceries', parent: 'Expenses:Food', amount: '600' },
+	{ account: 'Expenses:Rent', parent: 'Expenses', amount: '400' },
 ];
 
 const drawn = async () => {

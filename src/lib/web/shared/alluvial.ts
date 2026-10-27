@@ -1,6 +1,6 @@
-import { isChildOf, nameOf } from './accounts';
-import { sumOf } from './chart';
-import { OTHER } from './spending';
+import { nameOf } from './accounts';
+import { OTHER } from './chart';
+import { sumOf } from './numbers';
 
 /** How wide a column's bars are, and the space between two bars in it, in CSS pixels. */
 export const NODE = 8;
@@ -44,8 +44,11 @@ export type Band = {
 	height: number;
 };
 
+/** An account's total, and the account the server draws it under. */
+type Row = { account: string; parent: string | null; amount: string };
+
 type FlowsOptions = {
-	rows: { account: string; amount: string }[];
+	rows: Row[];
 	account: string;
 	parts: string[];
 };
@@ -114,9 +117,9 @@ const flow = (
 });
 
 /** The accounts right under a part, the largest first; other has none. */
-const flowsUnder = (rows: { account: string; amount: string }[], parent: Flow) =>
+const flowsUnder = (rows: Row[], parent: Flow) =>
 	rows
-		.filter((r) => isChildOf(r.account, parent.account))
+		.filter((r) => r.parent === parent.account)
 		.map((r) =>
 			flow(r.account, Number(r.amount), { column: 2, part: parent.part, from: parent.account }),
 		)

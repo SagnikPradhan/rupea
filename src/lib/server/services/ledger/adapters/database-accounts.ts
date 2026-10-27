@@ -1,37 +1,49 @@
-import { atomically } from '#lib/server/db/atomically.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { sql } from 'kysely';
+import { sql, type SqlBool } from 'kysely';
+import type { AccountNode } from '../domain/tree';
 
-/** Rebuilds a ledger's accounts from its postings, naming each by the first of its spellings. */
-export const saveAccounts = (ledgerId: string): ResultAsync<void> =>
-	atomically(() =>
-		withContext('db')((tx) =>
-			attempt(async () => {
-				await tx.deleteFrom('accounts').where('ledgerId', '=', ledgerId).execute();
-				await tx
-					.insertInto('accounts')
-					.columns(['ledgerId', 'name', 'type'])
-					.expression(
-						tx
-							.selectFrom('postings as p')
-							.select((e) => ['p.ledgerId', e.fn.min('p.account').as('name'), 'p.accountType'])
-							.where('p.ledgerId', '=', ledgerId)
-							.groupBy(['p.ledgerId', sql`lower(${sql.ref('p.account')})`, 'p.accountType']),
-					)
-					.execute();
-			}),
-		),
+/** Deletes the accounts no posting names any longer, neither them nor one under them. */
+export const deleteUnusedAccounts = (ledgerId: string): ResultAsync<void> =>
+	withContext('db')((db) =>
+		attempt(async () => {
+			await db
+				.deleteFrom('accounts as a')
+				.where('a.ledgerId', '=', ledgerId)
+				.where((e) =>
+					e.not(
+						e.exists(
+							e
+								.selectFrom('accounts as b')
+								.innerJoin('postings as p', 'p.accountId', 'b.id')
+								.where('b.ledgerId', '=', ledgerId)
+								.where(
+									sql<SqlBool>`(b.id = a.id or starts_with(lower(b.name), lower(a.name) || ':'))`,
+								),
+						),
+					),
+				)
+				.execute();
+		}),
 	);
 
-export const listAccountNames = (ledgerId: string): ResultAsync<string[]> =>
+export const listAccountTree = (ledgerId: string): ResultAsync<AccountNode[]> =>
 	withContext('db')((db) =>
 		attempt(() =>
 			db
-				.selectFrom('accounts')
-				.select('name')
-				.where('ledgerId', '=', ledgerId)
-				.orderBy('name')
+				.selectFrom('accounts as a')
+				.select((e) => [
+					'a.id',
+					'a.name',
+					'a.type',
+					'a.parentId',
+					e
+						.exists(e.selectFrom('postings as p').whereRef('p.accountId', '=', 'a.id'))
+						.$castTo<boolean>()
+						.as('posted'),
+				])
+				.where('a.ledgerId', '=', ledgerId)
+				.orderBy('a.name')
 				.execute(),
-		).map((r) => r.map((a) => a.name)),
+		),
 	);

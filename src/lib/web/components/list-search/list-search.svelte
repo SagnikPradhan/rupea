@@ -1,19 +1,14 @@
 <script lang="ts">
 	import type { Filter } from '#lib/shared/filter.ts';
+	import { page } from '$app/state';
 
 	/** How long typing must pause before a description is searched for. */
 	const PAUSE = 300;
 
 	const { filter }: { filter: Filter } = $props();
 
-	const kept = $derived(
-		Object.entries({
-			range: filter.range,
-			from: filter.from,
-			to: filter.to,
-			account: filter.account,
-		}),
-	);
+	/** Searching keeps the rest of the query, whatever else narrows the list. */
+	const kept = $derived([...page.url.searchParams].filter(([key]) => key !== 'description'));
 
 	const typing = { timer: 0 };
 

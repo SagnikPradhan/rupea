@@ -7,7 +7,7 @@ import Page from '#routes/(signed-in)/l/[handle]/expenses/+page.svelte';
 
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({ listSpending: vi.fn() }));
-vi.mock('#lib/endpoints/transactions.remote.ts', () => ({
+vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
 	findFirstDay: vi.fn(() => answer('2025-03-14')),
 }));
 vi.mock('uplot', () => ({
@@ -28,9 +28,21 @@ const spending = {
 	bucket: 'month',
 	buckets: ['2026-01-01', '2026-02-01'],
 	totals: [
-		{ account: 'Expenses', first: '2026-01-03', amount: '1000', unpriced: 1 },
-		{ account: 'Expenses:Food', first: '2026-01-03', amount: '600', unpriced: 1 },
-		{ account: 'Expenses:Rent', first: '2026-02-01', amount: '400', unpriced: 0 },
+		{ account: 'Expenses', parent: null, first: '2026-01-03', amount: '1000', unpriced: 1 },
+		{
+			account: 'Expenses:Food',
+			parent: 'Expenses',
+			first: '2026-01-03',
+			amount: '600',
+			unpriced: 1,
+		},
+		{
+			account: 'Expenses:Rent',
+			parent: 'Expenses',
+			first: '2026-02-01',
+			amount: '400',
+			unpriced: 0,
+		},
 	],
 	spent: [
 		{ account: 'Expenses', bucket: '2026-01-01', first: '2026-01-03', amount: '600', unpriced: 1 },
@@ -40,15 +52,13 @@ const spending = {
 const previous = { ...spending, from: '2025-01-01', buckets: ['2025-01-01'] };
 
 describe('the expenses page', () => {
-	it('lists each account with its share, and links to its postings over the days shown', async () => {
-		visit('/l/h/expenses');
+	it('lists each account with its share, and links to its postings over the period picked', async () => {
+		visit('/l/h/expenses?at=2026');
 		vi.mocked(listSpending).mockReturnValue(answer([spending, previous]));
 		render(Page, { data });
 
 		const food = await screen.findByTitle('Expenses:Food');
-		expect(food.getAttribute('href')).toBe(
-			'/l/h/postings?account=Expenses%3AFood&from=2026-01-01&to=2026-02-28',
-		);
+		expect(food.getAttribute('href')).toBe('/l/h/postings?account=Expenses%3AFood&at=2026');
 		expect(screen.getByText('60%')).toBeTruthy();
 		expect(screen.getAllByText('1 unpriced')).toHaveLength(2);
 	});
@@ -106,7 +116,7 @@ describe('the expenses page', () => {
 	});
 
 	it('switches to how the spending divides by account, keeping the rest of the query', async () => {
-		visit('/l/h/expenses?at=2026&chart=flow');
+		visit('/l/h/expenses?at=2026&chart=alluvial');
 		vi.mocked(listSpending).mockReturnValue(answer([spending]));
 		render(Page, { data });
 
@@ -119,7 +129,7 @@ describe('the expenses page', () => {
 	});
 
 	it('offers no switch when nothing lies under the account', async () => {
-		visit('/l/h/expenses?account=Expenses:Rent&chart=flow');
+		visit('/l/h/expenses?account=Expenses:Rent&chart=alluvial');
 		vi.mocked(listSpending).mockReturnValue(answer([spending]));
 		render(Page, { data });
 

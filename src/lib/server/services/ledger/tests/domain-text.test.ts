@@ -42,6 +42,10 @@ describe('clean', () => {
 		expect(clean('POS 7-ELEVEN 042')).toBe('7 eleven 042');
 	});
 
+	it('keeps a name with a digit or two in it', () => {
+		expect(clean('UPI/99ACRES/TATA1MG')).toBe('99acres tata1mg');
+	});
+
 	it('leaves nothing for a description that is only noise', () => {
 		expect(clean('UPI/412398123/')).toBe('');
 	});

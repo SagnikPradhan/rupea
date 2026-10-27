@@ -19,8 +19,14 @@ const FILLER: Record<string, string[]> = {
 
 const FILLERS = new Set(Object.values(FILLER).flat());
 
-/** A UPI handle, an IFSC code, a masked card or account number, or a reference with letters and digits. */
-const CODES = [/@/, /^[a-z]{4}0[a-z0-9]{6}$/, /x{3}/, /^(?=.*\d)(?=.*[a-z]).{6,}$/];
+/** A UPI handle, an IFSC code, a masked card or account number, a reference with letters and digits, or a name with a counter after it. */
+const CODES = [
+	/@/,
+	/^[a-z]{4}0[a-z0-9]{6}$/,
+	/x{3}/,
+	/^(?=(?:.*\d){3})(?=.*[a-z]).{6,}$/,
+	/^[a-z]{4,}\d+$/,
+];
 
 /** A letter left alone where a bank cut a name short. */
 const STUB = /^\p{L}$/u;

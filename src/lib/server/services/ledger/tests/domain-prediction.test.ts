@@ -171,6 +171,18 @@ describe('predicting from a name the line spells out', () => {
 		expect(predict(knowledge({ accounts: both }))(line('github')).source).toBe('fallback');
 	});
 
+	it('takes the deepest account when the line spells a parent too', () => {
+		const tree = ['Expenses:Pharmacy', 'Expenses:Pharmacy:Apollo'];
+		expect(predict(knowledge({ accounts: tree }))(line('APOLLO PHARMACY')).account).toBe(
+			'Expenses:Pharmacy:Apollo',
+		);
+	});
+
+	it('never spells a bank or card account', () => {
+		const card = ['Liabilities:Card:Amazon'];
+		expect(predict(knowledge({ accounts: card }))(line('AMAZON')).source).toBe('fallback');
+	});
+
 	it('spells an account through what a known merchant sells', () => {
 		const server = ['Expenses:Utility:Server'];
 		expect(predict(knowledge({ accounts: server }))(line('OVHCLOUD'))).toMatchObject({
@@ -239,16 +251,16 @@ describe('classifying lines', () => {
 		]);
 	});
 
-	it('compares what a known merchant sells with account names', () => {
+	it('spells an account through what a known merchant sells, without embedding it', () => {
 		const lines = [{ amount: amount(-1n), description: 'SWIGGY' }];
-		const bank = { ...options, accounts: ['Assets:Bank'], lines };
-		const texts = textsOf(bank);
-		expect(texts.texts).toContain('swiggy food delivery restaurants');
+		const food = { ...options, accounts: ['Assets:Bank', 'Expenses:Food:Restaurants'], lines };
+		const texts = textsOf(food);
+		expect(texts.texts).not.toContain('swiggy food delivery restaurants');
 
-		const vectors = texts.texts.map((t) => (t.includes('restaurants') ? axis(1) : axis(3)));
-		expect(classify(bank, vectors, [[]])[0]).toMatchObject({
+		const vectors = texts.texts.map(() => axis(3));
+		expect(classify(food, vectors, [[]])[0]).toMatchObject({
 			account: 'Expenses:Food:Restaurants',
-			source: 'name',
+			source: 'spelled',
 		});
 	});
 
@@ -257,5 +269,10 @@ describe('classifying lines', () => {
 		const texts = textsOf({ ...options, accounts, lines: [] });
 		expect(texts.texts).toContain('expenses utility phone');
 		expect(texts.texts.some((t) => t.startsWith('expenses phone'))).toBe(false);
+	});
+
+	it('keeps a global account when the one of the same last name is of another type', () => {
+		const texts = textsOf({ ...options, accounts: ['Income:Interest'], lines: [] });
+		expect(texts.texts.some((t) => t.startsWith('expenses loan interest'))).toBe(true);
 	});
 });

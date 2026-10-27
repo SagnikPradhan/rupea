@@ -18,6 +18,9 @@ const TYPES: Record<'out' | 'in', AccountType[]> = {
 	out: [AccountType.Expenses, AccountType.Liabilities, AccountType.Equity, AccountType.Assets],
 };
 
+/** Where a line can be spelled to, since the last part of an asset or liability names a bank or card, not who was paid. */
+const SPENT = [AccountType.Expenses, AccountType.Income];
+
 export type Source = 'history' | 'spelled' | 'name' | 'fallback';
 
 export type Prediction = {
@@ -58,13 +61,12 @@ export type ClassifyOptions = {
 
 type TextsOptions = { lines: Line[]; accounts: string[] };
 
-/** What to embed: the words of each distinct line, which are searched near, then what they say of known merchants, then the accounts' names. */
+/** What to embed: the words of each distinct line, which are searched near, then the accounts' names. */
 export const textsOf = ({ lines, accounts }: TextsOptions) => {
 	const searched = wordsOf(lines.map((l) => l.description));
-	const merchants = searched.map(described);
 	const named = candidates(accounts).map((c) => c.text);
 	return {
-		texts: [...new Set([...searched, ...merchants, ...named])],
+		texts: [...new Set([...searched, ...named])],
 		searched: searched.length,
 	};
 };
@@ -87,7 +89,7 @@ export const classify = (
 	return options.lines.map((l) => {
 		const words = clean(l.description);
 		const about = described(words);
-		return guess({ ...l, words, about, vector: found(about), neighbours: near(words) ?? [] });
+		return guess({ ...l, words, about, vector: found(words), neighbours: near(words) ?? [] });
 	});
 };
 
@@ -139,7 +141,9 @@ export const predict =
 				.entries()
 				.map(([account, score]) => [account, score + PRIOR * (nameScores.get(account) ?? 0)]),
 		);
-		const own = knowledge.accounts.filter(fits);
+		const own = knowledge.accounts.filter(
+			(a) => fits(a) && SPENT.some((t) => t === accountType(a)),
+		);
 		const spelled = spelledIn(line.words, own) ?? spelledIn(line.about, own);
 		const bar = spelled ? knowledge.thresholds.spelled : knowledge.thresholds.history;
 		if (remembered && remembered[1] >= bar)
@@ -165,24 +169,27 @@ export const fallback = (amount: Amount): Prediction => ({
 	source: 'fallback',
 });
 
-/** The user's own accounts, by name, and the global ones only where they have none of the same last name. */
+/** The user's own accounts, by name, and the global ones only where they have none of the same type and last name. */
 const candidates = (accounts: string[]) => {
 	const ours = accounts.filter((a) => !GUESSED.test(a));
-	const owned = new Set(ours.map(lastOf));
+	const owned = new Set(ours.map(kindOf));
 	return [
 		...ours.map((a) => ({ account: a, text: accountText(a) })),
 		...Object.entries(taxonomy)
-			.filter(([a]) => !owned.has(lastOf(a)))
+			.filter(([a]) => !owned.has(kindOf(a)))
 			.map(([a, about]) => ({ account: a, text: `${accountText(a)} ${about}` })),
 	];
 };
 
 const lastOf = (a: string) => accountText(a.split(':').at(-1) ?? '');
 
-/** The one account whose last part the line spells out. */
+const kindOf = (a: string) => `${accountType(a)} ${lastOf(a)}`;
+
+/** The one account whose last part the line spells out, taking the deepest when it also spells a parent. */
 const spelledIn = (words: string, accounts: string[]) => {
 	const spelled = accounts.filter((a) => spells(words, lastOf(a)));
-	return spelled.length === 1 ? spelled[0] : undefined;
+	const deepest = spelled.filter((a) => !spelled.some((b) => b.startsWith(`${a}:`)));
+	return deepest.length === 1 ? deepest[0] : undefined;
 };
 
 const allowed = (account: string, amount: Amount) => {

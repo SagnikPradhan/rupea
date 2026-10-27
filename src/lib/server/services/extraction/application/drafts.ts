@@ -15,7 +15,7 @@ import { addSchema, isBuiltin, recogniseStatement, type SchemaText } from './sch
 import { readByChecksum, readStatement, type Statement } from './statements';
 
 /** Why a statement waits for its user to unlock it or describe it, which no job can. */
-const WAITING = ['ExtractionLocked', 'ExtractionUnrecognised'];
+const WAITING = new Set(['ExtractionLocked', 'ExtractionUnrecognised']);
 
 type ExtractOptions = {
 	ledger: Ledger;
@@ -54,7 +54,7 @@ export const draftUpload = ({ ledger, checksum }: DraftUploadOptions): ResultAsy
 	findImported({ ledger, checksums: [checksum] })
 		.andThen((i) => (i.length > 0 ? okAsync(null) : readByChecksum({ ledger, checksum })))
 		.andThen((s) => (s ? fileDraft(ledger, s) : okAsync(undefined)))
-		.orElse((e) => (WAITING.includes(e.type) ? okAsync(undefined) : errAsync(e)));
+		.orElse((e) => (WAITING.has(e.type) ? okAsync(undefined) : errAsync(e)));
 
 const fileDraft = (ledger: Ledger, s: Statement): ResultAsync<void> => {
 	if (!isLedgerFile(s.key))

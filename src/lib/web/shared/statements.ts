@@ -35,11 +35,7 @@ export function suggestedFile(
 	found: { date: string; postings: { account: string }[] }[],
 ) {
 	const name = accountOf(statement, found)?.split(':').at(-1)?.toLowerCase();
-	const month = found
-		.map((t) => t.date)
-		.sort()
-		.at(-1)
-		?.slice(0, 7);
+	const month = found.reduce((m, t) => (t.date > m ? t.date : m), '').slice(0, 7);
 	if (name && month) return `${name}/${month}.rupea`;
 
 	return `${statement.replace(/^.*\//, '').replace(/\.[^.]*$/, '')}.rupea`;

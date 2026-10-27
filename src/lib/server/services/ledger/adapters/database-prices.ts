@@ -260,20 +260,24 @@ export const listWorth = (
 						])
 						.where('b.units', '<>', 0n),
 				)
-				.with('shares', (q) =>
-					q
+				.with('shares', (q) => {
+					// Postgres reads a bare commodity in group by as the input column, not the alias, and
+					// matches the select only when both write the same literal rather than two parameters
+					const commodity = sql<
+						string | null
+					>`case when ${sql.lit(byCommodity)} then ${sql.ref('v.commodity')} end`;
+
+					return q
 						.selectFrom('valued as v')
 						.select((e) => [
 							'v.day',
 							'v.part',
-							sql<string | null>`case when ${byCommodity} then ${e.ref('v.commodity')} end`.as(
-								'commodity',
-							),
+							commodity.as('commodity'),
 							e.fn.sum<bigint>('v.value').as('value'),
 						])
 						.where('v.value', 'is not', null)
-						.groupBy(['v.day', 'v.part', sql.ref('commodity')]),
-				)
+						.groupBy(['v.day', 'v.part', commodity]);
+				})
 				.selectFrom('days as d')
 				.leftJoin('valued as v', 'v.day', 'd.day')
 				.select((e) => [

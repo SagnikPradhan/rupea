@@ -54,11 +54,12 @@ export const findLatestFile = (ledgerId: string, account: string): ResultAsync<s
 		attempt(() =>
 			db
 				.selectFrom('postings')
+				.innerJoin('accounts', 'accounts.id', 'postings.accountId')
 				.innerJoin('transactions', 'transactions.id', 'postings.transactionId')
 				.innerJoin('ledgerFiles', 'ledgerFiles.id', 'transactions.fileId')
 				.select('ledgerFiles.key')
 				.where('postings.ledgerId', '=', ledgerId)
-				.where('postings.account', '=', account)
+				.where(sql<SqlBool>`lower(accounts.name) = lower(${account})`)
 				.orderBy('postings.date', 'desc')
 				.limit(1)
 				.executeTakeFirst(),

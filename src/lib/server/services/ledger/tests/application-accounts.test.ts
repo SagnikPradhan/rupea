@@ -378,6 +378,26 @@ describe('net worth', () => {
 			expect(await parts('Assets:Bank:Savings:HDFC')).toEqual(['INR 70']);
 		}));
 
+	it('adds up the commodities a part holds into one amount', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = [
+				'2026-08-20 Salary\n\tAssets:Bank:HDFC 100\n\tIncome:Salary\n',
+				'2026-08-21 Fund\n\tAssets:Bank:HDFC 1 USD @ 80\n\tAssets:Bank:HDFC -80\n',
+				'2026-08-22 Bonus\n\tAssets:Bank:SBI 1 USD @ 80\n\tIncome:Bonus\n',
+				'2026-08-23 Salary\n\tAssets:Cash 10\n\tIncome:Salary\n',
+			].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const parts = async (account: string | null) => {
+				const days = (await Accounts.listWorth({ ledger, from, to, account }))._unsafeUnwrap()
+					.succeeded;
+				return partsOf(days.at(-1));
+			};
+			expect(await parts(null)).toEqual(['Assets:Bank 180', 'Assets:Cash 10']);
+			expect(await parts('Assets:Bank:HDFC')).toEqual(['INR 20', 'USD 80']);
+		}));
+
 	it('keeps what top accounts hold themselves apart, by account', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);

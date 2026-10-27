@@ -3,6 +3,7 @@ import { join } from 'node:path';
 import { describe, expect } from 'vitest';
 import { it } from '#tests/shared/vitest.ts';
 import {
+	findText,
 	readText,
 	scoped,
 	validateKey,
@@ -205,6 +206,15 @@ describe('text files', () => {
 				path: 'missing.rupea',
 				cause: [{ type: 'StorageNotFound' }],
 			},
+		});
+	});
+
+	it('are found as nothing when missing, but still fail when unreadable', async ({ storage }) => {
+		await storage.write({ key: 'bad.rupea', content: new Uint8Array([0xff, 0xfe]) });
+
+		expect(await findText(storage, 'missing.rupea')).toEqual(ok(null));
+		expect(await findText(storage, 'bad.rupea')).toMatchObject({
+			error: { type: 'CannotReadFile', reason: 'not valid UTF-8' },
 		});
 	});
 });

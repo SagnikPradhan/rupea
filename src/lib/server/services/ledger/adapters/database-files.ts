@@ -29,20 +29,40 @@ export const listIndexedFiles = (ledgerId: string): ResultAsync<FileVersion[]> =
 		),
 	);
 
-/** Of these checksums, those in a file's metadata, unlocked or as uploaded. */
-export const findImported = (ledgerId: string, checksums: string[]): ResultAsync<string[]> =>
+/** Of these checksums, those in a file's metadata, unlocked or as uploaded, with each file that cites one. */
+export const findImported = (
+	ledgerId: string,
+	checksums: string[],
+): ResultAsync<{ checksum: string; file: string }[]> =>
 	withContext('db')((db) =>
 		attempt(() =>
 			db
 				.selectFrom('metadata')
-				.select('metadata.value')
+				.innerJoin('ledgerFiles', 'ledgerFiles.id', 'metadata.fileId')
+				.select(['metadata.value as checksum', 'ledgerFiles.key as file'])
 				.distinct()
 				.where('metadata.ledgerId', '=', ledgerId)
 				.where('metadata.key', 'in', ['checksum', 'original-checksum'])
 				.where((e) => anyOf(e.ref('metadata.value'), checksums, 'text'))
-				.where('metadata.fileId', 'is not', null)
 				.execute(),
-		).map((r) => r.map((c) => c.value)),
+		),
+	);
+
+/** The counted file holding an account's latest posting, if any. */
+export const findLatestFile = (ledgerId: string, account: string): ResultAsync<string | null> =>
+	withContext('db')((db) =>
+		attempt(() =>
+			db
+				.selectFrom('postings')
+				.innerJoin('transactions', 'transactions.id', 'postings.transactionId')
+				.innerJoin('ledgerFiles', 'ledgerFiles.id', 'transactions.fileId')
+				.select('ledgerFiles.key')
+				.where('postings.ledgerId', '=', ledgerId)
+				.where('postings.account', '=', account)
+				.orderBy('postings.date', 'desc')
+				.limit(1)
+				.executeTakeFirst(),
+		).map((r) => r?.key ?? null),
 	);
 
 type IndexFileOptions = { key: string; version: string | null; file: RupeaLedgerFile };

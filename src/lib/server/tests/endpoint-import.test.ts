@@ -1,7 +1,8 @@
 import {
+	deleteStatements,
 	importStatement,
 	listImports,
-	listInbox,
+	listStatements,
 	previewStatement,
 	readStatement,
 	recogniseStatement,
@@ -43,8 +44,8 @@ describe('a statement', () => {
 			expect(await upload(handle)).toMatchObject({ ok: true });
 			expect((await listImports(handle)).ok).toBe(true);
 
-			const [waiting] = (await listInbox(handle)).data ?? [];
-			const key = waiting?.key ?? '';
+			const [uploaded] = (await listStatements(handle)).data ?? [];
+			const key = uploaded?.key ?? '';
 			const read = await readStatement({ handle, statement: key });
 			expect(read.data?.grid[0]).toEqual(['Account statement']);
 
@@ -57,20 +58,31 @@ describe('a statement', () => {
 	it('is previewed and imported with a schema', ({ context, ledger: handle }) =>
 		provide({ ...context, models: broken(context.models) }, async () => {
 			await upload(handle);
-			const [waiting] = (await listInbox(handle)).data ?? [];
-			const key = waiting?.key ?? '';
+			const [uploaded] = (await listStatements(handle)).data ?? [];
+			const key = uploaded?.key ?? '';
 
 			const preview = await previewStatement({ handle, statement: key, schema: bank });
-			const imported = await submit(importStatement, { handle, statement: key, schema: bank });
+			const imported = await importStatement({ handle, statement: key, schema: bank });
 			expect(preview.data?.map((t) => t.description)).toEqual(['UPI GROCER', 'SALARY']);
 			expect(imported).toMatchObject({ ok: true, data: { key: expect.stringMatching(/aug/) } });
+		}));
+
+	it('is listed and deleted', ({ context, ledger: handle }) =>
+		provide(context, async () => {
+			await upload(handle);
+			const [uploaded] = (await listStatements(handle)).data ?? [];
+			const key = uploaded?.key ?? '';
+
+			expect(uploaded).toEqual({ key: expect.stringMatching(/aug\.csv$/), file: null });
+			expect(await deleteStatements({ handle, keys: [key] })).toMatchObject({ data: [key] });
+			expect(await listStatements(handle)).toMatchObject({ data: [] });
 		}));
 
 	it('that is not locked cannot be unlocked', ({ context, ledger: handle }) =>
 		provide(context, async () => {
 			await upload(handle);
-			const [waiting] = (await listInbox(handle)).data ?? [];
-			const statement = waiting?.key ?? '';
+			const [uploaded] = (await listStatements(handle)).data ?? [];
+			const statement = uploaded?.key ?? '';
 
 			const unlocked = await submit(unlockStatement, { handle, statement, password: 'x' });
 			expect(unlocked).toMatchObject({ ok: false });

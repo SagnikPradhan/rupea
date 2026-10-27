@@ -21,15 +21,15 @@ export const uploadStatements = form(
 			handle,
 			action: (l, u) => Uploads.uploadStatements({ ledger: l, user: u.id, uploads }),
 		});
-		void listInbox(handle).refresh();
+		void listStatements(handle).refresh();
 		void listImports(handle).refresh();
 		return replyFromBatch(uploaded);
 	},
 );
 
-/** Statements uploaded lately that nothing was imported from yet. */
-export const listInbox = query(Handle, (h) =>
-	replyFrom(inLedger({ handle: h, action: Uploads.listInbox })),
+/** Statements uploaded lately, whether a file was imported from each, and whether a job imports it. */
+export const listStatements = query(Handle, (h) =>
+	replyFrom(inLedger({ handle: h, action: Uploads.listStatements })),
 );
 
 /** The ledger files this user uploaded here, as their imports run. */
@@ -49,6 +49,18 @@ export const readStatement = command(
 				action: (l) => Statements.readStatement({ ledger: l, key: statement }),
 			}).map((s) => ({ key: s.key, grid: s.grid })),
 		),
+);
+
+export const deleteStatements = command(
+	v.object({ handle: Handle, keys: v.array(v.pipe(v.string(), v.nonEmpty())) }),
+	async ({ handle, keys }) => {
+		const deleted = await inLedger({
+			handle,
+			action: (l) => Statements.deleteStatements({ ledger: l, keys }),
+		});
+		void listStatements(handle).refresh();
+		return replyFromBatch(deleted);
+	},
 );
 
 export const unlockStatement = form(
@@ -98,7 +110,7 @@ export const previewStatement = command(
 );
 
 /** Files the draft for review under the review area's imports. */
-export const importStatement = form(
+export const importStatement = command(
 	v.object({
 		handle: Handle,
 		statement: v.pipe(v.string(), v.nonEmpty()),
@@ -111,7 +123,7 @@ export const importStatement = form(
 		});
 		void listFiles(handle).refresh();
 		void listSchemas(handle).refresh();
-		void listInbox(handle).refresh();
+		void listStatements(handle).refresh();
 		return replyFrom(created.map((f) => ({ key: f.key })));
 	},
 );

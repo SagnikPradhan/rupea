@@ -1,34 +1,40 @@
 import type { Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
-import { moveOut } from './support/files.ts';
 import { expect, test } from './support/test.ts';
 import { visit } from './support/visit.ts';
 
 const data = (name: string) => resolve('tests/e2e/data', name);
 
-const importAs = async (page: Page, ledger: string, key: string) => {
+/** Uploads the statement under a name, with as many trailing newlines, so each upload is its own. */
+const upload = async (page: Page, ledger: string, name: string, copy: number) => {
+	const content = (await readFile(data('statement.csv'), 'utf8')) + '\n'.repeat(copy);
 	await visit(page, `${ledger}/import`);
-	await page.getByRole('button', { name: 'bank.yml', exact: true }).click();
-	await expect(page.getByLabel('Schema', { exact: true })).toHaveValue(/name: Bank/);
-	await page.getByLabel('Statements').setInputFiles(data('statement.csv'));
-	await expect(page.getByRole('table', { name: 'Draft' })).toContainText('UPI GROCER');
-	await page.getByRole('button', { name: 'Save', exact: true }).click();
-	await page.waitForURL(/files\?file=_%2Fimports/);
-	await moveOut(page, key);
+	await page
+		.getByLabel('Statements')
+		.setInputFiles({ name, mimeType: 'text/csv', buffer: Buffer.from(content) });
+};
+
+const addTo = async (page: Page, key: string) => {
+	await expect(page.getByRole('table', { name: 'Transactions found' })).toContainText('UPI GROCER');
+	await page.getByRole('button', { name: 'Add to ledger' }).click();
+	await page.getByLabel('Add to file').fill(key);
+	await page.getByRole('button', { name: 'Add', exact: true }).click();
+	await expect(page.getByText(/^Added \d+ to/)).toBeVisible();
 };
 
 const importTwice = async (page: Page, ledger: string) => {
-	await visit(page, `${ledger}/import`);
+	await upload(page, ledger, 'aug.csv', 0);
 	await page.getByLabel('Name', { exact: true }).fill('bank.yml');
 	await readFile(data('bank.yml'), 'utf8').then((s) =>
-		page.getByLabel('Schema', { exact: true }).fill(s),
+		page.getByLabel('Format', { exact: true }).fill(s),
 	);
-	await page.getByRole('button', { name: 'Save schema' }).click();
+	await page.getByRole('button', { name: 'Save format' }).click();
 	await expect(page.getByText('Saved.')).toBeVisible();
+	await addTo(page, 'imports/aug.rupea');
 
-	await importAs(page, ledger, 'imports/aug.rupea');
-	await importAs(page, ledger, 'imports/aug-again.rupea');
+	await upload(page, ledger, 'aug-again.csv', 1);
+	await addTo(page, 'imports/aug-again.rupea');
 
 	await visit(page, `${ledger}/refine?file=imports/aug-again.rupea`);
 };

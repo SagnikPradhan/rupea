@@ -1,5 +1,6 @@
 <script lang="ts" module>
 	import { defaultKeymap, history, historyKeymap } from '@codemirror/commands';
+	import { search, searchKeymap } from '@codemirror/search';
 	import { EditorState, StateEffect, StateField } from '@codemirror/state';
 	import { Decoration, EditorView, keymap, lineNumbers } from '@codemirror/view';
 	import { onMount, untrack } from 'svelte';
@@ -35,6 +36,17 @@
 		provide: (f) => EditorView.decorations.from(f),
 	});
 
+	const phrases = EditorState.phrases.of({
+		next: 'Next',
+		previous: 'Previous',
+		all: 'All',
+		'match case': 'Match case',
+		regexp: 'Regex',
+		'by word': 'Whole word',
+		replace: 'Replace',
+		'replace all': 'Replace all',
+	});
+
 	const theme = EditorView.theme({
 		'&': {
 			borderTop: '1px solid var(--color-ink)',
@@ -63,6 +75,49 @@
 		},
 		'.cm-selectionBackground, &.cm-focused .cm-selectionBackground': {
 			backgroundColor: 'color-mix(in srgb, var(--color-accent) 25%, transparent)',
+		},
+		'.cm-searchMatch': { backgroundColor: 'var(--color-shade-2)' },
+		'.cm-searchMatch-selected': { backgroundColor: 'var(--color-shade-4)' },
+		'.cm-panels': { backgroundColor: 'var(--color-surface)', color: 'var(--color-ink)' },
+		'.cm-panels-top': { borderBottom: '1px solid var(--color-border)' },
+		'.cm-panel.cm-search': {
+			display: 'flex',
+			flexWrap: 'wrap',
+			alignItems: 'center',
+			gap: 'var(--size-1)',
+			padding: 'var(--size-1) var(--size-4) var(--size-1) 0',
+			fontFamily: 'var(--font-body)',
+			fontSize: 'var(--font-size-0)',
+		},
+		'.cm-panel.cm-search br': { flexBasis: '100%' },
+		'.cm-panel.cm-search input, .cm-panel.cm-search button, .cm-panel.cm-search label': {
+			margin: '0',
+		},
+		'.cm-panel.cm-search .cm-textfield, .cm-panel.cm-search .cm-button': {
+			padding: 'var(--size-0) var(--size-1)',
+			border: '1px solid var(--color-muted)',
+			borderRadius: 'var(--radius)',
+			backgroundColor: 'var(--color-surface)',
+			backgroundImage: 'none',
+			fontSize: 'var(--font-size-0)',
+		},
+		'.cm-panel.cm-search .cm-textfield:focus-visible': {
+			outline: 'none',
+			borderColor: 'var(--color-accent)',
+		},
+		'.cm-panel.cm-search label': {
+			display: 'flex',
+			alignItems: 'center',
+			gap: 'var(--size-0)',
+			fontSize: 'var(--font-size-0)',
+		},
+		'.cm-panel.cm-search [name=close]': {
+			top: 'var(--size-1)',
+			right: '0',
+			padding: '0 var(--size-1)',
+			border: 'none',
+			fontSize: 'var(--font-size-2)',
+			lineHeight: '1',
 		},
 	});
 
@@ -99,11 +154,14 @@
 					history(),
 					links,
 					flagged,
+					search({ top: true }),
+					phrases,
 					keymap.of([
 						{ key: 'Mod-s', run: save, preventDefault: true },
 						{ key: 'Shift-Alt-f', run: format, preventDefault: true },
 						...defaultKeymap,
 						...historyKeymap,
+						...searchKeymap,
 					]),
 					EditorView.contentAttributes.of({ 'aria-label': label }),
 					EditorView.updateListener.of((u) => u.docChanged && change(u.state.doc.toString())),

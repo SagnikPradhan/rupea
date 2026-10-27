@@ -6,13 +6,13 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	type Props = { columns: Column[]; children: Snippet };
+	type Props = { columns: Column[]; label?: string; children: Snippet };
 
-	const { columns, children }: Props = $props();
+	const { columns, label, children }: Props = $props();
 </script>
 
 <div>
-	<table>
+	<table aria-label={label}>
 		<thead>
 			<tr>
 				{#each columns as column (column.label)}

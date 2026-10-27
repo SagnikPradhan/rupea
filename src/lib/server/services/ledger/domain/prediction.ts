@@ -18,8 +18,8 @@ const TYPES: Record<'out' | 'in', AccountType[]> = {
 	out: [AccountType.Expenses, AccountType.Liabilities, AccountType.Equity, AccountType.Assets],
 };
 
-/** Where a line can be spelled to, since the last part of an asset or liability names a bank or card, not who was paid. */
-const SPENT = [AccountType.Expenses, AccountType.Income];
+/** Accounts a line can spell out: they name who was paid or paid us, while an asset or liability names a bank or card. */
+const PAYEES = [AccountType.Expenses, AccountType.Income];
 
 export type Source = 'history' | 'spelled' | 'name' | 'fallback';
 
@@ -142,7 +142,7 @@ export const predict =
 				.map(([account, score]) => [account, score + PRIOR * (nameScores.get(account) ?? 0)]),
 		);
 		const own = knowledge.accounts.filter(
-			(a) => fits(a) && SPENT.some((t) => t === accountType(a)),
+			(a) => fits(a) && PAYEES.some((t) => t === accountType(a)),
 		);
 		const spelled = spelledIn(line.words, own) ?? spelledIn(line.about, own);
 		const bar = spelled ? knowledge.thresholds.spelled : knowledge.thresholds.history;

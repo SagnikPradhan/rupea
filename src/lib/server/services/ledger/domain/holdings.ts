@@ -40,6 +40,8 @@ export const valued = (holding: Holding, prices: Record<string, Quantity>): Valu
 
 export type Account = {
 	account: string;
+	/** The account it is drawn under, as parentsIn divides them. */
+	parent: string | null;
 	/** What the account holds itself, rupees included; a parent may hold nothing of its own. */
 	holdings: ValuedHolding[];
 	total: Amount;
@@ -49,23 +51,30 @@ export type Account = {
 	unpriced: number;
 };
 
-/** Each account holding something and every parent of one, a parent first, totalling all held under it. */
-export const byAccount = (holdings: ValuedHolding[]): Account[] =>
-	[...new Set(holdings.flatMap((h) => parentsOf(h.account)))].toSorted(byPath).map((account) => {
-		const under = holdings.filter(
-			(h) => h.account === account || h.account.startsWith(`${account}:`),
-		);
-		const gained = under.filter((h) => h.gain !== null);
+/** Each account holding something and every parent of one that is drawn, a parent first, totalling all held under it. */
+export const byAccount = (
+	holdings: ValuedHolding[],
+	parents: Record<string, string | null>,
+): Account[] =>
+	[...new Set(holdings.flatMap((h) => parentsOf(h.account)))]
+		.filter((a) => Object.hasOwn(parents, a))
+		.toSorted(byPath)
+		.map((account) => {
+			const under = holdings.filter(
+				(h) => h.account === account || h.account.startsWith(`${account}:`),
+			);
+			const gained = under.filter((h) => h.gain !== null);
 
-		return {
-			account,
-			holdings: under.filter((h) => h.account === account),
-			total: sum(under.map((h) => h.value ?? (0n as Amount))),
-			cost: gained.length === 0 ? null : sum(gained.map((h) => h.paid ?? (0n as Amount))),
-			gain: gained.length === 0 ? null : sum(gained.map((h) => h.gain ?? (0n as Amount))),
-			unpriced: under.filter((h) => h.value === null).length,
-		};
-	});
+			return {
+				account,
+				parent: parents[account] ?? null,
+				holdings: under.filter((h) => h.account === account),
+				total: sum(under.map((h) => h.value ?? (0n as Amount))),
+				cost: gained.length === 0 ? null : sum(gained.map((h) => h.paid ?? (0n as Amount))),
+				gain: gained.length === 0 ? null : sum(gained.map((h) => h.gain ?? (0n as Amount))),
+				unpriced: under.filter((h) => h.value === null).length,
+			};
+		});
 
 const inRupees = (
 	quantity: Quantity,

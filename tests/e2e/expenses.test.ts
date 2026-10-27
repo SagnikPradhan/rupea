@@ -32,15 +32,15 @@ test('adds up spending by account over a period, net of refunds', async ({
 	await visit(page, `${ledger}/expenses`);
 	await expect(page.locator('.figure')).toHaveText('10,000.00');
 	await expect(page.locator('.summary')).toContainText('+5,000.00 (+100%) vs previous');
-	const food = page.getByRole('row').filter({ hasText: 'Food' }).first();
-	await expect(food).toContainText('2,000.00');
-	await expect(food).toContainText('20%');
+	const groceries = page.getByRole('row').filter({ hasText: 'Groceries' });
+	await expect(groceries).toContainText('2,000.00');
+	await expect(groceries).toContainText('20%');
 	await expect(page.locator('figcaption')).toContainText('Housing 8,000.00');
 	await page.getByRole('img', { name: /^Spending/ }).hover({ position: { x: 105, y: 120 } });
 	await expect(page.locator('.figure')).toHaveText('8,000.00');
 
-	await page.getByRole('link', { name: 'Expenses:Food' }).click();
-	await expect(page).toHaveURL(/account=Expenses%3AFood/);
+	await page.getByRole('link', { name: 'Expenses:Food:Groceries' }).first().click();
+	await expect(page).toHaveURL(/account=Expenses%3AFood%3AGroceries/);
 	await expect(page.locator('.figure')).toHaveText('2,000.00');
 
 	const period = page.getByRole('navigation', { name: 'Period' });

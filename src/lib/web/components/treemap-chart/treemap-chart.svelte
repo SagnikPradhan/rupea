@@ -7,6 +7,7 @@
 		/** Balance accounts with what each holding is worth, as the endpoint returns them. */
 		rows: {
 			account: string;
+			parent: string | null;
 			total: string;
 			holdings: { commodity: string; value: string | null }[];
 		}[];

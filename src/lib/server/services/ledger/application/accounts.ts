@@ -5,6 +5,7 @@ import * as DB from '../adapters/database';
 import type { Quantity } from '../domain/amounts';
 import { byAccount, HOPS, pricedIn, valued, type Account, type Holding } from '../domain/holdings';
 import { spendingOf, type Spending } from '../domain/spending';
+import { parentsIn, partsIn } from '../domain/tree';
 import type { Ledger } from '../domain/types';
 import { checkLots, syncIndex } from './sync';
 
@@ -17,8 +18,8 @@ type ListAccountsOptions = { ledger: Ledger; day: Temporal.PlainDate };
 /** What each balance account held at the end of a day, valued at that day's prices. */
 export const listAccounts = ({ ledger, day }: ListAccountsOptions): ResultAsync<Batch<Account>> =>
 	syncIndex(ledger).andThen((failed) =>
-		DB.listHoldings(ledger.id, day)
-			.andThen((h) => valuedOn(ledger.id, day, h))
+		ResultAsync.combine([DB.listHoldings(ledger.id, day), DB.listAccountTree(ledger.id)])
+			.andThen(([h, tree]) => valuedOn(ledger.id, day, h).map((v) => byAccount(v, parentsIn(tree))))
 			.andThen((accounts) =>
 				checkLots(ledger).map((unmatched) => ({
 					succeeded: accounts,
@@ -35,7 +36,7 @@ type ListWorthOptions = {
 	account: string | null;
 };
 
-/** What balance accounts were worth in rupees at the end of each day, from the ledger's first day at the earliest. */
+/** What balance accounts were worth in rupees at the end of each day, from the ledger's first day at the earliest, divided into the parts partsIn picks. */
 export const listWorth = ({
 	ledger,
 	from,
@@ -43,10 +44,9 @@ export const listWorth = ({
 	account,
 }: ListWorthOptions): ResultAsync<Batch<DB.Worth>> =>
 	syncIndex(ledger).andThen((f) =>
-		DB.listWorth(ledger.id, { from, to, account }).map((w) => ({
-			succeeded: w,
-			failed: f,
-		})),
+		DB.listAccountTree(ledger.id)
+			.andThen((t) => DB.listWorth(ledger.id, { from, to, ...partsIn(t, account) }))
+			.map((w) => ({ succeeded: w, failed: f })),
 	);
 
 type ListSpendingOptions = { ledger: Ledger; spans: Span[]; bucket: Bucket; account: string };
@@ -58,13 +58,28 @@ export const listSpending = ({
 	bucket,
 	account,
 }: ListSpendingOptions): ResultAsync<Batch<Spending>> => {
-	const spending = (s: Span) =>
-		DB.listSpending(ledger.id, { ...s, bucket, account }).map((r) => spendingOf(r, s, bucket));
+	const spending = (s: Span, p: Record<string, string | null>) =>
+		DB.listSpending(ledger.id, { ...s, bucket, account }).map((r) =>
+			spendingOf(r, { span: s, bucket, parents: p }),
+		);
 
 	return syncIndex(ledger).andThen((f) =>
-		ResultAsync.combine(spans.map(spending)).map((s) => ({ succeeded: s, failed: f })),
+		DB.listAccountTree(ledger.id)
+			.map(parentsIn)
+			.andThen((p) => ResultAsync.combine(spans.map((s) => spending(s, p))))
+			.map((s) => ({ succeeded: s, failed: f })),
 	);
 };
+
+/** Every account, each with the one it is drawn under, as parentsIn divides them. */
+export const listAccountTree = (
+	ledger: Ledger,
+): ResultAsync<{ account: string; parent: string | null }[]> =>
+	syncIndex(ledger).andThen(() =>
+		DB.listAccountTree(ledger.id).map((t) =>
+			Object.entries(parentsIn(t)).map(([account, parent]) => ({ account, parent })),
+		),
+	);
 
 type ListLotsOptions = { ledger: Ledger; account: string; commodity: string };
 
@@ -79,7 +94,7 @@ export const listLots = ({
 
 const valuedOn = (id: string, d: Temporal.PlainDate, h: Holding[]) =>
 	pricesOn({ ledgerId: id, day: d, commodities: pricedIn(h), hops: HOPS }).map((p) =>
-		byAccount(h.map((x) => valued(x, p))),
+		h.map((x) => valued(x, p)),
 	);
 
 type PricesOnOptions = {

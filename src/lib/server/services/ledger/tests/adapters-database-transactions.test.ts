@@ -111,7 +111,7 @@ describe('the embeddings of a ledger', () => {
 			expect((await DB.findNearest(ledgerId, 'm2', [vector(1)]))._unsafeUnwrap()).toEqual([[]]);
 		}));
 
-	it('knows the accounts posted to', ({ context, db }) =>
+	it('knows the accounts posted to, and the ones above them', ({ context, db }) =>
 		provide(context, async () => {
 			const ledgerId = await ledgerWith(
 				db,
@@ -119,8 +119,14 @@ describe('the embeddings of a ledger', () => {
 				spend('2026-01-02', 'B', 'Expenses:Food'),
 			);
 
-			const accounts = (await DB.listAccountNames(ledgerId))._unsafeUnwrap();
-			expect(accounts.toSorted()).toEqual(['Assets:Bank', 'Expenses:Food']);
+			const tree = (await DB.listAccountTree(ledgerId))._unsafeUnwrap();
+			const names = Object.fromEntries(tree.map((n) => [n.id, n.name]));
+			expect(tree.map((n) => [n.name, n.parentId && names[n.parentId], n.posted])).toEqual([
+				['Assets', null, false],
+				['Assets:Bank', 'Assets', true],
+				['Expenses', null, false],
+				['Expenses:Food', 'Expenses', true],
+			]);
 		}));
 
 	it('names an account written in two cases once', ({ context, db }) =>
@@ -131,8 +137,13 @@ describe('the embeddings of a ledger', () => {
 				spend('2026-01-02', 'B', 'expenses:food'),
 			);
 
-			const accounts = (await DB.listAccountNames(ledgerId))._unsafeUnwrap();
-			expect(accounts).toEqual(['Assets:Bank', 'Expenses:Food']);
+			const tree = (await DB.listAccountTree(ledgerId))._unsafeUnwrap();
+			expect(tree.map((n) => n.name)).toEqual([
+				'Assets',
+				'Assets:Bank',
+				'Expenses',
+				'Expenses:Food',
+			]);
 		}));
 
 	it('forgets the accounts of a deleted file', ({ context, db }) =>
@@ -150,8 +161,13 @@ describe('the embeddings of a ledger', () => {
 			});
 			await Files.deleteFiles({ ledger, keys: ['b.rupea'] });
 
-			const accounts = (await DB.listAccountNames(ledger.id))._unsafeUnwrap();
-			expect(accounts).toEqual(['Assets:Bank', 'Expenses:Food']);
+			const tree = (await DB.listAccountTree(ledger.id))._unsafeUnwrap();
+			expect(tree.map((n) => n.name)).toEqual([
+				'Assets',
+				'Assets:Bank',
+				'Expenses',
+				'Expenses:Food',
+			]);
 		}));
 
 	it('knows the day of its first transaction, and none while it is empty', ({ context, db }) =>

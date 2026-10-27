@@ -1,10 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import { depthOf, nameOf, prefixOf } from '#lib/web/shared/accounts.ts';
-import { PARTS } from '#lib/web/shared/chart.ts';
+import { OTHER, PARTS } from '#lib/web/shared/chart.ts';
 import {
 	barsOf,
 	monthsIn,
-	OTHER,
 	partsOf,
 	PREVIOUS,
 	rowsOf,
@@ -16,10 +15,10 @@ import {
 const spending: Spent = {
 	buckets: ['2026-01-01', '2026-02-01'],
 	totals: [
-		{ account: 'Expenses', amount: '1000' },
-		{ account: 'Expenses:Food', amount: '600' },
-		{ account: 'Expenses:Food:Groceries', amount: '400' },
-		{ account: 'Expenses:Rent', amount: '300.25' },
+		{ account: 'Expenses', parent: null, amount: '1000' },
+		{ account: 'Expenses:Food', parent: 'Expenses', amount: '600' },
+		{ account: 'Expenses:Food:Groceries', parent: 'Expenses:Food', amount: '400' },
+		{ account: 'Expenses:Rent', parent: 'Expenses', amount: '300.25' },
 	],
 	spent: [
 		{ account: 'Expenses', bucket: '2026-01-01', amount: '700' },
@@ -31,7 +30,7 @@ const spending: Spent = {
 
 const previous: Spent = {
 	buckets: ['2025-01-01'],
-	totals: [{ account: 'Expenses', amount: '800' }],
+	totals: [{ account: 'Expenses', parent: null, amount: '800' }],
 	spent: [{ account: 'Expenses', bucket: '2025-01-01', amount: '800' }],
 };
 
@@ -62,6 +61,7 @@ describe('the parts of a bar', () => {
 	it('leave room for the other spending', () => {
 		const many = Array.from({ length: PARTS + 2 }, (_, i) => ({
 			account: `Expenses:${i}`,
+			parent: 'Expenses',
 			amount: String(i),
 		}));
 		expect(partsOf({ ...spending, totals: many }, 'Expenses')).toHaveLength(PARTS - 1);

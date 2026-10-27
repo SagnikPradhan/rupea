@@ -23,7 +23,7 @@ const booked = (lines: string[], commodity = 'INFY') => {
 						{
 							id: `${t.location.line}.${position}`,
 							transaction: String(t.location.line),
-							account: p.account,
+							accountId: p.account,
 							held: BALANCE_TYPES.some((r) => r === accountType(p.account)),
 							date: t.date,
 							amount: p.amount,
@@ -40,7 +40,7 @@ const booked = (lines: string[], commodity = 'INFY') => {
 	return {
 		lots: lots.map(
 			(l, i) =>
-				`${i} ${l.account} ${formatAmount(l.units)} {${formatQuantity(l.cost)}, ${l.date.toString()}} ${l.origin} left ${formatAmount(l.remaining)}${l.source === null ? '' : ` from ${position(l.source)}`}`,
+				`${i} ${l.accountId} ${formatAmount(l.units)} {${formatQuantity(l.cost)}, ${l.date.toString()}} ${l.origin} left ${formatAmount(l.remaining)}${l.source === null ? '' : ` from ${position(l.source)}`}`,
 		),
 		disposals: disposals.map(
 			(d) =>

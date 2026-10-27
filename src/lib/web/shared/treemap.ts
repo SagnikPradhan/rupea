@@ -1,5 +1,5 @@
-import { isChildOf, nameOf } from './accounts';
-import { sumOf } from './chart';
+import { nameOf } from './accounts';
+import { sumOf } from './numbers';
 
 /** The space between two boxes, and around the boxes inside a group, in CSS pixels: --size-2, so they line up with the group's name. */
 const GAP = 16;
@@ -26,6 +26,8 @@ type Rect = { x: number; y: number; width: number; height: number };
 
 type Account = {
 	account: string;
+	/** The account the server draws it under. */
+	parent: string | null;
 	total: string;
 	holdings: { commodity: string; value: string | null }[];
 };
@@ -47,7 +49,7 @@ export const boxesOf = (t: Tile, { width, height }: { width: number; height: num
 
 /** An account's tiles are the accounts under it, or else its holdings when it has several; refunds and owing the other way have no size. */
 const grown = (rows: Account[], account: string, sign: number): Tile => {
-	const under = rows.filter((r) => isChildOf(r.account, account));
+	const under = rows.filter((r) => r.parent === account);
 	const holdings = (rows.find((r) => r.account === account)?.holdings ?? []).map((h) => ({
 		key: `${account} ${h.commodity}`,
 		label: h.commodity,

@@ -1,5 +1,5 @@
 {
-  "id": "e04f32e1-a1a3-456d-a3f4-6ccceef54fd4",
+  "id": "f3133d06-7438-4878-b5b3-6478ac643425",
   "prevId": "726d2642-7573-44d9-87e4-14e5dddd8fe4",
   "version": "7",
   "dialect": "postgresql",
@@ -707,6 +707,12 @@
           "primaryKey": false,
           "notNull": true
         },
+        "parent_id": {
+          "name": "parent_id",
+          "type": "uuid",
+          "primaryKey": false,
+          "notNull": false
+        },
         "name": {
           "name": "name",
           "type": "text",
@@ -741,6 +747,21 @@
           "concurrently": false,
           "method": "btree",
           "with": {}
+        },
+        "accounts_parent_id": {
+          "name": "accounts_parent_id",
+          "columns": [
+            {
+              "expression": "parent_id",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
         }
       },
       "foreignKeys": {
@@ -755,6 +776,19 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "accounts_parent_id_accounts_id_fk": {
+          "name": "accounts_parent_id_accounts_id_fk",
+          "tableFrom": "accounts",
+          "tableTo": "accounts",
+          "columnsFrom": [
+            "parent_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
@@ -1168,9 +1202,9 @@
           "primaryKey": false,
           "notNull": false
         },
-        "account": {
-          "name": "account",
-          "type": "text",
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -1218,8 +1252,8 @@
         }
       },
       "indexes": {
-        "lots_ledger_id_commodity_account": {
-          "name": "lots_ledger_id_commodity_account",
+        "lots_ledger_id_commodity_account_id": {
+          "name": "lots_ledger_id_commodity_account_id",
           "columns": [
             {
               "expression": "ledger_id",
@@ -1234,7 +1268,7 @@
               "nulls": "last"
             },
             {
-              "expression": "account",
+              "expression": "account_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1314,6 +1348,19 @@
             "id"
           ],
           "onDelete": "set null",
+          "onUpdate": "no action"
+        },
+        "lots_account_id_accounts_id_fk": {
+          "name": "lots_account_id_accounts_id_fk",
+          "tableFrom": "lots",
+          "tableTo": "accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },
@@ -1643,9 +1690,9 @@
           "primaryKey": false,
           "notNull": true
         },
-        "account": {
-          "name": "account",
-          "type": "text",
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -1688,16 +1735,29 @@
           ],
           "onDelete": "cascade",
           "onUpdate": "no action"
+        },
+        "monthly_deltas_account_id_accounts_id_fk": {
+          "name": "monthly_deltas_account_id_accounts_id_fk",
+          "tableFrom": "monthly_deltas",
+          "tableTo": "accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "cascade",
+          "onUpdate": "no action"
         }
       },
       "compositePrimaryKeys": {},
       "uniqueConstraints": {
-        "monthly_deltas_ledger_id_account_commodity_month": {
-          "name": "monthly_deltas_ledger_id_account_commodity_month",
+        "monthly_deltas_ledger_id_account_id_commodity_month": {
+          "name": "monthly_deltas_ledger_id_account_id_commodity_month",
           "nullsNotDistinct": false,
           "columns": [
             "ledger_id",
-            "account",
+            "account_id",
             "commodity",
             "month"
           ]
@@ -1763,9 +1823,9 @@
           "primaryKey": false,
           "notNull": true
         },
-        "account": {
-          "name": "account",
-          "type": "text",
+        "account_id": {
+          "name": "account_id",
+          "type": "uuid",
           "primaryKey": false,
           "notNull": true
         },
@@ -1858,17 +1918,11 @@
           "method": "btree",
           "with": {}
         },
-        "postings_ledger_id_account_amount": {
-          "name": "postings_ledger_id_account_amount",
+        "postings_account_id_commodity_amount": {
+          "name": "postings_account_id_commodity_amount",
           "columns": [
             {
-              "expression": "ledger_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "account",
+              "expression": "account_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1891,23 +1945,38 @@
           "method": "btree",
           "with": {}
         },
-        "postings_ledger_id_account_date": {
-          "name": "postings_ledger_id_account_date",
+        "postings_account_id_commodity_date": {
+          "name": "postings_account_id_commodity_date",
           "columns": [
             {
-              "expression": "ledger_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "account",
+              "expression": "account_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
             },
             {
               "expression": "commodity",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            },
+            {
+              "expression": "date",
+              "isExpression": false,
+              "asc": true,
+              "nulls": "last"
+            }
+          ],
+          "isUnique": false,
+          "concurrently": false,
+          "method": "btree",
+          "with": {}
+        },
+        "postings_account_id_date": {
+          "name": "postings_account_id_date",
+          "columns": [
+            {
+              "expression": "account_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -1945,27 +2014,6 @@
           "method": "btree",
           "with": {}
         },
-        "postings_ledger_id_lower_account": {
-          "name": "postings_ledger_id_lower_account",
-          "columns": [
-            {
-              "expression": "ledger_id",
-              "isExpression": false,
-              "asc": true,
-              "nulls": "last"
-            },
-            {
-              "expression": "lower(\"account\") text_pattern_ops",
-              "asc": true,
-              "isExpression": true,
-              "nulls": "last"
-            }
-          ],
-          "isUnique": false,
-          "concurrently": false,
-          "method": "btree",
-          "with": {}
-        },
         "postings_ledger_id_balance": {
           "name": "postings_ledger_id_balance",
           "columns": [
@@ -1976,7 +2024,7 @@
               "nulls": "last"
             },
             {
-              "expression": "account",
+              "expression": "account_id",
               "isExpression": false,
               "asc": true,
               "nulls": "last"
@@ -2020,6 +2068,19 @@
             "id"
           ],
           "onDelete": "cascade",
+          "onUpdate": "no action"
+        },
+        "postings_account_id_accounts_id_fk": {
+          "name": "postings_account_id_accounts_id_fk",
+          "tableFrom": "postings",
+          "tableTo": "accounts",
+          "columnsFrom": [
+            "account_id"
+          ],
+          "columnsTo": [
+            "id"
+          ],
+          "onDelete": "no action",
           "onUpdate": "no action"
         }
       },

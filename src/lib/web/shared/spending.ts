@@ -1,7 +1,6 @@
-import { isChildOf, isUnder } from './accounts';
-import { PARTS } from './chart';
+import { isUnder } from './accounts';
+import { OTHER, PARTS } from './chart';
 
-export const OTHER = 'Other';
 export const PREVIOUS = 'Previous';
 
 /** An average month, so a year's spending divides into twelve of them. */
@@ -11,7 +10,8 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** Spending over one range, as the expenses page receives it. */
 export type Spent = {
 	buckets: string[];
-	totals: { account: string; amount: string }[];
+	/** Each account's total, and the account the server draws it under. */
+	totals: { account: string; parent: string | null; amount: string }[];
 	spent: { account: string; bucket: string; amount: string }[];
 };
 
@@ -26,10 +26,10 @@ type ChartOptions = {
 export const rowsOf = <Total extends { account: string }>(t: Total[], a: string) =>
 	t.filter((r) => isUnder(r.account, a));
 
-/** The largest accounts right under one each get a share of every bar, the largest first. */
+/** The largest accounts the server draws under one each get a share of every bar, the largest first. */
 export const partsOf = (spending: Spent | undefined, account: string) =>
 	(spending?.totals ?? [])
-		.filter((t) => isChildOf(t.account, account))
+		.filter((t) => t.parent === account)
 		.toSorted((a, b) => Number(b.amount) - Number(a.amount))
 		.slice(0, PARTS - 1)
 		.map((t) => t.account);

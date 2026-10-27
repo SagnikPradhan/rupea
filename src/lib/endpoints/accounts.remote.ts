@@ -1,6 +1,6 @@
-import { replyFromBatch } from '#lib/server/shared/result/reply.ts';
+import { replyFrom, replyFromBatch } from '#lib/server/shared/result/reply.ts';
 import { Day, Period, spansOf } from '#lib/shared/dates.ts';
-import { BalanceAccount, ExpenseAccount } from '#lib/shared/filter.ts';
+import { BalanceAccount, ExpenseAccount } from '#lib/shared/accounts.ts';
 import * as Accounts from '#services/ledger/application/accounts.ts';
 import { query } from '$app/server';
 import * as v from 'valibot';
@@ -61,4 +61,8 @@ export const listLots = query(
 				(b) => ({ ...b, succeeded: b.succeeded.map(viewLot) }),
 			),
 		),
+);
+
+export const listAccountTree = query(Handle, (h) =>
+	replyFrom(inLedger({ handle: h, action: Accounts.listAccountTree })),
 );

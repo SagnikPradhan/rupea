@@ -90,9 +90,10 @@ export const listTransactions = (
 					? e.exists(
 							e
 								.selectFrom('postings as p')
+								.innerJoin('accounts as a', 'a.id', 'p.accountId')
 								.select(sql.lit(1).as('one'))
 								.whereRef('p.transactionId', '=', 't.id')
-								.where((x) => underAccount(x.ref('p.account'), filter.account)),
+								.where((x) => underAccount(x.ref('a.name'), filter.account)),
 						)
 					: e.lit(true),
 			)
@@ -178,7 +179,7 @@ export const recount = (ledgerId: string, uncounted: string[]): ResultAsync<Touc
 export type CandidatePair = { ours: string; theirs: string };
 
 // Same date, amount and balance account, in another file; the other side goes
-// through the `(ledger_id, account, commodity, amount)` index.
+// through the `(account_id, commodity, amount)` index.
 export const listCandidates = (ledgerId: string, key: string): ResultAsync<CandidatePair[]> =>
 	withContext('db')((db) =>
 		attempt(() =>
@@ -188,8 +189,7 @@ export const listCandidates = (ledgerId: string, key: string): ResultAsync<Candi
 				.innerJoin('postings as ourPosting', 'ourPosting.transactionId', 'ourTransaction.id')
 				.innerJoin('postings as theirPosting', (join) =>
 					join
-						.on('theirPosting.ledgerId', '=', ledgerId)
-						.onRef('theirPosting.account', '=', 'ourPosting.account')
+						.onRef('theirPosting.accountId', '=', 'ourPosting.accountId')
 						.onRef('theirPosting.commodity', '=', 'ourPosting.commodity')
 						.onRef('theirPosting.amount', '=', 'ourPosting.amount'),
 				)
@@ -351,6 +351,7 @@ const readIn = async (db: Database, where: Where): Promise<IndexedTransaction[]>
 		.selectFrom('transactions')
 		.innerJoin('ledgerFiles', 'ledgerFiles.id', 'transactions.fileId')
 		.leftJoin('postings', 'postings.transactionId', 'transactions.id')
+		.leftJoin('accounts', 'accounts.id', 'postings.accountId')
 		.select([
 			'ledgerFiles.key',
 			'transactions.id',
@@ -359,7 +360,7 @@ const readIn = async (db: Database, where: Where): Promise<IndexedTransaction[]>
 			'transactions.time',
 			'transactions.description',
 			'postings.id as postingId',
-			'postings.account',
+			'accounts.name as account',
 			'postings.amount',
 			'postings.commodity',
 			'postings.priceAmount',
@@ -495,9 +496,10 @@ const nearestQuery = (tx: Database, ledgerId: string, model: string, vectors: Fl
 			(j) => j.onTrue(),
 		)
 		.innerJoin('postings', 'postings.transactionId', 'n.id')
+		.innerJoin('accounts', 'accounts.id', 'postings.accountId')
 		.select((e) => [
 			e.cast<string>(e.ref('q.i'), 'text').as('query'),
-			'postings.account',
+			'accounts.name as account',
 			'postings.amount',
 			'n.date',
 			'n.similarity',

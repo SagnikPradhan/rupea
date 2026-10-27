@@ -50,6 +50,7 @@ export const viewEvent = ({ event, members }: Events.FileEvent) => ({
 
 export const viewAccount = (account: Accounts.Account) => ({
 	account: account.account,
+	parent: account.parent,
 	total: formatAmount(account.total),
 	cost: formatOptional(account.cost),
 	gain: formatOptional(account.gain),
@@ -73,7 +74,7 @@ export const viewWorth = (worth: Accounts.Worth) => ({
 	assets: formatAmount(worth.assets),
 	liabilities: formatAmount(worth.liabilities),
 	worth: formatAmount(worth.worth),
-	parts: Object.fromEntries(Object.entries(worth.parts).map(([p, v]) => [p, formatAmount(v)])),
+	parts: worth.parts.map((p) => ({ ...p, amount: formatAmount(p.amount) })),
 	unpriced: worth.unpriced,
 });
 
@@ -84,6 +85,7 @@ export const viewSpending = (spending: Accounts.Spending) => ({
 	buckets: spending.buckets.map((b) => b.toString()),
 	totals: spending.totals.map((t) => ({
 		account: t.account,
+		parent: t.parent,
 		amount: formatAmount(t.amount),
 		unpriced: t.unpriced,
 	})),

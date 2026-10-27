@@ -819,11 +819,12 @@ describe('lots', () => {
 
 	const held = (db: Database, ledgerId: string) =>
 		db
-			.selectFrom('lots')
-			.select(['account', 'remaining', 'origin'])
-			.where('ledgerId', '=', ledgerId)
-			.orderBy('date')
-			.orderBy('account')
+			.selectFrom('lots as l')
+			.innerJoin('accounts as a', 'a.id', 'l.accountId')
+			.select(['a.name as account', 'l.remaining', 'l.origin'])
+			.where('l.ledgerId', '=', ledgerId)
+			.orderBy('l.date')
+			.orderBy('a.name')
 			.execute();
 
 	it('books lots across files, and what a sale takes from them', ({ context, db }) =>
@@ -1121,8 +1122,10 @@ describe('monthly deltas that drift', () => {
 		{
 			name: 'stray months before and after the ledger',
 			introduce: (id: string) =>
-				sql`insert into monthly_deltas (ledger_id, account, account_type, commodity, month, amount)
-					select ${id}, 'Assets:Bank', 'Assets', 'INR', m, 1 from unnest('{2001-01-01,2030-01-01}'::date[]) m`,
+				sql`insert into monthly_deltas (ledger_id, account_id, account_type, commodity, month, amount)
+					select ${id}, a.id, 'Assets', 'INR', m, 1
+					from accounts a, unnest('{2001-01-01,2030-01-01}'::date[]) m
+					where a.ledger_id = ${id} and a.name = 'Assets:Bank'`,
 		},
 		{
 			name: 'every month dropped',
@@ -1131,7 +1134,8 @@ describe('monthly deltas that drift', () => {
 		{
 			name: 'a posting changed without a settle',
 			introduce: (id: string) =>
-				sql`update postings set amount = amount * 2 where ledger_id = ${id} and account = 'Expenses:Rent'`,
+				sql`update postings p set amount = amount * 2 from accounts a
+					where a.id = p.account_id and p.ledger_id = ${id} and a.name = 'Expenses:Rent'`,
 		},
 	];
 

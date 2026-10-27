@@ -21,7 +21,11 @@ One line of a transaction moving an amount into or out of one account.
 _Avoid_: Split, leg
 
 **Account**:
-A colon-separated name whose first segment is its account type.
+A colon-separated name whose first segment is its account type. Each is a row of its own, under its parent, named as first written; any case of the name means the same account.
+
+**Account tree**:
+How charts and pickers divide accounts. An account with nothing posted to it and one account right under it is left out, and the one under it takes its place; a top account is always kept.
+_Avoid_: Hierarchy, chart of accounts
 
 **Account type**:
 One of Assets, Liabilities, Income, Expenses or Equity; every account has exactly one.
@@ -195,26 +199,22 @@ An event whose members contradict each other, such as no primary or two primarie
 
 ## Lists
 
-**Range**:
-A span of a ledger's history counted back from today: a month, the year so far, a year, or all of it. Net worth and lists use it.
-_Avoid_: Period, window
-
 **Period**:
-What spending covers: a calendar month or year named like 2026-03 or 2026, all of history, or the days between two picked by hand. Unlike a range a month or year doesn't count back from today: a past one is whole, and the current one runs to today.
-_Avoid_: Calendar span, range, window
+What a page covers: a calendar month or year named like 2026-03 or 2026, all of history, or the days between two picked by hand. A past month or year is whole, and the current one runs to today. Spending, net worth and lists all use it.
+_Avoid_: Range, calendar span, window
 
 **Filter**:
-What a list of transactions or postings is narrowed to: a range or chosen days, an account with the accounts under it, and words in a description. It lives in the page's URL.
+What a list of transactions or postings is narrowed to: a period, an account with the accounts under it, and words in a description. It lives in the page's URL.
 _Avoid_: Query (kept for a future query language), search
 
 ## Spending
 
 **Spending**:
-What Expenses accounts gained over a range, in rupees at the prices known by each posting's day, net of refunds and counting only counted transactions. An amount with no price yet is left out and counted as unpriced.
+What Expenses accounts gained over a period, in rupees at the prices known by each posting's day, net of refunds and counting only counted transactions. An amount with no price yet is left out and counted as unpriced.
 _Avoid_: Expenses (an account type), outflow, burn
 
 **Bucket**:
-The days a chart adds up into one bar: a day, a month or a year, set by the range.
+The days a chart adds up into one bar: a day, a month or a year, set by the period.
 _Avoid_: Interval, bin, period
 
 ## Background work

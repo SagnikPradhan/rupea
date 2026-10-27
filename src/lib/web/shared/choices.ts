@@ -8,12 +8,22 @@ export type Scale = v.InferOutput<typeof Scale>;
 /** How the scale picker labels each scale. */
 export const SCALE_LABELS: Record<Scale, string> = { linear: 'Linear', log: 'Log' };
 
-/** What a chart of spending shows: its buckets over time, or how it divides by account. */
-export const Chart = v.picklist(['time', 'flow']);
+/** What a chart of spending shows: its buckets over time, or how it flows into the accounts under it. */
+export const SpendingChart = v.picklist(['time', 'alluvial']);
 
-export type Chart = v.InferOutput<typeof Chart>;
+export type SpendingChart = v.InferOutput<typeof SpendingChart>;
 
-export const CHART_LABELS: Record<Chart, string> = { time: 'Over time', flow: 'By account' };
+export const SPENDING_CHART_LABELS: Record<SpendingChart, string> = {
+	time: 'Over time',
+	alluvial: 'By account',
+};
 
-/** Net worth shows how it divides as a treemap of what is held. */
-export const WORTH_CHART_LABELS: Record<Chart, string> = { time: 'Over time', flow: 'Treemap' };
+/** What a chart of net worth shows: its days over time, or what is held as a treemap. */
+export const WorthChart = v.picklist(['time', 'treemap']);
+
+export type WorthChart = v.InferOutput<typeof WorthChart>;
+
+export const WORTH_CHART_LABELS: Record<WorthChart, string> = {
+	time: 'Over time',
+	treemap: 'Treemap',
+};

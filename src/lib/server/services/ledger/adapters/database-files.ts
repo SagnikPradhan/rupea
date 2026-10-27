@@ -7,11 +7,12 @@ import { fault, type RupeaError } from '#lib/server/shared/result/error.ts';
 import { attempt, errAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { byCodeUnit } from '#lib/server/shared/text.ts';
 import type { Span } from '#lib/shared/dates.ts';
+import { sql, type SqlBool } from 'kysely';
 import { v7 as uuidv7 } from 'uuid';
 import { CURRENCIES } from '../domain/lots';
 import { displayLocation } from '../domain/parser';
 import { marketPrices } from '../domain/prices';
-import { accountType, BALANCE_TYPES } from '../domain/taxonomy';
+import { accountType, BALANCE_TYPES, parentsOf } from '../domain/taxonomy';
 import { Feed, type RupeaLedgerFile, type RupeaMetadata } from '../domain/types';
 import { toSpans } from './database-queries';
 
@@ -62,6 +63,7 @@ export const indexFile = (
 			attempt(async () => {
 				const fileId = await saveVersion(tx, { ledgerId, key, version });
 				const rows = rowsOf(ledgerId, fileId, file);
+				const postings = await withAccounts(tx, ledgerId, rows.postings);
 				const prices = await withSymbols(tx, { feed: Feed.Ledger, ledgerId }, rows.prices);
 				const links = await withFeedSymbols(tx, rows.links);
 
@@ -74,7 +76,7 @@ export const indexFile = (
 
 				await insertAll(tx, 'transactions', rows.transactions);
 				await replaceOldTransactions(tx, fileId, rows.transactions);
-				await insertAll(tx, 'postings', rows.postings);
+				await insertAll(tx, 'postings', postings);
 				await insertAll(tx, 'prices', prices);
 				await insertAll(tx, 'symbolLinks', links);
 				await insertAll(tx, 'metadata', rows.metadata);
@@ -179,22 +181,24 @@ const rowsOf = (ledgerId: string, fileId: string, file: RupeaLedgerFile) => {
 			return type
 				? [
 						{
-							id: postingId,
-							ledgerId,
-							transactionId: id,
-							date: transaction.date.toString(),
-							position,
 							account: posting.account,
-							accountType: type,
-							amount: posting.amount,
-							commodity: posting.commodity,
-							priceAmount: posting.price?.amount ?? null,
-							priceCommodity: posting.price?.commodity ?? null,
-							priceKind: posting.price?.kind ?? null,
-							costAmount: posting.cost?.amount ?? null,
-							costCommodity: posting.cost?.commodity ?? null,
-							costDate: posting.cost?.date?.toString() ?? null,
-							balance: posting.balance,
+							row: {
+								id: postingId,
+								ledgerId,
+								transactionId: id,
+								date: transaction.date.toString(),
+								position,
+								accountType: type,
+								amount: posting.amount,
+								commodity: posting.commodity,
+								priceAmount: posting.price?.amount ?? null,
+								priceCommodity: posting.price?.commodity ?? null,
+								priceKind: posting.price?.kind ?? null,
+								costAmount: posting.cost?.amount ?? null,
+								costCommodity: posting.cost?.commodity ?? null,
+								costDate: posting.cost?.date?.toString() ?? null,
+								balance: posting.balance,
+							},
 						},
 					]
 				: [];
@@ -276,6 +280,58 @@ const ownedBy = (o: MetadataOwner, m: RupeaMetadata) =>
 	Object.entries(m)
 		.flatMap(([key, values]) => values.map((v) => ({ key, value: v })))
 		.map((e, i) => ({ ...o, position: i, ...e }));
+
+/**
+ * Puts each row on its ledger's account of that name, whatever its case, made with every account
+ * above it the first time it is named. New accounts go in sorted, as symbols do, and each finds its
+ * parent by name once all are in.
+ */
+const withAccounts = async <R>(
+	db: Database,
+	ledgerId: string,
+	rows: { account: string; row: R }[],
+) => {
+	const named = [...new Set(rows.flatMap((r) => parentsOf(r.account)))].toSorted(byCodeUnit);
+	const names = named.filter((n, i) => named.findIndex((m) => same(m, n)) === i);
+	const accounts = names.flatMap((n) => {
+		const type = accountType(n);
+		return type ? [{ ledgerId, name: n, type }] : [];
+	});
+
+	if (accounts.length > 0)
+		await db
+			.insertInto('accounts')
+			.values(accounts)
+			.onConflict((c) => c.doNothing())
+			.execute();
+	await db
+		.updateTable('accounts as c')
+		.from('accounts as p')
+		.set((e) => ({ parentId: e.ref('p.id') }))
+		.where('c.ledgerId', '=', ledgerId)
+		.where('c.parentId', 'is', null)
+		.whereRef('p.ledgerId', '=', 'c.ledgerId')
+		.where(sql<SqlBool>`position(':' in c.name) > 0`)
+		.where(sql<SqlBool>`lower(p.name) = lower(regexp_replace(c.name, ':[^:]*$', ''))`)
+		.execute();
+	const known = await db
+		.selectFrom('accounts')
+		.select(['accounts.id', sql<string>`lower(accounts.name)`.as('key')])
+		.where('accounts.ledgerId', '=', ledgerId)
+		.where((e) =>
+			anyOf(
+				sql`lower(${e.ref('accounts.name')})`,
+				names.map((n) => n.toLowerCase()),
+				'text',
+			),
+		)
+		.execute();
+
+	const ids = Object.fromEntries(known.map((k) => [k.key, k.id]));
+	return rows.map((r) => ({ ...r.row, accountId: ids[r.account.toLowerCase()] ?? '' }));
+};
+
+const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
 type Owner = { feed: Feed; ledgerId: string | null };
 

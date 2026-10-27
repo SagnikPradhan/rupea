@@ -53,6 +53,10 @@ export const openFolder = ({ ledger, folder }: OpenFolderOptions): ResultAsync<S
 		action: (s) => ok(scoped(s, `ledgers/${ledger.handle}/${FOLDERS[folder]}`)),
 	});
 
+/** The day of the ledger's first transaction, before which no period can be picked, or none before it has one. */
+export const findFirstDay = (l: Ledger): ResultAsync<Temporal.PlainDate | null> =>
+	DB.findFirstDay(l.id);
+
 const createNamed = ({ user, name }: CreateLedgerOptions, n: number): ResultAsync<Ledger> =>
 	DB.createLedger({ owner: user, handle: petName(), name }).orElse((e) =>
 		e.type === 'NameTaken' && n > 1 ? createNamed({ user, name }, n - 1) : errAsync(e),

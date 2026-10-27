@@ -36,14 +36,16 @@ test('loads older transactions on scrolling, and narrows them by filter', async 
 	await expect(page).not.toHaveURL(/description=rent/);
 	const accounts = page.getByRole('navigation', { name: 'Account' });
 	await accounts.getByRole('link', { name: 'Expenses' }).click();
-	await accounts.getByRole('link', { name: 'Expenses:Food' }).click();
-	await expect(page).toHaveURL(/account=Expenses%3AFood/);
+	await accounts.getByRole('link', { name: 'Expenses:Food:Groceries' }).click();
+	await expect(page).toHaveURL(/account=Expenses%3AFood%3AGroceries/);
 	await expect(rows.filter({ hasText: 'Shop 150' })).toBeVisible();
 	await expect(rows.filter({ hasText: 'Rent' })).toHaveCount(0);
 
-	await page.getByRole('link', { name: '1Y', exact: true }).click();
-	await expect(page).toHaveURL(/range=1y/);
-	await expect(page.getByRole('link', { name: '1Y', exact: true })).toHaveAttribute(
+	const period = page.getByRole('navigation', { name: 'Period' });
+	await period.getByRole('link', { name: 'Year', exact: true }).click();
+	await expect(page).toHaveURL(/at=\d{4}/);
+	await expect(page).toHaveURL(/account=Expenses%3AFood%3AGroceries/);
+	await expect(period.getByRole('link', { name: 'Year', exact: true })).toHaveAttribute(
 		'aria-current',
 		'page',
 	);
@@ -56,8 +58,8 @@ test('lists counted postings, narrowed to an account', async ({ signedIn: page, 
 	const rows = page.getByRole('rowgroup');
 	await expect(rows.filter({ hasText: 'Assets:Bank' })).toContainText('-9,000.00');
 	await expect(rows.filter({ hasText: 'Expenses:Housing' })).toHaveCount(0);
-	const dates = page.getByRole('navigation', { name: 'Date' });
-	await expect(dates.getByRole('link', { name: 'All' })).toHaveAttribute('aria-current', 'page');
+	const period = page.getByRole('navigation', { name: 'Period' });
+	await expect(period.getByRole('link', { name: 'All' })).toHaveAttribute('aria-current', 'page');
 });
 
 test('lists the postings of chosen days, then any range again', async ({
@@ -72,12 +74,13 @@ test('lists the postings of chosen days, then any range again', async ({
 	await expect(rows.filter({ hasText: 'Shop 150' })).toBeVisible();
 	await expect(rows.filter({ hasText: 'Shop 149' })).toHaveCount(0);
 
-	const dates = page.getByRole('navigation', { name: 'Date' });
-	await expect(dates.getByRole('link', { name: '30 May 2025 – 15 Jun 2025' })).toHaveAttribute(
+	const period = page.getByRole('navigation', { name: 'Period' });
+	await expect(period.getByRole('link', { name: 'Custom' })).toHaveAttribute(
 		'aria-current',
 		'page',
 	);
-	await dates.getByRole('link', { name: 'All' }).click();
+	await expect(page.getByLabel('From')).toHaveValue('2025-05-30');
+	await period.getByRole('link', { name: 'All' }).click();
 	await expect(page).not.toHaveURL(/from=/);
 	await expect(rows.filter({ hasText: 'Shop 149' })).toBeVisible();
 });

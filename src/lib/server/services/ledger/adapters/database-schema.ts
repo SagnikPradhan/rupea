@@ -119,8 +119,11 @@ export const postings = PG.pgTable(
 		date: t.date().notNull(), // its transaction's, so an account's days are read without joining it
 		counted: t.boolean().notNull().default(true), // its transaction's, so counted postings are read without joining it
 		position: t.integer().notNull(),
-		account: t.text().notNull(),
-		accountType: accountType().notNull(),
+		accountId: t
+			.uuid()
+			.notNull()
+			.references(() => accounts.id),
+		accountType: accountType().notNull(), // its account's, so balance postings are read without joining it
 
 		// What moves into the account, or out when negative, in signed ten-billionths.
 		amount: amount().notNull(),
@@ -145,20 +148,17 @@ export const postings = PG.pgTable(
 	}),
 	(t) => [
 		PG.index('postings_transaction_id').on(t.transactionId),
-		PG.index('postings_ledger_id_account_amount').on(t.ledgerId, t.account, t.commodity, t.amount), // refinement matches
-		PG.index('postings_ledger_id_account_date').on(t.ledgerId, t.account, t.commodity, t.date), // an account's days
+		PG.index('postings_account_id_commodity_amount').on(t.accountId, t.commodity, t.amount), // refinement matches
+		PG.index('postings_account_id_commodity_date').on(t.accountId, t.commodity, t.date), // an account's days
+		PG.index('postings_account_id_date').on(t.accountId, t.date), // account filters
 		PG.index('postings_ledger_id_commodity').on(t.ledgerId, t.commodity), // lots are booked per commodity
-		PG.index('postings_ledger_id_lower_account').on(
-			t.ledgerId,
-			sql`lower(${t.account}) text_pattern_ops`,
-		), // account filters, whatever their case
 		PG.index('postings_ledger_id_balance')
-			.on(t.ledgerId, t.account, t.commodity)
+			.on(t.ledgerId, t.accountId, t.commodity)
 			.where(sql`${t.balance} IS NOT NULL`),
 	],
 );
 
-/** The accounts a ledger's postings name, one per name whatever its case, rebuilt on every sync that changes the index. */
+/** A ledger's accounts and every account above one, one per name whatever its case, spelt as first indexed. */
 export const accounts = PG.pgTable(
 	'accounts',
 	(t) => ({
@@ -167,6 +167,7 @@ export const accounts = PG.pgTable(
 			.uuid()
 			.notNull()
 			.references(() => ledgers.id, { onDelete: 'cascade' }),
+		parentId: t.uuid().references((): PG.AnyPgColumn => accounts.id),
 		name: t.text().notNull(),
 		type: accountType().notNull(),
 	}),
@@ -174,7 +175,8 @@ export const accounts = PG.pgTable(
 		PG.uniqueIndex('accounts_ledger_id_lower_name').on(
 			t.ledgerId,
 			sql`lower(${t.name}) text_pattern_ops`,
-		),
+		), // account filters, whatever their case
+		PG.index('accounts_parent_id').on(t.parentId),
 	],
 );
 
@@ -279,7 +281,10 @@ export const lots = PG.pgTable(
 			.notNull()
 			.references(() => postings.id, { onDelete: 'cascade' }),
 		sourceId: t.uuid().references((): PG.AnyPgColumn => lots.id, { onDelete: 'set null' }), // the lot a transfer moved
-		account: t.text().notNull(),
+		accountId: t
+			.uuid()
+			.notNull()
+			.references(() => accounts.id),
 		commodity: t.text().notNull(),
 		origin: lotOrigin().notNull(),
 		date: t.date().notNull(),
@@ -289,7 +294,7 @@ export const lots = PG.pgTable(
 		costCommodity: t.text().notNull(),
 	}),
 	(t) => [
-		PG.index('lots_ledger_id_commodity_account').on(t.ledgerId, t.commodity, t.account),
+		PG.index('lots_ledger_id_commodity_account_id').on(t.ledgerId, t.commodity, t.accountId),
 		PG.index('lots_posting_id').on(t.postingId),
 		PG.index('lots_source_id').on(t.sourceId),
 	],
@@ -304,16 +309,19 @@ export const monthlyDeltas = PG.pgTable(
 			.uuid()
 			.notNull()
 			.references(() => ledgers.id, { onDelete: 'cascade' }),
-		account: t.text().notNull(),
+		accountId: t
+			.uuid()
+			.notNull()
+			.references(() => accounts.id, { onDelete: 'cascade' }),
 		accountType: accountType().notNull(),
 		commodity: t.text().notNull(),
 		month: t.date().notNull(), // its first day
 		amount: amount().notNull(),
 	}),
 	(t) => [
-		PG.unique('monthly_deltas_ledger_id_account_commodity_month').on(
+		PG.unique('monthly_deltas_ledger_id_account_id_commodity_month').on(
 			t.ledgerId,
-			t.account,
+			t.accountId,
 			t.commodity,
 			t.month,
 		),

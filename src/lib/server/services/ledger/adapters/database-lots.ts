@@ -4,7 +4,7 @@ import type { Tables } from '#lib/server/db/tables.ts';
 import { atomically } from '#lib/server/db/atomically.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import type { ExpressionBuilder } from 'kysely';
+import { sql, type ExpressionBuilder, type SqlBool } from 'kysely';
 import type { Amount, Quantity } from '../domain/amounts';
 import { book, realised, type BookedPosting, type Booking } from '../domain/lots';
 import { BALANCE_TYPES } from '../domain/taxonomy';
@@ -57,12 +57,13 @@ export const listUnmatched = (ledgerId: string): ResultAsync<UnmatchedDisposal[]
 			db
 				.selectFrom('disposals')
 				.innerJoin('postings', 'postings.id', 'disposals.postingId')
+				.innerJoin('accounts', 'accounts.id', 'postings.accountId')
 				.innerJoin('transactions', 'transactions.id', 'postings.transactionId')
 				.innerJoin('ledgerFiles', 'ledgerFiles.id', 'transactions.fileId')
 				.select([
 					'ledgerFiles.key as file',
 					'transactions.line',
-					'postings.account',
+					'accounts.name as account',
 					'disposals.commodity',
 					'disposals.kind',
 					'disposals.units',
@@ -96,7 +97,7 @@ export const listLots = (
 			const inHolding = (eb: ExpressionBuilder<Tables, 'lots'>) =>
 				eb.and([
 					eb('lots.ledgerId', '=', ledgerId),
-					eb('lots.account', '=', account),
+					eb('lots.accountId', '=', accountNamed(eb, ledgerId, account)),
 					eb('lots.commodity', '=', commodity),
 				]);
 
@@ -106,13 +107,14 @@ export const listLots = (
 				.innerJoin('transactions', 'transactions.id', 'postings.transactionId')
 				.innerJoin('ledgerFiles', 'ledgerFiles.id', 'transactions.fileId')
 				.leftJoin('lots as sourceLot', 'sourceLot.id', 'lots.sourceId')
+				.leftJoin('accounts as source', 'source.id', 'sourceLot.accountId')
 				.select([
 					'lots.id',
 					'ledgerFiles.key as file',
 					'transactions.line',
 					'lots.date',
 					'lots.origin',
-					'sourceLot.account as from',
+					'source.name as from',
 					'lots.units',
 					'lots.remaining',
 					'lots.costAmount',
@@ -186,7 +188,7 @@ const bookedPostings = (
 		.select([
 			'postings.id',
 			'postings.transactionId',
-			'postings.account',
+			'postings.accountId',
 			'postings.accountType',
 			'transactions.date',
 			'postings.amount',
@@ -207,7 +209,7 @@ const bookedPostings = (
 			rows.map((row) => ({
 				id: row.id,
 				transaction: row.transactionId,
-				account: row.account,
+				accountId: row.accountId,
 				held: BALANCE_TYPES.some((t) => t === row.accountType),
 				date: Temporal.PlainDate.from(row.date),
 				amount: row.amount as Amount,
@@ -215,6 +217,14 @@ const bookedPostings = (
 				cost: toCost(row),
 			})),
 		);
+
+/** The id of a ledger's account by name, whatever its case. */
+const accountNamed = (eb: ExpressionBuilder<Tables, 'lots'>, ledgerId: string, name: string) =>
+	eb
+		.selectFrom('accounts')
+		.select('accounts.id')
+		.where('accounts.ledgerId', '=', ledgerId)
+		.where(sql<SqlBool>`lower(accounts.name) = lower(${name})`);
 
 type ReplaceLotsOptions = { ledgerId: string; commodity: string; booking: Booking };
 
@@ -225,7 +235,7 @@ const replaceLots = async (db: Database, { ledgerId, commodity, booking }: Repla
 		commodity,
 		postingId: lot.posting,
 		sourceId: lot.source,
-		account: lot.account,
+		accountId: lot.accountId,
 		origin: lot.origin,
 		date: lot.date.toString(),
 		units: lot.units,

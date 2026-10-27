@@ -31,7 +31,7 @@ export type Tables = {
 	/** A view: what an account's counted postings of a commodity moved on one day. */
 	dailyDeltas: {
 		ledgerId: string;
-		account: string;
+		accountId: string;
 		accountType: AccountType;
 		commodity: string;
 		date: string;

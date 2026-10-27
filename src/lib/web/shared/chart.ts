@@ -1,9 +1,13 @@
 import uPlot from 'uplot';
+import { sumOf } from './numbers';
 
 const EDGE = 32;
 
 /** How many bars a group can tell apart, one shade of ink each. */
 export const PARTS = 5;
+
+/** The part whatever the named parts leave is folded into. */
+export const OTHER = 'Other';
 
 /** The colour token of a part's bar; any past the last share its shade. */
 export const seriesOf = (k: number) => `--color-series-${Math.min(k, PARTS - 1) + 1}`;
@@ -11,10 +15,11 @@ export const seriesOf = (k: number) => `--color-series-${Math.min(k, PARTS - 1) 
 /** How many parts of what is owed have a shade of their own, which are fewer than what is held. */
 export const OWED = 3;
 
+/** The part whatever the named parts of what is owed leave is folded into. */
+export const OTHER_OWED = 'Other owed';
+
 /** The colour token of a part of what is owed; any past the last share its shade. */
 export const owedOf = (k: number) => `--color-owed-${Math.min(k, OWED - 1) + 1}`;
-
-export const sumOf = (n: number[]) => n.reduce((t, x) => t + x, 0);
 
 /** What the amounts of one sign add up to, as a stack piles them on its side of zero. */
 export const pileOf = (n: number[], s: number) => sumOf(n.filter((x) => Math.sign(x) === s));

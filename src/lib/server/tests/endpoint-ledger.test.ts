@@ -1,12 +1,13 @@
-import { listAccounts, listLots, listSpending, listWorth } from '#lib/endpoints/accounts.remote.ts';
-import { createFile } from '#lib/endpoints/files.remote.ts';
 import {
-	findFirstDay,
-	listAccountNames,
-	listPostings,
-	listTransactions,
-	sync,
-} from '#lib/endpoints/transactions.remote.ts';
+	listAccounts,
+	listAccountTree,
+	listLots,
+	listSpending,
+	listWorth,
+} from '#lib/endpoints/accounts.remote.ts';
+import { createFile } from '#lib/endpoints/files.remote.ts';
+import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
+import { listPostings, listTransactions, sync } from '#lib/endpoints/transactions.remote.ts';
 import { provide } from '#lib/server/shared/context/context.ts';
 import { signIn } from '#tests/shared/app-server.ts';
 import { createLedger, ownerOf } from '#tests/shared/seed.ts';
@@ -31,7 +32,7 @@ const books = [
 ].join('\n');
 
 const day = '2026-09-01';
-const filter = { range: 'all', from: '', to: '', account: '', description: '' } as const;
+const filter = { period: { kind: 'all' }, account: '', description: '' } as const;
 
 /** A ledger its owner is signed in to, holding the books above. */
 const it = base.extend<{ ledger: string }>({
@@ -60,17 +61,21 @@ describe('transactions', () => {
 
 	it('narrow to a range and an account', ({ context, ledger: handle }) =>
 		provide(context, async () => {
-			const narrowed = { ...filter, from: '2026-08-15', to: '2026-08-29', account: 'Expenses' };
+			const period = { kind: 'custom', from: '2026-08-15', to: '2026-08-29' } as const;
+			const narrowed = { ...filter, period, account: 'Expenses' };
 			const listed = await listTransactions({ handle, day, filter: narrowed, after: null });
 			expect(listed.data?.rows.map((r) => r.description)).toEqual(['Groceries']);
 		}));
 
-	it('list postings and the names of accounts', ({ context, ledger: handle }) =>
+	it('list postings, the tree of accounts and the first day', ({ context, ledger: handle }) =>
 		provide(context, async () => {
 			const postings = await listPostings({ handle, day, filter, after: null });
 			expect(postings.data?.rows).toHaveLength(6);
-			expect((await listAccountNames(handle)).data).toContain('Expenses:Food');
-			expect((await findFirstDay(handle)).data).toMatch(/^\d{4}-\d{2}-\d{2}$/);
+			expect((await listAccountTree(handle)).data).toContainEqual({
+				account: 'Expenses:Food',
+				parent: 'Expenses',
+			});
+			expect((await findFirstDay(handle)).data).toBe('2026-08-01');
 		}));
 });
 

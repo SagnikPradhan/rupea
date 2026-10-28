@@ -1,32 +1,7 @@
 :root {
 	--site-width: 80rem;
 	--column: 45rem;
-	--aside: 14rem;
 	--font-size-hero: 4.5rem;
-}
-
-.button {
-	display: inline-flex;
-	align-items: center;
-	gap: var(--size-1);
-	padding: var(--size-1) var(--size-3);
-	border: 1px solid var(--color-ink);
-	border-radius: var(--radius);
-	background: var(--color-ink);
-	color: var(--color-surface);
-	font-weight: 500;
-	text-decoration: none;
-}
-
-.button.outline {
-	border-color: var(--color-border);
-	background: none;
-	color: var(--color-ink);
-}
-
-.button:hover {
-	text-decoration: none;
-	opacity: 0.85;
 }
 
 .frame {
@@ -68,17 +43,6 @@ footer.bar {
 	gap: var(--size-3);
 }
 
-.bar nav a {
-	color: var(--color-muted);
-	text-decoration: none;
-}
-
-.bar nav a:hover,
-.bar nav a[aria-current] {
-	color: var(--color-accent);
-	text-decoration: none;
-}
-
 .brand {
 	display: inline-flex;
 	align-items: center;
@@ -104,7 +68,7 @@ footer.bar {
 .sidebar,
 .contents {
 	flex: 1 1 12rem;
-	max-width: var(--aside);
+	max-width: var(--sidebar);
 	padding-top: var(--size-5);
 	display: flex;
 	flex-direction: column;
@@ -119,11 +83,6 @@ footer.bar {
 	display: flex;
 	flex-direction: column;
 	gap: var(--size-1);
-}
-
-.sidebar a[aria-current] {
-	text-decoration: none;
-	font-weight: 500;
 }
 
 .contents {
@@ -177,23 +136,12 @@ footer.bar {
 .prose table {
 	display: block;
 	overflow-x: auto;
-	border-collapse: collapse;
 	margin: var(--size-3) 0;
 	font-size: var(--font-size-0);
 }
 
-.prose th {
-	padding: var(--size-1);
-	border-bottom: 1px solid var(--color-ink);
-	color: var(--color-muted);
-	font-weight: 400;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
-	text-align: left;
-}
-
-.prose td {
-	padding: var(--size-1);
+.labelled :is(th, td) {
+	padding: var(--size-1) var(--size-2) var(--size-1) 0;
 }
 
 .pager {
@@ -201,8 +149,6 @@ footer.bar {
 	justify-content: space-between;
 	gap: var(--size-3);
 	margin-top: var(--size-6);
-	padding-top: var(--size-3);
-	border-top: 1px solid var(--color-border);
 }
 
 .pager a {

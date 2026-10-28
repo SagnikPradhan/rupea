@@ -9,11 +9,3 @@
 <button class:primary {...rest}>
 	{@render children?.()}
 </button>
-
-<style>
-	.primary {
-		border-color: var(--color-ink);
-		background: var(--color-ink);
-		color: var(--color-surface);
-	}
-</style>

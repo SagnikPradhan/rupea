@@ -1,0 +1,269 @@
+---
+import Page from '../layouts/Page.astro';
+
+const logos = [
+	{ name: 'Lockup', file: 'lockup', height: 'var(--size-5)' },
+	{ name: 'Wordmark', file: 'wordmark', height: 'var(--size-4)' },
+	{ name: 'Mark', file: 'mark', height: 'var(--size-5)' },
+];
+
+const colours = [
+	{ name: 'Ink', role: 'Text and the wordmark', light: '#1a1a1a', dark: '#e6e6e6' },
+	{ name: 'Accent', role: 'The mark, and where you are', light: '#704214', dark: '#c8a27a' },
+	{ name: 'Surface', role: 'The page behind everything', light: '#ffffff', dark: '#121212' },
+	{ name: 'Muted', role: 'Secondary text, never fainter', light: '#707070', dark: '#858585' },
+];
+
+const faces = [
+	{ name: 'Google Sans', role: 'Titles and the wordmark', family: 'var(--font-heading)' },
+	{ name: 'Poppins', role: 'Text', family: 'var(--font-body)' },
+	{ name: 'Geist Mono', role: 'Numbers and code', family: 'var(--font-mono)' },
+];
+
+const images = [
+	{ name: 'Social card', file: 'og.png', size: '1200 × 630' },
+	{ name: 'GitHub preview', file: 'github-social.png', size: '1280 × 640' },
+	{ name: 'Touch icon', file: 'apple-touch-icon.png', size: '180 × 180', icon: true },
+];
+---
+
+<Page title="Brand" description="Rupea's logo, colours and type, and how to use them.">
+	<main class="wide brand-page">
+		<p class="label">Brand</p>
+		<h1>Rupea's mark, colours and type</h1>
+		<p class="lead">
+			The mark is a rupee sign drawn in rules: two bars, then the bowl and leg as one stroke. It is
+			always in the accent, beside an ink wordmark.
+		</p>
+
+		<h2>Logo</h2>
+		<div class="logos">
+			{logos.map((logo) => (
+				<figure>
+					<div class="tiles">
+						<div class="tile light">
+							<img
+								src={`/brand/${logo.file}.svg`}
+								alt={`Rupea ${logo.name}`}
+								style={{ height: logo.height }}
+							/>
+						</div>
+						<div class="tile dark">
+							<img
+								src={`/brand/${logo.file}-dark.svg`}
+								alt={`Rupea ${logo.name} on dark`}
+								style={{ height: logo.height }}
+							/>
+						</div>
+					</div>
+					<figcaption>
+						{logo.name}
+						<span>
+							<a href={`/brand/${logo.file}.svg`} download>
+								SVG
+							</a>{' '}
+							·{' '}
+							<a href={`/brand/${logo.file}-dark.svg`} download>
+								SVG on dark
+							</a>
+						</span>
+					</figcaption>
+				</figure>
+			))}
+		</div>
+
+		<h2>Use</h2>
+		<ul>
+			<li>Leave clear space around the logo at least as wide as the mark's bars are apart.</li>
+			<li>Show the mark at 16 px or larger, and the lockup at 96 px wide or larger.</li>
+			<li>
+				Use the dark files on dark backgrounds. Don't recolour, stretch, outline or shadow them.
+			</li>
+			<li>Write the name as Rupea, with a capital R.</li>
+		</ul>
+
+		<h2>Colours</h2>
+		<table>
+			<thead>
+				<tr>
+					<th>Colour</th>
+					<th class="role">Role</th>
+					<th>Light</th>
+					<th>Dark</th>
+				</tr>
+			</thead>
+			<tbody>
+				{colours.map((colour) => (
+					<tr>
+						<td>{colour.name}</td>
+						<td class="muted role">{colour.role}</td>
+						<td>
+							<span class="swatch" style={{ background: colour.light }} />
+							<code>{colour.light}</code>
+						</td>
+						<td>
+							<span class="swatch" style={{ background: colour.dark }} />
+							<code>{colour.dark}</code>
+						</td>
+					</tr>
+				))}
+			</tbody>
+		</table>
+
+		<h2>Type</h2>
+		<div class="faces">
+			{faces.map((face) => (
+				<div>
+					<p class="sample" style={{ fontFamily: face.family }}>
+						Aa ₹1,250
+					</p>
+					<p>{face.name}</p>
+					<p class="muted">{face.role}</p>
+				</div>
+			))}
+		</div>
+
+		<h2>Images</h2>
+		<div class="images">
+			{images.map((image) => (
+				<figure>
+					<img
+						class={image.icon ? 'frame icon' : 'frame'}
+						src={`/brand/${image.file}`}
+						alt={image.name}
+					/>
+					<figcaption>
+						{image.name}
+						<span>
+							{image.size} ·{' '}
+							<a href={`/brand/${image.file}`} download>
+								PNG
+							</a>
+						</span>
+					</figcaption>
+				</figure>
+			))}
+		</div>
+	</main>
+</Page>
+
+<style>
+	.brand-page {
+		padding-block: var(--size-5) var(--size-7);
+	}
+
+	.lead {
+		color: var(--color-muted);
+		font-size: var(--font-size-2);
+	}
+
+	h2 {
+		margin-top: var(--size-6);
+	}
+
+	.logos,
+	.images {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
+		gap: var(--size-4);
+	}
+
+	figure {
+		margin: 0;
+	}
+
+	figcaption {
+		display: flex;
+		justify-content: space-between;
+		gap: var(--size-2);
+		margin-top: var(--size-1);
+	}
+
+	figcaption span,
+	.muted {
+		color: var(--color-muted);
+	}
+
+	.tiles {
+		display: grid;
+		grid-template-columns: 1fr 1fr;
+		border: 1px solid var(--color-border);
+		border-radius: var(--radius);
+		overflow: hidden;
+	}
+
+	.tile {
+		display: grid;
+		place-items: center;
+		min-height: var(--size-7);
+	}
+
+	.tile img {
+		max-width: 80%;
+	}
+
+	.tile.light {
+		background: #ffffff;
+	}
+
+	.tile.dark {
+		background: #121212;
+	}
+
+	table {
+		border-collapse: collapse;
+		width: 100%;
+	}
+
+	th {
+		padding: var(--size-1) var(--size-2) var(--size-1) 0;
+		border-bottom: 1px solid var(--color-ink);
+		color: var(--color-muted);
+		font-size: var(--font-size-0);
+		font-weight: 400;
+		letter-spacing: 0.06em;
+		text-transform: uppercase;
+		text-align: left;
+	}
+
+	td {
+		padding: var(--size-1) var(--size-2) var(--size-1) 0;
+	}
+
+	.swatch {
+		display: inline-block;
+		width: var(--size-2);
+		height: var(--size-2);
+		margin-right: var(--size-1);
+		border: 1px solid var(--color-border);
+		border-radius: var(--size-0);
+		vertical-align: middle;
+	}
+
+	.faces {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
+		gap: var(--size-4);
+	}
+
+	.faces p {
+		margin: 0;
+	}
+
+	.sample {
+		font-size: var(--font-size-display);
+		line-height: 1.2;
+		white-space: nowrap;
+	}
+
+	.icon {
+		width: var(--size-7);
+	}
+
+	/* On a phone the roles would squeeze the swatches into a column of words. */
+	@media (width < 40rem) {
+		.role {
+			display: none;
+		}
+	}
+</style>

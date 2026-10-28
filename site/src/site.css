@@ -2,6 +2,39 @@
 	--site-width: 80rem;
 	--column: 45rem;
 	--aside: 14rem;
+	--font-size-hero: 4.5rem;
+}
+
+.button {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-1);
+	padding: var(--size-1) var(--size-3);
+	border: 1px solid var(--color-ink);
+	border-radius: var(--radius);
+	background: var(--color-ink);
+	color: var(--color-surface);
+	font-weight: 500;
+	text-decoration: none;
+}
+
+.button.outline {
+	border-color: var(--color-border);
+	background: none;
+	color: var(--color-ink);
+}
+
+.button:hover {
+	text-decoration: none;
+	opacity: 0.85;
+}
+
+.frame {
+	display: block;
+	width: 100%;
+	height: auto;
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius);
 }
 
 .wide {

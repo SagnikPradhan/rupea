@@ -6,7 +6,7 @@ import { logMailer } from '#lib/server/shared/context/mailer.ts';
 import { models as files } from '#lib/server/shared/onnx/models.ts';
 import { createModels, type Models } from '#lib/server/shared/onnx/runtime.ts';
 import { localStorage } from '#lib/server/shared/storage/local.ts';
-import { scoped, type Storage } from '#lib/server/shared/storage/storage.ts';
+import { byUser, type Storage } from '#lib/server/shared/storage/storage.ts';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join, resolve } from 'node:path';
@@ -56,7 +56,8 @@ export const it = base.extend<{
 		await use({
 			config: defaultConfiguration,
 			db,
-			storages: { local: (u) => scoped(storage, `users/${u}`) },
+			storages: { local: byUser(storage) },
+			subscriptions: [],
 			mailer: logMailer,
 			logger,
 			models,

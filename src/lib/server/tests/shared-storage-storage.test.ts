@@ -1,15 +1,17 @@
 import { mkdir, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
-import { setTimeout } from 'node:timers/promises';
-import { describe, expect } from 'vitest';
+import { describe, expect, vi } from 'vitest';
+import { untilSeen } from '#tests/shared/watch.ts';
 import { it } from '#tests/shared/vitest.ts';
 import {
+	byUser,
 	findText,
 	readText,
 	scoped,
 	validateKey,
 	writeNumbered,
 	writeText,
+	type Change,
 	type Storage,
 } from '#lib/server/shared/storage/storage.ts';
 import { err, ok } from '#lib/server/shared/result/result.ts';
@@ -21,20 +23,23 @@ const keys = async (s: Storage, prefix?: string) => {
 	return listed.isOk() ? listed.value.map((e) => e.key).sort() : listed;
 };
 
-/** Collects what the storage reports changed while act runs, up to the change to key. */
-const watched = async (s: Storage, key: string, act: () => Promise<void>) => {
+/** Collects what the storage reports changed under prefix while act runs, until it reports key. */
+const watched = async (s: Storage, key: string, act: () => Promise<void>, prefix = '') => {
+	const probe = [prefix, 'probe'].filter((k) => k !== '').join('/');
 	const controller = new AbortController();
 	const seen: string[] = [];
-	const collected = (async () => {
-		for await (const k of s.watch(controller.signal)) if (seen.push(k) && k === key) break;
+	void (async () => {
+		for await (const k of s.watch(controller.signal, prefix)) seen.push(k);
 	})();
 
-	// The watch starts listening a moment after it is first asked for a key.
-	await setTimeout(100);
+	await untilSeen(
+		() => s.write({ key: probe, content: text('') }),
+		() => seen.includes(probe),
+	);
 	await act();
-	await Promise.race([collected, setTimeout(2000)]);
+	await vi.waitFor(() => expect(seen).toContain(key));
 	controller.abort();
-	return seen;
+	return seen.filter((k) => k !== probe);
 };
 
 describe('storage keys', () => {
@@ -180,6 +185,34 @@ describe('watching storage', () => {
 		expect(seen.filter((k) => k.startsWith('.tmp'))).toEqual([]);
 	});
 
+	it('reports only keys under a prefix, with the prefix', async ({ storage }) => {
+		const seen = await watched(
+			storage,
+			'users/a.rupea',
+			async () => {
+				await storage.write({ key: 'postgres/b', content: text('') });
+				await storage.write({ key: 'users/a.rupea', content: text('') });
+			},
+			'users',
+		);
+		expect(new Set(seen)).toEqual(new Set(['users/a.rupea']));
+	});
+
+	it('stops when the signal aborts while it reports', async ({ storage }) => {
+		const controller = new AbortController();
+		const seen: string[] = [];
+		const watching = (async () => {
+			for await (const k of storage.watch(controller.signal)) seen.push(k);
+		})();
+
+		await untilSeen(
+			() => storage.write({ key: 'a.rupea', content: text('') }),
+			() => seen.includes('a.rupea'),
+		);
+		controller.abort();
+		await watching;
+	});
+
 	it('stops when the signal aborts', async ({ storage }) => {
 		const controller = new AbortController();
 		const keys = storage.watch(controller.signal)[Symbol.asyncIterator]();
@@ -239,12 +272,36 @@ describe('scoped storage', () => {
 			await storage.write({ key: 'ledgers/two/b.rupea', content: text('') });
 			await storage.write({ key: 'ledgers/one/a.rupea', content: text('') });
 		});
-		expect(seen).toEqual(['a.rupea']);
+		expect(new Set(seen)).toEqual(new Set(['a.rupea']));
 	});
 
 	it('does not see a sibling prefix that shares its name', async ({ storage }) => {
 		await storage.write({ key: 'ledgers/one2/a', content: text('') });
 		expect(await keys(scoped(storage, 'ledgers/one'))).toEqual([]);
+	});
+});
+
+describe('storage by user', () => {
+	it("opens each user's own folder", async ({ storage }) => {
+		await byUser(storage)
+			.open('u1')
+			.write({ key: 'a.rupea', content: text('') });
+		expect(await keys(storage)).toEqual(['users/u1/a.rupea']);
+	});
+
+	it('reports whose storage changed', async ({ storage }) => {
+		await storage.write({ key: 'users/u1/a.rupea', content: text('') });
+		const controller = new AbortController();
+		const seen: Change[] = [];
+		void (async () => {
+			for await (const c of byUser(storage).watch(controller.signal)) seen.push(c);
+		})();
+
+		await untilSeen(
+			() => storage.write({ key: 'users/u1/a.rupea', content: text('') }),
+			() => seen.some((c) => c.user === 'u1' && c.key === 'a.rupea'),
+		);
+		controller.abort();
 	});
 });
 

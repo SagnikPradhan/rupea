@@ -23,7 +23,9 @@ type WithStorageOptions<T> = {
 
 // The one place that opens a user's storage.
 export const withStorage = <T>(o: WithStorageOptions<T>): ResultAsync<T> =>
-	ensureStorage(o.user).andThen((s) => withContext('storages')((t) => o.action(t[s.kind](o.user))));
+	ensureStorage(o.user).andThen((s) =>
+		withContext('storages')((t) => o.action(t[s.kind].open(o.user))),
+	);
 
 // Made on first use, so every user has one without sign-up making it.
 export const ensureStorage = (u: string): ResultAsync<StorageRecord> =>

@@ -1,6 +1,7 @@
-import { watch, type BigIntStats, type Dirent } from 'node:fs';
+import { watch as chokidar } from 'chokidar';
+import type { BigIntStats, Dirent } from 'node:fs';
 import { randomUUID } from 'node:crypto';
-import { on } from 'node:events';
+import { EventEmitter, on } from 'node:events';
 import { glob, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, sep } from 'node:path';
 import { fault, type RupeaError, unknownError } from '../result/error';
@@ -112,14 +113,26 @@ export const localStorage = (root: string): Storage => {
 				),
 			);
 
-	const watch_: Storage['watch'] = async function* (signal) {
-		await mkdir(root, { recursive: true });
+	const watch_: Storage['watch'] = async function* (signal, prefix = '') {
+		const folder = join(root, prefix);
+		const temporary = join(root, TEMPORARY);
+		await mkdir(folder, { recursive: true });
+		if (signal.aborted) return;
 
-		// Aborting closes the watcher, and 'close' ends the loop instead of throwing.
-		const changes = on(watch(root, { recursive: true, signal }), 'change', { close: ['close'] });
-		for await (const [, name] of changes)
-			if (typeof name === 'string' && name.split(sep)[0] !== TEMPORARY)
-				yield name.split(sep).join('/');
+		// Node's recursive fs.watch on Linux misses most replaces of a file it has reported before,
+		// which is how editors and write save one, so chokidar watches each folder instead.
+		const watcher = chokidar(folder, {
+			ignoreInitial: true,
+			ignored: (p) => p.startsWith(temporary),
+		});
+		// Closing chokidar drops its listeners, so its events reach the loop through one of ours.
+		const events = new EventEmitter();
+		watcher.on('all', (_, p) => events.emit('change', p));
+		watcher.on('error', (e) => events.emit('error', e));
+		signal.addEventListener('abort', () => void watcher.close().then(() => events.emit('close')));
+
+		for await (const [path] of on(events, 'change', { close: ['close'] }))
+			yield relative(root, path).split(sep).join('/');
 	};
 
 	return { list, read, write, delete: delete_, rename: rename_, watch: watch_ };

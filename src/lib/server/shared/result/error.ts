@@ -67,6 +67,7 @@ export type RupeaError =
 	| { type: 'JobOutdated'; name: string; version: number }
 	| { type: 'JobInvalidPayload'; name: string; reason: string }
 	| { type: 'JobTimedOut'; name: string; timeout: number }
+	| { type: 'EventInvalidPayload'; name: string; reason: string }
 	| { type: 'UnknownError'; message: string };
 
 type Variant<T extends RupeaError['type']> = Extract<RupeaError, { type: T }>;

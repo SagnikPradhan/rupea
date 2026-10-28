@@ -30,7 +30,7 @@ rupea.app, the docs and brand site, is read once rather than worked in, so it tr
 
 The app and the site share one theme, `@rupea/theme` in `packages/theme`: the fonts, the reset, the tokens and the element styles. A page adds only its own layout on top.
 
-**The mark is a rupee sign drawn in rules.** Two bars, then the bowl and leg as one stroke, wholly in the accent beside an ink wordmark set in Google Sans. Its files, with outlined lettering, are in `site/public/brand/`, and the app's favicon is a copy of it.
+**The mark is a rupee sign drawn in rules.** Two bars, then the bowl and leg as one stroke, wholly in the accent beside an ink wordmark set in Google Sans. Its files, with outlined lettering, are in `packages/site/public/brand/`, and the app's favicon is a copy of it.
 
 ## Considered Options
 

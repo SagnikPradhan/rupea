@@ -34,5 +34,5 @@ vite.config.ts.timestamp-*
 /todo.txt
 
 # Site
-/site/dist/
-/site/.astro/
+/packages/site/dist/
+/packages/site/.astro/

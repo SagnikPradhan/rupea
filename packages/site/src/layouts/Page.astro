@@ -13,6 +13,28 @@ const links = [
 	{ href: '/brand', label: 'Brand', current: section === 'brand' },
 	{ href: 'https://github.com/SagnikPradhan/rupea', label: 'GitHub', current: false },
 ];
+
+const repository = 'https://github.com/SagnikPradhan/rupea';
+
+const columns = [
+	{
+		title: 'Manual',
+		links: [
+			{ href: '/manual', label: 'Getting started' },
+			{ href: '/manual/schemas', label: 'Writing schemas' },
+			{ href: '/manual/glossary', label: 'Glossary' },
+		],
+	},
+	{
+		title: 'Project',
+		links: [
+			{ href: repository, label: 'GitHub' },
+			{ href: `${repository}/issues`, label: 'Issues' },
+			{ href: `${repository}/blob/master/LICENSE`, label: 'Licence' },
+			{ href: '/brand', label: 'Brand' },
+		],
+	},
+];
 ---
 
 <!doctype html>
@@ -48,17 +70,25 @@ const links = [
 		<slot />
 		<footer class="bar">
 			<div class="wide">
-				<span class="brand-small">
-					<Mark size={18} />
-					Rupea · MIT licence
-				</span>
-				<nav>
-					{links.map((link) => (
-						<a class="plain" href={link.href}>
-							{link.label}
-						</a>
+				<div class="about">
+					<span class="brand">
+						<Mark size={26} />
+						Rupea
+					</span>
+					<p>A personal finance app for India, open source under the MIT licence.</p>
+				</div>
+				<div class="columns">
+					{columns.map((column) => (
+						<nav>
+							<span class="label">{column.title}</span>
+							{column.links.map((link) => (
+								<a class="plain" href={link.href}>
+									{link.label}
+								</a>
+							))}
+						</nav>
 					))}
-				</nav>
+				</div>
 			</div>
 		</footer>
 	</body>

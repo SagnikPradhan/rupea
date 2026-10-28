@@ -2,91 +2,104 @@
 import Screenshot from '../components/Screenshot.astro';
 import Page from '../layouts/Page.astro';
 
-const screens = [
+const features = [
 	{
-		name: 'Accounts',
-		href: '/manual#accounts',
-		text: 'net worth over time, and what each account cost and gained',
+		title: 'Your ledger is plain text',
+		text: 'Every account and transaction is a line in a double-entry text file, in storage you choose. Edit the files in Rupea or in any editor, and every transaction on screen links back to the line it came from.',
+		shot: 'files',
+		alt: 'A ledger file, plain text you own',
 	},
 	{
-		name: 'Expenses',
-		href: '/manual#expenses',
-		text: 'spending by month and by account, against the period before',
+		title: 'Statements become transactions',
+		text: 'Upload a PDF or spreadsheet from a bank, card or broker. Describe its layout once in a schema, and every statement like it reads the same way, each row put in an account.',
+		shot: 'import',
+		alt: 'A bank statement read into transactions, each in an account',
 	},
 	{
-		name: 'Transactions',
-		href: '/manual#transactions',
-		text: 'every transaction, with the file and line it came from',
-	},
-	{
-		name: 'Files',
-		href: '/manual#files',
-		text: 'the ledger as plain text, to edit here or anywhere',
-	},
-	{
-		name: 'Importing',
-		href: '/manual#importing',
-		text: 'bank, card and broker statements, PDF or spreadsheet, read into transactions',
+		title: 'Spending by month',
+		text: 'What you spent each month, split by account and set against the period before, so a change shows up as soon as it happens.',
+		shot: 'expenses',
+		alt: 'Spending by month over a year, by account',
 	},
 ];
 ---
 
 <Page
 	title="Rupea"
-	description="A personal finance app for India. Your money is a double-entry ledger in plain text files, and Rupea reads bank, card and broker statements into it."
+	description="Know where every rupee went. A personal finance app for India: a double-entry ledger in plain text files, filled from your bank, card and broker statements."
 >
 	<main class="wide">
-		<section class="intro">
-			<h1>Rupea</h1>
+		<header>
+			<span class="label">Open source · Work in progress</span>
+			<h1>Know where every rupee went.</h1>
 			<p>
 				A personal finance app for India. Your money is a double-entry ledger in plain text files,
-				and Rupea reads bank, card and broker statements into it. It is open source under the MIT
-				licence, and you can run it yourself.
+				and Rupea reads bank, card and broker statements into it.
 			</p>
-			<p class="status">Work in progress, not ready for use.</p>
 			<div class="actions">
 				<a class="button primary" href="/manual">
-					Manual
+					Read the manual
 				</a>
 				<a class="button" href="https://github.com/SagnikPradhan/rupea">
 					GitHub
 				</a>
 			</div>
-		</section>
+		</header>
 
 		<Screenshot name="accounts" alt="Net worth over six years, by account" />
 
-		<section class="intro">
-			<h2>What it does</h2>
-			<ul>
-				{screens.map((screen) => (
-					<li>
-						<a href={screen.href}>{screen.name}</a>: {screen.text}.
-					</li>
-				))}
-			</ul>
-		</section>
+		<div class="features">
+			{features.map((feature) => (
+				<section>
+					<Screenshot name={feature.shot} alt={feature.alt} />
+					<h2>{feature.title}</h2>
+					<p>{feature.text}</p>
+				</section>
+			))}
+		</div>
 	</main>
 </Page>
 
 <style>
 	main {
-		padding-block: var(--size-2) var(--size-5);
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-6);
+		padding-block: var(--size-6);
 	}
 
-	.intro {
+	header {
+		display: flex;
+		flex-direction: column;
+		align-items: center;
 		max-width: var(--column);
-		padding-bottom: var(--size-4);
+		margin-inline: auto;
+		text-align: center;
 	}
 
-	.status {
-		color: var(--color-muted);
+	header h1 {
+		margin: var(--size-2) 0;
+	}
+
+	header p {
+		margin: 0;
 	}
 
 	.actions {
 		display: flex;
 		flex-wrap: wrap;
+		justify-content: center;
 		gap: var(--size-2);
-		padding-top: var(--size-2);
+		padding-top: var(--size-3);
+	}
+
+	.features {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
+		gap: var(--size-5) var(--size-4);
+	}
+
+	.features h2 {
+		margin-top: var(--size-3);
 	}
 </style>

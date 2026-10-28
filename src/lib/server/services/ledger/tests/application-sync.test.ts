@@ -3,7 +3,9 @@ import { provide } from '#lib/server/shared/context/context.ts';
 import { EMBEDDING_DIMENSIONS } from '#lib/server/shared/onnx/models.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { errAsync, ok, ResultAsync } from '#lib/server/shared/result/result.ts';
-import { scoped } from '#lib/server/shared/storage/storage.ts';
+import { readText, scoped } from '#lib/server/shared/storage/storage.ts';
+import { runJob } from '#services/jobs/application/jobs.ts';
+import { syncLedger } from '#services/ledger/adapters/jobs.ts';
 import { MODEL } from '#services/ledger/adapters/prediction-model2vec.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import * as Sync from '#services/ledger/application/sync.ts';
@@ -349,6 +351,24 @@ describe('syncing the ledger', () => {
 
 			await put(storage, ledger, 'a.rupea', groceries);
 			expect(await issues(ledger)).toEqual(ok([]));
+		}));
+
+	it('syncs as a job, run as the owner', ({ context, db, storage }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await put(storage, ledger, 'a.rupea', groceries);
+
+			const ran = await runJob([syncLedger], {
+				id: '',
+				userId: ledger.owner,
+				name: syncLedger.name,
+				version: syncLedger.version,
+				payload: { ledger: ledger.handle },
+				attempts: 1,
+			});
+
+			expect(ran).toEqual(ok());
+			expect(await summary(ledger.id)).toEqual(['a.rupea:1 Groceries']);
 		}));
 
 	it('keeps a file with errors at its version, so it is not parsed again', ({
@@ -989,6 +1009,26 @@ describe('lots', () => {
 			await Promise.all([holding, syncing]);
 			expect(first).toBe('wait');
 			expect(await held(db, ledger.id)).toHaveLength(1);
+		}));
+
+	it('keeps a file written while it waited for the lock', ({ context, db, storage }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const listed = Promise.withResolvers<void>();
+			const writing = Sync.exclusively(ledger.id, () =>
+				ResultAsync.fromSafePromise(listed.promise)
+					.andThen(() => put(storage, ledger, 'a.rupea', groceries))
+					.andThen(() => readText(stored(storage, ledger), 'a.rupea'))
+					.andThen((f) => Sync.indexFile({ ledgerId: ledger.id, file: f })),
+			);
+			await new Promise((r) => setTimeout(r, 50));
+
+			const syncing = issues(ledger);
+			await new Promise((r) => setTimeout(r, 200));
+			listed.resolve();
+
+			await Promise.all([writing, syncing]);
+			expect(await summary(ledger.id)).toEqual(['a.rupea:1 Groceries']);
 		}));
 
 	it('rolls back what a sync indexed when booking fails, and books on the next', ({

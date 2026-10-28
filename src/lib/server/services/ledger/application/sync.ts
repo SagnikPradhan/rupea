@@ -31,11 +31,19 @@ export const sync = (l: Ledger): ResultAsync<Batch<never>> =>
 /** Brings the index up to date without checking the ledger, which costs a pass over every event. */
 export const syncIndex = (ledger: Ledger): ResultAsync<RupeaError[]> =>
 	openFolder({ ledger, folder: 'files' }).andThen((s) =>
-		listLedgerFiles(s)
-			.andThen((f) => exclusively(ledger.id, () => update(s, ledger.id, f)).orElse((e) => ok([e])))
+		exclusively(ledger.id, () => listLedgerFiles(s).andThen((f) => update(s, ledger.id, f)))
+			.orElse((e) => ok([e]))
 			.andThen((f) => addProblems(ledger.id, f))
 			.andThen((f) => queueFetches(ledger, f))
 			.andThen((f) => embed(ledger.id, f)),
+	);
+
+/** Syncs the index as a job does, logging what failed, since nobody waits for its answer. */
+export const syncLedger = (ledger: Ledger): ResultAsync<void> =>
+	withContext('logger')((l) =>
+		syncIndex(ledger)
+			.andTee((f) => (f.length > 0 ? l.info({ failed: f }, 'synced with failures') : null))
+			.map(() => undefined),
 	);
 
 /** Runs `f` in one transaction as the ledger's only writer, so what it indexes is settled with it or not at all. */
@@ -107,10 +115,10 @@ export const indexEach = (steps: (() => ResultAsync<Indexed>)[]): ResultAsync<In
 export const checkLots = (l: Ledger): ResultAsync<RupeaError[]> =>
 	DB.listUnmatched(l.id).map((u) => u.map(toLotError));
 
-// Storage is listed before the lock, so the transaction lasts only while the
-// index changes. Most syncs find nothing changed, and then nothing needs
-// settling. A settle that fails undoes what this sync indexed, so the next one
-// tries again.
+// Storage is listed under the lock, so a file a writer indexed meanwhile is
+// listed too and never taken for gone. Most syncs find nothing changed, and
+// then nothing needs settling. A settle that fails undoes what this sync
+// indexed, so the next one tries again.
 const update = (s: Storage, id: string, stored: Entry[]): ResultAsync<RupeaError[]> =>
 	DB.listIndexedFiles(id).andThen((indexed) => {
 		const p = plan(stored, indexed);

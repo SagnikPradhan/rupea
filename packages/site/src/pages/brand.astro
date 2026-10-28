@@ -1,5 +1,4 @@
 ---
-import theme from '@rupea/theme/global.css?raw';
 import Page from '../layouts/Page.astro';
 
 const logos = [
@@ -9,10 +8,10 @@ const logos = [
 ];
 
 const colours = [
-	{ name: 'Ink', role: 'Text and the wordmark', ...shades('ink') },
-	{ name: 'Accent', role: 'The mark, and where you are', ...shades('accent') },
-	{ name: 'Surface', role: 'The page behind everything', ...shades('surface') },
-	{ name: 'Muted', role: 'Secondary text, never fainter', ...shades('muted') },
+	{ name: 'Ink', role: 'Text and the wordmark', token: '--color-ink' },
+	{ name: 'Accent', role: 'The mark, and where you are', token: '--color-accent' },
+	{ name: 'Surface', role: 'The page behind everything', token: '--color-surface' },
+	{ name: 'Muted', role: 'Secondary text, never fainter', token: '--color-muted' },
 ];
 
 const faces = [
@@ -26,13 +25,6 @@ const images = [
 	{ name: 'GitHub preview', file: 'github-social.png', size: '1280 × 640' },
 	{ name: 'Touch icon', file: 'apple-touch-icon.png', size: '180 × 180', icon: true },
 ];
-
-/** Reads a colour's light and dark values from the theme, so this page cannot drift from it. */
-function shades(token: string) {
-	const value = theme.match(new RegExp(`--color-${token}: light-dark\\((.+)\\);`))?.[1] ?? '';
-	const [light, dark] = value.split(/, (?![^(]*\))/);
-	return { light, dark };
-}
 ---
 
 <Page title="Brand" description="Rupea's logo, colours and type, and how to use them.">
@@ -96,6 +88,7 @@ function shades(token: string) {
 				<tr>
 					<th>Colour</th>
 					<th class="role">Role</th>
+					<th>Token</th>
 					<th>Light</th>
 					<th>Dark</th>
 				</tr>
@@ -106,18 +99,13 @@ function shades(token: string) {
 						<td>{colour.name}</td>
 						<td class="muted role">{colour.role}</td>
 						<td>
-							<span
-								class="swatch"
-								style={{ background: colour.light, borderColor: 'var(--color-border)' }}
-							/>
-							<code>{colour.light}</code>
+							<code>{colour.token}</code>
 						</td>
-						<td>
-							<span
-								class="swatch"
-								style={{ background: colour.dark, borderColor: 'var(--color-border)' }}
-							/>
-							<code>{colour.dark}</code>
+						<td class="light">
+							<span class="swatch" style={{ background: `var(${colour.token})` }} />
+						</td>
+						<td class="dark">
+							<span class="swatch" style={{ background: `var(${colour.token})` }} />
 						</td>
 					</tr>
 				))}
@@ -208,6 +196,7 @@ function shades(token: string) {
 
 	.tile {
 		display: grid;
+		background: var(--color-surface);
 		place-items: center;
 		min-height: var(--size-7);
 	}
@@ -216,18 +205,21 @@ function shades(token: string) {
 		max-width: 80%;
 	}
 
-	.tile.light {
+	.light {
 		color-scheme: light;
-		background: var(--color-surface);
 	}
 
-	.tile.dark {
+	.dark {
 		color-scheme: dark;
-		background: var(--color-surface);
+	}
+
+	.swatch {
+		border-color: var(--color-border);
 	}
 
 	table {
 		width: 100%;
+		border-collapse: collapse;
 	}
 
 	.faces {

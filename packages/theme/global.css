@@ -205,7 +205,7 @@ code {
 }
 
 .label,
-.labelled > thead > tr > th {
+.labelled thead th {
 	margin: 0;
 	color: var(--color-muted);
 	font-family: var(--font-body);
@@ -217,12 +217,7 @@ code {
 	text-align: left;
 }
 
-.labelled {
-	border-collapse: collapse;
-}
-
-.labelled > thead > tr > th {
-	padding-bottom: var(--size-2);
+.labelled thead th {
 	border-bottom: 1px solid var(--color-ink);
 }
 

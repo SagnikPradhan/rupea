@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: healthy-module
+expected_outcome: |
+  A small, healthy module of four short files. The review reports few findings, marks empty lenses Nothing found, and does not invent high-severity problems.

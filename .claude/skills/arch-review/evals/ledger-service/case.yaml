@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: ledger-service
+expected_outcome: |
+  A report with six lens sections on the ledger service. It finds the known problems: reads that sync, lock and embed; a broken file that forces a settle on each read; rupee valuation in both TypeScript and SQL; file writes that settle in three ways. Each finding has file:line and a fix direction.

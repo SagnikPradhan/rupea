@@ -372,26 +372,14 @@ importers:
         specifier: 5.0.5
         version: 5.0.5(@types/node@26.6.5)(@vitest/coverage-v8@5.0.5)(happy-dom@21.0.4)(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.6.1)(tsx@4.23.15)(yaml@2.9.1))
 
-  packages/theme:
-    dependencies:
-      '@fontsource-variable/geist-mono':
-        specifier: 5.3.0
-        version: 5.3.0
-      '@fontsource-variable/google-sans':
-        specifier: 5.3.2
-        version: 5.3.2
-      '@fontsource/poppins':
-        specifier: 5.3.0
-        version: 5.3.0
-
-  site:
+  packages/site:
     dependencies:
       '@astrojs/markdown-remark':
         specifier: 7.3.4
         version: 7.3.4(supports-color@7.2.0)
       '@rupea/theme':
         specifier: workspace:*
-        version: link:../packages/theme
+        version: link:../theme
       astro:
         specifier: 7.4.2
         version: 7.4.2(@astrojs/markdown-remark@7.3.4(supports-color@7.2.0))(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.6.1)(tsx@4.23.15)(yaml@2.9.1)
@@ -405,6 +393,18 @@ importers:
       typescript:
         specifier: ~6.0.3
         version: 6.0.3
+
+  packages/theme:
+    dependencies:
+      '@fontsource-variable/geist-mono':
+        specifier: 5.3.0
+        version: 5.3.0
+      '@fontsource-variable/google-sans':
+        specifier: 5.3.2
+        version: 5.3.2
+      '@fontsource/poppins':
+        specifier: 5.3.0
+        version: 5.3.0
 
 packages:
 

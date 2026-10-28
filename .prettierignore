@@ -9,4 +9,4 @@ bun.lockb
 /static/
 /drizzle/
 /.claude/
-/site/src/content/manual/glossary.md
+/packages/site/src/content/manual/glossary.md

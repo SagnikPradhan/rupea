@@ -1,0 +1,89 @@
+---
+import { getCollection, render, type CollectionEntry } from 'astro:content';
+import Page from '../../layouts/Page.astro';
+
+export async function getStaticPaths() {
+	const entries = await getCollection('manual');
+	return entries.map((entry) => ({
+		params: { page: entry.id === 'index' ? undefined : entry.id },
+		props: { entry },
+	}));
+}
+
+type Props = { entry: CollectionEntry<'manual'> };
+
+const sidebar = [
+	{ section: 'Start', pages: [{ id: 'index', label: 'Overview' }] },
+	{ section: 'Importing', pages: [{ id: 'schemas', label: 'Writing schemas' }] },
+	{ section: 'Reference', pages: [{ id: 'glossary', label: 'Glossary' }] },
+];
+
+const entry = Astro.props.entry;
+const { Content, headings } = await render(entry);
+
+const pages = sidebar.flatMap((group) =>
+	group.pages.map((page) => ({ ...page, section: group.section })),
+);
+const index = pages.findIndex((page) => page.id === entry.id);
+const previous = pages[index - 1];
+const next = pages[index + 1];
+
+const title = headings.find((heading) => heading.depth === 1)?.text ?? pages[index]?.label ?? '';
+const contents = headings.filter((heading) => heading.depth === 2);
+
+function href(id: string) {
+	return id === 'index' ? '/manual' : `/manual/${id}`;
+}
+---
+
+<Page title={title} description="How to use Rupea, a plain-text personal ledger.">
+	<div class="wide docs">
+		<nav class="sidebar" aria-label="Manual">
+			{sidebar.map((group) => (
+				<div>
+					<p class="label">{group.section}</p>
+					{group.pages.map((page) => (
+						<a
+							class="plain"
+							href={href(page.id)}
+							aria-current={page.id === entry.id ? 'page' : undefined}
+						>
+							{page.label}
+						</a>
+					))}
+				</div>
+			))}
+		</nav>
+
+		<main class="prose">
+			<p class="label">Manual / {pages[index]?.section}</p>
+			<Content />
+
+			<nav class="pager" aria-label="Pages">
+				{previous && (
+					<a class="plain" href={href(previous.id)}>
+						<span class="label">Previous</span>
+						{previous.label}
+					</a>
+				)}
+				{next && (
+					<a class="plain next" href={href(next.id)}>
+						<span class="label">Next</span>
+						{next.label}
+					</a>
+				)}
+			</nav>
+		</main>
+
+		{contents.length > 0 && (
+			<nav class="contents" aria-label="On this page">
+				<p class="label">On this page</p>
+				{contents.map((heading) => (
+					<a class="plain" href={`#${heading.slug}`}>
+						{heading.text}
+					</a>
+				))}
+			</nav>
+		)}
+	</div>
+</Page>

@@ -184,21 +184,15 @@ importers:
       '@embedpdf/pdfium':
         specifier: 2.15.1
         version: 2.15.1
-      '@fontsource-variable/geist-mono':
-        specifier: 5.3.0
-        version: 5.3.0
-      '@fontsource-variable/google-sans':
-        specifier: 5.3.2
-        version: 5.3.2
-      '@fontsource/poppins':
-        specifier: 5.3.0
-        version: 5.3.0
       '@huggingface/tokenizers':
         specifier: 0.2.0
         version: 0.2.0
       '@lezer/highlight':
         specifier: 1.2.5
         version: 1.2.5
+      '@rupea/theme':
+        specifier: workspace:*
+        version: link:packages/theme
       '@tabler/icons-svelte-runes':
         specifier: 3.49.0
         version: 3.49.0(svelte@5.57.3(@typescript-eslint/types@8.71.0))
@@ -378,11 +372,8 @@ importers:
         specifier: 5.0.5
         version: 5.0.5(@types/node@26.6.5)(@vitest/coverage-v8@5.0.5)(happy-dom@21.0.4)(vite@8.3.5(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.6.1)(tsx@4.23.15)(yaml@2.9.1))
 
-  site:
+  packages/theme:
     dependencies:
-      '@astrojs/markdown-remark':
-        specifier: 7.3.4
-        version: 7.3.4(supports-color@7.2.0)
       '@fontsource-variable/geist-mono':
         specifier: 5.3.0
         version: 5.3.0
@@ -392,6 +383,15 @@ importers:
       '@fontsource/poppins':
         specifier: 5.3.0
         version: 5.3.0
+
+  site:
+    dependencies:
+      '@astrojs/markdown-remark':
+        specifier: 7.3.4
+        version: 7.3.4(supports-color@7.2.0)
+      '@rupea/theme':
+        specifier: workspace:*
+        version: link:../packages/theme
       astro:
         specifier: 7.4.2
         version: 7.4.2(@astrojs/markdown-remark@7.3.4(supports-color@7.2.0))(@types/node@26.6.5)(esbuild@0.28.2)(jiti@2.6.1)(tsx@4.23.15)(yaml@2.9.1)

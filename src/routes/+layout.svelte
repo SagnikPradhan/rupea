@@ -3,12 +3,7 @@
 	import favicon from '#lib/assets/favicon.svg';
 	import { signOut } from '#lib/endpoints/auth.remote.ts';
 	import ThemeToggle from '#lib/web/components/theme-toggle/theme-toggle.svelte';
-	import '@fontsource/poppins/400.css';
-	import '@fontsource/poppins/500.css';
-	import '@fontsource-variable/google-sans';
-	import '@fontsource-variable/geist-mono';
-	import '#lib/web/styles/reset.css';
-	import '#lib/web/styles/global.css';
+	import '@rupea/theme/index.css';
 
 	const { data, children } = $props();
 

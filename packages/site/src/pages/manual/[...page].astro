@@ -13,8 +13,23 @@ export async function getStaticPaths() {
 type Props = { entry: CollectionEntry<'manual'> };
 
 const sidebar = [
-	{ section: 'Start', pages: [{ id: 'index', label: 'Overview' }] },
-	{ section: 'Importing', pages: [{ id: 'schemas', label: 'Writing schemas' }] },
+	{ section: 'Start', pages: [{ id: 'index', label: 'Getting started' }] },
+	{
+		section: 'Using Rupea',
+		pages: [
+			{ id: 'ledger-files', label: 'Ledger files' },
+			{ id: 'importing', label: 'Importing statements' },
+			{ id: 'schemas', label: 'Writing schemas' },
+			{ id: 'duplicates', label: 'Duplicates' },
+		],
+	},
+	{
+		section: 'About',
+		pages: [
+			{ id: 'comparison', label: 'Rupea and other apps' },
+			{ id: 'roadmap', label: 'Roadmap' },
+		],
+	},
 	{ section: 'Reference', pages: [{ id: 'glossary', label: 'Glossary' }] },
 ];
 

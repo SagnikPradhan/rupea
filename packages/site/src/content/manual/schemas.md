@@ -14,7 +14,7 @@ Rupea ships schemas for some common banks, called built-in schemas. Check the [l
 
 Schemas belong to a ledger, in its `schemas/` folder. Everyone who shares the ledger imports with the same schemas.
 
-To write one, open **Import** in your ledger and press **Upload statements**. When Rupea doesn't know a statement, it asks you to **Describe this statement**. Start from **The example**, Rupea's built-in schema for HDFC savings accounts, which this page walks through. Edit it under **Format**, give it a **Name** like `axis-savings.yml` and press **Save format**. The transactions it finds show below as you type, so you can see straight away what your schema reads.
+To write one, open **Import** in your ledger and press **Upload statements**. When Rupea doesn't know a statement, it asks you to **Describe this statement**. Start from **The example**, Rupea's built-in schema for HDFC savings accounts, which this page walks through. Edit it under **Schema**, give it a **Name** like `axis-savings.yml` and press **Save schema**. The transactions it finds show below as you type, so you can see straight away what your schema reads.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="/screenshots/import-format-dark.png">
@@ -106,7 +106,7 @@ Rupea tries your ledger's schemas first, and its built-in schemas only when none
 account: Assets:Bank:HDFC
 ```
 
-Every transaction the schema reads moves money into or out of this account. It starts with an account type: `Assets` for bank accounts and wallets, `Liabilities` for credit cards and loans. If you keep two accounts at one bank, write a schema for each, with a `match` that tells them apart, like the last four digits of the account number.
+Every transaction the schema reads moves money into or out of this account. It starts with an account type: `Assets` for bank accounts and wallets, `Liabilities` for credit cards and loans. If you keep two accounts at one bank, write a schema for each. Give each one a `match` that tells them apart, like the last four digits of the account number.
 
 ## Finding the header and the rows
 
@@ -124,7 +124,7 @@ header:
   regex: '^Txn\s+Date$'
 ```
 
-Every row below the header whose date reads is a record. Headers repeated on each page of a PDF are skipped. If no row's date reads, Rupea doesn't quietly import nothing: every row reports why its date didn't read, which usually means the date format is wrong.
+Every row below the header whose date reads is a record. Headers repeated on each page of a PDF are skipped. If no row's date reads, Rupea doesn't quietly import nothing. Every row reports why its date didn't read. Usually the date format is wrong.
 
 Rarely, a row whose date reads isn't a transaction. Then `records` with a `where` replaces the date rule: a row is a record only when its cell in one column matches a regular expression. This keeps the rows that have a reference number:
 
@@ -145,7 +145,7 @@ A record has five fields. Rupea needs the first three:
 | `date`        | The day of the transaction.                                                                                                                                       |
 | `amount`      | Money in is positive, money out is negative, as the account sees it.                                                                                              |
 | `description` | What the statement says about the transaction.                                                                                                                    |
-| `category`    | Optional. A category the statement gives. It counts only when it names an account, like `Expenses:Food`; otherwise Rupea guesses one from your past transactions. |
+| `category`    | Optional. A category the statement gives. It counts only when it names an account, like `Expenses:Food`. Otherwise Rupea guesses one from your past transactions. |
 | `balance`     | Optional. The running balance the statement prints after each row. Rupea checks your ledger against it.                                                           |
 
 Each field is a **path**: `from` says where the value is, and `pipe` turns the text found there into a value.
@@ -167,7 +167,7 @@ This reads: take the cell in the `Date` column of the record's row, and read it 
 - **`left: 1`**, **`right: 1`** move that many columns.
 - **`above: 1`**, **`below: 1`** move that many rows.
 
-Most fields need one locator. Moving matters when a statement doesn't keep a value in its own column; see [PDF statements](#pdf-statements).
+Most fields need one locator. Moving matters when a statement doesn't keep a value in its own column. See [PDF statements](#pdf-statements).
 
 ### Turning text into a value: transforms
 
@@ -179,7 +179,7 @@ Most fields need one locator. Moving matters when a statement doesn't keep a val
 - **`trim`** removes spaces from the start and end.
 - **`replace: { from: ' DR', to: '' }`** replaces text before reading it.
 
-`date` and `amount` need a `date` and a `number` transform; without one they stay text, and the row reports that it expected a date or an amount.
+`date` and `amount` need a `date` and a `number` transform. Without one they stay text, and the row reports that it expected a date or an amount.
 
 ### Debits and credits: two paths
 
@@ -197,7 +197,7 @@ On a withdrawal row the first path reads, and the amount goes out. On a deposit 
 
 ## PDF statements
 
-A PDF has no real columns, so Rupea finds the tables on each page and lines their words up into a grid. Check the grid on the import page before writing the fields; the columns may not be where the printed page suggests.
+A PDF has no real columns, so Rupea finds the tables on each page and lines their words up into a grid. Check the grid on the import page before you write the fields. The columns may not be where the printed page suggests.
 
 PDFs often mark an amount with `DR` or `CR` in the next cell instead of using two columns. The built-in schema for IDFC FIRST Bank credit cards reads them with locators that move:
 
@@ -221,7 +221,7 @@ fields:
 
 `[text: DR, left: 1]` finds the cell that says `DR` in the record's row, then reads the cell left of it. A row marked `CR` has no `DR` cell, so the first path finds nothing and the second reads the amount instead.
 
-When the mark shares a cell with the amount, like `1,250.50 DR`, remove it with `replace` before reading the number, as the built-in IDFC schema for older statements does:
+Sometimes the mark shares a cell with the amount, like `1,250.50 DR`. Remove it with `replace` before reading the number. The built-in IDFC schema for older statements does this:
 
 ```yaml
 amount:
@@ -259,7 +259,7 @@ A built-in schema is used only when none of your own schemas fit. The first time
 | `fields.category`    | no       | A path, or a list of paths.                                                                                                    |
 | `fields.balance`     | no       | A path, or a list of paths.                                                                                                    |
 
-A path is `{ from: [locators], pipe: [transforms] }`; `pipe` is optional.
+A path is `{ from: [locators], pipe: [transforms] }`. `pipe` is optional.
 
 | Locator                           | Goes to                                            |
 | --------------------------------- | -------------------------------------------------- |

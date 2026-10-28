@@ -1,101 +1,48 @@
 # Roadmap
 
-## Features
+What Rupea does today, and what is planned. Ticked items work now. The rest are not built yet, and are in no fixed order.
 
-### Import
+## Import
 
-- [x] Import PDF, CSV, XLS and XLSX statements
-- [x] Unlock password-protected PDFs and spreadsheets
-- [x] Teach Rupea a statement with a schema, and review the draft
-- [ ] Import from common Indian banks and cards without writing a schema
-  - [x] HDFC Bank savings account
-  - [x] HDFC Bank credit card
-  - [x] SBI savings account
-  - [x] IDFC FIRST Bank credit card
-  - [ ] SBI credit card: needs a sample statement
-  - [ ] ICICI Bank savings account: needs a sample statement
-  - [ ] ICICI Bank credit card: needs a sample statement
-  - [ ] Axis Bank savings account: needs a sample statement
-  - [ ] Axis Bank credit card: needs a sample statement
-  - [ ] Kotak Mahindra Bank savings account: needs a sample statement
-  - [ ] Kotak Mahindra Bank credit card: needs a sample statement
-  - [ ] IDFC FIRST Bank savings account: needs a sample statement
-- [ ] Import from brokers without writing a schema
-  - [ ] Consolidated Account Statement (CAS): needs a sample statement
-  - [ ] Interactive Brokers: needs a sample statement
-- [ ] Import scanned statements
-- [ ] Import statements sent by email or dropped in a Drive folder
+- [x] Read PDF, CSV and Excel statements, including password-protected ones
+- [x] Teach Rupea a new statement with a schema, and review each import
+- [x] Built-in schemas for HDFC Bank, IDFC FIRST Bank and State Bank of India
+- [ ] Built-in schemas for more banks, cards and brokers, as sample statements arrive
+- [ ] Import scanned statements, and statements sent by email or dropped in a Drive folder
 
-### Transactions
+## Transactions
 
-- [x] Keep your ledger in plain `.rupea` files
-- [x] Edit ledger files in the browser
-- [x] Browse transactions and postings
-- [ ] Add and edit a transaction from a form
-- [ ] Attach receipts and notes
-- [ ] Search transactions, with a query language over postings
+- [x] Keep your ledger in plain text files, and edit them in the browser
+- [x] Browse and filter transactions and postings
+- [ ] Add and edit transactions from a form, with receipts and notes
+- [ ] Search with a query language
 
-### Categories
+## Categories and matching
 
 - [x] Guess categories from past transactions
-- [ ] Set categories with rules on description, amount or account
-- [ ] Show readable merchant names
-- [ ] Recategorise many transactions at once
+- [x] Link the same money reported by two statements, after reviewing both
+- [ ] Set categories with rules, and change many at once
+- [ ] Match refunds to charges, and count transfers between your own accounts once
 
-### Matching
+## Investments and loans
 
-- [x] Merge a transaction reported by two sources, after reviewing the diff
-- [ ] Match refunds to their charges
-- [ ] Count transfers between your own accounts once
-- [ ] Reconcile an account against a balance assertion
-
-### Investments and loans
-
-- [x] Track shares and funds: lots, cost basis, prices, holdings
-- [ ] Track loans: what's left, and the interest in each payment
+- [x] Track shares and funds: lots, cost, prices, holdings and returns
+- [ ] Track loans and the interest in each payment
 - [ ] Report capital gains for an Indian financial year
-- [ ] Track currency gains on foreign money spent on foreign shares
-- [x] Show what went into and came out of each account, and its XIRR. Both need each
-      account's dated flows, so benchmark them on decades of history like net worth
-- [ ] Count a dividend paid to the bank towards the account holding its shares
 
-### Budgets and bills
+## Budgets and reports
 
-- [ ] Set a monthly budget per category and see what's left
-- [ ] Save toward goals with an amount and a date
-- [ ] See repeating payments and what's due next
-- [ ] Track credit card statement and due dates
-- [ ] Get alerts for overspending and bills due
-
-### Reports
-
-- [ ] See balances, this month and what needs attention on a home page
-- [ ] See every account with its balance
-- [ ] View a balance sheet and an income statement
-- [ ] Summarise a month or a year
-- [ ] Report in one currency
-- [ ] Chart spending, income, net worth and budgets over time (spending and net worth done)
+- [x] Chart spending and net worth over time
+- [ ] Budgets, goals, repeating payments and bill reminders
+- [ ] A home page, a balance sheet and an income statement
 - [ ] Export as CSV
 
-### Sharing
+## Sharing and access
 
 - [x] Sign in with a code sent by email
 - [x] Keep each ledger in your own storage
-- [ ] Create and rename ledgers
-- [ ] Invite members and let them write
-- [ ] Back up your storage and restore it
-- [ ] Use Rupea in a phone browser
-- [ ] Use Rupea as a desktop app
-
-## Internals
-
-- [x] Read statement tables with ML models
-- [x] Index ledger files into Postgres, served or embedded
-- [x] Enforce member access
-- [ ] Keep statements and schemas in the ledger
-      ([ADR 0008](docs/adr/0008-statements-and-schemas-belong-to-the-ledger.md))
-- [x] Pick a chart library ([ADR 0013](docs/adr/0013-charts-with-uplot.md))
-- [ ] Value net worth in under 100 ms on decades of history. Over 20 years at 10 transactions
-      a day it takes about 230 ms for a month and 380 ms for a year (`pnpm bench`). Syncing the
-      index alone takes about 240 ms, so most of it is the sync.
-- [ ] Bundle the migrations into the build, so the server starts from any directory
+- [ ] Run Rupea on your own computer without signing in
+- [ ] Create ledgers, and invite others to them
+- [ ] Back up and restore
+- [ ] Use Rupea on a phone, or as a desktop app
+- [ ] Stay fast on decades of history

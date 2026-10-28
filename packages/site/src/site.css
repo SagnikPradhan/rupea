@@ -34,7 +34,31 @@ header.bar {
 footer.bar {
 	border-top: 1px solid var(--color-border);
 	color: var(--color-muted);
+}
+
+footer.bar > .wide {
+	align-items: flex-start;
+	padding-block: var(--size-5);
+}
+
+footer .about {
+	max-width: 20rem;
+}
+
+footer .about p {
+	color: var(--color-muted);
 	font-size: var(--font-size-0);
+}
+
+footer .columns {
+	display: flex;
+	flex-wrap: wrap;
+	gap: var(--size-5);
+}
+
+footer.bar nav {
+	flex-direction: column;
+	gap: var(--size-1);
 }
 
 .bar nav {
@@ -49,12 +73,6 @@ footer.bar {
 	font-family: var(--font-heading);
 	font-size: var(--font-size-2);
 	font-weight: 500;
-}
-
-.brand-small {
-	display: inline-flex;
-	align-items: center;
-	gap: var(--size-1);
 }
 
 .docs {
@@ -116,13 +134,33 @@ footer.bar {
 	margin-top: var(--size-2);
 }
 
+.prose h2 {
+	margin: var(--size-5) 0 0;
+}
+
+.prose h3 {
+	margin: var(--size-4) 0 0;
+}
+
+.prose :is(p, ul, ol, pre, table, picture) {
+	display: block;
+	margin: var(--size-2) 0;
+}
+
+.prose picture {
+	max-width: 75%;
+}
+
+.prose :is(h2, h3) + * {
+	margin-top: var(--size-1);
+}
+
 .prose pre {
 	padding: var(--size-2) var(--size-3);
 	background: var(--color-subtle);
 	border: 1px solid var(--color-border);
 	border-radius: var(--radius);
 	overflow-x: auto;
-	line-height: 1.6;
 }
 
 .prose :not(pre) > code {
@@ -136,7 +174,6 @@ footer.bar {
 	display: block;
 	overflow-x: auto;
 	border-collapse: collapse;
-	margin: var(--size-3) 0;
 	font-size: var(--font-size-0);
 }
 

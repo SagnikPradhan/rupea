@@ -1,0 +1,5 @@
+{
+	"name": "arch-review",
+	"description": "Reviewer agents for the arch-review skill: three agents that run two design lenses each, and a verifier.",
+	"version": "0.1.0"
+}

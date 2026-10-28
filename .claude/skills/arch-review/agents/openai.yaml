@@ -1,0 +1,3 @@
+interface:
+  display_name: 'Architecture Review'
+  short_description: 'Six lenses in three reviewers, and a verifier for a directory, branch or diff'

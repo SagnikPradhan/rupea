@@ -3,7 +3,7 @@ name: Pages
 on:
   push:
     branches: [master]
-    paths: [site/**, GLOSSARY.md, src/lib/web/styles/global.css, .github/workflows/pages.yml]
+    paths: [site/**, GLOSSARY.md, packages/theme/**, .github/workflows/pages.yml]
   workflow_dispatch:
 
 permissions:

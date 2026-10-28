@@ -206,7 +206,7 @@ describe('metadata', () => {
 	it('belongs to the nearest line above it, whatever its indentation', () => {
 		const { succeeded, failed } = run([
 			'2026-10-01 Amazon order',
-			'\t- event: 2026-10-01-amazon-otter',
+			'\t- group: 2026-10-01-amazon-otter',
 			'- ref: 402-123',
 			'\tLiabilities:Card -1299',
 			'\tExpenses:Books 499',
@@ -217,7 +217,7 @@ describe('metadata', () => {
 
 		expect(failed).toEqual([]);
 		expect(succeeded[0]?.metadata).toEqual({
-			event: ['2026-10-01-amazon-otter'],
+			group: ['2026-10-01-amazon-otter'],
 			ref: ['402-123'],
 		});
 		expect(succeeded[0]?.postings.map((p) => p.metadata)).toEqual([

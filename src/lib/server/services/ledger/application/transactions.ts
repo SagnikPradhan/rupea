@@ -17,7 +17,7 @@ const POSTINGS_PER_PAGE = 200;
 
 type ListOptions<C> = { ledger: Ledger; filter: DB.ListFilter; after: C | null };
 
-/** A page of transactions, newest first; evidence of an event is listed but not counted. */
+/** A page of transactions, newest first; evidence of a group is listed but not counted. */
 export const listTransactions = ({
 	ledger,
 	filter,

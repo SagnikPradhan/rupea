@@ -33,21 +33,21 @@ export const explain = (error: RupeaError): string =>
 			(e) => `${e.commodity} is linked more than once from the same day.`,
 		)
 		.with(
-			{ type: 'EventInvalidMembership' },
-			() => 'This transaction belongs to more than one event.',
+			{ type: 'GroupInvalidMembership' },
+			() => 'This transaction belongs to more than one group.',
 		)
 		.with(
-			{ type: 'EventStale' },
-			() => 'This event changed since it was read. Reload and try again.',
+			{ type: 'GroupStale' },
+			() => 'This group changed since it was read. Reload and try again.',
 		)
-		.with({ type: 'EventWithoutPrimary' }, (e) => `Event ${e.event} has no primary transaction.`)
+		.with({ type: 'GroupWithoutPrimary' }, (e) => `Group ${e.group} has no primary transaction.`)
 		.with(
-			{ type: 'EventWithManyPrimaries' },
-			(e) => `Event ${e.event} has more than one primary transaction.`,
+			{ type: 'GroupWithManyPrimaries' },
+			(e) => `Group ${e.group} has more than one primary transaction.`,
 		)
 		.with(
-			{ type: 'EventDisagreement' },
-			(e) => `Event ${e.event} disagrees on ${e.account}: expected ${e.expected}, got ${e.actual}.`,
+			{ type: 'GroupDisagreement' },
+			(e) => `Group ${e.group} disagrees on ${e.account}: expected ${e.expected}, got ${e.actual}.`,
 		)
 		.with(
 			{ type: 'BalanceAssertionFailed' },

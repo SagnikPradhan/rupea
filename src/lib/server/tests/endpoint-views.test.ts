@@ -1,14 +1,14 @@
 import {
 	viewAccount,
 	viewCounted,
-	viewEvent,
+	viewGroup,
 	viewLot,
 	viewPosting,
 	viewTransaction,
 	viewWorth,
 } from '#lib/endpoints/views.ts';
 import { parseAmount, type Amount } from '#services/ledger/domain/amounts.ts';
-import { EventRole } from '#services/ledger/domain/events.ts';
+import { GroupRole } from '#services/ledger/domain/groups.ts';
 import {
 	DisposalKind,
 	LotOrigin,
@@ -99,9 +99,9 @@ describe('viewing what a transaction is listed as', () => {
 		});
 	});
 
-	it('keeps the role of each member of an event', () => {
-		const member = { ...transaction, id: 't1', role: EventRole.Evidence, counted: false };
-		expect(viewEvent({ event: 'rent', members: [member] }).members).toMatchObject([
+	it('keeps the role of each member of a group', () => {
+		const member = { ...transaction, id: 't1', role: GroupRole.Evidence, counted: false };
+		expect(viewGroup({ group: 'rent', members: [member] }).members).toMatchObject([
 			{ role: 'evidence', counted: false, description: 'Groceries' },
 		]);
 	});

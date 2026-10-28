@@ -10,9 +10,9 @@
 		readFile,
 		renameFiles,
 	} from '#lib/endpoints/files.remote.ts';
-	import { listEvents, listSuggestions } from '#lib/endpoints/refinement.remote.ts';
+	import { listGroups, listSuggestions } from '#lib/endpoints/refinement.remote.ts';
 	import FileEditor from '#lib/web/components/file-editor/file-editor.svelte';
-	import FileEvents from '#lib/web/components/file-events/file-events.svelte';
+	import FileGroups from '#lib/web/components/file-groups/file-groups.svelte';
 	import FileIndex from '#lib/web/components/file-index/file-index.svelte';
 	import Issues from '#lib/web/components/issues/issues.svelte';
 	import type { Reply } from '#lib/server/shared/result/reply.ts';
@@ -40,7 +40,7 @@
 			save: async (input) => {
 				const saved = await editFile({ handle, ...input });
 				if (saved.ok)
-					await Promise.all([refine(input.key), listEvents({ handle, file: input.key }).refresh()]);
+					await Promise.all([refine(input.key), listGroups({ handle, file: input.key }).refresh()]);
 				return saved;
 			},
 			create: (input) => createFile({ handle, ...input }),
@@ -96,5 +96,5 @@
 {#if selected === null}
 	<FileIndex {handle} />
 {:else}
-	<FileEvents {handle} file={selected} locked={editor.dirty} onchanged={editor.reload} />
+	<FileGroups {handle} file={selected} locked={editor.dirty} onchanged={editor.reload} />
 {/if}

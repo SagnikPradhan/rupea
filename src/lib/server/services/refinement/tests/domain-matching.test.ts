@@ -1,5 +1,5 @@
 import {
-	EventRole,
+	GroupRole,
 	parseAmount,
 	type Amount,
 	type RupeaMetadata,
@@ -46,10 +46,10 @@ const run = (t: MatchedTransaction[], pairs: [string, string][], dismissed: stri
 	});
 
 const roles = (s: ReturnType<typeof run>) =>
-	s.map((x) => [x.event, x.confidence, x.links.map((l) => `${l.file}:${l.line} ${l.role}`)]);
+	s.map((x) => [x.group, x.confidence, x.links.map((l) => `${l.file}:${l.line} ${l.role}`)]);
 
-describe('suggesting events', () => {
-	it('makes the transaction with more postings the primary of a new event', () => {
+describe('suggesting groups', () => {
+	it('makes the transaction with more postings the primary of a new group', () => {
 		const card = transaction('card/1', 'AMAZON PAY INDIA');
 		const order = transaction('amazon/4', 'Amazon order 402-123', [
 			['Liabilities:Card', '-1299'],
@@ -61,7 +61,7 @@ describe('suggesting events', () => {
 			[
 				null,
 				Confidence.Possible,
-				[`amazon.rupea:4 ${EventRole.Primary}`, `card.rupea:1 ${EventRole.Evidence}`],
+				[`amazon.rupea:4 ${GroupRole.Primary}`, `card.rupea:1 ${GroupRole.Evidence}`],
 			],
 		]);
 	});
@@ -74,22 +74,22 @@ describe('suggesting events', () => {
 			[
 				null,
 				Confidence.Duplicate,
-				[`oct.rupea:1 ${EventRole.Primary}`, `sep.rupea:3 ${EventRole.Evidence}`],
+				[`oct.rupea:1 ${GroupRole.Primary}`, `sep.rupea:3 ${GroupRole.Evidence}`],
 			],
 		]);
 	});
 
-	it('joins an event either side is already in', () => {
-		const order = transaction('amazon/1', 'Order', undefined, { event: ['e1'] });
+	it('joins a group either side is already in', () => {
+		const order = transaction('amazon/1', 'Order', undefined, { group: ['e1'] });
 		const card = transaction('card/1', 'AMAZON');
 		const csv = transaction('csv/1', 'AMAZON', undefined, { 'same-as': ['e2'] });
 
 		expect(roles(run([order, card], [['card/1', 'amazon/1']]))).toEqual([
-			['e1', Confidence.Possible, [`card.rupea:1 ${EventRole.Evidence}`]],
+			['e1', Confidence.Possible, [`card.rupea:1 ${GroupRole.Evidence}`]],
 		]);
 		expect(roles(run([order, csv], [['amazon/1', 'csv/1']]))).toEqual([]);
 		expect(roles(run([card, csv], [['card/1', 'csv/1']]))).toEqual([
-			['e2', Confidence.Duplicate, [`card.rupea:1 ${EventRole.Evidence}`]],
+			['e2', Confidence.Duplicate, [`card.rupea:1 ${GroupRole.Evidence}`]],
 		]);
 	});
 
@@ -104,8 +104,8 @@ describe('suggesting events', () => {
 		]);
 	});
 
-	it('never puts a second member from the refined file into an event', () => {
-		const first = transaction('oct/1', 'TEA', undefined, { event: ['e1'] });
+	it('never puts a second member from the refined file into a group', () => {
+		const first = transaction('oct/1', 'TEA', undefined, { group: ['e1'] });
 		const second = transaction('oct/4', 'TEA');
 		const theirs = transaction('sep/1', 'TEA', undefined, { 'same-as': ['e1'] });
 

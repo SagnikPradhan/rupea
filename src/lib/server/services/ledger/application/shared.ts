@@ -5,7 +5,7 @@ export {
 	parseAmount,
 	type Amount,
 } from '../domain/amounts';
-export { EventRole, linksOf } from '../domain/events';
+export { GroupRole, linksOf } from '../domain/groups';
 export type { LinkEdit } from '../domain/links';
 export { displayLocation, parse } from '../domain/parser';
 export { print, printQuantity } from '../domain/printer';

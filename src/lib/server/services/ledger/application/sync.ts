@@ -11,7 +11,7 @@ import * as DB from '../adapters/database';
 import { fetchQuotes } from '../adapters/jobs';
 import { embedTexts, MODEL } from '../adapters/prediction-model2vec';
 import { formatQuantity, type Amount } from '../domain/amounts';
-import { checkEvents } from '../domain/events';
+import { checkGroups } from '../domain/groups';
 import { displayLocation, parse } from '../domain/parser';
 import { plan, type SyncPlan } from '../domain/sync';
 import { filled, wordsOf, type Unembedded } from '../domain/text';
@@ -28,7 +28,7 @@ export type Indexed = { failed: RupeaError[]; commodities: string[]; spans: Span
 export const sync = (l: Ledger): ResultAsync<Batch<never>> =>
 	syncIndex(l).andThen((f) => checkLedger(l).map((e) => ({ succeeded: [], failed: [...f, ...e] })));
 
-/** Brings the index up to date without checking the ledger, which costs a pass over every event. */
+/** Brings the index up to date without checking the ledger, which costs a pass over every group. */
 export const syncIndex = (ledger: Ledger): ResultAsync<RupeaError[]> =>
 	openFolder({ ledger, folder: 'files' }).andThen((s) =>
 		exclusively(ledger.id, () => listLedgerFiles(s).andThen((f) => update(s, ledger.id, f)))
@@ -172,11 +172,11 @@ const fill = (ledgerId: string, rows: Unembedded[]): ResultAsync<void> =>
 		return vectors.andThen((v) => DB.saveEmbeddings(ledgerId, MODEL, filled(rows, v)));
 	});
 
-// Events and balances span files, so they are checked after every file is in
-// place. Evidence is not counted: an event's money moves at its primary.
+// Groups and balances span files, so they are checked after every file is in
+// place. Evidence is not counted: a group's money moves at its primary.
 const checkLedger = (ledger: Ledger): ResultAsync<RupeaError[]> =>
-	DB.listEventTransactions(ledger.id)
-		.map(checkEvents)
+	DB.listGroupTransactions(ledger.id)
+		.map(checkGroups)
 		.andThen((e) =>
 			DB.listBalanceChecks(ledger.id).map((c) => [...e.failed, ...c.map(toBalanceError)]),
 		)
@@ -203,7 +203,7 @@ const saveChecks = (id: string, s: Span | null): ResultAsync<void> =>
 	s ? DB.saveBalanceChecks(id, s.from) : okAsync();
 
 const uncountedIn = (id: string): ResultAsync<string[]> =>
-	DB.listEventTransactions(id).map((m) => checkEvents(m).uncounted);
+	DB.listGroupTransactions(id).map((m) => checkGroups(m).uncounted);
 
 // An assertion that could go either way is not checked; a time on either side settles it.
 const toBalanceError = (c: DB.BalanceCheck): RupeaError =>

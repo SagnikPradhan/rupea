@@ -435,7 +435,7 @@ describe('syncing the ledger', () => {
 		}));
 });
 
-describe('events across files', () => {
+describe('groups across files', () => {
 	const transfer = (role: string, amount: string) =>
 		[
 			'2026-10-03 NEFT IBKR',
@@ -445,10 +445,10 @@ describe('events across files', () => {
 			'',
 		].join('\n');
 
-	it('counts an event once, keeping its evidence', ({ context, db }) =>
+	it('counts a group once, keeping its evidence', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			await Files.createFile({ ledger, key: 'hdfc.rupea', content: transfer('event', '1000') });
+			await Files.createFile({ ledger, key: 'hdfc.rupea', content: transfer('group', '1000') });
 			await Files.createFile({ ledger, key: 'ibkr.rupea', content: transfer('same-as', '1000') });
 			await Files.createFile({ ledger, key: 'a.rupea', content: groceries });
 
@@ -460,15 +460,15 @@ describe('events across files', () => {
 			]);
 		}));
 
-	it('reports a broken event on every sync and counts all of it', ({ context, db }) =>
+	it('reports a broken group on every sync and counts all of it', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({ ledger, key: 'hdfc.rupea', content: transfer('same-as', '1000') });
 			await Files.createFile({ ledger, key: 'ibkr.rupea', content: transfer('same-as', '1000') });
 
 			const problem = {
-				type: 'EventWithoutPrimary',
-				event: '2026-10-03-ibkr-otter',
+				type: 'GroupWithoutPrimary',
+				group: '2026-10-03-ibkr-otter',
 				location: 'hdfc.rupea:1, ibkr.rupea:1',
 			};
 			expect(await issues(ledger)).toEqual(ok([problem]));
@@ -479,12 +479,12 @@ describe('events across files', () => {
 	it('reports evidence that disagrees with its primary', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			await Files.createFile({ ledger, key: 'hdfc.rupea', content: transfer('event', '1000') });
+			await Files.createFile({ ledger, key: 'hdfc.rupea', content: transfer('group', '1000') });
 			await Files.createFile({ ledger, key: 'ibkr.rupea', content: transfer('same-as', '999') });
 
 			expect((await issues(ledger))._unsafeUnwrap()).toMatchObject([
-				{ type: 'EventDisagreement', location: 'ibkr.rupea:1', account: 'Assets:IBKR' },
-				{ type: 'EventDisagreement', location: 'ibkr.rupea:1', account: 'Assets:HDFC' },
+				{ type: 'GroupDisagreement', location: 'ibkr.rupea:1', account: 'Assets:IBKR' },
+				{ type: 'GroupDisagreement', location: 'ibkr.rupea:1', account: 'Assets:HDFC' },
 			]);
 		}));
 });
@@ -559,7 +559,7 @@ describe('balance assertions', () => {
 			]);
 		}));
 
-	it('places an event at its primary', ({ context, db }) =>
+	it('places a group at its primary', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({ ledger, key: 'opening.rupea', content: opening });
@@ -575,7 +575,7 @@ describe('balance assertions', () => {
 				key: 'amazon.rupea',
 				content: [
 					'2026-08-02 10:00 Amazon order',
-					'\t- event: books',
+					'\t- group: books',
 					'\tAssets:Bank -50',
 					'\tExpenses:Books 30',
 					'\tExpenses:Stationery 20',
@@ -631,7 +631,7 @@ describe('balance assertions', () => {
 			await Files.createFile({
 				ledger,
 				key: 'amazon.rupea',
-				content: '2026-08-03 Amazon order\n\t- event: books\n\tAssets:Bank -50\n\tExpenses:Books\n',
+				content: '2026-08-03 Amazon order\n\t- group: books\n\tAssets:Bank -50\n\tExpenses:Books\n',
 			});
 
 			expect((await issues(ledger))._unsafeUnwrap()).toEqual([
@@ -661,7 +661,7 @@ describe('balance assertions', () => {
 			await Files.createFile({
 				ledger,
 				key: 'amazon.rupea',
-				content: '2026-08-03 Amazon order\n\t- event: books\n\tAssets:Bank -50\n\tExpenses:Books\n',
+				content: '2026-08-03 Amazon order\n\t- group: books\n\tAssets:Bank -50\n\tExpenses:Books\n',
 			});
 
 			expect(await issues(ledger)).toEqual(ok([]));
@@ -771,7 +771,7 @@ describe('balance assertions', () => {
 			await Files.createFile({
 				ledger,
 				key: 'amazon.rupea',
-				content: '2026-08-02 Amazon order\n\t- event: books\n\tAssets:Bank -50\n\tExpenses:Books\n',
+				content: '2026-08-02 Amazon order\n\t- group: books\n\tAssets:Bank -50\n\tExpenses:Books\n',
 			});
 			expect(await counted()).toEqual([
 				{ posting: false, transaction: false },
@@ -964,14 +964,14 @@ describe('lots', () => {
 			const ledger = await createLedger(db);
 			const buy = (role: string) =>
 				bought.replace('Buy\n', `Buy\n\t- ${role}: 2024-01-02-infy-otter\n`);
-			await Files.createFile({ ledger, key: 'a.rupea', content: buy('event') });
+			await Files.createFile({ ledger, key: 'a.rupea', content: buy('group') });
 			await Files.createFile({ ledger, key: 'b.rupea', content: buy('same-as') });
 
 			expect(await issues(ledger)).toEqual(ok([]));
 			expect(await held(db, ledger.id)).toHaveLength(1);
 		}));
 
-	it('books again when an event stops counting the buy', ({ context, db }) =>
+	it('books again when a group stops counting the buy', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({
@@ -985,7 +985,7 @@ describe('lots', () => {
 				ledger,
 				key: 'a.rupea',
 				content:
-					'2024-01-02 Transfer\n\t- event: 2024-01-02-infy-otter\n\tAssets:Zerodha 15000\n\tAssets:Bank\n',
+					'2024-01-02 Transfer\n\t- group: 2024-01-02-infy-otter\n\tAssets:Zerodha 15000\n\tAssets:Bank\n',
 			});
 			await issues(ledger);
 
@@ -1168,7 +1168,7 @@ describe('monthly deltas', () => {
 			await Files.createFile({
 				ledger,
 				key: 'amazon.rupea',
-				content: '2026-08-01 Amazon order\n\t- event: books\n\tAssets:Bank -50\n\tExpenses:Books\n',
+				content: '2026-08-01 Amazon order\n\t- group: books\n\tAssets:Bank -50\n\tExpenses:Books\n',
 			});
 
 			expect(await months(db, ledger.id)).toEqual([

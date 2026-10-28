@@ -1,14 +1,14 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { listEvents, makePrimary, renameEvent } from '#lib/endpoints/refinement.remote.ts';
+import { listGroups, makePrimary, renameGroup } from '#lib/endpoints/refinement.remote.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
-import FileEvents from '#lib/web/components/file-events/file-events.svelte';
+import FileGroups from '#lib/web/components/file-groups/file-groups.svelte';
 import { answer } from '#tests/shared/queries.ts';
 
 vi.mock('#lib/endpoints/refinement.remote.ts', () => ({
-	listEvents: vi.fn(),
+	listGroups: vi.fn(),
 	makePrimary: vi.fn(),
-	renameEvent: vi.fn(),
+	renameGroup: vi.fn(),
 }));
 
 afterEach(() => {
@@ -26,47 +26,47 @@ const member = (file: string, role: string, counted: boolean) => ({
 });
 
 const transfer = {
-	event: 'transfer-otter',
+	group: 'transfer-otter',
 	members: [member('ibkr.rupea', 'primary', true), member('hdfc.rupea', 'evidence', false)],
 };
 
 const rendered = (locked = false) => {
-	vi.mocked(listEvents).mockReturnValue(answer([transfer]));
-	vi.mocked(renameEvent).mockResolvedValue({ ok: true, data: [], errors: [] });
+	vi.mocked(listGroups).mockReturnValue(answer([transfer]));
+	vi.mocked(renameGroup).mockResolvedValue({ ok: true, data: [], errors: [] });
 	vi.mocked(makePrimary).mockResolvedValue({
 		ok: true,
-		data: [fault('EventStale', { location: 'hdfc.rupea:1' })],
+		data: [fault('GroupStale', { location: 'hdfc.rupea:1' })],
 		errors: [],
 	});
 	const onchanged = vi.fn();
-	render(FileEvents, { handle: 'h', file: 'ibkr.rupea', locked, onchanged });
+	render(FileGroups, { handle: 'h', file: 'ibkr.rupea', locked, onchanged });
 	return { onchanged };
 };
 
-describe('the file events', () => {
+describe('the file groups', () => {
 	it('lists each member, and marks the uncounted', async () => {
 		rendered();
 
-		const event = await screen.findByRole('article', { name: 'Event transfer-otter' });
-		expect(event.textContent).toContain('Primary:');
-		expect(event.textContent).toContain('Evidence, not counted:');
+		const group = await screen.findByRole('article', { name: 'Group transfer-otter' });
+		expect(group.textContent).toContain('Primary:');
+		expect(group.textContent).toContain('Evidence, not counted:');
 		expect(screen.getAllByRole('button', { name: 'Make primary' })).toHaveLength(1);
 	});
 
-	it('renames an event to what was typed, and ignores the same name', async () => {
+	it('renames a group to what was typed, and ignores the same name', async () => {
 		const { onchanged } = rendered();
 		const prompt = vi.fn().mockReturnValueOnce('transfer-otter');
 		vi.stubGlobal('prompt', prompt);
-		await fireEvent.click(await screen.findByRole('button', { name: 'Rename event' }));
-		expect(renameEvent).not.toHaveBeenCalled();
+		await fireEvent.click(await screen.findByRole('button', { name: 'Rename group' }));
+		expect(renameGroup).not.toHaveBeenCalled();
 
 		prompt.mockReturnValueOnce('salary');
-		await fireEvent.click(screen.getByRole('button', { name: 'Rename event' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Rename group' }));
 		await waitFor(() => expect(onchanged).toHaveBeenCalled());
-		expect(renameEvent).toHaveBeenCalledWith({
+		expect(renameGroup).toHaveBeenCalledWith({
 			handle: 'h',
 			file: 'ibkr.rupea',
-			event: 'transfer-otter',
+			group: 'transfer-otter',
 			to: 'salary',
 		});
 	});
@@ -75,11 +75,11 @@ describe('the file events', () => {
 		rendered();
 		await fireEvent.click(await screen.findByRole('button', { name: 'Make primary' }));
 
-		expect((await screen.findByRole('alert')).textContent).toBe('EventStale at hdfc.rupea:1');
+		expect((await screen.findByRole('alert')).textContent).toBe('GroupStale at hdfc.rupea:1');
 		expect(makePrimary).toHaveBeenCalledWith({
 			handle: 'h',
 			file: 'ibkr.rupea',
-			event: 'transfer-otter',
+			group: 'transfer-otter',
 			member: { file: 'hdfc.rupea', line: 1 },
 		});
 	});
@@ -87,7 +87,7 @@ describe('the file events', () => {
 	it('holds changes while the file has unsaved edits', async () => {
 		rendered(true);
 
-		expect(await screen.findByText('Save to change events.')).toBeTruthy();
+		expect(await screen.findByText('Save to change groups.')).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Make primary' })).toHaveProperty('disabled', true);
 	});
 });

@@ -109,7 +109,7 @@ export const transactions = PG.pgTable(
 		description: t.text().notNull(),
 		embedding: t.vector({ dimensions: EMBEDDING_DIMENSIONS }), // of the description; filled lazily
 		embeddingModel: t.text(),
-		counted: t.boolean().notNull().default(true), // false for an event's evidence; set once files settle
+		counted: t.boolean().notNull().default(true), // false for a group's evidence; set once files settle
 	}),
 	(t) => [
 		PG.index('transactions_file_id').on(t.fileId),

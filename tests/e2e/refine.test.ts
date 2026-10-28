@@ -51,19 +51,19 @@ test('reviews the duplicates of a statement imported twice', async ({ signedIn: 
 	await expect(page.getByRole('rowgroup').filter({ hasText: 'SALARY' })).toHaveCount(2);
 
 	await visit(page, `${ledger}/files?file=imports/aug.rupea`);
-	const events = page.getByRole('region', { name: 'Events' });
-	await expect(events.getByRole('article')).toHaveCount(2);
-	const salary = events.getByRole('article').filter({ hasText: 'SALARY' });
+	const groups = page.getByRole('region', { name: 'Groups' });
+	await expect(groups.getByRole('article')).toHaveCount(2);
+	const salary = groups.getByRole('article').filter({ hasText: 'SALARY' });
 	await expect(salary.getByText('Evidence, not counted: imports/aug.rupea')).toBeVisible();
 
 	await salary.getByRole('button', { name: 'Make primary' }).click();
 	await expect(salary.getByText('Evidence, not counted: imports/aug-again.rupea')).toBeVisible();
-	await expect(page.getByLabel('Ledger file')).toContainText(/SALARY\s*- event: /);
+	await expect(page.getByLabel('Ledger file')).toContainText(/SALARY\s*- group: /);
 
 	page.once('dialog', (d) => void d.accept('august-salary'));
-	await salary.getByRole('button', { name: 'Rename event' }).click();
-	await expect(events.getByRole('article', { name: 'Event august-salary' })).toBeVisible();
-	await expect(page.getByLabel('Ledger file')).toContainText('- event: august-salary');
+	await salary.getByRole('button', { name: 'Rename group' }).click();
+	await expect(groups.getByRole('article', { name: 'Group august-salary' })).toBeVisible();
+	await expect(page.getByLabel('Ledger file')).toContainText('- group: august-salary');
 });
 
 test('dismisses one match, and accepts the other with its primary swapped', async ({

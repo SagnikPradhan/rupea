@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { listFiles } from '#lib/endpoints/files.remote.ts';
 	import {
-		linkEvents,
+		linkGroups,
 		dismissSuggestion,
 		listSuggestions,
 	} from '#lib/endpoints/refinement.remote.ts';
@@ -14,7 +14,7 @@
 
 	type Suggestion = NonNullable<Awaited<ReturnType<typeof listSuggestions>>['data']>[number];
 
-	const KEYS: Record<string, string> = { primary: 'event', evidence: 'same-as' };
+	const KEYS: Record<string, string> = { primary: 'group', evidence: 'same-as' };
 
 	const { data } = $props();
 
@@ -29,7 +29,7 @@
 	const failures = $state({ list: [] as RupeaError[] });
 	const swapped = $state<Record<string, boolean>>({});
 
-	// Only a new event has both links to swap; joining one keeps its primary.
+	// Only a new group has both links to swap; joining one keeps its primary.
 	const links = (s: Suggestion) =>
 		swapped[s.fingerprint] && s.links.length === 2
 			? s.links.map((l, i) => ({ ...l, role: s.links[1 - i]?.role ?? l.role }))
@@ -39,10 +39,10 @@
 		links(s).find((l) => l.file === t.file && l.line === t.line)?.role;
 
 	const edits = (s: Suggestion[]) =>
-		s.flatMap((x) => links(x).map((l) => ({ ...l, event: x.event ?? '' })));
+		s.flatMap((x) => links(x).map((l) => ({ ...l, group: x.group ?? '' })));
 
 	async function accept(s: Suggestion[]) {
-		const accepted = await linkEvents({ handle, edits: edits(s) });
+		const accepted = await linkGroups({ handle, edits: edits(s) });
 		failures.list = [...accepted.errors, ...(accepted.data ?? [])];
 	}
 
@@ -53,12 +53,12 @@
 	}
 </script>
 
-{#snippet side(t: Suggestion['ours'], role: string | undefined, event: string | null)}
+{#snippet side(t: Suggestion['ours'], role: string | undefined, group: string | null)}
 	<div>
 		<p><a href={fileHref(handle, t.file, t.line)}>{t.file}:{t.line}</a></p>
 		<pre>{[
 				`${t.date} ${t.description}`,
-				...(role ? [`\t- ${KEYS[role]}: ${event}   ← added`] : []),
+				...(role ? [`\t- ${KEYS[role]}: ${group}   ← added`] : []),
 				...t.postings.map((p) => `\t${p.account} ${p.quantity}`),
 			].join('\n')}</pre>
 	</div>
@@ -97,10 +97,10 @@
 
 		{#each suggestions as s (s.fingerprint)}
 			<article aria-label="Match {s.ours.file}:{s.ours.line}">
-				<h2>{s.confidence === 'duplicate' ? 'Duplicate' : 'Possible match'}: {s.event}</h2>
+				<h2>{s.confidence === 'duplicate' ? 'Duplicate' : 'Possible match'}: {s.group}</h2>
 				<div style="display: flex; gap: 2rem">
-					{@render side(s.ours, roleAt(s, s.ours), s.event)}
-					{@render side(s.theirs, roleAt(s, s.theirs), s.event)}
+					{@render side(s.ours, roleAt(s, s.ours), s.group)}
+					{@render side(s.theirs, roleAt(s, s.theirs), s.group)}
 				</div>
 				<button onclick={() => accept([s])}>Accept</button>
 				{#if s.links.length === 2}

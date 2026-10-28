@@ -1,5 +1,5 @@
 import { parseAmount, type Amount } from '#services/ledger/domain/amounts.ts';
-import { checkEvents, counted, type EventMember } from '#services/ledger/domain/events.ts';
+import { checkGroups, counted, type GroupMember } from '#services/ledger/domain/groups.ts';
 import type { RupeaMetadata } from '#services/ledger/domain/types.ts';
 import { describe, expect, it } from 'vitest';
 
@@ -10,7 +10,7 @@ const member = (
 		['Liabilities:Card', '-1299'],
 		['Expenses:Shopping', '1299'],
 	],
-): EventMember => ({
+): GroupMember => ({
 	id,
 	location: { file: `${id}.rupea`, line: 1 },
 	metadata,
@@ -27,11 +27,11 @@ const member = (
 
 const ID = '2026-10-01-amazon-otter';
 
-describe('checking events', () => {
-	it('leaves out the evidence of a sound event', () => {
+describe('checking groups', () => {
+	it('leaves out the evidence of a sound group', () => {
 		expect(
-			checkEvents([
-				member('order', { event: [ID] }, [
+			checkGroups([
+				member('order', { group: [ID] }, [
 					['Liabilities:Card', '-1299'],
 					['Expenses:Books', '499'],
 					['Expenses:Electronics', '800'],
@@ -44,40 +44,40 @@ describe('checking events', () => {
 	});
 
 	it('accepts a primary whose evidence has gone', () => {
-		expect(checkEvents([member('order', { event: [ID] })])).toEqual({
+		expect(checkGroups([member('order', { group: [ID] })])).toEqual({
 			uncounted: [],
 			failed: [],
 		});
 	});
 
-	it('counts every member of an event without a primary', () => {
+	it('counts every member of a group without a primary', () => {
 		expect(
-			checkEvents([member('a', { 'same-as': [ID] }), member('b', { 'same-as': [ID] })]),
+			checkGroups([member('a', { 'same-as': [ID] }), member('b', { 'same-as': [ID] })]),
 		).toEqual({
 			uncounted: [],
 			failed: [
 				{
-					type: 'EventWithoutPrimary',
-					event: ID,
+					type: 'GroupWithoutPrimary',
+					group: ID,
 					location: 'a.rupea:1, b.rupea:1',
 				},
 			],
 		});
 	});
 
-	it('counts every member of an event with several primaries', () => {
+	it('counts every member of a group with several primaries', () => {
 		expect(
-			checkEvents([
-				member('a', { event: [ID] }),
-				member('b', { event: [ID] }),
+			checkGroups([
+				member('a', { group: [ID] }),
+				member('b', { group: [ID] }),
 				member('c', { 'same-as': [ID] }),
 			]),
 		).toEqual({
 			uncounted: [],
 			failed: [
 				{
-					type: 'EventWithManyPrimaries',
-					event: ID,
+					type: 'GroupWithManyPrimaries',
+					group: ID,
 					location: 'a.rupea:1, b.rupea:1',
 				},
 			],
@@ -85,19 +85,19 @@ describe('checking events', () => {
 	});
 
 	it.each([
-		['two roles', { event: [ID], 'same-as': [ID] }],
-		['two events', { 'same-as': [ID, 'other'] }],
+		['two roles', { group: [ID], 'same-as': [ID] }],
+		['two groups', { 'same-as': [ID, 'other'] }],
 	])('counts a transaction with %s on its own', (_, metadata) => {
-		expect(checkEvents([member('a', { event: [ID] }), member('b', metadata)])).toEqual({
+		expect(checkGroups([member('a', { group: [ID] }), member('b', metadata)])).toEqual({
 			uncounted: [],
-			failed: [{ type: 'EventInvalidMembership', location: 'b.rupea:1' }],
+			failed: [{ type: 'GroupInvalidMembership', location: 'b.rupea:1' }],
 		});
 	});
 
 	it('reports evidence that disagrees on a shared balance account, and still leaves it out', () => {
 		expect(
-			checkEvents([
-				member('hdfc', { event: [ID] }, [
+			checkGroups([
+				member('hdfc', { group: [ID] }, [
 					['Assets:HDFC', '-1000'],
 					['Assets:IBKR', '1000'],
 				]),
@@ -109,8 +109,8 @@ describe('checking events', () => {
 		).toEqual({
 			uncounted: ['ibkr'],
 			failed: ['Assets:IBKR', 'Assets:HDFC'].map((account) => ({
-				type: 'EventDisagreement',
-				event: ID,
+				type: 'GroupDisagreement',
+				group: ID,
 				location: 'ibkr.rupea:1',
 				account,
 				expected: account === 'Assets:IBKR' ? '1000.00' : '-1000.00',
@@ -121,8 +121,8 @@ describe('checking events', () => {
 
 	it('ignores categories and accounts only one side posts to', () => {
 		expect(
-			checkEvents([
-				member('order', { event: [ID] }, [
+			checkGroups([
+				member('order', { group: [ID] }, [
 					['Liabilities:Card', '-1299'],
 					['Expenses:Books', '1299'],
 				]),
@@ -139,7 +139,7 @@ describe('checking events', () => {
 describe('counting transactions', () => {
 	it('marks evidence as not counted, and everything else as counted', () => {
 		const c = counted([
-			member('order', { event: [ID] }),
+			member('order', { group: [ID] }),
 			member('card', { 'same-as': [ID] }),
 			member('cash', {}),
 		]);
@@ -152,10 +152,10 @@ describe('counting transactions', () => {
 		expect(c.uncounted).toEqual(['card']);
 	});
 
-	it('counts every member of a broken event, and says why', () => {
+	it('counts every member of a broken group, and says why', () => {
 		const c = counted([member('a', { 'same-as': [ID] }), member('b', { 'same-as': [ID] })]);
 
 		expect(c.transactions.every((t) => t.counted)).toBe(true);
-		expect(c.failed).toMatchObject([{ type: 'EventWithoutPrimary' }]);
+		expect(c.failed).toMatchObject([{ type: 'GroupWithoutPrimary' }]);
 	});
 });

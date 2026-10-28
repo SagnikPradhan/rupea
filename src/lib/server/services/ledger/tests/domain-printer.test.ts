@@ -79,7 +79,7 @@ const annotated: RupeaLedgerFile = {
 			date: Temporal.PlainDate.from('2026-10-01'),
 			time: null,
 			description: 'Amazon order 402-123',
-			metadata: { event: ['2026-10-01-amazon-otter'], ref: ['402-1', '402-2'] },
+			metadata: { group: ['2026-10-01-amazon-otter'], ref: ['402-1', '402-2'] },
 			postings: [
 				{
 					account: 'Liabilities:Card',
@@ -184,7 +184,7 @@ describe('printing a ledger', () => {
 				'- statement: hdfc-card-oct-2026.pdf',
 				'',
 				'2026-10-01 Amazon order 402-123',
-				'\t- event: 2026-10-01-amazon-otter',
+				'\t- group: 2026-10-01-amazon-otter',
 				'\t- ref: 402-1',
 				'\t- ref: 402-2',
 				'\tLiabilities:Card',

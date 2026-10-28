@@ -59,30 +59,30 @@ describe('explain', () => {
 			'HNFI is linked more than once from the same day.',
 		],
 		[
-			fault('EventInvalidMembership', { location: at }),
-			'This transaction belongs to more than one event.',
+			fault('GroupInvalidMembership', { location: at }),
+			'This transaction belongs to more than one group.',
 		],
 		[
-			fault('EventStale', { location: at }),
-			'This event changed since it was read. Reload and try again.',
+			fault('GroupStale', { location: at }),
+			'This group changed since it was read. Reload and try again.',
 		],
 		[
-			fault('EventWithoutPrimary', { event: 'rent', location: at }),
-			'Event rent has no primary transaction.',
+			fault('GroupWithoutPrimary', { group: 'rent', location: at }),
+			'Group rent has no primary transaction.',
 		],
 		[
-			fault('EventWithManyPrimaries', { event: 'rent', location: at }),
-			'Event rent has more than one primary transaction.',
+			fault('GroupWithManyPrimaries', { group: 'rent', location: at }),
+			'Group rent has more than one primary transaction.',
 		],
 		[
-			fault('EventDisagreement', {
-				event: 'rent',
+			fault('GroupDisagreement', {
+				group: 'rent',
 				location: at,
 				account: 'Assets:Bank',
 				expected: '-100',
 				actual: '-90',
 			}),
-			'Event rent disagrees on Assets:Bank: expected -100, got -90.',
+			'Group rent disagrees on Assets:Bank: expected -100, got -90.',
 		],
 		[
 			fault('BalanceAssertionFailed', {
@@ -119,8 +119,8 @@ describe('explain', () => {
 
 describe('placesOf', () => {
 	it('splits a location into each file and line it names', () => {
-		const error = fault('EventWithManyPrimaries', {
-			event: 'rent',
+		const error = fault('GroupWithManyPrimaries', {
+			group: 'rent',
 			location: 'a.rupea:4, b/c.rupea:9',
 		});
 		expect(placesOf(error)).toEqual([

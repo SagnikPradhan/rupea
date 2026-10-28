@@ -1,16 +1,16 @@
 import { replyFrom } from '#lib/server/shared/result/reply.ts';
-import * as Events from '#services/ledger/application/events.ts';
-import { EventRole } from '#services/ledger/application/shared.ts';
+import * as Groups from '#services/ledger/application/groups.ts';
+import { GroupRole } from '#services/ledger/application/shared.ts';
 import * as Refinement from '#services/refinement/application/refinement.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
 import { listFiles } from './files.remote';
 import { Handle, inLedger, Key } from './shared';
 import { sync } from './transactions.remote';
-import { viewEvent, viewSuggestion } from './views';
+import { viewGroup, viewSuggestion } from './views';
 
 const Line = v.pipe(v.number(), v.integer(), v.minValue(1));
-const EventId = v.pipe(v.string(), v.regex(/^\S+$/, 'An event id is one word.'));
+const GroupId = v.pipe(v.string(), v.regex(/^\S+$/, 'A group id is one word.'));
 const Fingerprint = v.pipe(v.string(), v.regex(/^[0-9a-f]{64}$/));
 
 export const listSuggestions = query(v.object({ handle: Handle, file: Key }), ({ handle, file }) =>
@@ -21,7 +21,7 @@ export const listSuggestions = query(v.object({ handle: Handle, file: Key }), ({
 	),
 );
 
-export const linkEvents = command(
+export const linkGroups = command(
 	v.object({
 		handle: Handle,
 		edits: v.array(
@@ -30,15 +30,15 @@ export const linkEvents = command(
 				line: Line,
 				date: v.string(),
 				description: v.string(),
-				role: v.enum(EventRole),
-				event: EventId,
+				role: v.enum(GroupRole),
+				group: GroupId,
 			}),
 		),
 	}),
 	async ({ handle, edits }) => {
 		const linked = await inLedger({
 			handle,
-			action: (l) => Events.linkEvents({ ledger: l, edits }),
+			action: (l) => Groups.linkGroups({ ledger: l, edits }),
 		});
 		void listFiles(handle).refresh();
 		void sync(handle).refresh();
@@ -60,24 +60,24 @@ export const dismissSuggestion = command(
 	},
 );
 
-export const listEvents = query(v.object({ handle: Handle, file: Key }), ({ handle, file }) =>
+export const listGroups = query(v.object({ handle: Handle, file: Key }), ({ handle, file }) =>
 	replyFrom(
-		inLedger({ handle, action: (l) => Events.listEvents({ ledger: l, file }) }).map((e) =>
-			e.map(viewEvent),
+		inLedger({ handle, action: (l) => Groups.listGroups({ ledger: l, file }) }).map((e) =>
+			e.map(viewGroup),
 		),
 	),
 );
 
-export const renameEvent = command(
-	v.object({ handle: Handle, file: Key, event: EventId, to: EventId }),
-	async ({ handle, file, event, to }) => {
+export const renameGroup = command(
+	v.object({ handle: Handle, file: Key, group: GroupId, to: GroupId }),
+	async ({ handle, file, group, to }) => {
 		const renamed = await inLedger({
 			handle,
-			action: (l) => Events.renameEvent({ ledger: l, event, to }),
+			action: (l) => Groups.renameGroup({ ledger: l, group, to }),
 		});
 		void listFiles(handle).refresh();
 		void sync(handle).refresh();
-		void listEvents({ handle, file }).refresh();
+		void listGroups({ handle, file }).refresh();
 		return replyFrom(renamed);
 	},
 );
@@ -86,17 +86,17 @@ export const makePrimary = command(
 	v.object({
 		handle: Handle,
 		file: Key,
-		event: EventId,
+		group: GroupId,
 		member: v.object({ file: Key, line: Line }),
 	}),
-	async ({ handle, file, event, member }) => {
+	async ({ handle, file, group, member }) => {
 		const made = await inLedger({
 			handle,
-			action: (l) => Events.makePrimary({ ledger: l, event, ...member }),
+			action: (l) => Groups.makePrimary({ ledger: l, group, ...member }),
 		});
 		void listFiles(handle).refresh();
 		void sync(handle).refresh();
-		void listEvents({ handle, file }).refresh();
+		void listGroups({ handle, file }).refresh();
 		return replyFrom(made);
 	},
 );

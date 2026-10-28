@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import { listFiles } from '#lib/endpoints/files.remote.ts';
 import {
 	dismissSuggestion,
-	linkEvents,
+	linkGroups,
 	listSuggestions,
 } from '#lib/endpoints/refinement.remote.ts';
 import { fault, type RupeaError } from '#lib/server/shared/result/error.ts';
@@ -17,7 +17,7 @@ vi.mock('$app/navigation', () => import('#tests/shared/app-navigation.ts'));
 vi.mock('#lib/endpoints/files.remote.ts', () => ({ listFiles: vi.fn() }));
 vi.mock('#lib/endpoints/refinement.remote.ts', () => ({
 	listSuggestions: vi.fn(),
-	linkEvents: vi.fn(),
+	linkGroups: vi.fn(),
 	dismissSuggestion: vi.fn(),
 }));
 
@@ -35,7 +35,7 @@ const side = (file: string, description: string) => ({
 const transfer = {
 	fingerprint: 'a'.repeat(64),
 	confidence: 'duplicate',
-	event: 'transfer-otter',
+	group: 'transfer-otter',
 	ours: side('ibkr.rupea', 'Deposit'),
 	theirs: side('hdfc.rupea', 'NEFT TO INTERACTIVE BROKERS'),
 	links: [
@@ -53,7 +53,7 @@ const transfer = {
 const showing = (suggestions: unknown[], errors: RupeaError[] = []) => {
 	vi.mocked(listFiles).mockReturnValue(answer([{ key: 'hdfc.rupea' }, { key: 'ibkr.rupea' }]));
 	vi.mocked(listSuggestions).mockReturnValue(answer(suggestions, errors));
-	vi.mocked(linkEvents).mockResolvedValue({ ok: true, data: [], errors: [] });
+	vi.mocked(linkGroups).mockResolvedValue({ ok: true, data: [], errors: [] });
 	vi.mocked(dismissSuggestion).mockResolvedValue({ ok: true, data: undefined, errors: [] });
 };
 
@@ -84,15 +84,15 @@ describe('the refine page', () => {
 		render(Page, { data });
 
 		const match = await screen.findByRole('article', { name: 'Match ibkr.rupea:1' });
-		expect(match.textContent).toContain('- event: transfer-otter');
+		expect(match.textContent).toContain('- group: transfer-otter');
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Swap primary' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Accept' }));
-		expect(linkEvents).toHaveBeenCalledWith({
+		expect(linkGroups).toHaveBeenCalledWith({
 			handle: 'h',
 			edits: [
-				expect.objectContaining({ file: 'ibkr.rupea', role: 'evidence', event: 'transfer-otter' }),
-				expect.objectContaining({ file: 'hdfc.rupea', role: 'primary', event: 'transfer-otter' }),
+				expect.objectContaining({ file: 'ibkr.rupea', role: 'evidence', group: 'transfer-otter' }),
+				expect.objectContaining({ file: 'hdfc.rupea', role: 'primary', group: 'transfer-otter' }),
 			],
 		});
 	});
@@ -104,7 +104,7 @@ describe('the refine page', () => {
 
 		await fireEvent.click(await screen.findByRole('button', { name: 'Accept all 1 duplicates' }));
 		await fireEvent.click(screen.getByRole('button', { name: 'Dismiss' }));
-		expect(linkEvents).toHaveBeenCalledOnce();
+		expect(linkGroups).toHaveBeenCalledOnce();
 		expect(dismissSuggestion).toHaveBeenCalledWith({
 			handle: 'h',
 			file: 'ibkr.rupea',
@@ -114,9 +114,9 @@ describe('the refine page', () => {
 
 	it('reports what went wrong listing the matches', async () => {
 		visit('/l/h/refine?file=ibkr.rupea');
-		showing([], [fault('EventStale', { location: 'ibkr.rupea' })]);
+		showing([], [fault('GroupStale', { location: 'ibkr.rupea' })]);
 		render(Page, { data });
 
-		expect((await screen.findByRole('alert')).textContent).toBe('EventStale at ibkr.rupea');
+		expect((await screen.findByRole('alert')).textContent).toBe('GroupStale at ibkr.rupea');
 	});
 });

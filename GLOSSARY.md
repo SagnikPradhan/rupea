@@ -193,33 +193,33 @@ _Avoid_: Preview
 The `_/` folder of a ledger's files, where uploads and drafts wait. The ledger counts nothing in it until a file is moved out.
 _Avoid_: Staging, inbox
 
-## Events
+## Groups
 
-**Event**:
-One real money movement, seen as a group of transactions from different sources that share an event ID.
-_Avoid_: Duplicate group, merge, cluster
+**Group**:
+One real money movement, seen as transactions from different sources that share a group ID. Short for transaction group.
+_Avoid_: Event (a server's own), duplicate group, merge, cluster
 
 **Primary**:
-The one member of an event whose postings count.
+The one member of a group whose postings count.
 _Avoid_: Canonical, master
 
 **Evidence**:
-A member of an event that is kept but not counted.
+A member of a group that is kept but not counted.
 _Avoid_: Duplicate, copy, shadow
 
 **Duplicate**:
-Not a separate concept: a re-imported transaction is evidence in an event whose members share a description.
+Not a separate concept: a re-imported transaction is evidence in a group whose members share a description.
 
 **Refinement**:
-The step that finds candidates among saved transactions and proposes events as a reviewable diff.
+The step that finds candidates among saved transactions and proposes groups as a reviewable diff.
 _Avoid_: Dedup, reconciliation
 
 **Candidate**:
-Two transactions refinement suggests might be one event.
+Two transactions refinement suggests might be one group.
 _Avoid_: Match (before it is accepted)
 
-**Broken event**:
-An event whose members contradict each other, such as no primary or two primaries.
+**Broken group**:
+A group whose members contradict each other, such as no primary or two primaries.
 
 ## Lists
 
@@ -249,7 +249,7 @@ _Avoid_: Task, queue item, message
 
 **Partition**:
 The jobs of one name that run one at a time, like the statements one user uploaded. A job names its partition with a key, its user's by default.
-_Avoid_: Queue, lane, group
+_Avoid_: Queue, lane, group (a group of transactions)
 
 **Orchestrator**:
 The part of the server that claims due jobs, dispatches each to a worker and settles how it ended: succeeded, retried or failed. A claim holds a lease the orchestrator renews until the job settles; a claim whose lease runs out is released, since its worker died.

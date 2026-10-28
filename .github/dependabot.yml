@@ -1,0 +1,29 @@
+version: 2
+
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    versioning-strategy: increase
+    cooldown:
+      default-days: 3
+      exclude:
+        - portable-pg
+    groups:
+      npm:
+        update-types: [minor, patch]
+    ignore:
+      # typescript-eslint and check:ts6 still need TypeScript 6; tsgo comes from @typescript/native.
+      - dependency-name: typescript
+        update-types: [version-update:semver-major]
+      # 3.23.1 turns on no-navigation-without-resolve for SvelteKit 3; lift once links use resolve().
+      - dependency-name: eslint-plugin-svelte
+
+  - package-ecosystem: github-actions
+    directories: [/, /.github/actions/*]
+    schedule:
+      interval: weekly
+    groups:
+      actions:
+        patterns: ['*']

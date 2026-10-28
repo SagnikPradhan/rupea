@@ -36,6 +36,11 @@ export enum LotOrigin {
 	Unpriced = 'unpriced',
 }
 
+/** Who finds a problem, so each replaces only its own. */
+export enum ProblemKind {
+	Parse = 'parse',
+}
+
 export enum DisposalKind {
 	Sale = 'sale',
 	Transfer = 'transfer',

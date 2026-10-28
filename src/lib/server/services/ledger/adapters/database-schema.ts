@@ -11,6 +11,7 @@ import {
 	LotOrigin,
 	PriceKind,
 	PriceSource,
+	ProblemKind,
 } from '../domain/types';
 
 export const accountType = PG.pgEnum('account_type', AccountType);
@@ -19,6 +20,7 @@ export const priceSource = PG.pgEnum('price_source', PriceSource);
 export const feed = PG.pgEnum('feed', Feed);
 export const lotOrigin = PG.pgEnum('lot_origin', LotOrigin);
 export const disposalKind = PG.pgEnum('disposal_kind', DisposalKind);
+export const problemKind = PG.pgEnum('problem_kind', ProblemKind);
 
 // Ten-billionths of a unit; a bigint would overflow past 900 million units or on a product.
 const amount = () => PG.numeric({ precision: 38, scale: 0, mode: 'bigint' });
@@ -64,9 +66,25 @@ export const ledgerFiles = PG.pgTable(
 			.notNull()
 			.references(() => ledgers.id, { onDelete: 'cascade' }),
 		key: t.text().notNull(),
-		version: t.text(),
+		version: t.text().notNull(),
 	}),
 	(t) => [PG.unique('ledger_files_ledger_id_key').on(t.ledgerId, t.key)],
+);
+
+// What a ledger's owner can fix, kept so it is reported without finding it again.
+export const problems = PG.pgTable(
+	'problems',
+	(t) => ({
+		...base,
+		ledgerId: t
+			.uuid()
+			.notNull()
+			.references(() => ledgers.id, { onDelete: 'cascade' }),
+		fileId: t.uuid().references(() => ledgerFiles.id, { onDelete: 'cascade' }),
+		kind: problemKind().notNull(),
+		error: t.jsonb().$type<RupeaError>().notNull(),
+	}),
+	(t) => [PG.index('problems_ledger_id').on(t.ledgerId), PG.index('problems_file_id').on(t.fileId)],
 );
 
 export const transactions = PG.pgTable(

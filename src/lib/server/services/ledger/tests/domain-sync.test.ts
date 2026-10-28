@@ -15,12 +15,6 @@ describe('planning a sync', () => {
 		expect(plan(stored, indexed)).toEqual({ changed: ['b', 'c'], gone: [] });
 	});
 
-	it('reindexes files that had errors', () => {
-		expect(plan([{ key: 'a', version: '1' }], [{ key: 'a', version: null }]).changed).toEqual([
-			'a',
-		]);
-	});
-
 	it('drops files no longer stored', () => {
 		expect(plan([], [{ key: 'a', version: '1' }])).toEqual({ changed: [], gone: ['a'] });
 	});

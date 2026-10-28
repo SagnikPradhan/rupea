@@ -17,6 +17,7 @@ import type {
 	monthlyDeltas,
 	postings,
 	prices,
+	problems,
 	symbolFetches,
 	symbolLinks,
 	symbols,
@@ -49,6 +50,7 @@ export type Tables = {
 	monthlyDeltas: Kyselify<typeof monthlyDeltas>;
 	postings: Kyselify<typeof postings>;
 	prices: Kyselify<typeof prices>;
+	problems: Kyselify<typeof problems>;
 	sessions: Kyselify<typeof sessions>;
 	statementContents: Kyselify<typeof statementContents>;
 	statements: Kyselify<typeof statements>;

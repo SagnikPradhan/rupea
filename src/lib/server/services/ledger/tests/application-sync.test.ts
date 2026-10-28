@@ -41,6 +41,11 @@ const annotated = [
 	'',
 ].join('\n');
 
+const problemIds = async (db: Database, ledgerId: string) =>
+	(await db.selectFrom('problems').select('id').where('ledgerId', '=', ledgerId).execute()).map(
+		(p) => p.id,
+	);
+
 const fileMetadata = async (db: Database, ledgerId: string) =>
 	(
 		await db
@@ -344,6 +349,35 @@ describe('syncing the ledger', () => {
 
 			await put(storage, ledger, 'a.rupea', groceries);
 			expect(await issues(ledger)).toEqual(ok([]));
+		}));
+
+	it('keeps a file with errors at its version, so it is not parsed again', ({
+		context,
+		db,
+		storage,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await put(storage, ledger, 'a.rupea', `${groceries}2026-08-30 Bad\n\tbad posting x\n`);
+
+			await Sync.sync(ledger);
+			const first = await problemIds(db, ledger.id);
+			await Sync.sync(ledger);
+
+			expect(first).toHaveLength(1);
+			expect(await problemIds(db, ledger.id)).toEqual(first);
+		}));
+
+	it('drops the problems of a file that goes', ({ context, db, storage }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await put(storage, ledger, 'a.rupea', '2026-08-30 Bad\n\tbad posting x\n');
+			await Sync.sync(ledger);
+
+			await stored(storage, ledger).delete('a.rupea');
+
+			expect(await issues(ledger)).toEqual(ok([]));
+			expect(await problemIds(db, ledger.id)).toEqual([]);
 		}));
 
 	it('orders a day by time, untimed first', ({ context, db, storage }) =>

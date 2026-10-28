@@ -14,7 +14,7 @@ const findLedger = (db: Database, id: string) =>
 const createFile = (db: Database, ledgerId: string) =>
 	db
 		.insertInto('ledgerFiles')
-		.values({ ledgerId, key: 'a' })
+		.values({ ledgerId, key: 'a', version: '1' })
 		.returning('id')
 		.executeTakeFirstOrThrow();
 
@@ -117,7 +117,10 @@ describe('the database', () => {
 		const id = (await createLedger(db)).id;
 		const failing = db.transaction().execute(async (tx) => {
 			await tx.updateTable('ledgers').set({ name: 'Half done' }).where('id', '=', id).execute();
-			await tx.insertInto('ledgerFiles').values({ ledgerId: uuidv7(), key: 'a' }).execute();
+			await tx
+				.insertInto('ledgerFiles')
+				.values({ ledgerId: uuidv7(), key: 'a', version: '1' })
+				.execute();
 		});
 
 		await expect(failing).rejects.toMatchObject({ message: /foreign key/ });

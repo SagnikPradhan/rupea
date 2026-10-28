@@ -112,7 +112,7 @@
 		Object.assign(view, { found: parsed, errors: read.errors });
 	}
 
-	// A statement no saved or built-in format recognises opens its setup.
+	// A statement no saved or built-in schema recognises opens its setup.
 	async function opened(
 		ticket: number,
 		read: Reply<{ key: string; grid: string[][] }> | undefined,
@@ -355,7 +355,7 @@
 					<p class="hint">
 						Read as {view.schema?.key}.
 						<button class="link" onclick={() => (view.setup = true)}>
-							Read it with another format
+							Read it with another schema
 						</button>
 					</p>
 				{/if}

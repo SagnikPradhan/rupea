@@ -196,7 +196,7 @@ describe('a statement Rupea knows', () => {
 		const { user } = showing('/l/h/import?statement=hdfc.xls');
 		expect(await screen.findByText(/1 transaction found/)).toBeTruthy();
 		expect(screen.getByRole('table', { name: 'Transactions found' }).textContent).toContain('NEFT');
-		expect(screen.queryByLabelText('Format')).toBeNull();
+		expect(screen.queryByLabelText('Schema')).toBeNull();
 
 		await user.click(screen.getByRole('button', { name: 'Add to ledger' }));
 		const where = screen.getByLabelText<HTMLInputElement>('Add to file');
@@ -284,9 +284,9 @@ describe('a statement Rupea knows', () => {
 
 	it('opens its format on asking', async () => {
 		const { user } = showing('/l/h/import?statement=hdfc.xls');
-		await user.click(await screen.findByRole('button', { name: 'Read it with another format' }));
+		await user.click(await screen.findByRole('button', { name: 'Read it with another schema' }));
 
-		expect(screen.getByLabelText<HTMLTextAreaElement>('Format').value).toBe('name: HDFC');
+		expect(screen.getByLabelText<HTMLTextAreaElement>('Schema').value).toBe('name: HDFC');
 	});
 });
 
@@ -340,7 +340,7 @@ describe('a statement Rupea does not know', () => {
 		expect(await screen.findByRole('heading', { name: 'Describe this statement' })).toBeTruthy();
 		expect(screen.getByRole('table', { name: 'Statement' }).textContent).toContain('Narration');
 
-		await fireEvent.input(screen.getByLabelText('Format'), { target: { value: 'name: Mine' } });
+		await fireEvent.input(screen.getByLabelText('Schema'), { target: { value: 'name: Mine' } });
 		await waitFor(() =>
 			expect(previewStatement).toHaveBeenCalledWith({
 				handle: 'h',
@@ -354,10 +354,10 @@ describe('a statement Rupea does not know', () => {
 		const { user } = unknown();
 		await user.click(await screen.findByRole('button', { name: 'hdfc.yml' }));
 		await waitFor(() =>
-			expect(screen.getByLabelText<HTMLTextAreaElement>('Format').value).toBe('name: Saved'),
+			expect(screen.getByLabelText<HTMLTextAreaElement>('Schema').value).toBe('name: Saved'),
 		);
 
-		await user.click(screen.getByRole('button', { name: 'Save format' }));
+		await user.click(screen.getByRole('button', { name: 'Save schema' }));
 		expect(await screen.findByText('Saved.')).toBeTruthy();
 		expect(saveSchema).toHaveBeenCalledWith({
 			handle: 'h',
@@ -374,7 +374,7 @@ describe('a statement Rupea does not know', () => {
 		const { user } = unknown();
 		await user.click(await screen.findByRole('button', { name: 'The example' }));
 
-		expect(screen.getByLabelText<HTMLTextAreaElement>('Format').value).toContain(
+		expect(screen.getByLabelText<HTMLTextAreaElement>('Schema').value).toContain(
 			'name: HDFC Bank savings account',
 		);
 	});

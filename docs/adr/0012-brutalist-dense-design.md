@@ -24,6 +24,12 @@ Rupea reads like a sharp accountant's working paper: numbers first, structure on
 
 **Shrewd.** A screen surfaces what is at stake, such as problems, unpriced holdings and gains, and stays quiet otherwise. Labels are terse. There is no filler copy, illustration or onboarding chatter, and icons appear only where text will not fit.
 
+## The site
+
+rupea.app, the docs and brand site, is read once rather than worked in, so it trades density for room. It keeps the app's faces, ink, grey and accent, and still has no shadows, gradients or illustrations. A page may centre its hero, leave wide margins, and frame a screenshot in a hairline border. Buttons, code blocks and screenshots share the controls' small radius; nothing else is rounded. The manual reads like any docs site, with its pages on the left and the current page's headings on the right.
+
+**The mark is a rupee sign drawn in rules.** Two bars, then the bowl and leg as one stroke, wholly in the accent beside an ink wordmark set in Google Sans. Its files, with outlined lettering, are in `site/public/brand/`, and the app's favicon is a copy of it.
+
 ## Considered Options
 
 - **A conventional app look** (cards, soft shadows, rounded panels): familiar, but it spends space on chrome and hides the data's own structure.

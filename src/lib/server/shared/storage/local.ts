@@ -1,8 +1,8 @@
-import type { Dirent } from 'node:fs';
+import { watch, type BigIntStats, type Dirent } from 'node:fs';
 import { randomUUID } from 'node:crypto';
+import { on } from 'node:events';
 import { glob, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, sep } from 'node:path';
-import { sha256 } from '../hash';
 import { fault, type RupeaError, unknownError } from '../result/error';
 import { attempt, err, ok, okAsync, type Result, ResultAsync, inOrder } from '../result/result';
 import { validateKey, type Entry, type Storage } from './storage';
@@ -36,20 +36,15 @@ export const localStorage = (root: string): Storage => {
 
 	const path = (k: string) => join(root, ...k.split('/'));
 
-	const current = (key: string): ResultAsync<{ entry: Entry; content: Uint8Array }> =>
-		filesystem(key, () => Promise.all([stat(path(key)), readFile(path(key))])).map(
-			([stats, content]) => ({
-				entry: {
-					key,
-					size: stats.size,
-					modified: stats.mtime,
-					version: sha256(content),
-				},
-				content,
-			}),
-		);
+	const described = (k: string): ResultAsync<Entry> =>
+		filesystem(k, () => stat(path(k), { bigint: true })).map((s) => entryOf(k, s));
 
-	const read: Storage['read'] = (k) => validateKey(k).asyncAndThen(() => current(k));
+	const read: Storage['read'] = (k) =>
+		validateKey(k).asyncAndThen(() =>
+			filesystem(k, () => Promise.all([stat(path(k), { bigint: true }), readFile(path(k))])).map(
+				([stats, content]) => ({ entry: entryOf(k, stats), content }),
+			),
+		);
 
 	const list: Storage['list'] = (prefix = '') => {
 		const directory = prefix.includes('/') ? prefix.slice(0, prefix.lastIndexOf('/')) : '';
@@ -65,21 +60,16 @@ export const localStorage = (root: string): Storage => {
 					.map(keyOf)
 					.filter((k) => k.startsWith(prefix) && !k.startsWith(`${TEMPORARY}/`)),
 			)
-			.andThen((keys) =>
-				inOrder(
-					keys.map(
-						(key) => () =>
-							current(key)
-								.map((s) => s.entry)
-								.orElse(whenMissing(null)),
-					),
-				).map((e) => e.filter((f) => f !== null)),
+			.andThen((ks) =>
+				inOrder(ks.map((k) => () => described(k).orElse(whenMissing(null)))).map((e) =>
+					e.filter((f) => f !== null),
+				),
 			);
 	};
 
 	const expectVersion = (key: string, expected: string | null): ResultAsync<void> =>
-		current(key)
-			.map((s) => s.entry.version)
+		described(key)
+			.map((e) => e.version)
 			.orElse(whenMissing(null))
 			.andThen((a) =>
 				a === expected ? ok() : err(fault('StorageConflict', { key, expected, actual: a })),
@@ -98,13 +88,7 @@ export const localStorage = (root: string): Storage => {
 						await mkdir(dirname(path(key)), { recursive: true });
 						await rename(temporary, path(key));
 
-						const stats = await stat(path(key));
-						return {
-							key,
-							size: stats.size,
-							modified: stats.mtime,
-							version: sha256(content),
-						};
+						return entryOf(key, await stat(path(key), { bigint: true }));
 					}).orTee(() => rm(temporary, { force: true })),
 				);
 			}),
@@ -128,5 +112,23 @@ export const localStorage = (root: string): Storage => {
 				),
 			);
 
-	return { list, read, write, delete: delete_, rename: rename_ };
+	const watch_: Storage['watch'] = async function* (signal) {
+		await mkdir(root, { recursive: true });
+
+		// Aborting closes the watcher, and 'close' ends the loop instead of throwing.
+		const changes = on(watch(root, { recursive: true, signal }), 'change', { close: ['close'] });
+		for await (const [, name] of changes)
+			if (typeof name === 'string' && name.split(sep)[0] !== TEMPORARY)
+				yield name.split(sep).join('/');
+	};
+
+	return { list, read, write, delete: delete_, rename: rename_, watch: watch_ };
 };
+
+/** Versions by nanosecond mtime and size, so telling a change apart reads no content. */
+const entryOf = (key: string, stats: BigIntStats): Entry => ({
+	key,
+	size: Number(stats.size),
+	modified: stats.mtime,
+	version: `${stats.mtimeNs}-${stats.size}`,
+});

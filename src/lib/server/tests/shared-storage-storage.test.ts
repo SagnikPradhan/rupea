@@ -1,5 +1,6 @@
-import { symlink } from 'node:fs/promises';
+import { mkdir, symlink, writeFile } from 'node:fs/promises';
 import { join } from 'node:path';
+import { setTimeout } from 'node:timers/promises';
 import { describe, expect } from 'vitest';
 import { it } from '#tests/shared/vitest.ts';
 import {
@@ -18,6 +19,22 @@ const text = (s: string) => new TextEncoder().encode(s);
 const keys = async (s: Storage, prefix?: string) => {
 	const listed = await s.list(prefix);
 	return listed.isOk() ? listed.value.map((e) => e.key).sort() : listed;
+};
+
+/** Collects what the storage reports changed while act runs, up to the change to key. */
+const watched = async (s: Storage, key: string, act: () => Promise<void>) => {
+	const controller = new AbortController();
+	const seen: string[] = [];
+	const collected = (async () => {
+		for await (const k of s.watch(controller.signal)) if (seen.push(k) && k === key) break;
+	})();
+
+	// The watch starts listening a moment after it is first asked for a key.
+	await setTimeout(100);
+	await act();
+	await Promise.race([collected, setTimeout(2000)]);
+	controller.abort();
+	return seen;
 };
 
 describe('storage keys', () => {
@@ -40,6 +57,17 @@ describe('local storage', () => {
 		const read = await storage.read('bank/a.rupea');
 		expect(read.isOk() && new TextDecoder().decode(read.value.content)).toBe('hello');
 		expect(read.isOk() && read.value.entry.version).toBe(written.isOk() && written.value.version);
+	});
+
+	it('gives content of the same size written again a new version', async ({ storage }) => {
+		const first = await storage.write({ key: 'a', content: text('1') });
+		const second = await storage.write({ key: 'a', content: text('2') });
+		const listed = await storage.list();
+
+		expect(first.isOk() && second.isOk() && first.value.version !== second.value.version).toBe(
+			true,
+		);
+		expect(listed.isOk() && listed.value[0]?.version).toBe(second.isOk() && second.value.version);
 	});
 
 	it('reports a missing key', async ({ storage }) => {
@@ -135,6 +163,33 @@ describe('local storage', () => {
 	});
 });
 
+describe('watching storage', () => {
+	it('reports a file written from outside', async ({ root, storage }) => {
+		const seen = await watched(storage, 'bank/a.rupea', async () => {
+			await mkdir(join(root, 'bank'));
+			await writeFile(join(root, 'bank', 'a.rupea'), 'hello');
+		});
+		expect(seen).toContain('bank/a.rupea');
+	});
+
+	it('reports its own writes without their temporary files', async ({ storage }) => {
+		const seen = await watched(storage, 'a.rupea', async () => {
+			await storage.write({ key: 'a.rupea', content: text('1') });
+		});
+		expect(seen).toContain('a.rupea');
+		expect(seen.filter((k) => k.startsWith('.tmp'))).toEqual([]);
+	});
+
+	it('stops when the signal aborts', async ({ storage }) => {
+		const controller = new AbortController();
+		const keys = storage.watch(controller.signal)[Symbol.asyncIterator]();
+		const next = keys.next();
+
+		controller.abort();
+		expect(await next).toEqual({ done: true, value: undefined });
+	});
+});
+
 describe('writing a numbered key', () => {
 	it('numbers a taken name from 02, keeping its extension', async ({ storage }) => {
 		const written = [];
@@ -176,6 +231,15 @@ describe('scoped storage', () => {
 		expect(await one.read('../two/b.rupea')).toMatchObject({
 			error: { type: 'StorageInvalidKey', key: '../two/b.rupea' },
 		});
+	});
+
+	it('watches only its own keys, without the prefix', async ({ storage }) => {
+		const one = scoped(storage, 'ledgers/one');
+		const seen = await watched(one, 'a.rupea', async () => {
+			await storage.write({ key: 'ledgers/two/b.rupea', content: text('') });
+			await storage.write({ key: 'ledgers/one/a.rupea', content: text('') });
+		});
+		expect(seen).toEqual(['a.rupea']);
 	});
 
 	it('does not see a sibling prefix that shares its name', async ({ storage }) => {

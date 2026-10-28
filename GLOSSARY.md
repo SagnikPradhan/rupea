@@ -129,6 +129,10 @@ _Avoid_: CAGR (ignores flows), time-weighted return, IRR (assumes evenly spaced 
 The place one user's files live, such as a local directory or a Drive folder. It holds every ledger that user owns.
 _Avoid_: Root, drive, bucket, vault
 
+**Sync**:
+Bringing what Rupea knows of a ledger in step with its files, by reading again each file that changed since it was last read.
+_Avoid_: Refresh, reindex, resync
+
 **Owner**:
 The user whose storage a ledger lives in.
 

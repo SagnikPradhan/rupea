@@ -14,6 +14,7 @@ export type Entry = {
 	key: string;
 	size: number;
 	modified: Date;
+	/** Opaque to everyone but the storage, and different whenever the content may be. */
 	version: string;
 };
 
@@ -30,6 +31,8 @@ export interface Storage {
 	write(options: WriteOptions): ResultAsync<Entry>;
 	delete(key: string): ResultAsync<void>;
 	rename(from: string, to: string): ResultAsync<Entry>;
+	/** Yields each key that may have changed, by anyone, until the signal aborts. */
+	watch(signal: AbortSignal): AsyncIterable<string>;
 }
 
 /** A stored file read as UTF-8 text. */
@@ -72,6 +75,7 @@ export const scoped = (storage: Storage, prefix: string): Storage => {
 		write: (o) => checked(o.key, (k) => storage.write({ ...o, key: k }).map(outer)),
 		delete: (e) => checked(e, (k) => storage.delete(k)),
 		rename: (r, o) => checked(r, (f) => checked(o, (t) => storage.rename(f, t).map(outer))),
+		watch: (s) => within(storage.watch(s), `${prefix}/`),
 	};
 };
 
@@ -127,3 +131,7 @@ const numbered = (key: string, n: number) => {
 	const stem = key.slice(0, key.length - extension.length);
 	return n === 1 ? key : `${stem}-${String(n).padStart(2, '0')}${extension}`;
 };
+
+async function* within(ks: AsyncIterable<string>, p: string) {
+	for await (const k of ks) if (k.startsWith(p)) yield k.slice(p.length);
+}

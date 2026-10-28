@@ -1,7 +1,6 @@
 :root {
 	--site-width: 80rem;
 	--column: 45rem;
-	--font-size-hero: 4.5rem;
 }
 
 .frame {
@@ -110,7 +109,7 @@ footer.bar {
 	flex: 999 1 30rem;
 	min-width: 0;
 	max-width: var(--column);
-	padding-block: var(--size-5) var(--size-6);
+	padding-block: var(--size-5);
 }
 
 .prose h1 {
@@ -149,7 +148,7 @@ footer.bar {
 	display: flex;
 	justify-content: space-between;
 	gap: var(--size-3);
-	margin-top: var(--size-6);
+	margin-top: var(--size-5);
 }
 
 .pager a {

@@ -8,7 +8,7 @@ import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, okAsync, ResultAsync } from '#lib/server/shared/result/result.ts';
 import { sql, type Expression, type ExpressionBuilder, type SqlBool } from 'kysely';
 import type { Amount } from '../domain/amounts';
-import { EVENT_KEYS } from '../domain/events';
+import { GROUP_KEYS } from '../domain/groups';
 import { toMetadata } from '../domain/parser';
 import type { Neighbour } from '../domain/prediction';
 import { CURRENCIES } from '../domain/lots';
@@ -208,8 +208,8 @@ export const listCandidates = (ledgerId: string, key: string): ResultAsync<Candi
 		),
 	);
 
-// Only transactions in an event, through the metadata `(ledger_id, key, value)` index.
-export const listEventTransactions = (ledgerId: string): ResultAsync<IndexedTransaction[]> =>
+// Only transactions in a group, through the metadata `(ledger_id, key, value)` index.
+export const listGroupTransactions = (ledgerId: string): ResultAsync<IndexedTransaction[]> =>
 	readWhere(ledgerId, (eb) =>
 		eb(
 			'transactions.id',
@@ -218,12 +218,12 @@ export const listEventTransactions = (ledgerId: string): ResultAsync<IndexedTran
 				.selectFrom('metadata')
 				.select('metadata.transactionId')
 				.where('metadata.ledgerId', '=', ledgerId)
-				.where('metadata.key', 'in', EVENT_KEYS),
+				.where('metadata.key', 'in', GROUP_KEYS),
 		),
 	);
 
-// Every member of every event a transaction in the file belongs to.
-export const listEventsInFile = (
+// Every member of every group a transaction in the file belongs to.
+export const listGroupsInFile = (
 	ledgerId: string,
 	key: string,
 ): ResultAsync<IndexedTransaction[]> =>
@@ -235,14 +235,14 @@ export const listEventsInFile = (
 				.selectFrom('metadata')
 				.select('metadata.transactionId')
 				.where('metadata.ledgerId', '=', ledgerId)
-				.where('metadata.key', 'in', EVENT_KEYS)
-				.where('metadata.value', 'in', eventsOfFile(eb, ledgerId, key)),
+				.where('metadata.key', 'in', GROUP_KEYS)
+				.where('metadata.value', 'in', groupsOfFile(eb, ledgerId, key)),
 		),
 	);
 
-export const listEventMembers = (
+export const listGroupMembers = (
 	ledgerId: string,
-	event: string,
+	group: string,
 ): ResultAsync<IndexedTransaction[]> =>
 	readWhere(ledgerId, (eb) =>
 		eb(
@@ -252,19 +252,19 @@ export const listEventMembers = (
 				.selectFrom('metadata')
 				.select('metadata.transactionId')
 				.where('metadata.ledgerId', '=', ledgerId)
-				.where('metadata.key', 'in', EVENT_KEYS)
-				.where('metadata.value', '=', event),
+				.where('metadata.key', 'in', GROUP_KEYS)
+				.where('metadata.value', '=', group),
 		),
 	);
 
-export const isEventIdTaken = (ledgerId: string, id: string): ResultAsync<boolean> =>
+export const isGroupIdTaken = (ledgerId: string, id: string): ResultAsync<boolean> =>
 	withContext('db')((db) =>
 		attempt(() =>
 			db
 				.selectFrom('metadata')
 				.select('metadata.id')
 				.where('metadata.ledgerId', '=', ledgerId)
-				.where('metadata.key', 'in', EVENT_KEYS)
+				.where('metadata.key', 'in', GROUP_KEYS)
 				.where('metadata.value', '=', id)
 				.limit(1)
 				.executeTakeFirst(),
@@ -324,8 +324,8 @@ export const findNearest = (
 	);
 };
 
-// The event ids the file's transactions name, through the metadata index.
-const eventsOfFile = (
+// The group ids the file's transactions name, through the metadata index.
+const groupsOfFile = (
 	eb: ExpressionBuilder<Tables, 'transactions'>,
 	ledgerId: string,
 	key: string,
@@ -337,7 +337,7 @@ const eventsOfFile = (
 		.select('metadata.value')
 		.where('metadata.ledgerId', '=', ledgerId)
 		.where('ledgerFiles.key', '=', key)
-		.where('metadata.key', 'in', EVENT_KEYS);
+		.where('metadata.key', 'in', GROUP_KEYS);
 
 type Where = (eb: ExpressionBuilder<Tables, 'transactions'>) => Expression<SqlBool>;
 

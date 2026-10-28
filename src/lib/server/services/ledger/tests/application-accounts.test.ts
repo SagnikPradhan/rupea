@@ -227,10 +227,10 @@ describe('evidence', () => {
 			'',
 		].join('\n');
 
-	it('counts an event once in what accounts hold and what they are worth', ({ context, db }) =>
+	it('counts a group once in what accounts hold and what they are worth', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			await Files.createFile({ ledger, key: 'payslip.rupea', content: salary('event') });
+			await Files.createFile({ ledger, key: 'payslip.rupea', content: salary('group') });
 			await Files.createFile({ ledger, key: 'hdfc.rupea', content: salary('same-as') });
 
 			const accounts = (await Accounts.listAccounts({ ledger, day }))._unsafeUnwrap().succeeded;
@@ -907,7 +907,7 @@ describe('spending', () => {
 			expect(all?.buckets[0]?.toString()).toBe('2026-01-01');
 		}));
 
-	it('counts an event once', ({ context, db }) =>
+	it('counts a group once', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			const dinner = (role: string) => [
@@ -917,7 +917,7 @@ describe('spending', () => {
 				'\tAssets:Bank',
 				'',
 			];
-			await Files.createFile({ ledger, key: 'a.rupea', content: dinner('event').join('\n') });
+			await Files.createFile({ ledger, key: 'a.rupea', content: dinner('group').join('\n') });
 			await Files.createFile({ ledger, key: 'b.rupea', content: dinner('same-as').join('\n') });
 
 			const spending = await Accounts.listSpending({

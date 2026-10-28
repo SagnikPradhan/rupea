@@ -9,7 +9,7 @@ import {
 	parseFile,
 	readFile,
 } from '#lib/endpoints/files.remote.ts';
-import { listEvents, listSuggestions } from '#lib/endpoints/refinement.remote.ts';
+import { listGroups, listSuggestions } from '#lib/endpoints/refinement.remote.ts';
 import { beforeNavigate, goto } from '#tests/shared/app-navigation.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
@@ -28,10 +28,10 @@ vi.mock('#lib/endpoints/files.remote.ts', () => ({
 	renameFiles: vi.fn(),
 }));
 vi.mock('#lib/endpoints/refinement.remote.ts', () => ({
-	listEvents: vi.fn(),
+	listGroups: vi.fn(),
 	listSuggestions: vi.fn(),
 	makePrimary: vi.fn(),
-	renameEvent: vi.fn(),
+	renameGroup: vi.fn(),
 }));
 
 afterEach(() => vi.clearAllMocks());
@@ -47,7 +47,7 @@ const bank = {
 const showing = (path: string) => {
 	visit(path);
 	vi.mocked(listFiles).mockReturnValue(answer([]));
-	vi.mocked(listEvents).mockReturnValue(answer([]));
+	vi.mocked(listGroups).mockReturnValue(answer([]));
 	vi.mocked(listSuggestions).mockReturnValue(answer([{}, {}]));
 	vi.mocked(readFile).mockResolvedValue({ ok: true, data: bank, errors: [] });
 	vi.mocked(parseFile).mockResolvedValue({ ok: true, data: [], errors: [] });

@@ -1,7 +1,7 @@
 import { provide } from '#lib/server/shared/context/context.ts';
 import { petName } from '#lib/server/shared/names.ts';
 import { err, ok } from '#lib/server/shared/result/result.ts';
-import * as Events from '#services/ledger/application/events.ts';
+import * as Groups from '#services/ledger/application/groups.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import { issues, listed } from '#services/ledger/tests/fixtures/files.ts';
 import { createLedger } from '#tests/shared/seed.ts';
@@ -14,7 +14,7 @@ vi.mock(import('#lib/server/shared/names.ts'), async (original) => {
 	return { ...names, petName: vi.fn(names.petName) };
 });
 
-// Pins the pet names in event names, in order.
+// Pins the pet names in group names, in order.
 const naming = (...names: string[]) =>
 	names.forEach((n) => vi.mocked(petName).mockReturnValueOnce(n));
 
@@ -45,10 +45,10 @@ const ibkr = [
 ].join('\n');
 
 const edits = (s: Refinement.Suggestion[]) =>
-	s.flatMap((x) => x.links.map((l) => ({ ...l, event: x.event ?? '' })));
+	s.flatMap((x) => x.links.map((l) => ({ ...l, group: x.group ?? '' })));
 
 describe('refining a saved file', () => {
-	it('suggests an event across files, and accepting it counts the money once', ({ context, db }) =>
+	it('suggests a group across files, and accepting it counts the money once', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({ ledger, key: 'hdfc.rupea', content: hdfc });
@@ -59,16 +59,16 @@ describe('refining a saved file', () => {
 			)._unsafeUnwrap();
 			expect(suggestions).toHaveLength(1);
 			const [transfer] = suggestions;
-			expect(transfer?.event).toMatch(/^2026-10-03-deposit-[a-z]+-[a-z]+$/);
+			expect(transfer?.group).toMatch(/^2026-10-03-deposit-[a-z]+-[a-z]+$/);
 			expect(transfer?.links.map((l) => [l.file, l.line, l.role])).toEqual([
 				['ibkr.rupea', 1, 'primary'],
 				['hdfc.rupea', 1, 'evidence'],
 			]);
 
-			expect(await Events.linkEvents({ ledger, edits: edits(suggestions) })).toEqual(ok([]));
+			expect(await Groups.linkGroups({ ledger, edits: edits(suggestions) })).toEqual(ok([]));
 			expect(
 				(await Files.readFile({ ledger, key: 'hdfc.rupea' }))._unsafeUnwrap().content,
-			).toContain(`2026-10-03 NEFT TO INTERACTIVE BROKERS\n\t- same-as: ${transfer?.event}\n`);
+			).toContain(`2026-10-03 NEFT TO INTERACTIVE BROKERS\n\t- same-as: ${transfer?.group}\n`);
 			expect(await issues(ledger)).toEqual(ok([]));
 			const rows = await listed(ledger);
 			expect(rows.filter((t) => !t.counted).map((t) => t.description)).toEqual([
@@ -109,8 +109,8 @@ describe('refining a saved file', () => {
 				version: file.version,
 			});
 
-			expect(await Events.linkEvents({ ledger, edits: edits(suggestions) })).toEqual(
-				ok([{ type: 'EventStale', location: 'hdfc.rupea:1' }]),
+			expect(await Groups.linkGroups({ ledger, edits: edits(suggestions) })).toEqual(
+				ok([{ type: 'GroupStale', location: 'hdfc.rupea:1' }]),
 			);
 			expect((await Files.readFile({ ledger, key: 'ibkr.rupea' }))._unsafeUnwrap().content).toBe(
 				ibkr,
@@ -128,7 +128,7 @@ describe('refining a saved file', () => {
 			await Files.deleteFiles({ ledger, keys: ['hdfc.rupea'] });
 
 			const failed = (
-				await Events.linkEvents({ ledger, edits: edits(suggestions) })
+				await Groups.linkGroups({ ledger, edits: edits(suggestions) })
 			)._unsafeUnwrap();
 
 			expect(failed).toMatchObject([{ type: 'CannotReadFile', path: 'hdfc.rupea' }]);
@@ -144,7 +144,7 @@ describe('refining a saved file', () => {
 			await Files.createFile({
 				ledger,
 				key: 'cash.rupea',
-				content: `2026-01-01 ATM\n\t- event: ${taken}\n\tAssets:Cash 5\n\tAssets:HDFC\n`,
+				content: `2026-01-01 ATM\n\t- group: ${taken}\n\tAssets:Cash 5\n\tAssets:HDFC\n`,
 			});
 			await Files.createFile({ ledger, key: 'hdfc.rupea', content: hdfc });
 			await Files.createFile({ ledger, key: 'ibkr.rupea', content: ibkr });
@@ -154,10 +154,10 @@ describe('refining a saved file', () => {
 				await Refinement.listSuggestions({ ledger, file: 'ibkr.rupea' })
 			)._unsafeUnwrap();
 
-			expect(transfer?.event).toBe('2026-10-03-deposit-brave-otter');
+			expect(transfer?.group).toBe('2026-10-03-deposit-brave-otter');
 		}));
 
-	it('never gives two new events in one go the same name', ({ context, db }) =>
+	it('never gives two new groups in one go the same name', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({
@@ -182,28 +182,28 @@ describe('refining a saved file', () => {
 				await Refinement.listSuggestions({ ledger, file: 'ibkr.rupea' })
 			)._unsafeUnwrap();
 
-			expect(named.map((n) => n.event)).toEqual([
+			expect(named.map((n) => n.group)).toEqual([
 				'2026-10-03-deposit-quiet-heron',
 				'2026-10-03-deposit-brave-otter',
 			]);
 		}));
 
-	it('adds a transaction to the event its partner is already in', ({ context, db }) =>
+	it('adds a transaction to the group its partner is already in', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({ ledger, key: 'hdfc.rupea', content: hdfc });
 			await Files.createFile({
 				ledger,
 				key: 'ibkr.rupea',
-				content: ibkr.replace('Deposit\n', 'Deposit\n\t- event: ibkr-funding\n'),
+				content: ibkr.replace('Deposit\n', 'Deposit\n\t- group: ibkr-funding\n'),
 			});
 
 			const suggestions = (
 				await Refinement.listSuggestions({ ledger, file: 'hdfc.rupea' })
 			)._unsafeUnwrap();
-			expect(suggestions.map((x) => x.event)).toEqual(['ibkr-funding']);
+			expect(suggestions.map((x) => x.group)).toEqual(['ibkr-funding']);
 
-			expect(await Events.linkEvents({ ledger, edits: edits(suggestions) })).toEqual(ok([]));
+			expect(await Groups.linkGroups({ ledger, edits: edits(suggestions) })).toEqual(ok([]));
 			expect(
 				(await Files.readFile({ ledger, key: 'hdfc.rupea' }))._unsafeUnwrap().content,
 			).toContain('NEFT TO INTERACTIVE BROKERS\n\t- same-as: ibkr-funding\n');
@@ -216,14 +216,14 @@ describe('refining a saved file', () => {
 			await Files.createFile({
 				ledger,
 				key: 'cash.rupea',
-				content: `2026-01-01 ATM\n\t- event: ${taken}\n\tAssets:Cash 5\n\tAssets:HDFC\n`,
+				content: `2026-01-01 ATM\n\t- group: ${taken}\n\tAssets:Cash 5\n\tAssets:HDFC\n`,
 			});
 			await Files.createFile({ ledger, key: 'hdfc.rupea', content: hdfc });
 			await Files.createFile({ ledger, key: 'ibkr.rupea', content: ibkr });
 			vi.mocked(petName).mockReturnValue('quiet-heron');
 
 			expect(await Refinement.listSuggestions({ ledger, file: 'ibkr.rupea' })).toEqual(
-				err({ type: 'EventIdTaken', event: taken }),
+				err({ type: 'GroupIdTaken', group: taken }),
 			);
 		}));
 

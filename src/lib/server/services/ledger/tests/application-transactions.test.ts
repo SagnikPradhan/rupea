@@ -255,7 +255,7 @@ describe('counting', () => {
 	it('leaves evidence out of the postings', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			await Files.createFile({ ledger, key: 'hdfc.rupea', content: transfer('event') });
+			await Files.createFile({ ledger, key: 'hdfc.rupea', content: transfer('group') });
 			await Files.createFile({ ledger, key: 'ibkr.rupea', content: transfer('same-as') });
 
 			const page = await DB.listPostings(ledger.id, {
@@ -272,7 +272,7 @@ describe('counting', () => {
 	it('counts evidence again once its primary is gone', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			await Files.createFile({ ledger, key: 'hdfc.rupea', content: transfer('event') });
+			await Files.createFile({ ledger, key: 'hdfc.rupea', content: transfer('group') });
 			await Files.createFile({ ledger, key: 'ibkr.rupea', content: transfer('same-as') });
 			expect((await listed(ledger)).map((t) => [t.location.file, t.counted])).toEqual([
 				['ibkr.rupea', false],

@@ -26,14 +26,14 @@ export type RupeaError =
 	| { type: 'FeedUnavailable'; feed: string; symbol: string; status?: number }
 	| { type: 'FeedSymbolUnknown'; feed: string; symbol: string }
 	| { type: 'FeedInvalidResponse'; feed: string; symbol: string; reason: string }
-	| { type: 'EventInvalidMembership'; location: string }
-	| { type: 'EventStale'; location: string }
-	| { type: 'EventIdTaken'; event: string }
-	| { type: 'EventWithoutPrimary'; event: string; location: string }
-	| { type: 'EventWithManyPrimaries'; event: string; location: string }
+	| { type: 'GroupInvalidMembership'; location: string }
+	| { type: 'GroupStale'; location: string }
+	| { type: 'GroupIdTaken'; group: string }
+	| { type: 'GroupWithoutPrimary'; group: string; location: string }
+	| { type: 'GroupWithManyPrimaries'; group: string; location: string }
 	| {
-			type: 'EventDisagreement';
-			event: string;
+			type: 'GroupDisagreement';
+			group: string;
 			location: string;
 			account: string;
 			expected: string;

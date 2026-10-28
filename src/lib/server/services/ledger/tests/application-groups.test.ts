@@ -1,7 +1,7 @@
 import { provide } from '#lib/server/shared/context/context.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { err, errAsync, ok } from '#lib/server/shared/result/result.ts';
-import * as Events from '#services/ledger/application/events.ts';
+import * as Groups from '#services/ledger/application/groups.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import { issues, listed } from './fixtures/files';
@@ -18,7 +18,7 @@ afterEach(() => {
 	vi.mocked(Files.readFile).mockReset();
 });
 
-describe('changing an event', () => {
+describe('changing a group', () => {
 	const hdfc = [
 		'2026-10-03 NEFT TO INTERACTIVE BROKERS',
 		'\tAssets:HDFC -1000',
@@ -45,20 +45,20 @@ describe('changing an event', () => {
 		'NEFT TO INTERACTIVE BROKERS\n',
 		'NEFT TO INTERACTIVE BROKERS\n\t- same-as: transfer-otter\n',
 	);
-	const linkedIbkr = ibkr.replace('Deposit\n', 'Deposit\n\t- event: transfer-otter\n');
+	const linkedIbkr = ibkr.replace('Deposit\n', 'Deposit\n\t- group: transfer-otter\n');
 
 	const counted = async (ledger: Ledger.Ledger) =>
 		(await listed(ledger)).filter((t) => !t.counted).map((t) => t.description);
 
-	it('lists the events a file takes part in, with members from every file', ({ context, db }) =>
+	it('lists the groups a file takes part in, with members from every file', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({ ledger, key: 'hdfc.rupea', content: linkedHdfc });
 			await Files.createFile({ ledger, key: 'ibkr.rupea', content: linkedIbkr });
 
-			const events = (await Events.listEvents({ ledger, file: 'hdfc.rupea' }))._unsafeUnwrap();
+			const groups = (await Groups.listGroups({ ledger, file: 'hdfc.rupea' }))._unsafeUnwrap();
 			expect(
-				events.map((e) => [e.event, e.members.map((m) => [m.location.file, m.role, m.counted])]),
+				groups.map((e) => [e.group, e.members.map((m) => [m.location.file, m.role, m.counted])]),
 			).toEqual([
 				[
 					'transfer-otter',
@@ -77,24 +77,24 @@ describe('changing an event', () => {
 			await Files.createFile({ ledger, key: 'ibkr.rupea', content: linkedIbkr });
 
 			expect(
-				await Events.makePrimary({
+				await Groups.makePrimary({
 					ledger,
-					event: 'transfer-otter',
+					group: 'transfer-otter',
 					file: 'hdfc.rupea',
 					line: 1,
 				}),
 			).toEqual(ok([]));
 			expect((await Files.readFile({ ledger, key: 'hdfc.rupea' }))._unsafeUnwrap().content).toBe(
-				linkedHdfc.replace('same-as:', 'event:'),
+				linkedHdfc.replace('same-as:', 'group:'),
 			);
 			expect((await Files.readFile({ ledger, key: 'ibkr.rupea' }))._unsafeUnwrap().content).toBe(
-				linkedIbkr.replace('event:', 'same-as:'),
+				linkedIbkr.replace('group:', 'same-as:'),
 			);
 			expect(await issues(ledger)).toEqual(ok([]));
 			expect(await counted(ledger)).toEqual(['Deposit']);
 		}));
 
-	it('refuses to make primary a transaction outside the event', ({ context, db }) =>
+	it('refuses to make primary a transaction outside the group', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({ ledger, key: 'hdfc.rupea', content: linkedHdfc });
@@ -102,17 +102,17 @@ describe('changing an event', () => {
 
 			expect(
 				(
-					await Events.makePrimary({
+					await Groups.makePrimary({
 						ledger,
-						event: 'transfer-otter',
+						group: 'transfer-otter',
 						file: 'hdfc.rupea',
 						line: 6,
 					})
 				)._unsafeUnwrapErr(),
-			).toEqual({ type: 'EventStale', location: 'hdfc.rupea:6' });
+			).toEqual({ type: 'GroupStale', location: 'hdfc.rupea:6' });
 		}));
 
-	it('renames an event in every file, and refuses a name in use', ({ context, db }) =>
+	it('renames a group in every file, and refuses a name in use', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({ ledger, key: 'hdfc.rupea', content: linkedHdfc });
@@ -120,14 +120,14 @@ describe('changing an event', () => {
 			await Files.createFile({
 				ledger,
 				key: 'cash.rupea',
-				content: '2026-10-04 ATM\n\t- event: taken\n\tAssets:Cash 5\n\tAssets:HDFC\n',
+				content: '2026-10-04 ATM\n\t- group: taken\n\tAssets:Cash 5\n\tAssets:HDFC\n',
 			});
 
-			expect(await Events.renameEvent({ ledger, event: 'transfer-otter', to: 'taken' })).toEqual(
-				err({ type: 'EventIdTaken', event: 'taken' }),
+			expect(await Groups.renameGroup({ ledger, group: 'transfer-otter', to: 'taken' })).toEqual(
+				err({ type: 'GroupIdTaken', group: 'taken' }),
 			);
 			expect(
-				await Events.renameEvent({ ledger, event: 'transfer-otter', to: 'ibkr-funding' }),
+				await Groups.renameGroup({ ledger, group: 'transfer-otter', to: 'ibkr-funding' }),
 			).toEqual(ok([]));
 			expect((await Files.readFile({ ledger, key: 'hdfc.rupea' }))._unsafeUnwrap().content).toBe(
 				linkedHdfc.replace('transfer-otter', 'ibkr-funding'),
@@ -139,7 +139,7 @@ describe('changing an event', () => {
 			expect(await counted(ledger)).toEqual(['NEFT TO INTERACTIVE BROKERS']);
 		}));
 
-	it('writes no file of the event when one cannot be read', ({ context, db }) =>
+	it('writes no file of the group when one cannot be read', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({ ledger, key: 'hdfc.rupea', content: linkedHdfc });
@@ -150,12 +150,12 @@ describe('changing an event', () => {
 
 			vi.mocked(Files.readFile).mockReturnValueOnce(errAsync(unreadable));
 			expect(
-				await Events.renameEvent({ ledger, event: 'transfer-otter', to: 'ibkr-funding' }),
+				await Groups.renameGroup({ ledger, group: 'transfer-otter', to: 'ibkr-funding' }),
 			).toEqual(ok([unreadable]));
 
 			vi.mocked(Files.readFile).mockReturnValueOnce(errAsync(unreadable));
 			expect(
-				await Events.makePrimary({ ledger, event: 'transfer-otter', file: 'hdfc.rupea', line: 1 }),
+				await Groups.makePrimary({ ledger, group: 'transfer-otter', file: 'hdfc.rupea', line: 1 }),
 			).toEqual(ok([unreadable]));
 
 			expect(await Promise.all([content('hdfc.rupea'), content('ibkr.rupea')])).toEqual([

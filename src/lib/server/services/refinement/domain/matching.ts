@@ -1,7 +1,7 @@
 import { sha256 } from '#lib/server/shared/hash.ts';
 import { byCodeUnit } from '#lib/server/shared/text.ts';
 import {
-	EventRole,
+	GroupRole,
 	formatQuantity,
 	linksOf,
 	type LinkEdit,
@@ -18,13 +18,13 @@ export type MatchedTransaction = RupeaTransaction & { id: string };
 export type CandidatePair = { ours: string; theirs: string };
 
 // Where a link line goes, and what the header there must still say.
-export type LinkTarget = Omit<LinkEdit, 'event'>;
+export type LinkTarget = Omit<LinkEdit, 'group'>;
 
-// `event` is null until a new event is named.
+// `group` is null until a new group is named.
 export type Suggestion = {
 	fingerprint: string;
 	confidence: Confidence;
-	event: string | null;
+	group: string | null;
 	ours: MatchedTransaction;
 	theirs: MatchedTransaction;
 	links: LinkTarget[];
@@ -45,12 +45,12 @@ export const suggest = (options: SuggestOptions): Suggestion[] => {
 		.filter((c) => !options.dismissed.has(c.fingerprint))
 		.sort(strongestFirst);
 
-	// An event never takes a second member from the file being refined.
-	const ourEvents = new Set(scored.flatMap((c) => linksOf(c.ours.metadata).map((l) => l.event)));
+	// A group never takes a second member from the file being refined.
+	const ourGroups = new Set(scored.flatMap((c) => linksOf(c.ours.metadata).map((l) => l.group)));
 	const used = new Set<string>();
 
 	return scored.flatMap((c) => {
-		const s = link(c, ourEvents);
+		const s = link(c, ourGroups);
 		if (!s || used.has(c.ours.id) || used.has(c.theirs.id)) return [];
 
 		used.add(c.ours.id);
@@ -59,7 +59,7 @@ export const suggest = (options: SuggestOptions): Suggestion[] => {
 	});
 };
 
-type Scored = Omit<Suggestion, 'event' | 'links'>;
+type Scored = Omit<Suggestion, 'group' | 'links'>;
 
 const score = (
 	ours: MatchedTransaction | undefined,
@@ -84,30 +84,30 @@ const strongestFirst = (a: Scored, b: Scored) =>
 	a.theirs.location.file.localeCompare(b.theirs.location.file) ||
 	a.theirs.location.line - b.theirs.location.line;
 
-// Joins an existing event when one side has it; otherwise the side with more
+// Joins an existing group when one side has it; otherwise the side with more
 // postings is the primary, and on a tie the one being refined, as the latest.
-const link = (c: Scored, ourEvents: Set<string>): Suggestion | null => {
+const link = (c: Scored, ourGroups: Set<string>): Suggestion | null => {
 	const ourLinks = linksOf(c.ours.metadata);
 	const theirLinks = linksOf(c.theirs.metadata);
 	if (ourLinks.length + theirLinks.length > 1) return null;
 
 	const [ourLink] = ourLinks;
 	const [theirLink] = theirLinks;
-	if (theirLink && ourEvents.has(theirLink.event)) return null;
+	if (theirLink && ourGroups.has(theirLink.group)) return null;
 	if (theirLink)
-		return { ...c, event: theirLink.event, links: [target(c.ours, EventRole.Evidence)] };
-	if (ourLink) return { ...c, event: ourLink.event, links: [target(c.theirs, EventRole.Evidence)] };
+		return { ...c, group: theirLink.group, links: [target(c.ours, GroupRole.Evidence)] };
+	if (ourLink) return { ...c, group: ourLink.group, links: [target(c.theirs, GroupRole.Evidence)] };
 
 	const [primary, evidence] =
 		c.theirs.postings.length > c.ours.postings.length ? [c.theirs, c.ours] : [c.ours, c.theirs];
 	return {
 		...c,
-		event: null,
-		links: [target(primary, EventRole.Primary), target(evidence, EventRole.Evidence)],
+		group: null,
+		links: [target(primary, GroupRole.Primary), target(evidence, GroupRole.Evidence)],
 	};
 };
 
-const target = (t: MatchedTransaction, role: EventRole): LinkTarget => ({
+const target = (t: MatchedTransaction, role: GroupRole): LinkTarget => ({
 	file: t.location.file,
 	line: t.location.line,
 	date: t.date.toString(),

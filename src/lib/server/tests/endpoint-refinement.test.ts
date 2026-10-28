@@ -1,11 +1,11 @@
 import { createFile } from '#lib/endpoints/files.remote.ts';
 import {
 	dismissSuggestion,
-	linkEvents,
-	listEvents,
+	linkGroups,
+	listGroups,
 	listSuggestions,
 	makePrimary,
-	renameEvent,
+	renameGroup,
 } from '#lib/endpoints/refinement.remote.ts';
 import { provide } from '#lib/server/shared/context/context.ts';
 import { signIn } from '#tests/shared/app-server.ts';
@@ -33,21 +33,21 @@ const it = base.extend<{ ledger: string }>({
 	},
 });
 
-describe('a suggested event', () => {
+describe('a suggested group', () => {
 	it('is linked, renamed and given a new primary', ({ context, ledger: handle }) =>
 		provide(context, async () => {
 			const [transfer] = (await listSuggestions({ handle, file: 'ibkr.rupea' })).data ?? [];
-			const event = transfer?.event ?? '';
-			const edits = (transfer?.links ?? []).map((l) => ({ ...l, event }));
-			expect(await linkEvents({ handle, edits })).toMatchObject({ ok: true });
+			const group = transfer?.group ?? '';
+			const edits = (transfer?.links ?? []).map((l) => ({ ...l, group }));
+			expect(await linkGroups({ handle, edits })).toMatchObject({ ok: true });
 
-			const renamed = await renameEvent({ handle, file: 'ibkr.rupea', event, to: 'transfer' });
+			const renamed = await renameGroup({ handle, file: 'ibkr.rupea', group, to: 'transfer' });
 			const member = { file: 'hdfc.rupea', line: 1 };
-			const made = await makePrimary({ handle, file: 'ibkr.rupea', event: 'transfer', member });
+			const made = await makePrimary({ handle, file: 'ibkr.rupea', group: 'transfer', member });
 			expect(renamed.ok).toBe(true);
 			expect(made.ok).toBe(true);
 
-			const [listed] = (await listEvents({ handle, file: 'ibkr.rupea' })).data ?? [];
+			const [listed] = (await listGroups({ handle, file: 'ibkr.rupea' })).data ?? [];
 			expect(listed?.members.map((m) => [m.file, m.role])).toEqual([
 				['hdfc.rupea', 'primary'],
 				['ibkr.rupea', 'evidence'],
@@ -65,10 +65,10 @@ describe('a suggested event', () => {
 			expect(await listSuggestions({ handle, file: 'hdfc.rupea' })).toMatchObject({ data: [] });
 		}));
 
-	it('refuses an event id of more than one word', ({ context, ledger: handle }) =>
+	it('refuses a group id of more than one word', ({ context, ledger: handle }) =>
 		provide(context, async () => {
 			await expect(
-				renameEvent({ handle, file: 'ibkr.rupea', event: 'a', to: 'two words' }),
+				renameGroup({ handle, file: 'ibkr.rupea', group: 'a', to: 'two words' }),
 			).rejects.toThrow('Invalid input');
 		}));
 });

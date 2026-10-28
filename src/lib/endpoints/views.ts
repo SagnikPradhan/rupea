@@ -1,5 +1,5 @@
 import type * as Accounts from '#services/ledger/application/accounts.ts';
-import type * as Events from '#services/ledger/application/events.ts';
+import type * as Groups from '#services/ledger/application/groups.ts';
 import {
 	DEFAULT_COMMODITY,
 	formatAmount,
@@ -43,8 +43,8 @@ export const viewSuggestion = ({ ours, theirs, ...suggestion }: Refinement.Sugge
 	theirs: viewTransaction(theirs),
 });
 
-export const viewEvent = ({ event, members }: Events.FileEvent) => ({
-	event,
+export const viewGroup = ({ group, members }: Groups.FileGroup) => ({
+	group,
 	members: members.map(({ role, counted, ...t }) => ({ role, counted, ...viewTransaction(t) })),
 });
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { listEvents, makePrimary, renameEvent } from '#lib/endpoints/refinement.remote.ts';
+	import { listGroups, makePrimary, renameGroup } from '#lib/endpoints/refinement.remote.ts';
 	import type { RupeaError } from '#lib/server/shared/result/error.ts';
 	import type { Reply } from '#lib/server/shared/result/reply.ts';
 	import { detail } from '#lib/web/shared/errors.ts';
@@ -7,14 +7,14 @@
 	type Props = {
 		handle: string;
 		file: string;
-		/** Unsaved edits in the open file; changing an event rewrites files. */
+		/** Unsaved edits in the open file; changing a group rewrites files. */
 		locked: boolean;
 		onchanged: () => void;
 	};
 
 	const { handle, file, locked, onchanged }: Props = $props();
 
-	const response = $derived(await listEvents({ handle, file }));
+	const response = $derived(await listGroups({ handle, file }));
 	const failures = $state({ list: [] as RupeaError[] });
 
 	async function run(change: Promise<Reply<RupeaError[]>>) {
@@ -23,10 +23,10 @@
 		onchanged();
 	}
 
-	async function rename(event: string) {
-		const to = prompt('Rename event to', event);
-		if (to === null || to === event) return;
-		await run(renameEvent({ handle, file, event, to }));
+	async function rename(group: string) {
+		const to = prompt('Rename group to', group);
+		if (to === null || to === group) return;
+		await run(renameGroup({ handle, file, group, to }));
 	}
 </script>
 
@@ -35,14 +35,14 @@
 {/each}
 
 {#if (response.data ?? []).length > 0}
-	<section aria-label="Events">
-		<h3>Events</h3>
-		{#if locked}<p>Save to change events.</p>{/if}
-		{#each response.data ?? [] as e (e.event)}
-			<article aria-label="Event {e.event}">
+	<section aria-label="Groups">
+		<h3>Groups</h3>
+		{#if locked}<p>Save to change groups.</p>{/if}
+		{#each response.data ?? [] as e (e.group)}
+			<article aria-label="Group {e.group}">
 				<h4>
-					{e.event}
-					<button onclick={() => rename(e.event)} disabled={locked}>Rename event</button>
+					{e.group}
+					<button onclick={() => rename(e.group)} disabled={locked}>Rename group</button>
 				</h4>
 				<ul>
 					{#each e.members as m (`${m.file}:${m.line}`)}
@@ -58,7 +58,7 @@
 											makePrimary({
 												handle,
 												file,
-												event: e.event,
+												group: e.group,
 												member: { file: m.file, line: m.line },
 											}),
 										)}

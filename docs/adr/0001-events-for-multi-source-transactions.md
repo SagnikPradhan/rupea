@@ -1,5 +1,7 @@
 # Multiple sources for one money movement form an event, not a merge
 
+Events are now called groups, written `- group: <id>`, per [ADR 0027](0027-transaction-groups-not-events.md).
+
 The same money movement often reaches the ledger from several sources: an HDFC → IBKR transfer appears on both statements, and a card charge appears on the card statement and in an Amazon order export. We keep every source's transaction intact in its own ledger file and link them into an **event** by a shared ID written in the text (`- event: <id>` on the primary, `- same-as: <id>` on the evidence). Only the primary's postings count, so the money is counted once and no source's record is lost.
 
 ## Considered Options

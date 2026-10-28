@@ -32,13 +32,13 @@ describe('ledger highlighting', () => {
 	});
 
 	it('marks prices, commodities, metadata keys and comments', () => {
-		expect(tokens('\tAssets:Fund 2 FUND @ 10\n\t- event: salary\n; a note')).toEqual([
+		expect(tokens('\tAssets:Fund 2 FUND @ 10\n\t- group: salary\n; a note')).toEqual([
 			['variableName', 'Assets:Fund'],
 			['number', '2'],
 			['atom', 'FUND'],
 			['operator', '@'],
 			['number', '10'],
-			['meta', '- event:'],
+			['meta', '- group:'],
 			['string', 'salary'],
 			['comment', '; a note'],
 		]);

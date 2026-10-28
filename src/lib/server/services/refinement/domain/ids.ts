@@ -28,7 +28,7 @@ const NOISE = new Set([
 	'upi',
 ]);
 
-type EventIdOptions = {
+type GroupIdOptions = {
 	date: string;
 	description: string;
 };
@@ -36,7 +36,7 @@ type EventIdOptions = {
 // `2026-10-01-amazon-brave-otter`, or `2026-10-01-brave-otter` when no word in
 // the description names the merchant. Two words, since nothing checks a name
 // again once suggested.
-export const eventId = (options: EventIdOptions): string => {
+export const groupId = (options: GroupIdOptions): string => {
 	const merchant = options.description
 		.toLowerCase()
 		.split(/[^a-z]+/)

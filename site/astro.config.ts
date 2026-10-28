@@ -4,7 +4,6 @@ import relativeLinks from 'astro-rehype-relative-markdown-links';
 
 export default defineConfig({
 	site: 'https://rupea.app',
-	redirects: { '/': '/manual' },
 	markdown: {
 		syntaxHighlight: false,
 		processor: unified({ rehypePlugins: [relativeLinks] }),

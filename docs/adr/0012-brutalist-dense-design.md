@@ -28,7 +28,7 @@ Rupea reads like a sharp accountant's working paper: numbers first, structure on
 
 rupea.app, the docs and brand site, is read once rather than worked in, so it trades density for room. It keeps the app's faces, ink, grey and accent, and still has no shadows, gradients or illustrations. A page may centre its hero, leave wide margins, and frame a screenshot in a hairline border. Buttons, code blocks and screenshots share the controls' small radius; nothing else is rounded. The manual reads like any docs site, with its pages on the left and the current page's headings on the right.
 
-The app and the site share one theme, `@rupea/theme` in `packages/theme`: the fonts, the reset, the tokens and the element styles. A page adds only its own layout on top.
+The app and the site share one theme, `@rupea/theme` in `packages/theme`: the fonts, the reset, the tokens, the element styles and the pieces both draw, such as column labels, tags, buttons and swatches. What only the site needs, its hero size, text column and page layout, is in `site/src/site.css`, so anything there is the site's own. Beyond the app's rules, a hairline under the header and over the footer frames each site page.
 
 **The mark is a rupee sign drawn in rules.** Two bars, then the bowl and leg as one stroke, wholly in the accent beside an ink wordmark set in Google Sans. Its files, with outlined lettering, are in `packages/site/public/brand/`, and the app's favicon is a copy of it.
 

@@ -3,16 +3,9 @@
 	const { shade }: { shade: string } = $props();
 </script>
 
-<span aria-hidden="true" style:background="var({shade})" style:border-color="var({shade}-edge)"
+<span
+	class="swatch"
+	aria-hidden="true"
+	style:background="var({shade})"
+	style:border-color="var({shade}-edge)"
 ></span>
-
-<style>
-	span {
-		display: inline-block;
-		width: var(--size-2);
-		height: var(--size-2);
-		margin-right: var(--size-0);
-		vertical-align: middle;
-		border: 1px solid;
-	}
-</style>

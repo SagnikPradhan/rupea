@@ -204,7 +204,8 @@ code {
 	font-family: var(--font-mono);
 }
 
-.label {
+.label,
+.labelled > thead > tr > th {
 	margin: 0;
 	color: var(--color-muted);
 	font-family: var(--font-body);
@@ -214,6 +215,15 @@ code {
 	letter-spacing: 0.06em;
 	text-transform: uppercase;
 	text-align: left;
+}
+
+.labelled {
+	border-collapse: collapse;
+}
+
+.labelled > thead > tr > th {
+	padding-bottom: var(--size-2);
+	border-bottom: 1px solid var(--color-ink);
 }
 
 .tag {
@@ -235,6 +245,15 @@ code {
 	color: var(--color-negative);
 }
 
+.swatch {
+	display: inline-block;
+	width: var(--size-2);
+	height: var(--size-2);
+	margin-right: var(--size-0);
+	vertical-align: middle;
+	border: 1px solid;
+}
+
 hr {
 	display: block;
 	height: 1px;
@@ -250,7 +269,8 @@ hr {
 }
 
 input:not([type='checkbox'], [type='radio'], [type='file']),
-button {
+button,
+.button {
 	padding: var(--size-1) var(--size-2);
 	border: 1px solid var(--color-muted);
 	border-radius: var(--radius);
@@ -275,4 +295,15 @@ button {
 button:disabled {
 	cursor: default;
 	opacity: 0.6;
+}
+
+.button {
+	display: inline-flex;
+	text-decoration: none;
+}
+
+:is(button, .button).primary {
+	border-color: var(--color-ink);
+	background: var(--color-ink);
+	color: var(--color-surface);
 }

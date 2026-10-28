@@ -12,11 +12,11 @@
 </script>
 
 <div>
-	<table aria-label={label}>
+	<table class="labelled" aria-label={label}>
 		<thead>
 			<tr>
 				{#each columns as column (column.label)}
-					<th class={['label', column.kind, { optional: column.optional }]}>{column.label}</th>
+					<th class={[column.kind, { optional: column.optional }]}>{column.label}</th>
 				{/each}
 			</tr>
 		</thead>
@@ -31,7 +31,6 @@
 
 	table {
 		width: 100%;
-		border-collapse: collapse;
 		font-size: var(--font-size-1);
 		line-height: 1.3;
 	}
@@ -43,11 +42,6 @@
 
 	table :global(:is(th, td):first-child) {
 		padding-left: 0;
-	}
-
-	thead th {
-		padding-bottom: var(--size-2);
-		border-bottom: 1px solid var(--color-ink);
 	}
 
 	table :global(th[scope='row']) {

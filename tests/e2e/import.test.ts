@@ -17,7 +17,7 @@ const describeStatement = async (page: Page, ledger: string) => {
 
 	await page.getByLabel('Name', { exact: true }).fill('bank.yml');
 	await readFile(data('bank.yml'), 'utf8').then((s) =>
-		page.getByLabel('Format', { exact: true }).fill(s),
+		page.getByLabel('Schema', { exact: true }).fill(s),
 	);
 	const found = page.getByRole('table', { name: 'Transactions found' });
 	await expect(found.getByRole('row').filter({ hasText: 'UPI GROCER' })).toBeVisible();
@@ -44,7 +44,7 @@ test('adds a later statement to the file its account went to, and undoes it', as
 	ledger,
 }) => {
 	await describeStatement(page, ledger);
-	await page.getByRole('button', { name: 'Save format' }).click();
+	await page.getByRole('button', { name: 'Save schema' }).click();
 	await page.getByRole('button', { name: 'Add to ledger' }).click();
 	await page.getByLabel('Add to file').fill('bank.rupea');
 	await page.getByRole('button', { name: 'Add', exact: true }).click();
@@ -87,13 +87,13 @@ test('unlocks a statement with its password', async ({ signedIn: page, ledger })
 
 test('saves, opens and deletes formats', async ({ signedIn: page, ledger }) => {
 	await describeStatement(page, ledger);
-	await page.getByRole('button', { name: 'Save format' }).click();
+	await page.getByRole('button', { name: 'Save schema' }).click();
 	await expect(page.getByRole('button', { name: 'bank.yml', exact: true })).toBeVisible();
 
 	await page.getByRole('button', { name: 'The example' }).click();
 	await expect(page.getByLabel('Name', { exact: true })).toHaveValue('my-bank.yml');
 	await page.getByRole('button', { name: 'bank.yml', exact: true }).click();
-	await expect(page.getByLabel('Format', { exact: true })).toHaveValue(/name: Bank/);
+	await expect(page.getByLabel('Schema', { exact: true })).toHaveValue(/name: Bank/);
 
 	await page.getByRole('button', { name: 'Delete bank.yml' }).click();
 	await page.getByRole('button', { name: 'Delete', exact: true }).click();

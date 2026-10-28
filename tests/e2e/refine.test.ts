@@ -27,9 +27,9 @@ const importTwice = async (page: Page, ledger: string) => {
 	await upload(page, ledger, 'aug.csv', 0);
 	await page.getByLabel('Name', { exact: true }).fill('bank.yml');
 	await readFile(data('bank.yml'), 'utf8').then((s) =>
-		page.getByLabel('Format', { exact: true }).fill(s),
+		page.getByLabel('Schema', { exact: true }).fill(s),
 	);
-	await page.getByRole('button', { name: 'Save format' }).click();
+	await page.getByRole('button', { name: 'Save schema' }).click();
 	await expect(page.getByText('Saved.')).toBeVisible();
 	await addTo(page, 'imports/aug.rupea');
 

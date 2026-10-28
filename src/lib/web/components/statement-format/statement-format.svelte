@@ -33,7 +33,7 @@ fields:
 	type Props = {
 		handle: string;
 		grid: string[][];
-		/** The format being written, which the statement is read with as it changes. */
+		/** The schema being written, which the statement is read with as it changes. */
 		schema: { key: string; content: string };
 		onchange: (schema: { key: string; content: string }) => void;
 	};
@@ -115,7 +115,7 @@ fields:
 		<input value={schema.key} oninput={(e) => edit({ ...schema, key: e.currentTarget.value })} />
 	</Field>
 
-	<Field label="Format">
+	<Field label="Schema">
 		<textarea
 			value={schema.content}
 			oninput={(e) => edit({ ...schema, content: e.currentTarget.value })}
@@ -125,13 +125,13 @@ fields:
 
 	{#if state.asking}
 		<div class="toolbar" role="group" aria-label="Confirm delete">
-			<p>Delete the format {schema.key}?</p>
+			<p>Delete the schema {schema.key}?</p>
 			<Button primary onclick={remove}>Delete</Button>
 			<Button onclick={() => (state.asking = false)}>Cancel</Button>
 		</div>
 	{:else}
 		<div class="toolbar">
-			<Button onclick={save} disabled={saveSchema.pending > 0}>Save format</Button>
+			<Button onclick={save} disabled={saveSchema.pending > 0}>Save schema</Button>
 			{#if stored}
 				<Button aria-label="Delete {schema.key}" onclick={() => (state.asking = true)}>
 					Delete

@@ -81,6 +81,10 @@ An Income or Expenses account, describing what money was for rather than where i
 A `key: value` fact attached to a ledger file, transaction or posting. Any key is allowed; the system acts only on keys it understands.
 _Avoid_: Tag (a tag is one kind of metadata value), annotation, attribute
 
+**Problem**:
+Something wrong in a ledger that its owner can fix, such as a line that does not parse. Rupea's own failures are not problems.
+_Avoid_: Issue, error, warning
+
 ## Investments
 
 **Lot**:

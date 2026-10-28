@@ -13,10 +13,10 @@ import { CURRENCIES } from '../domain/lots';
 import { displayLocation } from '../domain/parser';
 import { marketPrices } from '../domain/prices';
 import { accountType, BALANCE_TYPES, parentsOf } from '../domain/taxonomy';
-import { Feed, type RupeaLedgerFile, type RupeaMetadata } from '../domain/types';
+import { Feed, ProblemKind, type RupeaLedgerFile, type RupeaMetadata } from '../domain/types';
 import { toSpans } from './database-queries';
 
-export type FileVersion = { key: string; version: string | null };
+export type FileVersion = { key: string; version: string };
 
 export const listIndexedFiles = (ledgerId: string): ResultAsync<FileVersion[]> =>
 	withContext('db')((db) =>
@@ -66,15 +66,20 @@ export const findLatestFile = (ledgerId: string, account: string): ResultAsync<s
 		).map((r) => r?.key ?? null),
 	);
 
-type IndexFileOptions = { key: string; version: string | null; file: RupeaLedgerFile };
+type IndexFileOptions = {
+	key: string;
+	version: string;
+	file: RupeaLedgerFile;
+	failed: RupeaError[];
+};
 
 /** What changing a file touched: the commodities whose lots it held before or holds now, and the days its transactions span. */
 export type Touched = { commodities: string[]; spans: Span[] };
 
-/** Replaces what a file indexes, each description keeping its embedding, so saving a file never re-embeds it. */
+/** Replaces what a file indexes and what failed to parse in it, each description keeping its embedding, so saving a file never re-embeds it. */
 export const indexFile = (
 	ledgerId: string,
-	{ key, version, file }: IndexFileOptions,
+	{ key, version, file, failed }: IndexFileOptions,
 ): ResultAsync<Touched> => {
 	const untyped = untypedAccount(file);
 	if (untyped) return errAsync(untyped);
@@ -87,6 +92,12 @@ export const indexFile = (
 				const postings = await withAccounts(tx, ledgerId, rows.postings);
 				const prices = await withSymbols(tx, { feed: Feed.Ledger, ledgerId }, rows.prices);
 				const links = await withFeedSymbols(tx, rows.links);
+				const problems = failed.map((e) => ({
+					ledgerId,
+					fileId,
+					kind: ProblemKind.Parse,
+					error: e,
+				}));
 
 				const lotsBefore = await lotCommoditiesOf(tx, fileId);
 				const spansBefore = await spansOf(tx, fileId);
@@ -94,6 +105,7 @@ export const indexFile = (
 				await tx.deleteFrom('metadata').where('fileId', '=', fileId).execute();
 				await tx.deleteFrom('prices').where('fileId', '=', fileId).execute();
 				await tx.deleteFrom('symbolLinks').where('fileId', '=', fileId).execute();
+				await tx.deleteFrom('problems').where('fileId', '=', fileId).execute();
 
 				await insertAll(tx, 'transactions', rows.transactions);
 				await replaceOldTransactions(tx, fileId, rows.transactions);
@@ -101,6 +113,7 @@ export const indexFile = (
 				await insertAll(tx, 'prices', prices);
 				await insertAll(tx, 'symbolLinks', links);
 				await insertAll(tx, 'metadata', rows.metadata);
+				await insertAll(tx, 'problems', problems);
 
 				const lotsAfter = await lotCommoditiesOf(tx, fileId);
 				const spansAfter = await spansOf(tx, fileId);
@@ -168,7 +181,7 @@ const untypedAccount = (file: RupeaLedgerFile): RupeaError | null =>
 		)
 		.at(0) ?? null;
 
-type VersionOptions = { ledgerId: string; key: string; version: string | null };
+type VersionOptions = { ledgerId: string; key: string; version: string };
 
 const saveVersion = (db: Database, { ledgerId, key, version }: VersionOptions) =>
 	db

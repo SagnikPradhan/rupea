@@ -1,4 +1,4 @@
-type FileVersion = { key: string; version: string | null };
+type FileVersion = { key: string; version: string };
 
 export type SyncPlan = { changed: string[]; gone: string[] };
 

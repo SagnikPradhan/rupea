@@ -33,6 +33,7 @@ export const syncIndex = (ledger: Ledger): ResultAsync<RupeaError[]> =>
 	openFolder({ ledger, folder: 'files' }).andThen((s) =>
 		listLedgerFiles(s)
 			.andThen((f) => exclusively(ledger.id, () => update(s, ledger.id, f)).orElse((e) => ok([e])))
+			.andThen((f) => addProblems(ledger.id, f))
 			.andThen((f) => queueFetches(ledger, f))
 			.andThen((f) => embed(ledger.id, f)),
 	);
@@ -58,19 +59,18 @@ export const indexFile = ({ ledgerId, file }: IndexFileOptions): ResultAsync<Ind
 			? parsed
 			: { ...parsed, succeeded: [], prices: [], links: [], failed: [] };
 
-		// A file with errors is indexed without a version, so every sync parses
-		// it again and reports them until they are fixed.
-		const version = kept.failed.length === 0 ? file.version : null;
 		const indexed = {
 			metadata: kept.metadata,
 			transactions: kept.succeeded,
 			prices: kept.prices,
 			links: kept.links,
 		};
-		return DB.indexFile(ledgerId, { key: file.key, version, file: indexed }).map((t) => ({
+		return DB.indexFile(ledgerId, {
+			key: file.key,
+			version: file.version,
+			file: indexed,
 			failed: kept.failed,
-			...t,
-		}));
+		}).map((t) => ({ failed: [], ...t }));
 	});
 
 type UnindexOptions = { ledgerId: string; key: string };
@@ -131,6 +131,12 @@ const applyPlan = (storage: Storage, ledgerId: string, p: SyncPlan): ResultAsync
 
 const reported = (i: ResultAsync<Indexed>): ResultAsync<Indexed> =>
 	i.orElse((e) => ok({ failed: [e], commodities: [], spans: [] }));
+
+/** What failed to parse is kept as a problem, so it is reported on every sync without parsing again. */
+const addProblems = (id: string, f: RupeaError[]): ResultAsync<RupeaError[]> =>
+	DB.listProblems(id)
+		.map((p) => [...f, ...p])
+		.orElse((e) => ok([...f, e]));
 
 /** A symbol is fetched once a ledger links it, and again on later syncs until a fetch works. */
 const queueFetches = (ledger: Ledger, failed: RupeaError[]): ResultAsync<RupeaError[]> =>

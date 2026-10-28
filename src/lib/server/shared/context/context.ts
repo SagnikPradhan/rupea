@@ -4,12 +4,14 @@ import type { RupeaConfiguration } from './config';
 import type { Logger } from './logger';
 import type { Mailer } from './mailer';
 import type { Models } from '../onnx/runtime';
-import type { Storages } from '../storage/storage';
+import type { Change, Storages } from '../storage/storage';
 
 export type RupeaContext = {
 	config: RupeaConfiguration;
 	db: Database;
 	storages: Storages;
+	/** Every user's keys that may have changed, by anyone, until the signal aborts. */
+	changes: (signal: AbortSignal) => AsyncIterable<Change>;
 	mailer: Mailer;
 	logger: Logger;
 	models: Models;

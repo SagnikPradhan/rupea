@@ -12,6 +12,7 @@ import { createContext, createDatabase } from '#lib/server/shared/context/enviro
 import { withLogger } from '#lib/server/shared/context/logger.ts';
 import { readConfiguration } from '#lib/server/shared/context/config.ts';
 import { readTheme } from '#lib/server/shared/theme.ts';
+import { startFollowing } from '#lib/server/changes.ts';
 import { startServerWorkers } from '#lib/server/workers.ts';
 
 const config = readConfiguration(process.env);
@@ -21,8 +22,12 @@ const context = createContext(config, database.db, dev);
 export const init: ServerInit = async () => {
 	await database.migrate();
 	const workers = await startServerWorkers({ database: database.url, context, dev });
+	const following = startFollowing(context);
 	if (!import.meta.hot)
-		process.once('sveltekit:shutdown', () => workers.stop().then(database.close));
+		process.once('sveltekit:shutdown', () => {
+			following.stop();
+			return workers.stop().then(database.close);
+		});
 };
 
 const session: Handle = ({ event, resolve }) =>

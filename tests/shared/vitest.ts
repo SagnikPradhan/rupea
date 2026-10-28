@@ -1,6 +1,7 @@
 import type { Database, DatabaseHandle } from '#lib/server/db/index.ts';
 import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
 import type { RupeaContext } from '#lib/server/shared/context/context.ts';
+import { watchUsers } from '#lib/server/shared/context/environment.ts';
 import { createLogger } from '#lib/server/shared/context/logger.ts';
 import { logMailer } from '#lib/server/shared/context/mailer.ts';
 import { models as files } from '#lib/server/shared/onnx/models.ts';
@@ -57,6 +58,7 @@ export const it = base.extend<{
 			config: defaultConfiguration,
 			db,
 			storages: { local: (u) => scoped(storage, `users/${u}`) },
+			changes: (s) => watchUsers(storage, s),
 			mailer: logMailer,
 			logger,
 			models,

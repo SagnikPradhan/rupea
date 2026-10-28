@@ -50,6 +50,9 @@ type WriteTextOptions = {
 	ifVersion?: string | null;
 };
 
+/** A key that may have changed in one user's storage. */
+export type Change = { user: string; key: string };
+
 // Opens a user's storage of each kind.
 export type Storages = Record<StorageKind, (userId: string) => Storage>;
 

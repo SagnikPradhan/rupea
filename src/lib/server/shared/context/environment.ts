@@ -7,13 +7,18 @@ import { logMailer } from './mailer';
 import { models } from '../onnx/models';
 import { createModels } from '../onnx/runtime';
 import { localStorage } from '../storage/local';
-import { scoped, type Storages } from '../storage/storage';
+import { scoped, type Change, type Storage, type Storages } from '../storage/storage';
 
-/** One for every user, so writes to the same file wait for each other. */
-const createStorages = (c: RupeaConfiguration): Storages => {
-	const data = localStorage(resolve(c.storage.files));
-	return { local: (u) => scoped(data, `users/${u}`) };
-};
+/** Each user's storage within one holding every user's, so writes to the same file wait for each other. */
+const createStorages = (d: Storage): Storages => ({ local: (u) => scoped(d, `users/${u}`) });
+
+/** Each user's changed keys, in a storage laid out as createStorages lays it out. */
+export async function* watchUsers(data: Storage, signal: AbortSignal): AsyncIterable<Change> {
+	for await (const key of data.watch(signal)) {
+		const [top, user, ...rest] = key.split('/');
+		if (top === 'users' && user && rest.length > 0) yield { user, key: rest.join('/') };
+	}
+}
 
 /** Kept across dev reloads, since a second embedded server on the same directory fails to start. */
 export const createDatabase = (c: RupeaConfiguration): Promise<DatabaseHandle> => {
@@ -34,10 +39,12 @@ export const createContext = (
 	dev: boolean,
 ): RupeaContext => {
 	const logger = createLogger(config.log.level, dev);
+	const data = localStorage(resolve(config.storage.files));
 	return {
 		config,
 		db,
-		storages: createStorages(config),
+		storages: createStorages(data),
+		changes: (s) => watchUsers(data, s),
 		mailer: logMailer,
 		logger,
 		models: createModels({

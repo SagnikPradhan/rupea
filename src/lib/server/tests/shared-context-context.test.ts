@@ -4,6 +4,7 @@ import { provide, withContext, type RupeaContext } from '#lib/server/shared/cont
 import { createLogger } from '#lib/server/shared/context/logger.ts';
 import { logMailer } from '#lib/server/shared/context/mailer.ts';
 import { createModels } from '#lib/server/shared/onnx/runtime.ts';
+import { watchUsers } from '#lib/server/shared/context/environment.ts';
 import { localStorage } from '#lib/server/shared/storage/local.ts';
 
 const logger = createLogger('silent', false);
@@ -12,6 +13,7 @@ const context = {
 	config: defaultConfiguration,
 	db: {} as RupeaContext['db'],
 	storages: { local: () => localStorage('/nowhere') },
+	changes: (s) => watchUsers(localStorage('/nowhere'), s),
 	models: createModels({
 		directory: '/nowhere',
 		files: [],

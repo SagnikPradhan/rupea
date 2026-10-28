@@ -136,6 +136,7 @@ footer.bar {
 .prose table {
 	display: block;
 	overflow-x: auto;
+	border-collapse: collapse;
 	margin: var(--size-3) 0;
 	font-size: var(--font-size-0);
 }

@@ -3,8 +3,7 @@
 	"private": true,
 	"type": "module",
 	"exports": {
-		"./index.css": "./index.css",
-		"./global.css": "./global.css"
+		"./index.css": "./index.css"
 	},
 	"dependencies": {
 		"@fontsource-variable/geist-mono": "5.3.0",

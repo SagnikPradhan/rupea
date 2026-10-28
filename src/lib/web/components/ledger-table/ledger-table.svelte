@@ -31,6 +31,7 @@
 
 	table {
 		width: 100%;
+		border-collapse: collapse;
 		font-size: var(--font-size-1);
 		line-height: 1.3;
 	}
@@ -42,6 +43,10 @@
 
 	table :global(:is(th, td):first-child) {
 		padding-left: 0;
+	}
+
+	thead th {
+		padding-bottom: var(--size-2);
 	}
 
 	table :global(th[scope='row']) {

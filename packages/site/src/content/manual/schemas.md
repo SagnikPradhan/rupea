@@ -14,13 +14,23 @@ Rupea ships schemas for some common banks, called built-in schemas. Check the [l
 
 Schemas belong to a ledger, in its `schemas/` folder. Everyone who shares the ledger imports with the same schemas.
 
-To write one, open **Import a statement** in your ledger. Upload a statement, then press **New schema**. The editor starts with Rupea's built-in schema for HDFC savings accounts, which this page walks through. Edit it, give it a name like `axis-savings.yml` and press **Save schema**. The draft below the editor updates as you type, so you can see straight away what your schema reads.
+To write one, open **Import** in your ledger and press **Upload statements**. When Rupea doesn't know a statement, it asks you to **Describe this statement**. Start from **The example**, Rupea's built-in schema for HDFC savings accounts, which this page walks through. Edit it under **Format**, give it a **Name** like `axis-savings.yml` and press **Save format**. The transactions it finds show below as you type, so you can see straight away what your schema reads.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="/screenshots/import-format-dark.png">
+  <img class="frame" src="/screenshots/import-format-light.png" alt="A schema being written for a savings account statement" width="1760" height="1284">
+</picture>
 
 Schemas are written in [YAML](https://learnxinyminutes.com/yaml/), a plain text format where indentation matters. Use spaces, not tabs.
 
 ## How Rupea sees a statement
 
 Rupea first turns any statement, whether CSV, Excel or PDF, into a **grid**: rows and columns of text, like a spreadsheet. The import page shows this grid under your statement. Columns are lettered A, B, C and rows are numbered, just like a spreadsheet.
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="/screenshots/import-grid-dark.png">
+  <img class="frame" src="/screenshots/import-grid-light.png" alt="A savings account statement as a grid of rows and columns" width="1416" height="1424">
+</picture>
 
 A schema reads that grid. Each row that holds a transaction becomes a **record**, and each record becomes a transaction in the draft.
 

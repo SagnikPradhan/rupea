@@ -1,0 +1,10 @@
+---
+type Props = { name: string; alt: string };
+
+const { name, alt } = Astro.props;
+---
+
+<picture>
+	<source media="(prefers-color-scheme: dark)" srcset={`/screenshots/${name}-dark.png`} />
+	<img class="frame" src={`/screenshots/${name}-light.png`} {alt} width="2880" height="1800" />
+</picture>

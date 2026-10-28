@@ -11,7 +11,16 @@ import { testLocation } from './lint/test-location.ts';
 const rupea = { rules: { 'local-name-length': localNameLength, 'test-location': testLocation } };
 
 export default defineConfig(
-	globalIgnores(['build/', 'data/', '.svelte-kit/', 'drizzle/', 'coverage/', '.claude/']),
+	globalIgnores([
+		'build/',
+		'data/',
+		'.svelte-kit/',
+		'drizzle/',
+		'coverage/',
+		'.claude/',
+		'site/dist/',
+		'site/.astro/',
+	]),
 	js.configs.recommended,
 	ts.configs.recommended,
 	svelte.configs.recommended,

@@ -1,0 +1,184 @@
+:root {
+	--site-width: 80rem;
+	--column: 45rem;
+	--aside: 14rem;
+}
+
+.wide {
+	max-width: var(--site-width);
+	margin-inline: auto;
+	padding-inline: var(--size-3);
+	box-sizing: border-box;
+}
+
+.bar > .wide {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: center;
+	justify-content: space-between;
+	gap: var(--size-3);
+	padding-block: var(--size-2);
+}
+
+header.bar {
+	border-bottom: 1px solid var(--color-border);
+}
+
+footer.bar {
+	border-top: 1px solid var(--color-border);
+	color: var(--color-muted);
+	font-size: var(--font-size-0);
+}
+
+.bar nav {
+	display: flex;
+	gap: var(--size-3);
+}
+
+.bar nav a {
+	color: var(--color-muted);
+	text-decoration: none;
+}
+
+.bar nav a:hover,
+.bar nav a[aria-current] {
+	color: var(--color-accent);
+	text-decoration: none;
+}
+
+.brand {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-1);
+	font-family: var(--font-heading);
+	font-size: var(--font-size-2);
+	font-weight: 500;
+}
+
+.brand-small {
+	display: inline-flex;
+	align-items: center;
+	gap: var(--size-1);
+}
+
+.docs {
+	display: flex;
+	flex-wrap: wrap;
+	align-items: flex-start;
+	gap: var(--size-5);
+}
+
+.sidebar,
+.contents {
+	flex: 1 1 12rem;
+	max-width: var(--aside);
+	padding-top: var(--size-5);
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-1);
+}
+
+.sidebar {
+	gap: var(--size-3);
+}
+
+.sidebar > div {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-1);
+}
+
+.sidebar a[aria-current] {
+	text-decoration: none;
+	font-weight: 500;
+}
+
+.contents {
+	position: sticky;
+	top: 0;
+	font-size: var(--font-size-0);
+}
+
+.contents a {
+	color: var(--color-muted);
+}
+
+.contents a:hover {
+	color: var(--color-ink);
+}
+
+/* Below this width the headings list would squeeze the text, and the page is short enough to scroll. */
+@media (width < 70rem) {
+	.contents {
+		display: none;
+	}
+}
+
+.prose {
+	flex: 999 1 30rem;
+	min-width: 0;
+	max-width: var(--column);
+	padding-block: var(--size-5) var(--size-6);
+}
+
+.prose h1 {
+	margin-top: var(--size-2);
+}
+
+.prose pre {
+	padding: var(--size-2) var(--size-3);
+	background: var(--color-subtle);
+	border: 1px solid var(--color-border);
+	border-radius: var(--radius);
+	overflow-x: auto;
+	line-height: 1.6;
+}
+
+.prose :not(pre) > code {
+	padding: 0 var(--size-0);
+	background: var(--color-subtle);
+	border: 1px solid var(--color-border);
+	border-radius: var(--size-0);
+}
+
+.prose table {
+	display: block;
+	overflow-x: auto;
+	border-collapse: collapse;
+	margin: var(--size-3) 0;
+	font-size: var(--font-size-0);
+}
+
+.prose th {
+	padding: var(--size-1);
+	border-bottom: 1px solid var(--color-ink);
+	color: var(--color-muted);
+	font-weight: 400;
+	letter-spacing: 0.06em;
+	text-transform: uppercase;
+	text-align: left;
+}
+
+.prose td {
+	padding: var(--size-1);
+}
+
+.pager {
+	display: flex;
+	justify-content: space-between;
+	gap: var(--size-3);
+	margin-top: var(--size-6);
+	padding-top: var(--size-3);
+	border-top: 1px solid var(--color-border);
+}
+
+.pager a {
+	display: flex;
+	flex-direction: column;
+	gap: var(--size-1);
+}
+
+.pager .next {
+	margin-left: auto;
+	text-align: right;
+}

@@ -1,0 +1,68 @@
+---
+import '@fontsource/poppins/400.css';
+import '@fontsource/poppins/500.css';
+import '@fontsource-variable/google-sans';
+import '@fontsource-variable/geist-mono';
+import '../../../src/lib/web/styles/global.css';
+import '../site.css';
+import Mark from '../components/Mark.astro';
+
+type Props = { title: string; description: string };
+
+const { title, description } = Astro.props;
+const section = Astro.url.pathname.split('/')[1];
+
+const links = [
+	{ href: '/manual', label: 'Manual', current: section === 'manual' },
+	{ href: 'https://github.com/SagnikPradhan/rupea', label: 'GitHub', current: false },
+];
+---
+
+<!doctype html>
+<html lang="en">
+	<head>
+		<meta charset="utf-8" />
+		<meta name="viewport" content="width=device-width, initial-scale=1" />
+		<title>{title === 'Rupea' ? title : `${title} · Rupea`}</title>
+		<meta name="description" content={description} />
+		<meta property="og:title" content={title} />
+		<meta property="og:description" content={description} />
+		<meta property="og:image" content={new URL('/brand/og.png', Astro.site)} />
+		<meta name="twitter:card" content="summary_large_image" />
+		<link rel="icon" href="/favicon.svg" />
+		<link rel="apple-touch-icon" href="/brand/apple-touch-icon.png" />
+	</head>
+	<body>
+		<header class="bar">
+			<div class="wide">
+				<a class="plain brand" href="/">
+					<Mark size={26} />
+					Rupea
+				</a>
+				<nav>
+					{links.map((link) => (
+						<a class="plain" href={link.href} aria-current={link.current ? 'page' : undefined}>
+							{link.label}
+						</a>
+					))}
+				</nav>
+			</div>
+		</header>
+		<slot />
+		<footer class="bar">
+			<div class="wide">
+				<span class="brand-small">
+					<Mark size={18} />
+					Rupea · MIT licence
+				</span>
+				<nav>
+					{links.map((link) => (
+						<a class="plain" href={link.href}>
+							{link.label}
+						</a>
+					))}
+				</nav>
+			</div>
+		</footer>
+	</body>
+</html>

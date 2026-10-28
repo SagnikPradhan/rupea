@@ -1,4 +1,4 @@
-import { jobs } from '#lib/server/jobs.ts';
+import { jobs, subscriptions } from '#lib/server/server.ts';
 import { provide } from '#lib/server/shared/context/context.ts';
 import { readConfiguration } from '#lib/server/shared/context/config.ts';
 import { createContext, createDatabase } from '#lib/server/shared/context/environment.ts';
@@ -12,7 +12,7 @@ const config = readConfiguration(process.env);
 if (!config.storage.database) throw new Error('A worker needs DATABASE_URL');
 
 const database = await createDatabase(config);
-const context = createContext(config, database.db, dev);
+const context = createContext(config, database.db, dev, subscriptions);
 
 export default (c: ClaimedJob): Promise<RupeaError | null> =>
 	provide(context, () =>

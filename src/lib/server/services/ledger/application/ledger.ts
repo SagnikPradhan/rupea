@@ -53,6 +53,12 @@ export const openFolder = ({ ledger, folder }: OpenFolderOptions): ResultAsync<S
 		action: (s) => ok(scoped(s, `ledgers/${ledger.handle}/${FOLDERS[folder]}`)),
 	});
 
+/** The handle of the ledger whose files hold a key of its owner's storage, counting the folders above them, since moving a folder reports only the folder. */
+export const handleOf = (key: string): string | null => {
+	const [top, handle, folder = FOLDERS.files] = key.split('/');
+	return top === 'ledgers' && handle && folder === FOLDERS.files ? handle : null;
+};
+
 /** The day of the ledger's first transaction, before which no period can be picked, or none before it has one. */
 export const findFirstDay = (l: Ledger): ResultAsync<Temporal.PlainDate | null> =>
 	DB.findFirstDay(l.id);

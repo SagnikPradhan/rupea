@@ -3,7 +3,7 @@ import { provide } from '#lib/server/shared/context/context.ts';
 import { EMBEDDING_DIMENSIONS } from '#lib/server/shared/onnx/models.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { errAsync, ok, ResultAsync } from '#lib/server/shared/result/result.ts';
-import { readText, scoped } from '#lib/server/shared/storage/storage.ts';
+import { byUser, readText } from '#lib/server/shared/storage/storage.ts';
 import { runJob } from '#services/jobs/application/jobs.ts';
 import { syncLedger } from '#services/ledger/adapters/jobs.ts';
 import { MODEL } from '#services/ledger/adapters/prediction-model2vec.ts';
@@ -1068,7 +1068,7 @@ describe('syncing past a failure', () => {
 			...storage,
 			read: (k: string) => (k.endsWith('a.rupea') ? errAsync(gone) : storage.read(k)),
 		};
-		const storages = { local: (u: string) => scoped(unreadable, `users/${u}`) };
+		const storages = { local: byUser(unreadable) };
 
 		return provide({ ...context, storages }, async () => {
 			const ledger = await createLedger(db);

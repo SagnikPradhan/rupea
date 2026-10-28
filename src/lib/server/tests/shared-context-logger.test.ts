@@ -6,6 +6,7 @@ import { withLogger } from '#lib/server/shared/context/logger.ts';
 import { logMailer } from '#lib/server/shared/context/mailer.ts';
 import { createModels } from '#lib/server/shared/onnx/runtime.ts';
 import { localStorage } from '#lib/server/shared/storage/local.ts';
+import { byUser } from '#lib/server/shared/storage/storage.ts';
 
 const recording = () => {
 	const lines: Record<string, unknown>[] = [];
@@ -18,7 +19,8 @@ const recording = () => {
 	const context = {
 		config: defaultConfiguration,
 		db: {} as RupeaContext['db'],
-		storages: { local: () => localStorage('/nowhere') },
+		storages: { local: byUser(localStorage('/nowhere')) },
+		subscriptions: [],
 		models: createModels({
 			directory: '/nowhere',
 			files: [],

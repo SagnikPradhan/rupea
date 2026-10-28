@@ -5,11 +5,14 @@ import type { Logger } from './logger';
 import type { Mailer } from './mailer';
 import type { Models } from '../onnx/runtime';
 import type { Storages } from '../storage/storage';
+import type { Subscription } from '#services/events/application/events.ts';
 
 export type RupeaContext = {
 	config: RupeaConfiguration;
 	db: Database;
 	storages: Storages;
+	/** What runs when each event is published. */
+	subscriptions: Subscription<unknown>[];
 	mailer: Mailer;
 	logger: Logger;
 	models: Models;

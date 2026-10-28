@@ -12,18 +12,13 @@ import { createContext, createDatabase } from '#lib/server/shared/context/enviro
 import { withLogger } from '#lib/server/shared/context/logger.ts';
 import { readConfiguration } from '#lib/server/shared/context/config.ts';
 import { readTheme } from '#lib/server/shared/theme.ts';
-import { startServerWorkers } from '#lib/server/workers.ts';
+import { startServer, subscriptions } from '#lib/server/server.ts';
 
 const config = readConfiguration(process.env);
 const database = await createDatabase(config);
-const context = createContext(config, database.db, dev);
+const context = createContext(config, database.db, dev, subscriptions);
 
-export const init: ServerInit = async () => {
-	await database.migrate();
-	const workers = await startServerWorkers({ database: database.url, context, dev });
-	if (!import.meta.hot)
-		process.once('sveltekit:shutdown', () => workers.stop().then(database.close));
-};
+export const init: ServerInit = () => startServer({ database, context, dev });
 
 const session: Handle = ({ event, resolve }) =>
 	provide({ ...context, logger: context.logger.child({ request_id: randomUUID() }) }, async () => {

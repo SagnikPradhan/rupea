@@ -31,8 +31,8 @@ export interface Storage {
 	write(options: WriteOptions): ResultAsync<Entry>;
 	delete(key: string): ResultAsync<void>;
 	rename(from: string, to: string): ResultAsync<Entry>;
-	/** Yields each key that may have changed, by anyone, until the signal aborts. */
-	watch(signal: AbortSignal): AsyncIterable<string>;
+	/** Yields each key under `prefix` that may have changed, by anyone, until the signal aborts. */
+	watch(signal: AbortSignal, prefix?: string): AsyncIterable<string>;
 }
 
 /** A stored file read as UTF-8 text. */
@@ -50,8 +50,17 @@ type WriteTextOptions = {
 	ifVersion?: string | null;
 };
 
-// Opens a user's storage of each kind.
-export type Storages = Record<StorageKind, (userId: string) => Storage>;
+/** A key in one user's storage that may have changed. */
+export type Change = { user: string; key: string };
+
+/** Every user's storage of one kind. */
+export type UserStorages = {
+	open(user: string): Storage;
+	/** Yields each change to any user's storage, until the signal aborts. */
+	watch(signal: AbortSignal): AsyncIterable<Change>;
+};
+
+export type Storages = Record<StorageKind, UserStorages>;
 
 // No empty, `.` or `..` segments, so a key never escapes the storage root.
 export const validateKey = (key: string): Result<string> => {
@@ -75,9 +84,15 @@ export const scoped = (storage: Storage, prefix: string): Storage => {
 		write: (o) => checked(o.key, (k) => storage.write({ ...o, key: k }).map(outer)),
 		delete: (e) => checked(e, (k) => storage.delete(k)),
 		rename: (r, o) => checked(r, (f) => checked(o, (t) => storage.rename(f, t).map(outer))),
-		watch: (s) => within(storage.watch(s), `${prefix}/`),
+		watch: (s, p) => within(storage.watch(s, p ? inner(p) : prefix), `${prefix}/`),
 	};
 };
+
+/** Each user's storage in its own folder of one that every user shares. */
+export const byUser = (storage: Storage): UserStorages => ({
+	open: (u) => scoped(storage, `users/${u}`),
+	watch: (s) => usersOf(storage.watch(s, 'users')),
+});
 
 export const readText = (storage: Storage, key: string): ResultAsync<TextFile> =>
 	storage
@@ -134,4 +149,11 @@ const numbered = (key: string, n: number) => {
 
 async function* within(ks: AsyncIterable<string>, p: string) {
 	for await (const k of ks) if (k.startsWith(p)) yield k.slice(p.length);
+}
+
+async function* usersOf(ks: AsyncIterable<string>) {
+	for await (const k of ks) {
+		const [top, user, ...rest] = k.split('/');
+		if (top === 'users' && user && rest.length > 0) yield { user, key: rest.join('/') };
+	}
 }

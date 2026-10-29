@@ -1,8 +1,12 @@
 <script lang="ts">
+	import IconLogout from '@tabler/icons-svelte-runes/icons/logout';
 	import { onMount } from 'svelte';
 	import favicon from '#lib/assets/favicon.svg';
 	import { signOut } from '#lib/endpoints/auth.remote.ts';
+	import IconButton from '#lib/web/components/icon-button/icon-button.svelte';
+	import SyncButton from '#lib/web/components/sync-button/sync-button.svelte';
 	import ThemeToggle from '#lib/web/components/theme-toggle/theme-toggle.svelte';
+	import { page } from '$app/state';
 	import '@rupea/theme/index.css';
 
 	const { data, children } = $props();
@@ -19,13 +23,14 @@
 	<div>
 		<a href="/">Rupea</a>
 		<div class="end">
+			{#if data.user}<span>{data.user.username}</span>{/if}
+			{#if page.params.handle}<SyncButton handle={page.params.handle} />{/if}
+			<ThemeToggle theme={data.theme} />
 			{#if data.user}
 				<form {...signOut}>
-					<span>{data.user.username}</span>
-					<button>Sign out</button>
+					<IconButton label="Sign out" icon={IconLogout} />
 				</form>
 			{/if}
-			<ThemeToggle theme={data.theme} />
 		</div>
 	</div>
 </header>
@@ -47,14 +52,13 @@
 		padding-block: var(--size-1);
 	}
 
-	.end,
-	form {
+	.end {
 		display: flex;
 		gap: var(--size-2);
 		align-items: center;
 	}
 
-	form {
+	.end > span {
 		color: var(--color-muted);
 		font-size: var(--font-size-0);
 	}

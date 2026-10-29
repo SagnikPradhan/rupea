@@ -12,7 +12,6 @@
 	import ListSearch from '#lib/web/components/list-search/list-search.svelte';
 	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
 	import PagedTable from '#lib/web/components/paged-table/paged-table.svelte';
-	import SyncButton from '#lib/web/components/sync-button/sync-button.svelte';
 	import { formatDate, formatIsoDate } from '#lib/web/shared/format.ts';
 	import { ledgerCrumb } from '#lib/web/shared/links.ts';
 	import { paged } from '#lib/web/shared/paged.svelte.ts';
@@ -29,20 +28,9 @@
 	const earliest = $derived((await findFirstDay(handle)).data ?? null);
 	const first = $derived(await listPostings({ handle, day, filter, after: null }));
 	const list = $derived(paged(first, (after) => listPostings({ handle, day, filter, after })));
-
-	const reread = () =>
-		Promise.all([
-			listProblems(handle).refresh(),
-			listAccountTree(handle).refresh(),
-			findFirstDay(handle).refresh(),
-			listPostings({ handle, day, filter, after: null }).refresh(),
-		]);
 </script>
 
-<PageHeader trail={[ledgerCrumb(data.ledger)]}>
-	Postings
-	{#snippet actions()}<SyncButton {handle} onsynced={() => void reread()} />{/snippet}
-</PageHeader>
+<PageHeader trail={[ledgerCrumb(data.ledger)]}>Postings</PageHeader>
 
 <FilterRail>
 	{#snippet filters()}

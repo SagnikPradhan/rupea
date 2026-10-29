@@ -25,6 +25,7 @@ const transaction = (
 	time: null,
 	description,
 	metadata: {},
+	comment: null,
 	postings,
 });
 
@@ -36,6 +37,7 @@ const posting = (account: string, amount: string): RupeaPosting => ({
 	cost: null,
 	balance: null,
 	metadata: {},
+	comment: null,
 });
 
 describe('parse transactions', () => {
@@ -644,7 +646,7 @@ describe('hledger-style input', () => {
 			failed: [],
 			succeeded: [
 				transaction(2, '2023-04-01', 'Opening Balance', [
-					posting('Assets:Checking:HDFC', '28350.18'),
+					{ ...posting('Assets:Checking:HDFC', '28350.18'), comment: 'between postings' },
 					posting('Equity:OpeningBalances', '-28350.18'),
 				]),
 			],

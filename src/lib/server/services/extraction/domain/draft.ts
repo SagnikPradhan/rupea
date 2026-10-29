@@ -5,6 +5,7 @@ import {
 	accountType,
 	DEFAULT_COMMODITY,
 	print,
+	toNode,
 	type Amount,
 	type RupeaTransaction,
 } from '#services/ledger/application/shared.ts';
@@ -42,14 +43,17 @@ export const categorised = (records: RupeaRecord[]): CategorisedRupeaRecord[] =>
 
 export const draft = (options: DraftOptions): Draft => ({
 	key: draftKey(options.statement),
-	content: print(options.config, {
-		metadata: sourceMetadata(options.statement),
-		transactions: options.records
-			.toSorted((a, b) => a.location.line - b.location.line)
-			.map(toTransaction(options.account)),
-		prices: [],
-		links: [],
-	}),
+	content: print(
+		options.config,
+		toNode({
+			metadata: sourceMetadata(options.statement),
+			transactions: options.records
+				.toSorted((a, b) => a.location.line - b.location.line)
+				.map(toTransaction(options.account)),
+			prices: [],
+			links: [],
+		}),
+	),
 	failed: options.failed,
 });
 
@@ -63,12 +67,10 @@ type CopyOptions = {
 export const copy = ({ config, statement, text }: CopyOptions): Draft => ({
 	key: draftKey(statement),
 	content:
-		print(config, {
-			metadata: sourceMetadata(statement),
-			transactions: [],
-			prices: [],
-			links: [],
-		}) + text.join('\n'),
+		print(
+			config,
+			toNode({ metadata: sourceMetadata(statement), transactions: [], prices: [], links: [] }),
+		) + text.join('\n'),
 	failed: [],
 });
 
@@ -89,6 +91,7 @@ const toTransaction =
 		time: null,
 		description: words(record.description).join(' '),
 		metadata: {},
+		comment: null,
 		postings: [
 			{
 				account,
@@ -98,6 +101,7 @@ const toTransaction =
 				cost: null,
 				balance: record.balance,
 				metadata: {},
+				comment: null,
 			},
 			{
 				account: record.account,
@@ -107,6 +111,7 @@ const toTransaction =
 				cost: null,
 				balance: null,
 				metadata: {},
+				comment: null,
 			},
 		],
 	});

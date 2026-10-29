@@ -22,6 +22,7 @@ const member = (
 		cost: null,
 		balance: null,
 		metadata: {},
+		comment: null,
 	})),
 });
 

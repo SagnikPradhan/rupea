@@ -10,9 +10,9 @@ import {
 } from '#lib/server/shared/storage/storage.ts';
 import { isCounted } from '#lib/shared/folders.ts';
 import * as DB from '../adapters/database';
-import { format } from '../domain/format';
 import { merge } from '../domain/merge';
-import { parse } from '../domain/parser';
+import { parse, parseTree } from '../domain/parser';
+import { print } from '../domain/printer';
 import type { Ledger, RupeaFile, RupeaTransaction } from '../domain/types';
 import { openFolder } from './ledger';
 import {
@@ -60,8 +60,9 @@ export const parseFile = ({ key, content }: ParseFileOptions): Batch<RupeaTransa
 
 type FormatFileOptions = { content: string };
 
-/** Tidies a file's whitespace without saving it. */
-export const formatFile = ({ content }: FormatFileOptions): string => format(content);
+/** Writes a file as Rupea prints it, without saving it; lines that do not read stay as written. */
+export const formatFile = ({ content }: FormatFileOptions): string =>
+	withContext('config')((c) => print(c.ledger, parseTree(c.ledger, { key: '', content })));
 
 type CreateFileOptions = { ledger: Ledger; key: string; content: string };
 

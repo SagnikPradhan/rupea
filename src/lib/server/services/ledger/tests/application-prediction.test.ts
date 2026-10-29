@@ -75,6 +75,7 @@ const transaction = (description: string, postings: [string, bigint][], date = '
 		time: null,
 		description,
 		metadata: {},
+		comment: null,
 		postings: postings.map(([account, n]) => ({
 			account,
 			amount: amount(n),
@@ -83,6 +84,7 @@ const transaction = (description: string, postings: [string, bigint][], date = '
 			cost: null,
 			balance: null,
 			metadata: {},
+			comment: null,
 		})),
 	}) satisfies RupeaTransaction;
 

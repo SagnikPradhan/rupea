@@ -1,7 +1,7 @@
 import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { err, ok } from '#lib/server/shared/result/result.ts';
-import { isBlank, isMetadata, isPosting, lines, parse, type RupeaLine } from './parser';
+import { isBlank, isComment, isMetadata, isPosting, lines, parse, type RupeaLine } from './parser';
 import type { RupeaMetadata, RupeaTransaction } from './types';
 
 type MergeOptions = {
@@ -68,10 +68,10 @@ const placeOf = (held: RupeaTransaction[], t: RupeaTransaction, end: number) => 
 	return later ? later.location.line - 1 : end;
 };
 
-/** A transaction's header with the postings and metadata under it. */
+/** A transaction's header with the postings, metadata and comments under it. */
 const blockOf = (drafted: RupeaLine[], t: RupeaTransaction) => {
 	const block = drafted.slice(t.location.line - 1);
-	const end = block.findIndex((l, i) => i > 0 && !isPosting(l) && !isMetadata(l));
+	const end = block.findIndex((l, i) => i > 0 && !isPosting(l) && !isMetadata(l) && !isComment(l));
 	return block.slice(0, end < 0 ? undefined : end).map((l) => l.content);
 };
 

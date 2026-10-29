@@ -12,6 +12,13 @@ _Avoid_: Book, journal
 A `.rupea` text file in a ledger; the files, not anything derived from them, are the truth.
 _Avoid_: Journal file
 
+**Node**:
+One thing a ledger file is read into: the file, a transaction, a posting, a price, a link, a note or lines that do not read, with the comments under it and what it holds.
+_Avoid_: Block, element
+
+**Note**:
+A comment that stands alone in a ledger file, after a blank line, with nothing above to hold it.
+
 **Transaction**:
 A dated, described set of postings that balances to zero.
 _Avoid_: Entry, record

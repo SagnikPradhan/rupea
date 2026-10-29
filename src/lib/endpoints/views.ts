@@ -18,6 +18,7 @@ export const viewTransaction = (transaction: RupeaTransaction) => ({
 	date: transaction.date.toString(),
 	time: transaction.time?.toString({ smallestUnit: 'minute' }) ?? null,
 	description: transaction.description,
+	comment: transaction.comment,
 	postings: transaction.postings.map((p) => ({ account: p.account, quantity: printQuantity(p) })),
 });
 

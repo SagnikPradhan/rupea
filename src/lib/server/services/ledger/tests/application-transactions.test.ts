@@ -37,6 +37,7 @@ describe('listing transactions', () => {
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			const content = [
+				'; from the passbook',
 				'2026-08-01 Opening',
 				'\tAssets:Bank 100000',
 				'\tEquity:Opening',
@@ -46,6 +47,8 @@ describe('listing transactions', () => {
 				'\tAssets:Broker 10 INFY @ 1500.125',
 				'\t\t- tags: long, tech',
 				'\tAssets:Bank -15001.25 = 84998.75',
+				'; charged in dollars',
+				'; by the broker',
 				'\tExpenses:Fees 20 USD @@ 1680',
 				'\tAssets:Bank',
 				'',

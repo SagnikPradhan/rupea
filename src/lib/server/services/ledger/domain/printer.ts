@@ -1,15 +1,21 @@
 import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
+import { parseTime } from '#lib/server/shared/dates.ts';
 import * as dateFns from 'date-fns';
 import { formatQuantity } from './amounts';
+import { match } from 'ts-pattern';
 import {
+	NodeKind,
 	PriceKind,
 	type LotCost,
-	type RupeaLedgerFile,
+	type Price,
+	type RupeaEntries,
+	type RupeaEntryNode,
+	type RupeaFileNode,
 	type RupeaLink,
 	type RupeaMarketPrice,
-	type RupeaMetadata,
 	type RupeaPosting,
-	type RupeaTransaction,
+	type RupeaPostingNode,
+	type RupeaTransactionNode,
 } from './types';
 
 export const PRICE_SIGN: Record<PriceKind, string> = {
@@ -17,59 +23,87 @@ export const PRICE_SIGN: Record<PriceKind, string> = {
 	[PriceKind.Total]: '@@',
 };
 
-export const print = (c: LedgerConfiguration, file: RupeaLedgerFile): string => {
-	const pLines = [
-		...file.prices.map((p) => printPrice(c, p)),
-		...file.links.map((l) => printLink(c, l)),
-	];
-	return [
-		printMetadata('', file.metadata),
-		...file.transactions.map((t) => printTransaction(c, t)),
-		pLines.join(''),
-	]
-		.filter(Boolean)
-		.join('\n');
+/** One blank line between entries, except between P lines; amounts aligned across the file. */
+export const print = (c: LedgerConfiguration, file: RupeaFileNode): string => {
+	const column = columnOf(file);
+	const top = printMetadata('', file.metadata) + printComments('', file.comments);
+	const blocks = blocksOf(file.children).map((b) =>
+		b.map((e) => printEntry(c, column, e)).join(''),
+	);
+
+	return [top, ...blocks].filter(Boolean).join('\n');
 };
 
-// A single outgoing posting leaves its amount out; it is whatever balances.
-// With prices or several commodities every amount is spelled out.
+const printEntry = (c: LedgerConfiguration, column: number, e: RupeaEntryNode): string =>
+	match(e)
+		.with({ kind: NodeKind.Transaction }, (t) => printTransaction(c, column, t))
+		.with({ kind: NodeKind.Price }, (p) => printPrice(c, p) + printComments('', p.comments))
+		.with({ kind: NodeKind.Link }, (l) => printLink(c, l) + printComments('', l.comments))
+		.with({ kind: NodeKind.Note }, (n) => printComments('', n.comments))
+		.with({ kind: NodeKind.Failed }, (f) => printLines(f.lines) + printComments('', f.comments))
+		.exhaustive();
+
 const printTransaction = (
 	{ dateFormats, timeFormats }: LedgerConfiguration,
-	{ date, time, description, metadata, postings }: RupeaTransaction,
+	column: number,
+	t: RupeaTransactionNode,
 ): string => {
 	const header = [
-		printDate(dateFormats[0], date),
-		...(time ? [printTime(timeFormats[0], time)] : []),
-		description,
+		printDate(dateFormats[0], t.date),
+		...(t.time ? [printTime(timeFormats, t.time)] : []),
+		t.description,
 	].join(' ');
-
-	const outgoing = postings.filter((p) => p.amount < 0n);
-	const plain = postings.every(
-		(p) => p.price === null && p.cost === null && p.commodity === postings[0]?.commodity,
-	);
-	const elided = plain && outgoing.length === 1 ? outgoing[0] : undefined;
 
 	return [
 		`${header}\n`,
-		printMetadata('\t', metadata),
-		...postings.map((p) => printPosting(dateFormats[0], p, p === elided)),
+		printComments('\t', t.comments),
+		printMetadata('\t', t.metadata),
+		...t.children.map((p) => printPosting(dateFormats[0], column, p)),
 	].join('');
 };
 
 // Posting metadata sits a level deeper only for the reader; the parser ignores indentation.
-const printPosting = (f: string | undefined, p: RupeaPosting, elided: boolean): string => {
-	const line = [
-		p.account,
-		...(elided ? [] : [formatQuantity(p)]),
+const printPosting = (f: string | undefined, column: number, p: RupeaPostingNode): string => {
+	const terms = [
+		...(p.elided ? [] : [formatQuantity(p)]),
 		...printTerms(f, p),
 		...(p.balance === null
 			? []
 			: ['=', formatQuantity({ amount: p.balance, commodity: p.commodity })]),
 	].join(' ');
-	return `\t${line}\n${printMetadata('\t\t', p.metadata)}`;
+	const line = terms === '' ? p.account : `${p.account.padEnd(column)}${terms}`;
+
+	return `\t${line}\n${printComments('\t\t', p.comments)}${printMetadata('\t\t', p.metadata)}`;
 };
 
-const printTerms = (f: string | undefined, p: RupeaPosting): string[] => [
+/** P lines in a row print as one block, as a file of prices is written. */
+const blocksOf = (entries: RupeaEntryNode[]): RupeaEntryNode[][] => {
+	const blocks: RupeaEntryNode[][] = [];
+
+	for (const e of entries) {
+		const last = blocks.at(-1);
+		const joins = last !== undefined && isPLine(e) && isPLine(last.at(-1)!);
+		if (joins) last.push(e);
+		if (!joins) blocks.push([e]);
+	}
+	return blocks;
+};
+
+const isPLine = (e: RupeaEntryNode) => e.kind === NodeKind.Price || e.kind === NodeKind.Link;
+
+/** Two spaces past the longest account, so the amounts line up. */
+const columnOf = (file: RupeaFileNode) =>
+	Math.max(
+		0,
+		...file.children.flatMap((e) =>
+			e.kind === NodeKind.Transaction ? e.children.map((p) => p.account.length) : [],
+		),
+	) + 2;
+
+const printTerms = (
+	f: string | undefined,
+	p: { price: Price | null; cost: LotCost | null },
+): string[] => [
 	...(p.cost === null ? [] : [printCost(f, p.cost)]),
 	...(p.price === null ? [] : [PRICE_SIGN[p.price.kind], formatQuantity(p.price)]),
 ];
@@ -83,16 +117,27 @@ const printPrice = ({ dateFormats }: LedgerConfiguration, p: RupeaMarketPrice): 
 const printLink = ({ dateFormats }: LedgerConfiguration, l: RupeaLink): string =>
 	`P ${l.since ? printDate(dateFormats[0], l.since) : '*'} ${l.commodity} ${l.feed}:${l.symbol}\n`;
 
-const printMetadata = (t: string, m: RupeaMetadata): string =>
-	Object.entries(m)
-		.flatMap(([key, values]) => values.map((v) => `${t}- ${key}: ${v}\n`))
-		.join('');
+const printMetadata = (t: string, m: RupeaEntries): string =>
+	m.map(([key, value]) => `${t}- ${key}: ${value}\n`).join('');
+
+/** A comment that starts with another semicolon keeps it close, as in ;; heading. */
+const printComments = (t: string, c: string[]): string =>
+	c.map((x) => (x === '' || x.startsWith(';') ? `${t};${x}\n` : `${t}; ${x}\n`)).join('');
+
+const printLines = (l: string[]): string => l.map((t) => `${t}\n`).join('');
 
 const printDate = (f: string | undefined, d: Temporal.PlainDate) =>
 	f ? dateFns.format(new Date(d.year, d.month - 1, d.day), f) : d.toString();
 
-const printTime = (f: string | undefined, t: Temporal.PlainTime) =>
-	f ? dateFns.format(new Date(1970, 0, 1, t.hour, t.minute, t.second), f) : t.toString();
+/** The first format that holds the time, so seconds are never dropped. */
+const printTime = (formats: string[], t: Temporal.PlainTime) => {
+	const date = new Date(1970, 0, 1, t.hour, t.minute, t.second);
+	const written = formats
+		.map((f) => ({ format: f, text: dateFns.format(date, f) }))
+		.find((w) => parseTime(w)?.equals(t));
+
+	return written?.text ?? t.toString();
+};
 
 /** A posting's amount with its cost and price, as the page shows it. */
 export const printQuantity = (p: RupeaPosting): string =>

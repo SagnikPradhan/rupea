@@ -39,10 +39,10 @@ describe('extracting a statement', () => {
 						'',
 						'2026-08-29 UPI GROCER',
 						'\tAssets:Bank',
-						'\tExpenses:Food 1250.50',
+						'\tExpenses:Food         1250.50',
 						'',
 						'2026-08-30 SALARY',
-						'\tAssets:Bank 50000.00',
+						'\tAssets:Bank           50000.00',
 						'\tIncome:Uncategorized',
 						'',
 					].join('\n'),
@@ -100,9 +100,9 @@ describe('extracting a statement', () => {
 
 			// The tagged line keeps its tag; the salary follows the ledger.
 			expect(draft._unsafeUnwrap().content).toContain(
-				['2026-08-30 SALARY', '\tAssets:Bank 50000.00', '\tIncome:Pay'].join('\n'),
+				['2026-08-30 SALARY', '\tAssets:Bank    50000.00', '\tIncome:Pay'].join('\n'),
 			);
-			expect(draft._unsafeUnwrap().content).toContain('\tExpenses:Food 1250.50');
+			expect(draft._unsafeUnwrap().content).toContain('\tExpenses:Food  1250.50');
 		}));
 
 	it('asserts the running balance a statement prints', ({ context, db }) =>
@@ -123,9 +123,13 @@ describe('extracting a statement', () => {
 			});
 
 			expect(draft._unsafeUnwrap().content).toContain(
-				['2026-08-29 UPI GROCER', '\tAssets:Bank = 8749.50', '\tExpenses:Food 1250.50'].join('\n'),
+				[
+					'2026-08-29 UPI GROCER',
+					'\tAssets:Bank           = 8749.50',
+					'\tExpenses:Food         1250.50',
+				].join('\n'),
 			);
-			expect(draft._unsafeUnwrap().content).toContain('\tAssets:Bank 50000.00\n');
+			expect(draft._unsafeUnwrap().content).toContain('\tAssets:Bank           50000.00\n');
 		}));
 
 	it('needs the schema to name its account', ({ context, db }) =>

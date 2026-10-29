@@ -16,18 +16,25 @@ import {
 	type Quantity,
 } from './amounts';
 import { movesInKind } from './lots';
+import { linkOf, priceOf, toMetadata, transactionOf } from './nodes';
 import { accountType } from './taxonomy';
 import {
 	Feed,
+	NodeKind,
 	PriceKind,
 	type LotCost,
 	type Price,
+	type RupeaEntries,
+	type RupeaEntryNode,
+	type RupeaFailedNode,
 	type RupeaFile,
+	type RupeaFileNode,
 	type RupeaLink,
 	type RupeaMarketPrice,
 	type RupeaMetadata,
+	type RupeaNoteNode,
 	type RupeaParseLocation,
-	type RupeaPosting,
+	type RupeaPostingNode,
 	type RupeaTransaction,
 } from './types';
 
@@ -45,34 +52,38 @@ type RupeaParsedFile = Batch<RupeaTransaction> & {
 	links: RupeaLink[];
 };
 
-/** Metadata above the first transaction belongs to the file. */
+/** What a file holds for the ledger, read from its tree. */
 export const parse = (
 	c: LedgerConfiguration,
-	{ key, content }: Pick<RupeaFile, 'key' | 'content'>,
+	file: Pick<RupeaFile, 'key' | 'content'>,
 ): RupeaParsedFile => {
-	const input = lines(key, content).filter((l) => !isComment(l));
-	const preamble = readMetadata(
-		takeWhile(input, (l) => isBlank(l) || isMetadata(l)).filter(isMetadata),
-	);
-	const pLines = batch(input.filter(isPLine).map((l) => parsePLine(c, l)));
-	const parsed = parseTransactions(c, input);
+	const tree = parseTree(c, file);
+	const entries = tree.children;
 
 	return {
-		metadata: preamble.metadata,
-		prices: pLines.succeeded.filter(isPrice),
-		links: pLines.succeeded.filter(isLink),
-		succeeded: parsed.succeeded,
-		failed: [...preamble.failed, ...pLines.failed, ...parsed.failed],
+		metadata: toMetadata(tree.metadata),
+		prices: entries.flatMap((e) => (e.kind === NodeKind.Price ? [priceOf(e)] : [])),
+		links: entries.flatMap((e) => (e.kind === NodeKind.Link ? [linkOf(e)] : [])),
+		succeeded: entries.flatMap((e) => (e.kind === NodeKind.Transaction ? [transactionOf(e)] : [])),
+		failed: entries.flatMap((e) => (e.kind === NodeKind.Failed ? e.errors : [])),
 	};
 };
 
-export const toMetadata = (entries: [string, string][]): RupeaMetadata =>
-	Object.fromEntries(
-		Object.entries(Object.groupBy(entries, ([key]) => key)).map(([key, group = []]) => [
-			key,
-			group.map(([, value]) => value),
-		]),
-	);
+/** Metadata above the first entry belongs to the file, and a comment to what sits right above it. */
+export const parseTree = (
+	c: LedgerConfiguration,
+	{ key, content }: Pick<RupeaFile, 'key' | 'content'>,
+): RupeaFileNode => {
+	const input = lines(key, content);
+	const top = readPreamble(input);
+
+	return {
+		kind: NodeKind.File,
+		comments: top.comments,
+		metadata: top.metadata,
+		children: [...top.failed, ...readEntries(c, input)],
+	};
+};
 
 export type RupeaLine = { location: RupeaParseLocation; content: string };
 
@@ -85,78 +96,161 @@ export const lines = (file: string, content: string): RupeaLine[] =>
 			content: text,
 		}));
 
-/** A bad line drops its transaction; a bad header ends the parse, as the next one can't be found. */
-const parseTransactions = (
-	configuration: LedgerConfiguration,
-	input: RupeaLine[],
-): Batch<RupeaTransaction> => {
-	const lines = input.filter((l) => !isComment(l));
-	const results: Result<RupeaTransaction>[] = [];
+/** The file's own metadata, and the comments among it and right after it, before a blank line. */
+const readPreamble = (input: RupeaLine[]) => {
+	const head = takeWhile(input, (l) => isBlank(l) || isMetadata(l) || isComment(l));
+	const start = Math.max(
+		head.findLastIndex(isMetadata) + 1,
+		head.findIndex((l) => !isBlank(l)),
+	);
+	const end = head.findIndex((l, i) => i >= start && !isComment(l));
+	input.unshift(...head.splice(end < 0 ? head.length : end));
 
-	for (const line of drain(lines)) {
-		if (isBlank(line) || isPLine(line)) continue;
-		if (isMetadata(line)) {
-			results.push(
-				err(fault('ParseDetachedMetadata', { location: displayLocation(line.location) })),
-			);
-			continue;
-		}
-
-		const header = parseHeader(configuration, line);
-		if (header.isErr()) return batch([...results, err(header.error)]);
-
-		const body = readBody(
-			configuration,
-			takeWhile(lines, (l) => isPosting(l) || isMetadata(l)),
-		);
-		results.push(...body.failed.map(err));
-		if (body.failed.length > 0) continue;
-
-		results.push(
-			balance(line.location, body.postings).map((postings) => ({
-				location: line.location,
-				...header.value,
-				metadata: body.metadata,
-				postings,
-			})),
-		);
-	}
-	return batch(results);
-};
-
-type MetadataPosting = WrittenPosting & { metadata: RupeaMetadata };
-
-type Body = { metadata: RupeaMetadata; postings: MetadataPosting[]; failed: RupeaError[] };
-
-/** Metadata belongs to the nearest line above it that is not metadata. */
-const readBody = (c: LedgerConfiguration, lines: RupeaLine[]): Body => {
-	const own = readMetadata(takeWhile(lines, isMetadata));
-	// Array.from maps as it drains, so each posting takes the metadata under it.
-	const postings = Array.from(drain(lines), (l) => ({
-		posting: readPosting(c, l).andThen((p) => checkAccount(l.location, p)),
-		metadata: readMetadata(takeWhile(lines, isMetadata)),
-	}));
-
+	const metadata = head.filter(isMetadata).map((l) => ({ line: l, entry: parseMetadata(l) }));
 	return {
-		metadata: own.metadata,
-		postings: postings.flatMap(({ posting, metadata }) =>
-			posting.isOk() ? [{ ...posting.value, metadata: metadata.metadata }] : [],
+		comments: head.filter(isComment).map(commentOf),
+		metadata: metadata.flatMap(({ entry }) => (entry.isOk() ? [entry.value] : [])),
+		failed: metadata.flatMap(({ line, entry }) =>
+			entry.isErr() ? [failed([line], [], [entry.error])] : [],
 		),
-		failed: [
-			...own.failed,
-			...postings.flatMap(({ posting, metadata }) => [
-				...(posting.isErr() ? [posting.error] : []),
-				...metadata.failed,
-			]),
-		],
 	};
 };
 
-type ReadMetadata = { metadata: RupeaMetadata; failed: RupeaError[] };
+/** Comments that nothing above holds stand as a note. */
+const readEntries = (c: LedgerConfiguration, input: RupeaLine[]): RupeaEntryNode[] => {
+	const entries: RupeaEntryNode[] = [];
+
+	for (const line of drain(input)) {
+		if (isComment(line)) entries.push(note([line, ...takeWhile(input, isComment)]));
+		if (!isComment(line) && !isBlank(line)) entries.push(...readNode(c, line, input));
+	}
+	return entries;
+};
+
+/** A bad header ends the transactions, as the next one can't be found. */
+const readNode = (c: LedgerConfiguration, line: RupeaLine, rest: RupeaLine[]): RupeaEntryNode[] => {
+	if (isPLine(line)) return [readPLine(c, line, commentsUnder(rest))];
+	if (isMetadata(line)) return [failed([line], commentsUnder(rest), [detached(line)])];
+
+	const header = parseHeader(c, line);
+	if (header.isErr()) return unread(c, [line, ...rest.splice(0)], header.error);
+
+	return [readTransaction(c, { line, header: header.value, body: bodyOf(rest) })];
+};
+
+/** After a bad header only P lines are read; the lines between them are kept as written. */
+const unread = (
+	c: LedgerConfiguration,
+	input: RupeaLine[],
+	error: RupeaError,
+): RupeaEntryNode[] => {
+	const entries: RupeaEntryNode[] = [
+		failed(trimBlank(takeWhile(input, (l) => !isPLine(l))), [], [error]),
+	];
+	for (const line of drain(input)) {
+		entries.push(readPLine(c, line, []));
+		const between = trimBlank(takeWhile(input, (l) => !isPLine(l)));
+		if (between.length > 0) entries.push(failed(between, [], []));
+	}
+	return entries;
+};
+
+/** The postings, metadata and comments under a header. */
+const bodyOf = (r: RupeaLine[]): RupeaLine[] =>
+	takeWhile(r, (l) => isPosting(l) || isMetadata(l) || isComment(l));
+
+const commentsUnder = (r: RupeaLine[]): string[] => takeWhile(r, isComment).map(commentOf);
+
+type TransactionLines = { line: RupeaLine; header: Header; body: RupeaLine[] };
+
+/** A bad line fails its whole transaction, which is kept as written. */
+const readTransaction = (
+	c: LedgerConfiguration,
+	{ line, header, body }: TransactionLines,
+): RupeaEntryNode => {
+	const [own, ...owners] = ownersOf(line, body);
+	const metadata = readMetadata(own!.metadata);
+	const postings = owners.map((o) => ({
+		posting: readPosting(c, o.line).andThen((p) => checkAccount(o.line.location, p)),
+		metadata: readMetadata(o.metadata),
+		comments: o.comments,
+	}));
+	const errors = [
+		...metadata.failed,
+		...postings.flatMap(({ posting, metadata }) => [
+			...(posting.isErr() ? [posting.error] : []),
+			...metadata.failed,
+		]),
+	];
+	const kept = (e: RupeaError[]) => failed([line, ...body], [], e);
+	if (errors.length > 0) return kept(errors);
+
+	const written = postings.flatMap(({ posting, metadata, comments }) =>
+		posting.isOk() ? [{ posting: posting.value, metadata: metadata.entries, comments }] : [],
+	);
+	return balance(line.location, written).match(
+		(children) => ({
+			kind: NodeKind.Transaction,
+			location: line.location,
+			comments: own!.comments,
+			...header,
+			metadata: metadata.entries,
+			children,
+		}),
+		(e) => kept([e]),
+	);
+};
+
+type Owner = { line: RupeaLine; comments: string[]; metadata: RupeaLine[] };
+
+/** The header and each posting with the comments and metadata under it. */
+const ownersOf = (header: RupeaLine, body: RupeaLine[]): Owner[] => {
+	const owners: Owner[] = [{ line: header, comments: [], metadata: [] }];
+
+	for (const l of body) {
+		const owner = owners.at(-1)!;
+		if (isComment(l)) owner.comments.push(commentOf(l));
+		if (isMetadata(l)) owner.metadata.push(l);
+		if (isPosting(l)) owners.push({ line: l, comments: [], metadata: [] });
+	}
+	return owners;
+};
+
+const note = (comments: RupeaLine[]): RupeaNoteNode => ({
+	kind: NodeKind.Note,
+	comments: comments.map(commentOf),
+	children: [],
+});
+
+const failed = (input: RupeaLine[], comments: string[], errors: RupeaError[]): RupeaFailedNode => ({
+	kind: NodeKind.Failed,
+	location: input[0]!.location,
+	comments,
+	lines: input.map((l) => l.content),
+	errors,
+	children: [],
+});
+
+const detached = (l: RupeaLine) =>
+	fault('ParseDetachedMetadata', { location: displayLocation(l.location) });
+
+/** A comment line without its indent, its semicolon and the space after it. */
+const commentOf = ({ content }: RupeaLine) => content.trim().replace(/^; ?/, '');
+
+const trimBlank = (l: RupeaLine[]) =>
+	l.slice(
+		Math.max(
+			0,
+			l.findIndex((x) => !isBlank(x)),
+		),
+		l.findLastIndex((x) => !isBlank(x)) + 1,
+	);
+
+type ReadMetadata = { entries: RupeaEntries; failed: RupeaError[] };
 
 const readMetadata = (lines: RupeaLine[]): ReadMetadata => {
-	const entries = batch(lines.map(parseMetadata));
-	return { metadata: toMetadata(entries.succeeded), failed: entries.failed };
+	const read = batch(lines.map(parseMetadata));
+	return { entries: read.succeeded, failed: read.failed };
 };
 
 const parseMetadata = ({ location, content }: RupeaLine): Result<[string, string]> => {
@@ -182,34 +276,39 @@ export const readEntry = (content: string) => {
 
 export const isBlank = ({ content }: RupeaLine) => content.trim() === '';
 
-export const isComment = ({ content }: RupeaLine) => content.startsWith(';');
+export const isComment = ({ content }: RupeaLine) => content.trimStart().startsWith(';');
 
 /** Indentation means nothing to a metadata line; the dash does. */
 export const isMetadata = ({ content }: RupeaLine) => /^\s*-(\s|$)/.test(content);
 
 export const isPosting = (l: RupeaLine) =>
-	/^(\t| {2})/.test(l.content) && !isBlank(l) && !isMetadata(l);
+	/^(\t| {2})/.test(l.content) && !isBlank(l) && !isMetadata(l) && !isComment(l);
 
 /** A P line prices a commodity, or links it to a feed. */
 const isPLine = ({ content }: RupeaLine) => /^P\s/.test(content);
-const isPrice = (p: RupeaMarketPrice | RupeaLink): p is RupeaMarketPrice => 'price' in p;
-const isLink = (p: RupeaMarketPrice | RupeaLink): p is RupeaLink => 'feed' in p;
+const readPLine = (c: LedgerConfiguration, l: RupeaLine, comments: string[]): RupeaEntryNode => {
+	const unread = (e: RupeaError) => failed([l], comments, [e]);
+	const link = readLink(c, l);
+	if (link)
+		return link.match((v) => ({ kind: NodeKind.Link, comments, ...v, children: [] }), unread);
 
-const parsePLine = (c: LedgerConfiguration, l: RupeaLine): Result<RupeaMarketPrice | RupeaLink> =>
-	readLink(c, l) ?? parsePriceLine(c, l);
+	return parsePriceLine(c, l).match(
+		(v) => ({ kind: NodeKind.Price, comments, ...v, children: [] }),
+		unread,
+	);
+};
+
+type Written = { posting: WrittenPosting; metadata: RupeaEntries; comments: string[] };
 
 /** Each commodity nets to zero by weight; a posting without an amount takes what is left. */
-const balance = (
-	location: RupeaParseLocation,
-	written: MetadataPosting[],
-): Result<RupeaPosting[]> => {
+const balance = (location: RupeaParseLocation, written: Written[]): Result<RupeaPostingNode[]> => {
 	const at = { location: displayLocation(location) };
 	if (written.length < 2) return err(fault('ParseMissingTransactionBody', at));
 
-	const [implicit, ...others] = written.filter((p) => p.quantity === null);
+	const [implicit, ...others] = written.filter((w) => w.posting.quantity === null);
 	if (others.length > 0) return err(fault('ParseMultipleImplicitPostings', at));
 
-	const explicit = written.flatMap(({ quantity, ...p }) =>
+	const explicit = written.flatMap(({ posting: { quantity, ...p } }) =>
 		quantity ? [{ ...p, ...quantity }] : [],
 	);
 	const weights = explicit.map((p) => weight(p, explicit));
@@ -222,14 +321,19 @@ const balance = (
 
 	const left = leftover[0] ?? { amount: 0n as Amount, commodity: DEFAULT_COMMODITY };
 	const implied = { ...left, amount: -left.amount as Amount };
-	const asserted = implicit?.balance?.commodity;
+	const asserted = implicit?.posting.balance?.commodity;
 	if (asserted && asserted !== implied.commodity) return err(fault('ParseInvalidPosting', at));
 
 	return ok(
-		written.map(({ quantity, balance: assertion, ...p }) => ({
+		written.map(({ posting: { quantity, balance: assertion, ...p }, metadata, comments }) => ({
+			kind: NodeKind.Posting,
+			comments,
 			...p,
 			...(quantity ?? implied),
+			elided: quantity === null,
 			balance: assertion?.amount ?? null,
+			metadata,
+			children: [],
 		})),
 	);
 };
@@ -251,14 +355,12 @@ const weight = (p: Weighed, transaction: Weighed[]): Quantity => {
 	return { amount: multiply(p.amount, p.price.amount), commodity: p.price.commodity };
 };
 
+type Header = { date: Temporal.PlainDate; time: Temporal.PlainTime | null; description: string };
+
 const parseHeader = (
 	{ dateFormats, timeFormats }: LedgerConfiguration,
 	{ location, content }: RupeaLine,
-): Result<{
-	date: Temporal.PlainDate;
-	time: Temporal.PlainTime | null;
-	description: string;
-}> => {
+): Result<Header> => {
 	const words = content.trim().split(/\s+/);
 	const date = readWords(dateFormats, words, parseDate);
 	const time = date ? readWords(timeFormats, date.rest, parseTime) : undefined;

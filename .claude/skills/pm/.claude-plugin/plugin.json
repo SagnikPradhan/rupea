@@ -1,0 +1,5 @@
+{
+	"name": "pm",
+	"description": "The agents for the pm skill: the planner judges ideas, the checker checks facts for a groom, and the researcher runs research passes.",
+	"version": "0.1.0"
+}

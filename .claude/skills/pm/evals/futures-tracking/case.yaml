@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: futures-tracking
+expected_outcome: |
+  An idea on the Not now list. The verdict is not now, cites the reason from person.md, proposes no build, and changes no file or issue.

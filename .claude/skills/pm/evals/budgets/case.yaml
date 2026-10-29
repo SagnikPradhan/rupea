@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: budgets
+expected_outcome: |
+  A broad feature. The verdict names a persona and the frustration it removes, cuts budgets to a smallest version, and splits it into slices that each fit one pull request. It lists the gaps that would change the verdict, and waits for approval before changing ROADMAP.md or issues.

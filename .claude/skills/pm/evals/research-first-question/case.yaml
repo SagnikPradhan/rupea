@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: research-first-question
+expected_outcome: |
+  With no question given, research takes the first of the next questions in research.md, says which and why, and spawns the researcher. It shows the findings and proposes edits, and changes no file in the repo before the user agrees.

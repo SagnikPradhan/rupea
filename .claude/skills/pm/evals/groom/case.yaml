@@ -1,0 +1,4 @@
+schema_version: "1.1"
+name: groom
+expected_outcome: |
+  The groom spawns the checker before the planner, shows one numbered list of changes with a draft update, and offers a research pass. Nothing in the repo changes, and no log entry is written, before the user agrees.

@@ -15,5 +15,5 @@ export const createFile = async (page: Page, ledger: string, key: string, conten
 	await page.getByRole('link', { name: key }).click();
 	await page.getByLabel('Ledger file').fill(content);
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
-	await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+	await expect(page.getByText('Unsaved')).toBeHidden();
 };

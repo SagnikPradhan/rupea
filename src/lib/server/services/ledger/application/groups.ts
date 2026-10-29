@@ -15,7 +15,6 @@ import { counted, GroupRole, linksOf } from '../domain/groups';
 import { insertLinks, rewriteLinks, type LinkEdit, type Relink } from '../domain/links';
 import type { Ledger, RupeaFile, RupeaTransaction } from '../domain/types';
 import { editFile, readFile } from './files';
-import { syncIndex } from './sync';
 
 type Candidates = { pairs: DB.CandidatePair[]; transactions: DB.IndexedTransaction[] };
 
@@ -39,9 +38,7 @@ export const isGroupIdTaken = ({ ledger, id }: IsGroupIdTakenOptions): ResultAsy
 
 // Groups with a member in the file, with every member wherever it is written.
 export const listGroups = ({ ledger, file }: InFileOptions): ResultAsync<FileGroup[]> =>
-	syncIndex(ledger)
-		.andThen(() => DB.listGroupsInFile(ledger.id, file))
-		.map(byGroup);
+	DB.listGroupsInFile(ledger.id, file).map(byGroup);
 
 type LinkGroupsOptions = { ledger: Ledger; edits: LinkEdit[] };
 
@@ -58,8 +55,7 @@ export const linkGroups = ({ ledger, edits }: LinkGroupsOptions): ResultAsync<Ru
 type RenameGroupOptions = { ledger: Ledger; group: string; to: string };
 
 export const renameGroup = ({ ledger, group, to }: RenameGroupOptions): ResultAsync<RupeaError[]> =>
-	syncIndex(ledger)
-		.andThen(() => DB.isGroupIdTaken(ledger.id, to))
+	DB.isGroupIdTaken(ledger.id, to)
 		.andThen((t) =>
 			t ? errAsync(fault('GroupIdTaken', { group: to })) : DB.listGroupMembers(ledger.id, group),
 		)
@@ -84,8 +80,7 @@ export const makePrimary = ({
 		role: isTarget(t) ? GroupRole.Primary : GroupRole.Evidence,
 	});
 
-	return syncIndex(ledger)
-		.andThen(() => DB.listGroupMembers(ledger.id, group))
+	return DB.listGroupMembers(ledger.id, group)
 		.andThen((m) =>
 			m.some(isTarget)
 				? okAsync(m)

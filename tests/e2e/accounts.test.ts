@@ -32,7 +32,7 @@ test('shows what each account holds and what it is worth', async ({ signedIn: pa
 	await page.getByRole('link', { name: 'shares.rupea' }).click();
 	await page.getByLabel('Ledger file').fill(ledgerFile);
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
-	await expect(page.getByRole('button', { name: 'Save', exact: true })).toBeDisabled();
+	await expect(page.getByText('Unsaved')).toBeHidden();
 
 	await visit(page, `${ledger}/accounts`);
 	const zerodha = page.getByRole('row').filter({ hasText: 'Zerodha' });

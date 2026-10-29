@@ -7,8 +7,8 @@ import {
 	listWorth,
 } from '#lib/endpoints/accounts.remote.ts';
 import { createFile } from '#lib/endpoints/files.remote.ts';
-import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
-import { listPostings, listTransactions, sync } from '#lib/endpoints/transactions.remote.ts';
+import { findFirstDay, findSync, listProblems, sync } from '#lib/endpoints/ledger.remote.ts';
+import { listPostings, listTransactions } from '#lib/endpoints/transactions.remote.ts';
 import { provide } from '#lib/server/shared/context/context.ts';
 import { signIn } from '#tests/shared/app-server.ts';
 import { createLedger, ownerOf } from '#tests/shared/seed.ts';
@@ -48,9 +48,9 @@ const it = base.extend<{ ledger: string }>({
 });
 
 describe('transactions', () => {
-	it('sync cleanly and list newest first', ({ context, ledger: handle }) =>
+	it('show no problems and list newest first', ({ context, ledger: handle }) =>
 		provide(context, async () => {
-			expect(await sync(handle)).toEqual({ ok: true, data: [], errors: [] });
+			expect(await listProblems(handle)).toEqual({ ok: true, data: [], errors: [] });
 
 			const listed = await listTransactions({ handle, day, filter, after: null });
 			expect(listed.data?.rows.map((r) => r.description)).toEqual([
@@ -77,6 +77,14 @@ describe('transactions', () => {
 				parent: 'Expenses',
 			});
 			expect((await findFirstDay(handle)).data).toBe('2026-08-01');
+		}));
+
+	it('queue a sync and show it waiting', ({ context, ledger: handle }) =>
+		provide(context, async () => {
+			expect((await findSync(handle)).data).toBeNull();
+
+			expect(await sync(handle)).toEqual({ ok: true, data: undefined, errors: [] });
+			expect((await findSync(handle)).data).toBe('queued');
 		}));
 });
 

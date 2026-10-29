@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { listAccountTree } from '#lib/endpoints/accounts.remote.ts';
-	import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
-	import { sync, listPostings } from '#lib/endpoints/transactions.remote.ts';
-	import { filterOf, type Filter } from '#lib/shared/filter.ts';
+	import { findFirstDay, listProblems } from '#lib/endpoints/ledger.remote.ts';
+	import { listPostings } from '#lib/endpoints/transactions.remote.ts';
+	import { filterOf } from '#lib/shared/filter.ts';
 	import Issues from '#lib/web/components/issues/issues.svelte';
 	import Account from '#lib/web/components/ledger-table/account.svelte';
 	import Amount from '#lib/web/components/ledger-table/amount.svelte';
@@ -23,17 +23,11 @@
 	const handle = $derived(data.ledger.handle);
 	const filter = $derived(filterOf(page.url.searchParams));
 
-	const issues = $derived(await sync(handle));
+	const issues = $derived(await listProblems(handle));
 	const accounts = $derived(await listAccountTree(handle));
 	const earliest = $derived((await findFirstDay(handle)).data ?? null);
-	const first = $derived(await firstPage(handle, filter));
+	const first = $derived(await listPostings({ handle, day, filter, after: null }));
 	const list = $derived(paged(first, (after) => listPostings({ handle, day, filter, after })));
-
-	/** The list reads the index, which the issues query brings up to date. */
-	async function firstPage(h: string, f: Filter) {
-		await sync(h);
-		return listPostings({ handle: h, day, filter: f, after: null });
-	}
 </script>
 
 <PageHeader trail={[ledgerCrumb(data.ledger)]}>Postings</PageHeader>

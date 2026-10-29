@@ -5,7 +5,7 @@ import * as Files from '#services/ledger/application/files.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
 import { Handle, inLedger, Key } from './shared';
-import { sync } from './transactions.remote';
+import { listProblems } from './ledger.remote';
 import { viewTransaction } from './views';
 
 export const listFiles = query(Handle, (h) =>
@@ -45,7 +45,7 @@ export const createFile = command(
 			action: (l) => Files.createFile({ ledger: l, key, content }),
 		});
 		void listFiles(handle).refresh();
-		void sync(handle).refresh();
+		void listProblems(handle).refresh();
 		return replyFrom(created);
 	},
 );
@@ -58,7 +58,7 @@ export const editFile = command(
 			action: (l) => Files.editFile({ ledger: l, key, content, version }),
 		});
 		void listFiles(handle).refresh();
-		void sync(handle).refresh();
+		void listProblems(handle).refresh();
 		return replyFrom(edited);
 	},
 );
@@ -71,7 +71,7 @@ export const renameFiles = command(
 			action: (l) => Files.renameFiles({ ledger: l, moves }),
 		});
 		void listFiles(handle).refresh();
-		void sync(handle).refresh();
+		void listProblems(handle).refresh();
 		return replyFromBatch(renamed);
 	},
 );
@@ -84,7 +84,7 @@ export const addFile = command(
 			action: (l) => Files.addFile({ ledger: l, from, to }),
 		});
 		void listFiles(handle).refresh();
-		void sync(handle).refresh();
+		void listProblems(handle).refresh();
 		return replyFrom(added);
 	},
 );
@@ -97,7 +97,7 @@ export const deleteFiles = command(
 			action: (l) => Files.deleteFiles({ ledger: l, keys }),
 		});
 		void listFiles(handle).refresh();
-		void sync(handle).refresh();
+		void listProblems(handle).refresh();
 		return replyFromBatch(deleted);
 	},
 );

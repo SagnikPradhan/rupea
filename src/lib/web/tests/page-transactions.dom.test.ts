@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import { listAccountTree } from '#lib/endpoints/accounts.remote.ts';
-import { listTransactions, sync } from '#lib/endpoints/transactions.remote.ts';
+import { listProblems } from '#lib/endpoints/ledger.remote.ts';
+import { listTransactions } from '#lib/endpoints/transactions.remote.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
@@ -11,9 +12,9 @@ vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({ listAccountTree: vi.fn() }));
 vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
 	findFirstDay: vi.fn(() => answer('2025-03-14')),
+	listProblems: vi.fn(),
 }));
 vi.mock('#lib/endpoints/transactions.remote.ts', () => ({
-	sync: vi.fn(),
 	listTransactions: vi.fn(),
 }));
 
@@ -33,7 +34,7 @@ const groceries = {
 const evidence = { ...groceries, id: '2', counted: false, time: null, description: 'Card bill' };
 
 const answering = (rows: unknown[]) => {
-	vi.mocked(sync).mockReturnValue(
+	vi.mocked(listProblems).mockReturnValue(
 		answer([], [fault('ParseInvalidPosting', { location: 'a.rupea:2' })]),
 	);
 	vi.mocked(listAccountTree).mockReturnValue(

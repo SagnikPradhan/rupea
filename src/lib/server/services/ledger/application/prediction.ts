@@ -14,7 +14,6 @@ import {
 	type Prediction,
 } from '../domain/prediction';
 import type { Ledger } from './ledger';
-import { syncIndex } from './sync';
 
 type PredictOptions<L extends Line> = {
 	ledger: Ledger;
@@ -36,8 +35,7 @@ export const predictAccounts = <L extends Line>({
 		lines.map((l, i) => ({ ...l, account: p[i]?.account ?? fallbackAccount(l.amount) }));
 
 	return withLogger('prediction')((logger) =>
-		syncIndex(ledger)
-			.andThen(() => DB.listAccountTree(ledger.id))
+		DB.listAccountTree(ledger.id)
 			.map((t) => t.filter((a) => a.posted).map((a) => a.name))
 			.andThen((accounts) =>
 				guess(ledger, {

@@ -8,6 +8,7 @@ import * as Accounts from '#services/ledger/application/accounts.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
 import * as Quotes from '#services/ledger/application/quotes.ts';
+import * as Sync from '#services/ledger/application/sync.ts';
 import { Feed } from '#services/ledger/domain/types.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
@@ -67,7 +68,7 @@ describe('fetching quotes', () => {
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({ ledger, key: 'a.rupea', content: fund('100001') });
-			await Accounts.listAccounts({ ledger, day });
+			await Sync.syncIndex(ledger);
 			const [symbolId = ''] = await symbolOf(db, '100001');
 			const [job] = await queued(ledger);
 			const fetch = navs({ '17-10-2026': '160.5', '16-10-2026': '161' });
@@ -141,12 +142,12 @@ describe('fetching quotes', () => {
 			const first = await createLedger(db);
 			const second = await createLedger(db);
 			await Files.createFile({ ledger: first, key: 'a.rupea', content: fund('100004') });
-			await Accounts.listAccounts({ ledger: first, day });
+			await Sync.syncIndex(first);
 			const [symbolId = ''] = await symbolOf(db, '100004');
 			await fetchedWith(context, navs({ '17-10-2026': '160.5' }), symbolId);
 
 			await Files.createFile({ ledger: second, key: 'a.rupea', content: fund('100004') });
-			await Accounts.listAccounts({ ledger: second, day });
+			await Sync.syncIndex(second);
 
 			expect(await symbolOf(db, '100004')).toEqual([symbolId]);
 			expect(await queued(first)).toHaveLength(1);
@@ -176,7 +177,7 @@ describe('fetching quotes', () => {
 			);
 
 			await db.deleteFrom('jobs').where('userId', '=', ledger.owner).execute();
-			await Accounts.listAccounts({ ledger, day });
+			await Sync.syncIndex(ledger);
 
 			expect((await queued(ledger)).map((j) => j.payload)).toEqual([{ symbol: down }]);
 		}));

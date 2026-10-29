@@ -40,7 +40,7 @@ describe('accounts', () => {
 					provide(context, () => Accounts.listReturns({ ledger, from: f, to: TO })).then(() => {});
 				const holdings = () =>
 					provide(context, () => Accounts.listAccounts({ ledger, day: TO })).then(() => {});
-				const checks = () => provide(context, () => Sync.sync(ledger)).then(() => {});
+				const checks = () => provide(context, () => Sync.listProblems(ledger)).then(() => {});
 				const index = () => provide(context, () => Sync.syncIndex(ledger)).then(() => {});
 				await bench.compare(
 					bench('worth 1m', worth(TO.subtract({ months: 1 }))),

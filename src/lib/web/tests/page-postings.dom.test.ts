@@ -1,7 +1,8 @@
 import { render, screen } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import { listAccountTree } from '#lib/endpoints/accounts.remote.ts';
-import { listPostings, sync } from '#lib/endpoints/transactions.remote.ts';
+import { listProblems } from '#lib/endpoints/ledger.remote.ts';
+import { listPostings } from '#lib/endpoints/transactions.remote.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
 import Page from '#routes/(signed-in)/l/[handle]/postings/+page.svelte';
@@ -10,14 +11,14 @@ vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({ listAccountTree: vi.fn() }));
 vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
 	findFirstDay: vi.fn(() => answer('2025-03-14')),
+	listProblems: vi.fn(),
 }));
 vi.mock('#lib/endpoints/transactions.remote.ts', () => ({
-	sync: vi.fn(),
 	listPostings: vi.fn(),
 }));
 
 const answering = (rows: unknown[]) => {
-	vi.mocked(sync).mockReturnValue(answer([]));
+	vi.mocked(listProblems).mockReturnValue(answer([]));
 	vi.mocked(listAccountTree).mockReturnValue(answer([{ account: 'Expenses', parent: null }]));
 	vi.mocked(listPostings).mockReturnValue(answer({ rows, next: null }));
 };

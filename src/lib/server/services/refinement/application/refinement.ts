@@ -2,7 +2,6 @@ import { fault } from '#lib/server/shared/result/error.ts';
 import { errAsync, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import * as Groups from '#services/ledger/application/groups.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
-import * as Sync from '#services/ledger/application/sync.ts';
 import { GroupRole } from '#services/ledger/application/shared.ts';
 import * as DB from '../adapters/database';
 import { groupId } from '../domain/ids';
@@ -21,8 +20,7 @@ export const listSuggestions = ({
 	ledger,
 	file,
 }: ListSuggestionsOptions): ResultAsync<Suggestion[]> =>
-	Sync.syncIndex(ledger)
-		.andThen(() => Groups.listCandidates({ ledger, file }))
+	Groups.listCandidates({ ledger, file })
 		.andThen((c) => DB.listDismissals(ledger.id).map((d) => suggest({ ...c, dismissed: d })))
 		.andThen((s) => named(ledger, s));
 

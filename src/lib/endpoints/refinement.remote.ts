@@ -6,7 +6,7 @@ import { command, query } from '$app/server';
 import * as v from 'valibot';
 import { listFiles } from './files.remote';
 import { Handle, inLedger, Key } from './shared';
-import { sync } from './transactions.remote';
+import { listProblems } from './ledger.remote';
 import { viewGroup, viewSuggestion } from './views';
 
 const Line = v.pipe(v.number(), v.integer(), v.minValue(1));
@@ -41,7 +41,7 @@ export const linkGroups = command(
 			action: (l) => Groups.linkGroups({ ledger: l, edits }),
 		});
 		void listFiles(handle).refresh();
-		void sync(handle).refresh();
+		void listProblems(handle).refresh();
 		for (const file of new Set(edits.map((e) => e.file)))
 			void listSuggestions({ handle, file }).refresh();
 		return replyFrom(linked);
@@ -76,7 +76,7 @@ export const renameGroup = command(
 			action: (l) => Groups.renameGroup({ ledger: l, group, to }),
 		});
 		void listFiles(handle).refresh();
-		void sync(handle).refresh();
+		void listProblems(handle).refresh();
 		void listGroups({ handle, file }).refresh();
 		return replyFrom(renamed);
 	},
@@ -95,7 +95,7 @@ export const makePrimary = command(
 			action: (l) => Groups.makePrimary({ ledger: l, group, ...member }),
 		});
 		void listFiles(handle).refresh();
-		void sync(handle).refresh();
+		void listProblems(handle).refresh();
 		void listGroups({ handle, file }).refresh();
 		return replyFrom(made);
 	},

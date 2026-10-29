@@ -67,6 +67,7 @@ export const ledgerFiles = PG.pgTable(
 			.references(() => ledgers.id, { onDelete: 'cascade' }),
 		key: t.text().notNull(),
 		version: t.text().notNull(),
+		indexer: t.integer().notNull(),
 	}),
 	(t) => [PG.unique('ledger_files_ledger_id_key').on(t.ledgerId, t.key)],
 );

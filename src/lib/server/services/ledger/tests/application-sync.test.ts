@@ -9,6 +9,7 @@ import { syncLedger } from '#services/ledger/adapters/jobs.ts';
 import { MODEL } from '#services/ledger/adapters/prediction-model2vec.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import * as Sync from '#services/ledger/application/sync.ts';
+import { INDEXER } from '#services/ledger/domain/sync.ts';
 import { Feed, PriceSource } from '#services/ledger/domain/types.ts';
 import { broken } from '#tests/shared/embedding.ts';
 import { createLedger } from '#tests/shared/seed.ts';
@@ -79,7 +80,7 @@ describe('syncing the ledger', () => {
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			await put(storage, ledger, 'a.rupea', annotated);
-			await Sync.sync(ledger);
+			await Sync.syncIndex(ledger);
 
 			const [indexed] = (await listAllTransactions(ledger.id))._unsafeUnwrap();
 			expect(indexed?.metadata).toEqual({ ref: ['a', 'b'], note: ['weekly shop'] });
@@ -94,15 +95,15 @@ describe('syncing the ledger', () => {
 			const all = () => count(db.selectFrom('metadata'));
 			const before = await all();
 			await put(storage, ledger, 'a.rupea', annotated);
-			await Sync.sync(ledger);
+			await Sync.syncIndex(ledger);
 			expect(await all()).toBe(before + 5);
 
 			await put(storage, ledger, 'a.rupea', `- statement: other.pdf\n\n${groceries}`);
-			await Sync.sync(ledger);
+			await Sync.syncIndex(ledger);
 			expect(await all()).toBe(before + 1);
 
 			await stored(storage, ledger).delete('a.rupea');
-			await Sync.sync(ledger);
+			await Sync.syncIndex(ledger);
 			expect(await all()).toBe(before);
 		}));
 
@@ -120,14 +121,14 @@ describe('syncing the ledger', () => {
 					.execute();
 
 			await put(storage, ledger, 'a.rupea', `${bought}\nP 2026-10-17 INFY 1820\n`);
-			await Sync.sync(ledger);
+			await Sync.syncIndex(ledger);
 			expect(await indexed()).toEqual([
 				{ commodity: 'INFY', amount: 1500_0000000000n, source: PriceSource.Posting },
 				{ commodity: 'INFY', amount: 1820_0000000000n, source: PriceSource.Line },
 			]);
 
 			await put(storage, ledger, 'a.rupea', 'P 2026-10-18 INFY 1830\nP 2026-10-18 TCS 4100\n');
-			await Sync.sync(ledger);
+			await Sync.syncIndex(ledger);
 			expect(await indexed()).toEqual([
 				{ commodity: 'INFY', amount: 1830_0000000000n, source: PriceSource.Line },
 				{ commodity: 'TCS', amount: 4100_0000000000n, source: PriceSource.Line },
@@ -151,11 +152,11 @@ describe('syncing the ledger', () => {
 
 			await put(storage, ledger, 'a.rupea', 'P 2026-10-17 INFY 1820\n');
 			await put(storage, ledger, 'b.rupea', 'P 2026-10-18 INFY 1830\nP 2026-10-18 TCS 4100\n');
-			await Sync.sync(ledger);
+			await Sync.syncIndex(ledger);
 			const made = await own();
 
 			await put(storage, ledger, 'a.rupea', 'P 2026-10-19 INFY 1840\n');
-			await Sync.sync(ledger);
+			await Sync.syncIndex(ledger);
 			expect(made.map((s) => s.symbol)).toEqual(['INFY', 'TCS']);
 			expect(await own()).toEqual(made);
 		}));
@@ -180,14 +181,14 @@ describe('syncing the ledger', () => {
 
 			await put(storage, one, 'a.rupea', links);
 			await put(storage, two, 'a.rupea', links);
-			await Sync.sync(one);
-			await Sync.sync(two);
+			await Sync.syncIndex(one);
+			await Sync.syncIndex(two);
 			const first = await linked(one);
 			const second = await linked(two);
 			const shared = await count(db.selectFrom('symbols').where('symbol', '=', 'SHARED.NS'));
 
 			await put(storage, one, 'a.rupea', 'P * NIFTY yahoo:SHARED.NS\n');
-			await Sync.sync(one);
+			await Sync.syncIndex(one);
 
 			expect(first).toEqual([
 				{ alias: 'HNFI', since: null, feed: Feed.Mfapi, symbol: '300001', owner: null, line: 1 },
@@ -241,7 +242,7 @@ describe('syncing the ledger', () => {
 				'',
 			].join('\n');
 			await put(storage, ledger, 'a.rupea', sale);
-			await Sync.sync(ledger);
+			await Sync.syncIndex(ledger);
 
 			const [indexed] = (await listAllTransactions(ledger.id))._unsafeUnwrap();
 			expect(indexed?.postings.map((p) => p.cost)).toEqual([
@@ -260,20 +261,39 @@ describe('syncing the ledger', () => {
 			const ledger = await createLedger(db);
 			await put(storage, ledger, 'a.rupea', groceries);
 			await put(storage, ledger, 'b.rupea', salary);
-			await Sync.sync(ledger);
+			await Sync.syncIndex(ledger);
 
 			await put(storage, ledger, 'a.rupea', `${salary}${groceries}`);
 			await stored(storage, ledger).delete('b.rupea');
-			await Sync.sync(ledger);
+			await Sync.syncIndex(ledger);
 
 			expect(await summary(ledger.id)).toEqual(['a.rupea:1 Salary', 'a.rupea:4 Groceries']);
+		}));
+
+	it('re-indexes an unchanged file an older indexer indexed', ({ context, db, storage }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await put(storage, ledger, 'a.rupea', groceries);
+			await Sync.syncIndex(ledger);
+
+			await db.deleteFrom('transactions').where('ledgerId', '=', ledger.id).execute();
+			await Sync.syncIndex(ledger);
+			expect(await summary(ledger.id)).toEqual([]);
+
+			await db
+				.updateTable('ledgerFiles')
+				.set({ indexer: INDEXER - 1 })
+				.where('ledgerId', '=', ledger.id)
+				.execute();
+			await Sync.syncIndex(ledger);
+			expect(await summary(ledger.id)).toEqual(['a.rupea:1 Groceries']);
 		}));
 
 	it('keeps a description embedded through a re-index', ({ context, db, storage }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			await put(storage, ledger, 'a.rupea', groceries);
-			await Sync.sync(ledger);
+			await Sync.syncIndex(ledger);
 			await db
 				.updateTable('transactions')
 				.set({ embedding: sql<number[]>`${vector}::vector` })
@@ -281,7 +301,7 @@ describe('syncing the ledger', () => {
 				.execute();
 
 			await put(storage, ledger, 'a.rupea', `${salary}${groceries}`);
-			await Sync.sync(ledger);
+			await Sync.syncIndex(ledger);
 
 			const rows = await db
 				.selectFrom('transactions')
@@ -380,9 +400,9 @@ describe('syncing the ledger', () => {
 			const ledger = await createLedger(db);
 			await put(storage, ledger, 'a.rupea', `${groceries}2026-08-30 Bad\n\tbad posting x\n`);
 
-			await Sync.sync(ledger);
+			await Sync.syncIndex(ledger);
 			const first = await problemIds(db, ledger.id);
-			await Sync.sync(ledger);
+			await Sync.syncIndex(ledger);
 
 			expect(first).toHaveLength(1);
 			expect(await problemIds(db, ledger.id)).toEqual(first);
@@ -392,7 +412,7 @@ describe('syncing the ledger', () => {
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			await put(storage, ledger, 'a.rupea', '2026-08-30 Bad\n\tbad posting x\n');
-			await Sync.sync(ledger);
+			await Sync.syncIndex(ledger);
 
 			await stored(storage, ledger).delete('a.rupea');
 
@@ -414,7 +434,7 @@ describe('syncing the ledger', () => {
 					`2026-08-29 Untimed\n${body}`,
 				].join('\n'),
 			);
-			await Sync.sync(ledger);
+			await Sync.syncIndex(ledger);
 
 			expect(await summary(ledger.id)).toEqual([
 				'a.rupea:9 Untimed',
@@ -428,8 +448,8 @@ describe('syncing the ledger', () => {
 			const one = await createLedger(db);
 			const two = await createLedger(db);
 			await put(storage, one, 'a.rupea', groceries);
-			await Sync.sync(one);
-			await Sync.sync(two);
+			await Sync.syncIndex(one);
+			await Sync.syncIndex(two);
 
 			expect(await summary(two.id)).toEqual([]);
 		}));
@@ -1047,7 +1067,7 @@ describe('lots', () => {
 			);
 			await put(storage, ledger, 'a.rupea', bought);
 
-			expect((await issues(ledger))._unsafeUnwrap()).toEqual([
+			expect((await Sync.syncIndex(ledger))._unsafeUnwrap()).toEqual([
 				expect.objectContaining({ type: 'UnknownError' }),
 			]);
 			expect(await summary(ledger.id)).toEqual([]);
@@ -1075,7 +1095,7 @@ describe('syncing past a failure', () => {
 			await put(storage, ledger, 'a.rupea', groceries);
 			await put(storage, ledger, 'b.rupea', salary);
 
-			expect(await issues(ledger)).toEqual(
+			expect(await Sync.syncIndex(ledger)).toEqual(
 				ok([expect.objectContaining({ type: 'CannotReadFile', path: 'a.rupea', cause: [gone] })]),
 			);
 			expect(await summary(ledger.id)).toEqual(['b.rupea:1 Salary']);
@@ -1087,7 +1107,7 @@ describe('syncing past a failure', () => {
 			const ledger = await createLedger(db);
 			await put(storage, ledger, 'a.rupea', groceries);
 
-			expect(await issues(ledger)).toEqual(
+			expect(await Sync.syncIndex(ledger)).toEqual(
 				ok([fault('UnknownError', { message: 'no such model' })]),
 			);
 			expect(await summary(ledger.id)).toEqual(['a.rupea:1 Groceries']);

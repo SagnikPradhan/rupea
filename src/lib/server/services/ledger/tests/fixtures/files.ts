@@ -60,5 +60,8 @@ export const listed = async (l: Ledger) =>
 		await Transactions.listTransactions({ ledger: l, filter: everything, after: null })
 	)._unsafeUnwrap().rows;
 
-/** What a sync reports wrong with the ledger. */
-export const issues = (l: Ledger) => Sync.sync(l).map((b) => b.failed);
+/** What the ledger shows wrong once synced: the problems sync kept and what the checks find. */
+export const issues = (l: Ledger) =>
+	Sync.syncIndex(l)
+		.andThen(() => Sync.listProblems(l))
+		.map((b) => b.failed);

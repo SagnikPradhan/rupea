@@ -64,6 +64,13 @@
       "when": 1793172605254,
       "tag": "0008_problems",
       "breakpoints": true
+    },
+    {
+      "idx": 9,
+      "version": "7",
+      "when": 1793209429065,
+      "tag": "0009_indexer",
+      "breakpoints": true
     }
   ]
 }

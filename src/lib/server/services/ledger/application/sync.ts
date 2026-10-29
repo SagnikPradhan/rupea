@@ -6,9 +6,9 @@ import { inOrder, ok, okAsync, type ResultAsync } from '#lib/server/shared/resul
 import { readText, type Entry, type Storage } from '#lib/server/shared/storage/storage.ts';
 import { coverOf, type Span } from '#lib/shared/dates.ts';
 import { isCounted, STATEMENTS } from '#lib/shared/folders.ts';
-import { enqueue } from '#services/jobs/application/jobs.ts';
+import { enqueue, listJobs, type JobStatus } from '#services/jobs/application/jobs.ts';
 import * as DB from '../adapters/database';
-import { fetchQuotes } from '../adapters/jobs';
+import * as Jobs from '../adapters/jobs';
 import { embedTexts, MODEL } from '../adapters/prediction-model2vec';
 import { formatQuantity, type Amount } from '../domain/amounts';
 import { checkGroups } from '../domain/groups';
@@ -24,9 +24,24 @@ const EMBEDDED = 500;
 
 export type Indexed = { failed: RupeaError[]; commodities: string[]; spans: Span[] };
 
-/** Brings the index up to date and checks the ledger, reporting what is wrong with either. */
-export const sync = (l: Ledger): ResultAsync<Batch<never>> =>
-	syncIndex(l).andThen((f) => checkLedger(l).map((e) => ({ succeeded: [], failed: [...f, ...e] })));
+/** What is wrong with the ledger: the problems sync kept, and what checking the ledger finds. */
+export const listProblems = (l: Ledger): ResultAsync<Batch<never>> =>
+	DB.listProblems(l.id).andThen((p) =>
+		checkLedger(l).map((e) => ({ succeeded: [], failed: [...p, ...e] })),
+	);
+
+/** Queues a sync, for when a change to the ledger's files went unnoticed. */
+export const sync = (l: Ledger): ResultAsync<void> =>
+	enqueue({ job: Jobs.syncLedger, user: l.owner, payload: { ledger: l.handle } });
+
+/** How the ledger's latest sync went, or null before its first. */
+export const findSync = (ledger: Ledger): ResultAsync<JobStatus | null> =>
+	listJobs({
+		userId: ledger.owner,
+		name: Jobs.syncLedger.name,
+		payload: { ledger: ledger.handle },
+		limit: 1,
+	}).map((j) => j[0]?.status ?? null);
 
 /** Brings the index up to date without checking the ledger, which costs a pass over every group. */
 export const syncIndex = (ledger: Ledger): ResultAsync<RupeaError[]> =>
@@ -152,7 +167,8 @@ const queueFetches = (ledger: Ledger, failed: RupeaError[]): ResultAsync<RupeaEr
 		.andThen((ids) =>
 			inOrder(
 				ids.map(
-					(id) => () => enqueue({ job: fetchQuotes, user: ledger.owner, payload: { symbol: id } }),
+					(id) => () =>
+						enqueue({ job: Jobs.fetchQuotes, user: ledger.owner, payload: { symbol: id } }),
 				),
 			),
 		)

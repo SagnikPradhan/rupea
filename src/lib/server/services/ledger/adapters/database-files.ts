@@ -12,18 +12,19 @@ import { v7 as uuidv7 } from 'uuid';
 import { CURRENCIES } from '../domain/lots';
 import { displayLocation } from '../domain/parser';
 import { marketPrices } from '../domain/prices';
+import { INDEXER } from '../domain/sync';
 import { accountType, BALANCE_TYPES, parentsOf } from '../domain/taxonomy';
 import { Feed, ProblemKind, type RupeaLedgerFile, type RupeaMetadata } from '../domain/types';
 import { toSpans } from './database-queries';
 
-export type FileVersion = { key: string; version: string };
+export type IndexedFile = { key: string; version: string; indexer: number };
 
-export const listIndexedFiles = (ledgerId: string): ResultAsync<FileVersion[]> =>
+export const listIndexedFiles = (ledgerId: string): ResultAsync<IndexedFile[]> =>
 	withContext('db')((db) =>
 		attempt(() =>
 			db
 				.selectFrom('ledgerFiles')
-				.select(['ledgerFiles.key', 'ledgerFiles.version'])
+				.select(['ledgerFiles.key', 'ledgerFiles.version', 'ledgerFiles.indexer'])
 				.where('ledgerFiles.ledgerId', '=', ledgerId)
 				.execute(),
 		),
@@ -186,8 +187,8 @@ type VersionOptions = { ledgerId: string; key: string; version: string };
 const saveVersion = (db: Database, { ledgerId, key, version }: VersionOptions) =>
 	db
 		.insertInto('ledgerFiles')
-		.values({ ledgerId, key, version })
-		.onConflict((o) => o.columns(['ledgerId', 'key']).doUpdateSet({ version }))
+		.values({ ledgerId, key, version, indexer: INDEXER })
+		.onConflict((o) => o.columns(['ledgerId', 'key']).doUpdateSet({ version, indexer: INDEXER }))
 		.returning('id')
 		.executeTakeFirstOrThrow()
 		.then((f) => f.id);

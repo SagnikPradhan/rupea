@@ -4,7 +4,7 @@ The transactions and postings lists no longer load a ledger to show it. Each pag
 
 Filtering happens in the same query. A [filter](../../GLOSSARY.md) is a period cut short at the viewer's today, an account prefix and words in the description, held in the page's URL so a list can be shared and the back button works; the place in the list is not, so a reload starts at the top. An account matches itself and the accounts under it, whatever their case. A description matches any part of it through a `pg_trgm` index, since statement descriptions are codes like `UPI/AMZN*1234` rather than prose.
 
-Whether a transaction counts is stored on it. Settling a change to the ledger's files works out which events' evidence is uncounted and writes only the rows that change, so a list reads a column rather than every event on each request. The issues across a ledger, from indexing to balance assertions, are their own query, which also brings the index up to date before a list reads it.
+Whether a transaction counts is stored on it. Settling a change to the ledger's files works out which events' evidence is uncounted and writes only the rows that change, so a list reads a column rather than every event on each request. The issues across a ledger, from indexing to balance assertions, are their own query. Lists only read the index, which sync keeps up to date ([ADR 0026](0026-sync-on-triggers-not-reads.md)).
 
 ## Considered Options
 

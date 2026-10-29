@@ -9,7 +9,7 @@ import { returnsOf, type Returns } from '../domain/returns';
 import { spendingOf, type Spending } from '../domain/spending';
 import { parentsIn, partsIn } from '../domain/tree';
 import type { Ledger } from '../domain/types';
-import { checkLots, syncIndex } from './sync';
+import { checkLots } from './sync';
 
 export type { Account };
 export type { LotHistory, Worth } from '../adapters/database';
@@ -19,7 +19,7 @@ type ListAccountsOptions = { ledger: Ledger; day: Temporal.PlainDate };
 
 /** What each balance account held at the end of a day, valued at that day's prices. */
 export const listAccounts = ({ ledger, day }: ListAccountsOptions): ResultAsync<Batch<Account>> =>
-	syncIndex(ledger).andThen((failed) =>
+	DB.listProblems(ledger.id).andThen((failed) =>
 		ResultAsync.combine([DB.listHoldings(ledger.id, day), DB.listAccountTree(ledger.id)])
 			.andThen(([h, tree]) => valuedOn(ledger.id, day, h).map((v) => byAccount(v, parentsIn(tree))))
 			.andThen((accounts) =>
@@ -45,7 +45,7 @@ export const listWorth = ({
 	to,
 	account,
 }: ListWorthOptions): ResultAsync<Batch<DB.Worth>> =>
-	syncIndex(ledger).andThen((f) =>
+	DB.listProblems(ledger.id).andThen((f) =>
 		DB.listAccountTree(ledger.id)
 			.andThen((t) => DB.listWorth(ledger.id, { from, to, ...partsIn(t, account) }))
 			.map((w) => ({ succeeded: w, failed: f })),
@@ -59,19 +59,17 @@ export const listReturns = ({
 	from,
 	to,
 }: ListReturnsOptions): ResultAsync<Batch<Returns>> =>
-	syncIndex(ledger).andThen(() =>
-		ResultAsync.combine([
-			heldBefore(ledger.id, from),
-			heldOn(ledger.id, to),
-			DB.listFlows(ledger.id, { from, to }),
-			DB.listAccountTree(ledger.id),
-		]).map(([s, end, flows, tree]) => {
-			const accounts = Object.keys(parentsIn(tree));
-			const returns = returnsOf({ accounts, start: s, end, flows, span: { from, to } });
+	ResultAsync.combine([
+		heldBefore(ledger.id, from),
+		heldOn(ledger.id, to),
+		DB.listFlows(ledger.id, { from, to }),
+		DB.listAccountTree(ledger.id),
+	]).map(([s, end, flows, tree]) => {
+		const accounts = Object.keys(parentsIn(tree));
+		const returns = returnsOf({ accounts, start: s, end, flows, span: { from, to } });
 
-			return { succeeded: returns, failed: unsolvedIn(returns) };
-		}),
-	);
+		return { succeeded: returns, failed: unsolvedIn(returns) };
+	});
 
 type ListSpendingOptions = { ledger: Ledger; spans: Span[]; bucket: Bucket; account: string };
 
@@ -87,7 +85,7 @@ export const listSpending = ({
 			spendingOf(r, { span: s, bucket, parents: p }),
 		);
 
-	return syncIndex(ledger).andThen((f) =>
+	return DB.listProblems(ledger.id).andThen((f) =>
 		DB.listAccountTree(ledger.id)
 			.map(parentsIn)
 			.andThen((p) => ResultAsync.combine(spans.map((s) => spending(s, p))))
@@ -97,12 +95,10 @@ export const listSpending = ({
 
 /** Every account, each with the one it is drawn under, as parentsIn divides them. */
 export const listAccountTree = (
-	ledger: Ledger,
+	l: Ledger,
 ): ResultAsync<{ account: string; parent: string | null }[]> =>
-	syncIndex(ledger).andThen(() =>
-		DB.listAccountTree(ledger.id).map((t) =>
-			Object.entries(parentsIn(t)).map(([account, parent]) => ({ account, parent })),
-		),
+	DB.listAccountTree(l.id).map((t) =>
+		Object.entries(parentsIn(t)).map(([account, parent]) => ({ account, parent })),
 	);
 
 type ListLotsOptions = { ledger: Ledger; account: string; commodity: string };
@@ -112,7 +108,7 @@ export const listLots = ({
 	account,
 	commodity,
 }: ListLotsOptions): ResultAsync<Batch<DB.LotHistory>> =>
-	syncIndex(ledger).andThen((f) =>
+	DB.listProblems(ledger.id).andThen((f) =>
 		DB.listLots(ledger.id, { account, commodity }).map((l) => ({ succeeded: l, failed: f })),
 	);
 

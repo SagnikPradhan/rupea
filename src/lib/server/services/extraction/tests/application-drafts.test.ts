@@ -1,6 +1,7 @@
 import { provide } from '#lib/server/shared/context/context.ts';
 import { ok } from '#lib/server/shared/result/result.ts';
 import * as Files from '#services/ledger/application/files.ts';
+import * as Sync from '#services/ledger/application/sync.ts';
 import { listed } from '#services/ledger/tests/fixtures/files.ts';
 import { broken, hashed } from '#tests/shared/embedding.ts';
 import { createLedger } from '#tests/shared/seed.ts';
@@ -90,6 +91,7 @@ describe('extracting a statement', () => {
 					'',
 				].join('\n'),
 			});
+			await Sync.syncIndex(ledger);
 			const draft = await Drafts.extract({
 				ledger,
 				statement: (await upload(ledger)).key,

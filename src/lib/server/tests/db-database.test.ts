@@ -14,7 +14,7 @@ const findLedger = (db: Database, id: string) =>
 const createFile = (db: Database, ledgerId: string) =>
 	db
 		.insertInto('ledgerFiles')
-		.values({ ledgerId, key: 'a', version: '1' })
+		.values({ ledgerId, key: 'a', version: '1', indexer: 1 })
 		.returning('id')
 		.executeTakeFirstOrThrow();
 
@@ -102,7 +102,7 @@ describe('the database', () => {
 		const upsert = (version: string) =>
 			db
 				.insertInto('ledgerFiles')
-				.values({ ledgerId, key: 'a', version })
+				.values({ ledgerId, key: 'a', version, indexer: 1 })
 				.onConflict((o) => o.columns(['ledgerId', 'key']).doUpdateSet({ version }))
 				.returningAll()
 				.executeTakeFirstOrThrow();
@@ -119,7 +119,7 @@ describe('the database', () => {
 			await tx.updateTable('ledgers').set({ name: 'Half done' }).where('id', '=', id).execute();
 			await tx
 				.insertInto('ledgerFiles')
-				.values({ ledgerId: uuidv7(), key: 'a', version: '1' })
+				.values({ ledgerId: uuidv7(), key: 'a', version: '1', indexer: 1 })
 				.execute();
 		});
 

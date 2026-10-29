@@ -29,6 +29,7 @@ describe('viewing a transaction', () => {
 		time: Temporal.PlainTime.from('18:45:30'),
 		description: 'Bought shares',
 		metadata: {},
+		comment: null,
 		postings: [
 			{
 				account: 'Assets:Broker',
@@ -38,6 +39,7 @@ describe('viewing a transaction', () => {
 				cost: null,
 				balance: null,
 				metadata: {},
+				comment: null,
 			},
 			{
 				account: 'Assets:Bank',
@@ -47,6 +49,7 @@ describe('viewing a transaction', () => {
 				cost: null,
 				balance: null,
 				metadata: {},
+				comment: null,
 			},
 		],
 	};
@@ -58,6 +61,7 @@ describe('viewing a transaction', () => {
 			date: '2026-08-29',
 			time: '18:45',
 			description: 'Bought shares',
+			comment: null,
 			postings: [
 				{ account: 'Assets:Broker', quantity: '10.00 INFY @ 1500.125' },
 				{ account: 'Assets:Bank', quantity: '-15001.25' },
@@ -88,6 +92,7 @@ describe('viewing what a transaction is listed as', () => {
 		time: null,
 		description: 'Groceries',
 		metadata: {},
+		comment: null,
 		postings: [],
 	};
 
@@ -115,6 +120,7 @@ describe('viewing what a transaction is listed as', () => {
 			cost: null,
 			balance: null,
 			metadata: {},
+			comment: null,
 		};
 		const listed = {
 			transaction: 't1',

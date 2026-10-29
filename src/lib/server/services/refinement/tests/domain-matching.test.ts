@@ -27,6 +27,7 @@ const transaction = (
 	time: null,
 	description,
 	metadata,
+	comment: null,
 	postings: postings.map(([account, amount]) => ({
 		account,
 		amount: parseAmount(amount) as Amount,
@@ -35,6 +36,7 @@ const transaction = (
 		cost: null,
 		balance: null,
 		metadata: {},
+		comment: null,
 	})),
 });
 

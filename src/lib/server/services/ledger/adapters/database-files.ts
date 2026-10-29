@@ -209,6 +209,7 @@ const rowsOf = (ledgerId: string, fileId: string, file: RupeaLedgerFile) => {
 		date: transaction.date.toString(),
 		time: transaction.time?.toString() ?? null,
 		description: transaction.description,
+		comment: transaction.comment,
 	}));
 	const postings = indexed.flatMap(({ id, transaction, postings: p }) =>
 		p.flatMap(({ id: postingId, posting }, position) => {
@@ -233,6 +234,7 @@ const rowsOf = (ledgerId: string, fileId: string, file: RupeaLedgerFile) => {
 								costCommodity: posting.cost?.commodity ?? null,
 								costDate: posting.cost?.date?.toString() ?? null,
 								balance: posting.balance,
+								comment: posting.comment,
 							},
 						},
 					]

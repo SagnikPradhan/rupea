@@ -26,12 +26,14 @@ const groceries = {
 	date: '2026-08-29',
 	time: '18:45',
 	description: 'Groceries',
+	comment: null,
 	postings: [
 		{ account: 'Expenses:Food', quantity: '100.00' },
 		{ account: 'Assets:Bank', quantity: '-100.00' },
 	],
 };
 const evidence = { ...groceries, id: '2', counted: false, time: null, description: 'Card bill' };
+const commented = { ...groceries, id: '3', description: 'Rent', comment: 'paid early' };
 
 const answering = (rows: unknown[]) => {
 	vi.mocked(listProblems).mockReturnValue(
@@ -56,6 +58,16 @@ describe('the transactions page', () => {
 		expect(screen.getByText('evidence')).toBeTruthy();
 		expect(screen.getByText('18:45')).toBeTruthy();
 		expect(screen.getByRole('alert').textContent).toContain('This posting can’t be read.');
+	});
+
+	it('shows the comment above a transaction as the file writes it', async () => {
+		visit('/l/h/transactions');
+		answering([commented]);
+		render(Page, { data });
+
+		const row = await screen.findByRole('rowheader', { name: /Rent/ });
+		expect(row.textContent).toContain('; paid early');
+		expect(row.title).toBe('Rent\npaid early');
 	});
 
 	it('says when nothing matches the filter', async () => {

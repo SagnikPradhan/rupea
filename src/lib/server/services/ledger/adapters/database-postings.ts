@@ -81,6 +81,7 @@ export const listPostings = (
 				'p.costCommodity',
 				'p.costDate',
 				'p.balance',
+				'p.comment',
 			])
 			.where('t.ledgerId', '=', ledgerId)
 			.where('t.date', '>=', filter.from.toString())
@@ -116,6 +117,7 @@ export const listPostings = (
 					cost: toCost(r),
 					balance: r.balance as Amount | null,
 					metadata: {},
+					comment: r.comment,
 				},
 			})),
 			next: last

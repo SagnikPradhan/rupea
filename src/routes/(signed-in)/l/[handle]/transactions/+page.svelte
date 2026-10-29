@@ -59,9 +59,14 @@
 						<time datetime={transaction.date}>{formatDate(transaction.date)}</time>
 						{#if transaction.time}<span>{transaction.time}</span>{/if}
 					</td>
-					<th scope="row" class="truncate" title={transaction.description}>
+					<th
+						scope="row"
+						class="truncate"
+						title={[transaction.description, transaction.comment].filter(Boolean).join('\n')}
+					>
 						{#if !transaction.counted}<span class="tag">evidence</span>{/if}
 						{transaction.description}
+						{#if transaction.comment}<span class="comment">; {transaction.comment}</span>{/if}
 					</th>
 					<Source {handle} file={transaction.file} line={transaction.line} />
 				</tr>
@@ -84,7 +89,8 @@
 		overflow-wrap: break-word;
 	}
 
-	td span {
+	td span,
+	.comment {
 		color: var(--color-muted);
 	}
 

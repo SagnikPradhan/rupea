@@ -9,7 +9,7 @@ import { attempt, okAsync, ResultAsync } from '#lib/server/shared/result/result.
 import { sql, type Expression, type ExpressionBuilder, type SqlBool } from 'kysely';
 import type { Amount } from '../domain/amounts';
 import { GROUP_KEYS } from '../domain/groups';
-import { toMetadata } from '../domain/parser';
+import { toMetadata } from '../domain/nodes';
 import type { Neighbour } from '../domain/prediction';
 import { CURRENCIES } from '../domain/lots';
 import { BALANCE_TYPES } from '../domain/taxonomy';
@@ -359,6 +359,7 @@ const readIn = async (db: Database, where: Where): Promise<IndexedTransaction[]>
 			'transactions.date',
 			'transactions.time',
 			'transactions.description',
+			'transactions.comment',
 			'postings.id as postingId',
 			'accounts.name as account',
 			'postings.amount',
@@ -370,6 +371,7 @@ const readIn = async (db: Database, where: Where): Promise<IndexedTransaction[]>
 			'postings.costCommodity',
 			'postings.costDate',
 			'postings.balance',
+			'postings.comment as postingComment',
 		])
 		.where(where)
 		.orderBy('transactions.id')
@@ -403,6 +405,7 @@ const readIn = async (db: Database, where: Where): Promise<IndexedTransaction[]>
 			time: head.time === null ? null : Temporal.PlainTime.from(head.time),
 			description: head.description,
 			metadata: owned[head.id] ?? {},
+			comment: head.comment,
 			postings: group.flatMap((r) =>
 				r.postingId === null || r.account === null || r.amount === null || r.commodity === null
 					? []
@@ -415,6 +418,7 @@ const readIn = async (db: Database, where: Where): Promise<IndexedTransaction[]>
 								cost: toCost(r),
 								balance: r.balance as Amount | null,
 								metadata: owned[r.postingId] ?? {},
+								comment: r.postingComment,
 							},
 						],
 			),

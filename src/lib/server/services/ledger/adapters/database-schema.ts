@@ -108,6 +108,7 @@ export const transactions = PG.pgTable(
 			.notNull()
 			.generatedAlwaysAs(sql`coalesce("time", '00:00')`), // a missing time sorts as midnight
 		description: t.text().notNull(),
+		comment: t.text(), // the comment lines above its header, joined
 		embedding: t.vector({ dimensions: EMBEDDING_DIMENSIONS }), // of the description; filled lazily
 		embeddingModel: t.text(),
 		counted: t.boolean().notNull().default(true), // false for a group's evidence; set once files settle
@@ -160,6 +161,8 @@ export const postings = PG.pgTable(
 
 		// What the account holds of this commodity after this posting, when the file asserts it.
 		balance: amount(),
+
+		comment: t.text(), // the comment lines above it, joined
 
 		// What the ledger says it holds there, and the transactions that could fall either side; set when settled.
 		actual: amount(),

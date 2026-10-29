@@ -66,7 +66,10 @@ describe('a draft', () => {
 				content: '2026-08-29 Groceries\n  Expenses:Food 100\n  Assets:Bank',
 			});
 			const parsed = await parseFile({ key: 'a.rupea', content: groceries });
-			expect(formatted.ok).toBe(true);
+			expect(formatted).toMatchObject({
+				ok: true,
+				data: '2026-08-29 Groceries\n\tExpenses:Food  100.00\n\tAssets:Bank\n',
+			});
 			expect(parsed).toMatchObject({ ok: true, data: [{ description: 'Groceries' }] });
 		}));
 

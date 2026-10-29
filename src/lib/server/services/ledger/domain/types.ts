@@ -1,3 +1,4 @@
+import type { RupeaError } from '#lib/server/shared/result/error.ts';
 import type { Amount, Quantity } from './amounts';
 
 export enum AccountType {
@@ -76,6 +77,8 @@ export type RupeaPosting = {
 	/** What the account holds of the posting's commodity after it, if the file asserts it. */
 	balance: Amount | null;
 	metadata: RupeaMetadata;
+	/** The comment lines under it, joined, if any. */
+	comment: string | null;
 };
 
 export type RupeaTransaction = {
@@ -84,6 +87,8 @@ export type RupeaTransaction = {
 	time: Temporal.PlainTime | null;
 	description: string;
 	metadata: RupeaMetadata;
+	/** The comment lines under its header, joined, if any. */
+	comment: string | null;
 	postings: RupeaPosting[];
 };
 
@@ -108,4 +113,91 @@ export type RupeaLedgerFile = {
 	transactions: RupeaTransaction[];
 	prices: RupeaMarketPrice[];
 	links: RupeaLink[];
+};
+
+/** What a file is read into, in the order it was written, so it prints back without loss. */
+export enum NodeKind {
+	File = 'file',
+	Transaction = 'transaction',
+	Posting = 'posting',
+	Price = 'price',
+	Link = 'link',
+	Note = 'note',
+	Failed = 'failed',
+}
+
+/** Metadata as written, a key and a value per line. */
+export type RupeaEntries = [string, string][];
+
+/** Comments are the lines under a node, each without its semicolon. */
+export type RupeaFileNode = {
+	kind: NodeKind.File;
+	comments: string[];
+	metadata: RupeaEntries;
+	children: RupeaEntryNode[];
+};
+
+export type RupeaEntryNode =
+	RupeaTransactionNode | RupeaPriceNode | RupeaLinkNode | RupeaNoteNode | RupeaFailedNode;
+
+export type RupeaNode = RupeaFileNode | RupeaEntryNode | RupeaPostingNode;
+
+export type RupeaTransactionNode = {
+	kind: NodeKind.Transaction;
+	location: RupeaParseLocation;
+	comments: string[];
+	date: Temporal.PlainDate;
+	time: Temporal.PlainTime | null;
+	description: string;
+	metadata: RupeaEntries;
+	children: RupeaPostingNode[];
+};
+
+/** An elided posting was written without its amount, which balances the others. */
+export type RupeaPostingNode = {
+	kind: NodeKind.Posting;
+	comments: string[];
+	account: string;
+	amount: Amount;
+	elided: boolean;
+	commodity: string;
+	price: Price | null;
+	cost: LotCost | null;
+	balance: Amount | null;
+	metadata: RupeaEntries;
+	children: [];
+};
+
+export type RupeaPriceNode = {
+	kind: NodeKind.Price;
+	location: RupeaParseLocation;
+	comments: string[];
+	date: Temporal.PlainDate;
+	commodity: string;
+	price: Quantity;
+	children: [];
+};
+
+export type RupeaLinkNode = {
+	kind: NodeKind.Link;
+	location: RupeaParseLocation;
+	comments: string[];
+	since: Temporal.PlainDate | null;
+	commodity: string;
+	feed: Feed;
+	symbol: string;
+	children: [];
+};
+
+/** Comments that nothing above holds, after a blank line or at the top of the entries. */
+export type RupeaNoteNode = { kind: NodeKind.Note; comments: string[]; children: [] };
+
+/** Lines that do not read, kept as written. */
+export type RupeaFailedNode = {
+	kind: NodeKind.Failed;
+	location: RupeaParseLocation;
+	comments: string[];
+	lines: string[];
+	errors: RupeaError[];
+	children: [];
 };

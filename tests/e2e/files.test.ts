@@ -62,7 +62,8 @@ test('formats a file from the toolbar', async ({ signedIn: page, ledger }) => {
 	await page.getByRole('button', { name: 'Format' }).click();
 
 	const lines = page.locator('.cm-line');
-	await expect(lines.nth(1)).toHaveText('\tExpenses:Food  20');
+	await expect(lines.nth(1)).toHaveText('\tExpenses:Food  20.00');
+	await expect(lines.nth(2)).toHaveText('\tAssets:Cash');
 	await expect(lines).toHaveCount(4);
 });
 

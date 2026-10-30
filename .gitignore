@@ -36,3 +36,5 @@ vite.config.ts.timestamp-*
 # Site
 /packages/site/dist/
 /packages/site/.astro/
+benchmarks.json
+results.json

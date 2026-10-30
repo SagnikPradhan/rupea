@@ -1,4 +1,7 @@
 import { connectDatabase } from '#lib/server/db/index.ts';
+import { mkdtemp, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
 import { startServer } from 'portable-pg';
 import type { TestProject } from 'vitest/node';
 import { TEMPLATE, admin, at } from './database.ts';
@@ -6,6 +9,7 @@ import { TEMPLATE, admin, at } from './database.ts';
 declare module 'vitest' {
 	export interface ProvidedContext {
 		postgres: string;
+		fixtures: string;
 	}
 }
 
@@ -21,6 +25,12 @@ export default async (project: TestProject) => {
 	await template.migrate();
 	await template.close();
 
+	const fixtures = await mkdtemp(join(tmpdir(), 'rupea-fixtures-'));
+
 	project.provide('postgres', server.url);
-	return server.stop;
+	project.provide('fixtures', fixtures);
+	return async () => {
+		await server.stop();
+		await rm(fixtures, { recursive: true, force: true });
+	};
 };

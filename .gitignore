@@ -36,3 +36,6 @@ vite.config.ts.timestamp-*
 # Site
 /packages/site/dist/
 /packages/site/.astro/
+
+# Generated fixtures
+/tests/fixtures/ledgers/

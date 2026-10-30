@@ -287,8 +287,9 @@ export const isComment = ({ content }: RupeaLine) => content.trimStart().startsW
 /** Indentation means nothing to a metadata line; the dash does. */
 export const isMetadata = ({ content }: RupeaLine) => /^\s*-(\s|$)/.test(content);
 
+/** Any indent makes a posting, as in Ledger and hledger, even the one space an editor carries over. */
 export const isPosting = (l: RupeaLine) =>
-	/^(\t| {2})/.test(l.content) && !isBlank(l) && !isMetadata(l) && !isComment(l);
+	/^\s/.test(l.content) && !isBlank(l) && !isMetadata(l) && !isComment(l);
 
 /** A P line prices a commodity, or links it to a feed. */
 const isPLine = ({ content }: RupeaLine) => /^P\s/.test(content);

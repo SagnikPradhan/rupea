@@ -653,6 +653,10 @@ describe('hledger-style input', () => {
 		});
 	});
 
+	it('reads a posting indented by one space', () => {
+		expect(run(['2026-09-01 Tea', ' Expenses:Food 20', ' Assets:Cash']).failed).toEqual([]);
+	});
+
 	it('accepts the INR suffix in any case', () => {
 		expect(
 			run(['2026-08-29 Groceries', '  Expenses:Food 100 inr', '  Assets:Bank']).failed,

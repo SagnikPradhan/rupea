@@ -3,7 +3,7 @@ import { parseDate, parseTime, type ReadOptions } from '#lib/server/shared/dates
 import { batch, type Batch } from '#lib/server/shared/result/batch.ts';
 import { fault, type RupeaError } from '#lib/server/shared/result/error.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
-import { drain, takeWhile } from '#lib/server/shared/arrays.ts';
+import { cursorOf, drain, putBack, takeWhile, type Cursor } from '#lib/server/shared/cursor.ts';
 import { cut } from '#lib/server/shared/text.ts';
 import { match, P } from 'ts-pattern';
 import {
@@ -74,7 +74,7 @@ export const parseTree = (
 	c: LedgerConfiguration,
 	{ key, content }: Pick<RupeaFile, 'key' | 'content'>,
 ): RupeaFileNode => {
-	const input = lines(key, content);
+	const input = cursorOf(lines(key, content));
 	const top = readPreamble(input);
 
 	return {
@@ -97,14 +97,15 @@ export const lines = (file: string, content: string): RupeaLine[] =>
 		}));
 
 /** The file's own metadata, and the comments among it and right after it, before a blank line. */
-const readPreamble = (input: RupeaLine[]) => {
-	const head = takeWhile(input, (l) => isBlank(l) || isMetadata(l) || isComment(l));
+const readPreamble = (input: Cursor<RupeaLine>) => {
+	const taken = takeWhile(input, (l) => isBlank(l) || isMetadata(l) || isComment(l));
 	const start = Math.max(
-		head.findLastIndex(isMetadata) + 1,
-		head.findIndex((l) => !isBlank(l)),
+		taken.findLastIndex(isMetadata) + 1,
+		taken.findIndex((l) => !isBlank(l)),
 	);
-	const end = head.findIndex((l, i) => i >= start && !isComment(l));
-	input.unshift(...head.splice(end < 0 ? head.length : end));
+	const end = taken.findIndex((l, i) => i >= start && !isComment(l));
+	const head = taken.slice(0, end < 0 ? taken.length : end);
+	putBack(input, taken.length - head.length);
 
 	const metadata = head.filter(isMetadata).map((l) => ({ line: l, entry: parseMetadata(l) }));
 	return {
@@ -117,7 +118,7 @@ const readPreamble = (input: RupeaLine[]) => {
 };
 
 /** Comments that nothing above holds stand as a note. */
-const readEntries = (c: LedgerConfiguration, input: RupeaLine[]): RupeaEntryNode[] => {
+const readEntries = (c: LedgerConfiguration, input: Cursor<RupeaLine>): RupeaEntryNode[] => {
 	const entries: RupeaEntryNode[] = [];
 
 	for (const line of drain(input)) {
@@ -128,12 +129,16 @@ const readEntries = (c: LedgerConfiguration, input: RupeaLine[]): RupeaEntryNode
 };
 
 /** A bad header ends the transactions, as the next one can't be found. */
-const readNode = (c: LedgerConfiguration, line: RupeaLine, rest: RupeaLine[]): RupeaEntryNode[] => {
+const readNode = (
+	c: LedgerConfiguration,
+	line: RupeaLine,
+	rest: Cursor<RupeaLine>,
+): RupeaEntryNode[] => {
 	if (isPLine(line)) return [readPLine(c, line, commentsUnder(rest))];
 	if (isMetadata(line)) return [failed([line], commentsUnder(rest), [detached(line)])];
 
 	const header = parseHeader(c, line);
-	if (header.isErr()) return unread(c, [line, ...rest.splice(0)], header.error);
+	if (header.isErr()) return unread(c, line, rest, header.error);
 
 	return [readTransaction(c, { line, header: header.value, body: bodyOf(rest) })];
 };
@@ -141,11 +146,12 @@ const readNode = (c: LedgerConfiguration, line: RupeaLine, rest: RupeaLine[]): R
 /** After a bad header only P lines are read; the lines between them are kept as written. */
 const unread = (
 	c: LedgerConfiguration,
-	input: RupeaLine[],
+	line: RupeaLine,
+	input: Cursor<RupeaLine>,
 	error: RupeaError,
 ): RupeaEntryNode[] => {
 	const entries: RupeaEntryNode[] = [
-		failed(trimBlank(takeWhile(input, (l) => !isPLine(l))), [], [error]),
+		failed(trimBlank([line, ...takeWhile(input, (l) => !isPLine(l))]), [], [error]),
 	];
 	for (const line of drain(input)) {
 		entries.push(readPLine(c, line, []));
@@ -156,10 +162,10 @@ const unread = (
 };
 
 /** The postings, metadata and comments under a header. */
-const bodyOf = (r: RupeaLine[]): RupeaLine[] =>
+const bodyOf = (r: Cursor<RupeaLine>): RupeaLine[] =>
 	takeWhile(r, (l) => isPosting(l) || isMetadata(l) || isComment(l));
 
-const commentsUnder = (r: RupeaLine[]): string[] => takeWhile(r, isComment).map(commentOf);
+const commentsUnder = (r: Cursor<RupeaLine>): string[] => takeWhile(r, isComment).map(commentOf);
 
 type TransactionLines = { line: RupeaLine; header: Header; body: RupeaLine[] };
 

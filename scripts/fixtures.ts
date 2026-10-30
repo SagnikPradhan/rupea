@@ -31,10 +31,12 @@ type Cast = { employer: string; landlord: string; us: string; stocks: string[]; 
 /** What moves between days: shares' prices, the dollar's rate, the rate of the latest dollars bought and what the card owes. */
 type Books = { prices: Record<string, number>; usd: number; funded: number; owed: number };
 
+type Built = { opening: string; files: { key: string; content: string }[] };
+
 const config = readConfiguration(process.env);
 const asked = process.argv.slice(2);
 
-const generate = async (name: string, profile: Profile) => {
+const build = (profile: Profile): Built => {
 	faker.seed(SEED);
 	const cast = castOf(profile);
 	const books = booksOf(cast);
@@ -57,11 +59,15 @@ const generate = async (name: string, profile: Profile) => {
 	}));
 	const opening = `${first}-01-01 Opening\n\tAssets:Zerodha 10 ${cast.stocks[0]}\n\tEquity:Opening\n`;
 
+	return { opening, files };
+};
+
+const write = async (name: string, { opening, files }: Built) => {
 	const directory = join(OUT, name);
 	await rm(directory, { recursive: true, force: true });
 	await mkdir(directory, { recursive: true });
 	await writeFile(join(directory, 'opening.rupea'), opening);
-	for (const { key, content } of files) await writeFile(join(directory, key), `${content}\n`);
+	await Promise.all(files.map((f) => writeFile(join(directory, f.key), `${f.content}\n`)));
 
 	const failed = files.flatMap((f) => parse(config.ledger, f).failed);
 	console.info(`${name}: ${files.length + 1} files, ${failed.length} that do not parse`);
@@ -186,5 +192,7 @@ const walk = (prices: Record<string, number>, share: string) => {
 	return next;
 };
 
-for (const [name, profile] of Object.entries(PROFILES))
-	if (!asked.length || asked.includes(name)) await generate(name, profile);
+const chosen = Object.entries(PROFILES).filter(([name]) => !asked.length || asked.includes(name));
+const built = chosen.map(([name, profile]) => [name, build(profile)] as const);
+
+await Promise.all(built.map(([name, ledger]) => write(name, ledger)));

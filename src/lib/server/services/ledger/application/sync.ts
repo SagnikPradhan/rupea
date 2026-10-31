@@ -13,7 +13,7 @@ import { embedTexts, MODEL } from '../adapters/prediction-model2vec';
 import { formatQuantity, type Amount } from '../domain/amounts';
 import { checkGroups } from '../domain/groups';
 import { displayLocation, parse } from '../domain/parser';
-import { plan, type SyncPlan } from '../domain/sync';
+import { plan } from '../domain/sync';
 import { filled, wordsOf, type Unembedded } from '../domain/text';
 import { DisposalKind, type Ledger, type RupeaFile } from '../domain/types';
 import { openFolder } from './ledger';
@@ -22,7 +22,7 @@ import { openFolder } from './ledger';
 // queues the next, so a large ledger catches up without stalling one.
 const EMBEDDED = 500;
 
-export type Indexed = { failed: RupeaError[]; commodities: string[]; spans: Span[] };
+type Indexed = { failed: RupeaError[]; commodities: string[]; spans: Span[] };
 
 /** What is wrong with the ledger: the problems sync kept, and what checking the ledger finds. */
 export const listProblems = (l: Ledger): ResultAsync<Batch<never>> =>
@@ -75,7 +75,7 @@ export const listLedgerFiles = (storage: Storage): ResultAsync<Entry[]> =>
 type IndexFileOptions = { ledgerId: string; file: RupeaFile };
 
 /** A file waiting for review keeps only its metadata, so where it came from is known, but nothing in it counts or fails. */
-export const indexFile = ({ ledgerId, file }: IndexFileOptions): ResultAsync<Indexed> =>
+const indexFile = ({ ledgerId, file }: IndexFileOptions): ResultAsync<Indexed> =>
 	withContext('config')((config) => {
 		const parsed = parse(config.ledger, file);
 		const kept = isCounted(file.key)
@@ -98,19 +98,25 @@ export const indexFile = ({ ledgerId, file }: IndexFileOptions): ResultAsync<Ind
 
 type UnindexOptions = { ledgerId: string; key: string };
 
-export const unindex = ({ ledgerId, key }: UnindexOptions): ResultAsync<Indexed> =>
+const unindex = ({ ledgerId, key }: UnindexOptions): ResultAsync<Indexed> =>
 	DB.unindexFile(ledgerId, key).map((t) => ({ failed: [], ...t }));
 
-type IndexStep = () => ResultAsync<Indexed>;
+export type Move = { from: string; to: string };
 
-type ReindexOptions = { ledgerId: string; steps: IndexStep[] };
+type ReindexOptions = {
+	ledgerId: string;
+	storage: Storage;
+	changed?: string[];
+	moved?: Move[];
+	gone?: string[];
+};
 
-/** Runs the steps as the ledger's only writer, then settles what they touched. */
-export const reindex = ({ ledgerId, steps }: ReindexOptions): ResultAsync<RupeaError[]> =>
-	exclusively(ledgerId, () => indexAndSettle(ledgerId, steps));
+/** Brings the index up to date with these files as the ledger's only writer, then settles what they touched. */
+export const reindex = (o: ReindexOptions): ResultAsync<RupeaError[]> =>
+	exclusively(o.ledgerId, () => indexAndSettle(o));
 
-const indexAndSettle = (id: string, s: IndexStep[]): ResultAsync<RupeaError[]> =>
-	indexEach(s).andThen((i) => settle({ ledgerId: id, indexed: i }));
+const indexAndSettle = (o: ReindexOptions): ResultAsync<RupeaError[]> =>
+	indexEach(o).andThen((i) => settle({ ledgerId: o.ledgerId, indexed: i }));
 
 type SettleOptions = { ledgerId: string; indexed: Indexed };
 
@@ -130,13 +136,35 @@ const settle = ({ ledgerId, indexed }: SettleOptions): ResultAsync<RupeaError[]>
 		})
 		.map(() => indexed.failed);
 
-/** Indexes one file at a time, each in a savepoint, so a step that fails is reported and leaves the others. */
-const indexEach = (steps: IndexStep[]): ResultAsync<Indexed> =>
-	inOrder(steps.map((s) => () => reported(atomically(s)))).map((done) => ({
+/** Indexes one file at a time, each in a savepoint, so a file that fails is reported and leaves the others. */
+const indexEach = ({
+	ledgerId,
+	storage,
+	changed = [],
+	moved = [],
+	gone = [],
+}: ReindexOptions): ResultAsync<Indexed> => {
+	const read = (k: string) => readText(storage, k).andThen((f) => indexFile({ ledgerId, file: f }));
+
+	// A move between counted and review folders changes what the file counts, so
+	// it is indexed again; otherwise only its key changes.
+	const move = ({ from, to }: Move): ResultAsync<Indexed> =>
+		DB.renameIndexedFile(ledgerId, from, to).andThen((t) =>
+			isCounted(from) === isCounted(to) ? okAsync({ failed: [], ...t }) : read(to),
+		);
+
+	const work = [
+		...changed.map((k) => () => read(k)),
+		...moved.map((m) => () => move(m)),
+		...gone.map((k) => () => unindex({ ledgerId, key: k })),
+	];
+
+	return inOrder(work.map((w) => () => reported(atomically(w)))).map((done) => ({
 		failed: done.flatMap((d) => d.failed),
 		commodities: done.flatMap((d) => d.commodities),
 		spans: done.flatMap((d) => d.spans),
 	}));
+};
 
 export const checkLots = (l: Ledger): ResultAsync<RupeaError[]> =>
 	DB.listUnmatched(l.id).map((u) => u.map(toLotError));
@@ -150,17 +178,8 @@ const update = (s: Storage, id: string, stored: Entry[]): ResultAsync<RupeaError
 		const p = plan(stored, indexed);
 		return p.changed.length + p.gone.length === 0
 			? okAsync([])
-			: indexAndSettle(id, planSteps(s, id, p));
+			: indexAndSettle({ ledgerId: id, storage: s, ...p });
 	});
-
-const planSteps = (storage: Storage, ledgerId: string, p: SyncPlan): IndexStep[] => {
-	const read = (k: string) => readText(storage, k).andThen((f) => indexFile({ ledgerId, file: f }));
-
-	return [
-		...p.changed.map((k) => () => read(k)),
-		...p.gone.map((k) => () => unindex({ ledgerId, key: k })),
-	];
-};
 
 const reported = (i: ResultAsync<Indexed>): ResultAsync<Indexed> =>
 	i.orElse((e) => ok({ failed: [e], commodities: [], spans: [] }));

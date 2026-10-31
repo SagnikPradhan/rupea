@@ -1,5 +1,6 @@
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { batchAsync, batchInOrder, type Batch } from '#lib/server/shared/result/batch.ts';
+import type { RupeaError } from '#lib/server/shared/result/error.ts';
 import { ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import {
 	findText,
@@ -8,14 +9,13 @@ import {
 	writeText,
 	type Storage,
 } from '#lib/server/shared/storage/storage.ts';
-import { isCounted } from '#lib/shared/folders.ts';
 import * as DB from '../adapters/database';
 import { merge } from '../domain/merge';
 import { parse, parseTree } from '../domain/parser';
 import { print } from '../domain/printer';
 import type { Ledger, RupeaFile, RupeaTransaction } from '../domain/types';
 import { openFolder } from './ledger';
-import { indexFile, listLedgerFiles, reindex, unindex, type Indexed } from './sync';
+import { listLedgerFiles, reindex, type Move } from './sync';
 
 export const listFiles = (l: Ledger): ResultAsync<Batch<RupeaFile>> =>
 	openFolder({ ledger: l, folder: 'files' }).andThen((s) =>
@@ -63,9 +63,11 @@ export const createFile = ({ ledger, key, content }: CreateFileOptions): ResultA
 
 /** Creates a file, numbering its name when it is taken, as nothing reviewed it yet; the same file twice is kept once. */
 export const importFile = ({ ledger, key, content }: CreateFileOptions): ResultAsync<RupeaFile> =>
-	openFolder({ ledger, folder: 'files' })
-		.andThen((s) => writeNumberedText(s, key, content))
-		.andTee((f) => reindexFile(ledger.id, f));
+	openFolder({ ledger, folder: 'files' }).andThen((s) =>
+		writeNumberedText(s, key, content).andTee((f) =>
+			reindex({ ledgerId: ledger.id, storage: s, changed: [f.key] }),
+		),
+	);
 
 type EditFileOptions = { ledger: Ledger; key: string; content: string; version: string };
 
@@ -77,16 +79,16 @@ export const editFile = ({
 }: EditFileOptions): ResultAsync<RupeaFile> =>
 	writeFile({ ledger, key, content, ifVersion: version });
 
-type Move = { from: string; to: string };
-
 type RenameFilesOptions = { ledger: Ledger; moves: Move[] };
 
 /** Moves each file on its own, so a name already taken skips only that file. */
 export const renameFiles = ({ ledger, moves }: RenameFilesOptions): ResultAsync<Batch<RupeaFile>> =>
 	openFolder({ ledger, folder: 'files' }).andThen((storage) =>
-		changeEach(
-			ledger.id,
-			moves.map((m) => () => moveFile(storage, ledger.id, m)),
+		batchInOrder(moves.map((m) => () => moveFile(storage, m))).andThen((b) =>
+			withFailures(
+				{ ...b, succeeded: b.succeeded.map((d) => d.file) },
+				reindex({ ledgerId: ledger.id, storage, moved: b.succeeded.map((d) => d.move) }),
+			),
 		),
 	);
 
@@ -104,23 +106,19 @@ export type Addition = {
 /** Moves a draft to a new file, or merges it into the file there and deletes it. */
 export const addFile = ({ ledger, from, to }: AddFileOptions): ResultAsync<Addition> =>
 	openFolder({ ledger, folder: 'files' }).andThen((s) =>
-		readText(s, from)
-			.andThen((d) =>
-				findText(s, to).andThen((f) =>
-					f ? mergeFile(s, ledger.id, d, f) : moveDraft(s, ledger.id, d, to),
-				),
-			)
-			.andTee((c) => reindex({ ledgerId: ledger.id, steps: c.steps }))
-			.map((c) => c.value),
+		readText(s, from).andThen((d) =>
+			findText(s, to).andThen((f) =>
+				f ? mergeFile(s, ledger.id, d, f) : moveDraft(s, ledger.id, d, to),
+			),
+		),
 	);
 
 type DeleteFilesOptions = { ledger: Ledger; keys: string[] };
 
 export const deleteFiles = ({ ledger, keys }: DeleteFilesOptions): ResultAsync<Batch<string>> =>
-	openFolder({ ledger, folder: 'files' }).andThen((storage) =>
-		changeEach(
-			ledger.id,
-			keys.map((k) => () => deleteFile(storage, ledger.id, k)),
+	openFolder({ ledger, folder: 'files' }).andThen((s) =>
+		batchInOrder(keys.map((k) => () => s.delete(k).map(() => k))).andThen((b) =>
+			withFailures(b, reindex({ ledgerId: ledger.id, storage: s, gone: b.succeeded })),
 		),
 	);
 
@@ -133,47 +131,33 @@ type WriteFileOptions = {
 
 // If indexing fails, the next sync picks the file up.
 const writeFile = ({ ledger, key, content, ifVersion }: WriteFileOptions): ResultAsync<RupeaFile> =>
-	openFolder({ ledger, folder: 'files' })
-		.andThen((s) => writeText(s, { key, content, ifVersion }))
-		.andTee((f) => reindexFile(ledger.id, f));
+	openFolder({ ledger, folder: 'files' }).andThen((s) =>
+		writeText(s, { key, content, ifVersion }).andTee((f) =>
+			reindex({ ledgerId: ledger.id, storage: s, changed: [f.key] }),
+		),
+	);
 
-const reindexFile = (id: string, f: RupeaFile) =>
-	reindex({ ledgerId: id, steps: [() => indexFile({ ledgerId: id, file: f })] });
-
-// A move between counted and review folders changes what the file counts, so
-// it is indexed again; otherwise only its key changes.
-const moveFile = (storage: Storage, ledgerId: string, { from, to }: Move) =>
+const moveFile = (storage: Storage, move: Move) =>
 	storage
-		.rename(from, to)
-		.andThen(() => readText(storage, to))
-		.map((file) => ({
-			value: file,
-			steps: [
-				() =>
-					DB.renameIndexedFile(ledgerId, from, to).andThen((t) =>
-						isCounted(from) === isCounted(to)
-							? okAsync({ failed: [], ...t })
-							: indexFile({ ledgerId, file }),
-					),
-			],
-		}));
+		.rename(move.from, move.to)
+		.andThen(() => readText(storage, move.to))
+		.map((f) => ({ move, file: f }));
 
 const moveDraft = (
 	s: Storage,
 	ledgerId: string,
 	draft: RupeaFile,
 	to: string,
-): ResultAsync<Changed<Addition>> =>
-	moveFile(s, ledgerId, { from: draft.key, to }).map((c) => ({
-		...c,
-		value: {
-			file: c.value,
+): ResultAsync<Addition> =>
+	moveFile(s, { from: draft.key, to })
+		.andTee((d) => reindex({ ledgerId, storage: s, moved: [d.move] }))
+		.map((d) => ({
+			file: d.file,
 			added: parseFile(draft).succeeded.length,
 			skipped: 0,
 			before: null,
 			draft: draft.content,
-		},
-	}));
+		}));
 
 // Written only if the file is unchanged since it was read.
 const mergeFile = (
@@ -181,35 +165,21 @@ const mergeFile = (
 	ledgerId: string,
 	draft: RupeaFile,
 	file: RupeaFile,
-): ResultAsync<Changed<Addition>> =>
+): ResultAsync<Addition> =>
 	withContext('config')((c) => merge(c.ledger, { draft, file })).asyncAndThen((m) =>
 		writeText(s, { key: file.key, content: m.content, ifVersion: file.version })
 			.andThrough(() => s.delete(draft.key))
+			.andTee(() => reindex({ ledgerId, storage: s, changed: [file.key], gone: [draft.key] }))
 			.map((written) => ({
-				value: {
-					file: written,
-					added: m.added,
-					skipped: m.skipped,
-					before: file.content,
-					draft: draft.content,
-				},
-				steps: [
-					() => indexFile({ ledgerId, file: written }),
-					() => unindex({ ledgerId, key: draft.key }),
-				],
+				file: written,
+				added: m.added,
+				skipped: m.skipped,
+				before: file.content,
+				draft: draft.content,
 			})),
 	);
 
-const deleteFile = (s: Storage, id: string, k: string) =>
-	s.delete(k).map(() => ({ value: k, steps: [() => unindex({ ledgerId: id, key: k })] }));
-
-type Changed<T> = { value: T; steps: (() => ResultAsync<Indexed>)[] };
-
 // Every file is changed first, then all are indexed and settled together. If
 // that fails, the next sync picks them up.
-const changeEach = <T>(ledgerId: string, steps: (() => ResultAsync<Changed<T>>)[]) =>
-	batchInOrder(steps).andThen((b) =>
-		reindex({ ledgerId, steps: b.succeeded.flatMap((c) => c.steps) })
-			.orElse((e) => ok([e]))
-			.map((f) => ({ succeeded: b.succeeded.map((c) => c.value), failed: [...b.failed, ...f] })),
-	);
+const withFailures = <T>(b: Batch<T>, r: ResultAsync<RupeaError[]>) =>
+	r.orElse((e) => ok([e])).map((f) => ({ ...b, failed: [...b.failed, ...f] }));

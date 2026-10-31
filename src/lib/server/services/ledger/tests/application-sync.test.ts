@@ -3,7 +3,7 @@ import { provide } from '#lib/server/shared/context/context.ts';
 import { EMBEDDING_DIMENSIONS } from '#lib/server/shared/onnx/models.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { errAsync, ok, ResultAsync } from '#lib/server/shared/result/result.ts';
-import { byUser, readText } from '#lib/server/shared/storage/storage.ts';
+import { byUser } from '#lib/server/shared/storage/storage.ts';
 import { listJobs, runJob } from '#services/jobs/application/jobs.ts';
 import { syncLedger } from '#services/ledger/adapters/jobs.ts';
 import { MODEL } from '#services/ledger/adapters/prediction-model2vec.ts';
@@ -1142,16 +1142,14 @@ describe('lots', () => {
 			const other = Promise.withResolvers<void>();
 			await put(storage, ledger, 'a.rupea', bought);
 
+			const files = stored(storage, ledger);
 			const holding = Sync.reindex({
 				ledgerId: ledger.id,
-				steps: [
-					() =>
-						ResultAsync.fromSafePromise(other.promise).map(() => ({
-							failed: [],
-							commodities: [],
-							spans: [],
-						})),
-				],
+				storage: {
+					...files,
+					read: (k) => ResultAsync.fromSafePromise(other.promise).andThen(() => files.read(k)),
+				},
+				changed: ['a.rupea'],
 			});
 			const syncing = issues(ledger);
 			const first = await Promise.race([
@@ -1169,15 +1167,17 @@ describe('lots', () => {
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			const listed = Promise.withResolvers<void>();
+			const files = stored(storage, ledger);
 			const writing = Sync.reindex({
 				ledgerId: ledger.id,
-				steps: [
-					() =>
+				storage: {
+					...files,
+					read: (k) =>
 						ResultAsync.fromSafePromise(listed.promise)
 							.andThen(() => put(storage, ledger, 'a.rupea', groceries))
-							.andThen(() => readText(stored(storage, ledger), 'a.rupea'))
-							.andThen((f) => Sync.indexFile({ ledgerId: ledger.id, file: f })),
-				],
+							.andThen(() => files.read(k)),
+				},
+				changed: ['a.rupea'],
 			});
 			await new Promise((r) => setTimeout(r, 50));
 

@@ -1,5 +1,4 @@
 :root {
-	--site-width: 80rem;
 	--column: 45rem;
 }
 
@@ -12,7 +11,7 @@
 }
 
 .wide {
-	max-width: var(--site-width);
+	max-width: var(--grid-max);
 	margin-inline: auto;
 	padding-inline: var(--gap-group);
 	box-sizing: border-box;

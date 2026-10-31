@@ -61,7 +61,7 @@
 		</nav>
 	{/if}
 
-	<div class="content">
+	<div class="content grid">
 		{@render children()}
 	</div>
 </div>
@@ -106,9 +106,7 @@
 	}
 
 	.content {
-		display: flex;
-		flex-direction: column;
-		gap: var(--gap-block);
+		row-gap: var(--gap-block);
 		padding-top: var(--gap-block);
 	}
 
@@ -116,10 +114,10 @@
 		margin-block: 0;
 	}
 
-	@media (width < 80rem) {
-		.content {
-			gap: var(--gap-block);
-			padding-top: var(--gap-block);
+	/* From this width the rail has room, and every page's content keeps to the same nine columns. */
+	@media (width >= 80rem) {
+		.content > :global(*) {
+			grid-column: 4 / -1;
 		}
 	}
 </style>

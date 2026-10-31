@@ -1,21 +1,29 @@
 ---
+import Mark from '../components/Mark.astro';
 import Screenshot from '../components/Screenshot.astro';
 import Page from '../layouts/Page.astro';
 
+const LEDGER = `2026-10-27 BigBasket
+	Expenses:Food:Groceries      2,069.00 INR
+	Liabilities:CreditCard:HDFC`;
+
 const features = [
 	{
+		label: 'Plain text',
 		title: 'Your ledger is plain text',
 		text: 'Every account and transaction is a line in a double-entry text file, in storage you choose. Edit the files in Rupea or in any editor, and every transaction on screen links back to the line it came from.',
 		shot: 'files',
 		alt: 'A ledger file, plain text you own',
 	},
 	{
+		label: 'Statements',
 		title: 'Statements become transactions',
 		text: 'Upload a PDF or spreadsheet from a bank, card or broker. Describe its layout once in a schema, and every statement like it reads the same way, each row put in an account.',
 		shot: 'import',
 		alt: 'A bank statement read into transactions, each in an account',
 	},
 	{
+		label: 'Spending',
 		title: 'Spending by month',
 		text: 'What you spent each month, split by account and set against the period before, so a change shows up as soon as it happens.',
 		shot: 'expenses',
@@ -29,14 +37,20 @@ const features = [
 	description="Know where every rupee went. A personal finance app for India: a double-entry ledger in plain text files, filled from your bank, card and broker statements."
 >
 	<main class="wide">
-		<header>
+		<header class="grid">
 			<span class="label">Open source · Work in progress</span>
-			<h1>Know where every rupee went.</h1>
-			<p>
+			<h1 class="display span-9">Know where every rupee went.</h1>
+			<div class="mark span-3">
+				<Mark size={144} />
+			</div>
+		</header>
+
+		<div class="grid">
+			<p class="statement span-9">
 				A personal finance app for India. Your money is a double-entry ledger in plain text files,
 				and Rupea reads bank, card and broker statements into it.
 			</p>
-			<div class="actions">
+			<div class="actions span-3">
 				<a class="button primary" href="/manual">
 					Read the manual
 				</a>
@@ -44,19 +58,32 @@ const features = [
 					GitHub
 				</a>
 			</div>
-		</header>
-
-		<Screenshot name="accounts" alt="Net worth over six years, by account" />
-
-		<div class="features">
-			{features.map((feature) => (
-				<section>
-					<Screenshot name={feature.shot} alt={feature.alt} />
-					<h2>{feature.title}</h2>
-					<p>{feature.text}</p>
-				</section>
-			))}
 		</div>
+
+		<figure>
+			<Screenshot name="accounts" alt="Net worth over six years, by account" />
+			<figcaption class="label">Demo data</figcaption>
+		</figure>
+
+		<figure class="ledger">
+			<pre>{LEDGER}</pre>
+			<figcaption class="label">A transaction, as it sits in your file. Demo data</figcaption>
+		</figure>
+
+		{features.map((feature) => (
+			<section>
+				<h2 class="label">{feature.label}</h2>
+				<div class="grid">
+					<div class="span-4">
+						<h3>{feature.title}</h3>
+						<p>{feature.text}</p>
+					</div>
+					<div class="span-8">
+						<Screenshot name={feature.shot} alt={feature.alt} />
+					</div>
+				</div>
+			</section>
+		))}
 	</main>
 </Page>
 
@@ -65,41 +92,72 @@ const features = [
 		display: flex;
 		flex-direction: column;
 		gap: var(--gap-page);
-		padding-block: var(--gap-page);
+		padding-block: var(--gap-block) var(--gap-page);
 	}
 
 	header {
-		display: flex;
-		flex-direction: column;
-		align-items: center;
-		max-width: var(--column);
-		margin-inline: auto;
-		text-align: center;
+		row-gap: var(--gap-related);
+		align-items: end;
 	}
 
 	header h1 {
-		margin: var(--gap-related) 0;
+		margin: 0;
 	}
 
-	header p {
+	.mark {
+		justify-self: end;
+		color: var(--color-accent);
+	}
+
+	.statement {
+		max-width: none;
 		margin: 0;
+		font-family: var(--font-heading);
+		font-size: var(--text-statement);
+		line-height: 1.125;
 	}
 
 	.actions {
 		display: flex;
 		flex-wrap: wrap;
-		justify-content: center;
+		justify-content: end;
+		align-items: start;
 		gap: var(--gap-related);
-		padding-top: var(--gap-group);
 	}
 
-	.features {
-		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(18rem, 1fr));
-		gap: var(--gap-block) var(--gap-group);
+	figure {
+		margin: 0;
 	}
 
-	.features h2 {
+	figcaption {
+		margin-top: var(--gap-label);
+	}
+
+	.ledger pre {
+		margin: 0;
+		overflow-x: auto;
+		font-family: var(--font-mono);
+		font-size: var(--text-statement);
+		line-height: 1.25;
+	}
+
+	section > h2 {
+		padding-bottom: var(--gap-label);
+		border-bottom: 1px solid var(--color-border);
+	}
+
+	section .grid {
+		row-gap: var(--gap-group);
 		margin-top: var(--gap-group);
+	}
+
+	h3 {
+		margin: 0 0 var(--gap-related);
+		font-size: var(--text-heading);
+		font-weight: 400;
+	}
+
+	section p {
+		margin: 0;
 	}
 </style>

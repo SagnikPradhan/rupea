@@ -42,7 +42,7 @@
 <style>
 	header,
 	main {
-		padding-inline: var(--inset) var(--inset-end);
+		padding-inline: var(--inset);
 	}
 
 	header > div {

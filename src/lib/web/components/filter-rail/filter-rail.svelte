@@ -39,19 +39,24 @@
 		margin-block: 0;
 	}
 
-	/* From this width the inset leaves a sidebar's room beside the content, which the filters take. */
+	/* From this width the filters take the three columns the content leaves free. */
 	@media (width >= 80rem) {
-		.rail {
+		:global(.content) > .rail {
 			display: grid;
-			grid-template-columns: var(--sidebar) minmax(0, 1fr);
-			gap: var(--gap-block);
-			margin-left: calc(-1 * (var(--sidebar) + var(--gap-block)));
+			grid-column: 1 / -1;
+			grid-template-columns: subgrid;
+			column-gap: var(--gap-group);
 		}
 
 		aside {
 			position: sticky;
 			top: var(--gap-related);
+			grid-column: 1 / span 3;
 			align-self: start;
+		}
+
+		.page {
+			grid-column: 4 / -1;
 		}
 	}
 </style>

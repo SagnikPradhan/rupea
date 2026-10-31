@@ -5,7 +5,7 @@
 	--text-data: 1rem;
 	--text-heading: 1.25rem;
 	--text-statement: 2.5rem;
-	--text-display: 3.5rem;
+	--text-display: 4.5rem;
 
 	--gap-tight: 0.25rem;
 	--gap-label: 0.5rem;
@@ -16,12 +16,11 @@
 
 	--width-control: 9rem;
 
-	--measure: 64rem;
+	--grid-max: 90rem;
 	--sidebar: 16rem;
 	--plot: 16rem;
 	--plot-short: 12rem;
-	--inset: max(var(--gap-group), (100% - var(--measure)) / 2);
-	--inset-end: var(--inset);
+	--inset: max(var(--gap-group), (100% - var(--grid-max)) / 2);
 	--radius: 8px;
 
 	--font-body: 'Poppins', sans-serif;
@@ -64,11 +63,10 @@
 	--color-layer: color-mix(in srgb, var(--color-accent) 22%, transparent);
 }
 
-/* A page's filters sit beside the content from this width, so the content gives way to them on the left. */
-@media (width >= 80rem) {
+@media (width < 40rem) {
 	:root {
-		--inset: max(var(--gap-group) + var(--sidebar) + var(--gap-block), (100% - var(--measure)) / 2);
-		--inset-end: max(var(--gap-group), (100% - var(--measure)) / 2);
+		--text-statement: 1.75rem;
+		--text-display: 3rem;
 	}
 }
 
@@ -118,7 +116,7 @@ h4 {
 }
 
 h1 {
-	font-size: var(--text-display);
+	font-size: var(--text-statement);
 	line-height: 1;
 	letter-spacing: -0.02em;
 	margin: var(--gap-block) 0 var(--gap-group) 0;
@@ -200,6 +198,42 @@ a[aria-current] {
 	text-underline-offset: var(--gap-tight);
 }
 
+.grid {
+	display: grid;
+	grid-template-columns: repeat(4, minmax(0, 1fr));
+	column-gap: var(--gap-group);
+}
+
+.grid > * {
+	grid-column: 1 / -1;
+}
+
+@media (width >= 40rem) {
+	.grid {
+		grid-template-columns: repeat(12, minmax(0, 1fr));
+	}
+
+	.grid > .span-3 {
+		grid-column: span 3;
+	}
+
+	.grid > .span-4 {
+		grid-column: span 4;
+	}
+
+	.grid > .span-6 {
+		grid-column: span 6;
+	}
+
+	.grid > .span-8 {
+		grid-column: span 8;
+	}
+
+	.grid > .span-9 {
+		grid-column: span 9;
+	}
+}
+
 code {
 	font-size: var(--text-small);
 	font-family: var(--font-mono);
@@ -220,6 +254,10 @@ code {
 
 .labelled thead th {
 	border-bottom: 1px solid var(--color-ink);
+}
+
+.display {
+	font-size: var(--text-display);
 }
 
 .tag {

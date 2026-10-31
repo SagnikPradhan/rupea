@@ -121,13 +121,13 @@ If no role fits, raise it as a question. Don't add a value.
 
 ## Type
 
-| Token              | Size                    | Use                          |
-| ------------------ | ----------------------- | ---------------------------- |
-| `--text-small`     | 0.8rem                  | Labels, dates, sources       |
-| `--text-data`      | 1rem                    | Text, rows, controls         |
-| `--text-heading`   | 1.25rem                 | Headings inside a page       |
-| `--text-statement` | 2.5rem                  | Page titles, big sentences   |
-| `--text-display`   | 4.5rem, 3rem on a phone | The one thing a screen shows |
+| Token              | Size                       | Use                          |
+| ------------------ | -------------------------- | ---------------------------- |
+| `--text-small`     | 0.8rem                     | Labels, dates, sources       |
+| `--text-data`      | 1rem                       | Text, rows, controls         |
+| `--text-heading`   | 1.25rem                    | Headings inside a page       |
+| `--text-statement` | 2.5rem, 1.75rem on a phone | Page titles, big sentences   |
+| `--text-display`   | 4.5rem, 3rem on a phone    | The one thing a screen shows |
 
 Each face has a role: Poppins for text, Google Sans for titles and statements, Geist Mono for numbers and code. Amounts are right-aligned, monospace and tabular.
 

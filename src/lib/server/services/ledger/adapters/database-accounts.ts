@@ -11,15 +11,16 @@ export const deleteUnusedAccounts = (ledgerId: string): ResultAsync<void> =>
 				.deleteFrom('accounts as a')
 				.where('a.ledgerId', '=', ledgerId)
 				.where((e) =>
+					e.not(e.exists(e.selectFrom('postings as o').whereRef('o.accountId', '=', 'a.id'))),
+				)
+				.where((e) =>
 					e.not(
 						e.exists(
 							e
 								.selectFrom('accounts as b')
 								.innerJoin('postings as p', 'p.accountId', 'b.id')
 								.where('b.ledgerId', '=', ledgerId)
-								.where(
-									sql<SqlBool>`(b.id = a.id or starts_with(lower(b.name), lower(a.name) || ':'))`,
-								),
+								.where(sql<SqlBool>`starts_with(lower(b.name), lower(a.name) || ':')`),
 						),
 					),
 				)

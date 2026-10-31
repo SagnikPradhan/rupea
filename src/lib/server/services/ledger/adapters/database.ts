@@ -8,3 +8,4 @@ export * from './database-prices';
 export * from './database-problems';
 export * from './database-symbols';
 export * from './database-transactions';
+export * from './database-years';

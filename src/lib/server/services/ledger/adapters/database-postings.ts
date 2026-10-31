@@ -213,9 +213,9 @@ export const listHoldings = (ledgerId: string, day: Temporal.PlainDate): ResultA
 		);
 	});
 
-type BalanceChecksOptions = { from: Temporal.PlainDate; holdings: HoldingKey[] };
+type BalanceChecksOptions = { from: Temporal.PlainDate; holdings: HoldingKey[] | null };
 
-/** Stores what these holdings hold at their assertions from from's month on, and the other files' transactions that day it cannot order. An assertion depends only on its own account and commodity. */
+/** Stores what these holdings, or all when null, hold at their assertions from from's month on, and the other files' transactions that day it cannot order. An assertion depends only on its own account and commodity. */
 export const saveBalanceChecks = (
 	ledgerId: string,
 	{ from, holdings }: BalanceChecksOptions,

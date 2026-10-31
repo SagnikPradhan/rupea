@@ -53,16 +53,5 @@ export const totalBefore = (
 /** The first day of the month a date falls in. */
 export const monthOf = (d: Expression<string>) => sql<string>`date_trunc('month', ${d})::date`;
 
-/** The sum of a column up to each row, restarting for each partition and counting in order. */
-export const runningTotal = (
-	c: Expression<bigint | null>,
-	p: Expression<unknown>[],
-	o: Expression<unknown>,
-) => sql<bigint>`sum(coalesce(${c}, 0)) over (partition by ${sql.join(p)} order by ${o})`;
-
-/** How many distinct keys have a row with no value in a column, as an integer. */
-export const unset = (c: Expression<unknown>, k: Expression<unknown>) =>
-	sql<number>`(count(distinct ${k}) filter (where ${c} is null))::integer`;
-
 /** A value for a jsonb column, which the driver would otherwise send as a Postgres array when it is one. */
 export const json = <T>(v: T) => sql<T>`${JSON.stringify(v)}::jsonb`;

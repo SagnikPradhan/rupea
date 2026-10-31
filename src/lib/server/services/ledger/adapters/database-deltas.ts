@@ -33,8 +33,10 @@ export const saveMonthlyDeltas = (
 		),
 	);
 
-/** Rewrites the twelve months after the ledger's checked_through and moves it on, back to the start after its last month. */
-export const saveCheckedMonths = (ledgerId: string): ResultAsync<void> =>
+/** Rewrites the twelve months after the ledger's checked_through and moves it on, back to the start after its last month. Returns the years they fall in, or null for a ledger with no transactions. */
+export const saveCheckedMonths = (
+	ledgerId: string,
+): ResultAsync<{ from: number; to: number } | null> =>
 	atomically(() =>
 		withContext('db')((tx) =>
 			attempt(async () => {
@@ -54,7 +56,21 @@ export const saveCheckedMonths = (ledgerId: string): ResultAsync<void> =>
 					.set({ checkedThrough: after?.subtract({ days: 1 }).toString() ?? null })
 					.where('id', '=', ledgerId)
 					.execute();
+				if (!start || !last) return null;
+
+				const final = after ? after.subtract({ days: 1 }) : Temporal.PlainDate.from(last);
+				return { from: Temporal.PlainDate.from(start).year, to: final.year };
 			}),
+		),
+	);
+
+/** Rewrites all a ledger's months. */
+export const saveEveryMonth = (ledgerId: string): ResultAsync<void> =>
+	atomically(() =>
+		withContext('db')((tx) =>
+			attempt(() =>
+				rewrite(tx, { ledgerId, first: '-infinity', after: 'infinity', holdings: null }),
+			),
 		),
 	);
 

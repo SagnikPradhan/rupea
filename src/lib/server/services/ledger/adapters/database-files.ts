@@ -25,6 +25,7 @@ import {
 	type RupeaTransaction,
 } from '../domain/types';
 import { toSpans } from './database-queries';
+import { rewritePriceYears } from './database-years';
 
 export type IndexedFile = { key: string; version: string; indexer: number };
 
@@ -190,6 +191,11 @@ export const indexFile = (
 				await insertAll(tx, 'symbolLinks', links);
 				await insertAll(tx, 'metadata', changes.metadata);
 				await insertAll(tx, 'problems', rows.problems);
+				const stale = new Set(priceChanges.stale);
+				await rewritePriceYears(tx, [
+					...heldPrices.filter((p) => stale.has(p.id)),
+					...priceChanges.added,
+				]);
 
 				const after = await touchedBy(tx, [...changes.moved, ...changes.stale, ...changes.added]);
 				return touchedByEither(before, after);
@@ -215,7 +221,9 @@ export const unindexFile = (ledgerId: string, key: string): ResultAsync<Touched>
 					tx,
 					held.map((t) => t.id),
 				);
+				const prices = await oldPrices(tx, file.id);
 				await tx.deleteFrom('ledgerFiles').where('id', '=', file.id).execute();
+				await rewritePriceYears(tx, prices);
 				return touched;
 			}),
 		),

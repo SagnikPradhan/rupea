@@ -1,3 +1,4 @@
+import { atomically } from '#lib/server/db/atomically.ts';
 import { json } from '#lib/server/db/expressions.ts';
 import { ROWS_PER_STATEMENT } from '#lib/server/db/index.ts';
 import { chunks } from '#lib/server/shared/arrays.ts';
@@ -7,6 +8,7 @@ import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { sql } from 'kysely';
 import { displayLocation } from '../domain/parser';
 import type { Feed, PriceSource } from '../domain/types';
+import { rewritePriceYears } from './database-years';
 import type { Quote } from './feed';
 
 export type FeedSymbol = { id: string; feed: Feed; symbol: string };
@@ -45,31 +47,34 @@ export const saveQuotes = (
 	source: PriceSource,
 	quotes: Quote[],
 ): ResultAsync<void> =>
-	withContext('db')((db) =>
-		attempt(async () => {
-			const daily = Object.values(Object.fromEntries(quotes.map((q) => [q.date.toString(), q])));
-			const rows = daily.map((q) => ({
-				symbolId,
-				source,
-				date: q.date.toString(),
-				priceAmount: q.price.amount,
-				priceCommodity: q.price.commodity,
-			}));
-			for (const chunk of chunks(rows, ROWS_PER_STATEMENT))
-				await db
-					.insertInto('prices')
-					.values(chunk)
-					.onConflict((oc) =>
-						oc
-							.columns(['symbolId', 'date'])
-							.where('fileId', 'is', null)
-							.doUpdateSet((e) => ({
-								priceAmount: e.ref('excluded.priceAmount'),
-								priceCommodity: e.ref('excluded.priceCommodity'),
-							})),
-					)
-					.execute();
-		}),
+	atomically(() =>
+		withContext('db')((db) =>
+			attempt(async () => {
+				const daily = Object.values(Object.fromEntries(quotes.map((q) => [q.date.toString(), q])));
+				const rows = daily.map((q) => ({
+					symbolId,
+					source,
+					date: q.date.toString(),
+					priceAmount: q.price.amount,
+					priceCommodity: q.price.commodity,
+				}));
+				for (const chunk of chunks(rows, ROWS_PER_STATEMENT))
+					await db
+						.insertInto('prices')
+						.values(chunk)
+						.onConflict((oc) =>
+							oc
+								.columns(['symbolId', 'date'])
+								.where('fileId', 'is', null)
+								.doUpdateSet((e) => ({
+									priceAmount: e.ref('excluded.priceAmount'),
+									priceCommodity: e.ref('excluded.priceCommodity'),
+								})),
+						)
+						.execute();
+				await rewritePriceYears(db, rows);
+			}),
+		),
 	);
 
 /** A fetch that worked clears the error; one that failed keeps when the failing began. */

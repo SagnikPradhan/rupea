@@ -17,14 +17,19 @@ export const fetchQuotes: Job<v.InferOutput<typeof FetchPayload>> = {
 	run: (p) => Quotes.fetchQuotes({ symbolId: p.symbol }),
 };
 
-const SyncPayload = v.object({ ledger: v.string() });
+const SyncPayload = v.object({ ledger: v.string(), full: v.optional(v.boolean()) });
 
-/** Syncs a ledger with its files. One ledger's syncs run one at a time, and a change while one waits joins it. */
+/** Syncs a ledger with its files. One ledger's syncs run one at a time, and a change while one waits joins it, unless only one of them reads every file again. */
 export const syncLedger: Job<v.InferOutput<typeof SyncPayload>> = {
 	name: 'sync-ledger',
 	version: 1,
 	payload: SyncPayload,
 	partition: (p) => p.ledger,
-	dedupe: (p) => p.ledger,
-	run: (p, u) => withLedger({ user: u, handle: p.ledger, action: Sync.syncLedger }),
+	dedupe: (p) => (p.full ? `${p.ledger} full` : p.ledger),
+	run: (p, u) =>
+		withLedger({
+			user: u,
+			handle: p.ledger,
+			action: p.full ? Sync.resyncLedger : Sync.syncLedger,
+		}),
 };

@@ -25,6 +25,9 @@ export const problemKind = PG.pgEnum('problem_kind', ProblemKind);
 // Ten-billionths of a unit; a bigint would overflow past 900 million units or on a product.
 const amount = () => PG.numeric({ precision: 38, scale: 0, mode: 'bigint' });
 
+// One amount a day as raw bytes, since the driver parses a numeric array as text, which is most of the cost of a read.
+const series = PG.customType<{ data: Buffer }>({ dataType: () => 'bytea' });
+
 // The handle also names the ledger's folder in its owner's storage, so it never changes.
 export const ledgers = PG.pgTable(
 	'ledgers',
@@ -347,6 +350,57 @@ export const monthlyDeltas = PG.pgTable(
 			t.accountId,
 			t.commodity,
 			t.month,
+		),
+	],
+);
+
+/** What an account held of a commodity on each day of a year it moved in; a year it did not move in holds what the one before ended on. */
+export const balanceYears = PG.pgTable(
+	'balance_years',
+	(t) => ({
+		...base,
+		ledgerId: t
+			.uuid()
+			.notNull()
+			.references(() => ledgers.id, { onDelete: 'cascade' }),
+		accountId: t
+			.uuid()
+			.notNull()
+			.references(() => accounts.id, { onDelete: 'cascade' }),
+		accountType: accountType().notNull(),
+		commodity: t.text().notNull(),
+		year: t.integer().notNull(),
+		balances: series().notNull(),
+	}),
+	(t) => [
+		PG.unique('balance_years_ledger_id_account_id_commodity_year').on(
+			t.ledgerId,
+			t.accountId,
+			t.commodity,
+			t.year,
+		),
+		PG.index('balance_years_account_id').on(t.accountId),
+	],
+);
+
+/** A symbol's prices in one currency on each day of a year, each day's being the one that wins it; a day without one holds NO_AMOUNT. */
+export const priceYears = PG.pgTable(
+	'price_years',
+	(t) => ({
+		...base,
+		symbolId: t
+			.uuid()
+			.notNull()
+			.references(() => symbols.id, { onDelete: 'cascade' }),
+		priceCommodity: t.text().notNull(),
+		year: t.integer().notNull(),
+		amounts: series().notNull(),
+	}),
+	(t) => [
+		PG.unique('price_years_symbol_id_price_commodity_year').on(
+			t.symbolId,
+			t.priceCommodity,
+			t.year,
 		),
 	],
 );

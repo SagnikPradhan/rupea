@@ -7,7 +7,7 @@ import {
 	listWorth,
 } from '#lib/endpoints/accounts.remote.ts';
 import { createFile } from '#lib/endpoints/files.remote.ts';
-import { findFirstDay, findSync, listProblems, sync } from '#lib/endpoints/ledger.remote.ts';
+import { findFirstDay, findSync, listProblems, resync } from '#lib/endpoints/ledger.remote.ts';
 import { listPostings, listTransactions } from '#lib/endpoints/transactions.remote.ts';
 import { provide } from '#lib/server/shared/context/context.ts';
 import { signIn } from '#tests/shared/app-server.ts';
@@ -83,7 +83,7 @@ describe('transactions', () => {
 		provide(context, async () => {
 			expect((await findSync(handle)).data).toBeNull();
 
-			expect(await sync(handle)).toEqual({ ok: true, data: undefined, errors: [] });
+			expect(await resync(handle)).toEqual({ ok: true, data: undefined, errors: [] });
 			expect((await findSync(handle)).data).toBe('queued');
 		}));
 });

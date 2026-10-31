@@ -5,17 +5,17 @@ import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import type { Span } from '#lib/shared/dates.ts';
 import { sql } from 'kysely';
-import type { Position } from './database-files';
-import { amongPositions } from './database-queries';
+import type { HoldingKey } from './database-files';
+import { amongHoldings } from './database-queries';
 
 const CHECKED = { months: 12 };
 
-type MonthlyDeltasOptions = { span: Span; positions: Position[] };
+type MonthlyDeltasOptions = { span: Span; holdings: HoldingKey[] };
 
-/** Rewrites these positions' months from the one holding the span's start to the one holding its end. */
+/** Rewrites these holdings' months from the one holding the span's start to the one holding its end. */
 export const saveMonthlyDeltas = (
 	ledgerId: string,
-	{ span, positions }: MonthlyDeltasOptions,
+	{ span, holdings }: MonthlyDeltasOptions,
 ): ResultAsync<void> =>
 	atomically(() =>
 		withContext('db')((tx) =>
@@ -27,7 +27,7 @@ export const saveMonthlyDeltas = (
 					ledgerId,
 					first: first.toString(),
 					after: after.toString(),
-					positions,
+					holdings,
 				});
 			}),
 		),
@@ -47,7 +47,7 @@ export const saveCheckedMonths = (ledgerId: string): ResultAsync<void> =>
 					ledgerId,
 					first,
 					after: after?.toString() ?? 'infinity',
-					positions: null,
+					holdings: null,
 				});
 				await tx
 					.updateTable('ledgers')
@@ -62,10 +62,10 @@ type RewriteOptions = {
 	ledgerId: string;
 	first: string;
 	after: string;
-	positions: Position[] | null;
+	holdings: HoldingKey[] | null;
 };
 
-const rewrite = async (tx: Database, { ledgerId, first, after, positions }: RewriteOptions) => {
+const rewrite = async (tx: Database, { ledgerId, first, after, holdings }: RewriteOptions) => {
 	const month = monthOf(sql.ref<string>('d.date'));
 
 	await tx
@@ -73,7 +73,7 @@ const rewrite = async (tx: Database, { ledgerId, first, after, positions }: Rewr
 		.where('ledgerId', '=', ledgerId)
 		.where('month', '>=', first)
 		.where('month', '<', after)
-		.where((e) => amongPositions(e.ref('accountId'), e.ref('commodity'), positions))
+		.where((e) => amongHoldings(e.ref('accountId'), e.ref('commodity'), holdings))
 		.execute();
 	await tx
 		.insertInto('monthlyDeltas')
@@ -92,7 +92,7 @@ const rewrite = async (tx: Database, { ledgerId, first, after, positions }: Rewr
 				.where('d.ledgerId', '=', ledgerId)
 				.where('d.date', '>=', first)
 				.where('d.date', '<', after)
-				.where((e) => amongPositions(e.ref('d.accountId'), e.ref('d.commodity'), positions))
+				.where((e) => amongHoldings(e.ref('d.accountId'), e.ref('d.commodity'), holdings))
 				.groupBy(['d.ledgerId', 'd.accountId', 'd.accountType', 'd.commodity', month]),
 		)
 		.execute();

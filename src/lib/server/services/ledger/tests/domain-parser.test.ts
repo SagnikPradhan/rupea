@@ -803,27 +803,27 @@ describe('parseChanged', () => {
 
 	const read = (content: string, held: Record<string, number> = {}, c = config) =>
 		parseChanged(c, { key: file, content }, held);
-	const hashOf = (content: string, c = config) => read(content, {}, c).hashes[1] ?? '';
+	const hashOf = (content: string, c = config) => read(content, {}, c).lineHashes[1] ?? '';
 
 	it('reads everything when nothing is held, and hashes each transaction by its line', () => {
 		const parsed = read(`${tea}\n${milk}`);
 
 		expect(parsed.succeeded.map((t) => t.description)).toEqual(['Tea', 'Milk']);
-		expect(parsed.kept).toEqual([]);
-		expect(Object.keys(parsed.hashes)).toEqual(['1', '5']);
+		expect(parsed.unchanged).toEqual([]);
+		expect(Object.keys(parsed.lineHashes)).toEqual(['1', '5']);
 	});
 
 	it('leaves out what is held, wherever it now sits', () => {
 		const parsed = read(`${milk}\n${tea}`, { [hashOf(tea)]: 1 });
 
 		expect(parsed.succeeded.map((t) => t.description)).toEqual(['Milk']);
-		expect(parsed.kept).toEqual([{ hash: hashOf(tea), line: 5 }]);
+		expect(parsed.unchanged).toEqual([{ hash: hashOf(tea), line: 5 }]);
 	});
 
 	it('leaves out only as many copies as are held', () => {
 		const parsed = read(`${tea}\n${tea}`, { [hashOf(tea)]: 1 });
 
-		expect(parsed.kept).toEqual([{ hash: hashOf(tea), line: 1 }]);
+		expect(parsed.unchanged).toEqual([{ hash: hashOf(tea), line: 1 }]);
 		expect(parsed.succeeded.map((t) => t.location.line)).toEqual([5]);
 	});
 
@@ -842,7 +842,7 @@ describe('parseChanged', () => {
 	])('reads it again when %s changes', (_, changed) => {
 		const parsed = read(changed, { [hashOf(tea)]: 1 });
 
-		expect(parsed.kept).toEqual([]);
+		expect(parsed.unchanged).toEqual([]);
 		expect(parsed.succeeded).toHaveLength(1);
 	});
 
@@ -855,7 +855,7 @@ describe('parseChanged', () => {
 	it('keeps nothing after a bad header, which stops the transactions being read', () => {
 		const parsed = read(`nonsense\n\n${tea}`, { [hashOf(tea)]: 1 });
 
-		expect(parsed.kept).toEqual([]);
+		expect(parsed.unchanged).toEqual([]);
 		expect(parsed.succeeded).toEqual([]);
 		expect(parsed.failed).toMatchObject([{ type: 'ParseInvalidTransactionHeader' }]);
 	});

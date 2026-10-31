@@ -79,7 +79,7 @@ const shapeOfText = (t: string) => t.replace(/\d+/g, '0').replace(/[a-z]+/gi, 'a
 /** Null for a format with anything but plain numbers, month names and am or pm, which could print as something else. */
 const shapeOfFormat = (format: string) => {
 	const shape = format
-		.replace(/M{3,4}|a/g, '_')
+		.replace(/M{3,}|a{5}|a{1,3}(?!a)/g, '_')
 		.replace(/[yMdHhms]+/g, '0')
 		.replace(/0+/g, '0');
 

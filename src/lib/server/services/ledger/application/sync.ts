@@ -22,13 +22,13 @@ import { openFolder } from './ledger';
 // queues the next, so a large ledger catches up without stalling one.
 const EMBEDDED = 500;
 
-const UNTOUCHED: DB.Touched = { commodities: [], spans: [], positions: [], grouped: false };
+const UNTOUCHED: DB.Touched = { commodities: [], spans: [], holdings: [], grouped: false };
 
 type Indexed = {
 	failed: RupeaError[];
 	commodities: string[];
 	spans: Span[];
-	positions: DB.Position[];
+	holdings: DB.HoldingKey[];
 	grouped: boolean;
 };
 
@@ -86,26 +86,25 @@ type IndexFileOptions = { ledgerId: string; file: RupeaFile };
 const indexFile = ({ ledgerId, file }: IndexFileOptions): ResultAsync<Indexed> =>
 	withContext('config')((config) =>
 		DB.findHeld(ledgerId, file.key).andThen((held) => {
-			const counted = isCounted(file.key);
-			const parsed = parseChanged(config.ledger, file, counted ? held.hashes : {});
-			const kept = counted
+			const inLedger = isCounted(file.key);
+			const parsed = parseChanged(config.ledger, file, inLedger ? held.hashCounts : {});
+			const found = inLedger
 				? parsed
 				: { ...parsed, succeeded: [], prices: [], links: [], failed: [] };
 
-			const indexed = {
-				metadata: kept.metadata,
-				transactions: kept.succeeded,
-				prices: kept.prices,
-				links: kept.links,
-			};
 			return DB.indexFile(ledgerId, {
 				key: file.key,
 				version: file.version,
-				file: indexed,
-				failed: kept.failed,
+				file: {
+					metadata: found.metadata,
+					transactions: found.succeeded,
+					prices: found.prices,
+					links: found.links,
+				},
+				failed: found.failed,
 				held,
-				kept: kept.kept,
-				hashes: kept.hashes,
+				unchanged: found.unchanged,
+				lineHashes: found.lineHashes,
 			}).map((t) => ({ failed: [], ...t }));
 		}),
 	);
@@ -140,18 +139,13 @@ const settle = ({ ledgerId, indexed }: SettleOptions): ResultAsync<RupeaError[]>
 		.andThen((r) => {
 			const commodities = [...indexed.commodities, ...r.commodities];
 			const span = coverOf([...indexed.spans, ...r.spans]);
-			const positions = [...indexed.positions, ...r.positions];
+			const holdings = [...indexed.holdings, ...r.holdings];
 
 			return rebook(ledgerId, commodities)
-				.andThen(() => saveMonths(ledgerId, span, positions))
+				.andThen(() => saveMonths(ledgerId, span, holdings))
 				.andThen(() => DB.saveCheckedMonths(ledgerId))
-				.andThen(() => saveChecks(ledgerId, span, positions))
-				.andThen(() =>
-					DB.deleteUnusedAccounts(
-						ledgerId,
-						positions.map((p) => p.accountId),
-					),
-				);
+				.andThen(() => saveChecks(ledgerId, span, holdings))
+				.andThen(() => deleteUnused(ledgerId, holdings));
 		})
 		.map(() => indexed.failed);
 
@@ -182,7 +176,7 @@ const indexEach = ({
 		failed: done.flatMap((d) => d.failed),
 		commodities: done.flatMap((d) => d.commodities),
 		spans: done.flatMap((d) => d.spans),
-		positions: done.flatMap((d) => d.positions),
+		holdings: done.flatMap((d) => d.holdings),
 		grouped: done.some((d) => d.grouped),
 	}));
 };
@@ -263,11 +257,17 @@ const rebook = (id: string, commodities: string[]): ResultAsync<void> => {
 	return lots.length === 0 ? okAsync() : DB.rebook(id, lots);
 };
 
-const saveMonths = (id: string, s: Span | null, p: DB.Position[]): ResultAsync<void> =>
-	s ? DB.saveMonthlyDeltas(id, { span: s, positions: p }) : okAsync();
+const saveMonths = (id: string, s: Span | null, p: DB.HoldingKey[]): ResultAsync<void> =>
+	s ? DB.saveMonthlyDeltas(id, { span: s, holdings: p }) : okAsync();
 
-const saveChecks = (id: string, s: Span | null, p: DB.Position[]): ResultAsync<void> =>
-	s ? DB.saveBalanceChecks(id, { from: s.from, positions: p }) : okAsync();
+const saveChecks = (id: string, s: Span | null, p: DB.HoldingKey[]): ResultAsync<void> =>
+	s ? DB.saveBalanceChecks(id, { from: s.from, holdings: p }) : okAsync();
+
+/** An account with postings keeps those above it, so only one left without any can leave accounts unused, and most edits skip the scan of every account. */
+const deleteUnused = (id: string, h: DB.HoldingKey[]): ResultAsync<void> =>
+	DB.anyEmptied(h.map((k) => k.accountId)).andThen((e) =>
+		e ? DB.deleteUnusedAccounts(id) : okAsync(),
+	);
 
 /** Whether a transaction counts depends only on its group's links, so what no changed transaction links leaves all as they were. */
 const recount = (id: string, g: boolean): ResultAsync<DB.Touched> =>

@@ -553,6 +553,27 @@ describe('syncing the ledger', () => {
 						.where('ledgerId', '=', ledgerId)
 						.orderBy('name')
 						.execute(),
+					prices: await db
+						.selectFrom('prices')
+						.innerJoin('ledgerFiles', 'ledgerFiles.id', 'prices.fileId')
+						.innerJoin('symbols', 'symbols.id', 'prices.symbolId')
+						.select([
+							'symbols.symbol',
+							'prices.line',
+							'prices.date',
+							'prices.priceAmount',
+							'prices.priceCommodity',
+							'prices.source',
+						])
+						.where('ledgerFiles.ledgerId', '=', ledgerId)
+						.orderBy(['prices.line', 'symbols.symbol'])
+						.execute(),
+					metadata: await db
+						.selectFrom('metadata')
+						.select(['key', 'value', 'position'])
+						.where('ledgerId', '=', ledgerId)
+						.orderBy(['key', 'value', 'position'])
+						.execute(),
 				});
 
 				const edited = await createLedger(db);
@@ -565,6 +586,38 @@ describe('syncing the ledger', () => {
 				await Sync.syncIndex(fresh);
 
 				expect(await held(edited.id)).toEqual(await held(fresh.id));
+			}));
+
+		it('keep their posting prices, on the lines they move to', ({ context, db, storage }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				const stored = () =>
+					db
+						.selectFrom('prices as p')
+						.innerJoin('ledgerFiles as f', 'f.id', 'p.fileId')
+						.select(['p.id', 'p.line', 'p.priceAmount', 'p.source'])
+						.where('f.ledgerId', '=', ledger.id)
+						.execute();
+				const buy = '2026-08-31 Buy\n\tAssets:Zerodha 10 INFY @ 1500\n\tAssets:Bank\n';
+
+				await put(storage, ledger, 'a.rupea', buy);
+				await Sync.syncIndex(ledger);
+				const [before] = await stored();
+
+				await put(storage, ledger, 'a.rupea', `${buy}\n${tea}`);
+				await Sync.syncIndex(ledger);
+				expect(await stored()).toEqual([before]);
+
+				await put(storage, ledger, 'a.rupea', `${tea}\n${buy}\n${tea}`);
+				await Sync.syncIndex(ledger);
+				expect(await stored()).toEqual([
+					{
+						id: expect.any(String),
+						line: 5,
+						priceAmount: before?.priceAmount,
+						source: before?.source,
+					},
+				]);
 			}));
 
 		it('do not count as moved when one above them changes', ({ context, db, storage }) =>
@@ -1159,7 +1212,7 @@ describe('counting after an edit', () => {
 		}));
 });
 
-describe('positions an edit touches', () => {
+describe('holdings an edit touches', () => {
 	const paid = (account: string) => `2026-07-01 Paid\n\t${account} -100\n\tExpenses:Food\n`;
 	const asserted = '2026-08-01 Salary\n\tAssets:Bank 1000 = 900\n\tIncome:Salary\n';
 	const failed = async (ledger: Ledger) =>
@@ -1244,7 +1297,7 @@ describe('positions an edit touches', () => {
 			expect(await drift(db, ledger.id)).toEqual([]);
 		}));
 
-	it('leaves other positions as they were', ({ context, db }) =>
+	it('leaves other holdings as they were', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({ ledger, key: 'a.rupea', content: paid('Assets:Bank') });

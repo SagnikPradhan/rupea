@@ -59,33 +59,36 @@ export const parse = (
 	f: Pick<RupeaFile, 'key' | 'content'>,
 ): RupeaParsedFile => parsedFrom(parseTree(c, f));
 
-export type KeptEntry = { hash: string; line: number };
+export type UnchangedEntry = { hash: string; line: number };
 
-/** As parse, leaving out each transaction whose lines hash to one held, so only what changed is read. Formats go in the hash, as they decide what the same lines mean. */
+/** As parse, leaving out each transaction whose lines hash to one held, so only what changed is read. */
 export const parseChanged = (
 	c: LedgerConfiguration,
-	file: Pick<RupeaFile, 'key' | 'content'>,
-	held: Record<string, number>,
+	f: Pick<RupeaFile, 'key' | 'content'>,
+	hashCounts: Record<string, number>,
 ) => {
 	const formats = JSON.stringify([c.dateFormats, c.timeFormats]);
-	const left = { ...held };
-	const kept: KeptEntry[] = [];
-	const hashes: Record<number, string> = {};
+	const left = { ...hashCounts };
+	const unchanged: UnchangedEntry[] = [];
+	const lineHashes: Record<number, string> = {};
 
-	const keep = (entry: RupeaLine[]) => {
-		const hash = sha256(`${formats}\n${entry.map((l) => l.content).join('\n')}`);
+	const isUnchanged = (entry: RupeaLine[]) => {
+		const hash = entryHash(formats, entry);
 		const line = entry[0]!.location.line;
-		const count = left[hash] ?? 0;
-		hashes[line] = hash;
-		if (count === 0) return false;
+		lineHashes[line] = hash;
+		if (!left[hash]) return false;
 
-		left[hash] = count - 1;
-		kept.push({ hash, line });
+		left[hash] -= 1;
+		unchanged.push({ hash, line });
 		return true;
 	};
 
-	return { ...parsedFrom(readTree(c, file, keep)), kept, hashes };
+	return { ...parsedFrom(readTree(c, f, isUnchanged)), unchanged, lineHashes };
 };
+
+/** Formats go in the hash, as they decide what the same lines mean. */
+const entryHash = (f: string, e: RupeaLine[]) =>
+	sha256(`${f}\n${e.map((l) => l.content).join('\n')}`);
 
 const parsedFrom = (tree: RupeaFileNode): RupeaParsedFile => {
 	const entries = tree.children;
@@ -105,13 +108,13 @@ export const parseTree = (
 	f: Pick<RupeaFile, 'key' | 'content'>,
 ): RupeaFileNode => readTree(c, f, () => false);
 
-/** Whether to leave out a transaction, given its lines. */
-type Keep = (entry: RupeaLine[]) => boolean;
+/** Whether a transaction's lines match what is already stored, so it needs no reading. */
+type IsUnchanged = (entry: RupeaLine[]) => boolean;
 
 const readTree = (
 	c: LedgerConfiguration,
 	{ key, content }: Pick<RupeaFile, 'key' | 'content'>,
-	keep: Keep,
+	isUnchanged: IsUnchanged,
 ): RupeaFileNode => {
 	const input = cursorOf(lines(key, content));
 	const top = readPreamble(input);
@@ -120,7 +123,7 @@ const readTree = (
 		kind: NodeKind.File,
 		comments: top.comments,
 		metadata: top.metadata,
-		children: [...top.failed, ...readEntries(c, input, keep)],
+		children: [...top.failed, ...readEntries(c, input, isUnchanged)],
 	};
 };
 
@@ -160,13 +163,13 @@ const readPreamble = (input: Cursor<RupeaLine>) => {
 const readEntries = (
 	c: LedgerConfiguration,
 	input: Cursor<RupeaLine>,
-	keep: Keep,
+	isUnchanged: IsUnchanged,
 ): RupeaEntryNode[] => {
 	const entries: RupeaEntryNode[] = [];
 
 	for (const line of drain(input)) {
 		if (isComment(line)) entries.push(note([line, ...takeWhile(input, isComment)]));
-		if (!isComment(line) && !isBlank(line)) entries.push(...readNode(c, line, input, keep));
+		if (!isComment(line) && !isBlank(line)) entries.push(...readNode(c, line, input, isUnchanged));
 	}
 	return entries;
 };
@@ -176,13 +179,13 @@ const readNode = (
 	c: LedgerConfiguration,
 	line: RupeaLine,
 	rest: Cursor<RupeaLine>,
-	keep: Keep,
+	isUnchanged: IsUnchanged,
 ): RupeaEntryNode[] => {
 	if (isPLine(line)) return [readPLine(c, line, commentsUnder(rest))];
 	if (isMetadata(line)) return [failed([line], commentsUnder(rest), [detached(line)])];
 
 	const body = bodyOf(rest);
-	if (keep([line, ...body])) return [];
+	if (isUnchanged([line, ...body])) return [];
 
 	const header = parseHeader(c, line);
 	if (header.isErr()) {

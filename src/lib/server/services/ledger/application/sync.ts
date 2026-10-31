@@ -18,8 +18,8 @@ import { filled, wordsOf, type Unembedded } from '../domain/text';
 import { DisposalKind, type Ledger, type RupeaFile } from '../domain/types';
 import { openFolder } from './ledger';
 
-// Past transactions embedded per sync, latest first, so a large ledger
-// catches up over a few syncs instead of stalling one.
+// Past transactions embedded per sync, latest first. A sync that fills this
+// queues the next, so a large ledger catches up without stalling one.
 const EMBEDDED = 500;
 
 export type Indexed = { failed: RupeaError[]; commodities: string[]; spans: Span[] };
@@ -50,7 +50,7 @@ export const syncIndex = (ledger: Ledger): ResultAsync<RupeaError[]> =>
 			.orElse((e) => ok([e]))
 			.andThen((f) => addProblems(ledger.id, f))
 			.andThen((f) => queueFetches(ledger, f))
-			.andThen((f) => embed(ledger.id, f)),
+			.andThen((f) => embed(ledger, f)),
 	);
 
 /** Syncs the index as a job does, logging what failed, since nobody waits for its answer. */
@@ -175,9 +175,10 @@ const queueFetches = (ledger: Ledger, failed: RupeaError[]): ResultAsync<RupeaEr
 		.map(() => failed)
 		.orElse((e) => ok([...failed, e]));
 
-const embed = (ledgerId: string, failed: RupeaError[]): ResultAsync<RupeaError[]> =>
-	DB.listUnembedded(ledgerId, MODEL, EMBEDDED)
-		.andThen((r) => (r.length === 0 ? okAsync(undefined) : fill(ledgerId, r)))
+const embed = (ledger: Ledger, failed: RupeaError[]): ResultAsync<RupeaError[]> =>
+	DB.listUnembedded(ledger.id, MODEL, EMBEDDED)
+		.andThrough((r) => (r.length === 0 ? okAsync() : fill(ledger.id, r)))
+		.andThen((r) => (r.length === EMBEDDED ? sync(ledger) : okAsync()))
 		.map(() => failed)
 		.orElse((e) => ok([...failed, e]));
 

@@ -171,6 +171,8 @@ Every app page is a breadcrumb, a title, its actions, then its content, in that 
 
 The header is the same on the app and the site: `.brand` on the left, at the same height (`--bar-height`), on the same left edge, over one hairline. The grid's outer margin is `--inset` on both.
 
+The top of a page has one vertical rhythm on the app and the site. A small label sits `--gap-group` above its title, and the title sits `--gap-group` above what it introduces. Only the title's size changes: statement in the app, display on the site's hero. Nothing beside a title may be taller than it, or it pushes the title away from its label. Every control is one height, because all of them take the page's line height.
+
 Anything listed is the same table: a lead row, part rows, and whitespace between groups. Use `LedgerTable` or `PagedTable`, not a new table. Shared cells, such as an amount or a source link, are one component each.
 
 A list's filters are filter rows, in the rail where there's room. Every choice is in view, and filtering is following links. Only search is typed, into a full-width field named by its placeholder.

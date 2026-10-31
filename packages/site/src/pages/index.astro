@@ -37,26 +37,28 @@ const features = [
 	description="Know where every rupee went. A personal finance app for India: a double-entry ledger in plain text files, filled from your bank, card and broker statements."
 >
 	<main class="wide">
-		<header class="grid">
-			<span class="label">Open source · Work in progress</span>
-			<h1 class="display span-9">Know where every rupee went.</h1>
-			<div class="mark span-3">
-				<Mark size={144} />
-			</div>
-		</header>
+		<div class="hero">
+			<header class="grid">
+				<span class="label">Open source · Work in progress</span>
+				<h1 class="display span-9">Know where every rupee went.</h1>
+				<div class="mark span-3">
+					<Mark size={72} />
+				</div>
+			</header>
 
-		<div class="grid">
-			<p class="statement span-9">
-				A personal finance app for India. Your money is a double-entry ledger in plain text files,
-				and Rupea reads bank, card and broker statements into it.
-			</p>
-			<div class="actions span-3">
-				<a class="button primary" href="/manual">
-					Read the manual
-				</a>
-				<a class="button" href="https://github.com/SagnikPradhan/rupea">
-					GitHub
-				</a>
+			<div class="grid">
+				<p class="statement span-9">
+					A personal finance app for India. Your money is a double-entry ledger in plain text files,
+					and Rupea reads bank, card and broker statements into it.
+				</p>
+				<div class="actions span-3">
+					<a class="button primary" href="/manual">
+						Read the manual
+					</a>
+					<a class="button" href="https://github.com/SagnikPradhan/rupea">
+						GitHub
+					</a>
+				</div>
 			</div>
 		</div>
 
@@ -95,8 +97,17 @@ const features = [
 		padding-block: var(--gap-block) var(--gap-page);
 	}
 
+	.hero {
+		display: flex;
+		flex-direction: column;
+		gap: var(--gap-group);
+	}
+
+	.hero > .grid {
+		row-gap: var(--gap-group);
+	}
+
 	header {
-		row-gap: var(--gap-related);
 		align-items: end;
 	}
 
@@ -105,8 +116,15 @@ const features = [
 	}
 
 	.mark {
+		display: flex;
 		justify-self: end;
 		color: var(--color-accent);
+	}
+
+	@media (width < 40rem) {
+		.mark {
+			display: none;
+		}
 	}
 
 	.statement {

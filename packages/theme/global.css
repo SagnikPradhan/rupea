@@ -329,6 +329,7 @@ button,
 	border-radius: var(--radius);
 	background: var(--color-surface);
 	color: var(--color-ink);
+	line-height: inherit;
 }
 
 /* Chrome pads the fields of a date input, which leaves it taller than a button beside it. */

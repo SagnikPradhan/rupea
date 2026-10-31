@@ -17,8 +17,8 @@ export const findSync = query(Handle, (h) =>
 	replyFrom(inLedger({ handle: h, action: Sync.findSync })),
 );
 
-export const sync = command(Handle, async (h) => {
-	const queued = await inLedger({ handle: h, action: Sync.sync });
+export const resync = command(Handle, async (h) => {
+	const queued = await inLedger({ handle: h, action: Sync.resync });
 	void findSync(h).refresh();
 	return replyFrom(queued);
 });

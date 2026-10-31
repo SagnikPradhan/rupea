@@ -1,5 +1,6 @@
+import { atomically } from '#lib/server/db/atomically.ts';
 import { json } from '#lib/server/db/expressions.ts';
-import { ROWS_PER_STATEMENT } from '#lib/server/db/index.ts';
+import { ROWS_PER_STATEMENT, type Database } from '#lib/server/db/index.ts';
 import { chunks } from '#lib/server/shared/arrays.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import type { RupeaError } from '#lib/server/shared/result/error.ts';
@@ -7,6 +8,7 @@ import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { sql } from 'kysely';
 import { displayLocation } from '../domain/parser';
 import type { Feed, PriceSource } from '../domain/types';
+import { rewritePriceYears } from './database-years';
 import type { Quote } from './feed';
 
 export type FeedSymbol = { id: string; feed: Feed; symbol: string };
@@ -40,37 +42,40 @@ export const findLatestQuote = (symbolId: string): ResultAsync<Temporal.PlainDat
 	);
 
 /** A day quoted again replaces the quote it had, since a feed may correct one; within one answer the last quote of a day wins. */
-export const saveQuotes = (
+export const saveQuotes = (id: string, s: PriceSource, q: Quote[]): ResultAsync<void> =>
+	atomically(() => withContext('db')((tx) => attempt(() => upsertQuotes(tx, id, s, q))));
+
+const upsertQuotes = async (
+	tx: Database,
 	symbolId: string,
 	source: PriceSource,
 	quotes: Quote[],
-): ResultAsync<void> =>
-	withContext('db')((db) =>
-		attempt(async () => {
-			const daily = Object.values(Object.fromEntries(quotes.map((q) => [q.date.toString(), q])));
-			const rows = daily.map((q) => ({
-				symbolId,
-				source,
-				date: q.date.toString(),
-				priceAmount: q.price.amount,
-				priceCommodity: q.price.commodity,
-			}));
-			for (const chunk of chunks(rows, ROWS_PER_STATEMENT))
-				await db
-					.insertInto('prices')
-					.values(chunk)
-					.onConflict((oc) =>
-						oc
-							.columns(['symbolId', 'date'])
-							.where('fileId', 'is', null)
-							.doUpdateSet((e) => ({
-								priceAmount: e.ref('excluded.priceAmount'),
-								priceCommodity: e.ref('excluded.priceCommodity'),
-							})),
-					)
-					.execute();
-		}),
-	);
+) => {
+	const daily = Object.values(Object.fromEntries(quotes.map((q) => [q.date.toString(), q])));
+	const rows = daily.map((q) => ({
+		symbolId,
+		source,
+		date: q.date.toString(),
+		priceAmount: q.price.amount,
+		priceCommodity: q.price.commodity,
+	}));
+
+	for (const chunk of chunks(rows, ROWS_PER_STATEMENT))
+		await tx
+			.insertInto('prices')
+			.values(chunk)
+			.onConflict((oc) =>
+				oc
+					.columns(['symbolId', 'date'])
+					.where('fileId', 'is', null)
+					.doUpdateSet((e) => ({
+						priceAmount: e.ref('excluded.priceAmount'),
+						priceCommodity: e.ref('excluded.priceCommodity'),
+					})),
+			)
+			.execute();
+	await rewritePriceYears(tx, rows);
+};
 
 /** A fetch that worked clears the error; one that failed keeps when the failing began. */
 export const saveFetch = (symbolId: string, error: RupeaError | null): ResultAsync<void> =>

@@ -4,7 +4,7 @@ import type { Batch } from '#lib/server/shared/result/batch.ts';
 import { fault, type RupeaError } from '#lib/server/shared/result/error.ts';
 import { inOrder, ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { readText, type Entry, type Storage } from '#lib/server/shared/storage/storage.ts';
-import { coverOf, type Span } from '#lib/shared/dates.ts';
+import { BEGINNING, coverOf, type Span } from '#lib/shared/dates.ts';
 import { isCounted, STATEMENTS } from '#lib/shared/folders.ts';
 import { enqueue, listJobs, type JobStatus } from '#services/jobs/application/jobs.ts';
 import * as DB from '../adapters/database';
@@ -42,6 +42,10 @@ export const listProblems = (l: Ledger): ResultAsync<Batch<never>> =>
 export const sync = (l: Ledger): ResultAsync<void> =>
 	enqueue({ job: Jobs.syncLedger, user: l.owner, payload: { ledger: l.handle } });
 
+/** Queues a sync that reads every file again and rebuilds all that is worked out from them, for when the index itself is in doubt. */
+export const resync = (l: Ledger): ResultAsync<void> =>
+	enqueue({ job: Jobs.syncLedger, user: l.owner, payload: { ledger: l.handle, full: true } });
+
 /** How the ledger's latest sync went, or null before its first. */
 export const findSync = (ledger: Ledger): ResultAsync<JobStatus | null> =>
 	listJobs({
@@ -52,19 +56,28 @@ export const findSync = (ledger: Ledger): ResultAsync<JobStatus | null> =>
 	}).map((j) => j[0]?.status ?? null);
 
 /** Brings the index up to date without checking the ledger, which costs a pass over every group. */
-export const syncIndex = (ledger: Ledger): ResultAsync<RupeaError[]> =>
+export const syncIndex = (l: Ledger): ResultAsync<RupeaError[]> => syncWith(l, update);
+
+/** Syncs the index as a job does, logging what failed, since nobody waits for its answer. */
+export const syncLedger = (l: Ledger): ResultAsync<void> => logged(syncIndex(l));
+
+/** Syncs as resync asks, logging what failed as syncLedger does. */
+export const resyncLedger = (l: Ledger): ResultAsync<void> => logged(syncWith(l, rebuild));
+
+type SyncStep = (s: Storage, id: string, stored: Entry[]) => ResultAsync<RupeaError[]>;
+
+const syncWith = (ledger: Ledger, step: SyncStep): ResultAsync<RupeaError[]> =>
 	openFolder({ ledger, folder: 'files' }).andThen((s) =>
-		exclusively(ledger.id, () => listLedgerFiles(s).andThen((f) => update(s, ledger.id, f)))
+		exclusively(ledger.id, () => listLedgerFiles(s).andThen((f) => step(s, ledger.id, f)))
 			.orElse((e) => ok([e]))
 			.andThen((f) => addProblems(ledger.id, f))
 			.andThen((f) => queueFetches(ledger, f))
 			.andThen((f) => embed(ledger, f)),
 	);
 
-/** Syncs the index as a job does, logging what failed, since nobody waits for its answer. */
-export const syncLedger = (ledger: Ledger): ResultAsync<void> =>
+const logged = (synced: ResultAsync<RupeaError[]>): ResultAsync<void> =>
 	withContext('logger')((l) =>
-		syncIndex(ledger)
+		synced
 			.andTee((f) => (f.length > 0 ? l.info({ failed: f }, 'synced with failures') : null))
 			.map(() => undefined),
 	);
@@ -80,14 +93,14 @@ export const listLedgerFiles = (storage: Storage): ResultAsync<Entry[]> =>
 		.mapErr((e) => fault('CannotReadDirectory', { path: '', cause: [e] }))
 		.map((e) => e.filter((f) => f.key.endsWith('.rupea') && !f.key.startsWith(`${STATEMENTS}/`)));
 
-type IndexFileOptions = { ledgerId: string; file: RupeaFile };
+type IndexFileOptions = { ledgerId: string; file: RupeaFile; full: boolean };
 
 /** A file waiting for review keeps only its metadata, so where it came from is known, but nothing in it counts or fails. */
-const indexFile = ({ ledgerId, file }: IndexFileOptions): ResultAsync<Indexed> =>
+const indexFile = ({ ledgerId, file, full }: IndexFileOptions): ResultAsync<Indexed> =>
 	withContext('config')((config) =>
 		DB.findHeld(ledgerId, file.key).andThen((held) => {
 			const inLedger = isCounted(file.key);
-			const parsed = parseChanged(config.ledger, file, inLedger ? held.hashCounts : {});
+			const parsed = parseChanged(config.ledger, file, inLedger && !full ? held.hashCounts : {});
 			const found = inLedger
 				? parsed
 				: { ...parsed, succeeded: [], prices: [], links: [], failed: [] };
@@ -122,11 +135,13 @@ type ReindexOptions = {
 	changed?: string[];
 	moved?: Move[];
 	gone?: string[];
+	/** Parses every line again, rather than only those that changed. */
+	full?: boolean;
 };
 
-/** Brings the index up to date with these files as the ledger's only writer, then settles what they touched. */
+/** Brings the index up to date with these files as the ledger's only writer, then settles what they touched. A ledger indexed before the year tables gets them first, so a change never leaves it with only some. */
 export const reindex = (o: ReindexOptions): ResultAsync<RupeaError[]> =>
-	exclusively(o.ledgerId, () => indexAndSettle(o));
+	exclusively(o.ledgerId, () => DB.saveMissingYears(o.ledgerId).andThen(() => indexAndSettle(o)));
 
 const indexAndSettle = (o: ReindexOptions): ResultAsync<RupeaError[]> =>
 	indexEach(o).andThen((i) => settle({ ledgerId: o.ledgerId, indexed: i }));
@@ -143,7 +158,8 @@ const settle = ({ ledgerId, indexed }: SettleOptions): ResultAsync<RupeaError[]>
 
 			return rebook(ledgerId, commodities)
 				.andThen(() => saveMonths(ledgerId, span, holdings))
-				.andThen(() => DB.saveCheckedMonths(ledgerId))
+				.andThen(() => saveChecked(ledgerId))
+				.andThen(() => saveYears(ledgerId, span, holdings))
 				.andThen(() => saveChecks(ledgerId, span, holdings))
 				.andThen(() => deleteUnused(ledgerId, holdings));
 		})
@@ -156,8 +172,10 @@ const indexEach = ({
 	changed = [],
 	moved = [],
 	gone = [],
+	full = false,
 }: ReindexOptions): ResultAsync<Indexed> => {
-	const read = (k: string) => readText(storage, k).andThen((f) => indexFile({ ledgerId, file: f }));
+	const read = (k: string) =>
+		readText(storage, k).andThen((f) => indexFile({ ledgerId, file: f, full }));
 
 	// A move between counted and review folders changes what the file counts, so
 	// it is indexed again; otherwise only its key changes.
@@ -189,12 +207,40 @@ export const checkLots = (l: Ledger): ResultAsync<RupeaError[]> =>
 // then nothing needs settling. A settle that fails undoes what this sync
 // indexed, so the next one tries again.
 const update = (s: Storage, id: string, stored: Entry[]): ResultAsync<RupeaError[]> =>
-	DB.listIndexedFiles(id).andThen((indexed) => {
-		const p = plan(stored, indexed);
-		return p.changed.length + p.gone.length === 0
-			? okAsync([])
-			: indexAndSettle({ ledgerId: id, storage: s, ...p });
-	});
+	DB.saveMissingYears(id)
+		.andThen(() => DB.listIndexedFiles(id))
+		.andThen((indexed) => {
+			const p = plan(stored, indexed);
+			return p.changed.length + p.gone.length === 0
+				? okAsync([])
+				: indexAndSettle({ ledgerId: id, storage: s, ...p });
+		});
+
+/** Reads every file again whether or not it changed, then settles all of the ledger, since what reading a file did not touch may be what is wrong. */
+const rebuild = (s: Storage, id: string, stored: Entry[]): ResultAsync<RupeaError[]> =>
+	DB.listIndexedFiles(id)
+		.andThen((indexed) =>
+			indexEach({
+				ledgerId: id,
+				storage: s,
+				changed: stored.map((f) => f.key),
+				gone: plan(stored, indexed).gone,
+				full: true,
+			}),
+		)
+		.andThen((i) => settleAll(id).map(() => i.failed));
+
+/** Settles as settle does, but over everything, in the order each step reads what the last wrote. */
+const settleAll = (id: string): ResultAsync<void> =>
+	recount(id, true)
+		.andThen(() => DB.listLotCommodities(id))
+		.andThen((c) => rebook(id, c))
+		.andThen(() => DB.saveEveryMonth(id))
+		.andThen(() => DB.saveEveryYear(id))
+		.andThen(() =>
+			DB.saveBalanceChecks(id, { from: Temporal.PlainDate.from(BEGINNING), holdings: null }),
+		)
+		.andThen(() => DB.deleteUnusedAccounts(id));
 
 const reported = (i: ResultAsync<Indexed>): ResultAsync<Indexed> =>
 	i.orElse((e) => ok({ failed: [e], ...UNTOUCHED }));
@@ -259,6 +305,15 @@ const rebook = (id: string, commodities: string[]): ResultAsync<void> => {
 
 const saveMonths = (id: string, s: Span | null, p: DB.HoldingKey[]): ResultAsync<void> =>
 	s ? DB.saveMonthlyDeltas(id, { span: s, holdings: p }) : okAsync();
+
+/** Puts right the months the check has come round to and the years they fall in, so what a bug left wrong does not stay. */
+const saveChecked = (id: string): ResultAsync<void> =>
+	DB.saveCheckedMonths(id).andThen((y) =>
+		y ? DB.saveBalanceYears(id, { ...y, holdings: null }) : okAsync(),
+	);
+
+const saveYears = (id: string, s: Span | null, p: DB.HoldingKey[]): ResultAsync<void> =>
+	s ? DB.saveBalanceYears(id, { from: s.from.year, to: null, holdings: p }) : okAsync();
 
 const saveChecks = (id: string, s: Span | null, p: DB.HoldingKey[]): ResultAsync<void> =>
 	s ? DB.saveBalanceChecks(id, { from: s.from, holdings: p }) : okAsync();

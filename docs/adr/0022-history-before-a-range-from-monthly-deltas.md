@@ -19,7 +19,7 @@ The running total is a window over the postings themselves, and an assertion's o
 ## Considered Options
 
 - **Month-end balances**: one row per account before a range instead of a sum of months, but a change in an old month rewrites every later one, and each row depends on all earlier ones.
-- **Daily balances**: no running total within a range, but as many rows as postings, and a change in an old day rewrites every later day.
+- **Daily balances**: no running total within a range, but as many rows as postings, and a change in an old day rewrites every later day. Net worth later adopted these as one row per year ([ADR 0030](0030-net-worth-from-year-rows.md)).
 - **A materialized view, pg_ivm or Timescale continuous aggregates**: the database keeps the rollup, but a refresh recounts every ledger, pg_ivm locks the view until commit, and portable-pg ships no Timescale.
 - **Triggers on postings and transactions**: no step can forget a month, but the date and whether a transaction counts live on transactions, and what writes the table would be invisible from the code that changes the ledger.
 - **Rebuilding the whole ledger on every settle**: nothing to report and nothing to drift, but every save would scan all of history.

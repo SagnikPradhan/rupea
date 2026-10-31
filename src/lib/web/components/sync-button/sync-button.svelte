@@ -1,6 +1,6 @@
 <script lang="ts">
 	import IconRefresh from '@tabler/icons-svelte-runes/icons/refresh';
-	import { findSync, sync } from '#lib/endpoints/ledger.remote.ts';
+	import { findSync, resync } from '#lib/endpoints/ledger.remote.ts';
 	import IconButton from '#lib/web/components/icon-button/icon-button.svelte';
 	import { refreshAll } from '$app/navigation';
 
@@ -25,8 +25,8 @@
 	<IconButton
 		label={syncing ? 'Syncing…' : 'Sync now'}
 		icon={IconRefresh}
-		disabled={syncing || sync.pending > 0}
-		onclick={() => sync(handle)}
+		disabled={syncing || resync.pending > 0}
+		onclick={() => resync(handle)}
 	/>
 </span>
 

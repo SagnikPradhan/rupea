@@ -1,7 +1,7 @@
 import { render, screen } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { findSync, sync } from '#lib/endpoints/ledger.remote.ts';
+import { findSync, resync } from '#lib/endpoints/ledger.remote.ts';
 import SyncButton from '#lib/web/components/sync-button/sync-button.svelte';
 import { answer } from '#tests/shared/queries.ts';
 import { refreshAll } from '$app/navigation';
@@ -9,14 +9,14 @@ import { refreshAll } from '$app/navigation';
 vi.mock('$app/navigation', () => import('#tests/shared/app-navigation.ts'));
 vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
 	findSync: vi.fn(),
-	sync: Object.assign(vi.fn(), { pending: 0 }),
+	resync: Object.assign(vi.fn(), { pending: 0 }),
 }));
 
 afterEach(() => vi.clearAllMocks());
 
 const rendered = (latest: string | null) => {
 	vi.mocked(findSync).mockReturnValue(answer(latest));
-	vi.mocked(sync).mockResolvedValue({ ok: true, data: undefined, errors: [] });
+	vi.mocked(resync).mockResolvedValue({ ok: true, data: undefined, errors: [] });
 	return { user: userEvent.setup(), ...render(SyncButton, { handle: 'h' }) };
 };
 
@@ -25,7 +25,7 @@ describe('the sync button', () => {
 		const { user } = rendered('succeeded');
 		await user.click(await screen.findByRole('button', { name: 'Sync now' }));
 
-		expect(sync).toHaveBeenCalledWith('h');
+		expect(resync).toHaveBeenCalledWith('h');
 	});
 
 	it('waits while a sync is queued or running', async () => {

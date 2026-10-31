@@ -85,6 +85,13 @@
       "when": 1793440933198,
       "tag": "0011_transaction_hashes",
       "breakpoints": true
+    },
+    {
+      "idx": 12,
+      "version": "7",
+      "when": 1793467333816,
+      "tag": "0012_worth_years",
+      "breakpoints": true
     }
   ]
 }

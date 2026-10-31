@@ -3,12 +3,13 @@ import { fault, type RupeaError } from '#lib/server/shared/result/error.ts';
 import { okAsync, ResultAsync } from '#lib/server/shared/result/result.ts';
 import { BEGINNING, type Bucket, type Span } from '#lib/shared/dates.ts';
 import * as DB from '../adapters/database';
-import type { Quantity } from '../domain/amounts';
+import { DEFAULT_COMMODITY, type Quantity } from '../domain/amounts';
 import { byAccount, HOPS, pricedIn, valued, type Account, type Holding } from '../domain/holdings';
 import { returnsOf, type Returns } from '../domain/returns';
 import { spendingOf, type Spending } from '../domain/spending';
 import { parentsIn, partsIn } from '../domain/tree';
 import type { Ledger } from '../domain/types';
+import { symbolsOf, worthOf, type PriceSources, type PriceYear } from '../domain/worth';
 import { checkLots } from './sync';
 
 export type { Account };
@@ -47,9 +48,79 @@ export const listWorth = ({
 }: ListWorthOptions): ResultAsync<Batch<DB.Worth>> =>
 	DB.listProblems(ledger.id).andThen((f) =>
 		DB.listAccountTree(ledger.id)
-			.andThen((t) => DB.listWorth(ledger.id, { from, to, ...partsIn(t, account) }))
+			.andThen((t) => worthOver(ledger.id, { from, to }, partsIn(t, account)))
 			.map((w) => ({ succeeded: w, failed: f })),
 	);
+
+/** Worth from the later of a span's start and the first day the parts held anything, or none before a sync has built the ledger's years. */
+const worthOver = (
+	id: string,
+	{ from, to }: Span,
+	{ parts, byCommodity }: { parts: DB.PartOf[]; byCommodity: boolean },
+): ResultAsync<DB.Worth[]> =>
+	DB.findFirstHeld(id, { parts, to }).andThen((first) => {
+		if (first === null || Temporal.PlainDate.compare(first, to) > 0) return okAsync([]);
+
+		const start = Temporal.PlainDate.compare(first, from) > 0 ? first : from;
+		const years = { from: start.year, to: to.year };
+		const accounts = parts.map((p) => p.accountId);
+
+		return DB.listBalanceYears(id, { accounts, ...years }).andThen((balances) => {
+			if (balances.length === 0) return okAsync([]);
+
+			const commodities = [...new Set(balances.map((b) => b.commodity))];
+
+			return DB.listPriceSources(id).andThen((sources) =>
+				pricesWalked({ id, start, years, sources, commodities, hops: HOPS }).map(
+					({ prices, opening }) =>
+						worthOf({ from: start, to, parts, byCommodity, balances, prices, sources, opening }),
+				),
+			);
+		});
+	});
+
+type PricesWalkedOptions = {
+	id: string;
+	start: Temporal.PlainDate;
+	years: { from: number; to: number };
+	sources: PriceSources;
+	commodities: string[];
+	hops: number;
+};
+
+type PricesWalked = { prices: PriceYear[]; opening: Record<string, Quantity> };
+
+/** The price years and opening prices of these commodities and of the currencies they are quoted in, as far as a commodity converts. */
+const pricesWalked = ({
+	commodities,
+	hops,
+	...o
+}: PricesWalkedOptions): ResultAsync<PricesWalked> => {
+	const asked = commodities.filter((c) => c !== DEFAULT_COMMODITY);
+	if (hops === 0 || asked.length === 0) return okAsync({ prices: [], opening: {} });
+
+	return ResultAsync.combine([
+		DB.listPriceYears(symbolsOf(o.sources, asked), o.years),
+		pricesBefore(o.id, o.start, asked),
+	]).andThen(([prices, opening]) => {
+		const quotedIn = [
+			...prices.map((p) => p.priceCommodity),
+			...Object.values(opening).map((p) => p.commodity),
+		];
+		const currencies = [...new Set(quotedIn)].filter((c) => !asked.includes(c));
+
+		return pricesWalked({ ...o, commodities: currencies, hops: hops - 1 }).map((further) => ({
+			prices: [...prices, ...further.prices],
+			opening: { ...further.opening, ...opening },
+		}));
+	});
+};
+
+/** Nothing is priced before all of history, whose day before Postgres cannot write. */
+const pricesBefore = (id: string, d: Temporal.PlainDate, c: string[]) =>
+	d.toString() === BEGINNING
+		? okAsync<Record<string, Quantity>>({})
+		: DB.findLatestPrices(id, c, d.subtract({ days: 1 }));
 
 type ListReturnsOptions = { ledger: Ledger; from: Temporal.PlainDate; to: Temporal.PlainDate };
 

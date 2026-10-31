@@ -55,8 +55,18 @@ export const listAccountTree = (ledgerId: string): ResultAsync<AccountNode[]> =>
 					'a.name',
 					'a.type',
 					'a.parentId',
-					e
-						.exists(e.selectFrom('postings as p').whereRef('p.accountId', '=', 'a.id'))
+					// Postgres scans all postings for an exists on an account that has none, as parents do;
+					// ordering by date keeps it on the index, and only a subquery here keeps the ordering
+					e(
+						e
+							.selectFrom('postings as p')
+							.select(sql<boolean>`true`.as('posted'))
+							.whereRef('p.accountId', '=', 'a.id')
+							.orderBy('p.date')
+							.limit(1),
+						'is not',
+						null,
+					)
 						.$castTo<boolean>()
 						.as('posted'),
 				])

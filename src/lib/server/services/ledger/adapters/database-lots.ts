@@ -1,3 +1,4 @@
+import { noneOf } from '#lib/server/db/expressions.ts';
 import type { Database } from '#lib/server/db/index.ts';
 import { insertAll } from '#lib/server/db/insert.ts';
 import type { Tables } from '#lib/server/db/tables.ts';
@@ -6,7 +7,7 @@ import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { sql, type ExpressionBuilder, type SqlBool } from 'kysely';
 import type { Amount, Quantity } from '../domain/amounts';
-import { book, realised, type BookedPosting, type Booking } from '../domain/lots';
+import { book, CURRENCIES, realised, type BookedPosting, type Booking } from '../domain/lots';
 import { BALANCE_TYPES } from '../domain/taxonomy';
 import type { DisposalKind, LotOrigin, RupeaParseLocation } from '../domain/types';
 import { ledgerOrder, toCost, toPrice, toQuantity } from './database-queries';
@@ -48,6 +49,22 @@ export const rebook = (ledgerId: string, commodities: string[]): ResultAsync<voi
 						.then(book)
 						.then((b) => replaceLots(tx, { ledgerId, commodity, booking: b }));
 			}),
+		),
+	);
+
+/** Every commodity balance accounts hold that could have lots, which is all but currencies. */
+export const listLotCommodities = (ledgerId: string): ResultAsync<string[]> =>
+	withContext('db')((db) =>
+		attempt(() =>
+			db
+				.selectFrom('postings')
+				.select('commodity')
+				.distinct()
+				.where('ledgerId', '=', ledgerId)
+				.where('accountType', 'in', BALANCE_TYPES)
+				.where((e) => noneOf(e.ref('commodity'), CURRENCIES, 'text'))
+				.execute()
+				.then((r) => r.map((c) => c.commodity)),
 		),
 	);
 

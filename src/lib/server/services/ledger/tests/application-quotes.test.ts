@@ -211,7 +211,10 @@ describe('fetching quotes', () => {
 			expect(await valueOf(ledger)).toBe(1610_0000000000n);
 		}));
 
-	it('fails with the feed’s error even when recording it fails too', ({ context, db }) =>
+	it('fails with the feed’s error even when recording it fails too, and logs that', ({
+		context,
+		db,
+	}) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({ ledger, key: 'a.rupea', content: fund('100009') });
@@ -220,9 +223,14 @@ describe('fetching quotes', () => {
 				await db.deleteFrom('symbols').where('id', '=', symbolId).execute();
 				return new Response('', { status: 404 });
 			});
+			const warn = vi.spyOn(context.logger, 'warn');
 
 			expect(await fetchedWith(context, removing, symbolId)).toEqual(
 				err(fault('FeedSymbolUnknown', { feed: Feed.Mfapi, symbol: '100009' })),
+			);
+			expect(warn).toHaveBeenCalledWith(
+				expect.objectContaining({ symbol: '100009' }),
+				'fetch not recorded',
 			);
 		}));
 

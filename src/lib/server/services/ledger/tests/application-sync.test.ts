@@ -9,6 +9,7 @@ import { syncLedger } from '#services/ledger/adapters/jobs.ts';
 import { MODEL } from '#services/ledger/adapters/prediction-model2vec.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import * as Sync from '#services/ledger/application/sync.ts';
+import * as Transactions from '#services/ledger/application/transactions.ts';
 import { INDEXER } from '#services/ledger/domain/sync.ts';
 import { Feed, PriceSource } from '#services/ledger/domain/types.ts';
 import { broken, hashed } from '#tests/shared/embedding.ts';
@@ -19,6 +20,7 @@ import { drift, months } from './fixtures/deltas';
 import { sql } from 'kysely';
 import { describe, expect } from 'vitest';
 import {
+	everything,
 	groceries,
 	issues,
 	listAllTransactions,
@@ -308,6 +310,107 @@ describe('syncing the ledger', () => {
 			await db.deleteFrom('jobs').where('userId', '=', ledger.owner).execute();
 			await Sync.syncIndex(ledger);
 			expect(await queued()).toEqual([]);
+		}));
+
+	it('keeps transaction ids through an edit, and a new one for what is new', ({
+		context,
+		db,
+		storage,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const twice = '2026-08-29 Tea\n\tExpenses:Food 1\n\tAssets:Bank\n';
+			const ids = async () =>
+				db
+					.selectFrom('transactions')
+					.select(['id', 'line', 'description'])
+					.where('ledgerId', '=', ledger.id)
+					.orderBy('line')
+					.execute();
+
+			await put(storage, ledger, 'a.rupea', `${twice}\n${twice}\n${groceries}`);
+			await Sync.syncIndex(ledger);
+			const [first, second, third] = await ids();
+
+			const edited = groceries.replace('Expenses:Food', '; bought\n\tExpenses:Food');
+			await put(storage, ledger, 'a.rupea', `${salary}\n${twice}\n${twice}\n${edited}`);
+			await Sync.syncIndex(ledger);
+			const after = await ids();
+
+			expect(after.map((t) => t.description)).toEqual(['Salary', 'Tea', 'Tea', 'Groceries']);
+			expect(after.slice(1).map((t) => t.id)).toEqual([first?.id, second?.id, third?.id]);
+			expect(await count(db.selectFrom('postings').where('ledgerId', '=', ledger.id))).toBe(8);
+		}));
+
+	it('keeps the id of a transaction with a time', ({ context, db, storage }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const timed = groceries.replace('2026-08-29', '2026-08-29 18:45');
+			const id = async () =>
+				(
+					await db
+						.selectFrom('transactions')
+						.select('id')
+						.where('ledgerId', '=', ledger.id)
+						.execute()
+				)[0]?.id;
+
+			await put(storage, ledger, 'a.rupea', timed);
+			await Sync.syncIndex(ledger);
+			const before = await id();
+
+			await put(storage, ledger, 'a.rupea', `\n${timed}`);
+			await Sync.syncIndex(ledger);
+			expect(await id()).toBe(before);
+		}));
+
+	it('keeps evidence uncounted through an edit, and counts it once its group is gone', ({
+		context,
+		db,
+		storage,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const tea = '2026-08-29 Tea\n\tExpenses:Food 1\n\tAssets:Bank\n';
+			const member = (role: string) => tea.replace('\n', `\n\t- ${role}: tea\n`);
+			const counted = async () => (await listed(ledger)).map((t) => t.counted).sort();
+
+			await put(storage, ledger, 'a.rupea', member('group'));
+			await put(storage, ledger, 'b.rupea', member('same-as'));
+			await Sync.syncIndex(ledger);
+			expect(await counted()).toEqual([false, true]);
+
+			await put(storage, ledger, 'b.rupea', `${salary}\n${member('same-as')}`);
+			await Sync.syncIndex(ledger);
+			expect(await counted()).toEqual([false, true, true]);
+
+			await put(storage, ledger, 'a.rupea', tea);
+			await put(storage, ledger, 'b.rupea', tea);
+			await Sync.syncIndex(ledger);
+			expect(await counted()).toEqual([true, true]);
+		}));
+
+	it('pages across a re-index without skipping a transaction', ({ context, db, storage }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const shops = Array.from(
+				{ length: 150 },
+				(_, i) => `2026-01-01 Shop ${i}\n\tExpenses:Food 1\n\tAssets:Bank\n`,
+			).join('\n');
+			await put(storage, ledger, 'a.rupea', shops);
+			await Sync.syncIndex(ledger);
+
+			const page = async (after: Transactions.Cursor | null) =>
+				(
+					await Transactions.listTransactions({ ledger, filter: everything, after })
+				)._unsafeUnwrap();
+			const first = await page(null);
+			await put(storage, ledger, 'a.rupea', `${salary}\n${shops}`);
+			await Sync.syncIndex(ledger);
+			const second = await page(first.next);
+
+			const seen = [...first.rows, ...second.rows].map((r) => r.description);
+			expect(new Set(seen.filter((d) => d.startsWith('Shop'))).size).toBe(150);
 		}));
 
 	it('keeps a description embedded through a re-index', ({ context, db, storage }) =>

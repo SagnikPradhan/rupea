@@ -1,10 +1,11 @@
 import { anyOf, noneOf } from '#lib/server/db/expressions.ts';
-import type { Database } from '#lib/server/db/index.ts';
+import { ROWS_PER_STATEMENT, type Database } from '#lib/server/db/index.ts';
 import { insertAll } from '#lib/server/db/insert.ts';
 import { atomically } from '#lib/server/db/atomically.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { fault, type RupeaError } from '#lib/server/shared/result/error.ts';
 import { attempt, errAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
+import { chunks } from '#lib/server/shared/arrays.ts';
 import { byCodeUnit } from '#lib/server/shared/text.ts';
 import type { Span } from '#lib/shared/dates.ts';
 import { sql, type SqlBool } from 'kysely';
@@ -14,7 +15,13 @@ import { displayLocation } from '../domain/parser';
 import { marketPrices } from '../domain/prices';
 import { INDEXER } from '../domain/sync';
 import { accountType, BALANCE_TYPES, parentsOf } from '../domain/taxonomy';
-import { Feed, ProblemKind, type RupeaLedgerFile, type RupeaMetadata } from '../domain/types';
+import {
+	Feed,
+	ProblemKind,
+	type RupeaLedgerFile,
+	type RupeaMetadata,
+	type RupeaTransaction,
+} from '../domain/types';
 import { toSpans } from './database-queries';
 
 export type IndexedFile = { key: string; version: string; indexer: number };
@@ -77,7 +84,7 @@ type IndexFileOptions = {
 /** What changing a file touched: the commodities whose lots it held before or holds now, and the days its transactions span. */
 export type Touched = { commodities: string[]; spans: Span[] };
 
-/** Replaces what a file indexes and what failed to parse in it, each description keeping its embedding, so saving a file never re-embeds it. */
+/** Replaces what a file indexes and what failed to parse in it, each transaction keeping its id where it can and each description its embedding, so saving a file neither moves a page nor re-embeds it. */
 export const indexFile = (
 	ledgerId: string,
 	{ key, version, file, failed }: IndexFileOptions,
@@ -89,7 +96,8 @@ export const indexFile = (
 		withContext('db')((tx) =>
 			attempt(async () => {
 				const fileId = await saveVersion(tx, { ledgerId, key, version });
-				const rows = rowsOf(ledgerId, fileId, file);
+				const old = await oldTransactions(tx, fileId);
+				const rows = rowsOf({ ledgerId, fileId, file, idOf: idsFrom(old) });
 				const postings = await withAccounts(tx, ledgerId, rows.postings);
 				const prices = await withSymbols(tx, { feed: Feed.Ledger, ledgerId }, rows.prices);
 				const links = await withFeedSymbols(tx, rows.links);
@@ -107,8 +115,9 @@ export const indexFile = (
 				await tx.deleteFrom('prices').where('fileId', '=', fileId).execute();
 				await tx.deleteFrom('symbolLinks').where('fileId', '=', fileId).execute();
 				await tx.deleteFrom('problems').where('fileId', '=', fileId).execute();
+				await deleteOwnedBy(tx, fileId);
 
-				await insertAll(tx, 'transactions', rows.transactions);
+				await saveTransactions(tx, rows.transactions);
 				await replaceOldTransactions(tx, fileId, rows.transactions);
 				await insertAll(tx, 'postings', postings);
 				await insertAll(tx, 'prices', prices);
@@ -193,10 +202,75 @@ const saveVersion = (db: Database, { ledgerId, key, version }: VersionOptions) =
 		.executeTakeFirstOrThrow()
 		.then((f) => f.id);
 
+type OldTransaction = {
+	id: string;
+	date: string;
+	time: string | null;
+	description: string;
+};
+
+const oldTransactions = (db: Database, fileId: string): Promise<OldTransaction[]> =>
+	db
+		.selectFrom('transactions')
+		.select(['id', 'date', 'time', 'description'])
+		.where('fileId', '=', fileId)
+		.orderBy('line')
+		.execute();
+
+/** Hands out old ids by date, time and description, in file order, so an edit or a line added above keeps them; a new id otherwise. */
+const idsFrom = (old: OldTransaction[]) => {
+	const free = Object.groupBy(old, (o) => `${o.date} ${o.time} ${o.description}`);
+
+	return (t: RupeaTransaction) =>
+		free[`${t.date} ${t.time ?? null} ${t.description}`]?.shift()?.id ?? uuidv7();
+};
+
+/** A kept transaction gets its postings and metadata anew, as a deleted one loses them by cascade. */
+const deleteOwnedBy = async (db: Database, fileId: string) => {
+	const owners = db.selectFrom('transactions').select('id').where('fileId', '=', fileId);
+
+	await db.deleteFrom('metadata').where('transactionId', 'in', owners).execute();
+	await db.deleteFrom('postings').where('transactionId', 'in', owners).execute();
+};
+
+type TransactionRow = {
+	id: string;
+	ledgerId: string;
+	fileId: string;
+	line: number;
+	date: string;
+	time: string | null;
+	description: string;
+	comment: string | null;
+};
+
+/** A kept transaction counts again until files settle, as a new one does, and keeps its embedding. */
+const saveTransactions = async (db: Database, rows: TransactionRow[]) => {
+	for (const chunk of chunks(rows, ROWS_PER_STATEMENT))
+		await db // NOSONAR -- a transaction's statements share one connection, so they run in turn
+			.insertInto('transactions')
+			.values(chunk)
+			.onConflict((o) =>
+				o.column('id').doUpdateSet((e) => ({
+					line: e.ref('excluded.line'),
+					comment: e.ref('excluded.comment'),
+					counted: true,
+				})),
+			)
+			.execute();
+};
+
+type RowsOptions = {
+	ledgerId: string;
+	fileId: string;
+	file: RupeaLedgerFile;
+	idOf: (t: RupeaTransaction) => string;
+};
+
 /** Each table's rows for a parsed file, its prices and links still to be put on their symbols. */
-const rowsOf = (ledgerId: string, fileId: string, file: RupeaLedgerFile) => {
+const rowsOf = ({ ledgerId, fileId, file, idOf }: RowsOptions) => {
 	const indexed = file.transactions.map((t) => ({
-		id: uuidv7(),
+		id: idOf(t),
 		transaction: t,
 		postings: t.postings.map((p) => ({ id: uuidv7(), posting: p })),
 	}));
@@ -277,8 +351,8 @@ const rowsOf = (ledgerId: string, fileId: string, file: RupeaLedgerFile) => {
 };
 
 /**
- * Replaces a file's old transactions with the rows just inserted, which take the embedding of their description.
- * The update still sees the deleted rows, as Postgres runs a statement on one snapshot, so it keeps to the new ones.
+ * Deletes a file's transactions that were not kept, and rows without an embedding take their description's.
+ * The select still sees the deleted rows, as Postgres runs a statement on one snapshot, so the update keeps to the current ones.
  */
 const replaceOldTransactions = (db: Database, fileId: string, rows: { id: string }[]) => {
 	const ids = rows.map((r) => r.id);
@@ -287,15 +361,15 @@ const replaceOldTransactions = (db: Database, fileId: string, rows: { id: string
 			db
 				.deleteFrom('transactions')
 				.where('transactions.fileId', '=', fileId)
-				.where((e) => noneOf(e.ref('transactions.id'), ids, 'uuid'))
-				.returning(['description', 'embedding', 'embeddingModel']),
+				.where((e) => noneOf(e.ref('transactions.id'), ids, 'uuid')),
 		)
 		.with('embedded', (db) =>
 			db
-				.selectFrom('deleted')
-				.select(['deleted.description', 'deleted.embedding', 'deleted.embeddingModel'])
-				.distinctOn('deleted.description')
-				.where('deleted.embedding', 'is not', null),
+				.selectFrom('transactions')
+				.select(['description', 'embedding', 'embeddingModel'])
+				.distinctOn('description')
+				.where('fileId', '=', fileId)
+				.where('embedding', 'is not', null),
 		)
 		.updateTable('transactions')
 		.from('embedded')
@@ -304,6 +378,7 @@ const replaceOldTransactions = (db: Database, fileId: string, rows: { id: string
 			embeddingModel: e.ref('embedded.embeddingModel'),
 		}))
 		.where('transactions.fileId', '=', fileId)
+		.where('transactions.embedding', 'is', null)
 		.whereRef('transactions.description', '=', 'embedded.description')
 		.where((e) => anyOf(e.ref('transactions.id'), ids, 'uuid'))
 		.execute();

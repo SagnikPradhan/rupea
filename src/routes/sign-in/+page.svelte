@@ -52,14 +52,14 @@
 	form {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-3);
+		gap: var(--gap-group);
 		align-items: start;
-		margin-top: var(--size-4);
+		margin-top: var(--gap-block);
 	}
 
 	.actions {
 		display: flex;
-		gap: var(--size-2);
+		gap: var(--gap-related);
 		align-items: center;
 		color: var(--color-muted);
 	}

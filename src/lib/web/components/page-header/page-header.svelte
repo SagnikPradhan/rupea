@@ -30,11 +30,11 @@
 	header {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-3);
+		gap: var(--gap-group);
 	}
 
 	nav {
-		font-size: var(--font-size-0);
+		font-size: var(--text-small);
 		line-height: 1;
 		letter-spacing: 0.06em;
 		text-transform: uppercase;
@@ -43,14 +43,14 @@
 	ol {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--size-0);
+		gap: var(--gap-tight);
 		margin: 0;
 		padding: 0;
 	}
 
 	li {
 		display: inline-flex;
-		gap: var(--size-0);
+		gap: var(--gap-tight);
 		align-items: center;
 		margin: 0;
 		color: var(--color-muted);
@@ -68,7 +68,7 @@
 	h1 {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--size-2);
+		gap: var(--gap-related);
 		align-items: baseline;
 		margin: 0;
 		overflow-wrap: anywhere;
@@ -77,7 +77,7 @@
 	.actions {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--size-1);
+		gap: var(--gap-label);
 		align-items: center;
 	}
 </style>

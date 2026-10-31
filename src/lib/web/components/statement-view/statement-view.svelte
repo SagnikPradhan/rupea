@@ -372,11 +372,11 @@
 	}
 
 	section {
-		gap: var(--size-5);
+		gap: var(--gap-block);
 	}
 
 	.group {
-		gap: var(--size-2);
+		gap: var(--gap-related);
 	}
 
 	section > :global(*),
@@ -388,7 +388,7 @@
 	.heading {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--size-2);
+		gap: var(--gap-related);
 		align-items: center;
 		justify-content: space-between;
 	}
@@ -396,7 +396,7 @@
 	h2 {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--size-1);
+		gap: var(--gap-label);
 		align-items: baseline;
 	}
 
@@ -407,7 +407,7 @@
 	.toolbar {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--size-1);
+		gap: var(--gap-label);
 		align-items: end;
 	}
 
@@ -420,7 +420,7 @@
 	.toolbar label {
 		display: flex;
 		flex: 1;
-		gap: var(--size-1);
+		gap: var(--gap-label);
 		align-items: center;
 		white-space: nowrap;
 	}

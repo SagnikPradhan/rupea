@@ -269,7 +269,7 @@
 	figure {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-1);
+		gap: var(--gap-label);
 		margin: 0;
 	}
 
@@ -278,23 +278,23 @@
 		flex-wrap: wrap;
 		justify-content: space-between;
 		align-items: start;
-		gap: var(--size-2) var(--size-5);
+		gap: var(--gap-related) var(--gap-block);
 		color: var(--color-muted);
-		font-size: var(--font-size-0);
+		font-size: var(--text-small);
 	}
 
 	.key {
 		flex: 1 1 var(--sidebar);
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--size-0) var(--size-3);
+		gap: var(--gap-tight) var(--gap-group);
 	}
 
 	.controls {
 		display: flex;
 		flex-wrap: wrap;
 		justify-content: end;
-		gap: var(--size-1) var(--size-3);
+		gap: var(--gap-label) var(--gap-group);
 		margin-left: auto;
 	}
 
@@ -306,8 +306,8 @@
 	.reference::before {
 		content: '';
 		display: inline-block;
-		width: var(--size-2);
-		margin-right: var(--size-0);
+		width: var(--gap-related);
+		margin-right: var(--gap-tight);
 		vertical-align: middle;
 		border-top: 1px dashed var(--color-muted);
 	}
@@ -322,17 +322,17 @@
 		position: absolute;
 		z-index: 1;
 		display: flex;
-		gap: var(--size-1);
+		gap: var(--gap-label);
 		margin: 0;
-		padding: var(--size-0) var(--size-1);
+		padding: var(--gap-tight) var(--gap-label);
 		background: var(--color-surface);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius);
 		color: var(--color-ink);
-		font-size: var(--font-size-0);
+		font-size: var(--text-small);
 		white-space: nowrap;
 		pointer-events: none;
-		transform: translate(-50%, calc(-100% - var(--size-1)));
+		transform: translate(-50%, calc(-100% - var(--gap-label)));
 	}
 
 	.faded {

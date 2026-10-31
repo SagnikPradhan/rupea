@@ -1,25 +1,26 @@
 :root {
 	color-scheme: light dark;
 
-	--font-size-0: 0.8rem;
-	--font-size-1: 1rem;
-	--font-size-2: 1.25rem;
-	--font-size-display: 3.5rem;
+	--text-small: 0.8rem;
+	--text-data: 1rem;
+	--text-heading: 1.25rem;
+	--text-statement: 2.5rem;
+	--text-display: 3.5rem;
 
-	--size-0: 0.25rem; /* 4px */
-	--size-1: 0.5rem; /* 8px */
-	--size-2: 1rem; /* 16px */
-	--size-3: 1.5rem; /* 24px */
-	--size-4: 2rem; /* 32px */
-	--size-5: 3rem; /* 48px */
-	--size-6: 6rem; /* 96px */
-	--size-7: 9rem; /* 144px */
+	--gap-tight: 0.25rem;
+	--gap-label: 0.5rem;
+	--gap-related: 1rem;
+	--gap-group: 1.5rem;
+	--gap-block: 3rem;
+	--gap-page: 6rem;
+
+	--width-control: 9rem;
 
 	--measure: 64rem;
 	--sidebar: 16rem;
 	--plot: 16rem;
 	--plot-short: 12rem;
-	--inset: max(var(--size-3), (100% - var(--measure)) / 2);
+	--inset: max(var(--gap-group), (100% - var(--measure)) / 2);
 	--inset-end: var(--inset);
 	--radius: 8px;
 
@@ -66,8 +67,8 @@
 /* A page's filters sit beside the content from this width, so the content gives way to them on the left. */
 @media (width >= 80rem) {
 	:root {
-		--inset: max(var(--size-3) + var(--sidebar) + var(--size-5), (100% - var(--measure)) / 2);
-		--inset-end: max(var(--size-3), (100% - var(--measure)) / 2);
+		--inset: max(var(--gap-group) + var(--sidebar) + var(--gap-block), (100% - var(--measure)) / 2);
+		--inset-end: max(var(--gap-group), (100% - var(--measure)) / 2);
 	}
 }
 
@@ -94,7 +95,7 @@ html {
 
 body {
 	line-height: 1.4;
-	font-size: var(--font-size-1);
+	font-size: var(--text-data);
 	font-family: var(--font-body);
 	font-optical-sizing: auto;
 	font-weight: 400;
@@ -117,34 +118,34 @@ h4 {
 }
 
 h1 {
-	font-size: var(--font-size-display);
+	font-size: var(--text-display);
 	line-height: 1;
 	letter-spacing: -0.02em;
-	margin: var(--size-5) 0 var(--size-3) 0;
+	margin: var(--gap-block) 0 var(--gap-group) 0;
 }
 
 h2 {
-	font-size: var(--font-size-2);
-	margin: var(--size-4) 0 var(--size-1) 0;
+	font-size: var(--text-heading);
+	margin: var(--gap-block) 0 var(--gap-label) 0;
 }
 
 h3,
 h4 {
-	font-size: var(--font-size-1);
+	font-size: var(--text-data);
 	font-weight: 500;
-	margin: var(--size-2) 0 var(--size-0) 0;
+	margin: var(--gap-related) 0 var(--gap-tight) 0;
 }
 
 p,
 ul,
 ol {
 	max-width: 70ch;
-	margin: var(--size-2) 0 var(--size-1) 0;
+	margin: var(--gap-related) 0 var(--gap-label) 0;
 	color: var(--color-ink);
 }
 
 li {
-	margin: var(--size-0) 0;
+	margin: var(--gap-tight) 0;
 	color: var(--color-ink);
 }
 
@@ -170,7 +171,7 @@ a.plain:hover {
 .picker {
 	display: flex;
 	flex-direction: column;
-	gap: var(--size-1);
+	gap: var(--gap-label);
 }
 
 .picker > span {
@@ -180,7 +181,7 @@ a.plain:hover {
 .picker > nav {
 	display: flex;
 	flex-wrap: wrap;
-	gap: var(--size-1) var(--size-3);
+	gap: var(--gap-label) var(--gap-group);
 	align-items: center;
 }
 
@@ -196,11 +197,11 @@ a.plain:hover {
 a[aria-current] {
 	color: var(--color-accent);
 	text-decoration: underline 2px;
-	text-underline-offset: var(--size-0);
+	text-underline-offset: var(--gap-tight);
 }
 
 code {
-	font-size: var(--font-size-0);
+	font-size: var(--text-small);
 	font-family: var(--font-mono);
 }
 
@@ -209,7 +210,7 @@ code {
 	margin: 0;
 	color: var(--color-muted);
 	font-family: var(--font-body);
-	font-size: var(--font-size-0);
+	font-size: var(--text-small);
 	font-weight: 400;
 	line-height: 1;
 	letter-spacing: 0.06em;
@@ -222,12 +223,12 @@ code {
 }
 
 .tag {
-	padding: 0 var(--size-1);
+	padding: 0 var(--gap-label);
 	border: 1px solid var(--color-border);
 	border-radius: var(--radius);
 	color: var(--color-muted);
 	font-family: var(--font-body);
-	font-size: var(--font-size-0);
+	font-size: var(--text-small);
 	font-weight: 400;
 	vertical-align: middle;
 }
@@ -242,9 +243,9 @@ code {
 
 .swatch {
 	display: inline-block;
-	width: var(--size-2);
-	height: var(--size-2);
-	margin-right: var(--size-0);
+	width: var(--gap-related);
+	height: var(--gap-related);
+	margin-right: var(--gap-tight);
 	vertical-align: middle;
 	border: 1px solid;
 }
@@ -254,7 +255,7 @@ hr {
 	height: 1px;
 	border: 0;
 	border-top: 1px solid var(--color-border);
-	margin: var(--size-3) 0;
+	margin: var(--gap-group) 0;
 	padding: 0;
 }
 
@@ -266,7 +267,7 @@ hr {
 input:not([type='checkbox'], [type='radio'], [type='file']),
 button,
 .button {
-	padding: var(--size-1) var(--size-2);
+	padding: var(--gap-label) var(--gap-related);
 	border: 1px solid var(--color-muted);
 	border-radius: var(--radius);
 	background: var(--color-surface);

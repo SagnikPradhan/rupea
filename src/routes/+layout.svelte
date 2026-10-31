@@ -49,28 +49,28 @@
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding-block: var(--size-1);
+		padding-block: var(--gap-label);
 	}
 
 	.end {
 		display: flex;
-		gap: var(--size-2);
+		gap: var(--gap-related);
 		align-items: center;
 	}
 
 	.end > span {
 		color: var(--color-muted);
-		font-size: var(--font-size-0);
+		font-size: var(--text-small);
 	}
 
 	header a {
 		color: var(--color-ink);
 		font-family: var(--font-heading);
-		font-size: var(--font-size-2);
+		font-size: var(--text-heading);
 		text-decoration: none;
 	}
 
 	main {
-		padding-bottom: var(--size-6);
+		padding-bottom: var(--gap-page);
 	}
 </style>

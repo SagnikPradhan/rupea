@@ -143,13 +143,13 @@
 <style>
 	.tag {
 		color: var(--color-muted);
-		font-size: var(--font-size-0);
+		font-size: var(--text-small);
 	}
 
 	.toolbar {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--size-1);
+		gap: var(--gap-label);
 		flex: 1;
 		align-items: end;
 	}
@@ -167,7 +167,7 @@
 	}
 
 	.toolbar p {
-		margin: 0 var(--size-1) 0 0;
+		margin: 0 var(--gap-label) 0 0;
 		align-self: center;
 	}
 
@@ -179,14 +179,14 @@
 	.conflict {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--size-1);
+		gap: var(--gap-label);
 		align-items: center;
-		padding-left: var(--size-2);
+		padding-left: var(--gap-related);
 		border-left: 2px solid var(--color-negative);
 	}
 
 	.conflict p {
 		flex-basis: 100%;
-		margin: 0 0 var(--size-1);
+		margin: 0 0 var(--gap-label);
 	}
 </style>

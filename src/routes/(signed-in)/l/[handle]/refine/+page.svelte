@@ -98,7 +98,7 @@
 		{#each suggestions as s (s.fingerprint)}
 			<article aria-label="Match {s.ours.file}:{s.ours.line}">
 				<h2>{s.confidence === 'duplicate' ? 'Duplicate' : 'Possible match'}: {s.group}</h2>
-				<div style="display: flex; gap: 2rem">
+				<div style="display: flex; gap: var(--gap-group)">
 					{@render side(s.ours, roleAt(s, s.ours), s.group)}
 					{@render side(s.theirs, roleAt(s, s.theirs), s.group)}
 				</div>

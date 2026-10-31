@@ -415,7 +415,7 @@
 	form {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-3);
+		gap: var(--gap-group);
 	}
 
 	input:not([type='checkbox']) {
@@ -425,11 +425,11 @@
 	.heading {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--size-2);
+		gap: var(--gap-related);
 	}
 
 	.heading > :global(div) {
-		flex: 1 1 var(--size-7);
+		flex: 1 1 var(--width-control);
 	}
 
 	.heading > .grow {
@@ -439,18 +439,18 @@
 	.pair {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
-		gap: var(--size-2);
+		gap: var(--gap-related);
 	}
 
 	.kinds {
 		display: flex;
-		gap: var(--size-3);
+		gap: var(--gap-group);
 	}
 
 	.link[aria-pressed='true'] {
 		color: var(--color-accent);
 		text-decoration: underline 2px;
-		text-underline-offset: var(--size-0);
+		text-underline-offset: var(--gap-tight);
 	}
 
 	.wide,
@@ -470,13 +470,13 @@
 	}
 
 	.child .rare {
-		padding-top: var(--size-2);
+		padding-top: var(--gap-related);
 	}
 
 	.rare {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(var(--size-7), 1fr));
-		gap: var(--size-2);
+		grid-template-columns: repeat(auto-fill, minmax(var(--width-control), 1fr));
+		gap: var(--gap-related);
 		align-items: end;
 	}
 
@@ -484,7 +484,7 @@
 		display: grid;
 		grid-column: 1 / -1;
 		grid-template-columns: 1fr 1fr auto;
-		gap: var(--size-2);
+		gap: var(--gap-related);
 		align-items: end;
 	}
 
@@ -505,27 +505,27 @@
 	}
 
 	.actions .link + .link {
-		margin-left: var(--size-2);
+		margin-left: var(--gap-related);
 	}
 
 	.problem {
-		margin: var(--size-1) 0 0;
+		margin: var(--gap-label) 0 0;
 		color: var(--color-negative);
 		font-family: var(--font-body);
-		font-size: var(--font-size-0);
+		font-size: var(--text-small);
 		text-align: left;
 		white-space: normal;
 	}
 
 	.check {
 		display: flex;
-		gap: var(--size-1);
+		gap: var(--gap-label);
 		align-items: center;
 	}
 
 	.submit {
 		display: flex;
-		gap: var(--size-2);
+		gap: var(--gap-related);
 		align-items: center;
 	}
 
@@ -549,7 +549,7 @@
 		tr:not(.child) {
 			display: grid;
 			grid-template-columns: 1fr 1fr;
-			gap: var(--size-1);
+			gap: var(--gap-label);
 		}
 
 		.account,

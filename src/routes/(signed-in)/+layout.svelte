@@ -70,21 +70,21 @@
 	nav {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--size-1) var(--size-4);
+		gap: var(--gap-label) var(--gap-group);
 		align-items: baseline;
-		padding-block: var(--size-1);
+		padding-block: var(--gap-label);
 	}
 
 	.pages {
-		gap: var(--size-3);
+		gap: var(--gap-group);
 		padding-block: 0;
-		font-size: var(--font-size-0);
+		font-size: var(--text-small);
 	}
 
 	ul {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--size-1) var(--size-3);
+		gap: var(--gap-label) var(--gap-group);
 		margin: 0;
 		padding: 0;
 	}
@@ -108,8 +108,8 @@
 	.content {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-5);
-		padding-top: var(--size-5);
+		gap: var(--gap-block);
+		padding-top: var(--gap-block);
 	}
 
 	.content > :global(*) {
@@ -118,8 +118,8 @@
 
 	@media (width < 80rem) {
 		.content {
-			gap: var(--size-4);
-			padding-top: var(--size-4);
+			gap: var(--gap-block);
+			padding-top: var(--gap-block);
 		}
 	}
 </style>

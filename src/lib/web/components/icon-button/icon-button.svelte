@@ -20,7 +20,7 @@
 	button {
 		display: grid;
 		place-items: center;
-		padding: var(--size-1);
+		padding: var(--gap-label);
 		border-color: transparent;
 		background: none;
 	}

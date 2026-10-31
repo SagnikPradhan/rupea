@@ -18,7 +18,7 @@
 <style>
 	td {
 		color: var(--color-muted);
-		font-size: var(--font-size-0);
+		font-size: var(--text-small);
 		text-align: right;
 		white-space: nowrap;
 	}

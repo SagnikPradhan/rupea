@@ -15,19 +15,19 @@
 <style>
 	:global(.code) {
 		display: flex;
-		gap: var(--size-1);
+		gap: var(--gap-label);
 	}
 
 	:global(.code .cell) {
 		display: grid;
 		place-items: center;
-		width: var(--size-5);
-		height: var(--size-5);
+		width: var(--gap-block);
+		height: var(--gap-block);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius);
 		background-color: var(--color-surface);
 		font-family: var(--font-mono);
-		font-size: var(--font-size-2);
+		font-size: var(--text-heading);
 	}
 
 	:global(.code .cell[data-active]) {

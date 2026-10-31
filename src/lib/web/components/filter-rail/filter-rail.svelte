@@ -19,19 +19,19 @@
 	.rail {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-4);
+		gap: var(--gap-block);
 	}
 
 	aside {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-3);
+		gap: var(--gap-group);
 	}
 
 	.page {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-5);
+		gap: var(--gap-block);
 		min-width: 0;
 	}
 
@@ -44,13 +44,13 @@
 		.rail {
 			display: grid;
 			grid-template-columns: var(--sidebar) minmax(0, 1fr);
-			gap: var(--size-5);
-			margin-left: calc(-1 * (var(--sidebar) + var(--size-5)));
+			gap: var(--gap-block);
+			margin-left: calc(-1 * (var(--sidebar) + var(--gap-block)));
 		}
 
 		aside {
 			position: sticky;
-			top: var(--size-2);
+			top: var(--gap-related);
 			align-self: start;
 		}
 	}

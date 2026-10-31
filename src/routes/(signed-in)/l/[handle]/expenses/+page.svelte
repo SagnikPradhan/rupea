@@ -208,8 +208,8 @@
 	.summary {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-1);
-		margin-bottom: var(--size-2);
+		gap: var(--gap-label);
+		margin-bottom: var(--gap-related);
 	}
 
 	h2 {
@@ -219,13 +219,13 @@
 	p {
 		margin: 0;
 		color: var(--color-muted);
-		font-size: var(--font-size-0);
+		font-size: var(--text-small);
 	}
 
 	p.figure {
 		color: var(--color-ink);
 		font-family: var(--font-mono);
-		font-size: min(var(--font-size-display), 12vw);
+		font-size: min(var(--text-display), 12vw);
 		font-variant-numeric: tabular-nums;
 		line-height: 1.1;
 		overflow-wrap: anywhere;
@@ -237,12 +237,12 @@
 
 	th.nested,
 	th.nested ~ :global(td.amount) {
-		font-size: var(--font-size-1);
+		font-size: var(--text-data);
 	}
 
 	.name {
 		display: inline-block;
-		padding-left: calc(var(--depth) * var(--size-2));
+		padding-left: calc(var(--depth) * var(--gap-related));
 	}
 
 	.prefix,

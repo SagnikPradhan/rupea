@@ -129,7 +129,7 @@
 	figure {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-1);
+		gap: var(--gap-label);
 		margin: 0;
 	}
 
@@ -154,17 +154,17 @@
 		position: absolute;
 		z-index: 1;
 		display: flex;
-		gap: var(--size-1);
+		gap: var(--gap-label);
 		margin: 0;
-		padding: var(--size-0) var(--size-1);
+		padding: var(--gap-tight) var(--gap-label);
 		background: var(--color-surface);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius);
 		color: var(--color-ink);
-		font-size: var(--font-size-0);
+		font-size: var(--text-small);
 		white-space: nowrap;
 		pointer-events: none;
-		transform: translate(-50%, calc(-100% - var(--size-1)));
+		transform: translate(-50%, calc(-100% - var(--gap-label)));
 	}
 
 	data {

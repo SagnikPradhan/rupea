@@ -1,9 +1,9 @@
 import { nameOf } from './accounts';
 import { sumOf } from './numbers';
 
-/** The space between two boxes, and around the boxes inside a group, in CSS pixels: --size-2, so they line up with the group's name. */
+/** The space between two boxes, and around the boxes inside a group, in CSS pixels: --gap-related, so they line up with the group's name. */
 const GAP = 16;
-/** How tall a group's name is above the boxes inside it: a gap, a line of body text set solid, and a gap, --size-5. */
+/** How tall a group's name is above the boxes inside it: a gap, a line of body text set solid, and a gap, --gap-block. */
 const HEADER = 48;
 
 /** An account, or a holding of one, and what it is worth. */

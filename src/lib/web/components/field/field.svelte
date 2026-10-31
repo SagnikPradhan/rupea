@@ -24,13 +24,13 @@
 	label {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-1);
+		gap: var(--gap-label);
 		align-items: start;
 	}
 
 	p {
-		margin: var(--size-1) 0 0;
+		margin: var(--gap-label) 0 0;
 		color: var(--color-negative);
-		font-size: var(--font-size-0);
+		font-size: var(--text-small);
 	}
 </style>

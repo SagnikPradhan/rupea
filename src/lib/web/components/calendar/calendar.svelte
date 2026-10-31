@@ -93,7 +93,7 @@
 	figure {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-1);
+		gap: var(--gap-label);
 		margin: 0;
 	}
 
@@ -106,8 +106,8 @@
 		width: 100%;
 		table-layout: fixed;
 		border-collapse: separate;
-		border-spacing: var(--size-0);
-		font-size: var(--font-size-0);
+		border-spacing: var(--gap-tight);
+		font-size: var(--text-small);
 	}
 
 	th {
@@ -124,9 +124,9 @@
 	a {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-0);
-		padding: var(--size-0);
-		min-height: var(--size-5);
+		gap: var(--gap-tight);
+		padding: var(--gap-tight);
+		min-height: var(--gap-block);
 	}
 
 	data {

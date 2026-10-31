@@ -165,7 +165,7 @@ export const colorOf = (node: HTMLElement, token: string) => {
 
 const fontOf = async (node: HTMLElement) => {
 	const probe = node.appendChild(document.createElement('span'));
-	probe.style.font = 'var(--font-size-0) var(--font-mono)';
+	probe.style.font = 'var(--text-small) var(--font-mono)';
 	const style = getComputedStyle(probe);
 	const font = `${style.fontSize} ${style.fontFamily}`;
 	probe.remove();

@@ -2,9 +2,9 @@
 import Page from '../layouts/Page.astro';
 
 const logos = [
-	{ name: 'Lockup', file: 'lockup', height: 'var(--size-5)' },
-	{ name: 'Wordmark', file: 'wordmark', height: 'var(--size-4)' },
-	{ name: 'Mark', file: 'mark', height: 'var(--size-5)' },
+	{ name: 'Lockup', file: 'lockup', height: 'var(--gap-block)' },
+	{ name: 'Wordmark', file: 'wordmark', height: 'var(--text-statement)' },
+	{ name: 'Mark', file: 'mark', height: 'var(--gap-block)' },
 ];
 
 const colours = [
@@ -151,23 +151,23 @@ const images = [
 
 <style>
 	.brand-page {
-		padding-block: var(--size-5) var(--size-7);
+		padding-block: var(--gap-block) var(--width-control);
 	}
 
 	.lead {
 		color: var(--color-muted);
-		font-size: var(--font-size-2);
+		font-size: var(--text-heading);
 	}
 
 	h2 {
-		margin-top: var(--size-6);
+		margin-top: var(--gap-page);
 	}
 
 	.logos,
 	.images {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
-		gap: var(--size-4);
+		gap: var(--gap-group);
 	}
 
 	figure {
@@ -177,8 +177,8 @@ const images = [
 	figcaption {
 		display: flex;
 		justify-content: space-between;
-		gap: var(--size-2);
-		margin-top: var(--size-1);
+		gap: var(--gap-related);
+		margin-top: var(--gap-label);
 	}
 
 	figcaption span,
@@ -198,7 +198,7 @@ const images = [
 		display: grid;
 		background: var(--color-surface);
 		place-items: center;
-		min-height: var(--size-7);
+		min-height: var(--width-control);
 	}
 
 	.tile img {
@@ -225,7 +225,7 @@ const images = [
 	.faces {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-		gap: var(--size-4);
+		gap: var(--gap-group);
 	}
 
 	.faces p {
@@ -233,13 +233,13 @@ const images = [
 	}
 
 	.sample {
-		font-size: var(--font-size-display);
+		font-size: var(--text-display);
 		line-height: 1.2;
 		white-space: nowrap;
 	}
 
 	.icon {
-		width: var(--size-7);
+		width: var(--width-control);
 	}
 
 	/* On a phone the roles would squeeze the swatches into a column of words. */

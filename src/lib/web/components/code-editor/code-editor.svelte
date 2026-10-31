@@ -55,12 +55,12 @@
 		'&.cm-focused': { outline: 'none', borderTopColor: 'var(--color-accent)' },
 		'.cm-content': {
 			minHeight: '16rem',
-			padding: 'var(--size-1) 0',
+			padding: 'var(--gap-label) 0',
 			caretColor: 'var(--color-ink)',
 		},
 		'.cm-scroller': {
 			fontFamily: 'var(--font-mono)',
-			fontSize: 'var(--font-size-1)',
+			fontSize: 'var(--text-data)',
 			lineHeight: '1.5',
 		},
 		'.cm-gutters': {
@@ -68,7 +68,7 @@
 			backgroundColor: 'transparent',
 			color: 'var(--color-muted)',
 		},
-		'.cm-lineNumbers .cm-gutterElement': { paddingRight: 'var(--size-2)' },
+		'.cm-lineNumbers .cm-gutterElement': { paddingRight: 'var(--gap-related)' },
 		'.cm-linked': { backgroundColor: 'color-mix(in srgb, var(--color-accent) 15%, transparent)' },
 		'.cm-problem': {
 			backgroundColor: 'color-mix(in srgb, var(--color-negative) 10%, transparent)',
@@ -84,22 +84,22 @@
 			display: 'flex',
 			flexWrap: 'wrap',
 			alignItems: 'center',
-			gap: 'var(--size-1)',
-			padding: 'var(--size-1) var(--size-4) var(--size-1) 0',
+			gap: 'var(--gap-label)',
+			padding: 'var(--gap-label) var(--gap-block) var(--gap-label) 0',
 			fontFamily: 'var(--font-body)',
-			fontSize: 'var(--font-size-0)',
+			fontSize: 'var(--text-small)',
 		},
 		'.cm-panel.cm-search br': { flexBasis: '100%' },
 		'.cm-panel.cm-search input, .cm-panel.cm-search button, .cm-panel.cm-search label': {
 			margin: '0',
 		},
 		'.cm-panel.cm-search .cm-textfield, .cm-panel.cm-search .cm-button': {
-			padding: 'var(--size-0) var(--size-1)',
+			padding: 'var(--gap-tight) var(--gap-label)',
 			border: '1px solid var(--color-muted)',
 			borderRadius: 'var(--radius)',
 			backgroundColor: 'var(--color-surface)',
 			backgroundImage: 'none',
-			fontSize: 'var(--font-size-0)',
+			fontSize: 'var(--text-small)',
 		},
 		'.cm-panel.cm-search .cm-textfield:focus-visible': {
 			outline: 'none',
@@ -108,15 +108,15 @@
 		'.cm-panel.cm-search label': {
 			display: 'flex',
 			alignItems: 'center',
-			gap: 'var(--size-0)',
-			fontSize: 'var(--font-size-0)',
+			gap: 'var(--gap-tight)',
+			fontSize: 'var(--text-small)',
 		},
 		'.cm-panel.cm-search [name=close]': {
-			top: 'var(--size-1)',
+			top: 'var(--gap-label)',
 			right: '0',
-			padding: '0 var(--size-1)',
+			padding: '0 var(--gap-label)',
 			border: 'none',
-			fontSize: 'var(--font-size-2)',
+			fontSize: 'var(--text-heading)',
 			lineHeight: '1',
 		},
 	});

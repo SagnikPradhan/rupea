@@ -147,13 +147,13 @@ fields:
 	.setup {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-2);
+		gap: var(--gap-related);
 	}
 
 	.toolbar {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--size-1) var(--size-2);
+		gap: var(--gap-label) var(--gap-related);
 		align-items: end;
 	}
 
@@ -165,7 +165,7 @@ fields:
 	.choices {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--size-1) var(--size-3);
+		gap: var(--gap-label) var(--gap-group);
 		align-items: baseline;
 	}
 
@@ -187,12 +187,12 @@ fields:
 	.choice[aria-current] {
 		color: var(--color-accent);
 		text-decoration: underline 2px;
-		text-underline-offset: var(--size-0);
+		text-underline-offset: var(--gap-tight);
 	}
 
 	textarea {
 		width: 100%;
-		padding: var(--size-1) 0;
+		padding: var(--gap-label) 0;
 		border: none;
 		border-top: 1px solid var(--color-ink);
 		background: none;
@@ -218,12 +218,12 @@ fields:
 	.sheet table {
 		border-collapse: collapse;
 		font-family: var(--font-mono);
-		font-size: var(--font-size-0);
+		font-size: var(--text-small);
 	}
 
 	.sheet th,
 	.sheet td {
-		padding: var(--size-0) var(--size-1);
+		padding: var(--gap-tight) var(--gap-label);
 		border: 1px solid var(--color-border);
 		text-align: left;
 		vertical-align: top;

@@ -32,12 +32,12 @@
 	table {
 		width: 100%;
 		border-collapse: collapse;
-		font-size: var(--font-size-1);
+		font-size: var(--text-data);
 		line-height: 1.3;
 	}
 
 	table :global(:is(th, td)) {
-		padding: 0 0 0 var(--size-3);
+		padding: 0 0 0 var(--gap-group);
 		vertical-align: baseline;
 	}
 
@@ -46,18 +46,18 @@
 	}
 
 	thead th {
-		padding-bottom: var(--size-2);
+		padding-bottom: var(--gap-related);
 	}
 
 	table :global(th[scope='row']) {
 		color: var(--color-ink);
-		font-size: var(--font-size-2);
+		font-size: var(--text-heading);
 		font-weight: 500;
 		text-align: left;
 	}
 
 	table :global(th[scope='row'] ~ .amount) {
-		font-size: var(--font-size-2);
+		font-size: var(--text-heading);
 	}
 
 	table :global(:is(.date, .amount)) {
@@ -83,15 +83,15 @@
 	}
 
 	table :global(tbody tr:first-child > *) {
-		padding-top: var(--size-2);
+		padding-top: var(--gap-related);
 	}
 
 	table :global(tbody tr:last-child > *) {
-		padding-bottom: var(--size-2);
+		padding-bottom: var(--gap-related);
 	}
 
 	table :global(tr.child > *) {
-		padding-top: var(--size-0);
+		padding-top: var(--gap-tight);
 	}
 
 	table :global(tbody.spacer tr > *) {
@@ -104,7 +104,7 @@
 
 	@media (width < 40rem) {
 		table :global(:is(th, td)) {
-			padding-left: var(--size-2);
+			padding-left: var(--gap-related);
 		}
 
 		table :global(.optional) {

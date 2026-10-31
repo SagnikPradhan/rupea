@@ -80,7 +80,7 @@
 	figure {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-2);
+		gap: var(--gap-related);
 		margin: 0;
 	}
 
@@ -98,21 +98,22 @@
 		position: absolute;
 		box-sizing: border-box;
 		overflow: hidden;
-		padding: var(--size-2);
+		padding: var(--gap-related);
 		background: var(--color-layer);
 		border-radius: var(--radius);
 		color: var(--color-ink);
-		font-size: var(--font-size-1);
+		font-size: var(--text-data);
 	}
 
 	.box.hovered {
+		/* stylelint-disable-next-line declaration-property-value-disallowed-list -- a flat gradient paints a second layer of the see-through colour */
 		background-image: linear-gradient(var(--color-layer), var(--color-layer));
 	}
 
 	.box data {
 		display: block;
-		margin-top: var(--size-0);
-		font-size: var(--font-size-0);
+		margin-top: var(--gap-tight);
+		font-size: var(--text-small);
 	}
 
 	.name {
@@ -127,17 +128,17 @@
 		position: absolute;
 		z-index: 1;
 		display: flex;
-		gap: var(--size-1);
+		gap: var(--gap-label);
 		margin: 0;
-		padding: var(--size-0) var(--size-1);
+		padding: var(--gap-tight) var(--gap-label);
 		background: var(--color-surface);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius);
 		color: var(--color-ink);
-		font-size: var(--font-size-0);
+		font-size: var(--text-small);
 		white-space: nowrap;
 		pointer-events: none;
-		transform: translate(-50%, calc(-100% - var(--size-1)));
+		transform: translate(-50%, calc(-100% - var(--gap-label)));
 	}
 
 	.tip span {

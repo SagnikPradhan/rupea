@@ -184,26 +184,26 @@
 	}
 
 	tr.group:not(:first-child) > :global(*) {
-		padding-top: var(--size-1);
+		padding-top: var(--gap-label);
 	}
 
 	tr.group > th.nested,
 	tr.group > th ~ :global(td.amount) {
-		font-size: var(--font-size-1);
+		font-size: var(--text-data);
 	}
 
 	tr.leaf > :global(*) {
-		padding-top: var(--size-0);
+		padding-top: var(--gap-tight);
 	}
 
 	.name {
 		display: inline-block;
-		padding-left: calc(var(--depth) * var(--size-2));
+		padding-left: calc(var(--depth) * var(--gap-related));
 	}
 
 	tr.leaf .name,
 	th.nested .name {
-		font-size: var(--font-size-2);
+		font-size: var(--text-heading);
 	}
 
 	.prefix {

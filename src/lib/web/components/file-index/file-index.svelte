@@ -171,13 +171,13 @@
 	section {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-2);
+		gap: var(--gap-related);
 	}
 
 	.toolbar {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--size-1);
+		gap: var(--gap-label);
 		align-items: center;
 	}
 
@@ -188,7 +188,7 @@
 	label,
 	.entry {
 		display: flex;
-		gap: var(--size-1);
+		gap: var(--gap-label);
 		align-items: center;
 	}
 
@@ -208,12 +208,12 @@
 	}
 
 	.entry {
-		margin-left: calc(var(--size-3) * var(--depth));
+		margin-left: calc(var(--gap-group) * var(--depth));
 	}
 
 	.folder {
 		display: flex;
-		gap: var(--size-0);
+		gap: var(--gap-tight);
 		align-items: center;
 		padding: 0;
 		border: none;

@@ -80,7 +80,7 @@
 	section {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-2);
+		gap: var(--gap-related);
 	}
 
 	.empty {
@@ -105,7 +105,7 @@
 
 	.confirm {
 		display: flex;
-		gap: var(--size-1);
+		gap: var(--gap-label);
 		justify-content: end;
 	}
 </style>

@@ -38,7 +38,7 @@
 
 <style>
 	ul {
-		padding-left: var(--size-2);
+		padding-left: var(--gap-related);
 		border-left: 2px solid var(--color-negative);
 	}
 
@@ -55,9 +55,9 @@
 	}
 
 	a {
-		margin-left: var(--size-1);
+		margin-left: var(--gap-label);
 		color: inherit;
 		font-family: var(--font-mono);
-		font-size: var(--font-size-0);
+		font-size: var(--text-small);
 	}
 </style>

@@ -27,7 +27,7 @@
 <style>
 	nav {
 		display: flex;
-		gap: var(--size-2);
+		gap: var(--gap-related);
 	}
 
 	a:hover {

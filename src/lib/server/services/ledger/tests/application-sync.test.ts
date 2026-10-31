@@ -1039,7 +1039,17 @@ describe('lots', () => {
 			const other = Promise.withResolvers<void>();
 			await put(storage, ledger, 'a.rupea', bought);
 
-			const holding = Sync.exclusively(ledger.id, () => ResultAsync.fromSafePromise(other.promise));
+			const holding = Sync.reindex({
+				ledgerId: ledger.id,
+				steps: [
+					() =>
+						ResultAsync.fromSafePromise(other.promise).map(() => ({
+							failed: [],
+							commodities: [],
+							spans: [],
+						})),
+				],
+			});
 			const syncing = issues(ledger);
 			const first = await Promise.race([
 				syncing.then(() => 'sync'),
@@ -1056,12 +1066,16 @@ describe('lots', () => {
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			const listed = Promise.withResolvers<void>();
-			const writing = Sync.exclusively(ledger.id, () =>
-				ResultAsync.fromSafePromise(listed.promise)
-					.andThen(() => put(storage, ledger, 'a.rupea', groceries))
-					.andThen(() => readText(stored(storage, ledger), 'a.rupea'))
-					.andThen((f) => Sync.indexFile({ ledgerId: ledger.id, file: f })),
-			);
+			const writing = Sync.reindex({
+				ledgerId: ledger.id,
+				steps: [
+					() =>
+						ResultAsync.fromSafePromise(listed.promise)
+							.andThen(() => put(storage, ledger, 'a.rupea', groceries))
+							.andThen(() => readText(stored(storage, ledger), 'a.rupea'))
+							.andThen((f) => Sync.indexFile({ ledgerId: ledger.id, file: f })),
+				],
+			});
 			await new Promise((r) => setTimeout(r, 50));
 
 			const syncing = issues(ledger);

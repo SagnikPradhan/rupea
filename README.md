@@ -90,7 +90,7 @@ pnpm lint
 
 `pnpm replay <folder>` predicts each statement in a ledger folder from the ones before it, and reports how many lines it got right; `--cold` predicts with no history, as for a new user. Run it before and after a change to prediction.
 
-Domain terms are in [GLOSSARY.md](GLOSSARY.md), decisions in [docs/adr](docs/adr), how work runs outside a request in [docs/architecture.md](docs/architecture.md), plans in [ROADMAP.md](ROADMAP.md).
+Domain terms are in [GLOSSARY.md](GLOSSARY.md), decisions in [docs/adr](docs/adr), how the code fits together in [docs/architecture.md](docs/architecture.md), plans in [ROADMAP.md](ROADMAP.md).
 
 ## License
 

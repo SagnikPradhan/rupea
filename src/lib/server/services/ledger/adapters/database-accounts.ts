@@ -4,11 +4,11 @@ import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { sql, type SqlBool } from 'kysely';
 import type { AccountNode } from '../domain/tree';
 
-/** Deletes the accounts no posting names any longer, neither them nor one under them. Only one of these left without postings can have left any, as one that has them keeps those above it. */
-export const deleteUnusedAccounts = (ledgerId: string, accounts: string[]): ResultAsync<void> =>
+/** Whether any of these accounts has no postings left. */
+export const anyEmptied = (accounts: string[]): ResultAsync<boolean> =>
 	withContext('db')((db) =>
-		attempt(async () => {
-			const emptied = await db
+		attempt(() =>
+			db
 				.selectFrom('accounts as a')
 				.select('a.id')
 				.where((e) => anyOf(e.ref('a.id'), accounts, 'uuid'))
@@ -16,9 +16,14 @@ export const deleteUnusedAccounts = (ledgerId: string, accounts: string[]): Resu
 					e.not(e.exists(e.selectFrom('postings as o').whereRef('o.accountId', '=', 'a.id'))),
 				)
 				.limit(1)
-				.executeTakeFirst();
-			if (!emptied) return;
+				.executeTakeFirst(),
+		).map((a) => a !== undefined),
+	);
 
+/** Deletes the accounts no posting names any longer, neither them nor one under them. */
+export const deleteUnusedAccounts = (ledgerId: string): ResultAsync<void> =>
+	withContext('db')((db) =>
+		attempt(async () => {
 			await db
 				.deleteFrom('accounts as a')
 				.where('a.ledgerId', '=', ledgerId)

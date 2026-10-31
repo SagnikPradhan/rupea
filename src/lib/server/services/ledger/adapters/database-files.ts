@@ -82,13 +82,13 @@ type IndexFileOptions = {
 	failed: RupeaError[];
 };
 
-export type Position = { accountId: string; commodity: string };
+export type HoldingKey = { accountId: string; commodity: string };
 
 /** What changing a file touched: the commodities whose lots it held before or holds now, the days its transactions span, what they post to, and whether any names a group. */
 export type Touched = {
 	commodities: string[];
 	spans: Span[];
-	positions: Position[];
+	holdings: HoldingKey[];
 	grouped: boolean;
 };
 
@@ -103,34 +103,25 @@ export const indexFile = (
 	return atomically(() =>
 		withContext('db')((tx) =>
 			attempt(async () => {
-				const readBy = await indexerOf(tx, ledgerId, key);
+				const indexerVersion = await indexerVersionOf(tx, ledgerId, key);
+				const sameIndexer = indexerVersion === INDEXER;
 				const fileId = await saveVersion(tx, { ledgerId, key, version });
 				const old = await oldTransactions(tx, fileId);
-				const rows = rowsOf({ ledgerId, fileId, file, matchOf: matchesFrom(old) });
-				const kept = new Set(rows.transactions.map((t) => t.id));
-				const unmatched = old.map((o) => o.id).filter((id) => !kept.has(id));
+				const rows = rowsOf({ ledgerId, fileId, file, failed, matchOf: matchesFrom(old) });
+				const unmatched = unmatchedIn(old, rows.transactions);
+
 				const postings = await withAccounts(tx, ledgerId, rows.postings);
 				const prices = await withSymbols(tx, { feed: Feed.Ledger, ledgerId }, rows.prices);
 				const links = await withFeedSymbols(tx, rows.links);
-				const problems = failed.map((e) => ({
-					ledgerId,
-					fileId,
-					kind: ProblemKind.Parse,
-					error: e,
-				}));
 
 				const changes = changesFrom({
 					old,
-					heldBefore: readBy === INDEXER ? await heldIn(tx, fileId) : () => '',
+					fingerprintBefore: sameIndexer ? await fingerprintsIn(tx, fileId) : () => '',
 					transactions: rows.transactions,
 					postings,
 					metadata: rows.metadata,
 				});
-				const priceChanges = priceChangesFrom(
-					await oldPrices(tx, fileId),
-					prices,
-					readBy === INDEXER,
-				);
+				const priceChanges = priceChangesFrom(await oldPrices(tx, fileId), prices, sameIndexer);
 				const before = await touchedBy(tx, [...changes.moved, ...changes.stale, ...unmatched]);
 
 				await tx.deleteFrom('metadata').where('fileId', '=', fileId).execute();
@@ -148,15 +139,10 @@ export const indexFile = (
 				await insertAll(tx, 'prices', priceChanges.added);
 				await insertAll(tx, 'symbolLinks', links);
 				await insertAll(tx, 'metadata', changes.metadata);
-				await insertAll(tx, 'problems', problems);
+				await insertAll(tx, 'problems', rows.problems);
 
 				const after = await touchedBy(tx, [...changes.moved, ...changes.stale, ...changes.added]);
-				return {
-					commodities: [...before.commodities, ...after.commodities],
-					spans: [...before.spans, ...after.spans],
-					positions: [...before.positions, ...after.positions],
-					grouped: before.grouped || after.grouped,
-				};
+				return touchedByEither(before, after);
 			}),
 		),
 	);
@@ -172,7 +158,7 @@ export const unindexFile = (ledgerId: string, key: string): ResultAsync<Touched>
 					.where('ledgerFiles.ledgerId', '=', ledgerId)
 					.where('ledgerFiles.key', '=', key)
 					.executeTakeFirst();
-				if (!file) return { commodities: [], spans: [], positions: [], grouped: false };
+				if (!file) return { commodities: [], spans: [], holdings: [], grouped: false };
 
 				const held = await oldTransactions(tx, file.id);
 				const touched = await touchedBy(
@@ -201,7 +187,7 @@ export const renameIndexedFile = (
 				.returning('id')
 				.executeTakeFirst()
 				.then((f) => (f ? lotCommoditiesOf(db, f.id) : []))
-				.then((c) => ({ commodities: c, spans: [], positions: [], grouped: false })),
+				.then((c) => ({ commodities: c, spans: [], holdings: [], grouped: false })),
 		),
 	);
 
@@ -221,7 +207,7 @@ const untypedAccount = (file: RupeaLedgerFile): RupeaError | null =>
 		.at(0) ?? null;
 
 /** A file an older indexer read has all its rows written again, as that is what a new indexer is for. */
-const indexerOf = (db: Database, ledgerId: string, key: string) =>
+const indexerVersionOf = (db: Database, ledgerId: string, key: string) =>
 	db
 		.selectFrom('ledgerFiles')
 		.select('indexer')
@@ -259,6 +245,19 @@ const oldTransactions = (db: Database, fileId: string): Promise<OldTransaction[]
 		.orderBy('line')
 		.execute();
 
+const unmatchedIn = (old: OldTransaction[], rows: { id: string }[]) => {
+	const matched = new Set(rows.map((t) => t.id));
+
+	return old.map((o) => o.id).filter((id) => !matched.has(id));
+};
+
+const touchedByEither = (before: Touched, after: Touched): Touched => ({
+	commodities: [...before.commodities, ...after.commodities],
+	spans: [...before.spans, ...after.spans],
+	holdings: [...before.holdings, ...after.holdings],
+	grouped: before.grouped || after.grouped,
+});
+
 /** Hands out old transactions by date, time and description, in file order, so an edit or a line added above keeps them. */
 const matchesFrom = (old: OldTransaction[]) => {
 	const free = Object.groupBy(old, (o) => `${o.date} ${o.time} ${o.description}`);
@@ -291,8 +290,8 @@ type MetadataHeld = {
 	value: string;
 };
 
-/** What a transaction holds beyond its own row, as text to compare: its postings and all their metadata. */
-const heldFrom = (postings: PostingHeld[], metadata: MetadataHeld[]) => {
+/** Each transaction's fingerprint: what it holds beyond its own row, its postings and all their metadata, as text to compare. */
+const fingerprintsOf = (postings: PostingHeld[], metadata: MetadataHeld[]) => {
 	const entries = (rows: MetadataHeld[] = []) => rows.map((m) => [m.position, m.key, m.value]);
 	const byTransaction = Object.groupBy(postings, (p) => p.transactionId);
 	const onTransaction = Object.groupBy(metadata, (m) => m.transactionId ?? '');
@@ -322,7 +321,7 @@ const heldFrom = (postings: PostingHeld[], metadata: MetadataHeld[]) => {
 		);
 };
 
-const heldIn = async (db: Database, fileId: string) => {
+const fingerprintsIn = async (db: Database, fileId: string) => {
 	const owners = db.selectFrom('transactions').select('id').where('fileId', '=', fileId);
 	const owned = db.selectFrom('postings').select('id').where('transactionId', 'in', owners);
 
@@ -360,7 +359,7 @@ const heldIn = async (db: Database, fileId: string) => {
 		.orderBy('position')
 		.execute();
 
-	return heldFrom(postings, [...onTransactions, ...onPostings]);
+	return fingerprintsOf(postings, [...onTransactions, ...onPostings]);
 };
 
 type PriceHeld = {
@@ -398,7 +397,7 @@ const priceChangesFrom = <P extends PriceHeld>(
 
 type ChangesOptions<P, M> = {
 	old: OldTransaction[];
-	heldBefore: (id: string) => string;
+	fingerprintBefore: (id: string) => string;
 	transactions: TransactionRow[];
 	postings: P[];
 	metadata: M[];
@@ -407,17 +406,17 @@ type ChangesOptions<P, M> = {
 /** Of a file's rows, only those to write: a transaction's own when new or on another line, and what it holds when that differs. Moved are those whose order changed, which lots and assertions depend on. */
 const changesFrom = <P extends PostingHeld, M extends MetadataHeld>({
 	old,
-	heldBefore,
+	fingerprintBefore,
 	transactions,
 	postings,
 	metadata,
 }: ChangesOptions<P, M>) => {
-	const heldNow = heldFrom(postings, metadata);
+	const fingerprintNow = fingerprintsOf(postings, metadata);
 	const before = Object.fromEntries(old.map((o) => [o.id, o]));
 
 	const added = transactions.filter((t) => !before[t.id]).map((t) => t.id);
 	const stale = transactions
-		.filter((t) => before[t.id] && heldBefore(t.id) !== heldNow(t.id))
+		.filter((t) => before[t.id] && fingerprintBefore(t.id) !== fingerprintNow(t.id))
 		.map((t) => t.id);
 	const rewritten = new Set([...added, ...stale]);
 	const written = postings.filter((p) => rewritten.has(p.transactionId));
@@ -486,11 +485,12 @@ type RowsOptions = {
 	ledgerId: string;
 	fileId: string;
 	file: RupeaLedgerFile;
+	failed: RupeaError[];
 	matchOf: (t: RupeaTransaction) => OldTransaction | undefined;
 };
 
 /** Each table's rows for a parsed file, its prices and links still to be put on their symbols. */
-const rowsOf = ({ ledgerId, fileId, file, matchOf }: RowsOptions) => {
+const rowsOf = ({ ledgerId, fileId, file, failed, matchOf }: RowsOptions) => {
 	const indexed = file.transactions.map((t) => {
 		const match = matchOf(t);
 
@@ -576,7 +576,9 @@ const rowsOf = ({ ledgerId, fileId, file, matchOf }: RowsOptions) => {
 		),
 	];
 
-	return { transactions, postings, prices, links, metadata };
+	const problems = failed.map((e) => ({ ledgerId, fileId, kind: ProblemKind.Parse, error: e }));
+
+	return { transactions, postings, prices, links, metadata, problems };
 };
 
 /**
@@ -723,7 +725,7 @@ const withFeedSymbols = async <R>(db: Database, rows: { feed: Feed; symbol: stri
 
 /** What these transactions touch: the commodities whose lots they hold, the days they span, what they post to, and whether any names a group. */
 export const touchedBy = async (db: Database, ids: string[]): Promise<Touched> => {
-	const positions = await db
+	const holdings = await db
 		.selectFrom('postings')
 		.select(['accountId', 'commodity', 'accountType'])
 		.distinct()
@@ -746,11 +748,11 @@ export const touchedBy = async (db: Database, ids: string[]): Promise<Touched> =
 		.executeTakeFirstOrThrow();
 
 	return {
-		commodities: positions
+		commodities: holdings
 			.filter((p) => BALANCE_TYPES.includes(p.accountType) && !CURRENCIES.includes(p.commodity))
 			.map((p) => p.commodity),
 		spans: toSpans(days),
-		positions: positions.map((p) => ({ accountId: p.accountId, commodity: p.commodity })),
+		holdings: holdings.map((p) => ({ accountId: p.accountId, commodity: p.commodity })),
 		grouped: group !== undefined,
 	};
 };

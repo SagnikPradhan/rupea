@@ -917,7 +917,7 @@ describe('counting after an edit', () => {
 		}));
 });
 
-describe('positions an edit touches', () => {
+describe('holdings an edit touches', () => {
 	const paid = (account: string) => `2026-07-01 Paid\n\t${account} -100\n\tExpenses:Food\n`;
 	const asserted = '2026-08-01 Salary\n\tAssets:Bank 1000 = 900\n\tIncome:Salary\n';
 	const failed = async (ledger: Ledger) =>
@@ -1002,7 +1002,7 @@ describe('positions an edit touches', () => {
 			expect(await drift(db, ledger.id)).toEqual([]);
 		}));
 
-	it('leaves other positions as they were', ({ context, db }) =>
+	it('leaves other holdings as they were', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({ ledger, key: 'a.rupea', content: paid('Assets:Bank') });

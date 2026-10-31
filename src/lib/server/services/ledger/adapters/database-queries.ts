@@ -3,7 +3,7 @@ import { literalLike } from '#lib/server/db/index.ts';
 import type { Span } from '#lib/shared/dates.ts';
 import { AMOUNT_UNIT, type Amount, type Quantity } from '../domain/amounts';
 import type { LotCost, Price, PriceKind } from '../domain/types';
-import type { Position } from './database-files';
+import type { HoldingKey } from './database-files';
 
 const LISTED = ['date', 'sortTime', 'id'];
 
@@ -33,11 +33,11 @@ export const underAccount = (c: Expression<string>, a: string | null) =>
 		? sql<SqlBool>`(lower(${c}) = lower(${a}) or lower(${c}) like lower(${literalLike(a)}) || ':%')`
 		: sql<SqlBool>`true`;
 
-/** One of these accounts holding its commodity; every position when there are none to name. */
-export const amongPositions = (
+/** One of these accounts holding its commodity; every holding when there are none to name. */
+export const amongHoldings = (
 	a: Expression<string>,
 	c: Expression<string>,
-	ps: Position[] | null,
+	ps: HoldingKey[] | null,
 ) =>
 	ps
 		? sql<SqlBool>`(${a}, ${c}) in (select * from unnest(${ps.map((p) => p.accountId)}::uuid[], ${ps.map((p) => p.commodity)}::text[]))`

@@ -12,7 +12,7 @@ import * as Jobs from '../adapters/jobs';
 import { embedTexts, MODEL } from '../adapters/prediction-model2vec';
 import { formatQuantity, type Amount } from '../domain/amounts';
 import { checkGroups } from '../domain/groups';
-import { displayLocation, parse } from '../domain/parser';
+import { displayLocation, parseChanged } from '../domain/parser';
 import { plan } from '../domain/sync';
 import { filled, wordsOf, type Unembedded } from '../domain/text';
 import { DisposalKind, type Ledger, type RupeaFile } from '../domain/types';
@@ -22,7 +22,15 @@ import { openFolder } from './ledger';
 // queues the next, so a large ledger catches up without stalling one.
 const EMBEDDED = 500;
 
-type Indexed = { failed: RupeaError[]; commodities: string[]; spans: Span[] };
+const UNTOUCHED: DB.Touched = { commodities: [], spans: [], holdings: [], grouped: false };
+
+type Indexed = {
+	failed: RupeaError[];
+	commodities: string[];
+	spans: Span[];
+	holdings: DB.HoldingKey[];
+	grouped: boolean;
+};
 
 /** What is wrong with the ledger: the problems sync kept, and what checking the ledger finds. */
 export const listProblems = (l: Ledger): ResultAsync<Batch<never>> =>
@@ -76,25 +84,30 @@ type IndexFileOptions = { ledgerId: string; file: RupeaFile };
 
 /** A file waiting for review keeps only its metadata, so where it came from is known, but nothing in it counts or fails. */
 const indexFile = ({ ledgerId, file }: IndexFileOptions): ResultAsync<Indexed> =>
-	withContext('config')((config) => {
-		const parsed = parse(config.ledger, file);
-		const kept = isCounted(file.key)
-			? parsed
-			: { ...parsed, succeeded: [], prices: [], links: [], failed: [] };
+	withContext('config')((config) =>
+		DB.findHeld(ledgerId, file.key).andThen((held) => {
+			const inLedger = isCounted(file.key);
+			const parsed = parseChanged(config.ledger, file, inLedger ? held.hashCounts : {});
+			const found = inLedger
+				? parsed
+				: { ...parsed, succeeded: [], prices: [], links: [], failed: [] };
 
-		const indexed = {
-			metadata: kept.metadata,
-			transactions: kept.succeeded,
-			prices: kept.prices,
-			links: kept.links,
-		};
-		return DB.indexFile(ledgerId, {
-			key: file.key,
-			version: file.version,
-			file: indexed,
-			failed: kept.failed,
-		}).map((t) => ({ failed: [], ...t }));
-	});
+			return DB.indexFile(ledgerId, {
+				key: file.key,
+				version: file.version,
+				file: {
+					metadata: found.metadata,
+					transactions: found.succeeded,
+					prices: found.prices,
+					links: found.links,
+				},
+				failed: found.failed,
+				held,
+				unchanged: found.unchanged,
+				lineHashes: found.lineHashes,
+			}).map((t) => ({ failed: [], ...t }));
+		}),
+	);
 
 type UnindexOptions = { ledgerId: string; key: string };
 
@@ -122,17 +135,17 @@ type SettleOptions = { ledgerId: string; indexed: Indexed };
 
 /** Settles what spans files once indexed: which transactions count, then the lots, months and assertions they and the recount touched, and the accounts left unused. */
 const settle = ({ ledgerId, indexed }: SettleOptions): ResultAsync<RupeaError[]> =>
-	uncountedIn(ledgerId)
-		.andThen((u) => DB.recount(ledgerId, u))
+	recount(ledgerId, indexed.grouped)
 		.andThen((r) => {
 			const commodities = [...indexed.commodities, ...r.commodities];
 			const span = coverOf([...indexed.spans, ...r.spans]);
+			const holdings = [...indexed.holdings, ...r.holdings];
 
 			return rebook(ledgerId, commodities)
-				.andThen(() => saveMonths(ledgerId, span))
+				.andThen(() => saveMonths(ledgerId, span, holdings))
 				.andThen(() => DB.saveCheckedMonths(ledgerId))
-				.andThen(() => saveChecks(ledgerId, span))
-				.andThen(() => DB.deleteUnusedAccounts(ledgerId));
+				.andThen(() => saveChecks(ledgerId, span, holdings))
+				.andThen(() => deleteUnused(ledgerId, holdings));
 		})
 		.map(() => indexed.failed);
 
@@ -163,6 +176,8 @@ const indexEach = ({
 		failed: done.flatMap((d) => d.failed),
 		commodities: done.flatMap((d) => d.commodities),
 		spans: done.flatMap((d) => d.spans),
+		holdings: done.flatMap((d) => d.holdings),
+		grouped: done.some((d) => d.grouped),
 	}));
 };
 
@@ -182,7 +197,7 @@ const update = (s: Storage, id: string, stored: Entry[]): ResultAsync<RupeaError
 	});
 
 const reported = (i: ResultAsync<Indexed>): ResultAsync<Indexed> =>
-	i.orElse((e) => ok({ failed: [e], commodities: [], spans: [] }));
+	i.orElse((e) => ok({ failed: [e], ...UNTOUCHED }));
 
 /** What failed to parse is kept as a problem, so it is reported on every sync without parsing again. */
 const addProblems = (id: string, f: RupeaError[]): ResultAsync<RupeaError[]> =>
@@ -242,14 +257,23 @@ const rebook = (id: string, commodities: string[]): ResultAsync<void> => {
 	return lots.length === 0 ? okAsync() : DB.rebook(id, lots);
 };
 
-const saveMonths = (id: string, s: Span | null): ResultAsync<void> =>
-	s ? DB.saveMonthlyDeltas(id, s) : okAsync();
+const saveMonths = (id: string, s: Span | null, p: DB.HoldingKey[]): ResultAsync<void> =>
+	s ? DB.saveMonthlyDeltas(id, { span: s, holdings: p }) : okAsync();
 
-const saveChecks = (id: string, s: Span | null): ResultAsync<void> =>
-	s ? DB.saveBalanceChecks(id, s.from) : okAsync();
+const saveChecks = (id: string, s: Span | null, p: DB.HoldingKey[]): ResultAsync<void> =>
+	s ? DB.saveBalanceChecks(id, { from: s.from, holdings: p }) : okAsync();
 
-const uncountedIn = (id: string): ResultAsync<string[]> =>
-	DB.listGroupTransactions(id).map((m) => checkGroups(m).uncounted);
+/** An account with postings keeps those above it, so only one left without any can leave accounts unused, and most edits skip the scan of every account. */
+const deleteUnused = (id: string, h: DB.HoldingKey[]): ResultAsync<void> =>
+	DB.anyEmptied(h.map((k) => k.accountId)).andThen((e) =>
+		e ? DB.deleteUnusedAccounts(id) : okAsync(),
+	);
+
+/** Whether a transaction counts depends only on its group's links, so what no changed transaction links leaves all as they were. */
+const recount = (id: string, g: boolean): ResultAsync<DB.Touched> =>
+	g
+		? DB.listGroupTransactions(id).andThen((m) => DB.recount(id, checkGroups(m).uncounted))
+		: okAsync(UNTOUCHED);
 
 // An assertion that could go either way is not checked; a time on either side settles it.
 const toBalanceError = (c: DB.BalanceCheck): RupeaError =>

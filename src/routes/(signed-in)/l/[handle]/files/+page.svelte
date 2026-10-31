@@ -28,6 +28,7 @@
 
 	// How many possible matches refinement found after the last save, and for which file.
 	const matches = $state({ key: '', count: 0 });
+	const saves = { count: 0 };
 
 	// The editor changes one file at a time; it failed when that one is not among those done.
 	const only = <T,>(r: Reply<T[]>): Reply<T> => ({ ...r, data: r.data?.[0] ?? null });
@@ -39,8 +40,7 @@
 			format: (content) => formatFile({ content }),
 			save: async (input) => {
 				const saved = await editFile({ handle, ...input });
-				if (saved.ok)
-					await Promise.all([refine(input.key), listGroups({ handle, file: input.key }).refresh()]);
+				if (saved.ok) void refreshAfterSave(input.key);
 				return saved;
 			},
 			create: (input) => createFile({ handle, ...input }),
@@ -70,9 +70,18 @@
 		if (navigation.willUnload || !confirm('Discard your unsaved changes?')) navigation.cancel();
 	});
 
-	async function refine(key: string) {
-		const found = await listSuggestions({ handle, file: key });
-		Object.assign(matches, { key, count: found.data?.length ?? 0 });
+	// The save is done whatever these answer, so one that fails leaves what is shown.
+	// A slow answer to an older save must not replace the count of a newer one.
+	async function refreshAfterSave(key: string) {
+		saves.count += 1;
+		const save = saves.count;
+		const [found] = await Promise.allSettled([
+			listSuggestions({ handle, file: key }),
+			listGroups({ handle, file: key }).refresh(),
+		]);
+
+		if (save === saves.count && found.status === 'fulfilled')
+			Object.assign(matches, { key, count: found.value.data?.length ?? 0 });
 	}
 
 	const open = (key: string | null) =>

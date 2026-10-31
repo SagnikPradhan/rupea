@@ -342,6 +342,119 @@ describe('syncing the ledger', () => {
 			expect(await count(db.selectFrom('postings').where('ledgerId', '=', ledger.id))).toBe(8);
 		}));
 
+	it('rewrites only the postings of a transaction that changed', ({ context, db, storage }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const rent = '2026-01-01 Rent\n\tExpenses:Home 10\n\tAssets:Bank\n';
+			const food = (n: number) => `2026-01-02 Food\n\tExpenses:Food ${n}\n\tAssets:Bank\n`;
+			const posted = () =>
+				db
+					.selectFrom('postings as p')
+					.innerJoin('transactions as t', 't.id', 'p.transactionId')
+					.select(['p.id', 'p.amount', 't.line'])
+					.where('t.ledgerId', '=', ledger.id)
+					.orderBy('t.date')
+					.orderBy('p.position')
+					.execute();
+
+			await put(storage, ledger, 'a.rupea', `${rent}\n${food(5)}`);
+			await Sync.syncIndex(ledger);
+			const before = await posted();
+
+			await put(storage, ledger, 'a.rupea', `\n\n${rent}\n${food(7)}`);
+			await Sync.syncIndex(ledger);
+			const after = await posted();
+
+			expect(after.slice(0, 2).map((p) => p.id)).toEqual(before.slice(0, 2).map((p) => p.id));
+			expect(after[0]?.line).toBe((before[0]?.line ?? 0) + 2);
+			expect(after[2]?.id).not.toBe(before[2]?.id);
+			expect(after[2]?.amount).toBe(70_000_000_000n);
+		}));
+
+	it('writes metadata again when only metadata changed', ({ context, db, storage }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const rent = (ref: string) =>
+				`2026-01-01 Rent\n\t- ref: ${ref}\n\tExpenses:Home 10\n\t\t- ref: ${ref}\n\tAssets:Bank\n`;
+			const refs = () =>
+				db
+					.selectFrom('metadata')
+					.select('value')
+					.where('ledgerId', '=', ledger.id)
+					.where('key', '=', 'ref')
+					.execute()
+					.then((r) => r.map((m) => m.value));
+
+			await put(storage, ledger, 'a.rupea', rent('one'));
+			await Sync.syncIndex(ledger);
+			expect(await refs()).toEqual(['one', 'one']);
+
+			await put(storage, ledger, 'a.rupea', rent('two'));
+			await Sync.syncIndex(ledger);
+			expect(await refs()).toEqual(['two', 'two']);
+		}));
+
+	it('keeps evidence and its postings uncounted when its postings change', ({
+		context,
+		db,
+		storage,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const tea = (n: number, role: string) =>
+				`2026-08-29 Tea\n\t- ${role}: tea\n\tExpenses:Food ${n}\n\tAssets:Bank\n`;
+			const counted = () =>
+				db
+					.selectFrom('postings as p')
+					.innerJoin('transactions as t', 't.id', 'p.transactionId')
+					.select(['p.counted as posting', 't.counted as transaction'])
+					.distinct()
+					.where('p.ledgerId', '=', ledger.id)
+					.orderBy('p.counted')
+					.execute();
+
+			await put(storage, ledger, 'a.rupea', tea(1, 'group'));
+			await put(storage, ledger, 'b.rupea', tea(1, 'same-as'));
+			await Sync.syncIndex(ledger);
+
+			await put(
+				storage,
+				ledger,
+				'b.rupea',
+				tea(1, 'same-as').replace('Assets:Bank', 'Assets:Card'),
+			);
+			await Sync.syncIndex(ledger);
+
+			expect(await counted()).toEqual([
+				{ posting: false, transaction: false },
+				{ posting: true, transaction: true },
+			]);
+		}));
+
+	it('rewrites every posting of a file an older indexer read', ({ context, db, storage }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const posted = () =>
+				db
+					.selectFrom('postings')
+					.select('id')
+					.where('ledgerId', '=', ledger.id)
+					.orderBy('position')
+					.execute();
+
+			await put(storage, ledger, 'a.rupea', groceries);
+			await Sync.syncIndex(ledger);
+			const before = await posted();
+
+			await db
+				.updateTable('ledgerFiles')
+				.set({ indexer: INDEXER - 1 })
+				.execute();
+			await Sync.syncIndex(ledger);
+
+			expect((await posted()).map((p) => p.id)).not.toEqual(before.map((p) => p.id));
+		}));
+
 	it('keeps the id of a transaction with a time', ({ context, db, storage }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);

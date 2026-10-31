@@ -4,14 +4,14 @@ import { EMBEDDING_DIMENSIONS } from '#lib/server/shared/onnx/models.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { errAsync, ok, ResultAsync } from '#lib/server/shared/result/result.ts';
 import { byUser, readText } from '#lib/server/shared/storage/storage.ts';
-import { runJob } from '#services/jobs/application/jobs.ts';
+import { listJobs, runJob } from '#services/jobs/application/jobs.ts';
 import { syncLedger } from '#services/ledger/adapters/jobs.ts';
 import { MODEL } from '#services/ledger/adapters/prediction-model2vec.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import * as Sync from '#services/ledger/application/sync.ts';
 import { INDEXER } from '#services/ledger/domain/sync.ts';
 import { Feed, PriceSource } from '#services/ledger/domain/types.ts';
-import { broken } from '#tests/shared/embedding.ts';
+import { broken, hashed } from '#tests/shared/embedding.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { count } from '#tests/shared/count.ts';
@@ -287,6 +287,27 @@ describe('syncing the ledger', () => {
 				.execute();
 			await Sync.syncIndex(ledger);
 			expect(await summary(ledger.id)).toEqual(['a.rupea:1 Groceries']);
+		}));
+
+	it('queues another sync until a large ledger is embedded', ({ context, db }) =>
+		provide({ ...context, models: hashed(context.models) }, async () => {
+			const ledger = await createLedger(db);
+			const shops = Array.from(
+				{ length: 501 },
+				(_, i) => `2026-01-01 Shop ${i}\n\tExpenses:Food 1\n\tAssets:Bank\n`,
+			);
+			const queued = async () =>
+				(
+					await listJobs({ userId: ledger.owner, name: syncLedger.name, payload: {}, limit: 10 })
+				)._unsafeUnwrap();
+			await Files.createFile({ ledger, key: 'a.rupea', content: shops.join('\n') });
+
+			await Sync.syncIndex(ledger);
+			expect(await queued()).toHaveLength(1);
+
+			await db.deleteFrom('jobs').where('userId', '=', ledger.owner).execute();
+			await Sync.syncIndex(ledger);
+			expect(await queued()).toEqual([]);
 		}));
 
 	it('keeps a description embedded through a re-index', ({ context, db, storage }) =>

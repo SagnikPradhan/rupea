@@ -46,6 +46,12 @@ export const summary = async (ledgerId: string) => {
 		: indexed;
 };
 
+/** The id the index gave the transaction at a line of a file. */
+export const idAt = async (ledgerId: string, file: string, line: number) => {
+	const indexed = (await listAllTransactions(ledgerId))._unsafeUnwrap();
+	return indexed.find((t) => t.location.file === file && t.location.line === line)?.id ?? '';
+};
+
 /** A filter that leaves every side open. */
 export const everything = {
 	from: Temporal.PlainDate.from('0001-01-01'),

@@ -1,7 +1,14 @@
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { batchAsync, batchInOrder, type Batch } from '#lib/server/shared/result/batch.ts';
-import type { RupeaError } from '#lib/server/shared/result/error.ts';
-import { ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
+import { fault, type RupeaError } from '#lib/server/shared/result/error.ts';
+import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
+import {
+	errAsync,
+	ok,
+	okAsync,
+	type Result,
+	type ResultAsync,
+} from '#lib/server/shared/result/result.ts';
 import {
 	findText,
 	readText,
@@ -9,10 +16,13 @@ import {
 	writeText,
 	type Storage,
 } from '#lib/server/shared/storage/storage.ts';
+import { isCounted } from '#lib/shared/folders.ts';
+import type { TransactionForm } from '#lib/shared/transaction-form.ts';
 import * as DB from '../adapters/database';
 import { merge } from '../domain/merge';
 import { parse, parseTree } from '../domain/parser';
 import { print } from '../domain/printer';
+import { find, insert, remove, replace } from '../domain/transactions';
 import type { Ledger, RupeaFile, RupeaTransaction } from '../domain/types';
 import { openFolder } from './ledger';
 import { listLedgerFiles, reindex, type Move } from './sync';
@@ -43,6 +53,20 @@ export const findLatestFile = ({
 	ledger,
 	account,
 }: FindLatestFileOptions): ResultAsync<string | null> => DB.findLatestFile(ledger.id, account);
+
+/** The files a new transaction can go in, and the one with the ledger's latest transaction. */
+export const findTransactionFiles = (
+	l: Ledger,
+): ResultAsync<{ keys: string[]; newest: string | null }> =>
+	DB.listIndexedFiles(l.id).andThen((files) =>
+		DB.findNewestFile(l.id).map((newest) => ({
+			keys: files
+				.map((f) => f.key)
+				.filter(isCounted)
+				.toSorted(),
+			newest,
+		})),
+	);
 
 type ParseFileOptions = { key: string; content: string };
 
@@ -78,6 +102,79 @@ export const editFile = ({
 	version,
 }: EditFileOptions): ResultAsync<RupeaFile> =>
 	writeFile({ ledger, key, content, ifVersion: version });
+
+type CreateTransactionOptions = { ledger: Ledger; form: TransactionForm };
+
+/** Adds a form's transaction to its file, or to a new file of that name; written only if the file is unchanged since it was read. */
+export const createTransaction = ({
+	ledger,
+	form,
+}: CreateTransactionOptions): ResultAsync<{ file: string; line: number }> =>
+	openFolder({ ledger, folder: 'files' }).andThen((s) =>
+		findText(s, form.file).andThen((f) =>
+			withContext('config')((c) =>
+				insert(c.ledger, { file: { key: form.file, content: f?.content ?? '' }, form }),
+			).asyncAndThen(({ content, line }) =>
+				writeText(s, { key: form.file, content, ifVersion: f?.version ?? null })
+					.andTee((w) => reindex({ ledgerId: ledger.id, storage: s, changed: [w.key] }))
+					.map((w) => ({ file: w.key, line })),
+			),
+		),
+	);
+
+type TransactionAt = { ledger: Ledger; file: string; line: number };
+
+type FindTransactionOptions = { ledger: Ledger; id: string };
+
+/** The form of an indexed transaction, with where it stands and the version of the file it was read from. */
+export const findTransaction = ({
+	ledger,
+	id,
+}: FindTransactionOptions): ResultAsync<{
+	file: string;
+	line: number;
+	form: TransactionForm;
+	version: string;
+}> =>
+	DB.findTransactions(ledger.id, [id]).andThen(([indexed]) => {
+		if (!indexed) return errAsync(fault('TransactionNotFound', { path: id, line: 0 }));
+
+		const { file, line } = indexed.location;
+		return openFolder({ ledger, folder: 'files' }).andThen((s) =>
+			readText(s, file).andThen((f) =>
+				withContext('config')((c) => find(c.ledger, { file: f, line })).asyncAndThen((t) =>
+					okAsync({ file, line, form: t, version: f.version }),
+				),
+			),
+		);
+	});
+
+type SaveTransactionOptions = TransactionAt & { version: string; form: TransactionForm };
+
+/** Rewrites the transaction at a line, if its file is still the version it was read as. */
+export const saveTransaction = ({
+	ledger,
+	file,
+	line,
+	version,
+	form,
+}: SaveTransactionOptions): ResultAsync<{ file: string; line: number }> =>
+	changeTransaction({ ledger, file, version }, (c, f) => replace(c, { file: f, line, form })).map(
+		({ line: moved }) => ({ file, line: moved }),
+	);
+
+type DeleteTransactionOptions = TransactionAt & { version: string };
+
+/** Takes the transaction at a line out of its file, if the file is still the version it was read as. */
+export const deleteTransaction = ({
+	ledger,
+	file,
+	line,
+	version,
+}: DeleteTransactionOptions): ResultAsync<void> =>
+	changeTransaction({ ledger, file, version }, (c, f) =>
+		remove(c, { file: f, line }).map((r) => ({ ...r, line })),
+	).map(() => undefined);
 
 type RenameFilesOptions = { ledger: Ledger; moves: Move[] };
 
@@ -183,3 +280,21 @@ const mergeFile = (
 // that fails, the next sync picks them up.
 const withFailures = <T>(b: Batch<T>, r: ResultAsync<RupeaError[]>) =>
 	r.orElse((e) => ok([e])).map((f) => ({ ...b, failed: [...b.failed, ...f] }));
+
+type ChangeTransactionOptions = { ledger: Ledger; file: string; version: string };
+
+const changeTransaction = (
+	{ ledger, file, version }: ChangeTransactionOptions,
+	change: (c: LedgerConfiguration, f: RupeaFile) => Result<{ content: string; line: number }>,
+): ResultAsync<{ line: number }> =>
+	openFolder({ ledger, folder: 'files' }).andThen((s) =>
+		readText(s, file).andThen((f) =>
+			f.version === version
+				? withContext('config')((c) => change(c.ledger, f)).asyncAndThen(({ content, line }) =>
+						writeText(s, { key: file, content, ifVersion: version })
+							.andTee((w) => reindex({ ledgerId: ledger.id, storage: s, changed: [w.key] }))
+							.map(() => ({ line })),
+					)
+				: errAsync(fault('StorageConflict', { key: file, expected: version, actual: f.version })),
+		),
+	);

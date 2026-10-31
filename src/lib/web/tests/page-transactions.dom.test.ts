@@ -10,6 +10,10 @@ import Page from '#routes/(signed-in)/l/[handle]/transactions/+page.svelte';
 
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({ listAccountTree: vi.fn() }));
+vi.mock('#lib/endpoints/files.remote.ts', () => ({
+	findTransaction: vi.fn(),
+	findTransactionFiles: vi.fn(),
+}));
 vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
 	findFirstDay: vi.fn(() => answer('2025-03-14')),
 	listProblems: vi.fn(),
@@ -58,6 +62,26 @@ describe('the transactions page', () => {
 		expect(screen.getByText('evidence')).toBeTruthy();
 		expect(screen.getByText('18:45')).toBeTruthy();
 		expect(screen.getByRole('alert').textContent).toContain('This posting can’t be read.');
+	});
+
+	it('links each description to editing it, keeping the filter', async () => {
+		visit('/l/h/transactions?account=Expenses');
+		answering([groceries]);
+		render(Page, { data });
+
+		const link = (await screen.findByRole('link', { name: 'Groceries' })) as HTMLAnchorElement;
+		expect(link.getAttribute('href')).toBe('?account=Expenses&edit=1');
+	});
+
+	it('names the applied filters as chips that remove them', async () => {
+		visit('/l/h/transactions?account=Expenses&at=2026-08');
+		answering([groceries]);
+		render(Page, { data });
+
+		const account = (await screen.findByRole('button', { name: 'Expenses' })) as HTMLAnchorElement;
+		const month = screen.getByRole('button', { name: 'Aug 2026' }) as HTMLAnchorElement;
+		expect(account.getAttribute('href')).toBe('?at=2026-08');
+		expect(month.getAttribute('href')).toBe('?account=Expenses');
 	});
 
 	it('shows the comment above a transaction as the file writes it', async () => {

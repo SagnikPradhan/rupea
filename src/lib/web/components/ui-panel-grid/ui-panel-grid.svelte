@@ -29,12 +29,16 @@
 			grid-column: span 6;
 		}
 
-		.wide > :global(:first-child) {
+		.wide > :global(:first-child:not(:only-child)) {
 			grid-column: span 8;
 		}
 
-		.wide > :global(:last-child) {
+		.wide > :global(:last-child:not(:only-child)) {
 			grid-column: span 4;
+		}
+
+		.wide > :global(:only-child) {
+			grid-column: span 12;
 		}
 	}
 </style>

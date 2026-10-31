@@ -98,6 +98,8 @@ export const indexFile = (
 				const fileId = await saveVersion(tx, { ledgerId, key, version });
 				const old = await oldTransactions(tx, fileId);
 				const rows = rowsOf({ ledgerId, fileId, file, idOf: idsFrom(old) });
+				const kept = new Set(rows.transactions.map((t) => t.id));
+				const unmatched = old.map((o) => o.id).filter((id) => !kept.has(id));
 				const postings = await withAccounts(tx, ledgerId, rows.postings);
 				const prices = await withSymbols(tx, { feed: Feed.Ledger, ledgerId }, rows.prices);
 				const links = await withFeedSymbols(tx, rows.links);
@@ -118,7 +120,7 @@ export const indexFile = (
 				await deleteOwnedBy(tx, fileId);
 
 				await saveTransactions(tx, rows.transactions);
-				await replaceOldTransactions(tx, fileId, rows.transactions);
+				await replaceOldTransactions(tx, fileId, unmatched);
 				await insertAll(tx, 'postings', postings);
 				await insertAll(tx, 'prices', prices);
 				await insertAll(tx, 'symbolLinks', links);
@@ -351,17 +353,15 @@ const rowsOf = ({ ledgerId, fileId, file, idOf }: RowsOptions) => {
 };
 
 /**
- * Deletes a file's transactions that were not kept, and rows without an embedding take their description's.
- * The select still sees the deleted rows, as Postgres runs a statement on one snapshot, so the update keeps to the current ones.
+ * Deletes a file's transactions that no new row kept, by id, and rows without an embedding take their description's.
+ * The select still sees the deleted rows, as Postgres runs a statement on one snapshot, so the update keeps to the others.
  */
-const replaceOldTransactions = (db: Database, fileId: string, rows: { id: string }[]) => {
-	const ids = rows.map((r) => r.id);
-	return db
+const replaceOldTransactions = (db: Database, fileId: string, unmatched: string[]) =>
+	db
 		.with('deleted', (db) =>
 			db
 				.deleteFrom('transactions')
-				.where('transactions.fileId', '=', fileId)
-				.where((e) => noneOf(e.ref('transactions.id'), ids, 'uuid')),
+				.where((e) => anyOf(e.ref('transactions.id'), unmatched, 'uuid')),
 		)
 		.with('embedded', (db) =>
 			db
@@ -380,9 +380,8 @@ const replaceOldTransactions = (db: Database, fileId: string, rows: { id: string
 		.where('transactions.fileId', '=', fileId)
 		.where('transactions.embedding', 'is', null)
 		.whereRef('transactions.description', '=', 'embedded.description')
-		.where((e) => anyOf(e.ref('transactions.id'), ids, 'uuid'))
+		.where((e) => noneOf(e.ref('transactions.id'), unmatched, 'uuid'))
 		.execute();
-};
 
 type MetadataOwner = { ledgerId: string } & (
 	{ fileId: string } | { transactionId: string } | { postingId: string }

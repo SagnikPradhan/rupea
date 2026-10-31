@@ -10,6 +10,7 @@ import { byCodeUnit } from '#lib/server/shared/text.ts';
 import type { Span } from '#lib/shared/dates.ts';
 import { sql, type SqlBool } from 'kysely';
 import { v7 as uuidv7 } from 'uuid';
+import { GROUP_KEYS } from '../domain/groups';
 import { CURRENCIES } from '../domain/lots';
 import { displayLocation } from '../domain/parser';
 import { marketPrices } from '../domain/prices';
@@ -81,8 +82,15 @@ type IndexFileOptions = {
 	failed: RupeaError[];
 };
 
-/** What changing a file touched: the commodities whose lots it held before or holds now, and the days its transactions span. */
-export type Touched = { commodities: string[]; spans: Span[] };
+export type Position = { accountId: string; commodity: string };
+
+/** What changing a file touched: the commodities whose lots it held before or holds now, the days its transactions span, what they post to, and whether any names a group. */
+export type Touched = {
+	commodities: string[];
+	spans: Span[];
+	positions: Position[];
+	grouped: boolean;
+};
 
 /** Replaces what a file indexes and what failed to parse in it, each transaction keeping its id where it can and each description its embedding, so saving a file neither moves a page nor re-embeds it. Transactions that hold what they held keep their rows, so a small edit writes little. */
 export const indexFile = (
@@ -146,6 +154,8 @@ export const indexFile = (
 				return {
 					commodities: [...before.commodities, ...after.commodities],
 					spans: [...before.spans, ...after.spans],
+					positions: [...before.positions, ...after.positions],
+					grouped: before.grouped || after.grouped,
 				};
 			}),
 		),
@@ -162,17 +172,20 @@ export const unindexFile = (ledgerId: string, key: string): ResultAsync<Touched>
 					.where('ledgerFiles.ledgerId', '=', ledgerId)
 					.where('ledgerFiles.key', '=', key)
 					.executeTakeFirst();
-				if (!file) return { commodities: [], spans: [] };
+				if (!file) return { commodities: [], spans: [], positions: [], grouped: false };
 
-				const commodities = await lotCommoditiesOf(tx, file.id);
-				const spans = await spansOf(tx, file.id);
+				const held = await oldTransactions(tx, file.id);
+				const touched = await touchedBy(
+					tx,
+					held.map((t) => t.id),
+				);
 				await tx.deleteFrom('ledgerFiles').where('id', '=', file.id).execute();
-				return { commodities, spans };
+				return touched;
 			}),
 		),
 	);
 
-/** A key spans no days, so a rename touches only the commodities whose lots the file holds. */
+/** A key spans no days and changes no amount or group, so a rename touches only the commodities whose lots the file holds. */
 export const renameIndexedFile = (
 	ledgerId: string,
 	from: string,
@@ -188,7 +201,7 @@ export const renameIndexedFile = (
 				.returning('id')
 				.executeTakeFirst()
 				.then((f) => (f ? lotCommoditiesOf(db, f.id) : []))
-				.then((c) => ({ commodities: c, spans: [] })),
+				.then((c) => ({ commodities: c, spans: [], positions: [], grouped: false })),
 		),
 	);
 
@@ -334,14 +347,20 @@ const heldIn = async (db: Database, fileId: string) => {
 		.where('transactionId', 'in', owners)
 		.orderBy('position')
 		.execute();
-	const metadata = await db
+	const onTransactions = await db
 		.selectFrom('metadata')
 		.select(['transactionId', 'postingId', 'position', 'key', 'value'])
-		.where((e) => e.or([e('transactionId', 'in', owners), e('postingId', 'in', owned)]))
+		.where('transactionId', 'in', owners)
+		.orderBy('position')
+		.execute();
+	const onPostings = await db
+		.selectFrom('metadata')
+		.select(['transactionId', 'postingId', 'position', 'key', 'value'])
+		.where('postingId', 'in', owned)
 		.orderBy('position')
 		.execute();
 
-	return heldFrom(postings, metadata);
+	return heldFrom(postings, [...onTransactions, ...onPostings]);
 };
 
 type PriceHeld = {
@@ -702,16 +721,21 @@ const withFeedSymbols = async <R>(db: Database, rows: { feed: Feed; symbol: stri
 	return linked;
 };
 
-/** What these transactions touch: the commodities whose lots they hold, and the days they span. */
+/** What these transactions touch: the commodities whose lots they hold, the days they span, what they post to, and whether any names a group. */
 export const touchedBy = async (db: Database, ids: string[]): Promise<Touched> => {
-	const lots = await db
+	const positions = await db
 		.selectFrom('postings')
-		.select('commodity')
+		.select(['accountId', 'commodity', 'accountType'])
 		.distinct()
 		.where((e) => anyOf(e.ref('transactionId'), ids, 'uuid'))
-		.where('accountType', 'in', BALANCE_TYPES)
-		.where((e) => noneOf(e.ref('commodity'), CURRENCIES, 'text'))
 		.execute();
+	const group = await db
+		.selectFrom('metadata')
+		.select('id')
+		.where((e) => anyOf(e.ref('transactionId').$notNull(), ids, 'uuid'))
+		.where('key', 'in', GROUP_KEYS)
+		.limit(1)
+		.executeTakeFirst();
 	const days = await db
 		.selectFrom('transactions')
 		.select((e) => [
@@ -721,7 +745,14 @@ export const touchedBy = async (db: Database, ids: string[]): Promise<Touched> =
 		.where((e) => anyOf(e.ref('id'), ids, 'uuid'))
 		.executeTakeFirstOrThrow();
 
-	return { commodities: lots.map((c) => c.commodity), spans: toSpans(days) };
+	return {
+		commodities: positions
+			.filter((p) => BALANCE_TYPES.includes(p.accountType) && !CURRENCIES.includes(p.commodity))
+			.map((p) => p.commodity),
+		spans: toSpans(days),
+		positions: positions.map((p) => ({ accountId: p.accountId, commodity: p.commodity })),
+		grouped: group !== undefined,
+	};
 };
 
 const lotCommoditiesOf = (db: Database, fileId: string): Promise<string[]> =>
@@ -735,14 +766,3 @@ const lotCommoditiesOf = (db: Database, fileId: string): Promise<string[]> =>
 		.where((e) => noneOf(e.ref('postings.commodity'), CURRENCIES, 'text'))
 		.execute()
 		.then((r) => r.map((c) => c.commodity));
-
-const spansOf = (db: Database, fileId: string): Promise<Span[]> =>
-	db
-		.selectFrom('transactions')
-		.select((e) => [
-			e.fn.min<string | null>('transactions.date').as('from'),
-			e.fn.max<string | null>('transactions.date').as('to'),
-		])
-		.where('transactions.fileId', '=', fileId)
-		.executeTakeFirstOrThrow()
-		.then(toSpans);

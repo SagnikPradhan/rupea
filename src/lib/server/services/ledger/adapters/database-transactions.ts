@@ -137,7 +137,8 @@ export const recount = (ledgerId: string, uncounted: string[]): ResultAsync<Touc
 					.returning('id')
 					.execute();
 				const changed = [...counting, ...uncounting].map((t) => t.id);
-				if (changed.length === 0) return { commodities: [], spans: [] };
+				if (changed.length === 0)
+					return { commodities: [], spans: [], positions: [], grouped: false };
 
 				await tx
 					.updateTable('postings')

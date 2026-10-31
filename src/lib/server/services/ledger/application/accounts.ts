@@ -101,6 +101,13 @@ export const listAccountTree = (
 		Object.entries(parentsIn(t)).map(([account, parent]) => ({ account, parent })),
 	);
 
+type ListAccountNamesOptions = { ledger: Ledger; prefix: string };
+
+export const listAccountNames = ({
+	ledger,
+	prefix,
+}: ListAccountNamesOptions): ResultAsync<string[]> => DB.listAccountNames(ledger.id, prefix);
+
 type ListLotsOptions = { ledger: Ledger; account: string; commodity: string };
 
 export const listLots = ({

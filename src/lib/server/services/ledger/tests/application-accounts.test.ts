@@ -216,6 +216,26 @@ describe('accounts', () => {
 		}));
 });
 
+describe('account names', () => {
+	it('are found by how they start, in any case, and a percent sign means itself', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({
+				ledger,
+				key: 'a.rupea',
+				content: '2026-10-01 Lunch\n\tExpenses:Food  5\n\tAssets:Bank\n',
+			});
+			const names = (prefix: string) => Accounts.listAccountNames({ ledger, prefix });
+
+			expect((await names('exp'))._unsafeUnwrap()).toEqual(['Expenses', 'Expenses:Food']);
+			expect((await names('Bank'))._unsafeUnwrap()).toEqual([]);
+			expect((await names('%'))._unsafeUnwrap()).toEqual([]);
+		}));
+});
+
 describe('evidence', () => {
 	const day = Temporal.PlainDate.from('2026-10-03');
 	const salary = (role: string) =>

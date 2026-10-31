@@ -30,7 +30,12 @@
 	const list = $derived(paged(first, (after) => listTransactions({ handle, day, filter, after })));
 </script>
 
-<PageHeader trail={[ledgerCrumb(data.ledger)]}>Transactions</PageHeader>
+<PageHeader trail={[ledgerCrumb(data.ledger)]}>
+	Transactions
+	{#snippet actions()}
+		<a class="button" href="/l/{handle}/transactions/new">Add</a>
+	{/snippet}
+</PageHeader>
 
 <FilterRail>
 	{#snippet filters()}

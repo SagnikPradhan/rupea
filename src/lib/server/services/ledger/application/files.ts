@@ -9,10 +9,12 @@ import {
 	type Storage,
 } from '#lib/server/shared/storage/storage.ts';
 import { isCounted } from '#lib/shared/folders.ts';
+import type { TransactionForm } from '#lib/shared/transaction-form.ts';
 import * as DB from '../adapters/database';
 import { merge } from '../domain/merge';
 import { parse, parseTree } from '../domain/parser';
 import { print } from '../domain/printer';
+import { insert } from '../domain/transactions';
 import type { Ledger, RupeaFile, RupeaTransaction } from '../domain/types';
 import { openFolder } from './ledger';
 import {
@@ -52,6 +54,20 @@ export const findLatestFile = ({
 	account,
 }: FindLatestFileOptions): ResultAsync<string | null> => DB.findLatestFile(ledger.id, account);
 
+/** The files a new transaction can go in, and the one with the ledger's latest transaction. */
+export const findTransactionFiles = (
+	l: Ledger,
+): ResultAsync<{ keys: string[]; newest: string | null }> =>
+	DB.listIndexedFiles(l.id).andThen((files) =>
+		DB.findNewestFile(l.id).map((newest) => ({
+			keys: files
+				.map((f) => f.key)
+				.filter(isCounted)
+				.toSorted(),
+			newest,
+		})),
+	);
+
 type ParseFileOptions = { key: string; content: string };
 
 /** What a file would hold, without storing it. */
@@ -84,6 +100,25 @@ export const editFile = ({
 	version,
 }: EditFileOptions): ResultAsync<RupeaFile> =>
 	writeFile({ ledger, key, content, ifVersion: version });
+
+type CreateTransactionOptions = { ledger: Ledger; form: TransactionForm };
+
+/** Adds a form's transaction to its file, or to a new file of that name; written only if the file is unchanged since it was read. */
+export const createTransaction = ({
+	ledger,
+	form,
+}: CreateTransactionOptions): ResultAsync<{ file: string; line: number }> =>
+	openFolder({ ledger, folder: 'files' }).andThen((s) =>
+		findText(s, form.file).andThen((f) =>
+			withContext('config')((c) =>
+				insert(c.ledger, { file: { key: form.file, content: f?.content ?? '' }, form }),
+			).asyncAndThen(({ content, line }) =>
+				writeText(s, { key: form.file, content, ifVersion: f?.version ?? null })
+					.andTee((w) => indexAndSettle(ledger.id, w))
+					.map((w) => ({ file: w.key, line })),
+			),
+		),
+	);
 
 type Move = { from: string; to: string };
 

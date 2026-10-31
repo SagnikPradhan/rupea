@@ -67,6 +67,23 @@ export const findLatestFile = (ledgerId: string, account: string): ResultAsync<s
 		).map((r) => r?.key ?? null),
 	);
 
+/** The file holding the ledger's latest transaction, if any. */
+export const findNewestFile = (ledgerId: string): ResultAsync<string | null> =>
+	withContext('db')((db) =>
+		attempt(() =>
+			db
+				.selectFrom('transactions')
+				.innerJoin('ledgerFiles', 'ledgerFiles.id', 'transactions.fileId')
+				.select('ledgerFiles.key')
+				.where('transactions.ledgerId', '=', ledgerId)
+				.orderBy('transactions.date', 'desc')
+				.orderBy('transactions.sortTime', 'desc')
+				.orderBy('transactions.id', 'desc')
+				.limit(1)
+				.executeTakeFirst(),
+		).map((r) => r?.key ?? null),
+	);
+
 type IndexFileOptions = {
 	key: string;
 	version: string;

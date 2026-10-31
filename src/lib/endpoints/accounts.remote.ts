@@ -81,3 +81,11 @@ export const listLots = query(
 export const listAccountTree = query(Handle, (h) =>
 	replyFrom(inLedger({ handle: h, action: Accounts.listAccountTree })),
 );
+
+export const listAccountNames = query(
+	v.object({ handle: Handle, prefix: v.string() }),
+	({ handle, prefix }) =>
+		replyFrom(
+			inLedger({ handle, action: (l) => Accounts.listAccountNames({ ledger: l, prefix }) }),
+		),
+);

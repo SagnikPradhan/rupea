@@ -1,5 +1,6 @@
 import { replyFrom, replyFromBatch } from '#lib/server/shared/result/reply.ts';
 import { ok } from '#lib/server/shared/result/result.ts';
+import { TransactionForm } from '#lib/shared/transaction-form.ts';
 import * as Auth from '#services/auth/application/auth.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import { command, query } from '$app/server';
@@ -16,6 +17,23 @@ export const findLatestFile = query(
 	v.object({ handle: Handle, account: v.string() }),
 	({ handle, account }) =>
 		replyFrom(inLedger({ handle, action: (l) => Files.findLatestFile({ ledger: l, account }) })),
+);
+
+export const findTransactionFiles = query(Handle, (h) =>
+	replyFrom(inLedger({ handle: h, action: Files.findTransactionFiles })),
+);
+
+export const createTransaction = command(
+	v.object({ handle: Handle, form: TransactionForm }),
+	async ({ handle, form }) => {
+		const created = await inLedger({
+			handle,
+			action: (l) => Files.createTransaction({ ledger: l, form }),
+		});
+		void listFiles(handle).refresh();
+		void listProblems(handle).refresh();
+		return replyFrom(created);
+	},
 );
 
 /** A command, not a query: never cached, as the file may change behind the app's back. */

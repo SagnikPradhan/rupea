@@ -80,6 +80,11 @@ export const explain = (error: RupeaError): string =>
 			{ type: 'CannotMergeFile' },
 			() => 'Only transactions can be added to another file. Add these to a new file instead.',
 		)
+		.with(
+			{ type: 'CannotWriteTransaction' },
+			() =>
+				'This wouldn’t read back as written. Check the description, and that the file has no lines that can’t be read.',
+		)
 		.with({ type: 'StorageConflict' }, () => 'This file changed since you opened it.')
 		.with({ type: 'StorageNotFound' }, () => 'This file no longer exists.')
 		.with({ type: 'StorageInvalidKey' }, (e) => `“${e.key}” isn’t a valid file name.`)

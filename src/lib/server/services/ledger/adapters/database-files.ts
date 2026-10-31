@@ -111,8 +111,6 @@ export const indexFile = (
 					error: e,
 				}));
 
-				const lotsBefore = await lotCommoditiesOf(tx, fileId);
-				const spansBefore = await spansOf(tx, fileId);
 				const changes = changesFrom({
 					old,
 					heldBefore: readBy === INDEXER ? await heldIn(tx, fileId) : () => '',
@@ -120,6 +118,7 @@ export const indexFile = (
 					postings,
 					metadata: rows.metadata,
 				});
+				const before = await touchedBy(tx, [...changes.moved, ...changes.stale, ...unmatched]);
 
 				await tx.deleteFrom('metadata').where('fileId', '=', fileId).execute();
 				await tx.deleteFrom('prices').where('fileId', '=', fileId).execute();
@@ -135,11 +134,10 @@ export const indexFile = (
 				await insertAll(tx, 'metadata', changes.metadata);
 				await insertAll(tx, 'problems', problems);
 
-				const lotsAfter = await lotCommoditiesOf(tx, fileId);
-				const spansAfter = await spansOf(tx, fileId);
+				const after = await touchedBy(tx, [...changes.moved, ...changes.stale, ...changes.added]);
 				return {
-					commodities: [...lotsBefore, ...lotsAfter],
-					spans: [...spansBefore, ...spansAfter],
+					commodities: [...before.commodities, ...after.commodities],
+					spans: [...before.spans, ...after.spans],
 				};
 			}),
 		),
@@ -346,7 +344,7 @@ type ChangesOptions<P, M> = {
 	metadata: M[];
 };
 
-/** Of a file's rows, only those to write: a transaction's own when new or moved, and what it holds when that differs. */
+/** Of a file's rows, only those to write: a transaction's own when new or on another line, and what it holds when that differs. Moved are those whose order changed, which lots and assertions depend on. */
 const changesFrom = <P extends PostingHeld, M extends MetadataHeld>({
 	old,
 	heldBefore,
@@ -364,9 +362,14 @@ const changesFrom = <P extends PostingHeld, M extends MetadataHeld>({
 	const rewritten = new Set([...added, ...stale]);
 	const written = postings.filter((p) => rewritten.has(p.transactionId));
 	const posted = new Set(written.map((p) => p.id));
+	const kept = transactions.filter((t) => before[t.id]);
+	const keptIds = new Set(kept.map((t) => t.id));
+	const keptBefore = old.filter((o) => keptIds.has(o.id));
 
 	return {
+		added,
 		stale,
+		moved: kept.filter((t, i) => keptBefore[i]?.id !== t.id).map((t) => t.id),
 		transactions: transactions.filter((t) => {
 			const o = before[t.id];
 			return !o || o.line !== t.line || o.comment !== t.comment;
@@ -656,6 +659,28 @@ const withFeedSymbols = async <R>(db: Database, rows: { feed: Feed; symbol: stri
 	for (const f of feeds)
 		linked.push(...(await withSymbols(db, { feed: f, ledgerId: null }, byFeed[f] ?? [])));
 	return linked;
+};
+
+/** What these transactions touch: the commodities whose lots they hold, and the days they span. */
+export const touchedBy = async (db: Database, ids: string[]): Promise<Touched> => {
+	const lots = await db
+		.selectFrom('postings')
+		.select('commodity')
+		.distinct()
+		.where((e) => anyOf(e.ref('transactionId'), ids, 'uuid'))
+		.where('accountType', 'in', BALANCE_TYPES)
+		.where((e) => noneOf(e.ref('commodity'), CURRENCIES, 'text'))
+		.execute();
+	const days = await db
+		.selectFrom('transactions')
+		.select((e) => [
+			e.fn.min<string | null>('date').as('from'),
+			e.fn.max<string | null>('date').as('to'),
+		])
+		.where((e) => anyOf(e.ref('id'), ids, 'uuid'))
+		.executeTakeFirstOrThrow();
+
+	return { commodities: lots.map((c) => c.commodity), spans: toSpans(days) };
 };
 
 const lotCommoditiesOf = (db: Database, fileId: string): Promise<string[]> =>

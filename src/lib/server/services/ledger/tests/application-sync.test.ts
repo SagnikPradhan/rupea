@@ -455,6 +455,40 @@ describe('syncing the ledger', () => {
 			expect((await posted()).map((p) => p.id)).not.toEqual(before.map((p) => p.id));
 		}));
 
+	it('books lots again when same-day entries swap lines', ({ context, db, storage }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const buy = '2026-10-01 Buy\n\tAssets:Zerodha 10 INFY @ 1500\n\tAssets:Bank\n';
+			const sell = '2026-10-01 Sell\n\tAssets:Zerodha -4 INFY {1500} @ 1700\n\tAssets:Bank\n';
+			const unmatched = async () => (await Sync.checkLots(ledger))._unsafeUnwrap().length;
+
+			await put(storage, ledger, 'a.rupea', `${sell}\n${buy}`);
+			await Sync.syncIndex(ledger);
+			expect(await unmatched()).toBe(1);
+
+			await put(storage, ledger, 'a.rupea', `${buy}\n${sell}`);
+			await Sync.syncIndex(ledger);
+			expect(await unmatched()).toBe(0);
+		}));
+
+	it('leaves lots alone when an edit touches none of them', ({ context, db, storage }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const buy = '2026-10-01 Buy\n\tAssets:Zerodha 10 INFY @ 1500\n\tAssets:Bank\n';
+			const rent = (n: number) => `2026-10-02 Rent\n\tExpenses:Home ${n}\n\tAssets:Bank\n`;
+			const lots = () =>
+				db.selectFrom('lots').select('id').where('ledgerId', '=', ledger.id).execute();
+
+			await put(storage, ledger, 'a.rupea', `${buy}\n${rent(1)}`);
+			await Sync.syncIndex(ledger);
+			const before = await lots();
+			expect(before).toHaveLength(1);
+
+			await put(storage, ledger, 'a.rupea', `${buy}\n${rent(2)}`);
+			await Sync.syncIndex(ledger);
+			expect(await lots()).toEqual(before);
+		}));
+
 	it('keeps the id of a transaction with a time', ({ context, db, storage }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);

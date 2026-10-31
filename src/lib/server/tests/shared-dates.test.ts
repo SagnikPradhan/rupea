@@ -15,6 +15,10 @@ describe('reading a date', () => {
 		['d MMM yyyy', '29 Aug 2026'],
 		['d MMM yyyy', '29 aug 2026'],
 		['yyyyMMdd', '20260829'],
+		['ddMMMyyyy', '29Aug2026'],
+		['do MMM yyyy', '29th Aug 2026'],
+		["yyyy-MM-dd'T'", '2026-08-29T'],
+		['MMMM d, yyyy', 'August 29, 2026'],
 	])('parses %j / %j', (format, text) => {
 		expect(parseDate({ format, text })).toEqual(Temporal.PlainDate.from('2026-08-29'));
 	});
@@ -28,6 +32,8 @@ describe('reading a date', () => {
 		['yyyy-MM-dd', '2026-8-29'],
 		['dd/MM/yyyy', '29/08/26'],
 		['d/M/yyyy', '29/08/2026'],
+		['d MMM yyyy', '2026-08-29 AAPL 12.5'],
+		['yyyy-MM-dd', 'Groceries'],
 	])('rejects %j / %j', (ft, tx) => {
 		expect(parseDate({ format: ft, text: tx })).toBeNull();
 	});

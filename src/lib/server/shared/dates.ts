@@ -53,6 +53,7 @@ export const isTimeFormat = (f: string): boolean =>
 
 const read = (o: ReadOptions): Date | null => {
 	if (o.reference) return readStrictly(o);
+	if (!fits(o)) return null;
 
 	const key = `${o.format}\0${o.text}`;
 	const known = reads.get(key);
@@ -62,6 +63,27 @@ const read = (o: ReadOptions): Date | null => {
 	if (reads.size >= REMEMBERED) reads.clear();
 	reads.set(key, d);
 	return d;
+};
+
+/** Whether a text could print as its format, which is cheap to tell and rules out most: a line is tried against every format, and most of those texts are never seen again. */
+const fits = ({ format, text }: ReadOptions): boolean => {
+	const shape = shapes.get(format) ?? shapes.set(format, shapeOfFormat(format)).get(format);
+
+	return shape === null || shape === shapeOfText(text);
+};
+
+const shapes = new Map<string, string | null>();
+
+const shapeOfText = (t: string) => t.replace(/\d+/g, '0').replace(/[a-z]+/gi, 'a');
+
+/** Null for a format with anything but plain numbers, month names and am or pm, which could print as something else. */
+const shapeOfFormat = (format: string) => {
+	const shape = format
+		.replace(/M{3,4}|a/g, '_')
+		.replace(/[yMdHhms]+/g, '0')
+		.replace(/0+/g, '0');
+
+	return /^[0_\s/,:.-]*$/.test(shape) ? shape.replaceAll('_', 'a') : null;
 };
 
 /** Strict, so a list of formats never reads one text two ways. */

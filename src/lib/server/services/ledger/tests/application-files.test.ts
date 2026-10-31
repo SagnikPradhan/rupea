@@ -122,6 +122,90 @@ describe('adding a draft', () => {
 		}));
 });
 
+describe('adding a transaction from a form', () => {
+	const posting = (account: string, amount = '') => ({
+		account,
+		amount,
+		commodity: '',
+		price: '',
+		total: false,
+		cost: '',
+		costDate: '',
+		balance: '',
+		comment: '',
+		metadata: [],
+	});
+	const form = {
+		file: 'a.rupea',
+		date: '2026-08-15',
+		time: '',
+		description: 'Coffee',
+		comment: 'with Asha',
+		metadata: [],
+		postings: [posting('Expenses:Food', '5'), posting('Assets:Bank')],
+	};
+
+	it('writes it into its file by date and indexes it', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content: salary + '\n' + groceries });
+
+			const created = await Files.createTransaction({ ledger, form });
+
+			expect(created).toEqual(ok({ file: 'a.rupea', line: 5 }));
+			expect(await summary(ledger.id)).toEqual([
+				'a.rupea:1 Salary',
+				'a.rupea:5 Coffee',
+				'a.rupea:10 Groceries',
+			]);
+		}));
+
+	it('makes the file when it is new', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+
+			const created = await Files.createTransaction({ ledger, form: { ...form, file: 'n.rupea' } });
+
+			expect(created).toEqual(ok({ file: 'n.rupea', line: 1 }));
+			expect(await summary(ledger.id)).toEqual(['n.rupea:1 Coffee']);
+		}));
+
+	it('leaves the file alone when it does not balance', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content: salary });
+
+			const created = await Files.createTransaction({
+				ledger,
+				form: {
+					...form,
+					postings: [posting('Expenses:Food', '5'), posting('Assets:Bank', '-4')],
+				},
+			});
+
+			expect(created).toMatchObject({ error: { type: 'ParseUnbalancedTransaction' } });
+			expect(await Files.readFile({ ledger, key: 'a.rupea' })).toMatchObject({
+				value: { content: salary },
+			});
+		}));
+
+	it('offers the counted files, and the one with the latest transaction', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'b.rupea', content: groceries });
+			await Files.createFile({ ledger, key: 'a.rupea', content: salary });
+			await Files.createFile({
+				ledger,
+				key: '_/later.rupea',
+				content: groceries.replace('08-29', '09-30'),
+			});
+
+			expect(await Files.findTransactionFiles(ledger)).toEqual(
+				ok({ keys: ['a.rupea', 'b.rupea'], newest: 'b.rupea' }),
+			);
+		}));
+});
+
 describe('deleting files', () => {
 	it('removes each from storage and the index', ({ context, db }) =>
 		provide(context, async () => {

@@ -12,6 +12,7 @@
 	import ListSearch from '#lib/web/components/app-list-search/app-list-search.svelte';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import PagedTable from '#lib/web/components/app-ledger-table-paged/app-ledger-table-paged.svelte';
+	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
 	import { formatDate, formatIsoDate } from '#lib/web/shared/format.ts';
 	import { paged } from '#lib/web/shared/paged.svelte.ts';
@@ -40,6 +41,7 @@
 			today={day}
 			first={earliest}
 		/>
+		<Button primary href="/l/{handle}/transactions/new">Add</Button>
 	{/snippet}
 </PageHeader>
 

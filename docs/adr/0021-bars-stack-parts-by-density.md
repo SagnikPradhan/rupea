@@ -6,7 +6,7 @@ A bar chart shows how a total splits into parts, such as spending into the large
 
 The total a bar adds up to is the primary. It has no series of its own: the page shows it as the headline figure, the hovered bar's or the whole range's.
 
-Parts are told apart by density, never by colour, so colour keeps the meaning [ADR 0012](0012-brutalist-dense-design.md) gives it. The first part is solid ink, the next three are hatches from dense to sparse, and the last is sparse dots, which a page gives to whatever the others leave. Five parts are the most a reader can tell apart. A swatch drawn with the same pattern names a part wherever it appears, in the key under the chart or beside its account in a table, and pointing at a key entry fades the other parts.
+Parts are told apart by density, never by colour, so colour keeps the meaning [ADR 0012](0012-composed-dense-design.md) gives it. The first part is solid ink, the next three are hatches from dense to sparse, and the last is sparse dots, which a page gives to whatever the others leave. Five parts are the most a reader can tell apart. A swatch drawn with the same pattern names a part wherever it appears, in the key under the chart or beside its account in a table, and pointing at a key entry fades the other parts.
 
 uPlot lays bars over each other when it stacks them, which a hatch would let show through, so the chart draws each part itself, end to end with a hairline between, and keeps uPlot for the axes, the cursor and sizing.
 

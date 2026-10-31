@@ -39,3 +39,6 @@ vite.config.ts.timestamp-*
 
 # Generated fixtures
 /tests/fixtures/ledgers/
+
+# Design references, which are other people's work
+/references/

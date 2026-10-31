@@ -30,6 +30,8 @@
 		"bench": "vitest bench --run --reporter=verbose --silent=false",
 		"test:coverage": "vitest run --coverage",
 		"test:e2e": "playwright test",
+		"design:references": "tsx tests/shots/references.ts",
+		"design:shots": "vite build && playwright test -c tests/shots/playwright.config.ts",
 		"test:e2e:coverage": "mcr -c mcr.config.ts -- playwright test"
 	},
 	"devDependencies": {

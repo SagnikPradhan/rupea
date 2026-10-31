@@ -62,7 +62,7 @@ export const syncLedger = (ledger: Ledger): ResultAsync<void> =>
 	);
 
 /** Runs `f` in one transaction as the ledger's only writer, so what it indexes is settled with it or not at all. */
-export const exclusively = <T>(id: string, f: () => ResultAsync<T>): ResultAsync<T> =>
+const exclusively = <T>(id: string, f: () => ResultAsync<T>): ResultAsync<T> =>
 	atomically(() => DB.lockLedger(id).andThen(f));
 
 /** The ledger files in a ledger's files folder, leaving out the statements waiting there. */
@@ -101,10 +101,21 @@ type UnindexOptions = { ledgerId: string; key: string };
 export const unindex = ({ ledgerId, key }: UnindexOptions): ResultAsync<Indexed> =>
 	DB.unindexFile(ledgerId, key).map((t) => ({ failed: [], ...t }));
 
+type IndexStep = () => ResultAsync<Indexed>;
+
+type ReindexOptions = { ledgerId: string; steps: IndexStep[] };
+
+/** Runs the steps as the ledger's only writer, then settles what they touched. */
+export const reindex = ({ ledgerId, steps }: ReindexOptions): ResultAsync<RupeaError[]> =>
+	exclusively(ledgerId, () => indexAndSettle(ledgerId, steps));
+
+const indexAndSettle = (id: string, s: IndexStep[]): ResultAsync<RupeaError[]> =>
+	indexEach(s).andThen((i) => settle({ ledgerId: id, indexed: i }));
+
 type SettleOptions = { ledgerId: string; indexed: Indexed };
 
 /** Settles what spans files once indexed: which transactions count, then the lots, months and assertions they and the recount touched, and the accounts left unused. */
-export const settle = ({ ledgerId, indexed }: SettleOptions): ResultAsync<RupeaError[]> =>
+const settle = ({ ledgerId, indexed }: SettleOptions): ResultAsync<RupeaError[]> =>
 	uncountedIn(ledgerId)
 		.andThen((u) => DB.recount(ledgerId, u))
 		.andThen((r) => {
@@ -120,7 +131,7 @@ export const settle = ({ ledgerId, indexed }: SettleOptions): ResultAsync<RupeaE
 		.map(() => indexed.failed);
 
 /** Indexes one file at a time, each in a savepoint, so a step that fails is reported and leaves the others. */
-export const indexEach = (steps: (() => ResultAsync<Indexed>)[]): ResultAsync<Indexed> =>
+const indexEach = (steps: IndexStep[]): ResultAsync<Indexed> =>
 	inOrder(steps.map((s) => () => reported(atomically(s)))).map((done) => ({
 		failed: done.flatMap((d) => d.failed),
 		commodities: done.flatMap((d) => d.commodities),
@@ -139,17 +150,16 @@ const update = (s: Storage, id: string, stored: Entry[]): ResultAsync<RupeaError
 		const p = plan(stored, indexed);
 		return p.changed.length + p.gone.length === 0
 			? okAsync([])
-			: applyPlan(s, id, p).andThen((i) => settle({ ledgerId: id, indexed: i }));
+			: indexAndSettle(id, planSteps(s, id, p));
 	});
 
-const applyPlan = (storage: Storage, ledgerId: string, p: SyncPlan): ResultAsync<Indexed> => {
-	const reindex = (k: string) =>
-		readText(storage, k).andThen((f) => indexFile({ ledgerId, file: f }));
+const planSteps = (storage: Storage, ledgerId: string, p: SyncPlan): IndexStep[] => {
+	const read = (k: string) => readText(storage, k).andThen((f) => indexFile({ ledgerId, file: f }));
 
-	return indexEach([
-		...p.changed.map((k) => () => reindex(k)),
+	return [
+		...p.changed.map((k) => () => read(k)),
 		...p.gone.map((k) => () => unindex({ ledgerId, key: k })),
-	]);
+	];
 };
 
 const reported = (i: ResultAsync<Indexed>): ResultAsync<Indexed> =>

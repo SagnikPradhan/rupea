@@ -15,15 +15,7 @@ import { parse, parseTree } from '../domain/parser';
 import { print } from '../domain/printer';
 import type { Ledger, RupeaFile, RupeaTransaction } from '../domain/types';
 import { openFolder } from './ledger';
-import {
-	exclusively,
-	indexEach,
-	indexFile,
-	listLedgerFiles,
-	settle,
-	unindex,
-	type Indexed,
-} from './sync';
+import { indexFile, listLedgerFiles, reindex, unindex, type Indexed } from './sync';
 
 export const listFiles = (l: Ledger): ResultAsync<Batch<RupeaFile>> =>
 	openFolder({ ledger: l, folder: 'files' }).andThen((s) =>
@@ -73,7 +65,7 @@ export const createFile = ({ ledger, key, content }: CreateFileOptions): ResultA
 export const importFile = ({ ledger, key, content }: CreateFileOptions): ResultAsync<RupeaFile> =>
 	openFolder({ ledger, folder: 'files' })
 		.andThen((s) => writeNumberedText(s, key, content))
-		.andTee((f) => indexAndSettle(ledger.id, f));
+		.andTee((f) => reindexFile(ledger.id, f));
 
 type EditFileOptions = { ledger: Ledger; key: string; content: string; version: string };
 
@@ -118,7 +110,7 @@ export const addFile = ({ ledger, from, to }: AddFileOptions): ResultAsync<Addit
 					f ? mergeFile(s, ledger.id, d, f) : moveDraft(s, ledger.id, d, to),
 				),
 			)
-			.andTee((c) => settleChange(ledger.id, c))
+			.andTee((c) => reindex({ ledgerId: ledger.id, steps: c.steps }))
 			.map((c) => c.value),
 	);
 
@@ -143,15 +135,10 @@ type WriteFileOptions = {
 const writeFile = ({ ledger, key, content, ifVersion }: WriteFileOptions): ResultAsync<RupeaFile> =>
 	openFolder({ ledger, folder: 'files' })
 		.andThen((s) => writeText(s, { key, content, ifVersion }))
-		.andTee((f) => indexAndSettle(ledger.id, f));
+		.andTee((f) => reindexFile(ledger.id, f));
 
-const settleChange = <T>(id: string, c: Changed<T>) =>
-	exclusively(id, () => c.index().andThen((i) => settle({ ledgerId: id, indexed: i })));
-
-const indexAndSettle = (id: string, f: RupeaFile) =>
-	exclusively(id, () =>
-		indexFile({ ledgerId: id, file: f }).andThen((i) => settle({ ledgerId: id, indexed: i })),
-	);
+const reindexFile = (id: string, f: RupeaFile) =>
+	reindex({ ledgerId: id, steps: [() => indexFile({ ledgerId: id, file: f })] });
 
 // A move between counted and review folders changes what the file counts, so
 // it is indexed again; otherwise only its key changes.
@@ -161,12 +148,14 @@ const moveFile = (storage: Storage, ledgerId: string, { from, to }: Move) =>
 		.andThen(() => readText(storage, to))
 		.map((file) => ({
 			value: file,
-			index: () =>
-				DB.renameIndexedFile(ledgerId, from, to).andThen((t) =>
-					isCounted(from) === isCounted(to)
-						? okAsync({ failed: [], ...t })
-						: indexFile({ ledgerId, file }),
-				),
+			steps: [
+				() =>
+					DB.renameIndexedFile(ledgerId, from, to).andThen((t) =>
+						isCounted(from) === isCounted(to)
+							? okAsync({ failed: [], ...t })
+							: indexFile({ ledgerId, file }),
+					),
+			],
 		}));
 
 const moveDraft = (
@@ -204,26 +193,23 @@ const mergeFile = (
 					before: file.content,
 					draft: draft.content,
 				},
-				index: () =>
-					indexEach([
-						() => indexFile({ ledgerId, file: written }),
-						() => unindex({ ledgerId, key: draft.key }),
-					]),
+				steps: [
+					() => indexFile({ ledgerId, file: written }),
+					() => unindex({ ledgerId, key: draft.key }),
+				],
 			})),
 	);
 
 const deleteFile = (s: Storage, id: string, k: string) =>
-	s.delete(k).map(() => ({ value: k, index: () => unindex({ ledgerId: id, key: k }) }));
+	s.delete(k).map(() => ({ value: k, steps: [() => unindex({ ledgerId: id, key: k })] }));
 
-type Changed<T> = { value: T; index: () => ResultAsync<Indexed> };
+type Changed<T> = { value: T; steps: (() => ResultAsync<Indexed>)[] };
 
 // Every file is changed first, then all are indexed and settled together. If
 // that fails, the next sync picks them up.
 const changeEach = <T>(ledgerId: string, steps: (() => ResultAsync<Changed<T>>)[]) =>
 	batchInOrder(steps).andThen((b) =>
-		exclusively(ledgerId, () =>
-			indexEach(b.succeeded.map((c) => c.index)).andThen((i) => settle({ ledgerId, indexed: i })),
-		)
+		reindex({ ledgerId, steps: b.succeeded.flatMap((c) => c.steps) })
 			.orElse((e) => ok([e]))
 			.map((f) => ({ succeeded: b.succeeded.map((c) => c.value), failed: [...b.failed, ...f] })),
 	);

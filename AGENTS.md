@@ -2,7 +2,7 @@
 
 Rupea is open source and meant to read obviously to a newcomer. Prefer plain TypeScript over bespoke helpers, and names that state how they differ from their siblings. Keep names short.
 
-Domain terms are in [GLOSSARY.md](GLOSSARY.md), decisions in [docs/adr](docs/adr), direction in [ROADMAP.md](ROADMAP.md), kept by `/pm`.
+Domain terms are in [GLOSSARY.md](GLOSSARY.md), decisions in [docs/adr](docs/adr), events, subscriptions, loops and jobs in [docs/architecture.md](docs/architecture.md), direction in [ROADMAP.md](ROADMAP.md), kept by `/pm`.
 
 ## Project constraints
 

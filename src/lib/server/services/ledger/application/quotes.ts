@@ -20,15 +20,21 @@ export const fetchQuotes = ({ symbolId }: FetchQuotesOptions): ResultAsync<void>
 		const feed = s && FEEDS[s.feed];
 		if (!s || !feed) return okAsync();
 
-		return withContext('fetch')((fetch) =>
+		return withContext(
+			'fetch',
+			'logger',
+		)(({ fetch, logger }) =>
 			DB.findLatestQuote(s.id)
 				.andThen((d) => feed.listQuotes(fetch, s.symbol, d))
 				.andThen((q) => DB.saveQuotes(s.id, feed.source, q))
 				.andThen(() => DB.saveFetch(s.id, null))
 				.orElse((e) =>
 					DB.saveFetch(s.id, e)
-						.andThen(() => errAsync(e))
-						.mapErr(() => e),
+						.orElse((error) => {
+							logger.warn({ error, symbol: s.symbol }, 'fetch not recorded');
+							return okAsync();
+						})
+						.andThen(() => errAsync(e)),
 				),
 		);
 	});

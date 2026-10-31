@@ -74,6 +74,10 @@ describe('reading a time', () => {
 		['HH:mm:ss', '14:30:15', '14:30:15'],
 		['h:mm a', '2:30 PM', '14:30'],
 		['h:mm a', '12:15 am', '00:15'],
+		['h:mm aa', '2:30 PM', '14:30'],
+		['h:mm aaa', '2:30 pm', '14:30'],
+		['h:mm aaaa', '2:30 p.m.', '14:30'],
+		['h:mm aaaaa', '2:30 p', '14:30'],
 	])('parses %j / %j', (fmt, txt, tim) => {
 		expect(parseTime({ format: fmt, text: txt })).toEqual(Temporal.PlainTime.from(tim));
 	});

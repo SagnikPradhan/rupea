@@ -22,8 +22,10 @@
 			{/each}
 		</ol>
 	</nav>
-	<h1>{@render children()}</h1>
-	{#if actions}<div class="actions">{@render actions()}</div>{/if}
+	<div class="title">
+		<h1>{@render children()}</h1>
+		{#if actions}<div class="actions">{@render actions()}</div>{/if}
+	</div>
 </header>
 
 <style>
@@ -65,6 +67,13 @@
 		text-decoration: underline;
 	}
 
+	.title {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--gap-group);
+		align-items: end;
+	}
+
 	h1 {
 		display: flex;
 		flex-wrap: wrap;
@@ -76,6 +85,7 @@
 
 	.actions {
 		display: flex;
+		margin-left: auto;
 		flex-wrap: wrap;
 		gap: var(--gap-label);
 		align-items: center;

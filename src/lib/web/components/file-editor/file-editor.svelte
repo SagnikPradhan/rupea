@@ -172,8 +172,12 @@
 	}
 
 	.toolbar span {
-		margin-left: auto;
+		margin-left: var(--gap-label);
 		align-self: center;
+	}
+
+	.toolbar span:empty {
+		display: none;
 	}
 
 	.conflict {

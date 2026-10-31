@@ -88,6 +88,29 @@ Avoid comments. Names and structure should explain the code, so when something s
 
 A short JSDoc on a public interface is welcome, since it shows on hover. Keep it to one line, and don't restate what the name and types already say.
 
+## Web
+
+Every screen answers to [Laws of UX](https://lawsofux.com/). Name the law when reviewing a page, and don't call a page done until you have viewed it and checked each one.
+
+| Law                   | What it requires here                                                                                               |
+| --------------------- | ------------------------------------------------------------------------------------------------------------------- |
+| Jakob's law           | Navigation is in the top bar, a page's primary action at the title's right, search at the top of a list             |
+| Fitts's law           | Links and controls are large enough to hit, and an action sits next to what it acts on                              |
+| Hick's law            | Few choices in view, and rare options behind one button                                                             |
+| Miller's law          | Group long lists and rows of choices into small chunks                                                              |
+| Proximity             | Related things sit close and unrelated things apart: a label by its title, a number by its text                     |
+| Similarity            | One job, one look: every level of navigation is one size, every current page is marked one way, every label matches |
+| Common region         | Never draw a box or line to group things that space and alignment already group. No line under the top bar          |
+| Uniform connectedness | Shared columns connect things across a page, without boxes around them                                              |
+| Prägnanz              | A screen reads as one simple shape at a glance, with its weight spread evenly and nothing stranded                  |
+| Serial position       | The first and last places in a row hold what matters most                                                           |
+| Von Restorff          | One thing stands out per screen: one display size, one primary button                                               |
+| Tesler's law          | Rupea absorbs the complexity: plain words first, ledger terms behind an advanced path                               |
+| Doherty threshold     | Show a response at once, and show the result itself rather than a toast                                             |
+| Aesthetic-usability   | A composed page feels easier, but never replaces being easier                                                       |
+
+Check a layout's attention with `pip install hotgaze` and `hotgaze run screenshot.png`: the page's main content and primary action should be hot, and chrome should not.
+
 ## Commits
 
 Conventional commits with a lower-case subject, enforced by commitlint. Body lines are at most 72 characters.

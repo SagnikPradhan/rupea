@@ -144,3 +144,19 @@ test('moves and deletes many files at once', async ({ signedIn: page, ledger }) 
 		.click();
 	await expect(page.getByText('No files yet.')).toBeVisible();
 });
+
+test('keeps the ledger links in the top bar and the primary action beside the title', async ({
+	signedIn: page,
+	ledger,
+}) => {
+	await visit(page, `${ledger}/files`);
+
+	await expect(
+		page.getByRole('banner').first().getByRole('navigation', { name: 'Ledgers' }),
+	).toBeVisible();
+
+	const title = await page.getByRole('heading', { name: 'Files' }).boundingBox();
+	const action = await page.getByRole('button', { name: 'New file' }).boundingBox();
+	expect(action!.y).toBeLessThan(title!.y + title!.height);
+	expect(action!.x).toBeGreaterThan(title!.x + title!.width);
+});

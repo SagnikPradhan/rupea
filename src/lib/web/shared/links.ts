@@ -15,3 +15,24 @@ export const hrefWith = (params: Iterable<[string, string]>, changes: Record<str
 	const merged = { ...Object.fromEntries(params), ...changes };
 	return `?${new URLSearchParams(Object.entries(merged).filter(([, value]) => value))}`;
 };
+
+/** A ledger's pages, grouped; a group leads to its first page and lists the rest beneath. */
+export const PAGE_GROUPS = [
+	{ label: 'Accounts', pages: [{ path: 'accounts', label: 'Accounts' }] },
+	{ label: 'Expenses', pages: [{ path: 'expenses', label: 'Expenses' }] },
+	{
+		label: 'Transactions',
+		pages: [
+			{ path: 'transactions', label: 'Transactions' },
+			{ path: 'postings', label: 'Postings' },
+		],
+	},
+	{
+		label: 'Files',
+		pages: [
+			{ path: 'files', label: 'Files' },
+			{ path: 'import', label: 'Import' },
+			{ path: 'refine', label: 'Refine' },
+		],
+	},
+];

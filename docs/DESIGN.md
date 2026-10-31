@@ -167,9 +167,9 @@ Corners are soft only on what you can interact with, and on product screenshots.
 
 ## Pages and lists
 
-Every app page is a breadcrumb, a title, its actions, then its content, in that order and in the same place. `PageHeader` draws the first three. A page with no actions leaves the row out. An action that belongs to a list, such as adding to it, sits at the end of its search row, not in the page's actions, so the eye doesn't have to cross a gap to find it.
+Every app page is a breadcrumb, a title, its actions, then its content, in that order and in the same place. `PageHeader` draws the first three, with the actions on the title's row at the right edge. A page's primary action is always there, and a list's is at the end of its search row, so it is always on the right edge. An action that belongs to a list, such as adding to it, sits at the end of its search row, not in the page's actions, so the eye doesn't have to cross a gap to find it.
 
-The header is the same on the app and the site: `.brand` on the left, at the same height (`--bar-height`), on the same left edge, over one hairline. The grid's outer margin is `--inset` on both.
+The header is the same on the app and the site: `.brand` on the left, then its links, at the same height (`--bar-height`), on the same left edge, with no line under it. The grid's outer margin is `--inset` on both.
 
 The top of a page has one vertical rhythm on the app and the site. A small label sits `--gap-group` above its title, and the title sits `--gap-group` above what it introduces. Only the title's size changes: statement in the app, display on the site's hero. Nothing beside a title may be taller than it, or it pushes the title away from its label. Every control is one height, because all of them take the page's line height.
 
@@ -229,18 +229,7 @@ A state appears in the page's normal text at its normal position.
 
 ## Laws of UX
 
-[Laws of UX](https://lawsofux.com/) names the rules these pages rely on. Use the names in reviews.
-
-| Law                   | Here                                                                                  |
-| --------------------- | ------------------------------------------------------------------------------------- |
-| Proximity             | Things that belong together sit together: an action by its list, a number by its text |
-| Similarity            | The same thing looks the same everywhere: one logo, one filter row, one header        |
-| Uniform connectedness | Lines and shared columns connect things without boxes around them                     |
-| Prägnanz              | A screen reads as one simple shape at a glance                                        |
-| Jakob's law           | A button is a button, a link is a link, and search is at the top of a list            |
-| Hick's law            | Every choice is in view, with few of them, and rare options behind one button         |
-| Fitts's law           | Controls are generous, and actions sit next to what they act on                       |
-| Aesthetic-usability   | A composed page feels easier, but never replaces being easier                         |
+The laws and what each one requires here are in [AGENTS.md](../AGENTS.md#web). Use their names in reviews.
 
 ## Words and selling
 

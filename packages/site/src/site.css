@@ -23,12 +23,7 @@
 	min-height: var(--bar-height);
 }
 
-header.bar {
-	border-bottom: 1px solid var(--color-border);
-}
-
 footer.bar {
-	border-top: 1px solid var(--color-border);
 	color: var(--color-muted);
 }
 

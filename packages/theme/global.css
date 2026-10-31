@@ -173,10 +173,6 @@ a.plain:hover {
 	gap: var(--gap-label);
 }
 
-.picker > span {
-	color: var(--color-muted);
-}
-
 .picker > nav {
 	display: flex;
 	flex-wrap: wrap;
@@ -241,6 +237,7 @@ code {
 }
 
 .label,
+.picker > span,
 .labelled thead th {
 	margin: 0;
 	color: var(--color-muted);

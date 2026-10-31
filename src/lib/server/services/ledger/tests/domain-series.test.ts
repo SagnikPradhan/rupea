@@ -16,6 +16,6 @@ describe('series', () => {
 	});
 
 	it('takes sixteen bytes a day', () => {
-		expect(writeSeries([1n, 2n, 3n]).length).toBe(48);
+		expect(writeSeries([1n, 2n, 3n])).toHaveLength(48);
 	});
 });

@@ -246,7 +246,7 @@ const rewriteBalances = async (
 	);
 
 	for (const chunk of chunks(rows, ROWS_WRITTEN))
-		await tx.insertInto('balanceYears').values(chunk).execute();
+		await tx.insertInto('balanceYears').values(chunk).execute(); // NOSONAR -- a transaction's statements share one connection, so they run in turn
 };
 
 const daysIn = (y: number) => Temporal.PlainDate.from({ year: y, month: 1, day: 1 }).daysInYear;
@@ -319,23 +319,25 @@ export type PriceChange = { symbolId: string; date: string };
  * gets all its years, not only these.
  */
 export const rewritePriceYears = async (tx: Database, changes: PriceChange[]) => {
-	const changed = [...new Set(changes.map((c) => c.symbolId))].toSorted();
-	for (const id of changed)
-		await sql`select pg_advisory_xact_lock(hashtextextended(${id}, 0))`.execute(tx);
+	const locked = [...new Set(changes.map((c) => c.symbolId))].toSorted((a, b) =>
+		a.localeCompare(b),
+	);
+	for (const id of locked)
+		await sql`select pg_advisory_xact_lock(hashtextextended(${id}, 0))`.execute(tx); // NOSONAR -- locks must be taken in this order, or writers can deadlock
 
-	const unbuilt = await unbuiltPrices(tx, changed);
+	const unbuilt = await unbuiltPrices(tx, locked);
 	const years = Map.groupBy([...changes, ...unbuilt], (c) => Temporal.PlainDate.from(c.date).year);
 
 	for (const [year, changed] of years) {
 		const symbols = [...new Set(changed.map((c) => c.symbolId))];
 
-		await tx
+		await tx // NOSONAR -- a transaction's statements share one connection, so they run in turn
 			.deleteFrom('priceYears')
 			.where('year', '=', year)
 			.where((e) => anyOf(e.ref('symbolId'), symbols, 'uuid'))
 			.execute();
 
-		const found = await tx
+		const found = await tx // NOSONAR -- a transaction's statements share one connection, so they run in turn
 			.selectFrom('prices as p')
 			.select(['p.symbolId', 'p.date', 'p.priceAmount', 'p.priceCommodity'])
 			.where((e) => anyOf(e.ref('p.symbolId'), symbols, 'uuid'))
@@ -373,6 +375,6 @@ export const rewritePriceYears = async (tx: Database, changes: PriceChange[]) =>
 		});
 
 		for (const chunk of chunks(rows, ROWS_WRITTEN))
-			await tx.insertInto('priceYears').values(chunk).execute();
+			await tx.insertInto('priceYears').values(chunk).execute(); // NOSONAR -- a transaction's statements share one connection, so they run in turn
 	}
 };

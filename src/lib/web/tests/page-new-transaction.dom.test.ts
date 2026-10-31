@@ -56,6 +56,12 @@ describe('the add transaction page', () => {
 		expect((await fileBox()).value).toBe('transactions.rupea');
 	});
 
+	it('cancels back to the transactions', async () => {
+		await opened();
+		const cancel = await screen.findByRole('link', { name: 'Cancel' });
+		expect(cancel.getAttribute('href')).toBe('/l/h/transactions');
+	});
+
 	it('shows what is wrong beside its box, without asking the server', async () => {
 		await opened();
 		await save();

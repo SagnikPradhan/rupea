@@ -6,6 +6,7 @@
 		listSuggestions,
 	} from '#lib/endpoints/refinement.remote.ts';
 	import type { RupeaError } from '#lib/server/shared/result/error.ts';
+	import Field from '#lib/web/components/field/field.svelte';
 	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
 	import { detail } from '#lib/web/shared/errors.ts';
 	import { fileHref, ledgerCrumb } from '#lib/web/shared/links.ts';
@@ -66,18 +67,19 @@
 
 <PageHeader trail={[ledgerCrumb(data.ledger)]}>Refine</PageHeader>
 
-<label>
-	Find matches for
-	<select
-		value={file ?? ''}
-		onchange={(e) => goto(`?file=${encodeURIComponent(e.currentTarget.value)}`)}
-	>
-		<option value="" disabled>Choose a file</option>
-		{#each files.data ?? [] as f (f.key)}
-			<option value={f.key}>{f.key}</option>
-		{/each}
-	</select>
-</label>
+<div class="file">
+	<Field label="Find matches for">
+		<select
+			value={file ?? ''}
+			onchange={(e) => goto(`?file=${encodeURIComponent(e.currentTarget.value)}`)}
+		>
+			<option value="" disabled>Choose a file</option>
+			{#each files.data ?? [] as f (f.key)}
+				<option value={f.key}>{f.key}</option>
+			{/each}
+		</select>
+	</Field>
+</div>
 
 {#each [...(response?.errors ?? []), ...failures.list] as error, i (i)}
 	<p role="alert">{detail(error)}</p>
@@ -87,29 +89,78 @@
 	{#if suggestions.length === 0}
 		<p>No possible matches for {file}.</p>
 	{:else}
-		<p>
-			{suggestions.length} possible {suggestions.length === 1 ? 'match' : 'matches'}.
-			<button onclick={() => accept(duplicates)} disabled={duplicates.length === 0}>
-				Accept all {duplicates.length} duplicates
-			</button>
-			<button onclick={() => accept(suggestions)}>Accept all</button>
-		</p>
+		<div class="summary">
+			<p>{suggestions.length} possible {suggestions.length === 1 ? 'match' : 'matches'}.</p>
+			<div class="actions">
+				<button onclick={() => accept(duplicates)} disabled={duplicates.length === 0}>
+					Accept all {duplicates.length} duplicates
+				</button>
+				<button onclick={() => accept(suggestions)}>Accept all</button>
+			</div>
+		</div>
 
 		{#each suggestions as s (s.fingerprint)}
 			<article aria-label="Match {s.ours.file}:{s.ours.line}">
 				<h2>{s.confidence === 'duplicate' ? 'Duplicate' : 'Possible match'}: {s.group}</h2>
-				<div style="display: flex; gap: var(--gap-group)">
+				<div class="sides">
 					{@render side(s.ours, roleAt(s, s.ours), s.group)}
 					{@render side(s.theirs, roleAt(s, s.theirs), s.group)}
 				</div>
-				<button onclick={() => accept([s])}>Accept</button>
-				{#if s.links.length === 2}
-					<button onclick={() => (swapped[s.fingerprint] = !swapped[s.fingerprint])}>
-						Swap primary
-					</button>
-				{/if}
-				<button onclick={() => dismiss(s)}>Dismiss</button>
+				<div class="actions">
+					<button onclick={() => accept([s])}>Accept</button>
+					{#if s.links.length === 2}
+						<button onclick={() => (swapped[s.fingerprint] = !swapped[s.fingerprint])}>
+							Swap primary
+						</button>
+					{/if}
+					<button onclick={() => dismiss(s)}>Dismiss</button>
+				</div>
 			</article>
 		{/each}
 	{/if}
 {/if}
+
+<style>
+	.file {
+		grid-column: 1 / span 6;
+	}
+
+	select {
+		width: 100%;
+	}
+
+	.summary {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--gap-related);
+		align-items: center;
+		justify-content: space-between;
+	}
+
+	.summary p,
+	h2 {
+		margin: 0;
+	}
+
+	.actions {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--gap-related);
+	}
+
+	article {
+		display: flex;
+		flex-direction: column;
+		gap: var(--gap-related);
+	}
+
+	.sides {
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(min(100%, 24rem), 1fr));
+		gap: var(--gap-group);
+	}
+
+	pre {
+		overflow-x: auto;
+	}
+</style>

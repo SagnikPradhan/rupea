@@ -1,18 +1,24 @@
 <script lang="ts" module>
 	/** A `date` or `amount` column fits its widest cell; the others share what is left. */
-	export type Column = { label: string; kind?: 'date' | 'amount'; optional?: boolean };
+	export type Column = { label: string; kind?: 'date' | 'amount' | 'source'; optional?: boolean };
 </script>
 
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	type Props = { columns: Column[]; label?: string; children: Snippet };
+	type Props = {
+		columns: Column[];
+		label?: string;
+		/** Amount columns share the width evenly, so a short table leaves no hole in its middle. */
+		spread?: boolean;
+		children: Snippet;
+	};
 
-	const { columns, label, children }: Props = $props();
+	const { columns, label, spread = false, children }: Props = $props();
 </script>
 
 <div>
-	<table class="labelled" aria-label={label}>
+	<table class="labelled" class:spread aria-label={label}>
 		<thead>
 			<tr>
 				{#each columns as column (column.label)}
@@ -63,6 +69,10 @@
 	table :global(:is(.date, .amount)) {
 		width: 1%;
 		white-space: nowrap;
+	}
+
+	table.spread :global(.amount) {
+		width: 25%;
 	}
 
 	table :global(td.date) {

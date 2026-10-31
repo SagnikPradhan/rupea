@@ -11,10 +11,7 @@
 }
 
 .wide {
-	max-width: var(--grid-max);
-	margin-inline: auto;
-	padding-inline: var(--gap-group);
-	box-sizing: border-box;
+	padding-inline: var(--inset);
 }
 
 .bar > .wide {
@@ -23,7 +20,7 @@
 	align-items: center;
 	justify-content: space-between;
 	gap: var(--gap-group);
-	padding-block: var(--gap-related);
+	min-height: var(--bar-height);
 }
 
 header.bar {
@@ -63,15 +60,6 @@ footer.bar nav {
 .bar nav {
 	display: flex;
 	gap: var(--gap-group);
-}
-
-.brand {
-	display: inline-flex;
-	align-items: center;
-	gap: var(--gap-label);
-	font-family: var(--font-heading);
-	font-size: var(--text-heading);
-	font-weight: 500;
 }
 
 .docs {

@@ -45,6 +45,7 @@
 		columns={[
 			{ label: 'Date', kind: 'date' },
 			{ label: 'Account' },
+			{ label: 'Source', kind: 'source', optional: true },
 			{ label: 'Amount', kind: 'amount' },
 		]}
 		{list}
@@ -59,12 +60,14 @@
 					<th scope="row">
 						<Account account={posting.account} />
 					</th>
+					<Source {handle} file={posting.file} line={posting.line} column />
 					<Amount value={posting.quantity} />
 				</tr>
 				<tr class="child">
 					<td></td>
 					<td class="truncate" title={posting.description}>{posting.description}</td>
-					<Source {handle} file={posting.file} line={posting.line} />
+					<td class="optional"></td>
+					<td></td>
 				</tr>
 			{/if}
 		{/snippet}

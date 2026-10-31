@@ -30,19 +30,17 @@
 	const list = $derived(paged(first, (after) => listTransactions({ handle, day, filter, after })));
 </script>
 
-<PageHeader trail={[ledgerCrumb(data.ledger)]}>
-	Transactions
-	{#snippet actions()}
-		<a class="button" href="/l/{handle}/transactions/new">Add</a>
-	{/snippet}
-</PageHeader>
+<PageHeader trail={[ledgerCrumb(data.ledger)]}>Transactions</PageHeader>
 
 <FilterRail>
 	{#snippet filters()}
 		<ListFilter {filter} accounts={accounts.data ?? []} today={day} first={earliest} />
 	{/snippet}
 
-	<ListSearch {filter} />
+	<div class="tools">
+		<ListSearch {filter} />
+		<a class="button" href="/l/{handle}/transactions/new">Add</a>
+	</div>
 
 	<Issues {handle} errors={[...issues.errors, ...list.errors]} />
 
@@ -50,6 +48,7 @@
 		columns={[
 			{ label: 'Date', kind: 'date' },
 			{ label: 'Description' },
+			{ label: 'Source', kind: 'source', optional: true },
 			{ label: 'Amount', kind: 'amount' },
 		]}
 		{list}
@@ -73,7 +72,8 @@
 						{transaction.description}
 						{#if transaction.comment}<span class="comment">; {transaction.comment}</span>{/if}
 					</th>
-					<Source {handle} file={transaction.file} line={transaction.line} />
+					<Source {handle} file={transaction.file} line={transaction.line} column />
+					<td></td>
 				</tr>
 				{#each transaction.postings as posting, position (position)}
 					<tr class="child" class:evidence={!transaction.counted}>
@@ -81,6 +81,7 @@
 						<td>
 							<Account account={posting.account} />
 						</td>
+						<td class="optional"></td>
 						<Amount value={posting.quantity} />
 					</tr>
 				{/each}
@@ -90,6 +91,15 @@
 </FilterRail>
 
 <style>
+	.tools {
+		display: flex;
+		gap: var(--gap-related);
+	}
+
+	.tools > :global(form) {
+		flex: 1;
+	}
+
 	tr.child td {
 		overflow-wrap: break-word;
 	}

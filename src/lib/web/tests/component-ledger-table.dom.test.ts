@@ -79,4 +79,11 @@ describe('a source', () => {
 		expect(link.textContent?.trim()).toBe('aug.rupea:4');
 		expect(link.getAttribute('href')).toBe('/l/h/files?file=bank%2Faug.rupea&line=4');
 	});
+
+	it('takes a column of its own, which a narrow window can hide', () => {
+		render(Source, { handle: 'h', file: 'bank/aug.rupea', line: 4, column: true });
+
+		expect(cell().classList.contains('column')).toBe(true);
+		expect(cell().classList.contains('optional')).toBe(true);
+	});
 });

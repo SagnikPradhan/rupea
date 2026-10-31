@@ -1,10 +1,18 @@
 <script lang="ts">
 	import { fileHref } from '#lib/web/shared/links.ts';
 
-	const { handle, file, line }: { handle: string; file: string; line: number } = $props();
+	type Props = {
+		handle: string;
+		file: string;
+		line: number;
+		/** Sits in its own column between the text and the amounts, instead of under an amount. */
+		column?: boolean;
+	};
+
+	const { handle, file, line, column = false }: Props = $props();
 </script>
 
-<td>
+<td class:column class:optional={column}>
 	<a
 		href={fileHref(handle, file, line)}
 		class="plain"
@@ -21,6 +29,11 @@
 		font-size: var(--text-small);
 		text-align: right;
 		white-space: nowrap;
+	}
+
+	td.column {
+		width: 25%;
+		text-align: left;
 	}
 
 	a {

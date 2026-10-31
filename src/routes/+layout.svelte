@@ -21,7 +21,7 @@
 
 <header>
 	<div>
-		<a href="/">Rupea</a>
+		<a class="plain brand" href="/">Rupea</a>
 		<div class="end">
 			{#if data.user}<span>{data.user.username}</span>{/if}
 			{#if page.params.handle}<SyncButton handle={page.params.handle} />{/if}
@@ -45,11 +45,15 @@
 		padding-inline: var(--inset);
 	}
 
+	header {
+		border-bottom: 1px solid var(--color-border);
+	}
+
 	header > div {
 		display: flex;
 		align-items: center;
 		justify-content: space-between;
-		padding-block: var(--gap-label);
+		min-height: var(--bar-height);
 	}
 
 	.end {
@@ -61,13 +65,6 @@
 	.end > span {
 		color: var(--color-muted);
 		font-size: var(--text-small);
-	}
-
-	header a {
-		color: var(--color-ink);
-		font-family: var(--font-heading);
-		font-size: var(--text-heading);
-		text-decoration: none;
 	}
 
 	main {

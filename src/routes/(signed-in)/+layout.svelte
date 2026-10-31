@@ -113,11 +113,4 @@
 	.content > :global(*) {
 		margin-block: 0;
 	}
-
-	/* From this width the rail has room, and every page's content keeps to the same nine columns. */
-	@media (width >= 80rem) {
-		.content > :global(*) {
-			grid-column: 4 / -1;
-		}
-	}
 </style>

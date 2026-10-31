@@ -208,14 +208,13 @@ fields:
 	}
 
 	.sheet {
-		width: fit-content;
-		max-width: 100%;
 		max-height: 40vh;
 		overflow: auto;
 		border: 1px solid var(--color-border);
 	}
 
 	.sheet table {
+		width: 100%;
 		border-collapse: collapse;
 		font-family: var(--font-mono);
 		font-size: var(--text-small);
@@ -231,9 +230,7 @@ fields:
 
 	.sheet td,
 	.sheet thead th:not(:first-child) {
-		width: 14ch;
 		min-width: 14ch;
-		max-width: 14ch;
 		overflow-wrap: anywhere;
 	}
 

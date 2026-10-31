@@ -60,6 +60,17 @@ describe('the transactions page', () => {
 		expect(screen.getByRole('alert').textContent).toContain('This posting can’t be read.');
 	});
 
+	it('sets add beside search, and gives the source a column', async () => {
+		visit('/l/h/transactions');
+		answering([groceries]);
+		render(Page, { data });
+
+		await screen.findByRole('rowheader', { name: /Groceries/ });
+		const add = screen.getByRole('link', { name: 'Add' });
+		expect(add.parentElement?.querySelector('input')).toBeTruthy();
+		expect(screen.getByRole('columnheader', { name: 'Source' })).toBeTruthy();
+	});
+
 	it('shows the comment above a transaction as the file writes it', async () => {
 		visit('/l/h/transactions');
 		answering([commented]);

@@ -22,7 +22,7 @@ Use these words in code, docs and reviews, and no others for the same things.
 | Type     | Data           | Everything else: text, rows, controls                                    |
 | Type     | Small          | Context: labels, dates, sources                                          |
 | Page     | Breadcrumb     | The small capital trail from the ledger down                             |
-| Page     | Actions        | The buttons under a title                                                |
+| Page     | Actions        | The buttons under a title that act on the whole page                     |
 | Page     | Block          | One top-level piece of a page's content                                  |
 | Page     | Rail           | The 3-column filter area beside a page's content                         |
 | Lists    | Lead row       | The large row for the thing itself                                       |
@@ -69,14 +69,22 @@ h1 {
 One proportional grid holds everything, on the app and the site:
 
 - 12 equal columns that scale with the window, with gutters and outer margins of `--gap-group`.
-- Blocks span 3, 4, 6, 8, 9 or 12 columns. In the app the rail spans 3 and the content 9. A form spans 6.
+- Blocks span 3, 4, 6, 8, 9 or 12 columns. A page with a rail gives it 3 and its content 9. A page without one gives its content all 12. Titles always start at column 1.
 - The grid stops growing at `--grid-max` and centres beyond that.
 - A phone has 4 columns, and blocks stack.
 - A table's outer edges sit on grid lines. Its inner columns fit their data.
 
 Every block starts on a column line, and a line once started keeps going down the page, even when it's invisible. Empty space must be a whole number of columns; if you can't say which columns it occupies, it's a mistake. Nothing is squashed below its span or stretched past it.
 
-**Check yours:** Cover the text. Can you still see the columns? Does the left edge hold something, and the right? Is the empty space there because you chose it?
+### Balance
+
+A page is balanced by weight, not by touching its edges. One small number on the right edge fills the grid and still looks like it is hanging on by a thread. Weight is how much ink sits in each part of the width, and how close related things are.
+
+- Spread a page's weight across its span. If half the width has nothing in it, the page is lopsided, whichever half it is.
+- Keep the parts of one row close. When a number sits far from the text it belongs to, give the row a middle column, such as the source, or share the width out evenly between the columns.
+- Expenses is the benchmark: its graph and rail spread weight over the whole page. Compare other pages with it.
+
+**Check yours:** Cover the text. Can you still see the columns? Blur your eyes: is the ink spread evenly, or does it pile up on one side? In any row, does your eye have to jump a gap to connect two things? Is the empty space there because you chose it? Judge every page you touched and every page that shares its layout, not only the one you started with.
 
 ```css
 /* Don't: a width that belongs to no column, leaving a lopsided page */
@@ -159,7 +167,9 @@ Corners are soft only on what you can interact with, and on product screenshots.
 
 ## Pages and lists
 
-Every app page is a breadcrumb, a title, its actions, then its content, in that order and in the same place. `PageHeader` draws the first three. A page with no actions leaves the row out.
+Every app page is a breadcrumb, a title, its actions, then its content, in that order and in the same place. `PageHeader` draws the first three. A page with no actions leaves the row out. An action that belongs to a list, such as adding to it, sits at the end of its search row, not in the page's actions, so the eye doesn't have to cross a gap to find it.
+
+The header is the same on the app and the site: `.brand` on the left, at the same height (`--bar-height`), on the same left edge, over one hairline. The grid's outer margin is `--inset` on both.
 
 Anything listed is the same table: a lead row, part rows, and whitespace between groups. Use `LedgerTable` or `PagedTable`, not a new table. Shared cells, such as an amount or a source link, are one component each.
 
@@ -173,6 +183,7 @@ Reuse these before writing CSS. A component adds layout only: grid, flex and gap
 
 | Need                  | Use                               | See it on            |
 | --------------------- | --------------------------------- | -------------------- |
+| The logo              | `.brand`                          | Every header         |
 | A title and its trail | `PageHeader`                      | Every page           |
 | A labelled input      | `Field`                           | Sign-in, import      |
 | An action             | `Button`, with `primary` if first | Files                |
@@ -186,7 +197,7 @@ Reuse these before writing CSS. A component adds layout only: grid, flex and gap
 
 Mainstream words come first (category, currency), with ledger terms only behind an advanced path such as "Split".
 
-- A form spans 6 columns, and only a large free-text editor goes wider. Controls fill their grid cell, so their edges line up down the form.
+- A form is laid out like a list page: its choice of kind in the rail, its fields in the content, reaching the right edge. A form with no such choice spans 6 columns only if something fills the other 6. Controls fill their grid cell, so their edges line up down the form.
 - Label above the control, in one column. Short pairs like amount and currency can share a row.
 - `--gap-label` from label to control, `--gap-related` between fields, `--gap-group` between groups.
 - Errors go through `Field`, under the control, in negative. One alert sits near submit for failures not tied to a field.
@@ -213,6 +224,21 @@ A state appears in the page's normal text at its normal position.
 | Destructive | A plain button that asks for confirmation inline, in the same place. No modals, and no red fill             |
 | Disabled    | Faint, and only for a temporary state. If the action will never apply, leave it out                         |
 | Success     | Show the result itself, such as the new row or a link to the saved line. No toasts                          |
+
+## Laws of UX
+
+[Laws of UX](https://lawsofux.com/) names the rules these pages rely on. Use the names in reviews.
+
+| Law                   | Here                                                                                  |
+| --------------------- | ------------------------------------------------------------------------------------- |
+| Proximity             | Things that belong together sit together: an action by its list, a number by its text |
+| Similarity            | The same thing looks the same everywhere: one logo, one filter row, one header        |
+| Uniform connectedness | Lines and shared columns connect things without boxes around them                     |
+| Prägnanz              | A screen reads as one simple shape at a glance                                        |
+| Jakob's law           | A button is a button, a link is a link, and search is at the top of a list            |
+| Hick's law            | Every choice is in view, with few of them, and rare options behind one button         |
+| Fitts's law           | Controls are generous, and actions sit next to what they act on                       |
+| Aesthetic-usability   | A composed page feels easier, but never replaces being easier                         |
 
 ## Words and selling
 

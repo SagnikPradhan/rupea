@@ -420,10 +420,20 @@
 		gap: var(--gap-group);
 	}
 
-	/* A plain entry keeps to six columns; split lines are a table and need the page's nine. */
+	/* A plain entry reads like a list page: its kinds in the rail, its fields in the content. */
 	@media (width >= 80rem) {
-		:global(.content) > form:not(.split) {
-			grid-column: 4 / span 6;
+		form:not(.split) {
+			display: grid;
+			grid-template-columns: subgrid;
+			column-gap: var(--gap-group);
+		}
+
+		form:not(.split) > * {
+			grid-column: 4 / -1;
+		}
+
+		form:not(.split) > .kinds {
+			grid-column: 1 / span 3;
 		}
 	}
 
@@ -458,6 +468,7 @@
 	.kinds {
 		display: flex;
 		gap: var(--gap-group);
+		align-items: start;
 	}
 
 	.text-button[aria-pressed='true'] {

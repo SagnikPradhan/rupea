@@ -30,6 +30,7 @@
 	<p>No lots of {commodity} in {account}.</p>
 {:else}
 	<LedgerTable
+		spread
 		columns={[
 			{ label: 'Date', kind: 'date' },
 			{ label: 'Lot' },

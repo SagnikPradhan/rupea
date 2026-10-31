@@ -354,7 +354,7 @@
 				{#if file === null && view.grid.length > 0 && !view.setup}
 					<p class="hint">
 						Read as {view.schema?.key}.
-						<button class="link" onclick={() => (view.setup = true)}>
+						<button class="text-button" onclick={() => (view.setup = true)}>
 							Read it with another schema
 						</button>
 					</p>
@@ -428,14 +428,5 @@
 	.toolbar input {
 		flex: 1;
 		min-width: 0;
-	}
-
-	.link {
-		padding: 0;
-		border: none;
-		background: none;
-		color: var(--color-ink);
-		font: inherit;
-		text-decoration: underline;
 	}
 </style>

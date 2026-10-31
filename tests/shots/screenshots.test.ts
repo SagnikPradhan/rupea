@@ -247,6 +247,7 @@ const PAGES: Record<string, string> = {
 	expenses: 'expenses?at=2025',
 	'expenses-flow': 'expenses?at=2025&chart=alluvial',
 	transactions: 'transactions',
+	'new-transaction': 'transactions/new',
 	postings: 'postings?account=Expenses%3AFood',
 	files: 'files?file=investments.rupea',
 };

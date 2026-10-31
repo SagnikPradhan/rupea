@@ -185,11 +185,12 @@
 			<Field label="Value" issues={issuesAt(`${path}.${index}.value`)}>
 				<input bind:value={entry.value} />
 			</Field>
-			<button type="button" class="link" onclick={() => list.splice(index, 1)}>Remove</button>
+			<button type="button" class="text-button" onclick={() => list.splice(index, 1)}>Remove</button
+			>
 		</div>
 	{/each}
 	<div class="more">
-		<button type="button" class="link" onclick={() => list.push({ key: '', value: '' })}
+		<button type="button" class="text-button" onclick={() => list.push({ key: '', value: '' })}
 			>Add detail</button
 		>
 	</div>
@@ -201,13 +202,13 @@
 	{/each}
 {/snippet}
 
-<form onsubmit={save} novalidate>
+<form class:split={status.split} onsubmit={save} novalidate>
 	{#if !status.split}
 		<div class="kinds" role="group" aria-label="Kind">
 			{#each Object.keys(KINDS) as Kind[] as kind (kind)}
 				<button
 					type="button"
-					class="link"
+					class="text-button"
 					aria-pressed={simple.kind === kind}
 					onclick={() => pick(kind)}>{kind}</button
 				>
@@ -255,7 +256,7 @@
 	<div>
 		<button
 			type="button"
-			class="link"
+			class="text-button"
 			aria-label="More details"
 			aria-expanded={status.more}
 			onclick={() => (status.more = !status.more)}
@@ -330,7 +331,7 @@
 						<td class="actions">
 							<button
 								type="button"
-								class="link"
+								class="text-button"
 								aria-label="More about line {index + 1}"
 								aria-expanded={posting.more}
 								onclick={() => (posting.more = !posting.more)}
@@ -340,7 +341,7 @@
 							{#if form.postings.length > 2}
 								<button
 									type="button"
-									class="link"
+									class="text-button"
 									aria-label="Remove line {index + 1}"
 									onclick={() => form.postings.splice(index, 1)}
 								>
@@ -384,13 +385,13 @@
 		</LedgerTable>
 
 		<div>
-			<button type="button" class="link" onclick={() => form.postings.push(blank())}
+			<button type="button" class="text-button" onclick={() => form.postings.push(blank())}
 				>Add line</button
 			>
 		</div>
 	{:else}
 		<div>
-			<button type="button" class="link" onclick={split}>Split into several lines</button>
+			<button type="button" class="text-button" onclick={split}>Split into several lines</button>
 		</div>
 	{/if}
 
@@ -400,6 +401,7 @@
 
 	<div class="submit">
 		<Button primary disabled={createTransaction.pending > 0}>Save</Button>
+		<a class="text-button" href="/l/{handle}/transactions">Cancel</a>
 		{#if status.saved}
 			<p role="status">
 				Saved at
@@ -416,6 +418,13 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--gap-group);
+	}
+
+	/* A plain entry keeps to six columns; split lines are a table and need the page's nine. */
+	@media (width >= 80rem) {
+		:global(.content) > form:not(.split) {
+			grid-column: 4 / span 6;
+		}
 	}
 
 	input:not([type='checkbox']) {
@@ -442,12 +451,16 @@
 		gap: var(--gap-related);
 	}
 
+	.kinds .text-button:not([aria-pressed='true']) {
+		text-decoration: none;
+	}
+
 	.kinds {
 		display: flex;
 		gap: var(--gap-group);
 	}
 
-	.link[aria-pressed='true'] {
+	.text-button[aria-pressed='true'] {
 		color: var(--color-accent);
 		text-decoration: underline 2px;
 		text-underline-offset: var(--gap-tight);
@@ -456,17 +469,6 @@
 	.wide,
 	.more {
 		grid-column: 1 / -1;
-	}
-
-	.link {
-		padding: 0;
-		border: none;
-		background: none;
-		font: inherit;
-	}
-
-	.link:hover {
-		text-decoration: underline;
 	}
 
 	.child .rare {
@@ -504,7 +506,7 @@
 		white-space: nowrap;
 	}
 
-	.actions .link + .link {
+	.actions .text-button + .text-button {
 		margin-left: var(--gap-related);
 	}
 

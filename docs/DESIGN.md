@@ -171,15 +171,16 @@ Graphs have no frame or grid, thin lines, muted axis labels in the data face, an
 
 Reuse these before writing CSS. A component adds layout only: grid, flex and gaps, never its own control sizes.
 
-| Need                  | Use                               | See it on       |
-| --------------------- | --------------------------------- | --------------- |
-| A title and its trail | `PageHeader`                      | Every page      |
-| A labelled input      | `Field`                           | Sign-in, import |
-| An action             | `Button`, with `primary` if first | Files           |
-| A row of choices      | `.picker`, or `PeriodPicker`      | Accounts        |
-| A list                | `LedgerTable`, `PagedTable`       | Transactions    |
-| A column label        | `.label`, `.labelled`             | Accounts        |
-| An amount             | `Amount`                          | Transactions    |
+| Need                  | Use                               | See it on            |
+| --------------------- | --------------------------------- | -------------------- |
+| A title and its trail | `PageHeader`                      | Every page           |
+| A labelled input      | `Field`                           | Sign-in, import      |
+| An action             | `Button`, with `primary` if first | Files                |
+| A secondary action    | `.text-button`                    | The transaction form |
+| A row of choices      | `.picker`, or `PeriodPicker`      | Accounts             |
+| A list                | `LedgerTable`, `PagedTable`       | Transactions         |
+| A column label        | `.label`, `.labelled`             | Accounts             |
+| An amount             | `Amount`                          | Transactions         |
 
 ## Forms
 

@@ -118,10 +118,18 @@ export const indexFile = (
 					postings,
 					metadata: rows.metadata,
 				});
+				const priceChanges = priceChangesFrom(
+					await oldPrices(tx, fileId),
+					prices,
+					readBy === INDEXER,
+				);
 				const before = await touchedBy(tx, [...changes.moved, ...changes.stale, ...unmatched]);
 
 				await tx.deleteFrom('metadata').where('fileId', '=', fileId).execute();
-				await tx.deleteFrom('prices').where('fileId', '=', fileId).execute();
+				await tx
+					.deleteFrom('prices')
+					.where((e) => anyOf(e.ref('id'), priceChanges.stale, 'uuid'))
+					.execute();
 				await tx.deleteFrom('symbolLinks').where('fileId', '=', fileId).execute();
 				await tx.deleteFrom('problems').where('fileId', '=', fileId).execute();
 				await deleteOwnedBy(tx, changes.stale);
@@ -129,7 +137,7 @@ export const indexFile = (
 				await saveTransactions(tx, changes.transactions);
 				await replaceOldTransactions(tx, fileId, unmatched);
 				await insertAll(tx, 'postings', changes.postings);
-				await insertAll(tx, 'prices', prices);
+				await insertAll(tx, 'prices', priceChanges.added);
 				await insertAll(tx, 'symbolLinks', links);
 				await insertAll(tx, 'metadata', changes.metadata);
 				await insertAll(tx, 'problems', problems);
@@ -334,6 +342,39 @@ const heldIn = async (db: Database, fileId: string) => {
 		.execute();
 
 	return heldFrom(postings, metadata);
+};
+
+type PriceHeld = {
+	symbolId: string;
+	line: number | null;
+	date: string;
+	priceAmount: bigint;
+	priceCommodity: string;
+	source: string;
+};
+
+const oldPrices = (db: Database, fileId: string) =>
+	db
+		.selectFrom('prices')
+		.select(['id', 'symbolId', 'line', 'date', 'priceAmount', 'priceCommodity', 'source'])
+		.where('fileId', '=', fileId)
+		.execute();
+
+const priceKey = (p: PriceHeld) =>
+	`${p.symbolId} ${p.line} ${p.date} ${p.priceAmount} ${p.priceCommodity} ${p.source}`;
+
+/** Of a file's prices, those to delete and those to add; all of them when an older indexer read it. */
+const priceChangesFrom = <P extends PriceHeld>(
+	old: (PriceHeld & { id: string })[],
+	prices: P[],
+	current: boolean,
+) => {
+	if (!current) return { stale: old.map((o) => o.id), added: prices };
+
+	const free = Object.groupBy(old, priceKey);
+	const added = prices.filter((p) => !free[priceKey(p)]?.shift());
+
+	return { stale: Object.values(free).flatMap((g) => (g ?? []).map((o) => o.id)), added };
 };
 
 type ChangesOptions<P, M> = {

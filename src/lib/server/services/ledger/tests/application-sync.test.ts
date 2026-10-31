@@ -489,6 +489,62 @@ describe('syncing the ledger', () => {
 			expect(await lots()).toEqual(before);
 		}));
 
+	it('writes only the prices that changed', ({ context, db, storage }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const stored = () =>
+				db
+					.selectFrom('prices as p')
+					.innerJoin('ledgerFiles as f', 'f.id', 'p.fileId')
+					.select(['p.id', 'p.priceAmount'])
+					.where('f.ledgerId', '=', ledger.id)
+					.orderBy('p.line')
+					.execute();
+			const lines = (n: number) =>
+				`P 2026-10-17 INFY 1820\nP 2026-10-18 INFY ${n}\nP 2026-10-18 INFY ${n}\n`;
+
+			await put(storage, ledger, 'a.rupea', lines(1830));
+			await Sync.syncIndex(ledger);
+			const before = await stored();
+
+			await put(storage, ledger, 'a.rupea', lines(1840));
+			await Sync.syncIndex(ledger);
+			const after = await stored();
+
+			expect(after[0]?.id).toBe(before[0]?.id);
+			expect(after.slice(1).map((p) => p.priceAmount)).toEqual([
+				1840_0000000000n,
+				1840_0000000000n,
+			]);
+			expect(after[1]?.id).not.toBe(before[1]?.id);
+		}));
+
+	it('rewrites the prices of a file an older indexer read', ({ context, db, storage }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const stored = () =>
+				db
+					.selectFrom('prices as p')
+					.innerJoin('ledgerFiles as f', 'f.id', 'p.fileId')
+					.select('p.id')
+					.where('f.ledgerId', '=', ledger.id)
+					.execute();
+
+			await put(storage, ledger, 'a.rupea', 'P 2026-10-17 INFY 1820\n');
+			await Sync.syncIndex(ledger);
+			const before = await stored();
+
+			await db
+				.updateTable('ledgerFiles')
+				.set({ indexer: INDEXER - 1 })
+				.execute();
+			await Sync.syncIndex(ledger);
+			const after = await stored();
+
+			expect(after).toHaveLength(1);
+			expect(after).not.toEqual(before);
+		}));
+
 	it('keeps the id of a transaction with a time', ({ context, db, storage }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);

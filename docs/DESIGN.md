@@ -39,13 +39,13 @@ Use the role, never the value. A theme is a swap of the colour table, so a scree
 
 **Space.** One scale for every gap, padding and margin, each a multiple of `--size-2`, 18px: `--size-0` is a quarter, `--size-1` a half, `--size-2` one, `--size-3` one and a half, `--size-4` three, `--size-5` six. There are no in-between values. When none fits, use the nearest step.
 
-**Shape.** One corner, `--radius`, half of `--size-2`, on every panel, field, chip and button.
+**Shape.** One corner, `--radius`, half of `--size-2`, on every panel, field, chip and button. The small box inside a chip takes `--radius-small`, half of `--radius`. Nothing casts a shadow.
 
 ## Pages
 
 Every page is built from the same components, in the same order: the navigation bar, a page header, then panels.
 
-- **Navigation.** The brand at the left, then Home, Accounts, Income, Expenses, Liabilities, Transactions and Files, then the theme toggle, the user and log out. The current page is in ink and the rest are muted. At narrow widths the bar becomes a menu button that opens a drawer.
+- **Navigation.** The brand at the left; Home, Accounts, Income, Expenses, Liabilities, Transactions and Files in the centre; the theme toggle, the username and log out at the right. The current page is in ink and the rest are muted. At narrow widths the bar becomes a menu button that opens a drawer: an outlined card at the top right with the brand, the theme toggle and a close button over plain lists of the pages and the account.
 - **Page header.** The title in `text-heading-1`, one muted line saying what the page answers, then at the right the filters and the one primary action.
 - **Panel.** A `--color-subtle` outline, `--radius`, and `--size-3` of padding and gap. It starts with a panel heading: a `text-title` and one muted line saying what it shows. A panel is the only box; nothing else is boxed.
 - **Figures.** A muted `text-label` over a `text-figure` over a muted `text-data` line of context. A strip of four figures sits across the top of a page. Green and red appear in the context line only when a figure means a gain or a loss.
@@ -56,13 +56,14 @@ Boards exist at 1920, 1280 and 768 wide, in light and dark, and the page follows
 
 ## Controls
 
-- **Button.** A secondary button is outlined in `--color-border` on the surface. The one main action on a page is primary: filled in ink with surface text.
-- **Chip.** A filter that is on or off. On is filled in ink with a check; off is outlined.
+- **Button.** A secondary button is outlined in `--color-border` on the surface. The one main action on a page is primary: filled in ink with surface text. An icon button is a secondary button holding one icon instead of a label, for close and the theme toggle.
+- **Chip.** A filter that is on or off, with a box before its label. On is outlined in ink with a checked box; off is outlined in `--color-border` with an empty box.
 - **Segmented control.** Pick one of a few views. The chosen segment sits on a bordered surface; the others are muted text.
 - **Toggle and checkbox.** A setting, or a selected row. On is ink.
 - **Field.** A muted label over an outlined input.
 - **Search popover.** Results under a search field, with the matching part of an account path in ink.
-- **Filter card.** The filters a chip opens: groups of chips and segments, one toggle for extra options, and a Reset filters button.
+- **Filter card.** A page's filters: groups of chips and segments, and one toggle for extra options.
+- **Filter modal.** What the Filter button in a page header opens: an outlined card at the top right with a title and a close button, the filter card, then Reset and Apply. The page behind it is not dimmed.
 - **Coming soon.** A dashed outline with a title and one muted line, "Needs data Rupea does not read yet". It stands in for a block whose data does not exist, so a page never shows invented numbers.
 
 ## Code

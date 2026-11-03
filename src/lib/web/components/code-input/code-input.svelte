@@ -21,8 +21,8 @@
 	:global(.code .cell) {
 		display: grid;
 		place-items: center;
-		width: var(--size-5);
-		height: var(--size-5);
+		width: var(--size-4);
+		height: var(--size-4);
 		border: 1px solid var(--color-border);
 		border-radius: var(--radius);
 		background-color: var(--color-surface);

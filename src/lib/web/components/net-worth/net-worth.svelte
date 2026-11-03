@@ -118,7 +118,7 @@
 	p.figure {
 		color: var(--color-ink);
 		font-family: var(--font-mono);
-		font-size: min(var(--font-size-display), 12vw);
+		font-size: min(var(--font-size-4), 12vw);
 		font-variant-numeric: tabular-nums;
 		line-height: 1.1;
 		overflow-wrap: anywhere;

@@ -54,7 +54,7 @@
 		flex-direction: column;
 		gap: var(--size-3);
 		align-items: start;
-		margin-top: var(--size-4);
+		margin-top: var(--size-3);
 	}
 
 	.actions {

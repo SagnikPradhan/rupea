@@ -126,7 +126,7 @@
 		flex-direction: column;
 		gap: var(--size-0);
 		padding: var(--size-0);
-		min-height: var(--size-5);
+		min-height: var(--size-4);
 	}
 
 	data {

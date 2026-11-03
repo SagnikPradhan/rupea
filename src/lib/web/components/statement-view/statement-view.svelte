@@ -372,7 +372,7 @@
 	}
 
 	section {
-		gap: var(--size-5);
+		gap: var(--size-4);
 	}
 
 	.group {

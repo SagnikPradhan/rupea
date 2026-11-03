@@ -25,11 +25,11 @@ The evidence is thin in places. Each persona says how strong its evidence is, an
 
 **Where did it go?** Its import work ranks as high as the Investor's.
 
-- **Jobs:** see where the salary went, small UPI payments included. Categories that mostly guess right.
+- **Jobs:** see where the salary went, small UPI payments included. Categories that mostly guess right. Hand over a statement from the phone, from an email or a file, and see where it went.
 - **Triggers:** a first salary, a month where UPI spending ran away, quitting an app after typing every expense.
 - **Must never:** make them type every transaction.
 - **Turned off by:** effort, transactions counted twice, broken capture, ads, asking for a phone number, loan and marketing spam, losing their data.
-- **Evidence:** medium. Spending is what most people track (about 80% of coded comments). Manual-entry fatigue is the top reason people quit. About 12% already use their card or bank statement as the log.
+- **Evidence:** medium. Spending is what most people track (about 80% of coded comments). Manual-entry fatigue is the top reason people quit. About 12% already use their card or bank statement as the log. The phone is where most people say they note spending; whether they want Rupea there is untested.
 
 ## Bookkeeper
 
@@ -63,4 +63,3 @@ Not now means we would do it badly today, not that these people are unwelcome.
 
 - **Futures and options traders:** their tax rules and trade volume are a product of their own.
 - **Freelancers and small businesses:** GST and invoicing pull Rupea toward accounting software.
-- **A phone app:** a lot of work before the web app is done well.

@@ -36,7 +36,7 @@ describe('the period picker', () => {
 			today: TODAY,
 			first: '2024-05-10',
 		});
-		expect(screen.getByRole('link', { name: /^Sep/ }).getAttribute('aria-current')).toBe('page');
+		expect(screen.getByRole('link', { name: /^Sep/ }).className).toContain('on');
 		expect(screen.getByRole('link', { name: '2026' }).getAttribute('aria-current')).toBe('page');
 		expect(screen.queryByRole('link', { name: 'Nov' })).toBeNull();
 	});

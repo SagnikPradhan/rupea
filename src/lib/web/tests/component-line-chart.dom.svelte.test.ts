@@ -99,15 +99,15 @@ describe('the line chart', () => {
 
 	it('captions the other series with their last value, then the one under the cursor', async () => {
 		const { options } = await drawn();
-		expect(caption()).toContain('400.00');
-		expect(caption()).not.toContain('300.00');
+		expect(caption()).toContain('400');
+		expect(caption()).not.toContain('300');
 
 		hover(options, 0);
-		expect(caption()).toContain('150.00');
+		expect(caption()).toContain('150');
 		expect(screen.getByTestId('summary').textContent).toBe('100');
 
 		hover(options, null);
-		expect(caption()).toContain('400.00');
+		expect(caption()).toContain('400');
 		expect(screen.getByTestId('summary').textContent).toBe('300');
 	});
 
@@ -251,7 +251,7 @@ describe('the line chart with parts', () => {
 		options?.hooks?.setCursor?.[0]?.(plot);
 		flushSync();
 
-		expect(screen.getByText('Shares', { selector: '.tip' }).textContent).toMatch(/Shares\s+20\.00/);
+		expect(screen.getByText('Shares', { selector: '.tip' }).textContent).toMatch(/Shares\s+20/);
 		expect(plot.redraw).toHaveBeenCalledOnce();
 		expect(screen.getByRole('figure').querySelectorAll('figcaption .faded')).toHaveLength(2);
 	});

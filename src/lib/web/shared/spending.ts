@@ -26,6 +26,34 @@ type ChartOptions = {
 export const rowsOf = <Total extends { account: string }>(t: Total[], a: string) =>
 	t.filter((r) => isUnder(r.account, a));
 
+/** The top account, then each account under it followed by its own, the largest first at every level. */
+export const largestFirst = <
+	Total extends { account: string; parent: string | null; amount: string },
+>(
+	t: Total[],
+	a: string,
+) => {
+	const children = Object.groupBy(t, (r) => r.parent ?? '');
+	const under = (p: string): Total[] =>
+		(children[p] ?? [])
+			.toSorted((x, y) => Number(y.amount) - Number(x.amount))
+			.flatMap((r) => [r, ...under(r.account)]);
+
+	return [...t.filter((r) => r.account === a), ...under(a)];
+};
+
+/** The rows whose every account above, short of the top one, is opened. */
+export const shownOf = <Total extends { account: string; parent: string | null }>(
+	t: Total[],
+	a: string,
+	opened: string[],
+) => {
+	const parents = Object.fromEntries(t.map((r) => [r.account, r.parent]));
+	const open = (p: string | null): boolean =>
+		p === null || p === a || (opened.includes(p) && open(parents[p] ?? null));
+	return t.filter((r) => r.account === a || open(r.parent));
+};
+
 /** The largest accounts the server draws under one each get a share of every bar, the largest first. */
 export const partsOf = (spending: Spent | undefined, account: string) =>
 	(spending?.totals ?? [])
@@ -67,9 +95,12 @@ export const wholeOf = ({ spending, previous, account, parts }: ChartOptions) =>
 export const totalOf = (s: Spent | undefined, a: string) =>
 	s ? (s.totals.find((t) => t.account === a)?.amount ?? '0') : null;
 
+/** How many days a span covers, counting both of its ends. */
+export const daysIn = (f: string, t: string) =>
+	Math.round((Date.parse(t) - Date.parse(f)) / DAY_MS) + 1;
+
 /** How many average months a span covers, counting both of its days. */
-export const monthsIn = (f: string, t: string) =>
-	((Date.parse(t) - Date.parse(f)) / DAY_MS + 1) / MONTH_DAYS;
+export const monthsIn = (f: string, t: string) => daysIn(f, t) / MONTH_DAYS;
 
 /** What a bar holds, by part; whatever the parts leave, to the paisa, is the other spending. */
 const piled = (

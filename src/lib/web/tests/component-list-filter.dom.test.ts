@@ -11,8 +11,13 @@ const ACCOUNTS = [
 	{ account: 'Assets:Bank', parent: 'Assets' },
 	{ account: 'Expenses', parent: null },
 ];
-const filter = { period: { kind: 'all' as const }, account: 'Assets', description: '' };
-const props = { filter, accounts: ACCOUNTS, today: '2026-10-27', first: '2024-03-05' };
+const props = {
+	period: { kind: 'all' as const },
+	account: 'Assets',
+	accounts: ACCOUNTS,
+	today: '2026-10-27',
+	first: '2024-03-05',
+};
 
 describe('the list filter', () => {
 	it('picks a period in place of the one shown, keeping the account', () => {
@@ -31,7 +36,7 @@ describe('the list filter', () => {
 
 	it('starts a custom period from the days picked', () => {
 		const custom = { kind: 'custom' as const, from: '2026-03-01', to: '2026-03-31' };
-		render(ListFilter, { ...props, filter: { ...filter, period: custom } });
+		render(ListFilter, { ...props, period: custom });
 		expect(screen.getByRole('link', { name: 'Custom' }).getAttribute('href')).toBe(
 			'?account=Assets&from=2026-03-01&to=2026-03-31',
 		);
@@ -39,7 +44,7 @@ describe('the list filter', () => {
 
 	it('offers the accounts the server draws under the one picked', () => {
 		render(ListFilter, props);
-		expect(screen.getByRole('link', { name: 'Assets:Bank' })).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'A: Bank' })).toBeTruthy();
 		expect(screen.queryByRole('link', { name: 'Expenses' })).toBeNull();
 	});
 });

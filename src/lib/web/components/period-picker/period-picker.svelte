@@ -1,8 +1,11 @@
 <script lang="ts">
 	import type { Period } from '#lib/shared/dates.ts';
+	import Chip from '#lib/web/components/chip/chip.svelte';
 	import Button from '#lib/web/components/button/button.svelte';
+	import SegmentedControl from '#lib/web/components/segmented-control/segmented-control.svelte';
 	import { formatMonth } from '#lib/web/shared/format.ts';
 	import { hrefWith } from '#lib/web/shared/links.ts';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 
 	type Props = {
@@ -18,6 +21,7 @@
 
 	const { current, shown, today, first }: Props = $props();
 
+	const MANY = 4;
 	const PICKED = { at: '', range: '', from: '', to: '' };
 	const MONTHS = Array.from({ length: 12 }, (_, i) => String(i + 1).padStart(2, '0'));
 
@@ -46,34 +50,43 @@
 		),
 	);
 
+	const yearHref = (y: string) => hrefOf({ at: current.kind === 'month' ? monthIn(y) : y });
+	const yearSegments = $derived(
+		years.map((y) => ({ name: y, href: yearHref(y), chosen: at.startsWith(y) })),
+	);
+
 	const tabs = $derived({
 		month: { name: 'Month', href: hrefOf({ at: lastMonth }) },
 		year: { name: 'Year', href: hrefOf({ at: today.slice(0, 4) }) },
 		all: { name: 'All', href: hrefOf({ range: 'all' }) },
 		custom: { name: 'Custom', href: hrefOf(shown) },
 	});
+	const segments = $derived(
+		Object.entries(tabs).map(([kind, tab]) => ({ ...tab, chosen: kind === current.kind })),
+	);
 </script>
 
 <div class="picker">
-	<span id="period">Period</span>
-	<nav aria-labelledby="period">
-		{#each Object.entries(tabs) as [kind, tab] (kind)}
-			<a href={tab.href} aria-current={kind === current.kind ? 'page' : undefined}>{tab.name}</a>
-		{/each}
-	</nav>
+	<span>Period</span>
+	<SegmentedControl fill label="Period" {segments} />
 </div>
 
 {#if current.kind === 'month' || current.kind === 'year'}
 	<div class="picker">
-		<span id="year">Year</span>
-		<nav aria-labelledby="year">
-			{#each years as y (y)}
-				<a
-					href={hrefOf({ at: current.kind === 'month' ? monthIn(y) : y })}
-					aria-current={at.startsWith(y) ? 'page' : undefined}>{y}</a
-				>
-			{/each}
-		</nav>
+		<span>Year</span>
+		{#if years.length > MANY}
+			<select
+				aria-label="Year"
+				value={at.slice(0, 4)}
+				onchange={(e) => goto(yearHref(e.currentTarget.value))}
+			>
+				{#each years as y (y)}
+					<option value={y}>{y}</option>
+				{/each}
+			</select>
+		{:else}
+			<SegmentedControl fill label="Year" segments={yearSegments} />
+		{/if}
 	</div>
 {/if}
 
@@ -83,12 +96,8 @@
 		<nav aria-labelledby="month">
 			{#each MONTHS as m (m)}
 				{@const month = `${at.slice(0, 4)}-${m}`}
-				{#if isOutside(month)}
-					<span aria-disabled="true">{formatMonth(`${month}-01`)}</span>
-				{:else}
-					<a href={hrefOf({ at: month })} aria-current={month === at ? 'page' : undefined}
-						>{formatMonth(`${month}-01`)}</a
-					>
+				{#if !isOutside(month)}
+					<Chip href={hrefOf({ at: month })} on={month === at}>{formatMonth(`${month}-01`)}</Chip>
 				{/if}
 			{/each}
 		</nav>
@@ -123,8 +132,8 @@
 {/if}
 
 <style>
-	nav span {
-		color: var(--color-muted);
+	.picker > nav {
+		gap: var(--size-1);
 	}
 
 	form {

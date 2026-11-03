@@ -6,24 +6,21 @@ import PageHeader from '#lib/web/components/page-header/page-header.svelte';
 const text = (html: string) => createRawSnippet(() => ({ render: () => html }));
 
 describe('the page header', () => {
-	it('leads from the ledger down to the page', () => {
-		const trail = [
-			{ href: '/l/h/transactions', label: 'Personal' },
-			{ href: '/l/h/accounts', label: 'Accounts' },
-		];
-		render(PageHeader, { trail, children: text('<span>INFY</span>') });
+	it('titles the page and draws no breadcrumb', () => {
+		render(PageHeader, { children: text('<span>INFY</span>') });
 
-		const crumbs = screen.getByRole('navigation', { name: 'Breadcrumb' });
-		expect([...crumbs.querySelectorAll('a')].map((a) => a.textContent)).toEqual([
-			'Personal',
-			'Accounts',
-		]);
 		expect(screen.getByRole('heading', { level: 1 }).textContent).toBe('INFY');
+		expect(screen.queryByRole('navigation')).toBeNull();
 	});
 
 	it('shows actions only when given', () => {
 		const actions = text('<button>Rename</button>');
-		render(PageHeader, { trail: [], children: text('<span>a</span>'), actions });
+		render(PageHeader, { children: text('<span>a</span>'), actions });
 		expect(screen.getByRole('button', { name: 'Rename' })).toBeTruthy();
+	});
+
+	it('shows a subtitle when given', () => {
+		render(PageHeader, { subtitle: 'What this page answers', children: text('<span>Home</span>') });
+		expect(screen.getByText('What this page answers')).toBeTruthy();
 	});
 });

@@ -14,14 +14,14 @@
 	--size-4: calc(var(--size-2) * 3);
 	--size-5: calc(var(--size-2) * 6);
 
-	--measure: 64rem;
-	--sidebar: 16rem;
-	--plot: 16rem;
-	--plot-short: 12rem;
+	--measure: calc(var(--size-2) * 57);
+	--sidebar: calc(var(--size-2) * 14);
+	--plot: calc(var(--size-2) * 14);
+	--plot-short: calc(var(--size-2) * 10.5);
 	--inset: max(var(--size-3), (100% - var(--measure)) / 2);
-	--inset-end: var(--inset);
 	--radius: calc(var(--size-2) * 0.5);
 	--radius-small: calc(var(--radius) * 0.5);
+	--radius-large: calc(var(--radius) * 1.5);
 
 	--font-body: 'Poppins', sans-serif;
 	--font-heading: 'Google Sans Variable', sans-serif;
@@ -36,16 +36,16 @@
 	--color-positive: light-dark(#0a7a3d, #4cc47f);
 	--color-negative: light-dark(#c62828, #ff7b72);
 	/* Fills ranked by amount, light enough that ink stays above 4.5:1 on the darkest. */
-	--color-shade-1: color-mix(in srgb, var(--color-accent) 12%, transparent);
-	--color-shade-2: color-mix(in srgb, var(--color-accent) 24%, transparent);
-	--color-shade-3: color-mix(in srgb, var(--color-accent) 36%, transparent);
-	--color-shade-4: color-mix(in srgb, var(--color-accent) 48%, transparent);
-	/* Shades of the accent for the parts of a bar, darkest first, each step apart and the palest still clear of the page. */
-	--color-series-1: color-mix(in srgb, var(--color-accent) 90%, var(--color-surface));
-	--color-series-2: color-mix(in srgb, var(--color-accent) 74%, var(--color-surface));
-	--color-series-3: color-mix(in srgb, var(--color-accent) 59%, var(--color-surface));
-	--color-series-4: color-mix(in srgb, var(--color-accent) 45%, var(--color-surface));
-	--color-series-5: color-mix(in srgb, var(--color-accent) 32%, var(--color-surface));
+	--color-shade-1: color-mix(in srgb, var(--color-ink) 6%, transparent);
+	--color-shade-2: color-mix(in srgb, var(--color-ink) 12%, transparent);
+	--color-shade-3: color-mix(in srgb, var(--color-ink) 18%, transparent);
+	--color-shade-4: color-mix(in srgb, var(--color-ink) 24%, transparent);
+	/* Shades of ink for the parts of a bar, darkest first, each step apart and the palest still clear of the page. */
+	--color-series-1: color-mix(in srgb, var(--color-ink) 70%, var(--color-surface));
+	--color-series-2: color-mix(in srgb, var(--color-ink) 50%, var(--color-surface));
+	--color-series-3: color-mix(in srgb, var(--color-ink) 36%, var(--color-surface));
+	--color-series-4: color-mix(in srgb, var(--color-ink) 24%, var(--color-surface));
+	--color-series-5: color-mix(in srgb, var(--color-ink) 14%, var(--color-surface));
 	/* Each bar's edge, its own shade pushed toward ink so a pale fill keeps a clear outline. */
 	--color-series-1-edge: color-mix(in oklab, var(--color-series-1), var(--color-ink) 40%);
 	--color-series-2-edge: color-mix(in oklab, var(--color-series-2), var(--color-ink) 40%);
@@ -60,14 +60,13 @@
 	--color-owed-2-edge: color-mix(in oklab, var(--color-owed-2), var(--color-ink) 40%);
 	--color-owed-3-edge: color-mix(in oklab, var(--color-owed-3), var(--color-ink) 40%);
 	/* One level of a treemap, see-through so each level inside another reads darker. */
-	--color-layer: color-mix(in srgb, var(--color-accent) 22%, transparent);
+	--color-layer: color-mix(in srgb, var(--color-ink) 10%, transparent);
 }
 
-/* A page's filters sit beside the content from this width, so the content gives way to them on the left. */
-@media (width >= 80rem) {
+/* Every size is a multiple of --font-size-1, so this is the one size to change for a screen. */
+@media (width >= 90rem) {
 	:root {
-		--inset: max(var(--size-3) + var(--sidebar) + var(--size-4), (100% - var(--measure)) / 2);
-		--inset-end: max(var(--size-3), (100% - var(--measure)) / 2);
+		--font-size-1: 1rem;
 	}
 }
 
@@ -234,7 +233,7 @@ code {
 }
 
 .text-brand {
-	font: var(--font-size-1) var(--font-heading);
+	font: var(--font-size-1) / 1.2 var(--font-heading);
 }
 
 .label,
@@ -249,7 +248,7 @@ code {
 }
 
 .labelled thead th {
-	border-bottom: 1px solid var(--color-ink);
+	border-bottom: 1px solid var(--color-border);
 }
 
 .tag {

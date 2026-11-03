@@ -7,13 +7,20 @@
 		icon: Component<{ size?: number }>;
 		/** Extra hover text, such as a shortcut. */
 		hint?: string;
+		/** Draws the square outline the theme toggle has. */
+		outlined?: boolean;
 	};
 
-	const { label, icon: Icon, hint, ...rest }: Props = $props();
+	const { label, icon: Icon, hint, outlined = false, ...rest }: Props = $props();
 </script>
 
-<button aria-label={label} title={hint ? `${label} (${hint})` : label} {...rest}>
-	<Icon size={20} />
+<button
+	class={{ outlined }}
+	aria-label={label}
+	title={hint ? `${label} (${hint})` : label}
+	{...rest}
+>
+	<Icon size={outlined ? 18 : 20} />
 </button>
 
 <style>
@@ -23,6 +30,12 @@
 		padding: var(--size-1);
 		border-color: transparent;
 		background: none;
+	}
+
+	.outlined {
+		border-color: var(--color-border);
+		border-radius: var(--radius);
+		color: var(--color-muted);
 	}
 
 	button:hover:not(:disabled) {

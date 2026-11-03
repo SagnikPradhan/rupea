@@ -2,18 +2,11 @@ import type { Bucket } from '#lib/shared/dates.ts';
 
 const LOCALE = 'en-IN';
 
-const rupees = new Intl.NumberFormat(LOCALE, {
-	minimumFractionDigits: 2,
-	maximumFractionDigits: 2,
-});
 const quantities = new Intl.NumberFormat(LOCALE, {
-	minimumFractionDigits: 2,
+	signDisplay: 'negative',
 	maximumFractionDigits: 4,
 });
-const exacts = new Intl.NumberFormat(LOCALE, {
-	minimumFractionDigits: 2,
-	maximumFractionDigits: 20,
-});
+const exacts = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 20 });
 const days = new Intl.DateTimeFormat(LOCALE, {
 	day: 'numeric',
 	month: 'short',
@@ -37,13 +30,18 @@ const months = new Intl.DateTimeFormat(LOCALE, {
 	timeZone: 'UTC',
 });
 const monthNames = new Intl.DateTimeFormat(LOCALE, { month: 'short', timeZone: 'UTC' });
+const longMonths = new Intl.DateTimeFormat(LOCALE, { month: 'long', timeZone: 'UTC' });
+const longDays = new Intl.DateTimeFormat(LOCALE, {
+	day: 'numeric',
+	month: 'long',
+	timeZone: 'UTC',
+});
 const isoDays = new Intl.DateTimeFormat('en-CA');
 const compacts = new Intl.NumberFormat(LOCALE, { notation: 'compact' });
-const shorts = new Intl.NumberFormat(LOCALE, { notation: 'compact', maximumSignificantDigits: 3 });
-const signed = new Intl.NumberFormat(LOCALE, {
+const wholes = new Intl.NumberFormat(LOCALE, { signDisplay: 'negative', maximumFractionDigits: 0 });
+const signedWholes = new Intl.NumberFormat(LOCALE, {
 	signDisplay: 'exceptZero',
-	minimumFractionDigits: 2,
-	maximumFractionDigits: 2,
+	maximumFractionDigits: 0,
 });
 const shares = new Intl.NumberFormat(LOCALE, { style: 'percent', maximumFractionDigits: 1 });
 const percents = new Intl.NumberFormat(LOCALE, {
@@ -54,17 +52,14 @@ const percents = new Intl.NumberFormat(LOCALE, {
 
 const UNITS = ['B', 'kB', 'MB'];
 
-/** Groups an amount like -1250.50 or 10 AAPL, rounding rupees to two places and units, as any amount naming a commodity counts, to four. */
+/** Groups an amount in whole rupees, like 1,250. */
+export const formatWhole = (t: string) => wholes.format(t as Intl.StringNumericLiteral);
+
+/** Groups an amount like -1250.50 or 10 AAPL, rounding rupees to whole ones and units, as any amount naming a commodity counts, to four places. */
 export const formatAmount = (text: string, units = false) => {
 	const [amount = '', ...commodity] = text.split(' ');
-	const format = units || commodity.length > 0 ? quantities : rupees;
+	const format = units || commodity.length > 0 ? quantities : wholes;
 	return [format.format(amount as Intl.StringNumericLiteral), ...commodity].join(' ');
-};
-
-/** Shortens an amount to three digits the Indian way, like 76.4L or 18.7K AABR. */
-export const formatShort = (text: string) => {
-	const [amount = '', ...commodity] = text.split(' ');
-	return [shorts.format(Number(amount)), ...commodity].join(' ');
 };
 
 /** An amount with every digit, for a tooltip, or nothing when what is shown already has them all. */
@@ -108,6 +103,12 @@ export const formatBucket: Record<Bucket, (d: string) => string> = {
 /** Names the month of an ISO day without its year, like Oct. */
 export const formatMonth = (d: string) => monthNames.format(new Date(d));
 
+/** Spells out the month of an ISO day without its year, like October. */
+export const formatMonthName = (d: string) => longMonths.format(new Date(d));
+
+/** Spells out an ISO day without its year, like 31 October. */
+export const formatDayMonth = (d: string) => longDays.format(new Date(d));
+
 /** Formats a number in a few characters, like `12L`, for chart axes. */
 export const formatCompact = (n: number) => compacts.format(n);
 
@@ -128,7 +129,7 @@ export const formatChange = (start: string, end: string) => {
 	const change = Number(end) - from;
 
 	return {
-		amount: signed.format(change),
+		amount: signedWholes.format(change),
 		percent: from > 0 ? formatPercent(change / from) : null,
 		negative: change < 0,
 	};

@@ -1,13 +1,12 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { formatAmount, formatExact, formatShort } from '#lib/web/shared/format.ts';
+	import { formatAmount, formatExact } from '#lib/web/shared/format.ts';
 
-	/** A signed amount is green when positive, and any amount is red when negative. Units keep four places, a compact one shortens to three digits, and a note joins the exact amount in the tooltip. */
+	/** A signed amount is green when positive, and any amount is red when negative. Units and prices keep four places, and a note joins the exact amount in the tooltip. */
 	type Props = {
 		value: string | null;
 		signed?: boolean;
 		units?: boolean;
-		compact?: boolean;
 		note?: string | null;
 		optional?: boolean;
 		children?: Snippet;
@@ -17,7 +16,6 @@
 		value,
 		signed = false,
 		units = false,
-		compact = false,
 		note = null,
 		optional = false,
 		children,
@@ -25,9 +23,7 @@
 
 	const negative = $derived(value?.startsWith('-') ?? false);
 	const positive = $derived(signed && value !== null && !negative);
-	const shown = $derived(
-		value === null ? null : compact ? formatShort(value) : formatAmount(value, units),
-	);
+	const shown = $derived(value === null ? null : formatAmount(value, units));
 	const exact = $derived(value === null || shown === null ? null : formatExact(value, shown));
 	const title = $derived([exact, note].filter(Boolean).join(' '));
 </script>

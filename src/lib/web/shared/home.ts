@@ -1,0 +1,126 @@
+import { depthOf, isUnder, nameOf } from './accounts';
+import type { Period } from '#lib/shared/dates.ts';
+import { formatChange } from './format';
+import type { Spent } from './spending';
+
+/** The most expense groups the income statement names before the rest. */
+const NAMED = 5;
+
+/** What the span chip offers, in the order a click steps through them; the key is the months it reaches back. */
+export const SPANS: Record<string, string> = {
+	'12': 'Last year',
+	'24': 'Last 2 years',
+	'60': 'Last 5 years',
+	all: 'All time',
+};
+
+/** What the span chip of a page about a year of money offers, in the order a click steps through them. */
+export const MONTHS: Record<string, string> = {
+	'3': 'Last 3 months',
+	'6': 'Last 6 months',
+	'12': 'Last 12 months',
+	all: 'All time',
+};
+
+/** The span choices, named short enough for a segment. */
+export const SPANS_BRIEF: Record<string, string> = {
+	'12': '1Y',
+	'24': '2Y',
+	'60': '5Y',
+	all: 'All',
+};
+
+/** The month choices, named short enough for a segment. */
+export const MONTHS_BRIEF: Record<string, string> = {
+	'3': '3M',
+	'6': '6M',
+	'12': '12M',
+	all: 'All',
+};
+
+/** What the account chip offers, in the order a click steps through them; the key is the account. */
+export const SIDES: Record<string, string> = {
+	'': 'All accounts',
+	Assets: 'Assets',
+	Liabilities: 'Liabilities',
+};
+
+/** The same day some months earlier, a day the month lacks moving to its last. */
+export const monthsBefore = (day: string, months: number) => {
+	const year = Number(day.slice(0, 4));
+	const month = Number(day.slice(5, 7)) - 1 - months;
+	const last = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+
+	return new Date(Date.UTC(year, month, Math.min(Number(day.slice(8, 10)), last)))
+		.toISOString()
+		.slice(0, 10);
+};
+
+/** The period a span chip picks, ending on a day. */
+export const spanOf = (k: string, d: string): Period =>
+	k === 'all' ? { kind: 'all' } : { kind: 'custom', from: monthsBefore(d, Number(k)), to: d };
+
+/** The month before a day's, like 2026-10 for 2026-11-03. */
+export const lastMonthOf = (day: string) => {
+	const month = Number(day.slice(5, 7)) - 1;
+	return new Date(Date.UTC(Number(day.slice(0, 4)), month - 1, 1)).toISOString().slice(0, 7);
+};
+
+/** The accounts directly under a top account, the largest first; what is owed counts as a size, not a sign. */
+export const groupsOf = (accounts: { account: string; total: string }[], top: string) =>
+	accounts
+		.filter((a) => depthOf(a.account) === 1 && isUnder(a.account, top))
+		.map((a) => ({ name: nameOf(a.account), total: String(Math.abs(Number(a.total))) }))
+		.toSorted((a, b) => Number(b.total) - Number(a.total));
+
+/** An amount of what is owed as a size, without the sign of a liability. */
+export const owedOf = (l: string) => String(Math.abs(Number(l)));
+
+/** What the groups under Expenses or Income came to, Income without the minus it is credited with, over a month and the one before, the largest groups named and the rest together. */
+export const statementOf = (
+	top: 'Expenses' | 'Income',
+	spending: Spent | undefined,
+	previous: Spent | undefined,
+) => {
+	const sign = top === 'Income' ? -1 : 1;
+	const sizeOf = (n: string | undefined) => String(sign * Number(n ?? '0'));
+	const now = Object.fromEntries(
+		(spending?.totals ?? []).map((t) => [t.account, sizeOf(t.amount)]),
+	);
+	const before = Object.fromEntries(
+		(previous?.totals ?? []).map((t) => [t.account, sizeOf(t.amount)]),
+	);
+
+	const accounts = [...(spending?.totals ?? []), ...(previous?.totals ?? [])]
+		.filter((t) => t.parent === top)
+		.map((t) => t.account);
+	const groups = [...new Set(accounts)]
+		.map((a) => ({ name: nameOf(a), amount: now[a] ?? '0', before: before[a] ?? '0' }))
+		.toSorted((a, b) => Number(b.amount) - Number(a.amount));
+
+	const named = groups.slice(0, NAMED);
+	const rest = groups.slice(NAMED);
+	const sum = (k: 'amount' | 'before') => String(rest.reduce((t, g) => t + Number(g[k]), 0));
+
+	const rows =
+		rest.length > 0
+			? [...named, { name: 'Everything else', amount: sum('amount'), before: sum('before') }]
+			: named;
+	const total = {
+		amount: now[top] ?? '0',
+		before: before[top] ?? '0',
+	};
+
+	return {
+		rows: rows.map((r) => ({ ...r, change: formatChange(r.before, r.amount) })),
+		total: { ...total, change: formatChange(total.before, total.amount) },
+	};
+};
+
+/** What income left after spending over a month and the one before. */
+export const savedOf = (income: { amount: string; before: string }, spent: typeof income) => {
+	const amount = String(Number(income.amount) - Number(spent.amount));
+	const before = String(Number(income.before) - Number(spent.before));
+
+	return { amount, before, change: formatChange(before, amount) };
+};

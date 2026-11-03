@@ -32,7 +32,7 @@ describe('the treemap chart', () => {
 		});
 
 		await fireEvent.pointerEnter(boxes[1] as Element);
-		expect(plot.querySelector('.tip')?.textContent).toMatch(/Cash\s*400.00\s*40%/);
+		expect(plot.querySelector('.tip')?.textContent).toMatch(/Cash\s*400\s*40%/);
 		await fireEvent.pointerLeave(boxes[1] as Element);
 		expect(plot.querySelector('.tip')).toBeNull();
 	});

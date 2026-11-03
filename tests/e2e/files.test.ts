@@ -11,10 +11,7 @@ test('creates a file, edits it, and saves with the keyboard', async ({
 	await page.getByRole('button', { name: 'Create' }).click();
 
 	await expect(page.getByRole('heading', { name: 'cash.rupea' })).toBeVisible();
-	await page
-		.getByRole('navigation', { name: 'Breadcrumb' })
-		.getByRole('link', { name: 'Files' })
-		.click();
+	await page.getByRole('link', { name: 'All files' }).click();
 	await page.getByRole('link', { name: 'cash.rupea' }).click();
 
 	await page.getByLabel('Ledger file').click();
@@ -25,7 +22,7 @@ test('creates a file, edits it, and saves with the keyboard', async ({
 
 	await visit(page, `${ledger}/transactions`);
 	const tea = page.getByRole('rowgroup').filter({ hasText: 'TEA' });
-	await expect(tea).toContainText('20.00');
+	await expect(tea).toContainText('20');
 
 	await tea.getByRole('link', { name: 'cash.rupea:1' }).click();
 	await expect(page.locator('.cm-linked')).toHaveText('2026-09-01 TEA');
@@ -95,9 +92,7 @@ test('asks before leaving unsaved changes, and stays when told to', async ({
 	await page.getByLabel('Ledger file').click();
 	await page.keyboard.type('2026-09-01 TEA');
 
-	const files = page
-		.getByRole('navigation', { name: 'Breadcrumb' })
-		.getByRole('link', { name: 'Files' });
+	const files = page.getByRole('link', { name: 'All files' });
 
 	const [kept] = await Promise.all([page.waitForEvent('dialog'), files.click()]);
 	await kept.dismiss();

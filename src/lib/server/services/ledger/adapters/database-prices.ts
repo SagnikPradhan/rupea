@@ -7,7 +7,7 @@ import { sql, type Expression, type ExpressionBuilder } from 'kysely';
 import { AMOUNT_UNIT, DEFAULT_COMMODITY, type Amount, type Quantity } from '../domain/amounts';
 import type { Flow } from '../domain/returns';
 import type { Spent } from '../domain/spending';
-import { INVESTMENT_INCOME } from '../domain/taxonomy';
+import { accountType, INVESTMENT_INCOME } from '../domain/taxonomy';
 import { AccountType, Feed, PriceKind, PriceSource } from '../domain/types';
 import { multiply, underAccount } from './database-queries';
 
@@ -81,7 +81,7 @@ export const listSpending = (
 							e.fn.countAll<bigint>().as('postings'),
 						])
 						.where('p.ledgerId', '=', ledgerId)
-						.where('p.accountType', '=', AccountType.Expenses)
+						.where('p.accountType', '=', accountType(account) ?? AccountType.Expenses)
 						.where((e) => underAccount(e.ref('a.name'), account))
 						.where('t.date', '>=', from.toString())
 						.where('t.date', '<=', to.toString())

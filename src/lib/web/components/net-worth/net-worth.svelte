@@ -1,4 +1,5 @@
 <script lang="ts">
+	import ChartSummary from '#lib/web/components/chart-summary/chart-summary.svelte';
 	import LineChart from '#lib/web/components/line-chart/line-chart.svelte';
 	import TreemapChart from '#lib/web/components/treemap-chart/treemap-chart.svelte';
 	import { ASSETS } from '#lib/shared/accounts.ts';
@@ -81,49 +82,24 @@
 	{@const shown = worth[index] ?? last}
 	{#if first && shown}
 		{@const change = formatChange(first.worth, shown.worth)}
-		<div class="summary">
-			<h2 id="worth" class="label">Net worth</h2>
-			<p class="figure" title={formatExact(shown.worth)}>{formatAmount(shown.worth)}</p>
-			<p>
-				<span class={change.negative ? 'negative' : 'positive'}>
-					{change.amount}{#if change.percent !== null}&nbsp;({change.percent}){/if}
-				</span>
-				{formatDate(first.day)} – {formatDate(shown.day)}
-				{#if shown.unpriced > 0}
-					<span class="nowrap">· excludes {shown.unpriced} unpriced</span>
-				{/if}
-			</p>
-		</div>
+		<ChartSummary
+			id="worth"
+			label="Net worth"
+			figure={formatAmount(shown.worth)}
+			exact={formatExact(shown.worth)}
+		>
+			<span class={change.negative ? 'negative' : 'positive'}>
+				{change.amount}{#if change.percent !== null}&nbsp;({change.percent}){/if}
+			</span>
+			{formatDate(first.day)} – {formatDate(shown.day)}
+			{#if shown.unpriced > 0}
+				<span class="nowrap">· excludes {shown.unpriced} unpriced</span>
+			{/if}
+		</ChartSummary>
 	{/if}
 {/snippet}
 
 <style>
-	.summary {
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-1);
-		margin-bottom: var(--size-2);
-	}
-
-	h2 {
-		margin: 0;
-	}
-
-	p {
-		margin: 0;
-		color: var(--color-muted);
-		font-size: var(--font-size-0);
-	}
-
-	p.figure {
-		color: var(--color-ink);
-		font-family: var(--font-mono);
-		font-size: min(var(--font-size-4), 12vw);
-		font-variant-numeric: tabular-nums;
-		line-height: 1.1;
-		overflow-wrap: anywhere;
-	}
-
 	.nowrap {
 		white-space: nowrap;
 	}

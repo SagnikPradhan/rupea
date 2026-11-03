@@ -1,4 +1,5 @@
 <script lang="ts">
+	import SegmentedControl from '#lib/web/components/segmented-control/segmented-control.svelte';
 	import { hrefWith } from '#lib/web/shared/links.ts';
 	import { page } from '$app/state';
 
@@ -12,26 +13,14 @@
 	};
 
 	const { param, label, choices, current }: Props = $props();
+
+	const segments = $derived(
+		Object.entries(choices).map(([value, name]) => ({
+			name,
+			href: hrefWith(page.url.searchParams, { [param]: value }),
+			chosen: value === current,
+		})),
+	);
 </script>
 
-<nav aria-label={label}>
-	{#each Object.entries(choices) as [value, name] (value)}
-		<a
-			href={hrefWith(page.url.searchParams, { [param]: value })}
-			class="label plain"
-			aria-current={value === current ? 'page' : undefined}>{name}</a
-		>
-	{/each}
-</nav>
-
-<style>
-	nav {
-		display: flex;
-		gap: var(--size-2);
-	}
-
-	a:hover {
-		color: var(--color-ink);
-		text-decoration: none;
-	}
-</style>
+<SegmentedControl fill {label} {segments} />

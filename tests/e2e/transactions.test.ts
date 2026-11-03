@@ -34,9 +34,10 @@ test('loads older transactions on scrolling, and narrows them by filter', async 
 
 	await page.getByLabel('Search').fill('');
 	await expect(page).not.toHaveURL(/description=rent/);
+	await page.getByRole('button', { name: 'Filter' }).click();
 	const accounts = page.getByRole('navigation', { name: 'Account' });
-	await accounts.getByRole('link', { name: 'Expenses' }).click();
-	await accounts.getByRole('link', { name: 'Expenses:Food:Groceries' }).click();
+	await accounts.getByRole('link', { name: 'Expenses', exact: true }).click();
+	await accounts.getByRole('link', { name: /Groceries/ }).click();
 	await expect(page).toHaveURL(/account=Expenses%3AFood%3AGroceries/);
 	await expect(rows.filter({ hasText: 'Shop 150' })).toBeVisible();
 	await expect(rows.filter({ hasText: 'Rent' })).toHaveCount(0);
@@ -56,8 +57,9 @@ test('lists counted postings, narrowed to an account', async ({ signedIn: page, 
 
 	await visit(page, `${ledger}/postings?account=Assets`);
 	const rows = page.getByRole('rowgroup');
-	await expect(rows.filter({ hasText: 'Assets:Bank' })).toContainText('-9,000.00');
+	await expect(rows.filter({ hasText: 'Assets:Bank' })).toContainText('-9,000');
 	await expect(rows.filter({ hasText: 'Expenses:Housing' })).toHaveCount(0);
+	await page.getByRole('button', { name: 'Filter' }).click();
 	const period = page.getByRole('navigation', { name: 'Period' });
 	await expect(period.getByRole('link', { name: 'All' })).toHaveAttribute('aria-current', 'page');
 });
@@ -74,6 +76,7 @@ test('lists the postings of chosen days, then any range again', async ({
 	await expect(rows.filter({ hasText: 'Shop 150' })).toBeVisible();
 	await expect(rows.filter({ hasText: 'Shop 149' })).toHaveCount(0);
 
+	await page.getByRole('button', { name: 'Filter' }).click();
 	const period = page.getByRole('navigation', { name: 'Period' });
 	await expect(period.getByRole('link', { name: 'Custom' })).toHaveAttribute(
 		'aria-current',

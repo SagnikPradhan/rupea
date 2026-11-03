@@ -119,9 +119,9 @@ describe('the accounts page', () => {
 
 		expect(await screen.findByText(/^Owed/)).toBeTruthy();
 		const key = within(screen.getByRole('figure'));
-		expect(key.getByText(/^Broker/).textContent).toContain('1,500.00');
-		expect(key.getByText(/^Card/).textContent).toContain('-1,500.00');
-		expect(screen.getByText(/^Owed/).textContent).toContain('-1,500.00');
+		expect(key.getByText(/^Broker/).textContent).toContain('1,500');
+		expect(key.getByText(/^Card/).textContent).toContain('-1,500');
+		expect(screen.getByText(/^Owed/).textContent).toContain('-1,500');
 		expect(vi.mocked(listWorth)).toHaveBeenCalledWith(
 			expect.objectContaining({ period: { kind: 'month', at: '2026-09' } }),
 		);
@@ -134,13 +134,13 @@ describe('the accounts page', () => {
 		vi.mocked(listWorth).mockReturnValue(answer(worth));
 		render(Page, { data });
 
-		const picker = within(await screen.findByRole('navigation', { name: 'Account' }));
+		await screen.findByRole('navigation', { name: 'Account' });
 		expect(vi.mocked(listWorth)).toHaveBeenCalledWith(
 			expect.objectContaining({ account: 'Assets:Broker' }),
 		);
 		expect(screen.getByTitle('Assets:Broker')).toBeTruthy();
 		expect(screen.queryByTitle('Assets:Bank')).toBeNull();
-		expect(picker.getByRole('link', { name: 'All' }).getAttribute('href')).toBe('?');
+		expect(screen.getByRole('link', { name: 'Select all' }).getAttribute('href')).toBe('?');
 	});
 
 	it('switches the graph for boxes of what each account holds at the end of the period', async () => {

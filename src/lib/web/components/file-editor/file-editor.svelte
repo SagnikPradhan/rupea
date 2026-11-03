@@ -12,7 +12,6 @@
 
 	type Props = {
 		handle: string;
-		trail: { href: string; label: string }[];
 		editor: Editor;
 		/** A line to show when the file opens, as `?line=` asks. */
 		line: number | null;
@@ -23,7 +22,7 @@
 		links?: Snippet;
 	};
 
-	const { handle, trail, editor, line, onopen, onremoved, links }: Props = $props();
+	const { handle, editor, line, onopen, onremoved, links }: Props = $props();
 	const state = $derived(editor.state);
 
 	type Step = 'editing' | 'creating' | 'renaming' | 'deleting';
@@ -63,7 +62,7 @@
 	}
 </script>
 
-<PageHeader {trail}>
+<PageHeader>
 	{#if state.file}<FilePath path={state.file.key} />{:else}Files{/if}
 	{#if editor.dirty}<span class="tag">Unsaved</span>{/if}
 	{#if state.file && !isCounted(state.file.key)}<span class="tag">Not counted</span>{/if}
@@ -71,6 +70,7 @@
 		{#if step.now === 'editing'}
 			<div class="toolbar">
 				{#if state.file}
+					<a class="button" href="/l/{handle}/files">All files</a>
 					<Button
 						primary={editor.dirty}
 						onclick={editor.save}

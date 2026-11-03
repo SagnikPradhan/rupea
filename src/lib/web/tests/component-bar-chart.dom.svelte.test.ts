@@ -145,17 +145,17 @@ describe('the bar chart', () => {
 	it('keys each part with the hovered bar’s amount, or the whole’s', async () => {
 		const plot = await drawn();
 		const key = () => screen.getByRole('figure').querySelector('figcaption')?.textContent;
-		expect(key()).toContain('9,500.00');
+		expect(key()).toContain('9,500');
 
 		hover(plot, 1);
-		expect(key()).toContain('-500.00');
-		expect(key()).toContain('300.00');
+		expect(key()).toContain('-500');
+		expect(key()).toContain('300');
 	});
 
 	it('keys the line beside the parts, with the hovered bar’s value or the whole’s', async () => {
 		const plot = await drawn(['1000', null, '9000']);
 		const line = () => screen.getByRole('figure').querySelector('.reference')?.textContent;
-		expect(line()).toContain('Previous 9,800.00');
+		expect(line()).toContain('Previous 9,800');
 
 		hover(plot, 1);
 		expect(line()?.trim()).toBe('Previous');
@@ -182,12 +182,12 @@ describe('the bar chart', () => {
 
 		hover(plot, 0, 50, 900);
 		expect(tip()).toContain('Food');
-		expect(tip()).toContain('2,000.00');
+		expect(tip()).toContain('2,000');
 		expect(other()?.classList.contains('faded')).toBe(true);
 
 		hover(plot, 0, 50, 775);
 		expect(tip()).toContain('Other');
-		expect(tip()).toContain('500.00');
+		expect(tip()).toContain('500');
 
 		hover(plot, 0, 50, 700);
 		expect(tip()).toBeUndefined();

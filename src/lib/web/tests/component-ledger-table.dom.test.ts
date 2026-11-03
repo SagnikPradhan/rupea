@@ -11,7 +11,7 @@ const textOf = (e: HTMLElement) => e.textContent?.replace(/\s+/g, ' ').trim();
 describe('an amount', () => {
 	it('groups its digits', () => {
 		render(Amount, { value: '-1250.5' });
-		expect(textOf(cell())).toBe('-1,250.50');
+		expect(textOf(cell())).toBe('-1,251');
 		expect(cell().classList.contains('negative')).toBe(true);
 	});
 
@@ -31,20 +31,20 @@ describe('an amount', () => {
 		expect(cell().querySelector('.commodity')?.textContent).toBe('CSPX');
 	});
 
-	it('shortens a compact amount, with every digit in its tooltip', () => {
-		render(Amount, { value: '7639574.02', compact: true });
-		expect(textOf(cell())).toBe('76.4L');
+	it('shows whole rupees, with every digit in its tooltip', () => {
+		render(Amount, { value: '7639574.02' });
+		expect(textOf(cell())).toBe('76,39,574');
 		expect(cell().title).toBe('76,39,574.02');
 	});
 
 	it('adds a note to its tooltip', () => {
 		render(Amount, { value: '1250.5', note: '@ 21.39' });
-		expect(cell().title).toBe('@ 21.39');
+		expect(cell().title).toBe('1,250.5 @ 21.39');
 	});
 
-	it('rounds to two places, with every digit in its tooltip', () => {
+	it('rounds to whole rupees, with every digit in its tooltip', () => {
 		render(Amount, { value: '1250.5678' });
-		expect(textOf(cell())).toBe('1,250.57');
+		expect(textOf(cell())).toBe('1,251');
 		expect(cell().title).toBe('1,250.5678');
 	});
 

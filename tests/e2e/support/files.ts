@@ -8,10 +8,7 @@ export const createFile = async (page: Page, ledger: string, key: string, conten
 	await page.getByLabel('New file').fill(key);
 	await page.getByRole('button', { name: 'Create' }).click();
 	await expect(page.getByRole('heading', { name: key })).toBeVisible();
-	await page
-		.getByRole('navigation', { name: 'Breadcrumb' })
-		.getByRole('link', { name: 'Files' })
-		.click();
+	await page.getByRole('link', { name: 'All files' }).click();
 	await page.getByRole('link', { name: key }).click();
 	await page.getByLabel('Ledger file').fill(content);
 	await page.getByRole('button', { name: 'Save', exact: true }).click();

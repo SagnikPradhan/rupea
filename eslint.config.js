@@ -5,10 +5,17 @@ import svelte from 'eslint-plugin-svelte';
 import { defineConfig, globalIgnores } from 'eslint/config';
 import globals from 'globals';
 import ts from 'typescript-eslint';
+import { cssTokens } from './lint/css-tokens.ts';
 import { localNameLength } from './lint/local-name-length.ts';
 import { testLocation } from './lint/test-location.ts';
 
-const rupea = { rules: { 'local-name-length': localNameLength, 'test-location': testLocation } };
+const rupea = {
+	rules: {
+		'css-tokens': cssTokens,
+		'local-name-length': localNameLength,
+		'test-location': testLocation,
+	},
+};
 
 export default defineConfig(
 	globalIgnores([
@@ -76,6 +83,11 @@ export default defineConfig(
 				},
 			],
 		},
+	},
+	{
+		files: ['**/*.svelte'],
+		plugins: { rupea },
+		rules: { 'rupea/css-tokens': 'error' },
 	},
 	{
 		files: ['src/**/*.test.ts'],

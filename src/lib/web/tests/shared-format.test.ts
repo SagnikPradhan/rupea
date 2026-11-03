@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
 	formatAmount,
+	formatWhole,
 	formatChange,
 	formatColumn,
 	formatCompact,
@@ -9,37 +10,29 @@ import {
 	formatIsoDate,
 	formatMoment,
 	formatReturn,
-	formatShort,
 	formatShortDate,
 	formatSize,
 } from '#lib/web/shared/format.ts';
 
 describe('formatAmount', () => {
-	it('groups digits the Indian way, keeping two decimals at least', () => {
-		expect(formatAmount('1250000')).toBe('12,50,000.00');
-		expect(formatAmount('-1250.5')).toBe('-1,250.50');
+	it('groups digits the Indian way, with no paise', () => {
+		expect(formatAmount('1250000')).toBe('12,50,000');
+		expect(formatAmount('-1250.5')).toBe('-1,251');
 	});
 
-	it('rounds rupees to two places, and units to four', () => {
-		expect(formatAmount('1250.5678')).toBe('1,250.57');
+	it('rounds rupees to whole ones, and units to four places', () => {
+		expect(formatAmount('1250.5678')).toBe('1,251');
 		expect(formatAmount('0.123456789 USD')).toBe('0.1235 USD');
 		expect(formatAmount('7.123456', true)).toBe('7.1235');
 	});
 
 	it('keeps the commodity after the number', () => {
-		expect(formatAmount('10 INFY')).toBe('10.00 INFY');
-	});
-});
-
-describe('formatShort', () => {
-	it('keeps three digits in lakhs, crores and thousands', () => {
-		expect(formatShort('7639574.02')).toBe('76.4L');
-		expect(formatShort('126392130')).toBe('12.6Cr');
-		expect(formatShort('-149.54')).toBe('-150');
+		expect(formatAmount('10 INFY')).toBe('10 INFY');
 	});
 
-	it('keeps the commodity after the number', () => {
-		expect(formatShort('18692.062 AABR')).toBe('18.7K AABR');
+	it('drops the minus of an amount that rounds to nothing', () => {
+		expect(formatAmount('-0.4')).toBe('0');
+		expect(formatWhole('-0.3')).toBe('0');
 	});
 });
 
@@ -47,8 +40,8 @@ describe('formatExact', () => {
 	it('gives every digit only when formatAmount rounds some away', () => {
 		expect(formatExact('1250.5678')).toBe('1,250.5678');
 		expect(formatExact('0.123456789 USD')).toBe('0.123456789 USD');
-		expect(formatExact('1250.5')).toBeUndefined();
-		expect(formatExact('7639574.02', '76.4L')).toBe('76,39,574.02');
+		expect(formatExact('1250.5')).toBe('1,250.5');
+		expect(formatExact('1250', '1,250')).toBeUndefined();
 	});
 });
 
@@ -109,7 +102,7 @@ describe('formatCompact', () => {
 describe('formatChange', () => {
 	it('signs a gain and gives it as a share of the start', () => {
 		expect(formatChange('1000', '1250.5')).toEqual({
-			amount: '+250.50',
+			amount: '+251',
 			percent: '+25.1%',
 			negative: false,
 		});
@@ -117,14 +110,14 @@ describe('formatChange', () => {
 
 	it('marks a loss as negative', () => {
 		expect(formatChange('200000', '150000')).toEqual({
-			amount: '-50,000.00',
+			amount: '-50,000',
 			percent: '-25%',
 			negative: true,
 		});
 	});
 
 	it('shows no sign when nothing moved', () => {
-		expect(formatChange('10', '10')).toEqual({ amount: '0.00', percent: '0%', negative: false });
+		expect(formatChange('10', '10')).toEqual({ amount: '0', percent: '0%', negative: false });
 	});
 
 	it.each(['0', '-500'])('gives no percent from a start of %s', (start) => {

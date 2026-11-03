@@ -1,6 +1,6 @@
 import { replyFrom, replyFromBatch } from '#lib/server/shared/result/reply.ts';
 import { Day, Period, spansOf } from '#lib/shared/dates.ts';
-import { BalanceAccount, ExpenseAccount } from '#lib/shared/accounts.ts';
+import { BalanceAccount, FlowAccount } from '#lib/shared/accounts.ts';
 import * as Accounts from '#services/ledger/application/accounts.ts';
 import { query } from '$app/server';
 import * as v from 'valibot';
@@ -52,9 +52,9 @@ export const listReturns = query(
 	},
 );
 
-/** Spending under an account over a period, then over the one before it when there is one. */
+/** What flowed under an Expenses or Income account over a period, then over the one before it when there is one. */
 export const listSpending = query(
-	v.object({ handle: Handle, day: Day, period: Period, account: ExpenseAccount }),
+	v.object({ handle: Handle, day: Day, period: Period, account: FlowAccount }),
 	({ handle, day, period, account }) => {
 		const { current, previous, bucket } = spansOf(period, day);
 		const spans = previous ? [current, previous] : [current];

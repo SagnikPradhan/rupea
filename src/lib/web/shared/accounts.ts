@@ -7,12 +7,12 @@ export const isUnder = (a: string, b: string | null) =>
 
 export const nameOf = (a: string) => a.split(':').at(-1) ?? a;
 
-/** The first letter of each parent, like A:C: for Assets:Checking:HDFC. */
-export const prefixOf = (account: string) =>
+/** The first letter of each parent, like A:C: for Assets:Checking:HDFC, or every parent whole when full. */
+export const prefixOf = (account: string, full = false) =>
 	account
 		.split(':')
 		.slice(0, -1)
-		.map((p) => `${p[0]}:`)
+		.map((p) => (full ? `${p}:` : `${p[0]}:`))
 		.join('');
 
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();

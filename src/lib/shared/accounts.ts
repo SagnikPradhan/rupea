@@ -2,11 +2,18 @@ import * as v from 'valibot';
 
 export const EXPENSES = 'Expenses';
 export const ASSETS = 'Assets';
-const LIABILITIES = 'Liabilities';
+export const LIABILITIES = 'Liabilities';
+export const INCOME = 'Income';
 
 /** The account the expenses page is narrowed to, Expenses itself unless one under it is given. */
 export const ExpenseAccount = v.fallback(
 	v.pipe(v.string(), v.trim(), v.check(isUnderAny([EXPENSES]))),
+	EXPENSES,
+);
+
+/** The account the income statement reads, Expenses or Income itself unless one under either is given. */
+export const FlowAccount = v.fallback(
+	v.pipe(v.string(), v.trim(), v.check(isUnderAny([EXPENSES, INCOME]))),
 	EXPENSES,
 );
 

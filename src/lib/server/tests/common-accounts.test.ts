@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { BalanceAccount, ExpenseAccount } from '#lib/shared/accounts.ts';
+import { BalanceAccount, ExpenseAccount, FlowAccount } from '#lib/shared/accounts.ts';
 import * as v from 'valibot';
 
 describe('an expense account', () => {
@@ -12,6 +12,19 @@ describe('an expense account', () => {
 		expect(v.parse(ExpenseAccount, 'Assets:Bank')).toBe('Expenses');
 		expect(v.parse(ExpenseAccount, 'ExpensesX')).toBe('Expenses');
 		expect(v.parse(ExpenseAccount, null)).toBe('Expenses');
+	});
+});
+
+describe('a flow account', () => {
+	it('keeps Expenses, Income and the accounts under them', () => {
+		expect(v.parse(FlowAccount, 'Income')).toBe('Income');
+		expect(v.parse(FlowAccount, ' income:Salary ')).toBe('income:Salary');
+		expect(v.parse(FlowAccount, 'Expenses:Food')).toBe('Expenses:Food');
+	});
+
+	it('falls back to Expenses for any other account', () => {
+		expect(v.parse(FlowAccount, 'Assets:Bank')).toBe('Expenses');
+		expect(v.parse(FlowAccount, 'IncomeX')).toBe('Expenses');
 	});
 });
 

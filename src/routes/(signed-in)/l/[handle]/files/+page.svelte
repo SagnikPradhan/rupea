@@ -16,7 +16,6 @@
 	import FileIndex from '#lib/web/components/file-index/file-index.svelte';
 	import Issues from '#lib/web/components/issues/issues.svelte';
 	import type { Reply } from '#lib/server/shared/result/reply.ts';
-	import { ledgerCrumb } from '#lib/web/shared/links.ts';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { untrack } from 'svelte';
@@ -53,11 +52,6 @@
 	const response = $derived(await listFiles(handle));
 	const selected = $derived(page.url.searchParams.get('file'));
 	const line = $derived(Number(page.url.searchParams.get('line')) || null);
-	const trail = $derived(
-		selected === null
-			? [ledgerCrumb(data.ledger)]
-			: [ledgerCrumb(data.ledger), { href: page.url.pathname, label: 'Files' }],
-	);
 
 	// Untracked: a command updates its own pending state, which would re-run this effect.
 	$effect(() => {
@@ -88,7 +82,7 @@
 		goto(key === null ? page.url.pathname : `?file=${encodeURIComponent(key)}`);
 </script>
 
-<FileEditor {handle} {trail} {editor} {line} onopen={open} onremoved={() => open(null)}>
+<FileEditor {handle} {editor} {line} onopen={open} onremoved={() => open(null)}>
 	{#snippet links()}
 		{#if selected !== null}
 			<a href="/l/{handle}/refine?file={encodeURIComponent(selected)}">

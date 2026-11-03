@@ -51,7 +51,7 @@ describe('the alluvial chart', () => {
 		const plot = await drawn();
 		await fireEvent.pointerMove(plot, { offsetX: 150, offsetY: 60 });
 		expect(plot.querySelector('.tip')?.textContent).toContain('Food');
-		expect(plot.querySelector('.tip')?.textContent).toContain('600.00');
+		expect(plot.querySelector('.tip')?.textContent).toContain('600');
 
 		await fireEvent.pointerLeave(plot);
 		expect(plot.querySelector('.tip')).toBeNull();

@@ -26,9 +26,8 @@ export const test = base.extend<
 	// Where the ledger a new user starts with lives, like `/l/quiet-heron`.
 	ledger: async ({ signedIn }, use) => {
 		await visit(signedIn, '/');
-		await signedIn.getByRole('link', { name: 'Personal' }).click();
-		await signedIn.waitForURL('**/l/*/transactions');
-		await use(new URL(signedIn.url()).pathname.replace(/\/transactions$/, ''));
+		const accounts = signedIn.locator('nav[aria-label="Pages"] a[href$="/accounts"]');
+		await use((await accounts.getAttribute('href'))!.replace(/\/accounts$/, ''));
 	},
 });
 

@@ -54,7 +54,7 @@
 		},
 		'&.cm-focused': { outline: 'none', borderTopColor: 'var(--color-accent)' },
 		'.cm-content': {
-			minHeight: '16rem',
+			minHeight: 'calc(var(--size-2) * 14)',
 			padding: 'var(--size-1) 0',
 			caretColor: 'var(--color-ink)',
 		},

@@ -3,10 +3,13 @@ import { depthOf, nameOf, prefixOf } from '#lib/web/shared/accounts.ts';
 import { OTHER, PARTS } from '#lib/web/shared/chart.ts';
 import {
 	barsOf,
+	daysIn,
+	largestFirst,
 	monthsIn,
 	partsOf,
 	PREVIOUS,
 	rowsOf,
+	shownOf,
 	totalOf,
 	wholeOf,
 	type Spent,
@@ -116,8 +119,57 @@ describe('totals', () => {
 		expect(totalOf(undefined, 'Expenses')).toBeNull();
 	});
 
+	it('count days in a span, both of its ends included', () => {
+		expect(daysIn('2026-01-01', '2026-01-31')).toBe(31);
+		expect(daysIn('2026-01-01', '2026-01-01')).toBe(1);
+	});
+
 	it('count months in a span, both of its days included', () => {
 		expect(monthsIn('2026-01-01', '2026-12-31')).toBeCloseTo(12, 1);
 		expect(monthsIn('2026-01-01', '2026-01-01')).toBeCloseTo(12 / 365.25);
+	});
+});
+
+describe('the rows shown', () => {
+	const rows = [
+		{ account: 'Expenses', parent: null },
+		{ account: 'Expenses:Food', parent: 'Expenses' },
+		{ account: 'Expenses:Food:Dining', parent: 'Expenses:Food' },
+		{ account: 'Expenses:Food:Dining:Cafe', parent: 'Expenses:Food:Dining' },
+		{ account: 'Expenses:Rent', parent: 'Expenses' },
+	];
+	const shown = (opened: string[]) => shownOf(rows, 'Expenses', opened).map((r) => r.account);
+
+	it('show the top account and those right under it until one is opened', () => {
+		expect(shown([])).toEqual(['Expenses', 'Expenses:Food', 'Expenses:Rent']);
+		expect(shown(['Expenses:Food'])).toEqual([
+			'Expenses',
+			'Expenses:Food',
+			'Expenses:Food:Dining',
+			'Expenses:Rent',
+		]);
+	});
+
+	it('hide what an opened account holds while an account above it is closed', () => {
+		expect(shown(['Expenses:Food:Dining'])).toEqual(['Expenses', 'Expenses:Food', 'Expenses:Rent']);
+	});
+});
+
+describe('the largest first', () => {
+	it('order each level by amount, keeping every account above those under it', () => {
+		const rows = [
+			{ account: 'Expenses', parent: null, amount: '100' },
+			{ account: 'Expenses:Food', parent: 'Expenses', amount: '30' },
+			{ account: 'Expenses:Food:Cafe', parent: 'Expenses:Food', amount: '5' },
+			{ account: 'Expenses:Food:Grocer', parent: 'Expenses:Food', amount: '25' },
+			{ account: 'Expenses:Rent', parent: 'Expenses', amount: '70' },
+		];
+		expect(largestFirst(rows, 'Expenses').map((r) => r.account)).toEqual([
+			'Expenses',
+			'Expenses:Rent',
+			'Expenses:Food',
+			'Expenses:Food:Grocer',
+			'Expenses:Food:Cafe',
+		]);
 	});
 });

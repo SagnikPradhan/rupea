@@ -7,7 +7,6 @@
 	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
 	import StatementList from '#lib/web/components/statement-list/statement-list.svelte';
 	import StatementView from '#lib/web/components/statement-view/statement-view.svelte';
-	import { ledgerCrumb } from '#lib/web/shared/links.ts';
 	import { UPLOAD_EXTENSIONS } from '#lib/shared/statements.ts';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -19,11 +18,6 @@
 	const imports = $derived(await listImports(handle));
 	const running = $derived(
 		(imports.data ?? []).some((j) => j.status === 'queued' || j.status === 'running'),
-	);
-	const trail = $derived(
-		statement === null
-			? [ledgerCrumb(data.ledger)]
-			: [ledgerCrumb(data.ledger), { href: page.url.pathname, label: 'Import' }],
 	);
 
 	const picker = $state({ input: null as HTMLInputElement | null });
@@ -47,7 +41,7 @@
 	});
 </script>
 
-<PageHeader {trail}>
+<PageHeader>
 	{#if statement === null}Import{:else}<FilePath path={statement} />{/if}
 	{#snippet actions()}
 		{#if statement === null}

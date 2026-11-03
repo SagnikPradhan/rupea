@@ -11,7 +11,7 @@ const rendered = async (key: string | null = 'a.rupea') => {
 	await editor.open(key);
 	const onopen = vi.fn();
 	const onremoved = vi.fn();
-	render(FileEditor, { handle: 'h', trail: [], editor, line: null, onopen, onremoved });
+	render(FileEditor, { handle: 'h', editor, line: null, onopen, onremoved });
 	return { ...fake, editor, onopen, onremoved, user: userEvent.setup() };
 };
 

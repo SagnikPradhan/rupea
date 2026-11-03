@@ -25,6 +25,7 @@
 	<IconButton
 		label={syncing ? 'Syncing…' : 'Sync now'}
 		icon={IconRefresh}
+		outlined
 		disabled={syncing || resync.pending > 0}
 		onclick={() => resync(handle)}
 	/>

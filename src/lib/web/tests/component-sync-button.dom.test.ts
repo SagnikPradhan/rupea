@@ -46,6 +46,13 @@ describe('the sync button', () => {
 		expect(refreshAll).toHaveBeenCalledOnce();
 	});
 
+	it('is the outlined square the theme toggle is', async () => {
+		rendered('succeeded');
+
+		const button = await screen.findByRole('button', { name: 'Sync now' });
+		expect(button.className).toContain('outlined');
+	});
+
 	it('offers a sync before the first one', async () => {
 		rendered(null);
 

@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/svelte';
+import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import { listSpending } from '#lib/endpoints/accounts.remote.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
@@ -63,6 +63,29 @@ describe('the expenses page', () => {
 		expect(screen.getAllByText('1 unpriced')).toHaveLength(2);
 	});
 
+	it('folds the accounts under one until it is opened', async () => {
+		visit('/l/h/expenses?at=2026');
+		const dining = {
+			account: 'Expenses:Food:Dining',
+			parent: 'Expenses:Food',
+			first: '2026-01-03',
+			amount: '200',
+			unpriced: 0,
+		};
+		const nested = { ...spending, totals: [...spending.totals, dining] };
+		vi.mocked(listSpending).mockReturnValue(answer([nested, previous]));
+		render(Page, { data });
+
+		const fold = await screen.findByRole('button', { name: 'Accounts under Food' });
+		expect(fold.getAttribute('aria-expanded')).toBe('false');
+		expect(screen.queryByTitle('Expenses:Food:Dining')).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Accounts under Rent' })).toBeNull();
+
+		await fireEvent.click(fold);
+		expect(fold.getAttribute('aria-expanded')).toBe('true');
+		expect(screen.getByTitle('Expenses:Food:Dining')).toBeTruthy();
+	});
+
 	it('says when nothing was spent', async () => {
 		visit('/l/h/expenses');
 		vi.mocked(listSpending).mockReturnValue(answer([]));
@@ -91,14 +114,6 @@ describe('the expenses page', () => {
 		);
 		expect(screen.queryByTitle('Expenses')).toBeNull();
 		expect(screen.queryByTitle('Expenses:Rent')).toBeNull();
-		expect(
-			within(screen.getByRole('navigation', { name: 'Account' }))
-				.getByRole('link', { name: 'All' })
-				.getAttribute('href'),
-		).toBe('?account=Expenses');
-		expect(screen.getByRole('link', { name: 'Expenses:Food' }).getAttribute('aria-current')).toBe(
-			'page',
-		);
 	});
 
 	it('picks from the accounts right under Expenses', async () => {
@@ -106,35 +121,72 @@ describe('the expenses page', () => {
 		vi.mocked(listSpending).mockReturnValue(answer([spending]));
 		render(Page, { data });
 
-		const rent = await screen.findByRole('link', { name: 'Expenses:Rent' });
-		expect(rent.getAttribute('href')).toBe('?account=Expenses%3ARent');
-		expect(
-			within(screen.getByRole('navigation', { name: 'Account' }))
-				.getByRole('link', { name: 'All' })
-				.getAttribute('aria-current'),
-		).toBe('page');
+		const all = within(await screen.findByRole('navigation', { name: 'Accounts' })).getByRole(
+			'link',
+			{
+				name: 'All accounts',
+			},
+		);
+		expect(all.getAttribute('href')).toBe('?');
 	});
 
-	it('switches to how the spending divides by account, keeping the rest of the query', async () => {
-		visit('/l/h/expenses?at=2026&chart=alluvial');
+	it('draws how the spending divides beside the spending over time', async () => {
+		visit('/l/h/expenses');
 		vi.mocked(listSpending).mockReturnValue(answer([spending]));
 		render(Page, { data });
 
 		expect(await screen.findByRole('img', { name: /^How Expenses divides/ })).toBeTruthy();
-		const charts = within(screen.getByRole('navigation', { name: 'Chart' }));
-		expect(charts.getByRole('link', { name: 'Over time' }).getAttribute('href')).toBe(
-			'?at=2026&chart=time',
-		);
-		expect(screen.queryByRole('navigation', { name: 'Scale' })).toBeNull();
+		expect(screen.getByRole('img', { name: /^Spending from/ })).toBeTruthy();
 	});
 
-	it('offers no switch when nothing lies under the account', async () => {
-		visit('/l/h/expenses?account=Expenses:Rent&chart=alluvial');
+	it('reads the months before today for a span', async () => {
+		visit('/l/h/expenses?span=3&account=Expenses:Food');
 		vi.mocked(listSpending).mockReturnValue(answer([spending]));
 		render(Page, { data });
 
+		await screen.findByTitle('Expenses:Food');
+		expect(vi.mocked(listSpending)).toHaveBeenCalledWith(
+			expect.objectContaining({ period: expect.objectContaining({ kind: 'custom' }) }),
+		);
+	});
+
+	it('names the account under it that took the most as the largest', async () => {
+		visit('/l/h/expenses');
+		const total = (account: string, amount: string) => ({
+			account,
+			parent: account === 'Expenses' ? null : 'Expenses',
+			first: '2026-01-03',
+			amount,
+			unpriced: 0,
+		});
+		const totals = [
+			total('Expenses', '1000'),
+			total('Expenses:Bills', '100'),
+			total('Expenses:Rent', '900'),
+		];
+		vi.mocked(listSpending).mockReturnValue(answer([{ ...spending, totals }]));
+		render(Page, { data });
+
 		await screen.findByTitle('Expenses:Rent');
-		expect(screen.queryByRole('navigation', { name: 'Chart' })).toBeNull();
+		const strip = within(screen.getByRole('region', { name: 'Figures' }));
+		expect(strip.getByText('Rent')).toBeTruthy();
+	});
+
+	it('marks no span when the link asks for a period of its own', async () => {
+		visit('/l/h/expenses?at=2026');
+		vi.mocked(listSpending).mockReturnValue(answer([spending]));
+		render(Page, { data });
+
+		const spans = within(await screen.findByRole('navigation', { name: 'Period' }));
+		expect(spans.getAllByRole('link').some((l) => l.hasAttribute('aria-current'))).toBe(false);
+	});
+
+	it('says so when nothing lies under the account', async () => {
+		visit('/l/h/expenses?account=Expenses:Rent');
+		vi.mocked(listSpending).mockReturnValue(answer([spending]));
+		render(Page, { data });
+
+		expect(await screen.findByText('Nothing under Rent to divide.')).toBeTruthy();
 		expect(screen.getByRole('navigation', { name: 'Scale' })).toBeTruthy();
 	});
 });

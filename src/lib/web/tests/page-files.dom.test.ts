@@ -85,7 +85,7 @@ describe('the files page', () => {
 		expect((await screen.findByRole('link', { name: 'Find matches' })).getAttribute('href')).toBe(
 			'/l/h/refine?file=bank.rupea',
 		);
-		expect(screen.getByRole('link', { name: 'Files' }).getAttribute('href')).toBe('/l/h/files');
+		expect(screen.getByRole('link', { name: 'All files' }).getAttribute('href')).toBe('/l/h/files');
 	});
 
 	it('counts the matches a save turned up, and holds navigation while unsaved', async () => {

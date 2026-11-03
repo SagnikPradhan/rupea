@@ -7,13 +7,12 @@
 	import Account from '#lib/web/components/ledger-table/account.svelte';
 	import Amount from '#lib/web/components/ledger-table/amount.svelte';
 	import Source from '#lib/web/components/ledger-table/source.svelte';
-	import FilterRail from '#lib/web/components/filter-rail/filter-rail.svelte';
 	import ListFilter from '#lib/web/components/list-filter/list-filter.svelte';
+	import ListViews from '#lib/web/components/list-views/list-views.svelte';
 	import ListSearch from '#lib/web/components/list-search/list-search.svelte';
 	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
 	import PagedTable from '#lib/web/components/paged-table/paged-table.svelte';
 	import { formatDate, formatIsoDate } from '#lib/web/shared/format.ts';
-	import { ledgerCrumb } from '#lib/web/shared/links.ts';
 	import { paged } from '#lib/web/shared/paged.svelte.ts';
 	import { page } from '$app/state';
 
@@ -30,59 +29,64 @@
 	const list = $derived(paged(first, (after) => listTransactions({ handle, day, filter, after })));
 </script>
 
-<PageHeader trail={[ledgerCrumb(data.ledger)]}>Transactions</PageHeader>
-
-<FilterRail>
-	{#snippet filters()}
-		<ListFilter {filter} accounts={accounts.data ?? []} today={day} first={earliest} />
+<PageHeader>
+	Transactions
+	{#snippet actions()}
+		<ListFilter
+			period={filter.period}
+			account={filter.account || null}
+			accounts={accounts.data ?? []}
+			today={day}
+			first={earliest}
+		/>
 	{/snippet}
+</PageHeader>
 
-	<ListSearch {filter} />
+<ListViews {handle} chosen="transactions"><ListSearch {filter} /></ListViews>
 
-	<Issues {handle} errors={[...issues.errors, ...list.errors]} />
+<Issues {handle} errors={[...issues.errors, ...list.errors]} />
 
-	<PagedTable
-		columns={[
-			{ label: 'Date', kind: 'date' },
-			{ label: 'Description' },
-			{ label: 'Amount', kind: 'amount' },
-		]}
-		{list}
-		height={64}
-		empty="No transactions match."
-	>
-		{#snippet row(index: number)}
-			{@const transaction = list.rows[index]}
-			{#if transaction}
-				<tr class:evidence={!transaction.counted}>
-					<td class="date">
-						<time datetime={transaction.date}>{formatDate(transaction.date)}</time>
-						{#if transaction.time}<span>{transaction.time}</span>{/if}
+<PagedTable
+	columns={[
+		{ label: 'Date', kind: 'date' },
+		{ label: 'Description' },
+		{ label: 'Amount', kind: 'amount' },
+	]}
+	{list}
+	height={64}
+	empty="No transactions match."
+>
+	{#snippet row(index: number)}
+		{@const transaction = list.rows[index]}
+		{#if transaction}
+			<tr class:evidence={!transaction.counted}>
+				<td class="date">
+					<time datetime={transaction.date}>{formatDate(transaction.date)}</time>
+					{#if transaction.time}<span>{transaction.time}</span>{/if}
+				</td>
+				<th
+					scope="row"
+					class="truncate"
+					title={[transaction.description, transaction.comment].filter(Boolean).join('\n')}
+				>
+					{#if !transaction.counted}<span class="tag">evidence</span>{/if}
+					{transaction.description}
+					{#if transaction.comment}<span class="comment">; {transaction.comment}</span>{/if}
+				</th>
+				<Source {handle} file={transaction.file} line={transaction.line} />
+			</tr>
+			{#each transaction.postings as posting, position (position)}
+				<tr class="child" class:evidence={!transaction.counted}>
+					<td></td>
+					<td>
+						<Account account={posting.account} />
 					</td>
-					<th
-						scope="row"
-						class="truncate"
-						title={[transaction.description, transaction.comment].filter(Boolean).join('\n')}
-					>
-						{#if !transaction.counted}<span class="tag">evidence</span>{/if}
-						{transaction.description}
-						{#if transaction.comment}<span class="comment">; {transaction.comment}</span>{/if}
-					</th>
-					<Source {handle} file={transaction.file} line={transaction.line} />
+					<Amount value={posting.quantity} />
 				</tr>
-				{#each transaction.postings as posting, position (position)}
-					<tr class="child" class:evidence={!transaction.counted}>
-						<td></td>
-						<td>
-							<Account account={posting.account} />
-						</td>
-						<Amount value={posting.quantity} />
-					</tr>
-				{/each}
-			{/if}
-		{/snippet}
-	</PagedTable>
-</FilterRail>
+			{/each}
+		{/if}
+	{/snippet}
+</PagedTable>
 
 <style>
 	tr.child td {

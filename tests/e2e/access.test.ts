@@ -18,7 +18,8 @@ test('a user cannot open someone else’s ledger', async ({ ledger, browser, ser
 
 test('signing out ends the session', async ({ signedIn: page, ledger }) => {
 	await visit(page, `${ledger}/transactions`);
-	await page.getByRole('button', { name: 'Sign out' }).click();
+	await page.getByRole('button', { name: 'Menu' }).click();
+	await page.getByRole('button', { name: 'Log out' }).click();
 	await page.waitForURL('**/sign-in');
 
 	await page.goto(`${ledger}/transactions`);

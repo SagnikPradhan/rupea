@@ -1,27 +1,27 @@
 <script lang="ts">
 	import { listSpending } from '#lib/endpoints/accounts.remote.ts';
-	import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
 	import { paramsOf, periodOf } from '#lib/shared/dates.ts';
 	import { ExpenseAccount, EXPENSES } from '#lib/shared/accounts.ts';
-	import { depthOf, nameOf, prefixOf } from '#lib/web/shared/accounts.ts';
+	import { depthOf, nameOf } from '#lib/web/shared/accounts.ts';
 	import { OTHER, seriesOf } from '#lib/web/shared/chart.ts';
-	import {
-		Scale,
-		SCALE_LABELS,
-		SpendingChart,
-		SPENDING_CHART_LABELS,
-	} from '#lib/web/shared/choices.ts';
+	import { Scale, SCALE_LABELS } from '#lib/web/shared/choices.ts';
+	import AccountName from '#lib/web/components/account-name/account-name.svelte';
 	import AlluvialChart from '#lib/web/components/alluvial-chart/alluvial-chart.svelte';
-	import AccountPicker from '#lib/web/components/account-picker/account-picker.svelte';
 	import BarChart from '#lib/web/components/bar-chart/bar-chart.svelte';
+	import ChartSummary from '#lib/web/components/chart-summary/chart-summary.svelte';
 	import Calendar from '#lib/web/components/calendar/calendar.svelte';
+	import ChoiceChips from '#lib/web/components/choice-chips/choice-chips.svelte';
 	import ChoicePicker from '#lib/web/components/choice-picker/choice-picker.svelte';
-	import FilterRail from '#lib/web/components/filter-rail/filter-rail.svelte';
+	import FilterModal from '#lib/web/components/filter-modal/filter-modal.svelte';
+	import FilterSection from '#lib/web/components/filter-section/filter-section.svelte';
 	import Issues from '#lib/web/components/issues/issues.svelte';
 	import Amount from '#lib/web/components/ledger-table/amount.svelte';
 	import LedgerTable from '#lib/web/components/ledger-table/ledger-table.svelte';
+	import Kpi from '#lib/web/components/kpi/kpi.svelte';
+	import KpiStrip from '#lib/web/components/kpi-strip/kpi-strip.svelte';
+	import PanelGrid from '#lib/web/components/panel-grid/panel-grid.svelte';
+	import Panel from '#lib/web/components/panel/panel.svelte';
 	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
-	import PeriodPicker from '#lib/web/components/period-picker/period-picker.svelte';
 	import Swatch from '#lib/web/components/swatch/swatch.svelte';
 	import {
 		formatAmount,
@@ -31,38 +31,52 @@
 		formatExact,
 		formatIsoDate,
 		formatShare,
+		formatWhole,
 	} from '#lib/web/shared/format.ts';
-	import { ledgerCrumb } from '#lib/web/shared/links.ts';
+	import { MONTHS, MONTHS_BRIEF, spanOf } from '#lib/web/shared/home.ts';
 	import {
 		barsOf,
+		daysIn,
+		largestFirst,
 		monthsIn,
 		partsOf,
 		PREVIOUS,
 		rowsOf,
+		shownOf,
 		totalOf,
 		wholeOf,
 	} from '#lib/web/shared/spending.ts';
 	import { page } from '$app/state';
+	import IconCollapsed from '@tabler/icons-svelte-runes/icons/chevron-right';
+	import IconExpanded from '@tabler/icons-svelte-runes/icons/chevron-down';
+	import { SvelteSet } from 'svelte/reactivity';
 	import * as v from 'valibot';
+
+	const PERIOD_PARAMS = ['at', 'range', 'from', 'to'];
 
 	const { data } = $props();
 
 	const handle = $derived(data.ledger.handle);
 	const day = formatIsoDate(new Date());
-	const period = $derived(periodOf(page.url.searchParams, { kind: 'year', at: day.slice(0, 4) }));
+	const span = $derived(
+		v.parse(v.fallback(v.picklist(Object.keys(MONTHS)), ''), page.url.searchParams.get('span')),
+	);
+	const dated = $derived(PERIOD_PARAMS.some((p) => page.url.searchParams.has(p)));
+	const period = $derived(
+		span ? spanOf(span, day) : periodOf(page.url.searchParams, spanOf('12', day)),
+	);
 	const account = $derived(v.parse(ExpenseAccount, page.url.searchParams.get('account')));
 	const scale = $derived(v.parse(v.fallback(Scale, 'linear'), page.url.searchParams.get('scale')));
-	const chart = $derived(
-		v.parse(v.fallback(SpendingChart, 'time'), page.url.searchParams.get('chart')),
-	);
 
 	const response = $derived(await listSpending({ handle, day, period, account }));
 	const spending = $derived(response.data?.[0]);
 	const previous = $derived(response.data?.[1]);
 	const bucket = $derived(spending?.bucket ?? 'month');
-	const earliest = $derived((await findFirstDay(handle)).data ?? null);
 
 	const rows = $derived(rowsOf(spending?.totals ?? [], account));
+	const ordered = $derived(largestFirst(rows, account));
+	const opened = new SvelteSet<string>();
+	const shown = $derived(shownOf(ordered, account, [...opened]));
 	const total = $derived(rows.find((t) => t.account === account));
 	const parts = $derived(partsOf(spending, account));
 	const divides = $derived(rows.length > 1);
@@ -76,39 +90,102 @@
 		`Spending from ${formatDate(first)} to ${formatDate(last)}, ${formatAmount(total?.amount ?? '0')} in all`,
 	);
 	const months = $derived(monthsIn(first, last));
+	const days = $derived(daysIn(first, last));
+	const groups = $derived(
+		Object.fromEntries(
+			(spending?.totals ?? [])
+				.filter((t) => depthOf(t.account) === depthOf(EXPENSES) + 1)
+				.map((t) => [t.account, nameOf(t.account)]),
+		),
+	);
+	const accounts = $derived({
+		'': 'All accounts',
+		...groups,
+		...(account === EXPENSES || account in groups ? {} : { [account]: nameOf(account) }),
+	});
+	const largest = $derived(ordered.find((r) => r.parent === account));
+	const moved = $derived(
+		previous ? formatChange(totalOf(previous, account) ?? '0', total?.amount ?? '0') : null,
+	);
 
 	const postingsOf = (a: string) =>
 		`/l/${handle}/postings?${new URLSearchParams({ account: a, ...paramsOf(period) })}`;
 	const postingsOn = (day: string) =>
 		`/l/${handle}/postings?${new URLSearchParams({ account, from: day, to: day })}`;
 	const perMonth = (amount: string) => (Number(amount) / months).toFixed(2);
+	const fold = (a: string) => (opened.has(a) ? opened.delete(a) : opened.add(a));
 </script>
 
-<PageHeader trail={[ledgerCrumb(data.ledger)]}>Expenses</PageHeader>
-
-<FilterRail>
-	{#snippet filters()}
-		<PeriodPicker current={period} shown={{ from: first, to: last }} today={day} first={earliest} />
-		<AccountPicker current={account} accounts={spending?.totals ?? []} top={EXPENSES} />
+<PageHeader subtitle="Where the money went, month by month">
+	Expenses
+	{#snippet actions()}
+		<FilterModal params={['span', ...PERIOD_PARAMS, 'account']}>
+			<FilterSection label="Period">
+				<ChoicePicker
+					param="span"
+					label="Period"
+					choices={MONTHS_BRIEF}
+					current={span || (dated ? '' : '12')}
+				/>
+			</FilterSection>
+			<FilterSection label="Accounts">
+				<ChoiceChips
+					param="account"
+					label="Accounts"
+					choices={accounts}
+					current={account === EXPENSES ? '' : account}
+				/>
+			</FilterSection>
+		</FilterModal>
 	{/snippet}
+</PageHeader>
 
-	<Issues {handle} errors={response.errors} />
+<Issues {handle} errors={response.errors} />
 
-	<section aria-labelledby="spending">
-		{#if divides && chart === 'alluvial'}
+<KpiStrip>
+	<Kpi
+		label="Spent"
+		figure={formatWhole(total?.amount ?? '0')}
+		detail={moved?.percent ? `${moved.percent} on the period before` : undefined}
+	/>
+	<Kpi
+		label="A day"
+		figure={formatWhole(String(Number(total?.amount ?? '0') / days))}
+		detail="{days} {days === 1 ? 'day' : 'days'}"
+	/>
+	<Kpi
+		label="Largest"
+		figure={largest ? nameOf(largest.account) : '–'}
+		detail={largest
+			? `${formatWhole(largest.amount)} · ${formatShare(largest.amount, total?.amount ?? '0') ?? '0%'} of spending`
+			: undefined}
+	/>
+	<Kpi label="Budgets over" soon />
+</KpiStrip>
+
+<PanelGrid wide>
+	<Panel
+		title="Where the money went"
+		subtitle="what {nameOf(account)} divides into, two levels deep"
+	>
+		{#if divides}
 			<AlluvialChart
 				{rows}
 				{account}
 				{parts}
 				label="How {nameOf(account)} divides into the accounts under it, two levels deep"
-				{summary}
-			>
-				{#snippet controls()}{@render charts()}{/snippet}
-			</AlluvialChart>
-		{:else if bucket === 'day'}
-			<Calendar rows={bars} x="bucket" y="total" href={postingsOn} {label} {summary}>
-				{#snippet controls()}{@render charts()}{/snippet}
-			</Calendar>
+			/>
+		{:else}
+			<p>Nothing under {nameOf(account)} to divide.</p>
+		{/if}
+	</Panel>
+	<Panel title="Budgets" subtitle="what each category was meant to take this month" soon />
+</PanelGrid>
+
+<PanelGrid wide>
+	<Panel title="Spending by category" subtitle="{formatDate(first)} – {formatDate(last)}">
+		{#if bucket === 'day'}
+			<Calendar rows={bars} x="bucket" y="total" href={postingsOn} {label} {summary} />
 		{:else}
 			<BarChart
 				rows={bars}
@@ -125,63 +202,63 @@
 				{summary}
 			>
 				{#snippet controls()}
-					{@render charts()}
 					<ChoicePicker param="scale" label="Scale" choices={SCALE_LABELS} current={scale} />
 				{/snippet}
 			</BarChart>
 		{/if}
-	</section>
+	</Panel>
+	<Panel title="Repeating payments" subtitle="rent, SIPs and subscriptions" soon />
+</PanelGrid>
 
-	{#snippet charts()}
-		{#if divides}
-			<ChoicePicker param="chart" label="Chart" choices={SPENDING_CHART_LABELS} current={chart} />
+{#snippet summary(index: number | null)}
+	{@const bar = index === null ? undefined : bars[index]}
+	{@const shown = bar?.total ?? total?.amount ?? '0'}
+	{@const compared = bar ? bar[PREVIOUS] : totalOf(previous, account)}
+	{@const change = compared ? formatChange(compared, shown) : null}
+	<ChartSummary
+		id="spending"
+		label="Spending"
+		figure={formatAmount(shown)}
+		exact={formatExact(shown)}
+	>
+		{#if change}
+			<span class="nowrap">
+				{change.amount}{#if change.percent !== null}&nbsp;({change.percent}){/if} vs previous ·
+			</span>
 		{/if}
-	{/snippet}
+		{bar ? formatBucket[bucket](bar.bucket) : `${formatDate(first)} – ${formatDate(last)}`}
+		{#if total && total.unpriced > 0}
+			<span class="nowrap">· excludes {total.unpriced} unpriced</span>
+		{/if}
+	</ChartSummary>
+{/snippet}
 
-	{#snippet summary(index: number | null)}
-		{@const bar = index === null ? undefined : bars[index]}
-		{@const shown = bar?.total ?? total?.amount ?? '0'}
-		{@const compared = bar ? bar[PREVIOUS] : totalOf(previous, account)}
-		{@const change = compared ? formatChange(compared, shown) : null}
-		<div class="summary">
-			<h2 id="spending" class="label">Spending</h2>
-			<p class="figure" title={formatExact(shown)}>{formatAmount(shown)}</p>
-			<p>
-				{#if change}
-					<span class="nowrap">
-						{change.amount}{#if change.percent !== null}&nbsp;({change.percent}){/if} vs previous ·
-					</span>
-				{/if}
-				{bar ? formatBucket[bucket](bar.bucket) : `${formatDate(first)} – ${formatDate(last)}`}
-				{#if total && total.unpriced > 0}
-					<span class="nowrap">· excludes {total.unpriced} unpriced</span>
-				{/if}
-			</p>
-		</div>
-	{/snippet}
-
+<Panel title="Spending by account" subtitle="what each account took, and its share of the whole">
 	{#if rows.length > 0}
 		<LedgerTable
 			columns={[
 				{ label: 'Account' },
 				{ label: 'Spent', kind: 'amount' },
-				{ label: 'Share', kind: 'amount' },
+				{ label: 'Share', kind: 'amount', optional: true },
 				...(bucket === 'day'
 					? []
 					: [{ label: 'Per month', kind: 'amount' as const, optional: true }]),
 			]}
 		>
 			<tbody>
-				{#each rows as row (row.account)}
+				{#each shown as row (row.account)}
 					{@const depth = depthOf(row.account) - depthOf(account)}
+					{@const folds = row.account !== account && rows.some((r) => r.parent === row.account)}
+					{@const Chevron = opened.has(row.account) ? IconExpanded : IconCollapsed}
 					<tr>
-						<th scope="row" class={{ nested: depth > 0 }}>
-							<a
-								href={postingsOf(row.account)}
-								class="name plain"
-								style:--depth={depth}
-								title={row.account}
-								><span class="prefix">{prefixOf(row.account)}</span>{nameOf(row.account)}</a
+						<th scope="row">
+							{#if folds}<button
+									class="fold"
+									aria-label="Accounts under {nameOf(row.account)}"
+									aria-expanded={opened.has(row.account)}
+									onclick={() => fold(row.account)}><Chevron size={16} /></button
+								>{/if}<a href={postingsOf(row.account)} class="plain" title={row.account}
+								><AccountName account={row.account} depth={folds ? depth - 1 : depth} /></a
 							>
 							{#if parts.includes(row.account)}<Swatch
 									shade={seriesOf(parts.indexOf(row.account))}
@@ -189,11 +266,11 @@
 							{#if row.unpriced > 0}<span class="tag">{row.unpriced} unpriced</span>{/if}
 						</th>
 						<Amount value={row.amount} />
-						<td class="amount share">
+						<td class="amount share optional">
 							{#if row.account !== account}{formatShare(row.amount, total?.amount ?? '0')}{/if}
 						</td>
 						{#if bucket !== 'day'}
-							<Amount value={perMonth(row.amount)} compact optional />
+							<Amount value={perMonth(row.amount)} optional />
 						{/if}
 					</tr>
 				{/each}
@@ -202,51 +279,24 @@
 	{:else}
 		<p>Nothing spent in this period.</p>
 	{/if}
-</FilterRail>
+</Panel>
 
 <style>
-	.summary {
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-1);
-		margin-bottom: var(--size-2);
-	}
-
-	h2 {
-		margin: 0;
-	}
-
-	p {
-		margin: 0;
-		color: var(--color-muted);
-		font-size: var(--font-size-0);
-	}
-
-	p.figure {
-		color: var(--color-ink);
-		font-family: var(--font-mono);
-		font-size: min(var(--font-size-4), 12vw);
-		font-variant-numeric: tabular-nums;
-		line-height: 1.1;
-		overflow-wrap: anywhere;
-	}
-
 	.nowrap {
 		white-space: nowrap;
 	}
 
-	th.nested,
-	th.nested ~ :global(td.amount) {
-		font-size: var(--font-size-1);
-	}
-
-	.name {
-		display: inline-block;
-		padding-left: calc(var(--depth) * var(--size-2));
-	}
-
-	.prefix,
 	.share {
 		color: var(--color-muted);
+	}
+
+	.fold {
+		display: inline-flex;
+		width: var(--size-2);
+		padding: 0;
+		border: none;
+		background: none;
+		color: var(--color-muted);
+		vertical-align: middle;
 	}
 </style>

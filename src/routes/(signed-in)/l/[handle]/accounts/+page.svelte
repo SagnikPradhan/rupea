@@ -2,25 +2,32 @@
 	import { listAccounts, listReturns, listWorth } from '#lib/endpoints/accounts.remote.ts';
 	import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
 	import { periodOf } from '#lib/shared/dates.ts';
-	import { BalanceAccount } from '#lib/shared/accounts.ts';
-	import { depthOf, isUnder, nameOf, prefixOf } from '#lib/web/shared/accounts.ts';
-	import AccountPicker from '#lib/web/components/account-picker/account-picker.svelte';
+	import { ASSETS, BalanceAccount } from '#lib/shared/accounts.ts';
+	import { depthOf, isUnder } from '#lib/web/shared/accounts.ts';
+	import AccountName from '#lib/web/components/account-name/account-name.svelte';
 	import ChoicePicker from '#lib/web/components/choice-picker/choice-picker.svelte';
-	import FilterRail from '#lib/web/components/filter-rail/filter-rail.svelte';
+	import Bar from '#lib/web/components/bar/bar.svelte';
+	import BarRow from '#lib/web/components/bar-row/bar-row.svelte';
+	import FilterSection from '#lib/web/components/filter-section/filter-section.svelte';
+	import ListFilter from '#lib/web/components/list-filter/list-filter.svelte';
 	import Issues from '#lib/web/components/issues/issues.svelte';
 	import Amount from '#lib/web/components/ledger-table/amount.svelte';
 	import LedgerTable from '#lib/web/components/ledger-table/ledger-table.svelte';
+	import Kpi from '#lib/web/components/kpi/kpi.svelte';
+	import KpiStrip from '#lib/web/components/kpi-strip/kpi-strip.svelte';
 	import NetWorth from '#lib/web/components/net-worth/net-worth.svelte';
 	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
-	import PeriodPicker from '#lib/web/components/period-picker/period-picker.svelte';
+	import PanelGrid from '#lib/web/components/panel-grid/panel-grid.svelte';
+	import Panel from '#lib/web/components/panel/panel.svelte';
 	import {
 		formatAmount,
 		formatIsoDate,
 		formatPercent,
 		formatReturn,
+		formatWhole,
 	} from '#lib/web/shared/format.ts';
+	import { groupsInvested, investedOf, totalsOf } from '#lib/web/shared/invested.ts';
 	import { WorthChart, WORTH_CHART_LABELS } from '#lib/web/shared/choices.ts';
-	import { ledgerCrumb } from '#lib/web/shared/links.ts';
 	import { page } from '$app/state';
 	import * as v from 'valibot';
 
@@ -38,7 +45,8 @@
 
 	const handle = $derived(data.ledger.handle);
 	const day = formatIsoDate(new Date());
-	const period = $derived(periodOf(page.url.searchParams, { kind: 'year', at: day.slice(0, 4) }));
+	const thisYear = { kind: 'year', at: day.slice(0, 4) } as const;
+	const period = $derived(periodOf(page.url.searchParams, thisYear));
 	const account = $derived(v.parse(BalanceAccount, page.url.searchParams.get('account')));
 	const chart = $derived(
 		v.parse(v.fallback(WorthChart, 'time'), page.url.searchParams.get('chart')),
@@ -54,6 +62,20 @@
 		Object.values(Object.groupBy(shown, (a) => a.account.split(':')[0] ?? '')),
 	);
 
+	const invested = $derived(investedOf(accounts, returns));
+	const groups = $derived(groupsInvested(invested));
+	const totals = $derived(totalsOf(groups));
+	const byReturn = $derived(
+		invested
+			.map((a) => ({ ...a, grew: a.cost > 0 ? a.gain / a.cost : 0 }))
+			.toSorted((a, b) => b.grew - a.grew),
+	);
+	const assets = $derived(
+		accounts
+			.filter((a) => a.parent === null && isUnder(a.account, ASSETS))
+			.reduce((t, a) => t + Number(a.total), 0),
+	);
+
 	const lotsOf = (account: string, commodity: string) =>
 		`/l/${handle}/accounts/lots?${new URLSearchParams({ account, commodity })}`;
 
@@ -65,73 +87,140 @@
 		account.holdings.length > 1 || (next?.account.startsWith(`${account.account}:`) ?? false);
 </script>
 
-<PageHeader trail={[ledgerCrumb(data.ledger)]}>Accounts</PageHeader>
-
-<FilterRail>
-	{#snippet filters()}
-		<PeriodPicker
-			current={period}
-			shown={{ from: worth[0]?.day ?? day, to: worth.at(-1)?.day ?? day }}
-			today={day}
-			first={earliest}
-		/>
-		<AccountPicker current={account} {accounts} top={null} />
+<PageHeader subtitle="What you own, and how it has grown">
+	Accounts
+	{#snippet actions()}
+		<ListFilter {period} {account} {accounts} today={day} first={earliest} moreParams={['chart']}>
+			{#snippet more()}
+				<FilterSection label="Chart">
+					<ChoicePicker param="chart" label="Chart" choices={WORTH_CHART_LABELS} current={chart} />
+				</FilterSection>
+			{/snippet}
+		</ListFilter>
 	{/snippet}
+</PageHeader>
 
-	<Issues {handle} errors={[...(response.errors ?? []), ...(earned.errors ?? [])]} />
+<Issues {handle} errors={[...(response.errors ?? []), ...(earned.errors ?? [])]} />
 
-	<NetWorth {worth} {accounts} {account} {chart}>
-		{#snippet controls()}
-			<ChoicePicker param="chart" label="Chart" choices={WORTH_CHART_LABELS} current={chart} />
-		{/snippet}
-	</NetWorth>
+<KpiStrip>
+	<Kpi
+		label="Invested value"
+		figure={formatWhole(String(totals.value))}
+		detail="on {formatWhole(String(totals.cost))} put in"
+	/>
+	<Kpi
+		label="Gain"
+		figure={formatWhole(String(totals.gain))}
+		detail="{formatReturn(String(totals.gain), String(totals.cost)) ?? '0%'} on cost"
+		tone={totals.gain > 0 ? 'positive' : totals.gain < 0 ? 'negative' : undefined}
+	/>
+	<Kpi
+		label="Return a year"
+		figure={totals.xirr === null ? '0%' : formatPercent(totals.xirr)}
+		detail="weighted by value across {groups.length} {groups.length === 1 ? 'account' : 'accounts'}"
+	/>
+	<Kpi
+		label="Put in"
+		figure={formatWhole(String(totals.netIn))}
+		detail="across {groups.length} {groups.length === 1 ? 'account' : 'accounts'}"
+	/>
+</KpiStrip>
 
-	{#snippet returnOf(gain: string | null, cost: string | null)}
-		{@const negative = gain?.startsWith('-') ?? false}
-		{@const percent = formatReturn(gain, cost)}
-		<td class={['amount', { negative, positive: percent !== null && !negative }]}>{percent}</td>
+<NetWorth {worth} {accounts} {account} {chart} />
+
+<Panel
+	title="Value against cost"
+	subtitle="what the investments are worth, and what went into them"
+	soon
+/>
+
+<PanelGrid>
+	<div class="column">
+		<Panel title="Returns" subtitle="how much each account has grown on what went in">
+			<ul role="list">
+				{#each byReturn as a (a.account)}
+					<BarRow
+						name={a.name}
+						detail="{a.xirr === null ? '' : `${formatPercent(a.xirr)} a year · `}gain {formatWhole(
+							String(a.gain),
+						)}"
+						figure={formatReturn(String(a.gain), String(a.cost)) ?? '0%'}
+						tone={a.gain > 0 ? 'positive' : a.gain < 0 ? 'negative' : undefined}
+						share={a.grew / (byReturn[0]?.grew || 1)}
+					/>
+				{/each}
+			</ul>
+		</Panel>
+
+		<Panel title="Biggest drops" subtitle="how far investments fell from their high" soon />
+	</div>
+
+	<Panel
+		title="Return and risk"
+		subtitle="each dot is an account, bigger dot, more money in it"
+		soon
+	/>
+</PanelGrid>
+
+{#snippet returnOf(gain: string | null, cost: string | null)}
+	{@const negative = gain?.startsWith('-') ?? false}
+	{@const percent = formatReturn(gain, cost)}
+	<td class={['amount', { negative, positive: percent !== null && !negative }]}>{percent}</td>
+{/snippet}
+
+{#snippet flowed(account: string | null)}
+	{@const r = account === null ? undefined : returns[account]}
+	{@const negative = (r?.xirr ?? 0) < 0}
+	<Amount value={r?.netIn ?? null} signed optional />
+	<td
+		class={['amount', { negative, positive: r?.xirr != null && !negative }]}
+		title={r?.xirr == null ? undefined : r.yearly ? 'XIRR, per year' : 'Return over the period'}
+	>
+		{#if r?.xirr != null}{formatPercent(r.xirr)}{#if r.yearly}&nbsp;<span class="unit">p.a.</span
+				>{/if}{/if}
+	</td>
+{/snippet}
+
+{#snippet shareOf(value: string | null)}
+	<td class="share optional"
+		><Bar share={value === null || assets === 0 ? 0 : Number(value) / assets} /></td
+	>
+{/snippet}
+
+{#snippet held(account: string, holding: Holding, child: boolean)}
+	{#snippet label()}
+		{#if child}
+			<span class="name" style:--depth={depthOf(account) + 1}>{holding.commodity}</span>
+		{:else}
+			<AccountName {account} depth={depthOf(account)} full />
+		{/if}
 	{/snippet}
-
-	{#snippet flowed(account: string | null)}
-		{@const r = account === null ? undefined : returns[account]}
-		{@const negative = (r?.xirr ?? 0) < 0}
-		<Amount value={r?.netIn ?? null} signed compact optional />
-		<td
-			class={['amount', { negative, positive: r?.xirr != null && !negative }]}
-			title={r?.xirr == null ? undefined : r.yearly ? 'XIRR, per year' : 'Return over the period'}
-		>
-			{#if r?.xirr != null}{formatPercent(r.xirr)}{#if r.yearly}&nbsp;<span class="unit">p.a.</span
-					>{/if}{/if}
+	<tr class={{ held: child }}>
+		<td title={child ? undefined : account}>
+			{#if holding.hasLots}
+				<a href={lotsOf(account, holding.commodity)} class="plain">{@render label()}</a>
+			{:else}
+				{@render label()}
+			{/if}
 		</td>
-	{/snippet}
+		<Amount value={child ? numberOf(holding.units) : holding.units} units optional />
+		<Amount value={holding.cost} optional />
+		<Amount value={holding.value} note={holding.price && `@ ${formatAmount(holding.price, true)}`}
+			><span class="unpriced">unpriced</span></Amount
+		>
+		<Amount value={holding.gain} signed />
+		{@render returnOf(holding.gain, holding.cost)}
+		{@render flowed(child ? null : account)}
+		{@render shareOf(holding.value)}
+	</tr>
+{/snippet}
 
-	{#snippet held(account: string, holding: Holding, child: boolean)}
-		{@const name = child ? holding.commodity : nameOf(account)}
-		<tr class={{ child, leaf: !child }}>
-			<td>
-				<span
-					class="name"
-					style:--depth={depthOf(account) + Number(child)}
-					title={child ? undefined : account}
-				>
-					{#if !child}<span class="prefix">{prefixOf(account)}</span>{/if}{#if holding.hasLots}
-						<a href={lotsOf(account, holding.commodity)} class="plain">{name}</a>
-					{:else}
-						{name}
-					{/if}
-				</span>
-			</td>
-			<Amount value={child ? numberOf(holding.units) : holding.units} compact optional />
-			<Amount value={holding.cost} compact optional />
-			<Amount value={holding.value} note={holding.price && `@ ${formatAmount(holding.price)}`}
-				><span class="unpriced">unpriced</span></Amount
-			>
-			<Amount value={holding.gain} signed compact />
-			{@render returnOf(holding.gain, holding.cost)}
-			{@render flowed(child ? null : account)}
-		</tr>
-	{/snippet}
-
+<Panel
+	title="All accounts"
+	subtitle="{trees.length} {trees.length === 1 ? 'group' : 'groups'} · {formatWhole(
+		String(assets),
+	)} in all"
+>
 	<LedgerTable
 		columns={[
 			{ label: 'Account' },
@@ -142,6 +231,7 @@
 			{ label: 'Return', kind: 'amount' },
 			{ label: 'Net in', kind: 'amount', optional: true },
 			{ label: 'XIRR', kind: 'amount' },
+			{ label: 'Share', optional: true },
 		]}
 	>
 		{#each trees as tree (tree?.[0]?.account)}
@@ -149,20 +239,17 @@
 				{#each tree ?? [] as account, i (account.account)}
 					{#if isGroup(account, tree?.[i + 1])}
 						<tr class="group">
-							<th scope="row" class={{ nested: depthOf(account.account) > 0 }}>
-								<span class="name" style:--depth={depthOf(account.account)} title={account.account}
-									><span class="prefix">{prefixOf(account.account)}</span>{nameOf(
-										account.account,
-									)}</span
-								>
+							<th scope="row" title={account.account}>
+								<AccountName account={account.account} depth={depthOf(account.account)} full />
 								{#if account.unpriced > 0}<span class="tag">{account.unpriced} unpriced</span>{/if}
 							</th>
 							<Amount value={null} optional />
-							<Amount value={account.cost} compact optional />
+							<Amount value={account.cost} optional />
 							<Amount value={account.total} />
-							<Amount value={account.gain} signed compact />
+							<Amount value={account.gain} signed />
 							{@render returnOf(account.gain, account.cost)}
 							{@render flowed(account.account)}
+							{@render shareOf(account.total)}
 						</tr>
 						{#each account.holdings as holding (holding.commodity)}
 							{@render held(account.account, holding, true)}
@@ -176,38 +263,35 @@
 			</tbody>
 		{/each}
 	</LedgerTable>
-</FilterRail>
+</Panel>
 
 <style>
-	tbody + tbody {
-		border-top: 1px solid var(--color-border);
+	.column {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-3);
 	}
 
-	tr.group:not(:first-child) > :global(*) {
-		padding-top: var(--size-1);
+	ul {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-2);
+		max-width: none;
+		margin: 0;
+		padding: 0;
 	}
 
-	tr.group > th.nested,
-	tr.group > th ~ :global(td.amount) {
-		font-size: var(--font-size-1);
+	tr.held > :global(:not(.amount)) {
+		color: var(--color-muted);
 	}
 
-	tr.leaf > :global(*) {
-		padding-top: var(--size-0);
+	.share {
+		width: calc(var(--size-5) * 1.5);
 	}
 
 	.name {
 		display: inline-block;
 		padding-left: calc(var(--depth) * var(--size-2));
-	}
-
-	tr.leaf .name,
-	th.nested .name {
-		font-size: var(--font-size-2);
-	}
-
-	.prefix {
-		color: var(--color-muted);
 	}
 
 	.unpriced,

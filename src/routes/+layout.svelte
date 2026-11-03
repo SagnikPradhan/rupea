@@ -1,76 +1,46 @@
 <script lang="ts">
-	import IconLogout from '@tabler/icons-svelte-runes/icons/logout';
 	import { onMount } from 'svelte';
-	import favicon from '#lib/assets/favicon.svg';
-	import { signOut } from '#lib/endpoints/auth.remote.ts';
-	import IconButton from '#lib/web/components/icon-button/icon-button.svelte';
-	import SyncButton from '#lib/web/components/sync-button/sync-button.svelte';
-	import ThemeToggle from '#lib/web/components/theme-toggle/theme-toggle.svelte';
+	import Navigation from '#lib/web/components/navigation/navigation.svelte';
 	import { page } from '$app/state';
 	import '@rupea/theme/index.css';
 
 	const { data, children } = $props();
 
+	const ledgers: { handle: string }[] = $derived(page.data['ledgers'] ?? []);
+	const asked = $derived(page.params.handle ?? page.url.searchParams.get('ledger'));
+	const handle = $derived((ledgers.find((l) => l.handle === asked) ?? ledgers[0])?.handle ?? null);
+
 	// Lets e2e tests tell when the page has taken over from the server render.
 	onMount(() => document.documentElement.toggleAttribute('hydrated', true));
 </script>
 
-<svelte:head>
-	<link rel="icon" href={favicon} />
-</svelte:head>
+<div>
+	<Navigation {handle} username={data.user?.username ?? null} theme={data.theme} />
 
-<header>
-	<div>
-		<a href="/">Rupea</a>
-		<div class="end">
-			{#if data.user}<span>{data.user.username}</span>{/if}
-			{#if page.params.handle}<SyncButton handle={page.params.handle} />{/if}
-			<ThemeToggle theme={data.theme} />
-			{#if data.user}
-				<form {...signOut}>
-					<IconButton label="Sign out" icon={IconLogout} />
-				</form>
-			{/if}
-		</div>
-	</div>
-</header>
-
-<main>
-	{@render children()}
-</main>
+	<main>
+		{@render children()}
+	</main>
+</div>
 
 <style>
-	header,
 	main {
-		padding-inline: var(--inset) var(--inset-end);
-	}
-
-	header > div {
-		display: flex;
-		align-items: center;
-		justify-content: space-between;
-		padding-block: var(--size-1);
-	}
-
-	.end {
-		display: flex;
-		gap: var(--size-2);
-		align-items: center;
-	}
-
-	.end > span {
-		color: var(--color-muted);
-		font-size: var(--font-size-0);
-	}
-
-	header a {
-		color: var(--color-ink);
-		font-family: var(--font-heading);
-		font-size: var(--font-size-2);
-		text-decoration: none;
-	}
-
-	main {
+		padding-inline: var(--size-4);
 		padding-bottom: var(--size-5);
+	}
+
+	main > :global(*) {
+		margin-block: 0;
+	}
+
+	@media (width < 48rem) {
+		main {
+			padding-inline: var(--size-3);
+		}
+	}
+
+	@media (width >= 90rem) {
+		main {
+			padding-inline: var(--size-5);
+		}
 	}
 </style>

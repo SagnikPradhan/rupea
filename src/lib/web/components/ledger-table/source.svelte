@@ -27,7 +27,7 @@
 		font-family: var(--font-mono);
 	}
 
-	@media (width < 40rem) {
+	@container (width < 48rem) {
 		a {
 			display: none;
 		}

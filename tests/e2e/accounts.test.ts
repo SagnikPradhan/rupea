@@ -25,10 +25,7 @@ test('shows what each account holds and what it is worth', async ({ signedIn: pa
 	await page.getByLabel('New file').fill('shares.rupea');
 	await page.getByRole('button', { name: 'Create' }).click();
 	await expect(page.getByRole('heading', { name: 'shares.rupea' })).toBeVisible();
-	await page
-		.getByRole('navigation', { name: 'Breadcrumb' })
-		.getByRole('link', { name: 'Files' })
-		.click();
+	await page.getByRole('link', { name: 'All files' }).click();
 	await page.getByRole('link', { name: 'shares.rupea' }).click();
 	await page.getByLabel('Ledger file').fill(ledgerFile);
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
@@ -36,29 +33,30 @@ test('shows what each account holds and what it is worth', async ({ signedIn: pa
 
 	await visit(page, `${ledger}/accounts`);
 	const zerodha = page.getByRole('row').filter({ hasText: 'Zerodha' });
-	for (const cell of ['1 unpriced', '9K', '10,800.00', '1.8K', '+20%'])
+	for (const cell of ['1 unpriced', '9,000', '10,800', '1,800', '+20%'])
 		await expect(zerodha).toContainText(cell);
 	const infy = page.getByRole('row').filter({ hasText: 'INFY' });
-	for (const cell of ['6', '9K', '10,800.00', '1.8K', '+20%'])
+	for (const cell of ['6', '9,000', '10,800', '1,800', '+20%'])
 		await expect(infy.getByRole('cell', { name: cell, exact: true })).toBeVisible();
-	await expect(infy.getByTitle('@ 1,800.00')).toHaveText('10,800.00');
+	await expect(infy.getByTitle('@ 1,800')).toHaveText('10,800');
 	await expect(page.getByRole('row').filter({ hasText: 'TCS' })).toContainText('unpriced');
 
 	const worth = page.getByRole('region', { name: 'Net worth' });
-	await expect(worth).toContainText('2,600.00');
+	await expect(worth).toContainText('2,600');
 	await expect(worth).toContainText('excludes 1 unpriced');
+	await page.getByRole('button', { name: 'Filter' }).click();
 	const period = page.getByRole('navigation', { name: 'Period' });
 	await period.getByRole('link', { name: 'All', exact: true }).click();
 	await expect(page).toHaveURL(/range=all/);
 	await expect(worth.getByRole('img', { name: /^Net worth from 2 Jan 2026/ })).toBeVisible();
 
 	const account = page.getByRole('navigation', { name: 'Account' });
-	await account.getByRole('link', { name: 'Assets' }).click();
-	await account.getByRole('link', { name: 'Bank' }).click();
+	await account.getByRole('link', { name: 'Assets', exact: true }).click();
+	await account.getByRole('link', { name: /Bank/ }).click();
 	await expect(page).toHaveURL(/account=Assets%3ABank/);
-	await expect(worth).toContainText('-8,200.00');
+	await expect(worth).toContainText('-8,200');
 	await expect(page.getByRole('row').filter({ hasText: 'Zerodha' })).toHaveCount(0);
-	await account.getByRole('link', { name: 'All', exact: true }).click();
+	await page.getByRole('link', { name: 'Select all' }).click();
 	await expect(page).not.toHaveURL(/account=/);
 	await expect(page.getByRole('row').filter({ hasText: 'Zerodha' })).not.toHaveCount(0);
 
@@ -75,6 +73,6 @@ test('shows what each account holds and what it is worth', async ({ signedIn: pa
 
 	await page.getByRole('link', { name: 'INFY' }).click();
 	await expect(page.getByRole('heading', { name: 'INFY in Assets:Zerodha' })).toBeVisible();
-	await expect(page.getByRole('row', { name: /buy/i })).toContainText('6.00 left');
-	await expect(page.getByRole('row').filter({ hasText: 'sale' })).toContainText('800.00');
+	await expect(page.getByRole('row', { name: /buy/i })).toContainText('6 left');
+	await expect(page.getByRole('row').filter({ hasText: 'sale' })).toContainText('800');
 });

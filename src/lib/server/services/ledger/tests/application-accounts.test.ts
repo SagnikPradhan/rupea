@@ -775,6 +775,28 @@ describe('spending', () => {
 	const totals = (spending: Accounts.Spending | undefined) =>
 		spending?.totals.map((t) => [t.account, t.parent, t.amount, t.unpriced]);
 
+	it('adds up Income as it adds up Expenses, as the negative amounts it is credited', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const pay = ['2026-01-05 Pay', '\tIncome:Salary -5000', '\tAssets:Bank', ''].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content: `${content}\n${pay}` });
+
+			const spending = await Accounts.listSpending({
+				ledger,
+				spans: [span('2026-01-01', '2026-12-31')],
+				bucket: 'month',
+				account: 'Income',
+			});
+			const [year] = spending._unsafeUnwrap().succeeded;
+			expect(year?.totals.map((t) => [t.account, t.amount])).toEqual([
+				['Income', -5000_0000000000n],
+				['Income:Salary', -5000_0000000000n],
+			]);
+		}));
+
 	it('adds up each account and its parents by bucket, leaving out one in between, net of refunds, at its own day’s price, counting each unpriced amount', ({
 		context,
 		db,

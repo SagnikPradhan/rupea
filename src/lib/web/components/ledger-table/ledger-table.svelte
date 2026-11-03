@@ -26,6 +26,7 @@
 
 <style>
 	div {
+		container-type: inline-size;
 		overflow-x: auto;
 	}
 
@@ -37,7 +38,7 @@
 	}
 
 	table :global(:is(th, td)) {
-		padding: 0 0 0 var(--size-3);
+		padding: var(--size-2) 0 var(--size-2) var(--size-3);
 		vertical-align: baseline;
 	}
 
@@ -45,24 +46,23 @@
 		padding-left: 0;
 	}
 
-	thead th {
-		padding-bottom: var(--size-2);
-	}
-
 	table :global(th[scope='row']) {
 		color: var(--color-ink);
-		font-size: var(--font-size-2);
-		font-weight: 500;
+		font-weight: 400;
 		text-align: left;
-	}
-
-	table :global(th[scope='row'] ~ .amount) {
-		font-size: var(--font-size-2);
 	}
 
 	table :global(:is(.date, .amount)) {
 		width: 1%;
 		white-space: nowrap;
+	}
+
+	table :global(.amount) {
+		width: calc(var(--size-5) * 1.5);
+	}
+
+	table :global(th.amount) {
+		font-family: var(--font-body);
 	}
 
 	table :global(td.date) {
@@ -82,16 +82,24 @@
 		text-overflow: ellipsis;
 	}
 
-	table :global(tbody tr:first-child > *) {
-		padding-top: var(--size-2);
+	table :global(tbody tr) {
+		border-bottom: 1px solid var(--color-border);
 	}
 
-	table :global(tbody tr:last-child > *) {
-		padding-bottom: var(--size-2);
+	table :global(tbody tr:has(+ .child)) {
+		border-bottom-color: transparent;
+	}
+
+	table :global(tr:has(+ .child) > *) {
+		padding-bottom: var(--size-0);
 	}
 
 	table :global(tr.child > *) {
-		padding-top: var(--size-0);
+		padding-block: var(--size-0);
+	}
+
+	table :global(tbody.spacer tr) {
+		border: 0;
 	}
 
 	table :global(tbody.spacer tr > *) {
@@ -102,7 +110,7 @@
 		color: var(--color-muted);
 	}
 
-	@media (width < 40rem) {
+	@container (width < 48rem) {
 		table :global(:is(th, td)) {
 			padding-left: var(--size-2);
 		}

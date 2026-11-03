@@ -22,7 +22,7 @@ Use the role, never the value. A theme is a swap of the colour table, so a scree
 | `--color-border`   | lightgray | `#3a3a3a` | Inputs and outlines         |
 | `--color-subtle`   | `#f5f5f5` | `#1e1e1e` | Shaded rows, panel outlines |
 
-**Type.** Eight styles on three families: Poppins for text (`--font-body`), Geist Mono for money, dates and code (`--font-mono`), Google Sans for display and the brand (`--font-heading`). Every size is a multiple of `--font-size-1`, 18px.
+**Type.** Eight styles on three families: Poppins for text (`--font-body`), Geist Mono for money, dates and code (`--font-mono`), Google Sans for display and the brand (`--font-heading`). Every size is a multiple of `--font-size-1`, 18px, so changing it scales the whole page together: from 90rem wide it is 16px, a little smaller than drawn, for a 1080p screen.
 
 | Style             | Face        | Size            | Weight | Line height |
 | ----------------- | ----------- | --------------- | ------ | ----------- |
@@ -33,7 +33,7 @@ Use the role, never the value. A theme is a swap of the colour table, so a scree
 | `.text-base`      | Poppins     | `--font-size-1` | 400    | 1.4         |
 | `.text-data`      | Geist Mono  | `--font-size-1` |        | 1.4         |
 | `.text-label`     | Poppins     | `--font-size-0` | 400    | 1.4         |
-| `.text-brand`     | Google Sans | `--font-size-1` |        |             |
+| `.text-brand`     | Google Sans | `--font-size-1` |        | 1.2         |
 
 `h1` is `text-heading-1`, `h2` is `text-title` and the body is `text-base`. Display is used once, for the one figure a page exists to show. Money is always mono.
 
@@ -70,5 +70,6 @@ Boards exist at 1920, 1280 and 768 wide, in light and dark, and the page follows
 
 - Prefer the existing classes and components, and add to Penpot before adding to code.
 - A style used by both the app and rupea.app lives in `@rupea/theme`. What only the site needs is in `packages/site/src/site.css`.
+- A component's `<style>` takes colours and sizes from the tokens: `rupea/css-tokens` flags a hex or `rgb()` colour and a `px`, `rem` or `em` length, other than 0, 1px, 2px and media widths.
 - Every text colour passes WCAG AA in both themes.
 - Links stay underlined, and a control stays a control: the look never costs usability.

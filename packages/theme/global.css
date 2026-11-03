@@ -1,19 +1,18 @@
 :root {
 	color-scheme: light dark;
 
-	--font-size-0: 0.8rem;
-	--font-size-1: 1rem;
-	--font-size-2: 1.25rem;
-	--font-size-display: 3.5rem;
+	--font-size-1: 1.125rem; /* 18px, the base every other step is a multiple of */
+	--font-size-0: calc(var(--font-size-1) * 0.8);
+	--font-size-2: calc(var(--font-size-1) * 1.5);
+	--font-size-3: calc(var(--font-size-1) * 2.5);
+	--font-size-4: calc(var(--font-size-1) * 4.5);
 
-	--size-0: 0.25rem; /* 4px */
-	--size-1: 0.5rem; /* 8px */
-	--size-2: 1rem; /* 16px */
-	--size-3: 1.5rem; /* 24px */
-	--size-4: 2rem; /* 32px */
-	--size-5: 3rem; /* 48px */
-	--size-6: 6rem; /* 96px */
-	--size-7: 9rem; /* 144px */
+	--size-2: var(--font-size-1);
+	--size-0: calc(var(--size-2) * 0.25);
+	--size-1: calc(var(--size-2) * 0.5);
+	--size-3: calc(var(--size-2) * 1.5);
+	--size-4: calc(var(--size-2) * 3);
+	--size-5: calc(var(--size-2) * 6);
 
 	--measure: 64rem;
 	--sidebar: 16rem;
@@ -21,7 +20,7 @@
 	--plot-short: 12rem;
 	--inset: max(var(--size-3), (100% - var(--measure)) / 2);
 	--inset-end: var(--inset);
-	--radius: 8px;
+	--radius: calc(var(--size-2) * 0.5);
 
 	--font-body: 'Poppins', sans-serif;
 	--font-heading: 'Google Sans Variable', sans-serif;
@@ -30,7 +29,7 @@
 	--color-surface: light-dark(#fff, #121212);
 	--color-subtle: light-dark(#f5f5f5, #1e1e1e);
 	--color-border: light-dark(lightgray, #3a3a3a);
-	--color-ink: light-dark(rgba(0, 0, 0, 0.9), rgba(255, 255, 255, 0.9));
+	--color-ink: light-dark(#000, #e6e6e6);
 	--color-muted: light-dark(#707070, #858585);
 	--color-accent: light-dark(#704214, #c8a27a);
 	--color-positive: light-dark(#0a7a3d, #4cc47f);
@@ -66,7 +65,7 @@
 /* A page's filters sit beside the content from this width, so the content gives way to them on the left. */
 @media (width >= 80rem) {
 	:root {
-		--inset: max(var(--size-3) + var(--sidebar) + var(--size-5), (100% - var(--measure)) / 2);
+		--inset: max(var(--size-3) + var(--sidebar) + var(--size-4), (100% - var(--measure)) / 2);
 		--inset-end: max(var(--size-3), (100% - var(--measure)) / 2);
 	}
 }
@@ -117,15 +116,16 @@ h4 {
 }
 
 h1 {
-	font-size: var(--font-size-display);
-	line-height: 1;
-	letter-spacing: -0.02em;
-	margin: var(--size-5) 0 var(--size-3) 0;
+	font-size: var(--font-size-3);
+	margin: var(--size-4) 0 var(--size-3) 0;
 }
 
 h2 {
+	font-family: var(--font-body);
 	font-size: var(--font-size-2);
-	margin: var(--size-4) 0 var(--size-1) 0;
+	font-weight: 500;
+	line-height: 1.4;
+	margin: var(--size-3) 0 var(--size-1) 0;
 }
 
 h3,
@@ -204,6 +204,38 @@ code {
 	font-family: var(--font-mono);
 }
 
+.text-display {
+	font: 400 var(--font-size-4) / 1.125 var(--font-heading);
+}
+
+.text-heading-1 {
+	font: 400 var(--font-size-3) / 1.125 var(--font-heading);
+}
+
+.text-title {
+	font: 500 var(--font-size-2) / 1.4 var(--font-body);
+}
+
+.text-figure {
+	font: 400 var(--font-size-2) / 1.125 var(--font-mono);
+}
+
+.text-base {
+	font: 400 var(--font-size-1) / 1.4 var(--font-body);
+}
+
+.text-data {
+	font: var(--font-size-1) / 1.4 var(--font-mono);
+}
+
+.text-label {
+	font: 400 var(--font-size-0) / 1.4 var(--font-body);
+}
+
+.text-brand {
+	font: var(--font-size-1) var(--font-heading);
+}
+
 .label,
 .labelled thead th {
 	margin: 0;
@@ -211,9 +243,7 @@ code {
 	font-family: var(--font-body);
 	font-size: var(--font-size-0);
 	font-weight: 400;
-	line-height: 1;
-	letter-spacing: 0.06em;
-	text-transform: uppercase;
+	line-height: 1.4;
 	text-align: left;
 }
 
@@ -267,7 +297,7 @@ input:not([type='checkbox'], [type='radio'], [type='file']),
 button,
 .button {
 	padding: var(--size-1) var(--size-2);
-	border: 1px solid var(--color-muted);
+	border: 1px solid var(--color-border);
 	border-radius: var(--radius);
 	background: var(--color-surface);
 	color: var(--color-ink);

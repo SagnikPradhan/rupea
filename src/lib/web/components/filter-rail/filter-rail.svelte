@@ -19,7 +19,7 @@
 	.rail {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-4);
+		gap: var(--size-3);
 	}
 
 	aside {
@@ -31,7 +31,7 @@
 	.page {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-5);
+		gap: var(--size-4);
 		min-width: 0;
 	}
 
@@ -44,8 +44,8 @@
 		.rail {
 			display: grid;
 			grid-template-columns: var(--sidebar) minmax(0, 1fr);
-			gap: var(--size-5);
-			margin-left: calc(-1 * (var(--sidebar) + var(--size-5)));
+			gap: var(--size-4);
+			margin-left: calc(-1 * (var(--sidebar) + var(--size-4)));
 		}
 
 		aside {

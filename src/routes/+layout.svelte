@@ -71,6 +71,6 @@
 	}
 
 	main {
-		padding-bottom: var(--size-6);
+		padding-bottom: var(--size-5);
 	}
 </style>

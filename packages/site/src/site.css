@@ -38,7 +38,7 @@ footer.bar {
 
 footer.bar > .wide {
 	align-items: flex-start;
-	padding-block: var(--size-5);
+	padding-block: var(--size-4);
 }
 
 footer .about {
@@ -53,7 +53,7 @@ footer .about p {
 footer .columns {
 	display: flex;
 	flex-wrap: wrap;
-	gap: var(--size-5);
+	gap: var(--size-4);
 }
 
 footer.bar nav {
@@ -79,14 +79,14 @@ footer.bar nav {
 	display: flex;
 	flex-wrap: wrap;
 	align-items: flex-start;
-	gap: var(--size-5);
+	gap: var(--size-4);
 }
 
 .sidebar,
 .contents {
 	flex: 1 1 12rem;
 	max-width: var(--sidebar);
-	padding-top: var(--size-5);
+	padding-top: var(--size-4);
 	display: flex;
 	flex-direction: column;
 	gap: var(--size-1);
@@ -127,7 +127,7 @@ footer.bar nav {
 	flex: 999 1 30rem;
 	min-width: 0;
 	max-width: var(--column);
-	padding-block: var(--size-5);
+	padding-block: var(--size-4);
 }
 
 .prose h1 {
@@ -135,11 +135,11 @@ footer.bar nav {
 }
 
 .prose h2 {
-	margin: var(--size-5) 0 0;
+	margin: var(--size-4) 0 0;
 }
 
 .prose h3 {
-	margin: var(--size-4) 0 0;
+	margin: var(--size-3) 0 0;
 }
 
 .prose :is(p, ul, ol, pre, table, picture) {
@@ -185,7 +185,7 @@ footer.bar nav {
 	display: flex;
 	justify-content: space-between;
 	gap: var(--size-3);
-	margin-top: var(--size-5);
+	margin-top: var(--size-4);
 }
 
 .pager a {

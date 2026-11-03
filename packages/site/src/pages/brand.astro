@@ -2,22 +2,26 @@
 import Page from '../layouts/Page.astro';
 
 const logos = [
-	{ name: 'Lockup', file: 'lockup', height: 'var(--size-5)' },
-	{ name: 'Wordmark', file: 'wordmark', height: 'var(--size-4)' },
-	{ name: 'Mark', file: 'mark', height: 'var(--size-5)' },
+	{ name: 'Lockup', file: 'lockup', height: 'var(--size-4)' },
+	{ name: 'Wordmark', file: 'wordmark', height: 'var(--size-3)' },
+	{ name: 'Mark', file: 'mark', height: 'var(--size-4)' },
 ];
 
 const colours = [
-	{ name: 'Ink', role: 'Text and the wordmark', token: '--color-ink' },
-	{ name: 'Accent', role: 'The mark, and where you are', token: '--color-accent' },
-	{ name: 'Surface', role: 'The page behind everything', token: '--color-surface' },
-	{ name: 'Muted', role: 'Secondary text, never fainter', token: '--color-muted' },
+	{ name: 'Surface', role: 'Page and panel background', token: '--color-surface' },
+	{ name: 'Ink', role: 'Text and figures', token: '--color-ink' },
+	{ name: 'Positive', role: 'Money in and gains', token: '--color-positive' },
+	{ name: 'Negative', role: 'Money out and errors', token: '--color-negative' },
+	{ name: 'Muted', role: 'Labels and secondary text', token: '--color-muted' },
+	{ name: 'Border', role: 'Inputs and outlines', token: '--color-border' },
+	{ name: 'Subtle', role: 'Shaded rows and tiles', token: '--color-subtle' },
+	{ name: 'Accent', role: 'The mark', token: '--color-accent' },
 ];
 
 const faces = [
-	{ name: 'Google Sans', role: 'Titles and the wordmark', family: 'var(--font-heading)' },
-	{ name: 'Poppins', role: 'Text', family: 'var(--font-body)' },
-	{ name: 'Geist Mono', role: 'Numbers and code', family: 'var(--font-mono)' },
+	{ name: 'Google Sans', role: 'Display and the wordmark', family: 'var(--font-heading)' },
+	{ name: 'Poppins', role: 'Interface text', family: 'var(--font-body)' },
+	{ name: 'Geist Mono', role: 'Money, dates and code', family: 'var(--font-mono)' },
 ];
 
 const images = [
@@ -151,7 +155,7 @@ const images = [
 
 <style>
 	.brand-page {
-		padding-block: var(--size-5) var(--size-7);
+		padding-block: var(--size-4) var(--size-5);
 	}
 
 	.lead {
@@ -160,14 +164,14 @@ const images = [
 	}
 
 	h2 {
-		margin-top: var(--size-6);
+		margin-top: var(--size-5);
 	}
 
 	.logos,
 	.images {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(20rem, 1fr));
-		gap: var(--size-4);
+		gap: var(--size-3);
 	}
 
 	figure {
@@ -198,7 +202,7 @@ const images = [
 		display: grid;
 		background: var(--color-surface);
 		place-items: center;
-		min-height: var(--size-7);
+		min-height: var(--size-5);
 	}
 
 	.tile img {
@@ -225,7 +229,7 @@ const images = [
 	.faces {
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
-		gap: var(--size-4);
+		gap: var(--size-3);
 	}
 
 	.faces p {
@@ -233,13 +237,13 @@ const images = [
 	}
 
 	.sample {
-		font-size: var(--font-size-display);
+		font-size: var(--font-size-3);
 		line-height: 1.2;
 		white-space: nowrap;
 	}
 
 	.icon {
-		width: var(--size-7);
+		width: var(--size-5);
 	}
 
 	/* On a phone the roles would squeeze the swatches into a column of words. */

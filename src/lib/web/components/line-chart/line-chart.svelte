@@ -250,7 +250,7 @@
 		flex-wrap: wrap;
 		justify-content: space-between;
 		align-items: start;
-		gap: var(--size-2) var(--size-5);
+		gap: var(--size-2) var(--size-4);
 		color: var(--color-muted);
 		font-size: var(--font-size-0);
 	}

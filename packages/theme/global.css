@@ -21,6 +21,7 @@
 	--inset: max(var(--size-3), (100% - var(--measure)) / 2);
 	--inset-end: var(--inset);
 	--radius: calc(var(--size-2) * 0.5);
+	--radius-small: calc(var(--radius) * 0.5);
 
 	--font-body: 'Poppins', sans-serif;
 	--font-heading: 'Google Sans Variable', sans-serif;

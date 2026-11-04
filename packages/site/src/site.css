@@ -69,9 +69,6 @@ footer.bar nav {
 }
 
 .brand {
-	display: inline-flex;
-	align-items: center;
-	gap: var(--size-1);
 	font-family: var(--font-heading);
 	font-size: var(--font-size-2);
 	font-weight: 500;

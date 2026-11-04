@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { keysUnder, movedTo, treeRows } from '#lib/web/components/file-index/file-tree.ts';
+import { keysUnder, movedTo, treeRows } from '#lib/web/components/app-file-index/file-tree.ts';
 
 const files = [
 	'b.rupea',

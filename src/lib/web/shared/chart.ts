@@ -1,7 +1,11 @@
-import uPlot from 'uplot';
-import { sumOf } from './numbers';
+import { scaleLinear, scaleSymlog } from 'd3-scale';
+import { stack, stackOffsetDiverging, type Series } from 'd3-shape';
+import type { Scale } from './choices';
 
-const EDGE = 32;
+/** How many steps the ink and negative scales in tokens.css have, numbered palest first. */
+const INK = 6;
+const NEGATIVE = 6;
+const STEPS: Record<string, number> = { '--color-ink': INK, '--color-negative': NEGATIVE };
 
 /** How many bars a group can tell apart, one shade of ink each. */
 export const PARTS = 5;
@@ -9,166 +13,97 @@ export const PARTS = 5;
 /** The part whatever the named parts leave is folded into. */
 export const OTHER = 'Other';
 
-/** The colour token of a part's bar; any past the last share its shade. */
-export const seriesOf = (k: number) => `--color-series-${Math.min(k, PARTS - 1) + 1}`;
-
 /** How many parts of what is owed have a shade of their own, which are fewer than what is held. */
 export const OWED = 3;
 
 /** The part whatever the named parts of what is owed leave is folded into. */
 export const OTHER_OWED = 'Other owed';
 
-/** The colour token of a part of what is owed; any past the last share its shade. */
-export const owedOf = (k: number) => `--color-owed-${Math.min(k, OWED - 1) + 1}`;
+/** The units a plot is drawn in each way, stretched over it, so the server can draw it before the browser knows its size; a position in them is a percent. */
+export const VIEW = 100;
 
-/** What the amounts of one sign add up to, as a stack piles them on its side of zero. */
-export const pileOf = (n: number[], s: number) => sumOf(n.filter((x) => Math.sign(x) === s));
+/** The least room between two labels on an axis, as a percent of the plot: dates across, amounts up the side. */
+export const SPACE = { across: 12, up: 20 };
 
-/** Draws a plot into a node, again when the colour scheme changes, sized to it, and moves its cursor where a finger lands. */
-export const plotInto = (
-	node: HTMLElement,
-	options: (font: string) => uPlot.Options,
-	data: uPlot.AlignedData,
+/** How near the left edge, as a percent of the plot, a date may sit before it is cut in half. */
+export const EDGE = 3;
+
+/** The colour token of a part's bar, darkest first; any past the last share its shade. */
+export const seriesOf = (k: number) => `--color-ink-${INK - Math.min(k, PARTS - 1)}`;
+
+/** The colour token of a part of what is owed, darkest first; any past the last share its shade. */
+export const owedOf = (k: number) => `--color-negative-${NEGATIVE - Math.min(k, OWED - 1)}`;
+
+/** The outline of a shade, two steps darker on its scale, or the full colour past the darkest. */
+export const edgeOf = (shade: string) => {
+	const at = shade.lastIndexOf('-');
+	const scale = shade.slice(0, at);
+	const step = Number(shade.slice(at + 1)) + 2;
+
+	return step > (STEPS[scale] ?? 0) ? scale : `${scale}-${step}`;
+};
+
+/** Piles each part on the parts before it that run its way: spending up from zero, refunds down. */
+export const stackOf = (rows: Record<string, unknown>[], keys: string[]) =>
+	stack<Record<string, unknown>, string>()
+		.keys(keys)
+		.value((r, k) => Number(r[k] ?? 0))
+		.offset(stackOffsetDiverging)(rows);
+
+/** The part whose pile holds a value at a row, or none above the piles and below them. */
+export const partAt = (
+	piles: Series<Record<string, unknown>, string>[],
+	i: number,
+	value: number,
 ) => {
-	const plots: uPlot[] = [];
-	const removed = new AbortController();
+	const k = piles.findIndex((p) => {
+		const [from, to] = p[i] ?? [0, 0];
+		return value >= Math.min(from, to) && value < Math.max(from, to);
+	});
 
-	const draw = async () => {
-		const font = await fontOf(node);
-		if (removed.signal.aborted) return;
+	return k < 0 ? null : k;
+};
 
-		plots.splice(0).forEach((p) => p.destroy());
-		plots.push(new uPlot(options(font), data, node));
-	};
-	const resize = new ResizeObserver(() =>
-		plots.forEach((p) => p.setSize({ width: node.clientWidth, height: node.clientHeight })),
-	);
-	const touch = (e: PointerEvent) =>
-		plots.forEach((p) => {
-			const box = p.over.getBoundingClientRect();
-			p.setCursor({ left: e.clientX - box.left, top: e.clientY - box.top });
-		});
+type ValuesOptions = {
+	piles: Series<Record<string, unknown>, string>[];
+	lines: (number | null)[][];
+	scale: Scale;
+};
 
-	void draw();
-	resize.observe(node);
-	const unwatch = watchScheme(draw);
-	node.addEventListener('pointerdown', touch);
-	return () => {
-		removed.abort();
-		resize.disconnect();
-		unwatch();
-		node.removeEventListener('pointerdown', touch);
-		plots.forEach((p) => p.destroy());
+/** The value axis, fitted to the piles and lines; a log scale by arcsinh runs through zero to the refunds. */
+export const valuesOf = ({ piles, lines, scale }: ValuesOptions) => {
+	const values = [...piles.flat(2), ...lines.flat().filter((v) => v !== null)];
+	const low = Math.min(...values);
+	const high = Math.max(...values);
+	const y = (scale === 'log' ? scaleSymlog() : scaleLinear())
+		.domain([low, high === low ? low + 1 : high])
+		.range([VIEW, 0]);
+
+	return {
+		y,
+		ticks: scale === 'log' ? powersIn(low, high) : y.ticks(VIEW / SPACE.up),
+		crossed: low < 0 && high > 0,
 	};
 };
 
-/** Paints a canvas filling a node, again when it resizes or the colour scheme changes; painting again keeps the canvas, so nothing blinks. */
-export const paintInto = (
-	node: HTMLElement,
-	paint: (ctx: CanvasRenderingContext2D, font: string) => void,
-) => {
-	const canvas = node.querySelector('canvas') ?? node.appendChild(document.createElement('canvas'));
-	const removed = new AbortController();
-
-	const draw = async () => {
-		const font = await fontOf(node);
-		const ctx = canvas.getContext('2d');
-		if (removed.signal.aborted || !ctx) return;
-
-		canvas.width = node.clientWidth * devicePixelRatio;
-		canvas.height = node.clientHeight * devicePixelRatio;
-		ctx.scale(devicePixelRatio, devicePixelRatio);
-		paint(ctx, font);
-	};
-	const resize = new ResizeObserver(() => void draw());
-
-	void draw();
-	resize.observe(node);
-	const unwatch = watchScheme(() => void draw());
-	return () => {
-		removed.abort();
-		resize.disconnect();
-		unwatch();
+/** Where the pointer is in the plot it moves over, in the units the plot is drawn in. */
+export const pointerIn = (e: PointerEvent) => {
+	const box = (e.currentTarget as Element).getBoundingClientRect();
+	return {
+		left: ((e.clientX - box.left) / box.width) * VIEW,
+		top: ((e.clientY - box.top) / box.height) * VIEW,
 	};
 };
 
-/** Calls back when the page's colours change, by the system's scheme or by the theme picked over it. */
-const watchScheme = (changed: () => void) => {
-	const dark = matchMedia('(prefers-color-scheme: dark)');
-	const theme = new MutationObserver(changed);
-
-	dark.addEventListener('change', changed);
-	theme.observe(document.documentElement, { attributeFilter: ['data-theme'] });
-	return () => {
-		dark.removeEventListener('change', changed);
-		theme.disconnect();
-	};
-};
-
-/** Muted axes without grid or ticks, the values on the right; a label at the left edge is dropped, since the plot starts flush with the text beside it. */
-export const axesOf = (
-	node: HTMLElement,
-	font: string,
-	x: (s: number) => string,
-	y: (n: number) => string,
-): [uPlot.Axis, uPlot.Axis] => {
-	const axis = {
-		stroke: colorOf(node, '--color-muted'),
-		font,
-		grid: { show: false },
-		ticks: { show: false },
-	};
-
+/** Zero and the powers of ten, as the steps between them crowd together on a log scale. */
+const powersIn = (low: number, high: number) => {
+	const powers = Array.from({ length: 15 }, (_, k) => 10 ** (k + 1));
 	return [
-		{
-			...axis,
-			size: 32,
-			space: 96,
-			values: (u, t) => t.map((s) => (u.valToPos(s, 'x') < EDGE ? '' : x(s))),
-		},
-		{ ...axis, side: 1, size: 48, values: (_, t) => t.map(y) },
+		...powers
+			.filter((p) => -p >= low)
+			.map((p) => -p)
+			.toReversed(),
+		0,
+		...powers.filter((p) => p <= high),
 	];
-};
-
-/** The axis fits the data, so zero is drawn only when the plot crosses it, solid even after a dashed series. */
-export const drawZero = (u: uPlot, color: string) => {
-	const scale = u.scales['y'];
-	if (!scale || (scale.min ?? 0) >= 0 || (scale.max ?? 0) <= 0) return;
-
-	const y = u.valToPos(0, 'y', true);
-	u.ctx.save();
-	u.ctx.strokeStyle = color;
-	u.ctx.setLineDash([]);
-	u.ctx.beginPath();
-	u.ctx.moveTo(u.bbox.left, y);
-	u.ctx.lineTo(u.bbox.left + u.bbox.width, y);
-	u.ctx.stroke();
-	u.ctx.restore();
-};
-
-/** A colour fading from the top of the plot to nothing at its base, to fill under a line. */
-export const fadeOf = (u: uPlot, color: string) => {
-	const fade = u.ctx.createLinearGradient(0, u.bbox.top, 0, u.bbox.top + u.bbox.height);
-	fade.addColorStop(0, color);
-	fade.addColorStop(1, 'transparent');
-	return fade;
-};
-
-/** A canvas cannot read light-dark colours, so each one is resolved through an element. */
-export const colorOf = (node: HTMLElement, token: string) => {
-	const probe = node.appendChild(document.createElement('span'));
-	probe.style.color = `var(${token})`;
-	const color = getComputedStyle(probe).color;
-	probe.remove();
-	return color;
-};
-
-const fontOf = async (node: HTMLElement) => {
-	const probe = node.appendChild(document.createElement('span'));
-	probe.style.font = 'var(--font-size-0) var(--font-mono)';
-	const style = getComputedStyle(probe);
-	const font = `${style.fontSize} ${style.fontFamily}`;
-	probe.remove();
-	await document.fonts.load(font);
-	return font;
 };

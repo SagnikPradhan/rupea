@@ -1,14 +1,15 @@
 :root {
 	--site-width: 80rem;
 	--column: 45rem;
+	--sidebar: calc(var(--size-2) * 14);
 }
 
 .frame {
 	display: block;
 	width: 100%;
 	height: auto;
-	border: var(--line) solid var(--color-border);
-	border-radius: var(--radius);
+	border: var(--size-line-0) solid var(--color-border);
+	border-radius: var(--radius-1);
 }
 
 .wide {
@@ -28,11 +29,11 @@
 }
 
 header.bar {
-	border-bottom: var(--line) solid var(--color-border);
+	border-bottom: var(--size-line-0) solid var(--color-border);
 }
 
 footer.bar {
-	border-top: var(--line) solid var(--color-border);
+	border-top: var(--size-line-0) solid var(--color-border);
 	color: var(--color-muted);
 }
 
@@ -46,6 +47,7 @@ footer .about {
 }
 
 footer .about p {
+	margin: var(--size-2) 0 var(--size-1);
 	color: var(--color-muted);
 	font-size: var(--font-size-0);
 }
@@ -131,20 +133,25 @@ footer.bar nav {
 }
 
 .prose h1 {
-	margin-top: var(--size-2);
+	margin: var(--size-2) 0 var(--size-3);
 }
 
 .prose h2 {
 	margin: var(--size-4) 0 0;
 }
 
-.prose h3 {
+.prose :is(h3, h4) {
 	margin: var(--size-3) 0 0;
+	font: 500 var(--font-size-1) / 1.125 var(--font-heading);
 }
 
 .prose :is(p, ul, ol, pre, table, picture) {
 	display: block;
 	margin: var(--size-2) 0;
+}
+
+.prose li {
+	margin: var(--size-0) 0;
 }
 
 .prose picture {
@@ -158,15 +165,20 @@ footer.bar nav {
 .prose pre {
 	padding: var(--size-2) var(--size-3);
 	background: var(--color-subtle);
-	border: var(--line) solid var(--color-border);
-	border-radius: var(--radius);
+	border: var(--size-line-0) solid var(--color-border);
+	border-radius: var(--radius-1);
 	overflow-x: auto;
+}
+
+code {
+	font-size: var(--font-size-0);
+	font-family: var(--font-mono);
 }
 
 .prose :not(pre) > code {
 	padding: 0 var(--size-0);
 	background: var(--color-subtle);
-	border: var(--line) solid var(--color-border);
+	border: var(--size-line-0) solid var(--color-border);
 	border-radius: var(--size-0);
 }
 
@@ -175,6 +187,26 @@ footer.bar nav {
 	overflow-x: auto;
 	border-collapse: collapse;
 	font-size: var(--font-size-0);
+}
+
+.label,
+.labelled thead th {
+	color: var(--color-muted);
+	font: var(--text-label);
+	text-align: left;
+}
+
+.labelled thead th {
+	border-bottom: var(--size-line-0) solid var(--color-border);
+}
+
+a.plain {
+	color: inherit;
+	text-decoration: none;
+}
+
+a.plain:hover {
+	text-decoration: underline;
 }
 
 .labelled :is(th, td) {
@@ -197,4 +229,20 @@ footer.bar nav {
 .pager .next {
 	margin-left: auto;
 	text-align: right;
+}
+
+.button {
+	display: inline-flex;
+	padding: var(--size-1) var(--size-2);
+	border: var(--size-line-0) solid var(--color-border);
+	border-radius: var(--radius-1);
+	background: var(--color-surface);
+	color: var(--color-ink);
+	text-decoration: none;
+}
+
+.button.primary {
+	border-color: var(--color-ink);
+	background: var(--color-ink);
+	color: var(--color-surface);
 }

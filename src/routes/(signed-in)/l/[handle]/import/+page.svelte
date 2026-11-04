@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { listImports, listStatements, uploadStatements } from '#lib/endpoints/import.remote.ts';
 	import { listFiles } from '#lib/endpoints/files.remote.ts';
-	import Button from '#lib/web/components/button/button.svelte';
-	import FilePath from '#lib/web/components/file-path/file-path.svelte';
-	import Issues from '#lib/web/components/issues/issues.svelte';
-	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
-	import StatementList from '#lib/web/components/statement-list/statement-list.svelte';
-	import StatementView from '#lib/web/components/statement-view/statement-view.svelte';
+	import Button from '#lib/web/components/ui-button/ui-button.svelte';
+	import FilePath from '#lib/web/components/ui-file-path/ui-file-path.svelte';
+	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
+	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
+	import StatementList from '#lib/web/components/app-statement-list/app-statement-list.svelte';
+	import StatementView from '#lib/web/components/app-statement-view/app-statement-view.svelte';
 	import { UPLOAD_EXTENSIONS } from '#lib/shared/statements.ts';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';

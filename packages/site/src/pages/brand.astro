@@ -15,7 +15,6 @@ const colours = [
 	{ name: 'Muted', role: 'Labels and secondary text', token: '--color-muted' },
 	{ name: 'Border', role: 'Inputs and outlines', token: '--color-border' },
 	{ name: 'Subtle', role: 'Shaded rows and tiles', token: '--color-subtle' },
-	{ name: 'Accent', role: 'The mark', token: '--color-accent' },
 ];
 
 const faces = [
@@ -36,8 +35,7 @@ const images = [
 		<p class="label">Brand</p>
 		<h1>Rupea's mark, colours and type</h1>
 		<p class="lead">
-			The mark is a rupee sign drawn in rules: two bars, then the bowl and leg as one stroke. It is
-			always in the accent, beside an ink wordmark.
+			The mark is a rupee sign drawn in rules: two bars, then the bowl and leg as one stroke.
 		</p>
 
 		<h2>Logo</h2>
@@ -158,13 +156,27 @@ const images = [
 		padding-block: var(--size-4) var(--size-5);
 	}
 
+	h1 {
+		margin: var(--size-4) 0 var(--size-3);
+	}
+
+	.lead,
+	ul {
+		max-width: 70ch;
+		margin: var(--size-2) 0 var(--size-1);
+	}
+
+	li {
+		margin: var(--size-0) 0;
+	}
+
 	.lead {
 		color: var(--color-muted);
 		font-size: var(--font-size-2);
 	}
 
 	h2 {
-		margin-top: var(--size-5);
+		margin: var(--size-5) 0 var(--size-1);
 	}
 
 	.logos,
@@ -193,8 +205,8 @@ const images = [
 	.tiles {
 		display: grid;
 		grid-template-columns: 1fr 1fr;
-		border: var(--line) solid var(--color-border);
-		border-radius: var(--radius);
+		border: var(--size-line-0) solid var(--color-border);
+		border-radius: var(--radius-1);
 		overflow: hidden;
 	}
 
@@ -218,7 +230,12 @@ const images = [
 	}
 
 	.swatch {
-		border-color: var(--color-border);
+		display: inline-block;
+		width: var(--size-2);
+		height: var(--size-2);
+		margin-right: var(--size-0);
+		vertical-align: middle;
+		border: var(--size-line-0) solid var(--color-border);
 	}
 
 	table {
@@ -230,10 +247,6 @@ const images = [
 		display: grid;
 		grid-template-columns: repeat(auto-fit, minmax(14rem, 1fr));
 		gap: var(--size-3);
-	}
-
-	.faces p {
-		margin: 0;
 	}
 
 	.sample {

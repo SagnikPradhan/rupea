@@ -6,7 +6,7 @@
 		listSuggestions,
 	} from '#lib/endpoints/refinement.remote.ts';
 	import type { RupeaError } from '#lib/server/shared/result/error.ts';
-	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
+	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import { detail } from '#lib/web/shared/errors.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';
 	import { goto } from '$app/navigation';
@@ -113,3 +113,13 @@
 		{/each}
 	{/if}
 {/if}
+
+<style>
+	h2 {
+		margin: var(--size-3) 0 var(--size-1);
+	}
+
+	p {
+		margin: var(--size-2) 0 var(--size-1);
+	}
+</style>

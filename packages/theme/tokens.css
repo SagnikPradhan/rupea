@@ -1,0 +1,90 @@
+:root {
+	color-scheme: light dark;
+
+	/* Type scale */
+	--font-size-1: 1.125rem; /* 18px, the base every other step is a multiple of */
+	--font-size-0: calc(var(--font-size-1) * 0.8);
+	--font-size-2: calc(var(--font-size-1) * 1.5);
+	--font-size-3: calc(var(--font-size-1) * 2.5);
+	--font-size-4: calc(var(--font-size-1) * 4.5);
+
+	/* Typefaces */
+	--font-body: 'Poppins', sans-serif;
+	--font-heading: 'Google Sans Variable', sans-serif;
+	--font-mono: 'Geist Mono Variable', monospace;
+
+	/* Type roles */
+	--text-display: 400 var(--font-size-4) / 1.125 var(--font-heading);
+	--text-heading-1: 400 var(--font-size-3) / 1.125 var(--font-heading);
+	--text-title: 500 var(--font-size-2) / 1.4 var(--font-body);
+	--text-figure: 400 var(--font-size-2) / 1.125 var(--font-mono);
+	--text-base: 400 var(--font-size-1) / 1.4 var(--font-body);
+	--text-data: 400 var(--font-size-1) / 1.4 var(--font-mono);
+	--text-label: 400 var(--font-size-0) / 1.4 var(--font-body);
+	--text-brand: 400 var(--font-size-1) / 1.2 var(--font-heading);
+
+	/* Spacing */
+	--size-0: calc(var(--size-2) * 0.25);
+	--size-1: calc(var(--size-2) * 0.5);
+	--size-2: var(--font-size-1);
+	--size-3: calc(var(--size-2) * 1.5);
+	--size-4: calc(var(--size-2) * 3);
+	--size-5: calc(var(--size-2) * 6);
+
+	/* Lines */
+	--size-line-0: 1px;
+	--size-line-1: calc(var(--size-line-0) * 2);
+
+	/* Heights */
+	--size-height-0: clamp(calc(var(--size-2) * 8), 20svh, calc(var(--size-2) * 16));
+	--size-height-1: clamp(calc(var(--size-2) * 12), 30svh, calc(var(--size-2) * 24));
+	--size-height-2: clamp(calc(var(--size-2) * 16), 40svh, calc(var(--size-2) * 32));
+
+	/* Corners */
+	--radius-0: var(--size-0);
+	--radius-1: calc(var(--radius-0) * 2);
+	--radius-2: calc(var(--radius-0) * 3);
+
+	/* Base colours */
+	--color-surface: light-dark(#fff, #121212);
+	--color-ink: light-dark(#000, #e6e6e6);
+	--color-positive: light-dark(#0a7a3d, #4cc47f);
+	--color-negative: light-dark(#c62828, #ff7b72);
+
+	/* Ink scale */
+	--color-ink-1: color-mix(in srgb, var(--color-ink) 6%, transparent);
+	--color-ink-2: color-mix(in srgb, var(--color-ink) 12%, transparent);
+	--color-ink-3: color-mix(in srgb, var(--color-ink) 24%, transparent);
+	--color-ink-4: color-mix(in srgb, var(--color-ink) 36%, transparent);
+	--color-ink-5: color-mix(in srgb, var(--color-ink) 50%, transparent);
+	--color-ink-6: color-mix(in srgb, var(--color-ink) 70%, transparent);
+
+	/* Negative scale */
+	--color-negative-1: color-mix(in srgb, var(--color-negative) 6%, transparent);
+	--color-negative-2: color-mix(in srgb, var(--color-negative) 12%, transparent);
+	--color-negative-3: color-mix(in srgb, var(--color-negative) 24%, transparent);
+	--color-negative-4: color-mix(in srgb, var(--color-negative) 36%, transparent);
+	--color-negative-5: color-mix(in srgb, var(--color-negative) 50%, transparent);
+	--color-negative-6: color-mix(in srgb, var(--color-negative) 70%, transparent);
+
+	/* Roles */
+	--color-subtle: var(--color-ink-1);
+	--color-border: var(--color-ink-2);
+	--color-muted: color-mix(in srgb, var(--color-ink) 56%, transparent);
+}
+
+/* Every size is a multiple of --font-size-1, so this is the one size to change for a screen. */
+@media (width >= 90rem) {
+	:root {
+		--font-size-1: 1rem;
+	}
+}
+
+/* Theme chosen in the app */
+:root[data-theme='light'] {
+	color-scheme: light;
+}
+
+:root[data-theme='dark'] {
+	color-scheme: dark;
+}

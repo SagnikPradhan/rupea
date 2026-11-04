@@ -91,8 +91,6 @@ export const formatColumn = (index: number): string => {
 export const formatIsoDate = (d: Date) => isoDays.format(d);
 
 /** Formats a UTC day without its year, like `21 Oct`, for chart axes. */
-export const formatShortDate = (d: Date) => shortDays.format(d);
-
 /** Names the bucket an ISO day starts, like 21 Oct, Oct 2026 or 2026. */
 export const formatBucket: Record<Bucket, (d: string) => string> = {
 	day: (d) => shortDays.format(new Date(d)),

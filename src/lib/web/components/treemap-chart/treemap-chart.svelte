@@ -109,6 +109,11 @@
 		background-image: linear-gradient(var(--color-layer), var(--color-layer));
 	}
 
+	data {
+		font-family: var(--font-mono);
+		font-variant-numeric: tabular-nums;
+	}
+
 	.box data {
 		display: block;
 		margin-top: var(--size-0);
@@ -131,7 +136,7 @@
 		margin: 0;
 		padding: var(--size-0) var(--size-1);
 		background: var(--color-surface);
-		border: 1px solid var(--color-border);
+		border: var(--line) solid var(--color-border);
 		border-radius: var(--radius);
 		color: var(--color-ink);
 		font-size: var(--font-size-0);
@@ -142,10 +147,5 @@
 
 	.tip span {
 		color: var(--color-muted);
-	}
-
-	data {
-		font-family: var(--font-mono);
-		font-variant-numeric: tabular-nums;
 	}
 </style>

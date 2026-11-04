@@ -158,7 +158,7 @@
 		margin: 0;
 		padding: var(--size-0) var(--size-1);
 		background: var(--color-surface);
-		border: 1px solid var(--color-border);
+		border: var(--line) solid var(--color-border);
 		border-radius: var(--radius);
 		color: var(--color-ink);
 		font-size: var(--font-size-0);

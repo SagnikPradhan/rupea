@@ -7,7 +7,7 @@
 	display: block;
 	width: 100%;
 	height: auto;
-	border: 1px solid var(--color-border);
+	border: var(--line) solid var(--color-border);
 	border-radius: var(--radius);
 }
 
@@ -28,11 +28,11 @@
 }
 
 header.bar {
-	border-bottom: 1px solid var(--color-border);
+	border-bottom: var(--line) solid var(--color-border);
 }
 
 footer.bar {
-	border-top: 1px solid var(--color-border);
+	border-top: var(--line) solid var(--color-border);
 	color: var(--color-muted);
 }
 
@@ -158,7 +158,7 @@ footer.bar nav {
 .prose pre {
 	padding: var(--size-2) var(--size-3);
 	background: var(--color-subtle);
-	border: 1px solid var(--color-border);
+	border: var(--line) solid var(--color-border);
 	border-radius: var(--radius);
 	overflow-x: auto;
 }
@@ -166,7 +166,7 @@ footer.bar nav {
 .prose :not(pre) > code {
 	padding: 0 var(--size-0);
 	background: var(--color-subtle);
-	border: 1px solid var(--color-border);
+	border: var(--line) solid var(--color-border);
 	border-radius: var(--size-0);
 }
 

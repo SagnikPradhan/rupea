@@ -49,7 +49,7 @@
 
 	const theme = EditorView.theme({
 		'&': {
-			borderTop: '1px solid var(--color-ink)',
+			borderTop: 'var(--line) solid var(--color-ink)',
 			color: 'var(--color-ink)',
 		},
 		'&.cm-focused': { outline: 'none', borderTopColor: 'var(--color-accent)' },
@@ -79,7 +79,7 @@
 		'.cm-searchMatch': { backgroundColor: 'var(--color-shade-2)' },
 		'.cm-searchMatch-selected': { backgroundColor: 'var(--color-shade-4)' },
 		'.cm-panels': { backgroundColor: 'var(--color-surface)', color: 'var(--color-ink)' },
-		'.cm-panels-top': { borderBottom: '1px solid var(--color-border)' },
+		'.cm-panels-top': { borderBottom: 'var(--line) solid var(--color-border)' },
 		'.cm-panel.cm-search': {
 			display: 'flex',
 			flexWrap: 'wrap',
@@ -95,7 +95,7 @@
 		},
 		'.cm-panel.cm-search .cm-textfield, .cm-panel.cm-search .cm-button': {
 			padding: 'var(--size-0) var(--size-1)',
-			border: '1px solid var(--color-muted)',
+			border: 'var(--line) solid var(--color-muted)',
 			borderRadius: 'var(--radius)',
 			backgroundColor: 'var(--color-surface)',
 			backgroundImage: 'none',

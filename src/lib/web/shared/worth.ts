@@ -12,15 +12,16 @@ export type Area = { key: string; label: string; parts: string[]; shade: string 
 
 /** The parts that get an area of their own: the largest held, then the largest owed, by what they were worth on the last day; the rest of each side is folded into one. */
 export const areasOf = (worth: Worth[]) => {
-	const labels = Object.fromEntries(
-		worth.flatMap((w) => w.parts.map((p) => [keyOf(p), labelOf(p)])),
-	);
+	const totals = totalsOf(worth.flatMap((w) => w.parts));
+	const labels = Object.fromEntries(Object.entries(totals).map(([k, t]) => [k, t.label]));
 	const last = amountsOf(worth.at(-1));
-	const keys = Object.keys(labels).toSorted(
+
+	const keys = Object.keys(totals).toSorted(
 		(a, b) => Math.abs(last[b] ?? 0) - Math.abs(last[a] ?? 0),
 	);
-	const owed = keys.filter((k) => sumOf(worth.map((w) => amountsOf(w)[k] ?? 0)) < 0);
-	const held = keys.filter((k) => !owed.includes(k));
+	const owes = (k: string) => (totals[k]?.amount ?? 0) < 0;
+	const owed = keys.filter(owes);
+	const held = keys.filter((k) => !owes(k));
 
 	return [
 		...sideOf(held, { labels, most: PARTS, rest: OTHER, shade: seriesOf }),
@@ -61,6 +62,16 @@ const sideOf = (keys: string[], { labels, most, rest, shade }: Side): Area[] => 
 const keyOf = (p: Part) => (p.commodity === null ? p.account : `${p.account} ${p.commodity}`);
 
 const labelOf = (p: Part) => p.commodity ?? nameOf(p.account);
+
+/** Each part's label and what it adds up to over every day, in one pass. */
+const totalsOf = (parts: Part[]) => {
+	const totals: Record<string, { label: string; amount: number }> = {};
+	for (const p of parts) {
+		const total = (totals[keyOf(p)] ??= { label: labelOf(p), amount: 0 });
+		total.amount += Number(p.amount);
+	}
+	return totals;
+};
 
 const amountsOf = (w: Worth | undefined) =>
 	Object.fromEntries((w?.parts ?? []).map((p) => [keyOf(p), Number(p.amount)]));

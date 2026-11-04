@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { createEditor } from '#lib/web/components/file-editor/file-editor.svelte.ts';
+	import { createEditor } from '#lib/web/components/app-file-editor/app-file-editor.svelte.ts';
 	import {
 		createFile,
 		deleteFiles,
@@ -11,10 +11,10 @@
 		renameFiles,
 	} from '#lib/endpoints/files.remote.ts';
 	import { listGroups, listSuggestions } from '#lib/endpoints/refinement.remote.ts';
-	import FileEditor from '#lib/web/components/file-editor/file-editor.svelte';
-	import FileGroups from '#lib/web/components/file-groups/file-groups.svelte';
-	import FileIndex from '#lib/web/components/file-index/file-index.svelte';
-	import Issues from '#lib/web/components/issues/issues.svelte';
+	import FileEditor from '#lib/web/components/app-file-editor/app-file-editor.svelte';
+	import FileGroups from '#lib/web/components/app-file-groups/app-file-groups.svelte';
+	import FileIndex from '#lib/web/components/app-file-index/app-file-index.svelte';
+	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import type { Reply } from '#lib/server/shared/result/reply.ts';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';

@@ -1,10 +1,10 @@
 import { render, screen } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 import { describe, expect, it } from 'vitest';
-import ChartSummary from '#lib/web/components/chart-summary/chart-summary.svelte';
-import PanelGrid from '#lib/web/components/panel-grid/panel-grid.svelte';
-import Kpi from '#lib/web/components/kpi/kpi.svelte';
-import KpiStrip from '#lib/web/components/kpi-strip/kpi-strip.svelte';
+import ChartSummary from '#lib/web/components/ui-chart-summary/ui-chart-summary.svelte';
+import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
+import Kpi from '#lib/web/components/ui-kpi/ui-kpi.svelte';
+import KpiStrip from '#lib/web/components/ui-kpi-strip/ui-kpi-strip.svelte';
 
 describe('a kpi', () => {
 	it('puts the label over the figure over its context', () => {
@@ -18,7 +18,10 @@ describe('a kpi', () => {
 	it('writes Coming soon in body text, not mono', () => {
 		render(Kpi, { label: 'Cash cushion', soon: true });
 
-		expect(screen.getByText('Coming soon').className).toContain('text-base');
+		const soon = screen.getByText('Coming soon').className;
+
+		expect(soon).toContain('soon');
+		expect(soon).not.toContain('figure');
 	});
 
 	it('colours the context only when told it is a gain', () => {

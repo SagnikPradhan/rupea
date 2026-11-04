@@ -8,12 +8,13 @@
 
 <style>
 	.content {
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-3);
+		display: grid;
+		grid-template-columns: subgrid;
+		row-gap: var(--size-3);
 	}
 
 	.content > :global(*) {
+		grid-column: 1 / -1;
 		margin-block: 0;
 	}
 </style>

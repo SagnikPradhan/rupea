@@ -3,26 +3,28 @@
 	import { paramsOf, periodOf } from '#lib/shared/dates.ts';
 	import { ExpenseAccount, EXPENSES } from '#lib/shared/accounts.ts';
 	import { depthOf, nameOf } from '#lib/web/shared/accounts.ts';
+	import { flowsOf } from '#lib/web/shared/alluvial.ts';
 	import { OTHER, seriesOf } from '#lib/web/shared/chart.ts';
 	import { Scale, SCALE_LABELS } from '#lib/web/shared/choices.ts';
-	import AccountName from '#lib/web/components/account-name/account-name.svelte';
-	import AlluvialChart from '#lib/web/components/alluvial-chart/alluvial-chart.svelte';
-	import BarChart from '#lib/web/components/bar-chart/bar-chart.svelte';
-	import ChartSummary from '#lib/web/components/chart-summary/chart-summary.svelte';
-	import Calendar from '#lib/web/components/calendar/calendar.svelte';
-	import ChoiceChips from '#lib/web/components/choice-chips/choice-chips.svelte';
-	import ChoicePicker from '#lib/web/components/choice-picker/choice-picker.svelte';
-	import FilterModal from '#lib/web/components/filter-modal/filter-modal.svelte';
-	import FilterSection from '#lib/web/components/filter-section/filter-section.svelte';
-	import Issues from '#lib/web/components/issues/issues.svelte';
-	import Amount from '#lib/web/components/ledger-table/amount.svelte';
-	import LedgerTable from '#lib/web/components/ledger-table/ledger-table.svelte';
-	import Kpi from '#lib/web/components/kpi/kpi.svelte';
-	import KpiStrip from '#lib/web/components/kpi-strip/kpi-strip.svelte';
-	import PanelGrid from '#lib/web/components/panel-grid/panel-grid.svelte';
-	import Panel from '#lib/web/components/panel/panel.svelte';
-	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
-	import Swatch from '#lib/web/components/swatch/swatch.svelte';
+	import AccountName from '#lib/web/components/app-account-name/app-account-name.svelte';
+	import AlluvialChart from '#lib/web/components/ui-chart-alluvial/ui-chart-alluvial.svelte';
+	import BarChart from '#lib/web/components/ui-chart-bar/ui-chart-bar.svelte';
+	import ChartSummary from '#lib/web/components/ui-chart-summary/ui-chart-summary.svelte';
+	import Calendar from '#lib/web/components/ui-chart-calendar/ui-chart-calendar.svelte';
+	import ChoiceChips from '#lib/web/components/ui-chip-choices/ui-chip-choices.svelte';
+	import ChoicePicker from '#lib/web/components/ui-picker-choice/ui-picker-choice.svelte';
+	import FilterModal from '#lib/web/components/ui-filter-modal/ui-filter-modal.svelte';
+	import FilterSection from '#lib/web/components/ui-filter-section/ui-filter-section.svelte';
+	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
+	import Amount from '#lib/web/components/app-ledger-table/amount.svelte';
+	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
+	import Kpi from '#lib/web/components/ui-kpi/ui-kpi.svelte';
+	import KpiStrip from '#lib/web/components/ui-kpi-strip/ui-kpi-strip.svelte';
+	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
+	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
+	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
+	import Swatch from '#lib/web/components/ui-swatch/ui-swatch.svelte';
+	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
 	import {
 		formatAmount,
 		formatBucket,
@@ -170,9 +172,7 @@
 	>
 		{#if divides}
 			<AlluvialChart
-				{rows}
-				{account}
-				{parts}
+				flows={flowsOf({ rows, account, parts })}
 				label="How {nameOf(account)} divides into the accounts under it, two levels deep"
 			/>
 		{:else}
@@ -257,13 +257,13 @@
 									aria-label="Accounts under {nameOf(row.account)}"
 									aria-expanded={opened.has(row.account)}
 									onclick={() => fold(row.account)}><Chevron size={16} /></button
-								>{/if}<a href={postingsOf(row.account)} class="plain" title={row.account}
+								>{/if}<a href={postingsOf(row.account)} title={row.account}
 								><AccountName account={row.account} depth={folds ? depth - 1 : depth} /></a
 							>
 							{#if parts.includes(row.account)}<Swatch
 									shade={seriesOf(parts.indexOf(row.account))}
 								/>{/if}
-							{#if row.unpriced > 0}<span class="tag">{row.unpriced} unpriced</span>{/if}
+							{#if row.unpriced > 0}<Tag>{row.unpriced} unpriced</Tag>{/if}
 						</th>
 						<Amount value={row.amount} />
 						<td class="amount share optional">
@@ -298,5 +298,14 @@
 		background: none;
 		color: var(--color-muted);
 		vertical-align: middle;
+	}
+
+	a {
+		color: inherit;
+		text-decoration: none;
+	}
+
+	a:hover {
+		text-decoration: underline;
 	}
 </style>

@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { BalanceAccount } from '#lib/shared/accounts.ts';
-	import ChoiceChips from '#lib/web/components/choice-chips/choice-chips.svelte';
-	import ChoicePicker from '#lib/web/components/choice-picker/choice-picker.svelte';
-	import FilterModal from '#lib/web/components/filter-modal/filter-modal.svelte';
-	import FilterSection from '#lib/web/components/filter-section/filter-section.svelte';
-	import Home from '#lib/web/components/home/home.svelte';
-	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
+	import ChoiceChips from '#lib/web/components/ui-chip-choices/ui-chip-choices.svelte';
+	import ChoicePicker from '#lib/web/components/ui-picker-choice/ui-picker-choice.svelte';
+	import FilterModal from '#lib/web/components/ui-filter-modal/ui-filter-modal.svelte';
+	import FilterSection from '#lib/web/components/ui-filter-section/ui-filter-section.svelte';
+	import Home from '#lib/web/components/app-home/app-home.svelte';
+	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import { formatIsoDate } from '#lib/web/shared/format.ts';
 	import { hrefWith } from '#lib/web/shared/links.ts';
 	import { SIDES, SPANS, SPANS_BRIEF, spanOf } from '#lib/web/shared/home.ts';
@@ -39,9 +39,8 @@
 </PageHeader>
 
 {#if data.ledgers.length > 1}
-	<div class="picker">
-		<span>Ledger</span>
-		<nav>
+	<FilterSection label="Ledger" id="ledger">
+		<nav aria-labelledby="ledger">
 			{#each data.ledgers as l (l.handle)}
 				<a
 					href={hrefWith(params, { ledger: l.handle })}
@@ -51,7 +50,7 @@
 				</a>
 			{/each}
 		</nav>
-	</div>
+	</FilterSection>
 {/if}
 
 {#if ledger}
@@ -59,3 +58,21 @@
 {:else}
 	<p>You have no ledgers yet.</p>
 {/if}
+
+<style>
+	nav {
+		display: flex;
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--size-1) var(--size-3);
+	}
+
+	a {
+		color: var(--color-ink);
+		text-decoration: none;
+	}
+
+	a:hover {
+		text-decoration: underline;
+	}
+</style>

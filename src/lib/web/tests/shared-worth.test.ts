@@ -30,14 +30,14 @@ describe('the areas', () => {
 		];
 
 		expect(areasOf(worth).map((a) => [a.label, a.parts.length, a.shade])).toEqual([
-			['A', 1, '--color-series-1'],
-			['B', 1, '--color-series-2'],
-			['C', 1, '--color-series-3'],
-			['D', 1, '--color-series-4'],
-			[OTHER, 2, '--color-series-5'],
-			['Loan', 1, '--color-owed-1'],
-			['Card', 1, '--color-owed-2'],
-			[OTHER_OWED, 2, '--color-owed-3'],
+			['A', 1, '--color-ink-6'],
+			['B', 1, '--color-ink-5'],
+			['C', 1, '--color-ink-4'],
+			['D', 1, '--color-ink-3'],
+			[OTHER, 2, '--color-ink-2'],
+			['Loan', 1, '--color-negative-6'],
+			['Card', 1, '--color-negative-5'],
+			[OTHER_OWED, 2, '--color-negative-4'],
 		]);
 	});
 

@@ -79,7 +79,7 @@ export default defineConfig({
 				test: {
 					name: 'frontend',
 					include: ['src/lib/web/tests/*.test.ts'],
-					benchmark: { include: [] },
+					benchmark: { include: ['src/lib/web/tests/*.bench.ts'] },
 					environment: 'happy-dom',
 				},
 			},

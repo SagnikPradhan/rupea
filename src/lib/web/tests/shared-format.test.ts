@@ -4,13 +4,13 @@ import {
 	formatWhole,
 	formatChange,
 	formatColumn,
+	formatBucket,
 	formatCompact,
 	formatDate,
 	formatExact,
 	formatIsoDate,
 	formatMoment,
 	formatReturn,
-	formatShortDate,
 	formatSize,
 } from '#lib/web/shared/format.ts';
 
@@ -87,9 +87,11 @@ describe('formatIsoDate', () => {
 	});
 });
 
-describe('formatShortDate', () => {
-	it('names the UTC day and month, without the year', () => {
-		expect(formatShortDate(new Date('2026-10-21'))).toBe('21 Oct');
+describe('formatBucket', () => {
+	it('names the day, month or year an ISO day starts', () => {
+		expect(formatBucket.day('2026-10-21')).toBe('21 Oct');
+		expect(formatBucket.month('2026-10-01')).toBe('Oct 2026');
+		expect(formatBucket.year('2026-01-01')).toBe('2026');
 	});
 });
 

@@ -13,9 +13,12 @@ test('home shows the balance sheet, and says what it cannot read yet', async ({
 test('the menu opens the ledger pages and closes on the way', async ({ signedIn: page }) => {
 	await visit(page, '/');
 	await page.getByRole('button', { name: 'Menu' }).click();
-	await page.locator('#drawer').getByRole('link', { name: 'Transactions' }).click();
+	await page
+		.getByRole('dialog', { name: 'Menu' })
+		.getByRole('link', { name: 'Transactions' })
+		.click();
 	await page.waitForURL('**/l/*/transactions');
-	await expect(page.locator('#drawer')).toBeHidden();
+	await expect(page.getByRole('dialog', { name: 'Menu' })).toBeHidden();
 });
 
 test('the menu at a narrow width lists the pages and Log out', async ({ signedIn: page }) => {
@@ -23,7 +26,7 @@ test('the menu at a narrow width lists the pages and Log out', async ({ signedIn
 	await visit(page, '/');
 	await page.getByRole('button', { name: 'Menu' }).click();
 
-	const drawer = page.locator('#drawer');
+	const drawer = page.getByRole('dialog', { name: 'Menu' });
 	await expect(drawer.getByRole('link', { name: 'Home' })).toBeVisible();
 	await expect(drawer.getByRole('button', { name: 'Theme: system' })).toBeVisible();
 	await expect(drawer.getByRole('button', { name: 'Log out' })).toBeVisible();

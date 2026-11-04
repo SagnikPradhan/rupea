@@ -5,7 +5,9 @@ import { requestCodeFor } from './support/sign-in.ts';
 test('a new user signs in with an emailed code, and gets a pet name', async ({ signedIn }) => {
 	await visit(signedIn, '/');
 	await signedIn.getByRole('button', { name: 'Menu' }).click();
-	await expect(signedIn.locator('#drawer').getByText(/^[a-z]+-[a-z]+$/)).toBeVisible();
+	await expect(
+		signedIn.getByRole('dialog', { name: 'Menu' }).getByText(/^[a-z]+-[a-z]+$/),
+	).toBeVisible();
 	await expect(signedIn.getByRole('heading', { name: 'Home' })).toBeVisible();
 });
 

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { listSpending } from '#lib/endpoints/accounts.remote.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
+import { openFilter } from '#tests/shared/filter.ts';
 import Page from '#routes/(signed-in)/l/[handle]/expenses/+page.svelte';
 
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
@@ -10,18 +11,6 @@ vi.mock('#lib/endpoints/accounts.remote.ts', () => ({ listSpending: vi.fn() }));
 vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
 	findFirstDay: vi.fn(() => answer('2025-03-14')),
 }));
-vi.mock('uplot', () => ({
-	default: Object.assign(
-		vi.fn(function () {
-			return { destroy: () => {}, setSize: () => {} };
-		}),
-		{ paths: { bars: () => () => null } },
-	),
-}));
-
-// Happy DOM has no font loading; the chart waits on it before drawing.
-Object.defineProperty(document, 'fonts', { value: { load: async () => [] } });
-
 const spending = {
 	from: '2026-01-01',
 	to: '2026-02-28',
@@ -120,6 +109,7 @@ describe('the expenses page', () => {
 		visit('/l/h/expenses');
 		vi.mocked(listSpending).mockReturnValue(answer([spending]));
 		render(Page, { data });
+		await openFilter();
 
 		const all = within(await screen.findByRole('navigation', { name: 'Accounts' })).getByRole(
 			'link',
@@ -176,6 +166,7 @@ describe('the expenses page', () => {
 		visit('/l/h/expenses?at=2026');
 		vi.mocked(listSpending).mockReturnValue(answer([spending]));
 		render(Page, { data });
+		await openFilter();
 
 		const spans = within(await screen.findByRole('navigation', { name: 'Period' }));
 		expect(spans.getAllByRole('link').some((l) => l.hasAttribute('aria-current'))).toBe(false);

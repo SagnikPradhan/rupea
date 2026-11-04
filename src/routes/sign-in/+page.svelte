@@ -1,7 +1,7 @@
 <script lang="ts">
-	import Button from '#lib/web/components/button/button.svelte';
-	import CodeInput from '#lib/web/components/code-input/code-input.svelte';
-	import Field from '#lib/web/components/field/field.svelte';
+	import Button from '#lib/web/components/ui-button/ui-button.svelte';
+	import CodeInput from '#lib/web/components/ui-input-code/ui-input-code.svelte';
+	import Field from '#lib/web/components/ui-field/ui-field.svelte';
 	import { requestCode, verifyCode } from '#lib/endpoints/auth.remote.ts';
 
 	const resend = requestCode.for('resend');

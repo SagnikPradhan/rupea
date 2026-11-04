@@ -1,6 +1,6 @@
 # Design
 
-Read this before any change to the app or to rupea.app. The Penpot file is the design. This document says its rules in words, and the tokens in `packages/theme/global.css` are its token sets, name for name. The reasons are in [ADR 0012](adr/0012-design-from-penpot.md).
+Read this before any change to the app or to rupea.app. The Penpot file is the design. This document says its rules in words, and the tokens in `packages/theme/tokens.css` are its token sets, name for name. The reasons are in [ADR 0012](adr/0012-design-from-penpot.md).
 
 > Rupea is paper-like: a plain surface, ink, and nothing that is not in the file. Numbers come first, in a monospace face. Panels and controls share one soft corner, and colour appears only where money moves.
 
@@ -10,36 +10,45 @@ When Penpot and this document disagree, Penpot wins and this document is fixed. 
 
 Use the role, never the value. A theme is a swap of the colour table, so a screen that names a hex breaks in the other theme.
 
-**Colour.** Seven roles in a light and a dark theme. `--color-accent` is not one of them: it marks the logo and focus, and nothing on a page.
+**Colour.** Four base colours in a light and a dark theme. They are the only hex values.
 
-| Role               | Light     | Dark      | Use                         |
-| ------------------ | --------- | --------- | --------------------------- |
-| `--color-surface`  | `#fff`    | `#121212` | Page and panel background   |
-| `--color-ink`      | `#000`    | `#e6e6e6` | Text and figures            |
-| `--color-positive` | `#0a7a3d` | `#4cc47f` | Money in and gains          |
-| `--color-negative` | `#c62828` | `#ff7b72` | Money out and errors        |
-| `--color-muted`    | `#707070` | `#858585` | Labels and secondary text   |
-| `--color-border`   | lightgray | `#3a3a3a` | Inputs and outlines         |
-| `--color-subtle`   | `#f5f5f5` | `#1e1e1e` | Shaded rows, panel outlines |
+| Base               | Light     | Dark      | Use                       |
+| ------------------ | --------- | --------- | ------------------------- |
+| `--color-surface`  | `#fff`    | `#121212` | Page and panel background |
+| `--color-ink`      | `#000`    | `#e6e6e6` | Text and figures          |
+| `--color-positive` | `#0a7a3d` | `#4cc47f` | Money in and gains        |
+| `--color-negative` | `#c62828` | `#ff7b72` | Money out and errors      |
+
+Ink and negative each have a scale, `-1` to `-6`, the colour at 6, 12, 24, 36, 50 and 70% over the surface. A scale is for things that rank, such as the parts of a chart and the heat of a calendar.
+
+The semantic roles are built from the base colours and carry no hex of their own.
+
+| Role             | Built from | Use                         |
+| ---------------- | ---------- | --------------------------- |
+| `--color-muted`  | ink at 56% | Labels and secondary text   |
+| `--color-border` | `ink-2`    | Inputs and outlines         |
+| `--color-subtle` | `ink-1`    | Shaded rows, panel outlines |
+
+Muted sits off the scale at 56% because secondary text needs a contrast of 4.5:1 on the surface in both themes, and 50% falls short.
 
 **Type.** Eight styles on three families: Poppins for text (`--font-body`), Geist Mono for money, dates and code (`--font-mono`), Google Sans for display and the brand (`--font-heading`). Every size is a multiple of `--font-size-1`, 18px, so changing it scales the whole page together: from 90rem wide it is 16px, a little smaller than drawn, for a 1080p screen.
 
-| Style             | Face        | Size            | Weight | Line height |
-| ----------------- | ----------- | --------------- | ------ | ----------- |
-| `.text-display`   | Google Sans | `--font-size-4` | 400    | 1.125       |
-| `.text-heading-1` | Google Sans | `--font-size-3` | 400    | 1.125       |
-| `.text-title`     | Poppins     | `--font-size-2` | 500    | 1.4         |
-| `.text-figure`    | Geist Mono  | `--font-size-2` | 400    | 1.125       |
-| `.text-base`      | Poppins     | `--font-size-1` | 400    | 1.4         |
-| `.text-data`      | Geist Mono  | `--font-size-1` |        | 1.4         |
-| `.text-label`     | Poppins     | `--font-size-0` | 400    | 1.4         |
-| `.text-brand`     | Google Sans | `--font-size-1` |        | 1.2         |
+| Token              | Face        | Size            | Weight | Line height |
+| ------------------ | ----------- | --------------- | ------ | ----------- |
+| `--text-display`   | Google Sans | `--font-size-4` | 400    | 1.125       |
+| `--text-heading-1` | Google Sans | `--font-size-3` | 400    | 1.125       |
+| `--text-title`     | Poppins     | `--font-size-2` | 500    | 1.4         |
+| `--text-figure`    | Geist Mono  | `--font-size-2` | 400    | 1.125       |
+| `--text-base`      | Poppins     | `--font-size-1` | 400    | 1.4         |
+| `--text-data`      | Geist Mono  | `--font-size-1` | 400    | 1.4         |
+| `--text-label`     | Poppins     | `--font-size-0` | 400    | 1.4         |
+| `--text-brand`     | Google Sans | `--font-size-1` | 400    | 1.2         |
 
-`h1` is `text-heading-1`, `h2` is `text-title` and the body is `text-base`. Display is used once, for the one figure a page exists to show. Money is always mono.
+Each is a `font` shorthand, used as `font: var(--text-label)`, with colour set beside it, as Penpot pairs a typography token with a fill. `h1` is `text-heading-1`, `h2` is `text-title` and the body is `text-base`. Display is used once, for the one figure a page exists to show. Money is always mono.
 
 **Space.** One scale for every gap, padding and margin, each a multiple of `--size-2`, 18px: `--size-0` is a quarter, `--size-1` a half, `--size-2` one, `--size-3` one and a half, `--size-4` three, `--size-5` six. There are no in-between values. When none fits, use the nearest step.
 
-**Shape.** One corner, `--radius`, half of `--size-2`, on every panel, field, chip and button. The small box inside a chip takes `--radius-small`, half of `--radius`. Every outline, border and rule is `--line`, 1px; `--line-thick`, 2px, is for emphasis: focus, errors, underlines and the main line in a chart. Nothing casts a shadow.
+**Shape.** One corner, `--radius-1`, the same as `--size-1`, on every panel, field, chip and button. The small box inside a chip takes `--radius-0`, half of `--radius-1`. Every outline, border and rule is `--size-line-0`, 1px; `--size-line-1`, twice that, is for emphasis: focus, errors, underlines and the main line in a chart. Nothing casts a shadow.
 
 ## Pages
 
@@ -47,7 +56,7 @@ Every page is built from the same components, in the same order: the navigation 
 
 - **Navigation.** The brand at the left; Home, Accounts, Income, Expenses, Liabilities, Transactions and Files in the centre; the theme toggle, the username and log out at the right. The current page is in ink and the rest are muted. At narrow widths the bar becomes a menu button that opens a drawer: an outlined card at the top right with the brand, the theme toggle and a close button over plain lists of the pages and the account.
 - **Page header.** The title in `text-heading-1`, one muted line saying what the page answers, then at the right the filters and the one primary action.
-- **Panel.** A `--color-subtle` outline, `--radius`, and `--size-3` of padding and gap. It starts with a panel heading: a `text-title` and one muted line saying what it shows. A panel is the only box; nothing else is boxed.
+- **Panel.** A `--color-subtle` outline, `--radius-1`, and `--size-3` of padding and gap. It starts with a panel heading: a `text-title` and one muted line saying what it shows. A panel is the only box; nothing else is boxed.
 - **Figures.** A muted `text-label` over a `text-figure` over a muted `text-data` line of context. A strip of four figures sits across the top of a page. Green and red appear in the context line only when a figure means a gain or a loss.
 - **Statements and tables.** A name at the left and amounts right-aligned in mono, with `--size-1` above and below each row. A total sits under a line in `--color-border`. Column names are muted `text-label`.
 - **Graphs.** No frame and no grid. Context goes in a legend of mono names and amounts, and the value under the cursor in a tooltip. A hover is a small panel.

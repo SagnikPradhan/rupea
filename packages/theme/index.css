@@ -3,4 +3,5 @@
 @import '@fontsource-variable/google-sans';
 @import '@fontsource-variable/geist-mono';
 @import './reset.css';
+@import './tokens.css';
 @import './global.css';

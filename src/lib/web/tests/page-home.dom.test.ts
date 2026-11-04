@@ -11,15 +11,6 @@ vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
 	listSpending: vi.fn(),
 	listWorth: vi.fn(),
 }));
-vi.mock('uplot', () => ({
-	default: vi.fn(function () {
-		return { destroy: () => {}, setSize: () => {} };
-	}),
-}));
-
-// Happy DOM has no font loading; the chart waits on it before drawing.
-Object.defineProperty(document, 'fonts', { value: { load: async () => [] } });
-
 const account = (name: string, parent: string | null, total: string) => ({
 	account: name,
 	parent,
@@ -164,7 +155,7 @@ describe('the home page', () => {
 		await screen.findByText('Balance sheet');
 
 		expect(vi.mocked(listAccounts)).toHaveBeenCalledWith(expect.objectContaining({ handle: 'b' }));
-		const picker = within(screen.getByText('Ledger').closest('.picker')!);
+		const picker = within(screen.getByRole('navigation', { name: 'Ledger' }));
 		expect(picker.getByRole('link', { name: 'Shared' }).getAttribute('aria-current')).toBe('page');
 		expect(picker.getByRole('link', { name: 'Personal' }).getAttribute('href')).toBe('?ledger=a');
 	});

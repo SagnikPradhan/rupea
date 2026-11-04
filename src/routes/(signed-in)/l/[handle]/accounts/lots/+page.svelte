@@ -1,10 +1,11 @@
 <script lang="ts">
 	import { listLots } from '#lib/endpoints/accounts.remote.ts';
-	import Issues from '#lib/web/components/issues/issues.svelte';
-	import Amount from '#lib/web/components/ledger-table/amount.svelte';
-	import LedgerTable from '#lib/web/components/ledger-table/ledger-table.svelte';
-	import Source from '#lib/web/components/ledger-table/source.svelte';
-	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
+	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
+	import Amount from '#lib/web/components/app-ledger-table/amount.svelte';
+	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
+	import Source from '#lib/web/components/app-ledger-table/source.svelte';
+	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
+	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
 	import { formatAmount, formatDate, formatExact } from '#lib/web/shared/format.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';
 	import { page } from '$app/state';
@@ -39,8 +40,8 @@
 					<td class="date">{formatDate(lot.date)}</td>
 					<th scope="row" class="truncate">
 						{lot.origin}{lot.from ? ` from ${lot.from}` : ''}
-						<span class="tag" title={formatExact(lot.remaining, formatAmount(lot.remaining, true))}
-							>{formatAmount(lot.remaining, true)} left</span
+						<Tag title={formatExact(lot.remaining, formatAmount(lot.remaining, true))}
+							>{formatAmount(lot.remaining, true)} left</Tag
 						>
 					</th>
 					<Amount value={lot.units} units />
@@ -51,9 +52,7 @@
 					<tr class="child">
 						<td class="date">{formatDate(disposal.date)}</td>
 						<td>
-							<a href={fileHref(handle, disposal.file, disposal.line)} class="plain"
-								>{disposal.kind}</a
-							>
+							<a href={fileHref(handle, disposal.file, disposal.line)}>{disposal.kind}</a>
 						</td>
 						<Amount value={disposal.units} units />
 						<Amount value={disposal.price} units optional />
@@ -72,5 +71,14 @@
 
 	p {
 		color: var(--color-muted);
+	}
+
+	a {
+		color: inherit;
+		text-decoration: none;
+	}
+
+	a:hover {
+		text-decoration: underline;
 	}
 </style>

@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { listAccounts, listReturns, listWorth } from '#lib/endpoints/accounts.remote.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
+import { openFilter } from '#tests/shared/filter.ts';
 import Page from '#routes/(signed-in)/l/[handle]/accounts/+page.svelte';
 
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
@@ -14,15 +15,6 @@ vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
 vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
 	findFirstDay: vi.fn(() => answer('2025-03-14')),
 }));
-vi.mock('uplot', () => ({
-	default: vi.fn(function () {
-		return { destroy: () => {}, setSize: () => {} };
-	}),
-}));
-
-// Happy DOM has no font loading; the chart waits on it before drawing.
-Object.defineProperty(document, 'fonts', { value: { load: async () => [] } });
-
 const rupees = (total: string) => ({
 	commodity: 'INR',
 	hasLots: false,
@@ -116,6 +108,7 @@ describe('the accounts page', () => {
 		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
 		vi.mocked(listWorth).mockReturnValue(answer(worth));
 		render(Page, { data });
+		await openFilter();
 
 		expect(await screen.findByText(/^Owed/)).toBeTruthy();
 		const key = within(screen.getByRole('figure'));
@@ -133,6 +126,7 @@ describe('the accounts page', () => {
 		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
 		vi.mocked(listWorth).mockReturnValue(answer(worth));
 		render(Page, { data });
+		await openFilter();
 
 		await screen.findByRole('navigation', { name: 'Account' });
 		expect(vi.mocked(listWorth)).toHaveBeenCalledWith(
@@ -148,6 +142,7 @@ describe('the accounts page', () => {
 		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
 		vi.mocked(listWorth).mockReturnValue(answer(worth));
 		render(Page, { data });
+		await openFilter();
 
 		const chart = within(await screen.findByRole('navigation', { name: 'Chart' }));
 		expect(

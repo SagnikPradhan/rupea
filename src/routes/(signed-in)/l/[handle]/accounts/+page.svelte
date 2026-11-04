@@ -4,21 +4,22 @@
 	import { periodOf } from '#lib/shared/dates.ts';
 	import { ASSETS, BalanceAccount } from '#lib/shared/accounts.ts';
 	import { depthOf, isUnder } from '#lib/web/shared/accounts.ts';
-	import AccountName from '#lib/web/components/account-name/account-name.svelte';
-	import ChoicePicker from '#lib/web/components/choice-picker/choice-picker.svelte';
-	import Bar from '#lib/web/components/bar/bar.svelte';
-	import BarRow from '#lib/web/components/bar-row/bar-row.svelte';
-	import FilterSection from '#lib/web/components/filter-section/filter-section.svelte';
-	import ListFilter from '#lib/web/components/list-filter/list-filter.svelte';
-	import Issues from '#lib/web/components/issues/issues.svelte';
-	import Amount from '#lib/web/components/ledger-table/amount.svelte';
-	import LedgerTable from '#lib/web/components/ledger-table/ledger-table.svelte';
-	import Kpi from '#lib/web/components/kpi/kpi.svelte';
-	import KpiStrip from '#lib/web/components/kpi-strip/kpi-strip.svelte';
-	import NetWorth from '#lib/web/components/net-worth/net-worth.svelte';
-	import PageHeader from '#lib/web/components/page-header/page-header.svelte';
-	import PanelGrid from '#lib/web/components/panel-grid/panel-grid.svelte';
-	import Panel from '#lib/web/components/panel/panel.svelte';
+	import AccountName from '#lib/web/components/app-account-name/app-account-name.svelte';
+	import ChoicePicker from '#lib/web/components/ui-picker-choice/ui-picker-choice.svelte';
+	import Bar from '#lib/web/components/ui-bar/ui-bar.svelte';
+	import BarRow from '#lib/web/components/ui-bar-row/ui-bar-row.svelte';
+	import FilterSection from '#lib/web/components/ui-filter-section/ui-filter-section.svelte';
+	import ListFilter from '#lib/web/components/app-list-filter/app-list-filter.svelte';
+	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
+	import Amount from '#lib/web/components/app-ledger-table/amount.svelte';
+	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
+	import Kpi from '#lib/web/components/ui-kpi/ui-kpi.svelte';
+	import KpiStrip from '#lib/web/components/ui-kpi-strip/ui-kpi-strip.svelte';
+	import NetWorth from '#lib/web/components/app-net-worth/app-net-worth.svelte';
+	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
+	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
+	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
+	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
 	import {
 		formatAmount,
 		formatIsoDate,
@@ -51,10 +52,16 @@
 	const chart = $derived(
 		v.parse(v.fallback(WorthChart, 'time'), page.url.searchParams.get('chart')),
 	);
-	const response = $derived(await listAccounts({ handle, day, period }));
-	const worth = $derived((await listWorth({ handle, day, period, account })).data ?? []);
-	const earned = $derived(await listReturns({ handle, day, period }));
-	const earliest = $derived((await findFirstDay(handle)).data ?? null);
+	const [response, valued, earned, first] = $derived(
+		await Promise.all([
+			listAccounts({ handle, day, period }),
+			listWorth({ handle, day, period, account }),
+			listReturns({ handle, day, period }),
+			findFirstDay(handle),
+		]),
+	);
+	const worth = $derived(valued.data ?? []);
+	const earliest = $derived(first.data ?? null);
 	const accounts = $derived(response.data ?? []);
 	const returns = $derived(Object.fromEntries((earned.data ?? []).map((r) => [r.account, r])));
 	const shown = $derived(accounts.filter((a) => isUnder(a.account, account)));
@@ -198,7 +205,7 @@
 	<tr class={{ held: child }}>
 		<td title={child ? undefined : account}>
 			{#if holding.hasLots}
-				<a href={lotsOf(account, holding.commodity)} class="plain">{@render label()}</a>
+				<a href={lotsOf(account, holding.commodity)}>{@render label()}</a>
 			{:else}
 				{@render label()}
 			{/if}
@@ -241,7 +248,7 @@
 						<tr class="group">
 							<th scope="row" title={account.account}>
 								<AccountName account={account.account} depth={depthOf(account.account)} full />
-								{#if account.unpriced > 0}<span class="tag">{account.unpriced} unpriced</span>{/if}
+								{#if account.unpriced > 0}<Tag>{account.unpriced} unpriced</Tag>{/if}
 							</th>
 							<Amount value={null} optional />
 							<Amount value={account.cost} optional />
@@ -276,8 +283,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--size-2);
-		max-width: none;
-		margin: 0;
 		padding: 0;
 	}
 
@@ -297,5 +302,22 @@
 	.unpriced,
 	.unit {
 		color: var(--color-muted);
+	}
+
+	.positive {
+		color: var(--color-positive);
+	}
+
+	.negative {
+		color: var(--color-negative);
+	}
+
+	a {
+		color: inherit;
+		text-decoration: none;
+	}
+
+	a:hover {
+		text-decoration: underline;
 	}
 </style>

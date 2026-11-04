@@ -1,7 +1,6 @@
 ---
 import '@rupea/theme/index.css';
 import '../site.css';
-import Mark from '../components/Mark.astro';
 
 type Props = { title: string; description: string };
 
@@ -55,7 +54,6 @@ const columns = [
 		<header class="bar">
 			<div class="wide">
 				<a class="plain brand" href="/">
-					<Mark size={26} />
 					Rupea
 				</a>
 				<nav>
@@ -71,10 +69,7 @@ const columns = [
 		<footer class="bar">
 			<div class="wide">
 				<div class="about">
-					<span class="brand">
-						<Mark size={26} />
-						Rupea
-					</span>
+					<span class="brand">Rupea</span>
 					<p>A personal finance app for India, open source under the MIT licence.</p>
 				</div>
 				<div class="columns">

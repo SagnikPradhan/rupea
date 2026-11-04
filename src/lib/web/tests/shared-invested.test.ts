@@ -29,6 +29,12 @@ describe('the invested accounts', () => {
 		expect(first).toMatchObject({ value: 200, cost: 150, gain: 50, netIn: 30, xirr: 0.14 });
 	});
 
+	it('are worth their cost, with nothing put in, until they have a gain and returns', () => {
+		const [fresh] = investedOf([held('Assets:Gold', '100', '100', null)], {});
+
+		expect(fresh).toMatchObject({ value: 100, gain: 0, netIn: 0, xirr: null });
+	});
+
 	it('count a group once, not again through its accounts', () => {
 		const groups = groupsInvested(investedOf(accounts, {}));
 

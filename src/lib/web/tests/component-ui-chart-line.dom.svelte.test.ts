@@ -156,6 +156,36 @@ describe('the line chart with parts', () => {
 		expect(screen.getByText('Card').closest('span')?.querySelector('span')).not.toBeNull();
 	});
 
+	it('fades the other parts while one is focused in the key, but not for a line', async () => {
+		const { svg } = piled();
+		const [worth, bank] = [screen.getByText('Net worth'), screen.getByText('Bank')];
+
+		await fireEvent.pointerEnter(bank);
+		expect(svg.querySelectorAll('path.part.faded')).toHaveLength(2);
+		await fireEvent.pointerLeave(bank);
+		expect(svg.querySelectorAll('path.part.faded')).toHaveLength(0);
+
+		await fireEvent.pointerEnter(worth);
+		expect(svg.querySelectorAll('path.part.faded')).toHaveLength(0);
+		await fireEvent.pointerLeave(worth);
+		expect(svg.querySelectorAll('path.part.faded')).toHaveLength(0);
+	});
+
+	it('draws a lone day, keying a part it has no value for at zero', () => {
+		render(LineChart, {
+			rows: [{ day: '2026-01-01', worth: '40', bank: '30' }],
+			x: 'day',
+			series: [...series],
+			label: 'Net worth',
+		});
+		const plot = screen.getByRole('img', { name: 'Net worth' });
+
+		expect(plot.querySelectorAll('path.part')).toHaveLength(3);
+		expect(screen.getByText('Shares').closest('span')?.querySelector('data')?.textContent).toBe(
+			'0',
+		);
+	});
+
 	it('names the part under the pointer and fades the others', async () => {
 		const { plot, svg } = piled();
 		const shares = svg.querySelectorAll('path.part')[1] as SVGPathElement;

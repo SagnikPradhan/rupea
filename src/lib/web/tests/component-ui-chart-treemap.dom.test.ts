@@ -64,4 +64,12 @@ describe('the treemap chart', () => {
 		await fireEvent.pointerLeave(plot);
 		expect(plot.querySelector('[role="tooltip"]')).toBeNull();
 	});
+
+	it('tips nothing while the cursor is between the boxes', async () => {
+		const plot = drawn();
+		await fireEvent.pointerOver(plot.querySelector('[data-key="Bank"] .name') as Element);
+
+		await fireEvent.pointerOver(plot);
+		expect(plot.querySelector('[role="tooltip"]')).toBeNull();
+	});
 });

@@ -156,6 +156,37 @@ describe('the accounts page', () => {
 		);
 	});
 
+	it('starts every figure at zero on a ledger with nothing in it yet', async () => {
+		visit('/l/h/accounts');
+		vi.mocked(listAccounts).mockReturnValue(answer([]));
+		vi.mocked(listWorth).mockReturnValue(answer([]));
+		render(Page, { data });
+
+		const strip = within(await screen.findByRole('region', { name: 'Figures' }));
+		expect(strip.getByText('0% on cost')).toBeTruthy();
+		expect(strip.getByText('0%')).toBeTruthy();
+		expect(strip.getByText('across 0 accounts')).toBeTruthy();
+		expect(screen.getByText(/^0 groups/)).toBeTruthy();
+	});
+
+	it('tones a loss as negative, and names a lone account and group in the singular', async () => {
+		const lost = { cost: '1500', gain: '-500' };
+		visit('/l/h/accounts');
+		vi.mocked(listAccounts).mockReturnValue(
+			answer([
+				{ ...accounts[0]!, ...lost },
+				{ ...accounts[2]!, ...lost },
+			]),
+		);
+		vi.mocked(listWorth).mockReturnValue(answer(worth));
+		render(Page, { data });
+
+		const strip = within(await screen.findByRole('region', { name: 'Figures' }));
+		expect(strip.getByText(/on cost$/).classList.contains('negative')).toBe(true);
+		expect(strip.getByText('across 1 account')).toBeTruthy();
+		expect(screen.getByText(/^1 group ·/)).toBeTruthy();
+	});
+
 	it('shows what flowed into each Assets account and its XIRR, per year only over a year', async () => {
 		visit('/l/h/accounts?at=2026-09');
 		vi.mocked(listAccounts).mockReturnValue(answer(accounts));

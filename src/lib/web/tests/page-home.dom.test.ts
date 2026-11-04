@@ -160,6 +160,31 @@ describe('the home page', () => {
 		expect(picker.getByRole('link', { name: 'Personal' }).getAttribute('href')).toBe('?ledger=a');
 	});
 
+	it('starts every figure at zero on a ledger with nothing in it yet', async () => {
+		vi.mocked(listWorth).mockReturnValue(answer([]));
+		vi.mocked(listAccounts).mockReturnValue(answer([]));
+		vi.mocked(listSpending).mockReturnValue(answer([]));
+		visit('/');
+		render(Page, { data: { ...data, ledgers: [ledgers[0]!] } });
+		await screen.findByText('Balance sheet');
+
+		const strip = within(screen.getByRole('region', { name: 'Figures' }));
+		expect(strip.getByText('in 0 groups')).toBeTruthy();
+		expect(strip.getByText('0% of assets')).toBeTruthy();
+		expect(strip.getByText('0% of income')).toBeTruthy();
+		const sheet = within(screen.getByText('Balance sheet').closest('section')!);
+		expect(sheet.getByText('Net worth').closest('tr')?.textContent).toContain('0');
+	});
+
+	it('names a lone group of assets in the singular', async () => {
+		vi.mocked(listAccounts).mockReturnValue(answer(accounts.slice(0, 2)));
+		visit('/');
+		render(Page, { data: { ...data, ledgers: [ledgers[0]!] } });
+		await screen.findByText('Balance sheet');
+
+		expect(screen.getByText('in 1 group')).toBeTruthy();
+	});
+
 	it('says so when there is no ledger', () => {
 		visit('/');
 		render(Page, { data: { ...data, ledgers: [] } });

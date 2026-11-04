@@ -42,6 +42,13 @@ describe('a chip', () => {
 		expect(link.className).toContain('on');
 		expect(link.querySelector('svg')).toBeTruthy();
 	});
+
+	it('reads as a pressed button when it toggles', () => {
+		render(Chip, { href: '?', on: true, toggle: true, children: label });
+
+		const chip = screen.getByRole('button', { name: 'Last 2 years' });
+		expect(chip.getAttribute('aria-pressed')).toBe('true');
+	});
 });
 
 describe('a filter modal', () => {

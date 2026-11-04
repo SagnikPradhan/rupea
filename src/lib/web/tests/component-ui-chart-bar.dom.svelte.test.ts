@@ -117,6 +117,18 @@ describe('the bar chart', () => {
 		expect(key()).toContain('300');
 	});
 
+	it('keys a part the whole leaves out at zero', () => {
+		render(BarChart, {
+			rows: ROWS,
+			x: 'bucket',
+			bucket: 'month',
+			series: [...PARTS],
+			whole: { bucket: '', food: '9500' },
+			label: 'Spending',
+		});
+		expect(screen.getByText('Other').closest('span')?.querySelector('data')?.textContent).toBe('0');
+	});
+
 	it('keys the line beside the parts, with the hovered bar’s value or the whole’s', async () => {
 		const { plot } = drawn({ previous: ['1000', null, '9000'] });
 		const line = () => screen.getByRole('figure').querySelector('span.reference')?.textContent;

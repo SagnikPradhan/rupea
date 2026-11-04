@@ -1,7 +1,9 @@
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import PeriodPicker from '#lib/web/components/ui-picker-period/ui-picker-period.svelte';
+import { goto } from '$app/navigation';
 
+vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('$app/state', () => ({
 	page: { url: new URL('https://rupea.test/l/h/expenses?scale=log&at=2026-09') },
 }));
@@ -109,5 +111,24 @@ describe('the period picker', () => {
 		expect(from.getAttribute('min')).toBe('2024-05-10');
 		expect(screen.getByLabelText('To').getAttribute('max')).toBe(TODAY);
 		expect(screen.getByRole('button', { name: 'Apply' })).toBeTruthy();
+	});
+	it('lists the years to pick from once there are many, moving to the latest month the ledger has', async () => {
+		render(PeriodPicker, {
+			current: { kind: 'month', at: '2025-12' },
+			shown: SHOWN,
+			today: TODAY,
+			first: '2019-02-01',
+		});
+		const year = screen.getByRole('combobox', { name: 'Year' });
+		expect(year.querySelectorAll('option')).toHaveLength(8);
+
+		await fireEvent.change(year, { target: { value: '2026' } });
+		expect(vi.mocked(goto)).toHaveBeenCalledWith('?scale=log&at=2026-10');
+	});
+
+	it('picks no year for the whole of the ledger', () => {
+		render(PeriodPicker, { current: { kind: 'all' }, shown: SHOWN, today: TODAY, first: null });
+		expect(screen.getByRole('link', { name: 'All' }).getAttribute('aria-current')).toBe('page');
+		expect(screen.queryByRole('navigation', { name: 'Year' })).toBeNull();
 	});
 });

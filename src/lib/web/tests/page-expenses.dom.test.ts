@@ -73,6 +73,9 @@ describe('the expenses page', () => {
 		await fireEvent.click(fold);
 		expect(fold.getAttribute('aria-expanded')).toBe('true');
 		expect(screen.getByTitle('Expenses:Food:Dining')).toBeTruthy();
+
+		await fireEvent.click(fold);
+		expect(fold.getAttribute('aria-expanded')).toBe('false');
 	});
 
 	it('says when nothing was spent', async () => {
@@ -127,6 +130,37 @@ describe('the expenses page', () => {
 
 		expect(await screen.findByRole('img', { name: /^How Expenses divides/ })).toBeTruthy();
 		expect(screen.getByRole('img', { name: /^Spending from/ })).toBeTruthy();
+	});
+
+	it('sums up the month under the pointer against the same month before', async () => {
+		Element.prototype.getBoundingClientRect = () => DOMRect.fromRect({ width: 100, height: 100 });
+		visit('/l/h/expenses?at=2026');
+		vi.mocked(listSpending).mockReturnValue(answer([spending, previous]));
+		render(Page, { data });
+
+		const plot = await screen.findByRole('img', { name: /^Spending from/ });
+		await fireEvent.pointerMove(plot, { clientX: 25, clientY: 0 });
+		const line = screen.getByText(/vs previous/).parentElement;
+		expect(line?.textContent).toContain('Jan 2026');
+	});
+
+	it('rises from nothing, with no percent, when the period before spent nothing there', async () => {
+		visit('/l/h/expenses?at=2026');
+		vi.mocked(listSpending).mockReturnValue(answer([spending, { ...previous, totals: [] }]));
+		render(Page, { data });
+
+		const change = await screen.findByText(/vs previous/);
+		expect(change.textContent).not.toContain('(');
+	});
+
+	it('offers an account deeper than the groups as a choice of its own', async () => {
+		visit('/l/h/expenses?account=Expenses:Food:Dining');
+		vi.mocked(listSpending).mockReturnValue(answer([spending]));
+		render(Page, { data });
+		await openFilter();
+
+		const choices = within(await screen.findByRole('navigation', { name: 'Accounts' }));
+		expect(choices.getByRole('link', { name: 'Dining' })).toBeTruthy();
 	});
 
 	it('reads the months before today for a span', async () => {

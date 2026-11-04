@@ -30,17 +30,23 @@ test('adds up spending by account over a period, net of refunds', async ({
 	await createFile(page, ledger, 'bank.rupea', spending);
 
 	await visit(page, `${ledger}/expenses?at=${year}`);
-	await expect(page.locator('.figure')).toHaveText('10,000');
+	await expect(page.locator('.summary .figure')).toHaveText('10,000');
 	await expect(page.locator('.summary')).toContainText('+5,000 (+100%) vs previous');
 	const groceries = page.getByRole('row').filter({ hasText: 'Groceries' });
 	await expect(groceries).toContainText('2,000');
 	await expect(groceries).toContainText('20%');
 	await expect(page.locator('figcaption')).toContainText('Housing 8,000');
 	await page.getByRole('img', { name: /^Spending/ }).hover({ position: { x: 105, y: 120 } });
-	await expect(page.locator('.figure')).toHaveText('8,000');
+	await expect(page.locator('.summary .figure')).toHaveText('8,000');
+
+	await page.getByRole('button', { name: 'Filter' }).click();
+	const accounts = page.getByRole('navigation', { name: 'Accounts' });
+	await accounts.getByRole('link', { name: 'Housing' }).click();
+	await expect(page).toHaveURL(/account=Expenses%3AHousing/);
+	await expect(page.locator('.summary .figure')).toHaveText('8,000');
 
 	await visit(page, `${ledger}/expenses?span=all&account=Expenses:Housing`);
-	await expect(page.locator('.figure')).toHaveText('13,000');
+	await expect(page.locator('.summary .figure')).toHaveText('13,000');
 
 	await page.getByRole('table').getByRole('link', { name: 'Housing' }).click();
 	await expect(page).toHaveURL(/postings\?account=Expenses%3AHousing&range=all/);
@@ -62,7 +68,7 @@ test('lays a month of spending out as a calendar, each day leading to its postin
 	await visit(page, `${ledger}/expenses?at=${day.toPlainYearMonth()}`);
 	const cell = page.getByRole('link', { name: /1.2K/ });
 	await cell.hover();
-	await expect(page.locator('.figure')).toHaveText('1,200');
+	await expect(page.locator('.summary .figure')).toHaveText('1,200');
 
 	await cell.click();
 	await expect(page).toHaveURL(new RegExp(`postings\\?account=Expenses&from=${day}&to=${day}`));

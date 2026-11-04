@@ -72,4 +72,19 @@ describe('the calendar', () => {
 		await fireEvent.pointerLeave(day.closest('tbody') ?? day);
 		expect(screen.getByTestId('summary').textContent).toBe('null');
 	});
+	it('counts a day with no total as nothing', () => {
+		render(Calendar, {
+			rows: [{ day: '2026-10-01' }],
+			x: 'day',
+			y: 'total',
+			label: 'Spending',
+			href: (day: string) => `/postings?from=${day}&to=${day}`,
+		});
+		expect(document.querySelector('td a')?.getAttribute('title')).toBe('0');
+	});
+
+	it('draws no days for an empty range', () => {
+		render(Calendar, { rows: [], x: 'day', y: 'total', label: 'Spending', href: () => '' });
+		expect(document.querySelectorAll('.day')).toHaveLength(0);
+	});
 });

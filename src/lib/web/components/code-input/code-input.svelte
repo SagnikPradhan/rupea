@@ -23,7 +23,7 @@
 		place-items: center;
 		width: var(--size-4);
 		height: var(--size-4);
-		border: 1px solid var(--color-border);
+		border: var(--line) solid var(--color-border);
 		border-radius: var(--radius);
 		background-color: var(--color-surface);
 		font-family: var(--font-mono);
@@ -32,6 +32,6 @@
 
 	:global(.code .cell[data-active]) {
 		border-color: var(--color-accent);
-		outline: 1px solid var(--color-accent);
+		outline: var(--line) solid var(--color-accent);
 	}
 </style>

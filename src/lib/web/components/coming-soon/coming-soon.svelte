@@ -22,7 +22,7 @@
 		align-items: center;
 		justify-content: center;
 		padding: var(--size-3);
-		border: 1px dashed var(--color-border);
+		border: var(--line) dashed var(--color-border);
 		border-radius: var(--radius);
 		text-align: center;
 	}

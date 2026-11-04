@@ -28,7 +28,7 @@
 		gap: var(--size-3);
 		min-width: 0;
 		padding: var(--size-3);
-		border: 1px solid var(--color-subtle);
+		border: var(--line) solid var(--color-subtle);
 		border-radius: var(--radius);
 	}
 
@@ -36,7 +36,7 @@
 		align-items: center;
 		justify-content: center;
 		min-height: calc(var(--size-5) * 2);
-		border: 1px dashed var(--color-border);
+		border: var(--line) dashed var(--color-border);
 		text-align: center;
 	}
 

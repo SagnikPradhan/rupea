@@ -29,6 +29,6 @@
 	}
 
 	.total {
-		border-top: 1px solid var(--color-border);
+		border-top: var(--line) solid var(--color-border);
 	}
 </style>

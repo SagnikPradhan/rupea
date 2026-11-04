@@ -280,14 +280,14 @@
 	.reference::before {
 		content: '';
 		display: inline-block;
-		width: 1em;
+		width: var(--size-2);
 		margin-right: var(--size-0);
 		vertical-align: middle;
-		border-top: 1px solid var(--color-muted);
+		border-top: var(--line) solid var(--color-muted);
 	}
 
 	.primary::before {
-		border-top: 2px solid var(--color-ink);
+		border-top: var(--line-thick) solid var(--color-ink);
 	}
 
 	.negative::before {
@@ -308,7 +308,7 @@
 		margin: 0;
 		padding: var(--size-0) var(--size-1);
 		background: var(--color-surface);
-		border: 1px solid var(--color-border);
+		border: var(--line) solid var(--color-border);
 		border-radius: var(--radius);
 		color: var(--color-ink);
 		font-size: var(--font-size-0);
@@ -322,6 +322,6 @@
 	}
 
 	.plot :global(.u-cursor-x) {
-		border-right: 1px solid var(--color-muted);
+		border-right: var(--line) solid var(--color-muted);
 	}
 </style>

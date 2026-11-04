@@ -39,7 +39,7 @@ Use the role, never the value. A theme is a swap of the colour table, so a scree
 
 **Space.** One scale for every gap, padding and margin, each a multiple of `--size-2`, 18px: `--size-0` is a quarter, `--size-1` a half, `--size-2` one, `--size-3` one and a half, `--size-4` three, `--size-5` six. There are no in-between values. When none fits, use the nearest step.
 
-**Shape.** One corner, `--radius`, half of `--size-2`, on every panel, field, chip and button. The small box inside a chip takes `--radius-small`, half of `--radius`. Nothing casts a shadow.
+**Shape.** One corner, `--radius`, half of `--size-2`, on every panel, field, chip and button. The small box inside a chip takes `--radius-small`, half of `--radius`. Every outline, border and rule is `--line`, 1px; `--line-thick`, 2px, is for emphasis: focus, errors, underlines and the main line in a chart. Nothing casts a shadow.
 
 ## Pages
 
@@ -70,6 +70,6 @@ Boards exist at 1920, 1280 and 768 wide, in light and dark, and the page follows
 
 - Prefer the existing classes and components, and add to Penpot before adding to code.
 - A style used by both the app and rupea.app lives in `@rupea/theme`. What only the site needs is in `packages/site/src/site.css`.
-- A component's `<style>` takes colours and sizes from the tokens: `rupea/css-tokens` flags a hex or `rgb()` colour and a `px`, `rem` or `em` length, other than 0, 1px, 2px and media widths.
+- A component's `<style>` takes colours and sizes from the tokens: Stylelint (`stylelint.config.js`) flags a hex, named or `rgb()` colour and a `px`, `rem` or `em` length anywhere but a media width.
 - Every text colour passes WCAG AA in both themes.
 - Links stay underlined, and a control stays a control: the look never costs usability.

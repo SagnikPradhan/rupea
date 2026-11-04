@@ -32,7 +32,7 @@
 		align-items: center;
 		gap: var(--size-1);
 		padding: var(--size-1) var(--size-2);
-		border: 1px solid var(--color-border);
+		border: var(--line) solid var(--color-border);
 		border-radius: var(--radius);
 		background: var(--color-surface);
 		color: var(--color-ink);
@@ -53,7 +53,7 @@
 		flex-shrink: 0;
 		width: var(--size-2);
 		height: var(--size-2);
-		border: 1px solid var(--color-border);
+		border: var(--line) solid var(--color-border);
 		border-radius: var(--size-0);
 	}
 

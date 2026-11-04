@@ -45,7 +45,7 @@
 		max-height: 100%;
 		overflow-y: auto;
 		padding: var(--size-2);
-		border: 1px solid var(--color-border);
+		border: var(--line) solid var(--color-border);
 		border-radius: var(--radius-large);
 		background: var(--color-surface);
 		color: var(--color-ink);

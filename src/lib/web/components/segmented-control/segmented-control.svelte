@@ -30,17 +30,17 @@
 		gap: 0;
 	}
 
-	.fill a {
-		flex: 1;
-		text-align: center;
-	}
-
 	a {
 		padding: var(--size-1) var(--size-2);
-		border: 1px solid transparent;
+		border: var(--line) solid transparent;
 		border-radius: var(--radius);
 		color: var(--color-muted);
 		text-decoration: none;
+	}
+
+	.fill a {
+		flex: 1;
+		text-align: center;
 	}
 
 	a:hover {

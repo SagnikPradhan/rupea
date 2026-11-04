@@ -182,7 +182,7 @@
 		gap: var(--size-1);
 		align-items: center;
 		padding-left: var(--size-2);
-		border-left: 2px solid var(--color-negative);
+		border-left: var(--line-thick) solid var(--color-negative);
 	}
 
 	.conflict p {

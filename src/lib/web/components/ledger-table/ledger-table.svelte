@@ -59,6 +59,9 @@
 
 	table :global(.amount) {
 		width: calc(var(--size-5) * 1.5);
+		font-family: var(--font-mono);
+		font-variant-numeric: tabular-nums;
+		text-align: right;
 	}
 
 	table :global(th.amount) {
@@ -69,12 +72,6 @@
 		color: var(--color-muted);
 	}
 
-	table :global(.amount) {
-		font-family: var(--font-mono);
-		font-variant-numeric: tabular-nums;
-		text-align: right;
-	}
-
 	table :global(.truncate) {
 		max-width: 0;
 		overflow: hidden;
@@ -83,10 +80,10 @@
 	}
 
 	table :global(tbody tr) {
-		border-bottom: 1px solid var(--color-border);
+		border-bottom: var(--line) solid var(--color-border);
 	}
 
-	table :global(tbody tr:has(+ .child)) {
+	table :global(tr:has(+ .child)) {
 		border-bottom-color: transparent;
 	}
 
@@ -102,7 +99,7 @@
 		border: 0;
 	}
 
-	table :global(tbody.spacer tr > *) {
+	table :global(.spacer td) {
 		padding: 0;
 	}
 

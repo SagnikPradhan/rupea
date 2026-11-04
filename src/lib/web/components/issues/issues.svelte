@@ -39,7 +39,7 @@
 <style>
 	ul {
 		padding-left: var(--size-2);
-		border-left: 2px solid var(--color-negative);
+		border-left: var(--line-thick) solid var(--color-negative);
 	}
 
 	li {

@@ -113,6 +113,10 @@
 		text-decoration: none;
 	}
 
+	nav a {
+		display: block;
+	}
+
 	a:hover {
 		text-decoration: underline;
 	}
@@ -124,10 +128,6 @@
 
 	.text-brand {
 		color: var(--color-ink);
-	}
-
-	nav.wide ul {
-		max-width: none;
 	}
 
 	.end {
@@ -142,10 +142,6 @@
 		display: flex;
 		gap: var(--size-1);
 		align-items: center;
-	}
-
-	nav a {
-		display: block;
 	}
 
 	ul {
@@ -190,7 +186,7 @@
 		width: min(calc(100% - var(--size-4)), calc(var(--size-2) * 23));
 		margin: 0;
 		padding: var(--size-2);
-		border: 1px solid var(--color-border);
+		border: var(--line) solid var(--color-border);
 		border-radius: var(--radius-large);
 		background: var(--color-surface);
 		color: var(--color-ink);
@@ -210,6 +206,10 @@
 	[popover] ul {
 		flex-direction: column;
 		gap: var(--size-2);
+	}
+
+	nav.wide ul {
+		max-width: none;
 	}
 
 	[popover] .account {

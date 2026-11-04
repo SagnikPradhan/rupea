@@ -186,7 +186,7 @@ fields:
 
 	.choice[aria-current] {
 		color: var(--color-accent);
-		text-decoration: underline 2px;
+		text-decoration: underline var(--line-thick);
 		text-underline-offset: var(--size-0);
 	}
 
@@ -194,7 +194,7 @@ fields:
 		width: 100%;
 		padding: var(--size-1) 0;
 		border: none;
-		border-top: 1px solid var(--color-ink);
+		border-top: var(--line) solid var(--color-ink);
 		background: none;
 		color: var(--color-ink);
 		font-family: var(--font-mono);
@@ -212,7 +212,7 @@ fields:
 		max-width: 100%;
 		max-height: 40vh;
 		overflow: auto;
-		border: 1px solid var(--color-border);
+		border: var(--line) solid var(--color-border);
 	}
 
 	.sheet table {
@@ -224,17 +224,9 @@ fields:
 	.sheet th,
 	.sheet td {
 		padding: var(--size-0) var(--size-1);
-		border: 1px solid var(--color-border);
+		border: var(--line) solid var(--color-border);
 		text-align: left;
 		vertical-align: top;
-	}
-
-	.sheet td,
-	.sheet thead th:not(:first-child) {
-		width: 14ch;
-		min-width: 14ch;
-		max-width: 14ch;
-		overflow-wrap: anywhere;
 	}
 
 	.sheet th {
@@ -250,6 +242,14 @@ fields:
 	.sheet tbody th {
 		left: 0;
 		text-align: right;
+	}
+
+	.sheet td,
+	.sheet thead th:not(:first-child) {
+		width: 14ch;
+		min-width: 14ch;
+		max-width: 14ch;
+		overflow-wrap: anywhere;
 	}
 
 	.sheet thead th:first-child {

@@ -89,7 +89,7 @@
 						>
 						<td class="optional">
 							{#if to}<Account account={to.account} />{/if}
-							{#if more > 0}<span class="more">+{more} more</span>{/if}
+							{#if more > 0}<Tag>+{more}</Tag>{/if}
 						</td>
 						<th
 							scope="row"
@@ -121,11 +121,7 @@
 		min-width: calc(var(--size-5) * 5);
 	}
 
-	.more {
-		margin-left: var(--size-1);
-	}
-
-	.evidence :is(td, th, a, .more) {
+	.evidence :is(td, th, a) {
 		color: var(--color-muted);
 	}
 </style>

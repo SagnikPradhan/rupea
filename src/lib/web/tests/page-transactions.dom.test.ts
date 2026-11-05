@@ -80,7 +80,7 @@ describe('the transactions page', () => {
 		]);
 		render(Page, { data });
 
-		expect(await screen.findByText('+1 more')).toBeTruthy();
+		expect(await screen.findByText('+1')).toBeTruthy();
 	});
 
 	it('links each description to editing it, keeping the filter', async () => {

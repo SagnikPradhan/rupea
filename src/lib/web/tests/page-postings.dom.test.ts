@@ -46,7 +46,7 @@ describe('the postings page', () => {
 		quantity: '100.00',
 	};
 
-	it('lists each posting under its description', async () => {
+	it('lists each posting with its description', async () => {
 		visit('/l/h/postings');
 		answering([food]);
 		render(Page, { data });

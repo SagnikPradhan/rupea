@@ -7,7 +7,6 @@
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import Account from '#lib/web/components/app-ledger-table/account.svelte';
 	import Amount from '#lib/web/components/app-ledger-table/amount.svelte';
-	import Source from '#lib/web/components/app-ledger-table/source.svelte';
 	import ListChips from '#lib/web/components/app-list-chips/app-list-chips.svelte';
 	import ListFilter from '#lib/web/components/app-list-filter/app-list-filter.svelte';
 	import ListViews from '#lib/web/components/app-list-views/app-list-views.svelte';
@@ -64,30 +63,25 @@
 
 		<PagedTable
 			columns={[
+				{ label: 'Description' },
 				{ label: 'Date', kind: 'date' },
 				{ label: 'Account' },
 				{ label: 'Amount', kind: 'amount' },
 			]}
 			{list}
-			height={48}
+			height={40}
 			empty="No postings match."
 		>
 			{#snippet row(index: number)}
 				{@const posting = list.rows[index]}
 				{#if posting}
 					<tr>
-						<td class="date"><time datetime={posting.date}>{formatDate(posting.date)}</time></td>
-						<th scope="row">
-							<Account account={posting.account} />
-						</th>
-						<Amount value={posting.quantity} />
-					</tr>
-					<tr class="child">
-						<td></td>
-						<td class="truncate" title={posting.description}>
+						<th scope="row" class="truncate" title={posting.description}>
 							<a href={editHref(params, posting.transaction)}>{posting.description}</a>
-						</td>
-						<Source {handle} file={posting.file} line={posting.line} />
+						</th>
+						<td class="date"><time datetime={posting.date}>{formatDate(posting.date)}</time></td>
+						<td><Account account={posting.account} /></td>
+						<Amount value={posting.quantity} />
 					</tr>
 				{/if}
 			{/snippet}
@@ -96,9 +90,3 @@
 
 	<TransactionAside {handle} {refresh} />
 </PanelGrid>
-
-<style>
-	th {
-		overflow-wrap: break-word;
-	}
-</style>

@@ -7,7 +7,6 @@
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import Account from '#lib/web/components/app-ledger-table/account.svelte';
 	import Amount from '#lib/web/components/app-ledger-table/amount.svelte';
-	import Source from '#lib/web/components/app-ledger-table/source.svelte';
 	import ListChips from '#lib/web/components/app-list-chips/app-list-chips.svelte';
 	import ListFilter from '#lib/web/components/app-list-filter/app-list-filter.svelte';
 	import ListViews from '#lib/web/components/app-list-views/app-list-views.svelte';
@@ -20,6 +19,7 @@
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
 	import { formatDate, formatIsoDate } from '#lib/web/shared/format.ts';
 	import { editHref, hrefWith } from '#lib/web/shared/links.ts';
+	import { rowOf } from '#lib/web/shared/transaction-row.ts';
 	import { paged } from '#lib/web/shared/paged.svelte.ts';
 	import { page } from '$app/state';
 
@@ -65,22 +65,21 @@
 
 		<PagedTable
 			columns={[
-				{ label: 'Date', kind: 'date' },
 				{ label: 'Description' },
+				{ label: 'Date', kind: 'date' },
+				{ label: 'Account', optional: true },
+				{ label: 'Category', optional: true },
 				{ label: 'Amount', kind: 'amount' },
 			]}
 			{list}
-			height={64}
+			height={40}
 			empty="No transactions match."
 		>
 			{#snippet row(index: number)}
 				{@const transaction = list.rows[index]}
 				{#if transaction}
+					{@const { side, category, split } = rowOf(transaction.postings)}
 					<tr class:evidence={!transaction.counted}>
-						<td class="date">
-							<time datetime={transaction.date}>{formatDate(transaction.date)}</time>
-							{#if transaction.time}<span>{transaction.time}</span>{/if}
-						</td>
 						<th
 							scope="row"
 							class="truncate"
@@ -90,17 +89,19 @@
 							<a href={editHref(params, transaction.id)}>{transaction.description}</a>
 							{#if transaction.comment}<span class="comment">; {transaction.comment}</span>{/if}
 						</th>
-						<Source {handle} file={transaction.file} line={transaction.line} />
+						<td class="date">
+							<time datetime={transaction.date}>{formatDate(transaction.date)}</time>
+							{#if transaction.time}<span>{transaction.time}</span>{/if}
+						</td>
+						<td class="optional"
+							>{#if side}<Account account={side.account} />{/if}</td
+						>
+						<td class="optional">
+							{#if split > 0}Split · {split} lines{/if}
+							{#if category}<Account account={category.account} />{/if}
+						</td>
+						<Amount value={side?.quantity ?? null} />
 					</tr>
-					{#each transaction.postings as posting, position (position)}
-						<tr class="child" class:evidence={!transaction.counted}>
-							<td></td>
-							<td>
-								<Account account={posting.account} />
-							</td>
-							<Amount value={posting.quantity} />
-						</tr>
-					{/each}
 				{/if}
 			{/snippet}
 		</PagedTable>
@@ -110,10 +111,6 @@
 </PanelGrid>
 
 <style>
-	tr.child td {
-		overflow-wrap: break-word;
-	}
-
 	td span,
 	.comment {
 		color: var(--color-muted);

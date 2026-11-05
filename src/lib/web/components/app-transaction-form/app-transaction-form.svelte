@@ -11,7 +11,6 @@
 	import IconButton from '#lib/web/components/ui-button-icon/ui-button-icon.svelte';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import Field from '#lib/web/components/ui-field/ui-field.svelte';
-	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
 	import { explain } from '#lib/web/shared/errors.ts';
 	import { formatIsoDate } from '#lib/web/shared/format.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';
@@ -21,12 +20,7 @@
 	/** A ledger with no files yet starts this one. */
 	const FIRST_FILE = 'transactions.rupea';
 
-	const COLUMNS = [
-		{ label: 'Account' },
-		{ label: 'Amount', kind: 'amount' as const },
-		{ label: '' },
-	];
-	const RARE_POSTING_FIELDS = ['commodity', 'price', 'cost', 'balance', 'metadata'];
+	const RARE_POSTING_FIELDS = ['price', 'cost', 'balance', 'metadata'];
 
 	const ACCOUNT_TYPE = /^(Assets|Liabilities|Income|Expenses|Equity)(:|$)/;
 	const HELD = ['Assets', 'Liabilities'];
@@ -228,10 +222,10 @@
 	{#each list as entry, index (index)}
 		<div class="entry">
 			<Field label="Key" issues={issuesAt(`${path}.${index}.key`)}>
-				<input bind:value={entry.key} placeholder="ref" />
+				<input bind:value={entry.key} placeholder="e.g. invoice" />
 			</Field>
 			<Field label="Value" issues={issuesAt(`${path}.${index}.value`)}>
-				<input bind:value={entry.value} placeholder="402" />
+				<input bind:value={entry.value} placeholder="e.g. INV-402" />
 			</Field>
 			<IconButton label="Remove detail" icon={IconRemove} onclick={() => list.splice(index, 1)} />
 		</div>
@@ -241,12 +235,6 @@
 			>Add detail</button
 		>
 	</div>
-{/snippet}
-
-{#snippet problems(path: string)}
-	{#each issuesAt(path) as issue (issue.message)}
-		<p role="alert" class="problem">{issue.message}</p>
-	{/each}
 {/snippet}
 
 <form onsubmit={save} novalidate>
@@ -313,14 +301,30 @@
 	</datalist>
 
 	{#if status.split}
-		<LedgerTable columns={COLUMNS} label="Lines">
+		<section class="lines" aria-labelledby="lines-heading">
+			<div class="intro">
+				<h3 id="lines-heading">Lines</h3>
+				<p>Each line moves money into or out of one account.</p>
+			</div>
 			{#each form.postings as posting, index (index)}
 				{@const at = `postings.${index}`}
-				<tbody>
-					<tr>
-						<td class="account">
+				<div class="line" role="group" aria-label="Line {index + 1}">
+					<div class="title">
+						<span>Line {index + 1}</span>
+						{#if form.postings.length > 2}
+							<button
+								type="button"
+								class="link"
+								aria-label="Remove line {index + 1}"
+								onclick={() => form.postings.splice(index, 1)}
+							>
+								Remove
+							</button>
+						{/if}
+					</div>
+					<div class="row">
+						<Field label="Account" issues={issuesAt(`${at}.account`)}>
 							<input
-								aria-label="Account"
 								placeholder="Expenses:Food"
 								bind:value={posting.account}
 								list="transaction-accounts"
@@ -328,101 +332,74 @@
 								oninput={(e) => suggest(e.currentTarget.value)}
 								onfocus={(e) => suggest(e.currentTarget.value)}
 							/>
-							{@render problems(`${at}.account`)}
-						</td>
-						<td class="amount">
-							<input
-								aria-label="Amount"
-								bind:value={posting.amount}
-								inputmode="decimal"
-								placeholder="Auto"
-								size="8"
-							/>
-							{@render problems(`${at}.amount`)}
-						</td>
-						<td class="actions">
-							<button
-								type="button"
-								class="link"
-								aria-label="More about line {index + 1}"
-								aria-expanded={posting.more}
-								onclick={() => (posting.more = !posting.more)}
-							>
-								{posting.more ? 'Less' : 'More'}
-							</button>
-							{#if form.postings.length > 2}
-								<button
-									type="button"
-									class="link"
-									aria-label="Remove line {index + 1}"
-									onclick={() => form.postings.splice(index, 1)}
-								>
-									Remove
-								</button>
-							{/if}
-						</td>
-					</tr>
+						</Field>
+						<Field label="Amount" issues={issuesAt(`${at}.amount`)}>
+							<input bind:value={posting.amount} inputmode="decimal" placeholder="Auto" />
+						</Field>
+						<Field label="Currency" issues={issuesAt(`${at}.commodity`)}>
+							<input bind:value={posting.commodity} placeholder="INR" />
+						</Field>
+					</div>
 					{#if posting.more || hasIssuesIn(`${at}.`, RARE_POSTING_FIELDS)}
-						<tr class="child">
-							<td colspan={COLUMNS.length}>
-								<div class="rare">
-									<Field
-										label="Currency"
-										hint="Leave empty for INR."
-										issues={issuesAt(`${at}.commodity`)}
-									>
-										<input bind:value={posting.commodity} placeholder="INR" />
-									</Field>
-									<Field label="Price" hint="What one unit cost." issues={issuesAt(`${at}.price`)}>
-										<input bind:value={posting.price} />
-									</Field>
-									<label class="check">
-										<input type="checkbox" bind:checked={posting.total} />
-										Price for all units
-									</label>
-									<Field label="Lot cost" hint="Cost of the units." issues={issuesAt(`${at}.cost`)}>
-										<input bind:value={posting.cost} />
-									</Field>
-									<Field
-										label="Lot date"
-										hint="The day they were bought."
-										issues={issuesAt(`${at}.costDate`)}
-									>
-										<input type="date" bind:value={posting.costDate} />
-									</Field>
-									<Field
-										label="Balance after"
-										hint="What is left after this."
-										issues={issuesAt(`${at}.balance`)}
-									>
-										<input bind:value={posting.balance} inputmode="decimal" />
-									</Field>
-									<div class="wide">
-										<Field label="Comment" hint="A note kept with it.">
-											<input bind:value={posting.comment} />
-										</Field>
-									</div>
-									{@render entries(posting.metadata, `${at}.metadata`)}
-								</div>
-							</td>
-						</tr>
+						<div class="pair">
+							<Field label="Price" hint="What one unit cost." issues={issuesAt(`${at}.price`)}>
+								<input bind:value={posting.price} />
+							</Field>
+							<label class="check">
+								<input type="checkbox" bind:checked={posting.total} />
+								Price for all units
+							</label>
+							<Field label="Lot cost" hint="Cost of the units." issues={issuesAt(`${at}.cost`)}>
+								<input bind:value={posting.cost} />
+							</Field>
+							<Field
+								label="Lot date"
+								hint="When they were bought."
+								issues={issuesAt(`${at}.costDate`)}
+							>
+								<input type="date" bind:value={posting.costDate} />
+							</Field>
+							<Field
+								label="Balance after"
+								hint="What is left after this."
+								issues={issuesAt(`${at}.balance`)}
+							>
+								<input bind:value={posting.balance} inputmode="decimal" />
+							</Field>
+							<div class="more">
+								<Field label="Comment" hint="A note kept with it.">
+									<textarea bind:value={posting.comment} rows="2"></textarea>
+								</Field>
+							</div>
+							{@render entries(posting.metadata, `${at}.metadata`)}
+						</div>
 					{/if}
-				</tbody>
+					<div class="tools">
+						<button
+							type="button"
+							class="link"
+							aria-label="More about line {index + 1}"
+							aria-expanded={posting.more}
+							onclick={() => (posting.more = !posting.more)}
+						>
+							{posting.more ? 'Hide extra fields' : 'Extra fields'}
+						</button>
+					</div>
+				</div>
 			{/each}
-		</LedgerTable>
-		<button type="button" class="link" onclick={() => form.postings.push(blank())}>Add line</button>
+		</section>
+		<Button type="button" onclick={() => form.postings.push(blank())}>Add a line</Button>
 	{/if}
 
-	<div class="pair">
-		<Field label="Comment" hint="A note kept with it.">
-			<input bind:value={form.comment} />
+	<Field label="Comment" hint="A note kept with it.">
+		<textarea bind:value={form.comment} rows="2"></textarea>
+	</Field>
+
+	{#if !edit}
+		<Field label="File" hint="A new name starts a new file." issues={issuesAt('file')}>
+			<input bind:value={form.file} list="transaction-files" spellcheck="false" />
 		</Field>
-		{#if !edit}
-			<Field label="File" hint="A new name starts a new file." issues={issuesAt('file')}>
-				<input bind:value={form.file} list="transaction-files" spellcheck="false" />
-			</Field>
-		{/if}
-	</div>
+	{/if}
 
 	{@render entries(form.metadata, 'metadata')}
 
@@ -462,19 +439,30 @@
 		gap: var(--size-3);
 	}
 
-	input:not([type='checkbox']) {
+	input:not([type='checkbox']),
+	textarea {
 		width: 100%;
+	}
+
+	p {
+		margin: 0;
+	}
+
+	p[role='alert'] {
+		color: var(--color-negative);
 	}
 
 	.buttons {
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--size-2);
+		padding-block-start: var(--size-3);
+		border-block-start: var(--size-line-0) solid var(--color-border);
 	}
 
 	.pair {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: var(--size-2);
 	}
 
@@ -502,7 +490,8 @@
 		font: inherit;
 	}
 
-	form > .link {
+	form > .link,
+	form > :global(button) {
 		align-self: start;
 	}
 
@@ -510,92 +499,76 @@
 		text-decoration: underline;
 	}
 
-	.rare {
+	.lines {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-3);
+	}
+
+	.intro h3 {
+		margin: 0;
+		font: var(--text-base);
+	}
+
+	.intro p {
+		color: var(--color-muted);
+		font: var(--text-label);
+	}
+
+	.title {
+		display: flex;
+		justify-content: space-between;
+		color: var(--color-muted);
+		font: var(--text-label);
+	}
+
+	.line {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-2);
+	}
+
+	.line + .line {
+		padding-block-start: var(--size-3);
+		border-block-start: var(--size-line-0) solid var(--color-border);
+	}
+
+	.row {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: var(--size-2);
 		align-items: start;
 	}
 
-	.child .rare {
-		padding-block: var(--size-3);
-		color: var(--color-ink);
+	.row > :global(:first-child) {
+		grid-column: 1 / -1;
+	}
+
+	.tools {
+		display: flex;
+		gap: var(--size-3);
+		justify-content: end;
 	}
 
 	.entry {
 		display: grid;
 		grid-column: 1 / -1;
-		grid-template-columns: 1fr 1fr auto;
+		grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
 		gap: var(--size-2);
 		align-items: end;
 	}
 
-	.amount input {
-		width: auto;
-		font-family: inherit;
-		text-align: right;
-	}
-
-	.actions {
-		width: 1%;
-		white-space: nowrap;
-	}
-
-	.actions .link + .link {
-		margin-left: var(--size-2);
-	}
-
-	.problem {
-		margin: var(--size-1) 0 0;
-		color: var(--color-negative);
-		font-family: var(--font-body);
-		font-size: var(--font-size-0);
-		text-align: left;
-		white-space: normal;
-	}
-
 	.check {
+		align-self: end;
+		padding-block: var(--size-2);
 		display: flex;
 		gap: var(--size-1);
 		align-items: center;
 	}
 
-	p {
-		margin: 0;
-	}
-
-	p[role='alert'] {
-		color: var(--color-negative);
-	}
-
 	@media (width < 40rem) {
-		.pair,
-		.rare {
+		.pair {
 			grid-template-columns: 1fr;
-		}
-
-		form :global(thead) {
-			display: none;
-		}
-
-		tr:not(.child) {
-			display: grid;
-			grid-template-columns: 1fr 1fr;
-			gap: var(--size-1);
-		}
-
-		.account,
-		.actions {
-			grid-column: 1 / -1;
-		}
-
-		tr:not(.child) td {
-			width: auto;
-			padding: 0;
-		}
-
-		.amount input {
-			width: 100%;
 		}
 	}
 </style>

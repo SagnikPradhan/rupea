@@ -88,17 +88,21 @@
 							>{#if from}<Account account={from.account} />{/if}</td
 						>
 						<td class="optional">
-							{#if to}<Account account={to.account} />{/if}
-							{#if more > 0}<Tag>+{more}</Tag>{/if}
+							<div class="cell">
+								{#if to}<Account account={to.account} />{/if}
+								{#if more > 0}<Tag>+{more}</Tag>{/if}
+							</div>
 						</td>
 						<th
 							scope="row"
 							class="description"
 							title={[transaction.description, transaction.comment].filter(Boolean).join('\n')}
 						>
-							<a href={editHref(params, transaction.id)}>{transaction.description}</a>
-							{#if !transaction.counted}<Tag>evidence</Tag>{/if}
-							{#if transaction.comment}<span class="comment">; {transaction.comment}</span>{/if}
+							<div class="cell">
+								<a href={editHref(params, transaction.id)}>{transaction.description}</a>
+								{#if !transaction.counted}<Tag>evidence</Tag>{/if}
+								{#if transaction.comment}<span class="comment">; {transaction.comment}</span>{/if}
+							</div>
 						</th>
 						<Amount value={amount} />
 					</tr>
@@ -114,6 +118,13 @@
 	td span,
 	.comment {
 		color: var(--color-muted);
+	}
+
+	.cell {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--size-0) var(--size-2);
+		align-items: baseline;
 	}
 
 	.description {

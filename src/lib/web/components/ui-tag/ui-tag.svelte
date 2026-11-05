@@ -9,7 +9,6 @@
 <style>
 	span {
 		display: inline-block;
-		margin-inline-start: var(--size-2);
 		padding: var(--size-0) var(--size-2);
 		border-radius: var(--radius-1);
 		background: var(--color-ink-2);

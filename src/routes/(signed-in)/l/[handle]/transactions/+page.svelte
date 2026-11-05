@@ -25,6 +25,7 @@
 	import { paged } from '#lib/web/shared/paged.svelte.ts';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+	import { MediaQuery } from 'svelte/reactivity';
 
 	const { data } = $props();
 
@@ -39,8 +40,9 @@
 	const list = $derived(paged(first, (after) => listTransactions({ handle, day, filter, after })));
 
 	const params = $derived([...page.url.searchParams]);
-	const adding = $derived(page.url.searchParams.has('add'));
+	const wide = new MediaQuery('min-width: 90rem');
 	const editing = $derived(page.url.searchParams.get('edit'));
+	const adding = $derived(page.url.searchParams.has('add') || (wide.current && !editing));
 	const files = $derived(adding ? await findTransactionFiles(handle) : null);
 	const open = $derived(editing ? await findTransaction({ handle, id: editing }) : null);
 	const closed = $derived(hrefWith(params, { add: '', edit: '' }));

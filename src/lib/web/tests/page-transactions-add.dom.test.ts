@@ -147,6 +147,22 @@ describe('the add transaction panel', () => {
 		expect(screen.queryByLabelText(/^Key/)).toBeNull();
 	});
 
+	it('is there without asking on a wide screen', async () => {
+		vi.stubGlobal('matchMedia', (query: string) => ({
+			matches: true,
+			media: query,
+			addEventListener: vi.fn(),
+			removeEventListener: vi.fn(),
+		}));
+		visit('/l/h/transactions');
+		render(Page, { data });
+
+		expect(await screen.findByRole('complementary', { name: 'Add transaction' })).toBeTruthy();
+		expect(screen.getByLabelText(/^Description/)).toBeTruthy();
+
+		vi.unstubAllGlobals();
+	});
+
 	it('says why the server refused, and keeps what was typed', async () => {
 		vi.mocked(createTransaction).mockResolvedValue({
 			ok: false,

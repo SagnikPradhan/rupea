@@ -3,13 +3,15 @@
 
 	type Props = {
 		label: string;
+		/** Keeps the label for screen readers only, for a row under one that shows it. */
+		quiet?: boolean;
 		/** One line under the label saying what the box takes. */
 		hint?: string | undefined;
 		issues?: { message: string }[] | undefined;
 		children: Snippet;
 	};
 
-	const { label, hint, issues = [], children }: Props = $props();
+	const { label, quiet = false, hint, issues = [], children }: Props = $props();
 
 	const id = $props.id();
 
@@ -21,7 +23,7 @@
 
 <div>
 	<label {@attach describing}>
-		<span class="text">
+		<span class={{ text: true, quiet }}>
 			<span>{label}</span>
 			{#if hint}<small id="{id}-hint" aria-hidden="true">{hint}</small>{/if}
 		</span>
@@ -44,6 +46,15 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--size-0);
+	}
+
+	.quiet {
+		position: absolute;
+		width: var(--size-line-0);
+		height: var(--size-line-0);
+		overflow: hidden;
+		clip-path: inset(50%);
+		white-space: nowrap;
 	}
 
 	small {

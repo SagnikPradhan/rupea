@@ -301,77 +301,87 @@
 	</datalist>
 
 	{#if status.split}
-		{#each form.postings as posting, index (index)}
-			{@const at = `postings.${index}`}
-			<div class="line" role="group" aria-label="Line {index + 1}">
-				<div class="wide">
-					<Field label="Account" issues={issuesAt(`${at}.account`)}>
-						<input
-							placeholder="Expenses:Food"
-							bind:value={posting.account}
-							list="transaction-accounts"
-							spellcheck="false"
-							oninput={(e) => suggest(e.currentTarget.value)}
-							onfocus={(e) => suggest(e.currentTarget.value)}
-						/>
-					</Field>
-				</div>
-				<Field label="Amount" issues={issuesAt(`${at}.amount`)}>
-					<input bind:value={posting.amount} inputmode="decimal" placeholder="Auto" />
-				</Field>
-				<Field label="Currency" issues={issuesAt(`${at}.commodity`)}>
-					<input bind:value={posting.commodity} placeholder="INR" />
-				</Field>
-				{#if posting.more || hasIssuesIn(`${at}.`, RARE_POSTING_FIELDS)}
-					<Field label="Price" hint="What one unit cost." issues={issuesAt(`${at}.price`)}>
-						<input bind:value={posting.price} />
-					</Field>
-					<label class="check">
-						<input type="checkbox" bind:checked={posting.total} />
-						Price for all units
-					</label>
-					<Field label="Lot cost" hint="Cost of the units." issues={issuesAt(`${at}.cost`)}>
-						<input bind:value={posting.cost} />
-					</Field>
-					<Field label="Lot date" hint="When they were bought." issues={issuesAt(`${at}.costDate`)}>
-						<input type="date" bind:value={posting.costDate} />
-					</Field>
-					<Field
-						label="Balance after"
-						hint="What is left after this."
-						issues={issuesAt(`${at}.balance`)}
-					>
-						<input bind:value={posting.balance} inputmode="decimal" />
-					</Field>
-					<Field label="Comment" hint="A note kept with it.">
-						<input bind:value={posting.comment} />
-					</Field>
-					{@render entries(posting.metadata, `${at}.metadata`)}
-				{/if}
-				<div class="tools">
-					<button
-						type="button"
-						class="link"
-						aria-label="More about line {index + 1}"
-						aria-expanded={posting.more}
-						onclick={() => (posting.more = !posting.more)}
-					>
-						{posting.more ? 'Hide price and notes' : 'Price and notes'}
-					</button>
-					{#if form.postings.length > 2}
+		<div class="lines">
+			<p class="heading">Lines this writes</p>
+			{#each form.postings as posting, index (index)}
+				{@const at = `postings.${index}`}
+				{@const quiet = index > 0}
+				<div class="line" role="group" aria-label="Line {index + 1}">
+					<div class="row">
+						<Field label="Account" {quiet} issues={issuesAt(`${at}.account`)}>
+							<input
+								placeholder="Expenses:Food"
+								bind:value={posting.account}
+								list="transaction-accounts"
+								spellcheck="false"
+								oninput={(e) => suggest(e.currentTarget.value)}
+								onfocus={(e) => suggest(e.currentTarget.value)}
+							/>
+						</Field>
+						<Field label="Amount" {quiet} issues={issuesAt(`${at}.amount`)}>
+							<input bind:value={posting.amount} inputmode="decimal" placeholder="Auto" />
+						</Field>
+						<Field label="Currency" {quiet} issues={issuesAt(`${at}.commodity`)}>
+							<input bind:value={posting.commodity} placeholder="INR" />
+						</Field>
+					</div>
+					{#if posting.more || hasIssuesIn(`${at}.`, RARE_POSTING_FIELDS)}
+						<div class="pair">
+							<Field label="Price" hint="What one unit cost." issues={issuesAt(`${at}.price`)}>
+								<input bind:value={posting.price} />
+							</Field>
+							<label class="check">
+								<input type="checkbox" bind:checked={posting.total} />
+								Price for all units
+							</label>
+							<Field label="Lot cost" hint="Cost of the units." issues={issuesAt(`${at}.cost`)}>
+								<input bind:value={posting.cost} />
+							</Field>
+							<Field
+								label="Lot date"
+								hint="When they were bought."
+								issues={issuesAt(`${at}.costDate`)}
+							>
+								<input type="date" bind:value={posting.costDate} />
+							</Field>
+							<Field
+								label="Balance after"
+								hint="What is left after this."
+								issues={issuesAt(`${at}.balance`)}
+							>
+								<input bind:value={posting.balance} inputmode="decimal" />
+							</Field>
+							<Field label="Comment" hint="A note kept with it.">
+								<input bind:value={posting.comment} />
+							</Field>
+							{@render entries(posting.metadata, `${at}.metadata`)}
+						</div>
+					{/if}
+					<div class="tools">
 						<button
 							type="button"
 							class="link"
-							aria-label="Remove line {index + 1}"
-							onclick={() => form.postings.splice(index, 1)}
+							aria-label="More about line {index + 1}"
+							aria-expanded={posting.more}
+							onclick={() => (posting.more = !posting.more)}
 						>
-							Remove
+							{posting.more ? 'Hide price and notes' : 'Price and notes'}
 						</button>
-					{/if}
+						{#if form.postings.length > 2}
+							<button
+								type="button"
+								class="link"
+								aria-label="Remove line {index + 1}"
+								onclick={() => form.postings.splice(index, 1)}
+							>
+								Remove
+							</button>
+						{/if}
+					</div>
 				</div>
-			</div>
-		{/each}
-		<button type="button" class="link" onclick={() => form.postings.push(blank())}>Add line</button>
+			{/each}
+		</div>
+		<Button type="button" onclick={() => form.postings.push(blank())}>Add a line</Button>
 	{/if}
 
 	<div class="pair">
@@ -465,7 +475,8 @@
 		font: inherit;
 	}
 
-	form > .link {
+	form > .link,
+	form > :global(button) {
 		align-self: start;
 	}
 
@@ -473,22 +484,43 @@
 		text-decoration: underline;
 	}
 
+	.lines {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-3);
+	}
+
+	.heading {
+		color: var(--color-muted);
+		font: var(--text-label);
+	}
+
 	.line {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-2);
+	}
+
+	.line + .line {
+		padding-block-start: var(--size-3);
+		border-block-start: var(--size-line-0) solid var(--color-border);
+	}
+
+	.row {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--size-3) var(--size-2);
+		gap: var(--size-2);
 		align-items: start;
-		padding: var(--size-3);
-		border: var(--size-line-0) solid var(--color-border);
-		border-radius: var(--radius-1);
-		background: var(--color-subtle);
+	}
+
+	.row > :global(:first-child) {
+		grid-column: 1 / -1;
 	}
 
 	.tools {
 		display: flex;
 		gap: var(--size-3);
 		justify-content: end;
-		grid-column: 1 / -1;
 	}
 
 	.entry {
@@ -528,7 +560,6 @@
 
 	@media (width < 40rem) {
 		.pair,
-		.line,
 		.entry {
 			grid-template-columns: 1fr;
 		}

@@ -66,7 +66,7 @@ describe('the transactions page', () => {
 		expect(screen.getByRole('alert').textContent).toContain('This posting can’t be read.');
 	});
 
-	it('says how many more categories a split has', async () => {
+	it('says how many more accounts a split pays', async () => {
 		visit('/l/h/transactions');
 		answering([
 			{

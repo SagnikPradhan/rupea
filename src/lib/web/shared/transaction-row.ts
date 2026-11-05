@@ -1,9 +1,8 @@
-const SIDES = new Set(['Assets', 'Liabilities']);
-
-/** The account, first category and number of further categories a transaction's list row shows. */
+/** Where a transaction's list row says the money left, where it went, and how much. */
 export const rowOf = (postings: { account: string; quantity: string }[]) => {
-	const side = postings.find((p) => SIDES.has(p.account.split(':')[0] ?? '')) ?? postings[0];
-	const others = postings.filter((p) => p !== side);
+	const from = postings.find((p) => p.quantity.startsWith('-')) ?? null;
+	const to = postings.filter((p) => p !== from);
+	const amount = from ? from.quantity.slice(1) : (to[0]?.quantity ?? null);
 
-	return { side, category: others[0] ?? null, more: Math.max(others.length - 1, 0) };
+	return { from, to: to[0] ?? null, more: Math.max(to.length - 1, 0), amount };
 };

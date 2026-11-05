@@ -66,8 +66,8 @@
 		<PagedTable
 			columns={[
 				{ label: 'Date', kind: 'date' },
-				{ label: 'Account', optional: true },
-				{ label: 'Category', optional: true },
+				{ label: 'From', optional: true },
+				{ label: 'To', optional: true },
 				{ label: 'Description' },
 				{ label: 'Amount', kind: 'amount' },
 			]}
@@ -78,17 +78,17 @@
 			{#snippet row(index: number)}
 				{@const transaction = list.rows[index]}
 				{#if transaction}
-					{@const { side, category, more } = rowOf(transaction.postings)}
+					{@const { from, to, more, amount } = rowOf(transaction.postings)}
 					<tr class:evidence={!transaction.counted}>
 						<td class="date">
 							<time datetime={transaction.date}>{formatDate(transaction.date)}</time>
 							{#if transaction.time}<span>{transaction.time}</span>{/if}
 						</td>
 						<td class="optional"
-							>{#if side}<Account account={side.account} />{/if}</td
+							>{#if from}<Account account={from.account} />{/if}</td
 						>
 						<td class="optional">
-							{#if category}<Account account={category.account} />{/if}
+							{#if to}<Account account={to.account} />{/if}
 							{#if more > 0}<span class="more">+{more} more</span>{/if}
 						</td>
 						<th
@@ -96,11 +96,11 @@
 							class="description"
 							title={[transaction.description, transaction.comment].filter(Boolean).join('\n')}
 						>
-							{#if !transaction.counted}<Tag>evidence</Tag>{/if}
 							<a href={editHref(params, transaction.id)}>{transaction.description}</a>
+							{#if !transaction.counted}<Tag>evidence</Tag>{/if}
 							{#if transaction.comment}<span class="comment">; {transaction.comment}</span>{/if}
 						</th>
-						<Amount value={side?.quantity ?? null} />
+						<Amount value={amount} />
 					</tr>
 				{/if}
 			{/snippet}
@@ -125,7 +125,7 @@
 		margin-left: var(--size-1);
 	}
 
-	.evidence {
-		opacity: 0.6;
+	.evidence :is(td, th, a, .more) {
+		color: var(--color-muted);
 	}
 </style>

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { flowsOf } from '#lib/web/shared/alluvial.ts';
+import { flowsOf, SAVED } from '#lib/web/shared/alluvial.ts';
 import { OTHER } from '#lib/web/shared/chart.ts';
 
 const rows = [
@@ -68,5 +68,40 @@ describe('the flows', () => {
 			parts: ['Expenses:Food'],
 		});
 		expect(whole.map((f) => f.key)).toEqual(['Expenses', 'Expenses:Food']);
+	});
+
+	it('run from each source of income into income, then into the parts, other and what was kept', () => {
+		const kept = flowsOf({
+			rows,
+			account: 'Expenses',
+			parts: ['Expenses:Food', 'Expenses:Rent'],
+			income: [
+				{ account: 'Income', parent: null, amount: '-2000' },
+				{ account: 'Income:Dividends', parent: 'Income', amount: '-200' },
+				{ account: 'Income:Salary', parent: 'Income', amount: '-1800' },
+				{ account: 'Income:Refund', parent: 'Income', amount: '50' },
+			],
+		});
+		expect(kept.map((f) => [f.key, f.amount, f.column, f.from, f.into])).toEqual([
+			['Income:Salary', 1800, 0, null, 'Income'],
+			['Income:Dividends', 200, 0, null, 'Income'],
+			['Income', 2000, 1, null, null],
+			['Expenses:Food', 600, 2, 'Income', null],
+			['Expenses:Rent', 300, 2, 'Income', null],
+			[OTHER, 100, 2, 'Income', null],
+			[SAVED, 1000, 2, 'Income', null],
+		]);
+	});
+
+	it('keep nothing when income falls short of spending, and fall back to the expense tree without income', () => {
+		const short = flowsOf({
+			rows,
+			account: 'Expenses',
+			parts: ['Expenses:Food'],
+			income: [{ account: 'Income:Salary', parent: 'Income', amount: '-500' }],
+		});
+		expect(short.map((f) => f.key)).not.toContain(SAVED);
+		const none = flowsOf({ rows, account: 'Expenses', parts: ['Expenses:Food'], income: [] });
+		expect(none[0]?.key).toBe('Expenses');
 	});
 });

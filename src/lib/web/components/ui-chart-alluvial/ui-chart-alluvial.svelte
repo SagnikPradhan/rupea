@@ -1,11 +1,12 @@
 <script lang="ts">
 	import Tooltip from '#lib/web/components/ui-tooltip/ui-tooltip.svelte';
+	import { SAVED } from '#lib/web/shared/alluvial.ts';
 	import { seriesOf, VIEW } from '#lib/web/shared/chart.ts';
 	import { formatAmount } from '#lib/web/shared/format.ts';
 	import { sankey, type SankeyLink, type SankeyNode } from 'd3-sankey';
 	import type { Snippet } from 'svelte';
 
-	/** A bar in a column, the part whose shade it takes, and the bar in the column before that flows into it. */
+	/** A bar in a column, the part whose shade it takes, the bar before it that flows into it, and the bar after it that it flows into when no other flows there. */
 	type Flow = {
 		key: string;
 		label: string;
@@ -13,6 +14,7 @@
 		column: number;
 		part: number | null;
 		from: string | null;
+		into: string | null;
 	};
 
 	/** A laid-out bar: its flow, and its edges as a percent of the plot. */
@@ -53,8 +55,8 @@
 				[VIEW, VIEW],
 			])({
 			nodes: flows.map((f) => ({ ...f })),
-			links: flows.flatMap((f) =>
-				f.from === null
+			links: flows.flatMap((f) => [
+				...(f.from === null
 					? []
 					: [
 							{
@@ -62,8 +64,17 @@
 								target: idOf(f.column, f.key),
 								value: f.amount,
 							},
-						],
-			),
+						]),
+				...(f.into === null
+					? []
+					: [
+							{
+								source: idOf(f.column, f.key),
+								target: idOf(f.column + 1, f.into),
+								value: f.amount,
+							},
+						]),
+			]),
 		}),
 	);
 	const boxes = $derived(laid.nodes.map((node) => boxOf(node)));
@@ -76,7 +87,8 @@
 	const lit = $derived(hovered.node?.flow.part);
 
 	const faded = (part: number | null) => lit !== undefined && part !== null && part !== lit;
-	const shadeOf = (part: number | null) => (part === null ? '--color-muted' : seriesOf(part));
+	const shadeOf = ({ key, part }: Flow) =>
+		key === SAVED ? '--color-positive' : part === null ? '--color-muted' : seriesOf(part);
 	const idOf = (column: number, key: string) => `${column} ${key}`;
 
 	/** d3-sankey types the edges of a laid-out bar as optional, though the layout always sets them. */
@@ -108,7 +120,7 @@
 				<path
 					class="band"
 					class:faded={faded(band.into.flow.part)}
-					style:--shade="var({shadeOf(band.into.flow.part)})"
+					style:--shade="var({shadeOf(band.into.flow)})"
 					d={band.d}
 					role="presentation"
 					onpointerenter={() => (hovered.node = band.into)}
@@ -118,7 +130,7 @@
 			{#each boxes as box, i (i)}
 				<rect
 					class:faded={faded(box.flow.part)}
-					style:--shade="var({shadeOf(box.flow.part)})"
+					style:--shade="var({shadeOf(box.flow)})"
 					x={box.x0}
 					y={box.y0}
 					width={NODE}
@@ -132,7 +144,7 @@
 		{#each boxes as box, i (i)}
 			{@const height = box.y1 - box.y0}
 			{@const last = box.flow.column === 2}
-			{#if box.flow.column > 0 && height >= NAMED}
+			{#if (box.flow.column > 0 || box.flow.into !== null) && height >= NAMED}
 				<span
 					class="name"
 					class:last

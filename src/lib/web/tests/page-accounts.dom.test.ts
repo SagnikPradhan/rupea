@@ -125,6 +125,38 @@ describe('the accounts page', () => {
 		);
 	});
 
+	it('divides the assets into rings, and says so when something owes', async () => {
+		visit('/l/h/accounts');
+		vi.mocked(listAccounts).mockReturnValue(
+			answer([
+				...accounts,
+				{
+					account: 'Assets:Card',
+					parent: 'Assets',
+					total: '-300',
+					cost: null,
+					gain: null,
+					unpriced: 0,
+					holdings: [rupees('-300')],
+				},
+			]),
+		);
+		render(Page, { data });
+
+		expect(
+			await screen.findByRole('img', { name: 'How Assets divides across its accounts' }),
+		).toBeTruthy();
+		expect(screen.getByText('1 account is below zero, so not drawn')).toBeTruthy();
+	});
+
+	it('says there is nothing to divide on a ledger with no accounts under Assets', async () => {
+		visit('/l/h/accounts');
+		vi.mocked(listAccounts).mockReturnValue(answer([]));
+		render(Page, { data });
+
+		expect(await screen.findByText('Nothing to divide.')).toBeTruthy();
+	});
+
 	it('starts every figure at zero on a ledger with nothing in it yet', async () => {
 		visit('/l/h/accounts');
 		vi.mocked(listAccounts).mockReturnValue(answer([]));

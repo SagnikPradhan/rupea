@@ -9,6 +9,7 @@
 	import BarRow from '#lib/web/components/ui-bar-row/ui-bar-row.svelte';
 	import ListFilter from '#lib/web/components/app-list-filter/app-list-filter.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
+	import Donut from '#lib/web/components/ui-chart-donut/ui-chart-donut.svelte';
 	import Invested from '#lib/web/components/app-invested/app-invested.svelte';
 	import Amount from '#lib/web/components/app-ledger-table/amount.svelte';
 	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
@@ -26,6 +27,7 @@
 		formatWhole,
 	} from '#lib/web/shared/format.ts';
 	import { groupsInvested, investedOf, totalsOf } from '#lib/web/shared/invested.ts';
+	import { ringsOf } from '#lib/web/shared/rings.ts';
 	import { page } from '$app/state';
 	import * as v from 'valibot';
 
@@ -74,6 +76,15 @@
 		accounts
 			.filter((a) => a.parent === null && isUnder(a.account, ASSETS))
 			.reduce((t, a) => t + Number(a.total), 0),
+	);
+
+	const rings = $derived(
+		ringsOf(accounts, account !== null && isUnder(account, ASSETS) ? account : ASSETS),
+	);
+	const owing = $derived(
+		rings.skipped === 0
+			? undefined
+			: `${rings.skipped} ${rings.skipped === 1 ? 'account is' : 'accounts are'} below zero, so not drawn`,
 	);
 
 	const lotsOf = (account: string, commodity: string) =>
@@ -152,11 +163,29 @@
 		<Panel title="Biggest drops" subtitle="how far investments fell from their high" soon />
 	</div>
 
-	<Panel
-		title="Return and risk"
-		subtitle="each dot is an account, bigger dot, more money in it"
-		soon
-	/>
+	<div class="column">
+		<Panel
+			title="Where it sits"
+			subtitle="each ring is a level of accounts, the inner ring the groups"
+		>
+			{#if rings.arcs.length > 0}
+				<Donut
+					arcs={rings.arcs}
+					levels={rings.levels}
+					label="How {account ?? ASSETS} divides across its accounts"
+					note={owing}
+				/>
+			{:else}
+				<p>Nothing to divide.</p>
+			{/if}
+		</Panel>
+
+		<Panel
+			title="Return and risk"
+			subtitle="each dot is an account, bigger dot, more money in it"
+			soon
+		/>
+	</div>
 </PanelGrid>
 
 {#snippet returnOf(gain: string | null, cost: string | null)}

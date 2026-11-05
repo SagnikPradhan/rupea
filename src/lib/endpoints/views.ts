@@ -30,6 +30,7 @@ export const viewCounted = ({ id, counted, ...transaction }: Transactions.Counte
 
 export const viewPosting = (listed: Transactions.ListedPosting) => ({
 	key: `${listed.transaction}:${listed.position}`,
+	transaction: listed.transaction,
 	file: listed.location.file,
 	line: listed.location.line,
 	date: listed.date.toString(),

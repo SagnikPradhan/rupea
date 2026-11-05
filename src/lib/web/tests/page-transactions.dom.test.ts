@@ -53,7 +53,7 @@ const answering = (rows: unknown[]) => {
 };
 
 describe('the transactions page', () => {
-	it('lists each transaction with its postings, and marks evidence', async () => {
+	it('lists each transaction on one row, and marks evidence', async () => {
 		visit('/l/h/transactions');
 		answering([groceries, evidence]);
 		render(Page, { data });
@@ -61,7 +61,26 @@ describe('the transactions page', () => {
 		expect(await screen.findByRole('rowheader', { name: /Groceries/ })).toBeTruthy();
 		expect(screen.getByText('evidence')).toBeTruthy();
 		expect(screen.getByText('18:45')).toBeTruthy();
+		expect(screen.getAllByText('Bank')).toHaveLength(2);
+		expect(screen.getAllByText('Food')).toHaveLength(2);
 		expect(screen.getByRole('alert').textContent).toContain('This posting can’t be read.');
+	});
+
+	it('says how many more accounts a split pays', async () => {
+		visit('/l/h/transactions');
+		answering([
+			{
+				...groceries,
+				postings: [
+					{ account: 'Expenses:Food', quantity: '60.00' },
+					{ account: 'Expenses:Gifts', quantity: '40.00' },
+					{ account: 'Assets:Bank', quantity: '-100.00' },
+				],
+			},
+		]);
+		render(Page, { data });
+
+		expect(await screen.findByText('+1 more')).toBeTruthy();
 	});
 
 	it('links each description to editing it, keeping the filter', async () => {

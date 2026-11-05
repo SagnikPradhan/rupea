@@ -2,7 +2,7 @@ import type { Amount } from './amounts';
 import type { Move } from './worth';
 
 /** What the prices of one group's holdings added to net worth over a span, owing as it is held. */
-export type Shift = { account: string; amount: Amount };
+type Shift = { account: string; amount: Amount };
 
 /** Why net worth went from start to end: what came in as income, what went out as expenses, what prices did to each group, and whatever else is left. */
 export type Bridge = {

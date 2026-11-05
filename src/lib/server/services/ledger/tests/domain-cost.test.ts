@@ -1,5 +1,5 @@
 import type { Amount } from '#services/ledger/domain/amounts.ts';
-import { costOn, type CostMove } from '#services/ledger/domain/cost.ts';
+import { costOn, unpricedIn, type CostMove } from '#services/ledger/domain/cost.ts';
 import { describe, expect, it } from 'vitest';
 
 const day = (d: string) => Temporal.PlainDate.from(d);
@@ -34,6 +34,17 @@ describe('what lots had cost by each day', () => {
 		const moves = [move('2026-01-02', 100, 'USD'), move('2026-01-03', 50)];
 
 		expect(costOn({ moves, rates: [], days: DAYS })).toEqual([0, 0, 50, 50].map(amount));
+	});
+
+	it('names the currencies of the moves left out for want of a rate', () => {
+		const moves = [
+			move('2026-01-02', 100, 'USD'),
+			move('2026-01-03', 50),
+			move('2026-01-05', 1, 'EUR'),
+		];
+		const rates = [{ commodity: 'EUR', day: day('2026-01-05'), rate: amount(90) }];
+
+		expect(unpricedIn(moves, rates)).toEqual(['USD']);
 	});
 
 	it('costs nothing without moves', () => {

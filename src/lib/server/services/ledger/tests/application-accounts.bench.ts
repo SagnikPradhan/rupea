@@ -19,7 +19,7 @@ describe('accounts', () => {
 		const drops = (f: Temporal.PlainDate) =>
 			timed(context, () => Accounts.listDrops({ ledger, from: f, to: TO, account: null }));
 		const bridge = (f: Temporal.PlainDate) =>
-			timed(context, () => Accounts.findBridge({ ledger, from: f, to: TO, account: null }));
+			timed(context, () => Accounts.findBridge({ ledger, from: f, to: TO }));
 		const returns = (f: Temporal.PlainDate) =>
 			timed(context, () => Accounts.listReturns({ ledger, from: f, to: TO }));
 		const spending = (f: Temporal.PlainDate) =>

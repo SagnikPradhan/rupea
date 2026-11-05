@@ -5,13 +5,12 @@ import { ASSETS, LIABILITIES } from '#lib/shared/accounts.ts';
 import { BEGINNING, type Bucket, type Span } from '#lib/shared/dates.ts';
 import * as DB from '../adapters/database';
 import { DEFAULT_COMMODITY, type Amount, type Quantity } from '../domain/amounts';
-import { costOn } from '../domain/cost';
+import { costOn, unpricedIn } from '../domain/cost';
 import { bridgeOf, type Bridge } from '../domain/bridge';
 import { dropsOf, type Drops } from '../domain/drawdown';
 import { byAccount, HOPS, pricedIn, valued, type Account, type Holding } from '../domain/holdings';
 import { returnsOf, type Returns } from '../domain/returns';
 import { spendingOf, type Spending } from '../domain/spending';
-import { BALANCE_TYPES } from '../domain/taxonomy';
 import { parentsIn, partsIn, type AccountNode } from '../domain/tree';
 import type { Ledger } from '../domain/types';
 import {
@@ -72,20 +71,14 @@ type WorthParts = {
 };
 
 /** Worth from the later of a span's start and the first day the parts held anything, or none before a sync has built the ledger's years. */
-const worthOver = (
-	id: string,
-	s: Span,
-	{ parts, byCommodity, held }: WorthParts,
-): ResultAsync<DB.Worth[]> =>
-	walked(id, s, { parts, held }).map((w) => (w === null ? [] : worthOf({ ...w, byCommodity })));
-
-type Walked = { parts: DB.PartOf[]; held?: Set<string> | undefined };
+const worthOver = (id: string, s: Span, p: WorthParts): ResultAsync<DB.Worth[]> =>
+	walked(id, s, p).map((w) => (w === null ? [] : worthOf(w)));
 
 /** What worth is made of for these parts over a span, or null when they held nothing in it. */
 const walked = (
 	id: string,
 	{ from, to }: Span,
-	{ parts, held }: Walked,
+	{ parts, byCommodity, held }: WorthParts,
 ): ResultAsync<WorthOfOptions | null> =>
 	DB.findFirstHeld(id, { parts, to }).andThen((first) => {
 		if (first === null || Temporal.PlainDate.compare(first, to) > 0) return okAsync(null);
@@ -106,7 +99,7 @@ const walked = (
 						from: start,
 						to,
 						parts,
-						byCommodity: false,
+						byCommodity,
 						balances,
 						prices,
 						sources,
@@ -141,7 +134,10 @@ export const listInvested = ({
 	DB.listProblems(ledger.id).andThen((f) =>
 		DB.listAccountTree(ledger.id)
 			.andThen((t) => investedOver(ledger.id, { from, to }, partsIn(t, account).parts))
-			.map((i) => ({ succeeded: i, failed: f })),
+			.map(({ days, unpriced }) => ({
+				succeeded: days,
+				failed: [...f, ...unpriced.map((c) => fault('CostUnpriced', { commodity: c }))],
+			})),
 	);
 
 const investedOver = (id: string, { from, to }: Span, parts: DB.PartOf[]) =>
@@ -159,11 +155,13 @@ const investedOver = (id: string, { from, to }: Span, parts: DB.PartOf[]) =>
 			DB.listRatesThen(id, pairs),
 		]).map(([worth, rates]) => {
 			const costs = costOn({ moves, rates, days: worth.map((w) => w.day) });
-			return worth.map((w, i) => ({
+			const days = worth.map((w, i) => ({
 				day: w.day,
 				value: w.worth,
 				cost: costs[i] ?? (0n as Amount),
 			}));
+
+			return { days, unpriced: unpricedIn(moves, rates) };
 		});
 	});
 
@@ -193,17 +191,18 @@ export const listDrops = ({
 	);
 
 const dropsOver = (id: string, span: Span, tree: AccountNode[], account: string | null) => {
-	const within = new Set(partsIn(tree, account).parts.map((p) => p.accountId));
-	const parts = tree
-		.filter((n) => within.has(n.id) && BALANCE_TYPES.includes(n.type))
-		.map((n) => ({ accountId: n.id, part: n.name }));
+	const names = Object.fromEntries(tree.map((n) => [n.id, n.name]));
+	const parts = partsIn(tree, account).parts.map((p) => ({
+		accountId: p.accountId,
+		part: names[p.accountId] ?? p.part,
+	}));
 
 	return DB.listCostMoves(id, { accounts: parts.map((p) => p.accountId), to: span.to }).andThen(
 		(moves) => {
 			const held = new Set(moves.map((m) => `${m.accountId} ${m.commodity}`));
 			const lotted = parts.filter((p) => moves.some((m) => m.accountId === p.accountId));
 
-			return walked(id, span, { parts: lotted, held }).map((w) =>
+			return walked(id, span, { parts: lotted, byCommodity: false, held }).map((w) =>
 				w === null
 					? null
 					: dropsOf(
@@ -219,42 +218,37 @@ type FindBridgeOptions = {
 	ledger: Ledger;
 	from: Temporal.PlainDate;
 	to: Temporal.PlainDate;
-	/** Narrows the balances to an account and those under it; every balance account without one. */
-	account: string | null;
 };
 
 /**
  * Why net worth went from the end of the span's first day, or the first day anything was held, to
  * its last: the income and expenses after that day, and what prices did to each group of balances,
- * valued as listWorth values them. Nothing comes back for a span in which nothing was held.
+ * valued as listWorth values them, over every balance account, as income and expenses belong to
+ * the whole ledger. Nothing comes back for a span in which nothing was held.
  */
-export const findBridge = ({
-	ledger,
-	from,
-	to,
-	account,
-}: FindBridgeOptions): ResultAsync<Batch<Bridge>> =>
+export const findBridge = ({ ledger, from, to }: FindBridgeOptions): ResultAsync<Batch<Bridge>> =>
 	DB.listProblems(ledger.id).andThen((f) =>
 		DB.listAccountTree(ledger.id)
-			.andThen((t) => bridgeOver(ledger, { from, to }, t, account))
+			.andThen((t) => bridgeOver(ledger, { from, to }, t))
 			.map((b) => ({ succeeded: b === null ? [] : [b], failed: f })),
 	);
 
-const bridgeOver = (l: Ledger, span: Span, tree: AccountNode[], account: string | null) => {
-	const roots = account === null ? [ASSETS, LIABILITIES] : [account];
-	const parts = roots.flatMap((r) => partsIn(tree, r).parts);
+const bridgeOver = (l: Ledger, span: Span, tree: AccountNode[]) => {
+	const parts = [ASSETS, LIABILITIES].flatMap((r) => partsIn(tree, r).parts);
 
-	return walked(l.id, span, { parts }).andThen((w) => {
-		const worth = w === null ? [] : worthOf({ ...w, byCommodity: false });
+	return walked(l.id, span, { parts, byCommodity: false }).andThen((w) => {
+		const worth = w === null ? [] : worthOf(w);
 		const start = worth[0];
 		const end = worth.at(-1);
 		if (w === null || !start || !end) return okAsync(null);
 
 		const after = { from: start.day.add({ days: 1 }), to: span.to };
 		const total = (a: string) =>
-			listSpending({ ledger: l, spans: [after], bucket: 'month', account: a }).map(
-				(b) => b.succeeded[0]?.totals.find((t) => t.account === a)?.amount ?? (0n as Amount),
-			);
+			Temporal.PlainDate.compare(after.from, after.to) > 0
+				? okAsync(0n as Amount)
+				: listSpending({ ledger: l, spans: [after], bucket: 'month', account: a }).map(
+						(b) => b.succeeded[0]?.totals.find((t) => t.account === a)?.amount ?? (0n as Amount),
+					);
 
 		return ResultAsync.combine([total('Income'), total('Expenses')]).map(([income, expenses]) =>
 			bridgeOf({

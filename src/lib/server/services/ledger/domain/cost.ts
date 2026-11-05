@@ -19,23 +19,41 @@ type CostOnOptions = { moves: CostMove[]; rates: RateThen[]; days: Temporal.Plai
  * valued at the price of its own day. A move whose cost commodity had no price then is left out.
  */
 export const costOn = ({ moves, rates, days }: CostOnOptions): Amount[] => {
-	const rateOf = new Map(rates.map((r) => [`${r.commodity} ${r.day}`, r.rate]));
+	const rateOf = ratesIn(rates);
 	const valued = moves
 		.map((m) => ({ day: m.day, value: rupees(m, rateOf) }))
 		.toSorted((a, b) => Temporal.PlainDate.compare(a.day, b.day));
-	const running: { day: Temporal.PlainDate; total: bigint }[] = [];
+	const running: Running[] = [];
 	for (const v of valued)
 		running.push({ day: v.day, total: (running.at(-1)?.total ?? 0n) + v.value });
 
-	const ahead = [...running];
+	const cursor = { at: 0 };
 
 	return days.map((day) => {
-		while (ahead[1] && Temporal.PlainDate.compare(ahead[1].day, day) <= 0) ahead.shift();
-		const latest = ahead[0];
-		return (
-			latest && Temporal.PlainDate.compare(latest.day, day) <= 0 ? latest.total : 0n
-		) as Amount;
+		while (isOn(running[cursor.at + 1], day)) cursor.at++;
+		const latest = running[cursor.at];
+		return (isOn(latest, day) ? latest.total : 0n) as Amount;
 	});
+};
+
+/** The commodities lots cost in whose price was missing on a day they were paid in, which costOn leaves out. */
+export const unpricedIn = (moves: CostMove[], rates: RateThen[]): string[] => {
+	const rateOf = ratesIn(rates);
+	const missing = moves.filter(
+		(m) => m.cost !== DEFAULT_COMMODITY && !rateOf.has(`${m.cost} ${m.day}`),
+	);
+
+	return [...new Set(missing.map((m) => m.cost))];
+};
+
+type Running = { day: Temporal.PlainDate; total: bigint };
+
+const isOn = (r: Running | undefined, d: Temporal.PlainDate): r is Running =>
+	r !== undefined && Temporal.PlainDate.compare(r.day, d) <= 0;
+
+const ratesIn = (rates: RateThen[]) => {
+	const entries = rates.map((r) => [`${r.commodity} ${r.day}`, r.rate] as const);
+	return new Map(entries);
 };
 
 const rupees = (move: CostMove, rates: Map<string, Amount>) => {

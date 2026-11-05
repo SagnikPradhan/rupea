@@ -197,6 +197,4 @@ await provide(context, async () => {
 	await must(syncIndex(ledger));
 
 	console.log(`seeded ${files.length} files for ${email}, sign in with that address`);
-});
-
-await database.close();
+}).finally(() => database.close());

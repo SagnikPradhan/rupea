@@ -63,14 +63,14 @@ export const listInvested = query(
 
 /** Why net worth moved over a period: the income and expenses, and what prices did to each group. */
 export const findBridge = query(
-	v.object({ handle: Handle, day: Day, period: Period, account: BalanceAccount }),
-	({ handle, day, period, account }) => {
+	v.object({ handle: Handle, day: Day, period: Period }),
+	({ handle, day, period }) => {
 		const { from, to } = spansOf(period, day).current;
 
 		return replyFromBatch(
 			inLedger({
 				handle,
-				action: (l) => Accounts.findBridge({ ledger: l, from, to, account }),
+				action: (l) => Accounts.findBridge({ ledger: l, from, to }),
 			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewBridge) })),
 		);
 	},

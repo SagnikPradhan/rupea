@@ -88,10 +88,11 @@
 			.y0(values.crossed ? VIEW : Math.min(VIEW, Math.max(0, values.y(0))))
 			.y1((v) => values.y(v)),
 	);
+	const primary = $derived(lines[strokes.findIndex((s) => s.role === 'primary')] ?? []);
 	const between = $derived(
 		area<number>()
 			.x((_, i) => xs[i] ?? 0)
-			.y0((_, i) => values.y(lines[strokes.findIndex((s) => s.role === 'primary')]?.[i] ?? 0))
+			.y0((_, i) => values.y(primary[i] ?? 0))
 			.y1((v) => values.y(v)),
 	);
 	const pile = $derived(

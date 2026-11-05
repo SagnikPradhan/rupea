@@ -51,6 +51,7 @@ export type RupeaError =
 	| { type: 'LotNotOpen'; location: string; account: string; units: string }
 	| { type: 'ReturnUnpriced'; account: string; unpriced: number }
 	| { type: 'ReturnUnsolved'; account: string }
+	| { type: 'CostUnpriced'; commodity: string }
 	| { type: 'ExtractionInvalidSchema'; path: string; reason: string }
 	| { type: 'ExtractionUnsupportedFile'; path: string }
 	| { type: 'ExtractionMissingModel'; path: string; cause?: RupeaError[] }

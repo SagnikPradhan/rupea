@@ -1,13 +1,13 @@
 import { shownDays, type Move } from './worth';
 
 /** How far below its high something stood at the end of a day, as a fraction at or below zero. */
-export type Underwater = { day: Temporal.PlainDate; depth: number };
+type Underwater = { day: Temporal.PlainDate; depth: number };
 
 /** The lowest an account fell below its high, and the day it did. */
-export type Low = { account: string; depth: number; day: Temporal.PlainDate };
+type Low = { account: string; depth: number; day: Temporal.PlainDate };
 
 /** How much an account's value swings in a year, as the spread of its daily moves. */
-export type Swing = { account: string; swing: number };
+type Swing = { account: string; swing: number };
 
 export type Drops = { underwater: Underwater[]; lows: Low[]; swings: Swing[] };
 

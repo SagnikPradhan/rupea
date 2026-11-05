@@ -16,6 +16,10 @@ describe('explain', () => {
 			'Assets:Broker has no XIRR: 2 of its holdings or flows have no price. Add a P line for them.',
 		],
 		[
+			fault('CostUnpriced', { commodity: 'USD' }),
+			'Lots bought in USD on a day it has no price are left out of cost, so gains may read high. Add a P line for it.',
+		],
+		[
 			fault('ReturnUnsolved', { account: 'Assets:Bank' }),
 			'Assets:Bank has no XIRR: no rate makes its flows and values add up.',
 		],

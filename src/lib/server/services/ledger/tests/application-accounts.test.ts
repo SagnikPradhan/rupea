@@ -1020,6 +1020,29 @@ describe('spending', () => {
 				]);
 			}));
 
+		it('says so when a cost currency had no price the day it was paid', ({ context, db }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				const content = [
+					'2026-01-02 Buy',
+					'\tAssets:IBKR 2 AAPL @ 100 USD',
+					'\tAssets:IBKR -200 USD',
+					'',
+				].join('\n');
+				await Files.createFile({ ledger, key: 'a.rupea', content });
+
+				const batch = (
+					await Accounts.listInvested({
+						ledger,
+						from: Temporal.PlainDate.from('2026-01-01'),
+						to: Temporal.PlainDate.from('2026-01-31'),
+						account: null,
+					})
+				)._unsafeUnwrap();
+
+				expect(batch.failed).toContainEqual({ type: 'CostUnpriced', commodity: 'USD' });
+			}));
+
 		it('counts only the holdings with lots, in the account asked for', ({ context, db }) =>
 			provide(context, async () => {
 				const ledger = await createLedger(db);
@@ -1171,13 +1194,12 @@ describe('spending', () => {
 	});
 
 	describe('bridge', () => {
-		const crossed = async (ledger: Ledger, account: string | null = null) =>
+		const crossed = async (ledger: Ledger) =>
 			(
 				await Accounts.findBridge({
 					ledger,
 					from: Temporal.PlainDate.from('2026-01-01'),
 					to: Temporal.PlainDate.from('2026-01-31'),
-					account,
 				})
 			)._unsafeUnwrap().succeeded[0];
 
@@ -1218,6 +1240,22 @@ describe('spending', () => {
 					end: 1500n * UNIT,
 				});
 				expect(bridge?.shifts).toEqual([{ account: 'Assets:Zerodha', amount: 200n * UNIT }]);
+			}));
+
+		it('reads income and expenses only after the first day anything was held', ({ context, db }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				const content = ['2026-01-31 Opening', '\tAssets:Bank 1000', '\tEquity:Opening', ''].join(
+					'\n',
+				);
+				await Files.createFile({ ledger, key: 'a.rupea', content });
+
+				expect(await crossed(ledger)).toMatchObject({
+					start: 1000n * UNIT,
+					income: 0n,
+					expenses: 0n,
+					end: 1000n * UNIT,
+				});
 			}));
 
 		it('keeps what neither income, expenses nor prices explain as other', ({ context, db }) =>

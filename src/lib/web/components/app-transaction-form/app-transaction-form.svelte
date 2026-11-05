@@ -24,7 +24,6 @@
 		{ label: 'Amount', kind: 'amount' as const },
 		{ label: '' },
 	];
-	const RARE_FIELDS = ['file', 'metadata', 'postings.0.commodity'];
 	const RARE_POSTING_FIELDS = ['commodity', 'price', 'cost', 'balance', 'metadata'];
 
 	const ACCOUNT_TYPE = /^(Assets|Liabilities|Income|Expenses|Equity)(:|$)/;
@@ -44,7 +43,7 @@
 		Income: [
 			{
 				label: 'Paid into',
-				hint: 'The account the money arrived in.',
+				hint: 'Where the money lands.',
 				types: HELD,
 				placeholder: 'Bank',
 			},
@@ -56,7 +55,7 @@
 			},
 		],
 		Transfer: [
-			{ label: 'To', hint: 'The account that receives it.', types: HELD, placeholder: 'Savings' },
+			{ label: 'To', hint: 'The account it goes to.', types: HELD, placeholder: 'Savings' },
 			{ label: 'From', hint: 'The account it leaves.', types: HELD, placeholder: 'Bank' },
 		],
 	};
@@ -71,15 +70,13 @@
 		newest: string | null;
 		/** A transaction to change, as it was read from its file. */
 		edit?: { file: string; line: number; version: string; form: TransactionForm } | undefined;
-		/** Where leaving the form goes. */
-		closeHref: string;
 		/** Called after a transaction is written. */
 		onsaved: () => void;
 	};
 
 	type Entries = { key: string; value: string }[];
 
-	const { handle, keys, newest, edit, closeHref, onsaved }: Props = $props();
+	const { handle, keys, newest, edit, onsaved }: Props = $props();
 
 	const blank = () => ({
 		account: '',
@@ -110,7 +107,6 @@
 		issues: {} as Record<string, { message: string }[]>,
 		errors: [] as RupeaError[],
 		saved: null as { file: string; line: number } | null,
-		more: untrack(() => edit !== undefined),
 		split: untrack(() => edit !== undefined),
 		accounts: [] as string[],
 	});
@@ -229,14 +225,10 @@
 {#snippet entries(list: Entries, path: string)}
 	{#each list as entry, index (index)}
 		<div class="entry">
-			<Field
-				label="Key"
-				hint="The name of the detail, like ref."
-				issues={issuesAt(`${path}.${index}.key`)}
-			>
+			<Field label="Key" hint="A name, like ref." issues={issuesAt(`${path}.${index}.key`)}>
 				<input bind:value={entry.key} />
 			</Field>
-			<Field label="Value" hint="What it is, like 402." issues={issuesAt(`${path}.${index}.value`)}>
+			<Field label="Value" hint="Like 402." issues={issuesAt(`${path}.${index}.value`)}>
 				<input bind:value={entry.value} />
 			</Field>
 			<button type="button" class="link" onclick={() => list.splice(index, 1)}>Remove</button>
@@ -269,11 +261,7 @@
 		</div>
 	{/if}
 
-	<Field
-		label="Description"
-		hint="What it was, like Groceries or Rent."
-		issues={issuesAt('description')}
-	>
+	<Field label="Description" hint="What it was, like Rent." issues={issuesAt('description')}>
 		<input bind:value={form.description} />
 	</Field>
 
@@ -281,22 +269,25 @@
 		<Field label="Date" hint="The day it happened." issues={issuesAt('date')}>
 			<input type="date" bind:value={form.date} />
 		</Field>
-		<Field label="Time" hint="Optional. Orders the day's entries." issues={issuesAt('time')}>
+		<Field label="Time" hint="To order within a day." issues={issuesAt('time')}>
 			<input type="time" step="1" bind:value={form.time} />
 		</Field>
 	</div>
 
 	{#if !status.split}
-		<Field
-			label="Amount"
-			hint="How much, without a currency sign."
-			issues={issuesAt('postings.0.amount')}
-		>
-			<input bind:value={simple.amount} inputmode="decimal" />
-		</Field>
-	{/if}
+		<div class="pair">
+			<Field
+				label="Amount"
+				hint="How much, no currency sign."
+				issues={issuesAt('postings.0.amount')}
+			>
+				<input bind:value={simple.amount} inputmode="decimal" />
+			</Field>
+			<Field label="Currency" hint="Leave empty for INR." issues={issuesAt('postings.0.commodity')}>
+				<input bind:value={simple.currency} placeholder="INR" />
+			</Field>
+		</div>
 
-	{#if !status.split}
 		<div class="pair">
 			{#each KINDS[simple.kind] as box, index (box.label)}
 				<Field label={box.label} hint={box.hint} issues={issuesAt(`postings.${index}.account`)}>
@@ -311,55 +302,8 @@
 				</Field>
 			{/each}
 		</div>
-	{/if}
 
-	<Field label="Comment" hint="A note kept with the transaction.">
-		<input bind:value={form.comment} />
-	</Field>
-
-	<datalist id="transaction-files">
-		{#each keys as key (key)}<option value={key}></option>{/each}
-	</datalist>
-
-	<div class="buttons">
-		<Button
-			type="button"
-			aria-label="More details"
-			aria-expanded={status.more}
-			onclick={() => (status.more = !status.more)}
-		>
-			{status.more ? 'Less' : 'More'}
-		</Button>
-		{#if status.split}
-			<Button type="button" onclick={() => form.postings.push(blank())}>Add line</Button>
-		{/if}
-		{#if !status.split}
-			<Button type="button" onclick={split}>Split</Button>
-		{/if}
-	</div>
-
-	{#if status.more || hasIssuesIn('', RARE_FIELDS)}
-		<div class="rare">
-			{#if !edit}
-				<Field
-					label="File"
-					hint="Where it is written. A new name starts a new file."
-					issues={issuesAt('file')}
-				>
-					<input bind:value={form.file} list="transaction-files" spellcheck="false" />
-				</Field>
-			{/if}
-			{#if !status.split}
-				<Field
-					label="Currency"
-					hint="Leave empty for INR."
-					issues={issuesAt('postings.0.commodity')}
-				>
-					<input bind:value={simple.currency} placeholder="INR" />
-				</Field>
-			{/if}
-			{@render entries(form.metadata, 'metadata')}
-		</div>
+		<button type="button" class="link" onclick={split}>Split</button>
 	{/if}
 
 	<datalist id="transaction-accounts">
@@ -427,22 +371,14 @@
 									>
 										<input bind:value={posting.commodity} placeholder="INR" />
 									</Field>
-									<Field
-										label="Price"
-										hint="What one unit cost, like 1700 INR."
-										issues={issuesAt(`${at}.price`)}
-									>
+									<Field label="Price" hint="What one unit cost." issues={issuesAt(`${at}.price`)}>
 										<input bind:value={posting.price} />
 									</Field>
 									<label class="check">
 										<input type="checkbox" bind:checked={posting.total} />
 										Price for all units
 									</label>
-									<Field
-										label="Lot cost"
-										hint="What the units cost when bought."
-										issues={issuesAt(`${at}.cost`)}
-									>
+									<Field label="Lot cost" hint="Cost of the units." issues={issuesAt(`${at}.cost`)}>
 										<input bind:value={posting.cost} />
 									</Field>
 									<Field
@@ -454,13 +390,13 @@
 									</Field>
 									<Field
 										label="Balance after"
-										hint="What the statement says is left."
+										hint="What is left after this."
 										issues={issuesAt(`${at}.balance`)}
 									>
 										<input bind:value={posting.balance} inputmode="decimal" />
 									</Field>
 									<div class="wide">
-										<Field label="Comment" hint="A note kept with this line.">
+										<Field label="Comment" hint="A note kept with it.">
 											<input bind:value={posting.comment} />
 										</Field>
 									</div>
@@ -472,7 +408,25 @@
 				</tbody>
 			{/each}
 		</LedgerTable>
+		<button type="button" class="link" onclick={() => form.postings.push(blank())}>Add line</button>
 	{/if}
+
+	<div class="pair">
+		<Field label="Comment" hint="A note kept with it.">
+			<input bind:value={form.comment} />
+		</Field>
+		{#if !edit}
+			<Field label="File" hint="A new name starts a new file." issues={issuesAt('file')}>
+				<input bind:value={form.file} list="transaction-files" spellcheck="false" />
+			</Field>
+		{/if}
+	</div>
+
+	{@render entries(form.metadata, 'metadata')}
+
+	<datalist id="transaction-files">
+		{#each keys as key (key)}<option value={key}></option>{/each}
+	</datalist>
 
 	{#each status.errors as error, index (index)}
 		<p role="alert">{explain(error)}</p>
@@ -483,10 +437,10 @@
 			{edit ? 'Save changes' : 'Save'}
 		</Button>
 		{#if edit}
-			<Button type="button" disabled={deleteTransaction.pending > 0} onclick={remove}>Delete</Button
-			>
+			<Button type="button" destructive disabled={deleteTransaction.pending > 0} onclick={remove}>
+				Delete
+			</Button>
 		{/if}
-		<Button href={closeHref}>Cancel</Button>
 	</div>
 
 	{#if status.saved}
@@ -533,6 +487,7 @@
 		text-underline-offset: var(--size-0);
 	}
 
+	.pair > :global(:only-child),
 	.wide,
 	.more {
 		grid-column: 1 / -1;
@@ -543,6 +498,10 @@
 		border: none;
 		background: none;
 		font: inherit;
+	}
+
+	form > .link {
+		align-self: start;
 	}
 
 	.link:hover {

@@ -10,12 +10,21 @@
 	};
 
 	const { label, hint, issues = [], children }: Props = $props();
+
+	const id = $props.id();
+
+	const describing = (e: HTMLElement) => {
+		if (hint)
+			e.querySelector('input, select, textarea')?.setAttribute('aria-describedby', `${id}-hint`);
+	};
 </script>
 
 <div>
-	<label>
-		{label}
-		{#if hint}<small>{hint}</small>{/if}
+	<label {@attach describing}>
+		<span class="text">
+			<span>{label}</span>
+			{#if hint}<small id="{id}-hint" aria-hidden="true">{hint}</small>{/if}
+		</span>
 		{@render children()}
 	</label>
 	{#each issues as issue (issue.message)}
@@ -29,6 +38,12 @@
 		flex-direction: column;
 		gap: var(--size-1);
 		align-items: start;
+	}
+
+	.text {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-0);
 	}
 
 	small {

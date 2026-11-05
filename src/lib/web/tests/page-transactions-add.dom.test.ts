@@ -43,7 +43,6 @@ const opened = async () => {
 };
 
 const fileBox = async () => {
-	await fireEvent.click(screen.getByRole('button', { name: 'More details' }));
 	return (await screen.findByLabelText(/^File/)) as HTMLInputElement;
 };
 
@@ -62,6 +61,7 @@ const save = () => fireEvent.click(screen.getByRole('button', { name: 'Save' }))
 describe('the add transaction panel', () => {
 	beforeEach(() => {
 		vi.mocked(createTransaction).mockReset();
+		vi.mocked(goto).mockClear();
 		vi.mocked(findTransactionFiles).mockReturnValue(
 			answer({ keys: ['a.rupea', 'b.rupea'], newest: 'b.rupea' }),
 		);
@@ -117,7 +117,22 @@ describe('the add transaction panel', () => {
 		expect(screen.getByLabelText(/^Time/)).toBeTruthy();
 		expect(screen.getByLabelText(/^Comment/)).toBeTruthy();
 		expect(screen.getByText('The day it happened.')).toBeTruthy();
-		expect(screen.queryByLabelText(/^File/)).toBeNull();
+		expect(screen.getByLabelText(/^File/)).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Add detail' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'More details' })).toBeNull();
+	});
+
+	it('closes from the title bar or with Escape, keeping the filter', async () => {
+		visit('/l/h/transactions?add=1&at=2026-08');
+		render(Page, { data });
+		await screen.findByRole('dialog', { name: 'Add transaction' });
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Close' }));
+		await fireEvent.keyDown(window, { key: 'Escape' });
+
+		expect(goto).toHaveBeenCalledTimes(2);
+		expect(goto).toHaveBeenCalledWith('?at=2026-08');
+		expect(screen.queryByRole('link', { name: 'Cancel' })).toBeNull();
 	});
 
 	it('says why the server refused, and keeps what was typed', async () => {

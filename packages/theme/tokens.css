@@ -50,6 +50,8 @@
 	--color-ink: light-dark(#000, #e6e6e6);
 	--color-positive: light-dark(#0a7a3d, #4cc47f);
 	--color-negative: light-dark(#c62828, #ff7b72);
+	--color-negative-1: color-mix(in srgb, var(--color-negative) 10%, transparent);
+	--color-negative-3: color-mix(in srgb, var(--color-negative) 40%, transparent);
 
 	/* Ink scale */
 	--color-ink-1: color-mix(in srgb, var(--color-ink) 6%, transparent);

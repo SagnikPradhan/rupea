@@ -64,12 +64,12 @@
 		<PagedTable
 			columns={[
 				{ label: 'Date', kind: 'date' },
-				{ label: 'Account' },
+				{ label: 'Account', kind: 'account' },
 				{ label: 'Description' },
 				{ label: 'Amount', kind: 'amount' },
 			]}
 			{list}
-			height={40}
+			height={54}
 			empty="No postings match."
 		>
 			{#snippet row(index: number)}
@@ -77,8 +77,8 @@
 				{#if posting}
 					<tr>
 						<td class="date"><time datetime={posting.date}>{formatDate(posting.date)}</time></td>
-						<td><Account account={posting.account} /></td>
-						<th scope="row" class="description" title={posting.description}>
+						<td class="truncate"><Account account={posting.account} /></td>
+						<th scope="row" class="truncate" title={posting.description}>
 							<a href={editHref(params, posting.transaction)}>{posting.description}</a>
 						</th>
 						<Amount value={posting.quantity} />
@@ -90,9 +90,3 @@
 
 	<TransactionAside {handle} {refresh} />
 </PanelGrid>
-
-<style>
-	.description {
-		min-width: calc(var(--size-5) * 3);
-	}
-</style>

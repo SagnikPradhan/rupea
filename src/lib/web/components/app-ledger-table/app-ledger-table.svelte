@@ -1,17 +1,23 @@
 <script lang="ts" module>
-	export type Column = { label: string; kind?: 'date' | 'amount'; optional?: boolean };
+	export type Column = { label: string; kind?: 'date' | 'account' | 'amount'; optional?: boolean };
 </script>
 
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	type Props = { columns: Column[]; label?: string; children: Snippet };
+	type Props = {
+		columns: Column[];
+		label?: string;
+		/** Sizes the columns by their headers, so rows that come and go do not move them. */
+		fixed?: boolean;
+		children: Snippet;
+	};
 
-	const { columns, label, children }: Props = $props();
+	const { columns, label, fixed = false, children }: Props = $props();
 </script>
 
 <div>
-	<table aria-label={label}>
+	<table aria-label={label} class={{ fixed }}>
 		<thead>
 			<tr>
 				{#each columns as column (column.label)}
@@ -73,6 +79,22 @@
 		font-family: var(--font-body);
 	}
 
+	table.fixed {
+		table-layout: fixed;
+	}
+
+	table.fixed :global(th.date) {
+		width: calc(var(--size-5) * 1.25);
+	}
+
+	table.fixed :global(th.account) {
+		width: calc(var(--size-5) * 3);
+	}
+
+	table.fixed :global(th.amount) {
+		width: calc(var(--size-5) * 1.5);
+	}
+
 	table :global(td.date) {
 		color: var(--color-muted);
 	}
@@ -82,6 +104,10 @@
 		overflow: hidden;
 		white-space: nowrap;
 		text-overflow: ellipsis;
+	}
+
+	table :global(.truncate wbr) {
+		display: none;
 	}
 
 	table :global(tbody tr) {

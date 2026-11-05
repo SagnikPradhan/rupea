@@ -222,10 +222,10 @@
 	{#each list as entry, index (index)}
 		<div class="entry">
 			<Field label="Key" issues={issuesAt(`${path}.${index}.key`)}>
-				<input bind:value={entry.key} placeholder="ref" />
+				<input bind:value={entry.key} placeholder="e.g. invoice" />
 			</Field>
 			<Field label="Value" issues={issuesAt(`${path}.${index}.value`)}>
-				<input bind:value={entry.value} placeholder="402" />
+				<input bind:value={entry.value} placeholder="e.g. INV-402" />
 			</Field>
 			<IconButton label="Remove detail" icon={IconRemove} onclick={() => list.splice(index, 1)} />
 		</div>
@@ -301,14 +301,29 @@
 	</datalist>
 
 	{#if status.split}
-		<div class="lines">
-			<p class="heading">Lines this writes</p>
+		<section class="lines" aria-labelledby="lines-heading">
+			<div class="intro">
+				<h3 id="lines-heading">Lines</h3>
+				<p>Each line moves money into or out of one account.</p>
+			</div>
 			{#each form.postings as posting, index (index)}
 				{@const at = `postings.${index}`}
-				{@const quiet = index > 0}
 				<div class="line" role="group" aria-label="Line {index + 1}">
+					<div class="title">
+						<span>Line {index + 1}</span>
+						{#if form.postings.length > 2}
+							<button
+								type="button"
+								class="link"
+								aria-label="Remove line {index + 1}"
+								onclick={() => form.postings.splice(index, 1)}
+							>
+								Remove
+							</button>
+						{/if}
+					</div>
 					<div class="row">
-						<Field label="Account" {quiet} issues={issuesAt(`${at}.account`)}>
+						<Field label="Account" issues={issuesAt(`${at}.account`)}>
 							<input
 								placeholder="Expenses:Food"
 								bind:value={posting.account}
@@ -318,10 +333,10 @@
 								onfocus={(e) => suggest(e.currentTarget.value)}
 							/>
 						</Field>
-						<Field label="Amount" {quiet} issues={issuesAt(`${at}.amount`)}>
+						<Field label="Amount" issues={issuesAt(`${at}.amount`)}>
 							<input bind:value={posting.amount} inputmode="decimal" placeholder="Auto" />
 						</Field>
-						<Field label="Currency" {quiet} issues={issuesAt(`${at}.commodity`)}>
+						<Field label="Currency" issues={issuesAt(`${at}.commodity`)}>
 							<input bind:value={posting.commodity} placeholder="INR" />
 						</Field>
 					</div>
@@ -351,9 +366,11 @@
 							>
 								<input bind:value={posting.balance} inputmode="decimal" />
 							</Field>
-							<Field label="Comment" hint="A note kept with it.">
-								<input bind:value={posting.comment} />
-							</Field>
+							<div class="more">
+								<Field label="Comment" hint="A note kept with it.">
+									<textarea bind:value={posting.comment} rows="2"></textarea>
+								</Field>
+							</div>
 							{@render entries(posting.metadata, `${at}.metadata`)}
 						</div>
 					{/if}
@@ -365,35 +382,24 @@
 							aria-expanded={posting.more}
 							onclick={() => (posting.more = !posting.more)}
 						>
-							{posting.more ? 'Hide price and notes' : 'Price and notes'}
+							{posting.more ? 'Hide extra fields' : 'Extra fields'}
 						</button>
-						{#if form.postings.length > 2}
-							<button
-								type="button"
-								class="link"
-								aria-label="Remove line {index + 1}"
-								onclick={() => form.postings.splice(index, 1)}
-							>
-								Remove
-							</button>
-						{/if}
 					</div>
 				</div>
 			{/each}
-		</div>
+		</section>
 		<Button type="button" onclick={() => form.postings.push(blank())}>Add a line</Button>
 	{/if}
 
-	<div class="pair">
-		<Field label="Comment" hint="A note kept with it.">
-			<input bind:value={form.comment} />
+	<Field label="Comment" hint="A note kept with it.">
+		<textarea bind:value={form.comment} rows="2"></textarea>
+	</Field>
+
+	{#if !edit}
+		<Field label="File" hint="A new name starts a new file." issues={issuesAt('file')}>
+			<input bind:value={form.file} list="transaction-files" spellcheck="false" />
 		</Field>
-		{#if !edit}
-			<Field label="File" hint="A new name starts a new file." issues={issuesAt('file')}>
-				<input bind:value={form.file} list="transaction-files" spellcheck="false" />
-			</Field>
-		{/if}
-	</div>
+	{/if}
 
 	{@render entries(form.metadata, 'metadata')}
 
@@ -433,8 +439,17 @@
 		gap: var(--size-3);
 	}
 
-	input:not([type='checkbox']) {
+	input:not([type='checkbox']),
+	textarea {
 		width: 100%;
+	}
+
+	p {
+		margin: 0;
+	}
+
+	p[role='alert'] {
+		color: var(--color-negative);
 	}
 
 	.buttons {
@@ -490,7 +505,19 @@
 		gap: var(--size-3);
 	}
 
-	.heading {
+	.intro h3 {
+		margin: 0;
+		font: var(--text-base);
+	}
+
+	.intro p {
+		color: var(--color-muted);
+		font: var(--text-label);
+	}
+
+	.title {
+		display: flex;
+		justify-content: space-between;
 		color: var(--color-muted);
 		font: var(--text-label);
 	}
@@ -524,22 +551,11 @@
 	}
 
 	.entry {
-		position: relative;
 		display: grid;
 		grid-column: 1 / -1;
-		grid-template-columns: repeat(2, minmax(0, 1fr));
+		grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
 		gap: var(--size-2);
-		align-items: start;
-	}
-
-	.entry > :global(button) {
-		position: absolute;
-		inset-block-start: calc(var(--size-3) + var(--size-1));
-		inset-inline-end: var(--size-1);
-	}
-
-	.entry :global(div:nth-child(2) input) {
-		padding-inline-end: calc(var(--size-4) + var(--size-1));
+		align-items: end;
 	}
 
 	.check {
@@ -550,17 +566,8 @@
 		align-items: center;
 	}
 
-	p {
-		margin: 0;
-	}
-
-	p[role='alert'] {
-		color: var(--color-negative);
-	}
-
 	@media (width < 40rem) {
-		.pair,
-		.entry {
+		.pair {
 			grid-template-columns: 1fr;
 		}
 	}

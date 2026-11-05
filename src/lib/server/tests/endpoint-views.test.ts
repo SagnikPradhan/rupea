@@ -132,6 +132,7 @@ describe('viewing what a transaction is listed as', () => {
 		};
 		expect(viewPosting(listed)).toEqual({
 			key: 't1:2',
+			transaction: 't1',
 			file: 'bank.rupea',
 			line: 12,
 			date: '2026-08-29',

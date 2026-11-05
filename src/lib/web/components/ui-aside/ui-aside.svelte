@@ -56,7 +56,7 @@
 
 	.body {
 		overflow-y: auto;
-		padding-top: 0;
+		padding-block: 0 var(--size-4);
 	}
 
 	h2 {

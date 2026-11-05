@@ -395,7 +395,7 @@
 								aria-expanded={posting.more}
 								onclick={() => (posting.more = !posting.more)}
 							>
-								{posting.more ? 'Fewer options' : 'More options'}
+								{posting.more ? 'Hide price and notes' : 'Price and notes'}
 							</button>
 							{#if form.postings.length > 2}
 								<button
@@ -472,6 +472,8 @@
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--size-2);
+		padding-block-start: var(--size-3);
+		border-block-start: var(--size-line-0) solid var(--color-border);
 	}
 
 	.pair {

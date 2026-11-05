@@ -378,11 +378,9 @@
 									>
 										<input bind:value={posting.balance} inputmode="decimal" />
 									</Field>
-									<div class="wide">
-										<Field label="Comment" hint="A note kept with it.">
-											<input bind:value={posting.comment} />
-										</Field>
-									</div>
+									<Field label="Comment" hint="A note kept with it.">
+										<input bind:value={posting.comment} />
+									</Field>
 									{@render entries(posting.metadata, `${at}.metadata`)}
 								</div>
 							</td>
@@ -522,7 +520,7 @@
 	}
 
 	.child .rare {
-		padding-block: var(--size-3);
+		padding-block: var(--size-2) 0;
 		color: var(--color-ink);
 	}
 
@@ -534,9 +532,18 @@
 		align-items: end;
 	}
 
+	.account input,
+	.currency input {
+		width: 100%;
+	}
+
+	.currency {
+		width: 1%;
+	}
+
 	.amount input {
 		width: auto;
-		font-family: inherit;
+		font-family: var(--font-body);
 		text-align: right;
 	}
 
@@ -559,6 +566,8 @@
 	}
 
 	.check {
+		align-self: end;
+		padding-block: var(--size-2);
 		display: flex;
 		gap: var(--size-1);
 		align-items: center;

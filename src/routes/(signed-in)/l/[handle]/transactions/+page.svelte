@@ -84,10 +84,10 @@
 							<time datetime={transaction.date}>{formatDate(transaction.date)}</time>
 							{#if transaction.time}<span>{transaction.time}</span>{/if}
 						</td>
-						<td class="optional"
+						<td class="optional nowrap"
 							>{#if from}<Account account={from.account} />{/if}</td
 						>
-						<td class="optional">
+						<td class="optional nowrap">
 							<div class="cell">
 								{#if to}<Account account={to.account} />{/if}
 								{#if more > 0}<Tag>+{more}</Tag>{/if}
@@ -127,9 +127,16 @@
 		align-items: baseline;
 	}
 
+	.nowrap {
+		white-space: nowrap;
+	}
+
+	.nowrap :global(wbr) {
+		display: none;
+	}
+
 	.description {
-		width: 40%;
-		min-width: calc(var(--size-5) * 5);
+		min-width: calc(var(--size-5) * 3);
 	}
 
 	.evidence :is(td, th, a) {

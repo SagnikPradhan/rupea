@@ -93,7 +93,6 @@
 
 <style>
 	.description {
-		width: 40%;
-		min-width: calc(var(--size-5) * 5);
+		min-width: calc(var(--size-5) * 3);
 	}
 </style>

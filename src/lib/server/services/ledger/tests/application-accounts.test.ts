@@ -1169,4 +1169,84 @@ describe('spending', () => {
 				expect(await fell(ledger)).toBeUndefined();
 			}));
 	});
+
+	describe('bridge', () => {
+		const crossed = async (ledger: Ledger, account: string | null = null) =>
+			(
+				await Accounts.findBridge({
+					ledger,
+					from: Temporal.PlainDate.from('2026-01-01'),
+					to: Temporal.PlainDate.from('2026-01-31'),
+					account,
+				})
+			)._unsafeUnwrap().succeeded[0];
+
+		const UNIT = 10_000_000_000n;
+
+		it('splits the change in net worth into income, expenses and price moves', ({ context, db }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				const content = [
+					'2026-01-01 Opening',
+					'\tAssets:Bank 1000',
+					'\tEquity:Opening',
+					'',
+					'2026-01-02 Buy',
+					'\tAssets:Zerodha 10 INFY @ 100',
+					'\tAssets:Bank',
+					'',
+					'2026-01-05 Pay',
+					'\tAssets:Bank 500',
+					'\tIncome:Salary',
+					'',
+					'2026-01-06 Rent',
+					'\tExpenses:Rent 200',
+					'\tAssets:Bank',
+					'',
+					'P 2026-01-10 INFY 120',
+					'',
+				].join('\n');
+				await Files.createFile({ ledger, key: 'a.rupea', content });
+
+				const bridge = await crossed(ledger);
+
+				expect(bridge).toMatchObject({
+					start: 1000n * UNIT,
+					income: 500n * UNIT,
+					expenses: 200n * UNIT,
+					other: 0n,
+					end: 1500n * UNIT,
+				});
+				expect(bridge?.shifts).toEqual([{ account: 'Assets:Zerodha', amount: 200n * UNIT }]);
+			}));
+
+		it('keeps what neither income, expenses nor prices explain as other', ({ context, db }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				const content = [
+					'2026-01-01 Opening',
+					'\tAssets:Bank 1000',
+					'\tEquity:Opening',
+					'',
+					'2026-01-10 Gift',
+					'\tAssets:Bank 300',
+					'\tEquity:Gifts',
+					'',
+				].join('\n');
+				await Files.createFile({ ledger, key: 'a.rupea', content });
+
+				const bridge = await crossed(ledger);
+
+				expect(bridge).toMatchObject({ income: 0n, expenses: 0n, other: 300n * UNIT });
+				expect(bridge?.shifts).toEqual([]);
+			}));
+
+		it('has nothing to say when nothing was held', ({ context, db }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				await Files.createFile({ ledger, key: 'a.rupea', content: '' });
+
+				expect(await crossed(ledger)).toBeUndefined();
+			}));
+	});
 });

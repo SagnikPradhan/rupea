@@ -20,6 +20,8 @@ Over 50 years all of history takes 232 ms against 224 ms, and on `wide` ten year
 
 A drop is measured on the same walk. Each day, the holdings of the day before are valued at the prices of both days, so what changed between them is price alone, and a deposit or a withdrawal moves neither. Chaining those changes gives an index that starts at one, and a drop is how far the index stands below its high so far. It is computed for the holdings with lots, as the chart above, and for each account with lots on its own. Over 20 years it takes 107 ms for all of history, against 106 ms for the chart.
 
+What moved net worth is the same walk with the parts left whole. Price moves per group are the sum of those daily changes over a span, income and expenses are the spending reads after the first day, and whatever they leave, such as a buy priced off the day's close, is kept as other so the parts always add up. Over 20 years it takes 55 ms for a year, 270 ms for ten and 579 ms for all of history. Most of the last is the two spending reads, since Expenses alone takes 382 ms, so moving `listSpending` onto the shared sum is what would bring it down.
+
 ## Considered Options
 
 - **Cost as net cash in**: a sale takes out what it fetched, as in Portfolio Performance and Wealthfolio. It needs no lots, but a profitable sale leaves a cost that no lot matches, and the gain disagrees with the one in the table of accounts.

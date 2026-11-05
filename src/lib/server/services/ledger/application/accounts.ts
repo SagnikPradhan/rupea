@@ -1,10 +1,12 @@
 import type { Batch } from '#lib/server/shared/result/batch.ts';
 import { fault, type RupeaError } from '#lib/server/shared/result/error.ts';
 import { okAsync, ResultAsync } from '#lib/server/shared/result/result.ts';
+import { ASSETS, LIABILITIES } from '#lib/shared/accounts.ts';
 import { BEGINNING, type Bucket, type Span } from '#lib/shared/dates.ts';
 import * as DB from '../adapters/database';
 import { DEFAULT_COMMODITY, type Amount, type Quantity } from '../domain/amounts';
 import { costOn } from '../domain/cost';
+import { bridgeOf, type Bridge } from '../domain/bridge';
 import { dropsOf, type Drops } from '../domain/drawdown';
 import { byAccount, HOPS, pricedIn, valued, type Account, type Holding } from '../domain/holdings';
 import { returnsOf, type Returns } from '../domain/returns';
@@ -24,7 +26,7 @@ import { checkLots } from './sync';
 
 export type { Account };
 export type { LotHistory, Worth } from '../adapters/database';
-export type { Drops, Returns, Spending };
+export type { Bridge, Drops, Returns, Spending };
 
 type ListAccountsOptions = { ledger: Ledger; day: Temporal.PlainDate };
 
@@ -202,10 +204,70 @@ const dropsOver = (id: string, span: Span, tree: AccountNode[], account: string 
 			const lotted = parts.filter((p) => moves.some((m) => m.accountId === p.accountId));
 
 			return walked(id, span, { parts: lotted, held }).map((w) =>
-				w === null ? null : dropsOf(w.from, movesOf(w)),
+				w === null
+					? null
+					: dropsOf(
+							w.from,
+							movesOf(w).filter((m) => m.asset),
+						),
 			);
 		},
 	);
+};
+
+type FindBridgeOptions = {
+	ledger: Ledger;
+	from: Temporal.PlainDate;
+	to: Temporal.PlainDate;
+	/** Narrows the balances to an account and those under it; every balance account without one. */
+	account: string | null;
+};
+
+/**
+ * Why net worth went from the end of the span's first day, or the first day anything was held, to
+ * its last: the income and expenses after that day, and what prices did to each group of balances,
+ * valued as listWorth values them. Nothing comes back for a span in which nothing was held.
+ */
+export const findBridge = ({
+	ledger,
+	from,
+	to,
+	account,
+}: FindBridgeOptions): ResultAsync<Batch<Bridge>> =>
+	DB.listProblems(ledger.id).andThen((f) =>
+		DB.listAccountTree(ledger.id)
+			.andThen((t) => bridgeOver(ledger, { from, to }, t, account))
+			.map((b) => ({ succeeded: b === null ? [] : [b], failed: f })),
+	);
+
+const bridgeOver = (l: Ledger, span: Span, tree: AccountNode[], account: string | null) => {
+	const roots = account === null ? [ASSETS, LIABILITIES] : [account];
+	const parts = roots.flatMap((r) => partsIn(tree, r).parts);
+
+	return walked(l.id, span, { parts }).andThen((w) => {
+		const worth = w === null ? [] : worthOf({ ...w, byCommodity: false });
+		const start = worth[0];
+		const end = worth.at(-1);
+		if (w === null || !start || !end) return okAsync(null);
+
+		const after = { from: start.day.add({ days: 1 }), to: span.to };
+		const total = (a: string) =>
+			listSpending({ ledger: l, spans: [after], bucket: 'month', account: a }).map(
+				(b) => b.succeeded[0]?.totals.find((t) => t.account === a)?.amount ?? (0n as Amount),
+			);
+
+		return ResultAsync.combine([total('Income'), total('Expenses')]).map(([income, expenses]) =>
+			bridgeOf({
+				from: start.day,
+				to: end.day,
+				start: start.worth,
+				end: end.worth,
+				income: -income as Amount,
+				expenses,
+				moves: movesOf(w),
+			}),
+		);
+	});
 };
 
 type PricesWalkedOptions = {

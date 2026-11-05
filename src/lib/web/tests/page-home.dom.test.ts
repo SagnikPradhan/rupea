@@ -1,12 +1,18 @@
 import { render, screen, within } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { listAccounts, listSpending, listWorth } from '#lib/endpoints/accounts.remote.ts';
+import {
+	findBridge,
+	listAccounts,
+	listSpending,
+	listWorth,
+} from '#lib/endpoints/accounts.remote.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
 import Page from '#routes/(signed-in)/+page.svelte';
 
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
+	findBridge: vi.fn(),
 	listAccounts: vi.fn(),
 	listSpending: vi.fn(),
 	listWorth: vi.fn(),
@@ -67,7 +73,19 @@ const ledgers = [
 	{ handle: 'b', name: 'Shared', owned: false },
 ];
 
+const bridge = {
+	from: '2024-11-03',
+	to: '2026-11-03',
+	start: '100000',
+	income: '50000',
+	expenses: '30000',
+	shifts: [{ account: 'Assets:Gold', amount: '90000' }],
+	other: '0',
+	end: '210000',
+};
+
 beforeEach(() => {
+	vi.mocked(findBridge).mockReturnValue(answer([bridge]));
 	vi.mocked(listWorth).mockReturnValue(answer(worth));
 	vi.mocked(listAccounts).mockReturnValue(answer(accounts));
 	vi.mocked(listSpending).mockImplementation(({ account }) =>
@@ -145,8 +163,22 @@ describe('the home page', () => {
 		await screen.findByText('Balance sheet');
 
 		expect(screen.getByText('Coming soon')).toBeTruthy();
-		expect(screen.getAllByText(/^Coming soon · /)).toHaveLength(2);
+		expect(screen.getAllByText(/^Coming soon · /)).toHaveLength(1);
 		expect(screen.getByText('Cash cushion')).toBeTruthy();
+	});
+
+	it('draws what moved net worth, and says so when nothing was held', async () => {
+		visit('/');
+		render(Page, { data: { ...data, ledgers: [ledgers[0]!] } });
+
+		const plot = await screen.findByRole('img', { name: /^Net worth from 1,00,000 to 2,10,000/ });
+		expect(plot.querySelectorAll('rect')).toHaveLength(5);
+		expect(screen.getByText(/^3 Nov 2024 to 3 Nov 2026 · from 1,00,000 to 2,10,000/)).toBeTruthy();
+
+		vi.mocked(findBridge).mockReturnValue(answer([]));
+		render(Page, { data: { ...data, ledgers: [ledgers[0]!] } });
+
+		expect(await screen.findByText('Nothing held in this period.')).toBeTruthy();
 	});
 
 	it('shows the first ledger, and the one asked for when there are several', async () => {

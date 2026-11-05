@@ -99,10 +99,10 @@ export const worthOf = (o: WorthOfOptions): Worth[] => {
 };
 
 /** What a part's holdings of the day before were worth at that day's prices and at the day before's, in step by day from the first. */
-export type Move = { part: string; before: bigint[]; after: bigint[] };
+export type Move = { part: string; asset: boolean; before: bigint[]; after: bigint[] };
 
 /**
- * Values each asset part's holdings of the day before at the prices of both days, so that what
+ * Values each part's holdings of the day before at the prices of both days, so that what
  * changed between the two is price alone and not what was put in or taken out. A holding with no
  * price on either day counts on neither.
  */
@@ -110,7 +110,7 @@ export const movesOf = (o: WorthOfOptions): Move[] => {
 	const count = o.from.until(o.to).days + 1;
 	const offsetOf = (y: number) =>
 		o.from.until(Temporal.PlainDate.from({ year: y, month: 1, day: 1 })).days;
-	const groups = groupsOf({ ...o, count, offsetOf }).filter((g) => g.asset);
+	const groups = groupsOf({ ...o, count, offsetOf });
 	const rates = ratesOf({ ...o, count, offsetOf });
 
 	return Object.entries(Object.groupBy(groups, (g) => g.part)).map(([part, held = []]) => {
@@ -131,7 +131,7 @@ export const movesOf = (o: WorthOfOptions): Move[] => {
 			});
 		});
 
-		return { part, before, after };
+		return { part, asset: held.some((g) => g.asset), before, after };
 	});
 };
 

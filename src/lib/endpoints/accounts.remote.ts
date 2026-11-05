@@ -7,6 +7,7 @@ import * as v from 'valibot';
 import { Handle, inLedger } from './shared';
 import {
 	viewAccount,
+	viewBridge,
 	viewDrops,
 	viewInvested,
 	viewLot,
@@ -56,6 +57,21 @@ export const listInvested = query(
 				handle,
 				action: (l) => Accounts.listInvested({ ledger: l, from, to, account }),
 			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewInvested) })),
+		);
+	},
+);
+
+/** Why net worth moved over a period: the income and expenses, and what prices did to each group. */
+export const findBridge = query(
+	v.object({ handle: Handle, day: Day, period: Period, account: BalanceAccount }),
+	({ handle, day, period, account }) => {
+		const { from, to } = spansOf(period, day).current;
+
+		return replyFromBatch(
+			inLedger({
+				handle,
+				action: (l) => Accounts.findBridge({ ledger: l, from, to, account }),
+			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewBridge) })),
 		);
 	},
 );

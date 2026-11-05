@@ -1,21 +1,18 @@
 <script lang="ts">
-	import { listAccounts, listReturns, listWorth } from '#lib/endpoints/accounts.remote.ts';
+	import { listAccounts, listReturns } from '#lib/endpoints/accounts.remote.ts';
 	import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
 	import { periodOf } from '#lib/shared/dates.ts';
 	import { ASSETS, BalanceAccount } from '#lib/shared/accounts.ts';
 	import { depthOf, isUnder } from '#lib/web/shared/accounts.ts';
 	import AccountName from '#lib/web/components/app-account-name/app-account-name.svelte';
-	import ChoicePicker from '#lib/web/components/ui-picker-choice/ui-picker-choice.svelte';
 	import Bar from '#lib/web/components/ui-bar/ui-bar.svelte';
 	import BarRow from '#lib/web/components/ui-bar-row/ui-bar-row.svelte';
-	import FilterSection from '#lib/web/components/ui-filter-section/ui-filter-section.svelte';
 	import ListFilter from '#lib/web/components/app-list-filter/app-list-filter.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import Amount from '#lib/web/components/app-ledger-table/amount.svelte';
 	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
 	import Kpi from '#lib/web/components/ui-kpi/ui-kpi.svelte';
 	import KpiStrip from '#lib/web/components/ui-kpi-strip/ui-kpi-strip.svelte';
-	import NetWorth from '#lib/web/components/app-net-worth/app-net-worth.svelte';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
@@ -28,7 +25,6 @@
 		formatWhole,
 	} from '#lib/web/shared/format.ts';
 	import { groupsInvested, investedOf, totalsOf } from '#lib/web/shared/invested.ts';
-	import { WorthChart, WORTH_CHART_LABELS } from '#lib/web/shared/choices.ts';
 	import { page } from '$app/state';
 	import * as v from 'valibot';
 
@@ -49,18 +45,13 @@
 	const thisYear = { kind: 'year', at: day.slice(0, 4) } as const;
 	const period = $derived(periodOf(page.url.searchParams, thisYear));
 	const account = $derived(v.parse(BalanceAccount, page.url.searchParams.get('account')));
-	const chart = $derived(
-		v.parse(v.fallback(WorthChart, 'time'), page.url.searchParams.get('chart')),
-	);
-	const [response, valued, earned, first] = $derived(
+	const [response, earned, first] = $derived(
 		await Promise.all([
 			listAccounts({ handle, day, period }),
-			listWorth({ handle, day, period, account }),
 			listReturns({ handle, day, period }),
 			findFirstDay(handle),
 		]),
 	);
-	const worth = $derived(valued.data ?? []);
 	const earliest = $derived(first.data ?? null);
 	const accounts = $derived(response.data ?? []);
 	const returns = $derived(Object.fromEntries((earned.data ?? []).map((r) => [r.account, r])));
@@ -97,13 +88,7 @@
 <PageHeader subtitle="What you own, and how it has grown">
 	Accounts
 	{#snippet actions()}
-		<ListFilter {period} {account} {accounts} today={day} first={earliest} moreParams={['chart']}>
-			{#snippet more()}
-				<FilterSection label="Chart">
-					<ChoicePicker param="chart" label="Chart" choices={WORTH_CHART_LABELS} current={chart} />
-				</FilterSection>
-			{/snippet}
-		</ListFilter>
+		<ListFilter {period} {account} {accounts} today={day} first={earliest} />
 	{/snippet}
 </PageHeader>
 
@@ -132,8 +117,6 @@
 		detail="across {groups.length} {groups.length === 1 ? 'account' : 'accounts'}"
 	/>
 </KpiStrip>
-
-<NetWorth {worth} {accounts} {account} {chart} />
 
 <Panel
 	title="Value against cost"

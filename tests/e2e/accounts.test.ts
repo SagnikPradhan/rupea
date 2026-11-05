@@ -41,35 +41,19 @@ test('shows what each account holds and what it is worth', async ({ signedIn: pa
 	await expect(infy.getByTitle('@ 1,800')).toHaveText('10,800');
 	await expect(page.getByRole('row').filter({ hasText: 'TCS' })).toContainText('unpriced');
 
-	const worth = page.getByRole('region', { name: 'Net worth' });
-	await expect(worth).toContainText('2,600');
-	await expect(worth).toContainText('excludes 1 unpriced');
 	await page.getByRole('button', { name: 'Filter' }).click();
 	const period = page.getByRole('navigation', { name: 'Period' });
 	await period.getByRole('link', { name: 'All', exact: true }).click();
 	await expect(page).toHaveURL(/range=all/);
-	await expect(worth.getByRole('img', { name: /^Net worth from 2 Jan 2026/ })).toBeVisible();
 
 	const account = page.getByRole('navigation', { name: 'Account' });
 	await account.getByRole('link', { name: 'Assets', exact: true }).click();
 	await account.getByRole('link', { name: /Bank/ }).click();
 	await expect(page).toHaveURL(/account=Assets%3ABank/);
-	await expect(worth).toContainText('-8,200');
 	await expect(page.getByRole('row').filter({ hasText: 'Zerodha' })).toHaveCount(0);
 	await page.getByRole('link', { name: 'Select all' }).click();
 	await expect(page).not.toHaveURL(/account=/);
 	await expect(page.getByRole('row').filter({ hasText: 'Zerodha' })).not.toHaveCount(0);
-
-	await page
-		.getByRole('navigation', { name: 'Chart' })
-		.getByRole('link', { name: 'Treemap' })
-		.click();
-	await expect(worth.getByRole('img', { name: /^What Assets held on/ })).toBeVisible();
-	await expect(worth.getByText('Zerodha', { exact: true })).toBeVisible();
-	await page
-		.getByRole('navigation', { name: 'Chart' })
-		.getByRole('link', { name: 'Over time' })
-		.click();
 
 	await page.getByRole('link', { name: 'INFY' }).click();
 	await expect(page.getByRole('heading', { name: 'INFY in Assets:Zerodha' })).toBeVisible();

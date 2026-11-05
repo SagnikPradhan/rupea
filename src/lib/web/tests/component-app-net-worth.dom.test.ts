@@ -14,9 +14,6 @@ const day = (on: string, worth: string, liabilities = '0', unpriced = 0) => ({
 const drawn = (days: [string, string, string?, number?][]) =>
 	render(NetWorth, {
 		worth: days.map(([on, worth, liabilities, unpriced]) => day(on, worth, liabilities, unpriced)),
-		accounts: [],
-		account: null,
-		chart: 'time',
 	});
 
 describe('the net worth chart', () => {

@@ -59,7 +59,7 @@
 	]}
 />
 
-<NetWorth worth={worth.data ?? []} {accounts} {account} chart="time" />
+<NetWorth worth={worth.data ?? []} />
 
 <KpiStrip>
 	<Kpi

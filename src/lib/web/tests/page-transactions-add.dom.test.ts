@@ -4,11 +4,21 @@ import { createTransaction, findTransactionFiles } from '#lib/endpoints/files.re
 import { fault } from '#lib/server/shared/result/error.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
-import Page from '#routes/(signed-in)/l/[handle]/transactions/new/+page.svelte';
+import Page from '#routes/(signed-in)/l/[handle]/transactions/+page.svelte';
 
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
 	listAccountNames: vi.fn(() => answer(['Assets:Bank'])),
+	listAccountTree: vi.fn(() => answer([])),
+}));
+vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
+	findFirstDay: vi.fn(() => answer('2025-03-14')),
+	listProblems: vi.fn(() => answer([])),
+}));
+vi.mock('#lib/endpoints/transactions.remote.ts', () => ({
+	listTransactions: vi.fn(() =>
+		Object.assign(answer({ rows: [], next: null }), { refresh: vi.fn() }),
+	),
 }));
 vi.mock('#lib/endpoints/files.remote.ts', () => ({
 	findTransactionFiles: vi.fn(),
@@ -16,7 +26,7 @@ vi.mock('#lib/endpoints/files.remote.ts', () => ({
 }));
 
 const opened = async () => {
-	visit('/l/h/transactions/new');
+	visit('/l/h/transactions?add=1');
 	render(Page, { data });
 	return screen.findByLabelText('Description');
 };
@@ -38,7 +48,7 @@ const fill = async () => {
 
 const save = () => fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
-describe('the add transaction page', () => {
+describe('the add transaction panel', () => {
 	beforeEach(() => {
 		vi.mocked(createTransaction).mockReset();
 		vi.mocked(findTransactionFiles).mockReturnValue(
@@ -143,7 +153,7 @@ describe('the add transaction page', () => {
 		await opened();
 		await type('Amount', '100');
 		await type('Category', 'Food');
-		await fireEvent.click(screen.getByRole('button', { name: 'Split into several lines' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Split' }));
 
 		const accounts = (await screen.findAllByLabelText('Account')) as HTMLInputElement[];
 		expect(accounts.map((a) => a.value)).toEqual(['Expenses:Food', '']);

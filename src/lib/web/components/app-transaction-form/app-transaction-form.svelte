@@ -18,11 +18,10 @@
 	const COLUMNS = [
 		{ label: 'Account' },
 		{ label: 'Amount', kind: 'amount' as const },
-		{ label: 'Currency' },
 		{ label: '' },
 	];
 	const RARE_FIELDS = ['file', 'time', 'metadata', 'postings.0.commodity'];
-	const RARE_POSTING_FIELDS = ['price', 'cost', 'balance', 'metadata'];
+	const RARE_POSTING_FIELDS = ['commodity', 'price', 'cost', 'balance', 'metadata'];
 
 	const ACCOUNT_TYPE = /^(Assets|Liabilities|Income|Expenses|Equity)(:|$)/;
 	const HELD = ['Assets', 'Liabilities'];
@@ -51,11 +50,15 @@
 		keys: string[];
 		/** The file picked at first. */
 		newest: string | null;
+		/** Where leaving the form goes. */
+		closeHref: string;
+		/** Called after a transaction is written. */
+		onsaved: () => void;
 	};
 
 	type Entries = { key: string; value: string }[];
 
-	const { handle, keys, newest }: Props = $props();
+	const { handle, keys, newest, closeHref, onsaved }: Props = $props();
 
 	const blank = () => ({
 		account: '',
@@ -155,6 +158,7 @@
 		if (!created.data) return;
 
 		status.saved = created.data;
+		onsaved();
 		Object.assign(form, {
 			description: '',
 			comment: '',
@@ -215,17 +219,16 @@
 		</div>
 	{/if}
 
-	<div class="heading">
+	<Field label="Description" issues={issuesAt('description')}>
+		<input bind:value={form.description} />
+	</Field>
+
+	<div class="pair">
 		{#if !status.split}
 			<Field label="Amount" issues={issuesAt('postings.0.amount')}>
 				<input bind:value={simple.amount} inputmode="decimal" />
 			</Field>
 		{/if}
-		<div class="grow">
-			<Field label="Description" issues={issuesAt('description')}>
-				<input bind:value={form.description} />
-			</Field>
-		</div>
 		<Field label="Date" issues={issuesAt('date')}>
 			<input type="date" bind:value={form.date} />
 		</Field>
@@ -252,16 +255,21 @@
 		{#each keys as key (key)}<option value={key}></option>{/each}
 	</datalist>
 
-	<div>
-		<button
+	<div class="buttons">
+		<Button
 			type="button"
-			class="link"
 			aria-label="More details"
 			aria-expanded={status.more}
 			onclick={() => (status.more = !status.more)}
 		>
 			{status.more ? 'Less' : 'More'}
-		</button>
+		</Button>
+		{#if status.split}
+			<Button type="button" onclick={() => form.postings.push(blank())}>Add line</Button>
+		{/if}
+		{#if !status.split}
+			<Button type="button" onclick={split}>Split</Button>
+		{/if}
 	</div>
 
 	{#if status.more || hasIssuesIn('', RARE_FIELDS)}
@@ -314,18 +322,9 @@
 								bind:value={posting.amount}
 								inputmode="decimal"
 								placeholder="Auto"
-								size="12"
+								size="8"
 							/>
 							{@render problems(`${at}.amount`)}
-						</td>
-						<td class="commodity">
-							<input
-								aria-label="Currency"
-								bind:value={posting.commodity}
-								placeholder="INR"
-								size="6"
-							/>
-							{@render problems(`${at}.commodity`)}
 						</td>
 						<td class="actions">
 							<button
@@ -353,6 +352,9 @@
 						<tr class="child">
 							<td colspan={COLUMNS.length}>
 								<div class="rare">
+									<Field label="Currency" issues={issuesAt(`${at}.commodity`)}>
+										<input bind:value={posting.commodity} placeholder="INR" />
+									</Field>
 									<Field label="Price" issues={issuesAt(`${at}.price`)}>
 										<input bind:value={posting.price} />
 									</Field>
@@ -382,33 +384,25 @@
 				</tbody>
 			{/each}
 		</LedgerTable>
-
-		<div>
-			<button type="button" class="link" onclick={() => form.postings.push(blank())}
-				>Add line</button
-			>
-		</div>
-	{:else}
-		<div>
-			<button type="button" class="link" onclick={split}>Split into several lines</button>
-		</div>
 	{/if}
 
 	{#each status.errors as error, index (index)}
 		<p role="alert">{explain(error)}</p>
 	{/each}
 
-	<div class="submit">
+	<div class="buttons">
 		<Button primary disabled={createTransaction.pending > 0}>Save</Button>
-		{#if status.saved}
-			<p role="status">
-				Saved at
-				<a href={fileHref(handle, status.saved.file, status.saved.line)}>
-					{status.saved.file}:{status.saved.line}
-				</a>
-			</p>
-		{/if}
+		<Button href={closeHref}>Cancel</Button>
 	</div>
+
+	{#if status.saved}
+		<p role="status">
+			Saved at
+			<a href={fileHref(handle, status.saved.file, status.saved.line)}>
+				{status.saved.file}:{status.saved.line}
+			</a>
+		</p>
+	{/if}
 </form>
 
 <style>
@@ -422,18 +416,10 @@
 		width: 100%;
 	}
 
-	.heading {
+	.buttons {
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--size-2);
-	}
-
-	.heading > :global(div) {
-		flex: 1 1 var(--size-7);
-	}
-
-	.heading > .grow {
-		flex-grow: 3;
 	}
 
 	.pair {
@@ -494,11 +480,6 @@
 		text-align: right;
 	}
 
-	.commodity input {
-		width: auto;
-	}
-
-	.commodity,
 	.actions {
 		width: 1%;
 		white-space: nowrap;
@@ -520,12 +501,6 @@
 	.check {
 		display: flex;
 		gap: var(--size-1);
-		align-items: center;
-	}
-
-	.submit {
-		display: flex;
-		gap: var(--size-2);
 		align-items: center;
 	}
 
@@ -562,8 +537,7 @@
 			padding: 0;
 		}
 
-		.amount input,
-		.commodity input {
+		.amount input {
 			width: 100%;
 		}
 	}

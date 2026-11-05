@@ -10,6 +10,7 @@ import Page from '#routes/(signed-in)/l/[handle]/transactions/+page.svelte';
 
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({ listAccountTree: vi.fn() }));
+vi.mock('#lib/endpoints/files.remote.ts', () => ({ findTransactionFiles: vi.fn() }));
 vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
 	findFirstDay: vi.fn(() => answer('2025-03-14')),
 	listProblems: vi.fn(),

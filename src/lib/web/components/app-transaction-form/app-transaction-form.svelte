@@ -395,7 +395,7 @@
 								aria-expanded={posting.more}
 								onclick={() => (posting.more = !posting.more)}
 							>
-								{posting.more ? 'Less' : 'More'}
+								{posting.more ? 'Fewer options' : 'More options'}
 							</button>
 							{#if form.postings.length > 2}
 								<button

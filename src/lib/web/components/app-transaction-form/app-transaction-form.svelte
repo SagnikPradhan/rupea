@@ -24,9 +24,9 @@
 	const COLUMNS = [
 		{ label: 'Account' },
 		{ label: 'Amount', kind: 'amount' as const },
-		{ label: 'Price', kind: 'amount' as const },
+		{ label: 'Currency' },
 	];
-	const RARE_POSTING_FIELDS = ['commodity', 'cost', 'balance', 'metadata'];
+	const RARE_POSTING_FIELDS = ['price', 'cost', 'balance', 'metadata'];
 
 	const ACCOUNT_TYPE = /^(Assets|Liabilities|Income|Expenses|Equity)(:|$)/;
 	const HELD = ['Assets', 'Liabilities'];
@@ -340,54 +340,26 @@
 							/>
 							{@render problems(`${at}.amount`)}
 						</td>
-						<td class="amount">
+						<td class="currency">
 							<input
-								aria-label="Price"
-								bind:value={posting.price}
-								inputmode="decimal"
-								placeholder="Price"
-								size="8"
+								aria-label="Currency"
+								bind:value={posting.commodity}
+								placeholder="INR"
+								size="6"
 							/>
-							{@render problems(`${at}.price`)}
-						</td>
-					</tr>
-					<tr class="child">
-						<td class="actions" colspan={COLUMNS.length}>
-							<button
-								type="button"
-								class="link"
-								aria-label="More about line {index + 1}"
-								aria-expanded={posting.more}
-								onclick={() => (posting.more = !posting.more)}
-							>
-								{posting.more ? 'Less' : 'More'}
-							</button>
-							{#if form.postings.length > 2}
-								<button
-									type="button"
-									class="link"
-									aria-label="Remove line {index + 1}"
-									onclick={() => form.postings.splice(index, 1)}
-								>
-									Remove
-								</button>
-							{/if}
+							{@render problems(`${at}.commodity`)}
 						</td>
 					</tr>
 					{#if posting.more || hasIssuesIn(`${at}.`, RARE_POSTING_FIELDS)}
 						<tr class="child">
 							<td colspan={COLUMNS.length}>
 								<div class="rare">
-									<Field
-										label="Currency"
-										hint="Leave empty for INR."
-										issues={issuesAt(`${at}.commodity`)}
-									>
-										<input bind:value={posting.commodity} placeholder="INR" />
+									<Field label="Price" hint="What one unit cost." issues={issuesAt(`${at}.price`)}>
+										<input bind:value={posting.price} />
 									</Field>
 									<label class="check">
 										<input type="checkbox" bind:checked={posting.total} />
-										Price is for all units
+										Price for all units
 									</label>
 									<Field label="Lot cost" hint="Cost of the units." issues={issuesAt(`${at}.cost`)}>
 										<input bind:value={posting.cost} />
@@ -416,6 +388,29 @@
 							</td>
 						</tr>
 					{/if}
+					<tr class="child">
+						<td class="actions" colspan={COLUMNS.length}>
+							<button
+								type="button"
+								class="link"
+								aria-label="More about line {index + 1}"
+								aria-expanded={posting.more}
+								onclick={() => (posting.more = !posting.more)}
+							>
+								{posting.more ? 'Less' : 'More'}
+							</button>
+							{#if form.postings.length > 2}
+								<button
+									type="button"
+									class="link"
+									aria-label="Remove line {index + 1}"
+									onclick={() => form.postings.splice(index, 1)}
+								>
+									Remove
+								</button>
+							{/if}
+						</td>
+					</tr>
 				</tbody>
 			{/each}
 		</LedgerTable>

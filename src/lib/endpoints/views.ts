@@ -79,6 +79,12 @@ export const viewWorth = (worth: Accounts.Worth) => ({
 	unpriced: worth.unpriced,
 });
 
+export const viewInvested = (invested: Accounts.Invested) => ({
+	day: invested.day.toString(),
+	value: formatAmount(invested.value),
+	cost: formatAmount(invested.cost),
+});
+
 export const viewReturns = (returns: Accounts.Returns) => ({
 	account: returns.account,
 	netIn: formatAmount(returns.netIn),

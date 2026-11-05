@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
-import { listAccounts, listReturns } from '#lib/endpoints/accounts.remote.ts';
+import { listAccounts, listInvested, listReturns } from '#lib/endpoints/accounts.remote.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
 import { openFilter } from '#tests/shared/filter.ts';
@@ -10,6 +10,7 @@ vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
 	listAccounts: vi.fn(),
 	listReturns: vi.fn(() => answer([])),
+	listInvested: vi.fn(() => answer([])),
 }));
 vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
 	findFirstDay: vi.fn(() => answer('2025-03-14')),
@@ -101,6 +102,27 @@ describe('the accounts page', () => {
 		expect(screen.getByTitle('Assets:Broker')).toBeTruthy();
 		expect(screen.queryByTitle('Assets:Bank')).toBeNull();
 		expect(screen.getByRole('link', { name: 'Select all' }).getAttribute('href')).toBe('?');
+	});
+
+	it('draws the value against the cost, and says so when no holding has a cost', async () => {
+		visit('/l/h/accounts?account=Assets:Broker');
+		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
+		render(Page, { data });
+
+		expect(await screen.findByText('No investments with a cost in this period.')).toBeTruthy();
+
+		vi.mocked(listInvested).mockReturnValue(
+			answer([
+				{ day: '2026-01-01', value: '1500', cost: '1500' },
+				{ day: '2026-02-01', value: '2000', cost: '1500' },
+			]),
+		);
+		render(Page, { data });
+
+		expect(await screen.findByRole('img', { name: /^Value against cost from/ })).toBeTruthy();
+		expect(vi.mocked(listInvested)).toHaveBeenCalledWith(
+			expect.objectContaining({ account: 'Assets:Broker' }),
+		);
 	});
 
 	it('starts every figure at zero on a ledger with nothing in it yet', async () => {

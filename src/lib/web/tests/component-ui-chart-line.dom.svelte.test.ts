@@ -70,6 +70,22 @@ describe('the line chart', () => {
 		expect(screen.getByTestId('summary').textContent).toBe('300');
 	});
 
+	it('shades the space between a band line and the primary one', () => {
+		render(LineChart, {
+			rows: ROWS,
+			x: 'day',
+			series: [
+				{ key: 'assets', label: 'Value', role: 'primary' },
+				{ key: 'liabilities', label: 'Cost', role: 'band' },
+			],
+			label: 'Against cost',
+		});
+
+		const svg = screen.getByRole('img', { name: 'Against cost' }).querySelector('svg');
+		expect(svg?.querySelectorAll('path.between')).toHaveLength(1);
+		expect(svg?.querySelector('path.line.band')).not.toBeNull();
+	});
+
 	it('draws zero only when a line crosses it', () => {
 		const { svg } = drawn();
 		expect(svg.querySelector('.zero')).not.toBeNull();

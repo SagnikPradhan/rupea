@@ -40,6 +40,7 @@ test('shows what each account holds and what it is worth', async ({ signedIn: pa
 		await expect(infy.getByRole('cell', { name: cell, exact: true })).toBeVisible();
 	await expect(infy.getByTitle('@ 1,800')).toHaveText('10,800');
 	await expect(page.getByRole('row').filter({ hasText: 'TCS' })).toContainText('unpriced');
+	await expect(page.getByRole('img', { name: /^Value against cost from/ })).toBeVisible();
 
 	await page.getByRole('button', { name: 'Filter' }).click();
 	const period = page.getByRole('navigation', { name: 'Period' });

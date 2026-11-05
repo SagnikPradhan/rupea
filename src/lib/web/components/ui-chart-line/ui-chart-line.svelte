@@ -22,11 +22,11 @@
 	import type { Snippet } from 'svelte';
 	import type { Bucket } from '#lib/shared/dates.ts';
 
-	/** A field of the rows to plot, by what it means: the one measure a chart shows, what explains it, what counts against it, or a part of it piled under the lines in its own shade. */
+	/** A field of the rows to plot, by what it means: the one measure a chart shows, what explains it, what counts against it, a line with the space shaded between it and the primary, or a part of it piled under the lines in its own shade. */
 	type Series = {
 		key: keyof Row & string;
 		label: string;
-		role: 'primary' | 'context' | 'negative' | 'part';
+		role: 'primary' | 'context' | 'negative' | 'band' | 'part';
 		/** A part's colour token. */
 		shade?: string;
 	};
@@ -86,6 +86,12 @@
 		area<number>()
 			.x((_, i) => xs[i] ?? 0)
 			.y0(VIEW)
+			.y1((v) => values.y(v)),
+	);
+	const between = $derived(
+		area<number>()
+			.x((_, i) => xs[i] ?? 0)
+			.y0((_, i) => values.y(lines[strokes.findIndex((s) => s.role === 'primary')]?.[i] ?? 0))
 			.y1((v) => values.y(v)),
 	);
 	const pile = $derived(
@@ -168,6 +174,7 @@
 						d={fill(lines[0])}
 					/>{/if}
 				{#each lines as points, j (j)}
+					{#if strokes[j]?.role === 'band'}<path class="between" d={between(points)} />{/if}
 					<path class={['line', strokes[j]?.role]} d={path(points)} />
 				{/each}
 				{#if values.crossed}
@@ -250,6 +257,7 @@
 
 	span.primary::before,
 	span.context::before,
+	span.band::before,
 	span.negative::before {
 		content: '';
 		display: inline-block;
@@ -312,6 +320,11 @@
 
 	path.faded {
 		opacity: 0.2;
+	}
+
+	.between {
+		fill: var(--color-positive);
+		fill-opacity: 0.2;
 	}
 
 	.line {

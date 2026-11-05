@@ -5,6 +5,7 @@ import type { Database } from '#lib/server/db/index.ts';
 import type { Bucket, Span } from '#lib/shared/dates.ts';
 import { sql, type Expression, type ExpressionBuilder } from 'kysely';
 import { AMOUNT_UNIT, DEFAULT_COMMODITY, type Amount, type Quantity } from '../domain/amounts';
+import type { RateThen } from '../domain/cost';
 import type { Flow } from '../domain/returns';
 import type { Spent } from '../domain/spending';
 import { accountType, INVESTMENT_INCOME } from '../domain/taxonomy';
@@ -44,6 +45,54 @@ export const findLatestPrices = (
 			Object.fromEntries(
 				r.map((p) => [p.commodity, { amount: p.amount as Amount, commodity: p.currency }]),
 			),
+		),
+	);
+
+/**
+ * What one unit of each commodity was worth in rupees on each of its days, at the latest price on
+ * or before that day, through at most two prices as flows are valued. A pair with no price is
+ * left out.
+ */
+export const listRatesThen = (
+	ledgerId: string,
+	pairs: { commodity: string; day: Temporal.PlainDate }[],
+): ResultAsync<RateThen[]> =>
+	withContext('db')((db) =>
+		attempt(() =>
+			db
+				.withRecursive('own(id, symbol)', () => ownSymbols(db, ledgerId))
+				.withRecursive('rates(origin, day, commodity, at, rate, hops)', (q) =>
+					q
+						.selectFrom(
+							sql<{
+								commodity: string;
+								day: string;
+							}>`(select * from unnest(${pairs.map((p) => p.commodity)}::text[], ${pairs.map((p) => p.day.toString())}::date[]) as u(commodity, day))`.as(
+								'm',
+							),
+						)
+						.leftJoin('own as o', 'o.symbol', 'm.commodity')
+						.select([
+							'm.commodity as origin',
+							'm.day',
+							'm.commodity',
+							'o.id as at',
+							sql<bigint>`${sql.lit(AMOUNT_UNIT)}::numeric`.as('rate'),
+							sql<number>`0`.as('hops'),
+						])
+						.where('m.commodity', '<>', DEFAULT_COMMODITY)
+						.unionAll(nextRate(db, ledgerId)),
+				)
+				.selectFrom('rates as r')
+				.select(['r.origin', 'r.day', 'r.rate'])
+				.where('r.commodity', '=', DEFAULT_COMMODITY)
+				.execute(),
+		).map((rows) =>
+			rows.map((r) => ({
+				commodity: r.origin,
+				day: Temporal.PlainDate.from(r.day),
+				rate: r.rate as Amount,
+			})),
 		),
 	);
 

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { listAccounts, listReturns } from '#lib/endpoints/accounts.remote.ts';
+	import { listAccounts, listInvested, listReturns } from '#lib/endpoints/accounts.remote.ts';
 	import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
 	import { periodOf } from '#lib/shared/dates.ts';
 	import { ASSETS, BalanceAccount } from '#lib/shared/accounts.ts';
@@ -9,6 +9,7 @@
 	import BarRow from '#lib/web/components/ui-bar-row/ui-bar-row.svelte';
 	import ListFilter from '#lib/web/components/app-list-filter/app-list-filter.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
+	import Invested from '#lib/web/components/app-invested/app-invested.svelte';
 	import Amount from '#lib/web/components/app-ledger-table/amount.svelte';
 	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
 	import Kpi from '#lib/web/components/ui-kpi/ui-kpi.svelte';
@@ -45,11 +46,12 @@
 	const thisYear = { kind: 'year', at: day.slice(0, 4) } as const;
 	const period = $derived(periodOf(page.url.searchParams, thisYear));
 	const account = $derived(v.parse(BalanceAccount, page.url.searchParams.get('account')));
-	const [response, earned, first] = $derived(
+	const [response, earned, first, grown] = $derived(
 		await Promise.all([
 			listAccounts({ handle, day, period }),
 			listReturns({ handle, day, period }),
 			findFirstDay(handle),
+			listInvested({ handle, day, period, account }),
 		]),
 	);
 	const earliest = $derived(first.data ?? null);
@@ -92,13 +94,16 @@
 	{/snippet}
 </PageHeader>
 
-<Issues {handle} errors={[...(response.errors ?? []), ...(earned.errors ?? [])]} />
+<Issues
+	{handle}
+	errors={[...(response.errors ?? []), ...(earned.errors ?? []), ...(grown.errors ?? [])]}
+/>
 
 <KpiStrip>
 	<Kpi
 		label="Invested value"
 		figure={formatWhole(String(totals.value))}
-		detail="on {formatWhole(String(totals.cost))} put in"
+		detail="on {formatWhole(String(totals.cost))} cost"
 	/>
 	<Kpi
 		label="Gain"
@@ -118,11 +123,13 @@
 	/>
 </KpiStrip>
 
-<Panel
-	title="Value against cost"
-	subtitle="what the investments are worth, and what went into them"
-	soon
-/>
+<Panel title="Value against cost" subtitle="what the investments are worth, and what they cost">
+	{#if (grown.data ?? []).length > 0}
+		<Invested invested={grown.data ?? []} />
+	{:else}
+		<p>No investments with a cost in this period.</p>
+	{/if}
+</Panel>
 
 <PanelGrid>
 	<div class="column">

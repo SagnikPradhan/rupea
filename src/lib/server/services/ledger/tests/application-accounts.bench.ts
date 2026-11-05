@@ -14,6 +14,8 @@ describe('accounts', () => {
 
 		const worth = (f: Temporal.PlainDate) =>
 			timed(context, () => Accounts.listWorth({ ledger, from: f, to: TO, account: null }));
+		const invested = (f: Temporal.PlainDate) =>
+			timed(context, () => Accounts.listInvested({ ledger, from: f, to: TO, account: null }));
 		const returns = (f: Temporal.PlainDate) =>
 			timed(context, () => Accounts.listReturns({ ledger, from: f, to: TO }));
 		const spending = (f: Temporal.PlainDate) =>
@@ -40,6 +42,9 @@ describe('accounts', () => {
 			bench('worth 10y', worth(TO.subtract({ years: 10 }))),
 			bench('worth 20y', worth(TO.subtract({ years: 20 }))),
 			bench('worth all', worth(Temporal.PlainDate.from(BEGINNING))),
+			bench('invested 1y', invested(TO.subtract({ years: 1 }))),
+			bench('invested 10y', invested(TO.subtract({ years: 10 }))),
+			bench('invested all', invested(Temporal.PlainDate.from(BEGINNING))),
 			bench('returns 1m', returns(TO.subtract({ months: 1 }))),
 			bench('returns ytd', returns(TO.with({ month: 1, day: 1 }))),
 			bench('returns 1y', returns(TO.subtract({ years: 1 }))),

@@ -3,7 +3,8 @@ import { fault, type RupeaError } from '#lib/server/shared/result/error.ts';
 import { okAsync, ResultAsync } from '#lib/server/shared/result/result.ts';
 import { BEGINNING, type Bucket, type Span } from '#lib/shared/dates.ts';
 import * as DB from '../adapters/database';
-import { DEFAULT_COMMODITY, type Quantity } from '../domain/amounts';
+import { DEFAULT_COMMODITY, type Amount, type Quantity } from '../domain/amounts';
+import { costOn } from '../domain/cost';
 import { byAccount, HOPS, pricedIn, valued, type Account, type Holding } from '../domain/holdings';
 import { returnsOf, type Returns } from '../domain/returns';
 import { spendingOf, type Spending } from '../domain/spending';
@@ -52,11 +53,18 @@ export const listWorth = ({
 			.map((w) => ({ succeeded: w, failed: f })),
 	);
 
+type WorthParts = {
+	parts: DB.PartOf[];
+	byCommodity: boolean;
+	/** Counts only these account and commodity pairs, written as the account's id, a space and the commodity. */
+	held?: Set<string>;
+};
+
 /** Worth from the later of a span's start and the first day the parts held anything, or none before a sync has built the ledger's years. */
 const worthOver = (
 	id: string,
 	{ from, to }: Span,
-	{ parts, byCommodity }: { parts: DB.PartOf[]; byCommodity: boolean },
+	{ parts, byCommodity, held }: WorthParts,
 ): ResultAsync<DB.Worth[]> =>
 	DB.findFirstHeld(id, { parts, to }).andThen((first) => {
 		if (first === null || Temporal.PlainDate.compare(first, to) > 0) return okAsync([]);
@@ -65,7 +73,8 @@ const worthOver = (
 		const years = { from: start.year, to: to.year };
 		const accounts = parts.map((p) => p.accountId);
 
-		return DB.listBalanceYears(id, { accounts, ...years }).andThen((balances) => {
+		return DB.listBalanceYears(id, { accounts, ...years }).andThen((all) => {
+			const balances = held ? all.filter((b) => held.has(`${b.accountId} ${b.commodity}`)) : all;
 			if (balances.length === 0) return okAsync([]);
 
 			const commodities = [...new Set(balances.map((b) => b.commodity))];
@@ -76,6 +85,56 @@ const worthOver = (
 						worthOf({ from: start, to, parts, byCommodity, balances, prices, sources, opening }),
 				),
 			);
+		});
+	});
+
+export type Invested = { day: Temporal.PlainDate; value: Amount; cost: Amount };
+
+type ListInvestedOptions = {
+	ledger: Ledger;
+	from: Temporal.PlainDate;
+	to: Temporal.PlainDate;
+	/** Narrows the lots to an account and those under it; every account with lots without one. */
+	account: string | null;
+};
+
+/**
+ * What the holdings with lots in an account and those under it were worth in rupees at the end of
+ * each day, as listWorth values them, beside what their lots had cost, each at the price of the
+ * day it was taken in. A sale takes the cost of the lots it sold out, not what it fetched.
+ */
+export const listInvested = ({
+	ledger,
+	from,
+	to,
+	account,
+}: ListInvestedOptions): ResultAsync<Batch<Invested>> =>
+	DB.listProblems(ledger.id).andThen((f) =>
+		DB.listAccountTree(ledger.id)
+			.andThen((t) => investedOver(ledger.id, { from, to }, partsIn(t, account).parts))
+			.map((i) => ({ succeeded: i, failed: f })),
+	);
+
+const investedOver = (id: string, { from, to }: Span, parts: DB.PartOf[]) =>
+	DB.listCostMoves(id, { accounts: parts.map((p) => p.accountId), to }).andThen((moves) => {
+		const held = new Set(moves.map((m) => `${m.accountId} ${m.commodity}`));
+		const lotted = parts.filter((p) => moves.some((m) => m.accountId === p.accountId));
+		const priced = moves.filter((m) => m.cost !== DEFAULT_COMMODITY);
+		const pairs = [...new Map(priced.map((m) => [`${m.cost} ${m.day}`, m])).values()].map((m) => ({
+			commodity: m.cost,
+			day: m.day,
+		}));
+
+		return ResultAsync.combine([
+			worthOver(id, { from, to }, { parts: lotted, byCommodity: false, held }),
+			DB.listRatesThen(id, pairs),
+		]).map(([worth, rates]) => {
+			const costs = costOn({ moves, rates, days: worth.map((w) => w.day) });
+			return worth.map((w, i) => ({
+				day: w.day,
+				value: w.worth,
+				cost: costs[i] ?? (0n as Amount),
+			}));
 		});
 	});
 

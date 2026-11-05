@@ -953,4 +953,98 @@ describe('spending', () => {
 				['Expenses:Food', 'Expenses', 500_0000000000n, 0],
 			]);
 		}));
+
+	describe('invested', () => {
+		const valued = async (ledger: Ledger, account: string | null) =>
+			(
+				await Accounts.listInvested({
+					ledger,
+					from: Temporal.PlainDate.from('2026-01-01'),
+					to: Temporal.PlainDate.from('2026-10-05'),
+					account,
+				})
+			)
+				._unsafeUnwrap()
+				.succeeded.filter((i) => ['2026-01-02', '2026-03-01', '2026-10-01'].includes(`${i.day}`))
+				.map((i) => [`${i.day}`, i.value, i.cost]);
+
+		it('takes the cost of the lots a sale sold out, and not what it fetched', ({ context, db }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				const content = [
+					'2026-01-02 Buy',
+					'\tAssets:Zerodha 10 INFY @ 1500',
+					'\tAssets:Bank',
+					'',
+					'2026-03-01 Sell',
+					'\tAssets:Zerodha -4 INFY {1500} @ 1700',
+					'\tAssets:Bank 6800',
+					'\tIncome:Gains -800',
+					'',
+					'2026-10-01 Buy',
+					'\tAssets:Zerodha 1 INFY @ 1900',
+					'\tAssets:Bank',
+					'',
+					'P 2026-10-01 INFY 1800',
+					'',
+				].join('\n');
+				await Files.createFile({ ledger, key: 'a.rupea', content });
+
+				expect(await valued(ledger, null)).toEqual([
+					['2026-01-02', 15000_0000000000n, 15000_0000000000n],
+					['2026-03-01', 10200_0000000000n, 9000_0000000000n],
+					['2026-10-01', 12600_0000000000n, 10900_0000000000n],
+				]);
+			}));
+
+		it('values a cost in another currency at the price of the day it was paid', ({ context, db }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				const content = [
+					'P 2026-01-02 USD 80',
+					'P 2026-03-01 USD 90',
+					'P 2026-03-01 AAPL 110 USD',
+					'',
+					'2026-01-02 Buy',
+					'\tAssets:IBKR 2 AAPL @ 100 USD',
+					'\tAssets:IBKR -200 USD',
+					'',
+					'',
+				].join('\n');
+				await Files.createFile({ ledger, key: 'a.rupea', content });
+
+				expect(await valued(ledger, 'Assets:IBKR')).toEqual([
+					['2026-01-02', 16000_0000000000n, 16000_0000000000n],
+					['2026-03-01', 19800_0000000000n, 16000_0000000000n],
+					['2026-10-01', 19800_0000000000n, 16000_0000000000n],
+				]);
+			}));
+
+		it('counts only the holdings with lots, in the account asked for', ({ context, db }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				const content = [
+					'2026-01-02 Buy',
+					'\tAssets:Zerodha 10 INFY @ 1500',
+					'\tAssets:Bank',
+					'',
+					'2026-01-02 Buy',
+					'\tAssets:Other 1 TCS @ 3000',
+					'\tAssets:Bank',
+					'',
+				].join('\n');
+				await Files.createFile({ ledger, key: 'a.rupea', content });
+
+				expect((await valued(ledger, 'Assets:Zerodha'))[0]).toEqual([
+					'2026-01-02',
+					15000_0000000000n,
+					15000_0000000000n,
+				]);
+				expect((await valued(ledger, null))[0]).toEqual([
+					'2026-01-02',
+					18000_0000000000n,
+					18000_0000000000n,
+				]);
+			}));
+	});
 });

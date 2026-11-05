@@ -1,4 +1,4 @@
-import { noneOf } from '#lib/server/db/expressions.ts';
+import { anyOf, noneOf } from '#lib/server/db/expressions.ts';
 import type { Database } from '#lib/server/db/index.ts';
 import { insertAll } from '#lib/server/db/insert.ts';
 import type { Tables } from '#lib/server/db/tables.ts';
@@ -7,10 +7,11 @@ import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { sql, type ExpressionBuilder, type SqlBool } from 'kysely';
 import type { Amount, Quantity } from '../domain/amounts';
+import type { CostMove } from '../domain/cost';
 import { book, CURRENCIES, realised, type BookedPosting, type Booking } from '../domain/lots';
 import { BALANCE_TYPES } from '../domain/taxonomy';
 import type { DisposalKind, LotOrigin, RupeaParseLocation } from '../domain/types';
-import { ledgerOrder, toCost, toPrice, toQuantity } from './database-queries';
+import { ledgerOrder, multiply, toCost, toPrice, toQuantity } from './database-queries';
 
 export type UnmatchedDisposal = {
 	location: RupeaParseLocation;
@@ -99,6 +100,69 @@ export const listUnmatched = (ledgerId: string): ResultAsync<UnmatchedDisposal[]
 				kind: row.kind,
 				units: row.units as Amount,
 				named: row.costAmount !== null,
+			})),
+		),
+	);
+
+type CostMovesOptions = { accounts: string[]; to: Temporal.PlainDate };
+
+/** Each day's change in what these accounts' lots cost, as lots are taken in and disposals give units up at the cost of the lot they come from. */
+export const listCostMoves = (
+	ledgerId: string,
+	{ accounts, to }: CostMovesOptions,
+): ResultAsync<CostMove[]> =>
+	withContext('db')((db) =>
+		attempt(() =>
+			db
+				.selectFrom(
+					db
+						.selectFrom('lots as l')
+						.innerJoin('postings as p', 'p.id', 'l.postingId')
+						.select((e) => [
+							'l.accountId',
+							'l.commodity',
+							'l.costCommodity',
+							'p.date',
+							multiply(e.ref('l.units'), e.ref('l.costAmount')).as('amount'),
+						])
+						.where('l.ledgerId', '=', ledgerId)
+						.where('p.date', '<=', to.toString())
+						.where((e) => anyOf(e.ref('l.accountId'), accounts, 'uuid'))
+						.unionAll(
+							db
+								.selectFrom('disposals as d')
+								.innerJoin('lots as l', 'l.id', 'd.lotId')
+								.innerJoin('postings as p', 'p.id', 'd.postingId')
+								.select((e) => [
+									'l.accountId',
+									'l.commodity',
+									'l.costCommodity',
+									'p.date',
+									multiply(e.ref('d.units'), e.ref('l.costAmount')).as('amount'),
+								])
+								.where('d.ledgerId', '=', ledgerId)
+								.where('p.date', '<=', to.toString())
+								.where((e) => anyOf(e.ref('l.accountId'), accounts, 'uuid')),
+						)
+						.as('m'),
+				)
+				.select((e) => [
+					'm.accountId',
+					'm.commodity',
+					'm.costCommodity',
+					'm.date',
+					e.fn.sum<bigint>('m.amount').as('amount'),
+				])
+				.groupBy(['m.accountId', 'm.commodity', 'm.costCommodity', 'm.date'])
+				.orderBy('m.date')
+				.execute(),
+		).map((rows) =>
+			rows.map((r) => ({
+				accountId: r.accountId,
+				commodity: r.commodity,
+				cost: r.costCommodity,
+				day: Temporal.PlainDate.from(r.date),
+				amount: r.amount as Amount,
 			})),
 		),
 	);

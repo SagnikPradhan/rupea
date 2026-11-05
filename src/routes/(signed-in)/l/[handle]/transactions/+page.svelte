@@ -66,13 +66,13 @@
 		<PagedTable
 			columns={[
 				{ label: 'Date', kind: 'date' },
-				{ label: 'From', optional: true },
-				{ label: 'To', optional: true },
+				{ label: 'From', kind: 'account', optional: true },
+				{ label: 'To', kind: 'account', optional: true },
 				{ label: 'Description' },
 				{ label: 'Amount', kind: 'amount' },
 			]}
 			{list}
-			height={40}
+			height={54}
 			empty="No transactions match."
 		>
 			{#snippet row(index: number)}
@@ -84,12 +84,14 @@
 							<time datetime={transaction.date}>{formatDate(transaction.date)}</time>
 							{#if transaction.time}<span>{transaction.time}</span>{/if}
 						</td>
-						<td class="optional"
+						<td class="optional truncate"
 							>{#if from}<Account account={from.account} />{/if}</td
 						>
-						<td class="optional">
-							<div class="cell">
-								{#if to}<Account account={to.account} />{/if}
+						<td class="optional truncate">
+							<div class="cell inline">
+								<span class="name"
+									>{#if to}<Account account={to.account} />{/if}</span
+								>
 								{#if more > 0}<Tag>+{more}</Tag>{/if}
 							</div>
 						</td>
@@ -120,16 +122,22 @@
 		color: var(--color-muted);
 	}
 
+	.inline {
+		flex-wrap: nowrap;
+	}
+
+	.name {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
 	.cell {
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--size-0) var(--size-2);
 		align-items: baseline;
-	}
-
-	.description {
-		width: 40%;
-		min-width: calc(var(--size-5) * 5);
 	}
 
 	.evidence :is(td, th, a) {

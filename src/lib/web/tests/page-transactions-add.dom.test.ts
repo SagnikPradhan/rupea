@@ -223,7 +223,7 @@ describe('the add transaction panel', () => {
 		expect(accounts.map((a) => a.value)).toEqual(['Expenses:Food', '']);
 		expect(screen.queryByRole('button', { name: /Remove line/ })).toBeNull();
 
-		await fireEvent.click(screen.getByRole('button', { name: 'Add line' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Add a line' }));
 		expect(await screen.findAllByLabelText(/^Account/)).toHaveLength(3);
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Remove line 3' }));

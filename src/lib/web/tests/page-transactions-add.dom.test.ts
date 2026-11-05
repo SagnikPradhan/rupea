@@ -135,6 +135,18 @@ describe('the add transaction panel', () => {
 		expect(screen.queryByRole('link', { name: 'Cancel' })).toBeNull();
 	});
 
+	it('adds a detail as a key and a value, and takes it out with its icon button', async () => {
+		await opened();
+		await fireEvent.click(screen.getByRole('button', { name: 'Add detail' }));
+
+		expect(screen.getByLabelText(/^Key/)).toBeTruthy();
+		expect(screen.getByLabelText(/^Value/)).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Remove detail' }));
+
+		expect(screen.queryByLabelText(/^Key/)).toBeNull();
+	});
+
 	it('says why the server refused, and keeps what was typed', async () => {
 		vi.mocked(createTransaction).mockResolvedValue({
 			ok: false,

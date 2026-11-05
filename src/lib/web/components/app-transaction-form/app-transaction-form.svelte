@@ -7,6 +7,8 @@
 	} from '#lib/endpoints/files.remote.ts';
 	import type { RupeaError } from '#lib/server/shared/result/error.ts';
 	import { TransactionForm } from '#lib/shared/transaction-form.ts';
+	import IconRemove from '@tabler/icons-svelte-runes/icons/trash';
+	import IconButton from '#lib/web/components/ui-button-icon/ui-button-icon.svelte';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import Field from '#lib/web/components/ui-field/ui-field.svelte';
 	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
@@ -225,13 +227,13 @@
 {#snippet entries(list: Entries, path: string)}
 	{#each list as entry, index (index)}
 		<div class="entry">
-			<Field label="Key" hint="A name, like ref." issues={issuesAt(`${path}.${index}.key`)}>
-				<input bind:value={entry.key} />
+			<Field label="Key" issues={issuesAt(`${path}.${index}.key`)}>
+				<input bind:value={entry.key} placeholder="ref" />
 			</Field>
-			<Field label="Value" hint="Like 402." issues={issuesAt(`${path}.${index}.value`)}>
-				<input bind:value={entry.value} />
+			<Field label="Value" issues={issuesAt(`${path}.${index}.value`)}>
+				<input bind:value={entry.value} placeholder="402" />
 			</Field>
-			<button type="button" class="link" onclick={() => list.splice(index, 1)}>Remove</button>
+			<IconButton label="Remove detail" icon={IconRemove} onclick={() => list.splice(index, 1)} />
 		</div>
 	{/each}
 	<div class="more">
@@ -516,7 +518,8 @@
 	}
 
 	.child .rare {
-		padding-top: var(--size-2);
+		padding-block: var(--size-3);
+		color: var(--color-ink);
 	}
 
 	.entry {
@@ -524,7 +527,7 @@
 		grid-column: 1 / -1;
 		grid-template-columns: 1fr 1fr auto;
 		gap: var(--size-2);
-		align-items: start;
+		align-items: end;
 	}
 
 	.amount input {

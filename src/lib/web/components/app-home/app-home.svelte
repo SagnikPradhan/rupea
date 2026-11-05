@@ -118,61 +118,63 @@
 		<Panel title="Needs attention" subtitle="what to look at this week" soon />
 	</div>
 
-	<Panel title="Income statement" subtitle="{month} against {before}">
-		<Statement head="In rupees" columns={[month, before, 'Change']}>
-			{#each income.rows as row (row.name)}
+	<div class="column">
+		<Panel title="Income statement" subtitle="{month} against {before}">
+			<Statement head="In rupees" columns={[month, before, 'Change']}>
+				{#each income.rows as row (row.name)}
+					<StatementRow
+						name={row.name}
+						values={[row.amount, row.before]}
+						change={row.change.amount}
+					/>
+				{/each}
 				<StatementRow
-					name={row.name}
-					values={[row.amount, row.before]}
-					change={row.change.amount}
+					total
+					name="Income"
+					values={[income.total.amount, income.total.before]}
+					change={income.total.change.amount}
 				/>
-			{/each}
-			<StatementRow
-				total
-				name="Income"
-				values={[income.total.amount, income.total.before]}
-				change={income.total.change.amount}
-			/>
-			{#each spent.rows as row (row.name)}
+				{#each spent.rows as row (row.name)}
+					<StatementRow
+						name={row.name}
+						values={[row.amount, row.before]}
+						change={row.change.amount}
+					/>
+				{/each}
 				<StatementRow
-					name={row.name}
-					values={[row.amount, row.before]}
-					change={row.change.amount}
+					total
+					name="Spent"
+					values={[spent.total.amount, spent.total.before]}
+					change={spent.total.change.amount}
 				/>
-			{/each}
-			<StatementRow
-				total
-				name="Spent"
-				values={[spent.total.amount, spent.total.before]}
-				change={spent.total.change.amount}
-			/>
-			<StatementRow
-				total
-				name="Saved"
-				values={[saved.amount, saved.before]}
-				change={saved.change.amount}
-			/>
-		</Statement>
-	</Panel>
-</div>
+				<StatementRow
+					total
+					name="Saved"
+					values={[saved.amount, saved.before]}
+					change={saved.change.amount}
+				/>
+			</Statement>
+		</Panel>
 
-<Panel
-	title="What moved net worth"
-	subtitle={bridge
-		? `${formatDate(bridge.from)} to ${formatDate(bridge.to)} · from ${formatWhole(bridge.start)} to ${formatWhole(bridge.end)}`
-		: 'what saved, gained or lost money'}
->
-	{#if bridge}
-		<Waterfall
-			steps={stepsOf(bridge)}
-			label="Net worth from {formatWhole(bridge.start)} to {formatWhole(
-				bridge.end,
-			)}, by income, expenses and what prices did"
-		/>
-	{:else}
-		<p>Nothing held in this period.</p>
-	{/if}
-</Panel>
+		<Panel
+			title="What moved net worth"
+			subtitle={bridge
+				? `${formatDate(bridge.from)} to ${formatDate(bridge.to)} · from ${formatWhole(bridge.start)} to ${formatWhole(bridge.end)}`
+				: 'what saved, gained or lost money'}
+		>
+			{#if bridge}
+				<Waterfall
+					steps={stepsOf(bridge)}
+					label="Net worth from {formatWhole(bridge.start)} to {formatWhole(
+						bridge.end,
+					)}, by income, expenses and what prices did"
+				/>
+			{:else}
+				<p>Nothing held in this period.</p>
+			{/if}
+		</Panel>
+	</div>
+</div>
 
 <style>
 	.column {

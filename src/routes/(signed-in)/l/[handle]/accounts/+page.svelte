@@ -1,5 +1,10 @@
 <script lang="ts">
-	import { listAccounts, listInvested, listReturns } from '#lib/endpoints/accounts.remote.ts';
+	import {
+		listAccounts,
+		listDrops,
+		listInvested,
+		listReturns,
+	} from '#lib/endpoints/accounts.remote.ts';
 	import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
 	import { periodOf } from '#lib/shared/dates.ts';
 	import { ASSETS, BalanceAccount } from '#lib/shared/accounts.ts';
@@ -9,6 +14,7 @@
 	import BarRow from '#lib/web/components/ui-bar-row/ui-bar-row.svelte';
 	import ListFilter from '#lib/web/components/app-list-filter/app-list-filter.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
+	import Drops from '#lib/web/components/app-drops/app-drops.svelte';
 	import Donut from '#lib/web/components/ui-chart-donut/ui-chart-donut.svelte';
 	import Invested from '#lib/web/components/app-invested/app-invested.svelte';
 	import Amount from '#lib/web/components/app-ledger-table/amount.svelte';
@@ -48,12 +54,13 @@
 	const thisYear = { kind: 'year', at: day.slice(0, 4) } as const;
 	const period = $derived(periodOf(page.url.searchParams, thisYear));
 	const account = $derived(v.parse(BalanceAccount, page.url.searchParams.get('account')));
-	const [response, earned, first, grown] = $derived(
+	const [response, earned, first, grown, fallen] = $derived(
 		await Promise.all([
 			listAccounts({ handle, day, period }),
 			listReturns({ handle, day, period }),
 			findFirstDay(handle),
 			listInvested({ handle, day, period, account }),
+			listDrops({ handle, day, period, account }),
 		]),
 	);
 	const earliest = $derived(first.data ?? null);
@@ -107,7 +114,12 @@
 
 <Issues
 	{handle}
-	errors={[...(response.errors ?? []), ...(earned.errors ?? []), ...(grown.errors ?? [])]}
+	errors={[
+		...(response.errors ?? []),
+		...(earned.errors ?? []),
+		...(grown.errors ?? []),
+		...(fallen.errors ?? []),
+	]}
 />
 
 <KpiStrip>
@@ -160,7 +172,13 @@
 			</ul>
 		</Panel>
 
-		<Panel title="Biggest drops" subtitle="how far investments fell from their high" soon />
+		<Panel title="Biggest drops" subtitle="how far investments fell from their high">
+			{#if fallen.data?.[0]}
+				<Drops drops={fallen.data[0]} />
+			{:else}
+				<p>Needs price history.</p>
+			{/if}
+		</Panel>
 	</div>
 
 	<div class="column">

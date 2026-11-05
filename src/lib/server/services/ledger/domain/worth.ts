@@ -46,7 +46,7 @@ export const symbolsOf = ({ own, links }: PriceSources, commodities: string[]) =
 	return [...new Set([...owned, ...linked])];
 };
 
-type WorthOfOptions = {
+export type WorthOfOptions = {
 	from: Temporal.PlainDate;
 	to: Temporal.PlainDate;
 	parts: PartOf[];
@@ -95,6 +95,43 @@ export const worthOf = (o: WorthOfOptions): Worth[] => {
 			parts: sharesOf(priced, o.byCommodity),
 			unpriced: new Set(unpriced.map((g) => g.commodity)).size,
 		};
+	});
+};
+
+/** What a part's holdings of the day before were worth at that day's prices and at the day before's, in step by day from the first. */
+export type Move = { part: string; before: bigint[]; after: bigint[] };
+
+/**
+ * Values each asset part's holdings of the day before at the prices of both days, so that what
+ * changed between the two is price alone and not what was put in or taken out. A holding with no
+ * price on either day counts on neither.
+ */
+export const movesOf = (o: WorthOfOptions): Move[] => {
+	const count = o.from.until(o.to).days + 1;
+	const offsetOf = (y: number) =>
+		o.from.until(Temporal.PlainDate.from({ year: y, month: 1, day: 1 })).days;
+	const groups = groupsOf({ ...o, count, offsetOf }).filter((g) => g.asset);
+	const rates = ratesOf({ ...o, count, offsetOf });
+
+	return Object.entries(Object.groupBy(groups, (g) => g.part)).map(([part, held = []]) => {
+		const before = Array.from({ length: count }, () => 0n);
+		const after = Array.from({ length: count }, () => 0n);
+
+		held.forEach((g) => {
+			const rate = rates(g.commodity);
+			const yesterday = valuesOf(g.units, rate);
+			const today = valuesOf([0n, ...g.units.slice(0, -1)], rate);
+
+			today.forEach((now, i) => {
+				const was = yesterday[i - 1];
+				if (i === 0 || was == null || now == null) return;
+
+				before[i] = (before[i] ?? 0n) + was;
+				after[i] = (after[i] ?? 0n) + now;
+			});
+		});
+
+		return { part, before, after };
 	});
 };
 
@@ -271,7 +308,7 @@ const sharesOf = (
 };
 
 /** Every day of a short span; of a long one, each stretch's lowest and highest in order, and the first and last, which the chart reads its change from. */
-const shownDays = (worth: bigint[]) => {
+export const shownDays = <T extends number | bigint>(worth: T[]) => {
 	if (worth.length <= MOST_DAYS) return worth.map((_, i) => i);
 
 	const stretch = Math.ceil(worth.length / (MOST_DAYS / 2));

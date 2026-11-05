@@ -5,7 +5,15 @@ import * as Accounts from '#services/ledger/application/accounts.ts';
 import { query } from '$app/server';
 import * as v from 'valibot';
 import { Handle, inLedger } from './shared';
-import { viewAccount, viewInvested, viewLot, viewReturns, viewSpending, viewWorth } from './views';
+import {
+	viewAccount,
+	viewDrops,
+	viewInvested,
+	viewLot,
+	viewReturns,
+	viewSpending,
+	viewWorth,
+} from './views';
 
 /** What each balance account held at the end of a period, valued at that day's prices. */
 export const listAccounts = query(
@@ -48,6 +56,21 @@ export const listInvested = query(
 				handle,
 				action: (l) => Accounts.listInvested({ ledger: l, from, to, account }),
 			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewInvested) })),
+		);
+	},
+);
+
+/** How far the holdings with lots stood below their high at the end of each day of a period, and how far each account fell at its lowest. */
+export const listDrops = query(
+	v.object({ handle: Handle, day: Day, period: Period, account: BalanceAccount }),
+	({ handle, day, period, account }) => {
+		const { from, to } = spansOf(period, day).current;
+
+		return replyFromBatch(
+			inLedger({
+				handle,
+				action: (l) => Accounts.listDrops({ ledger: l, from, to, account }),
+			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewDrops) })),
 		);
 	},
 );

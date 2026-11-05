@@ -86,6 +86,22 @@ describe('the line chart', () => {
 		expect(svg?.querySelector('path.line.band')).not.toBeNull();
 	});
 
+	it('fills from the top down to a line that never rises above zero', () => {
+		render(LineChart, {
+			rows: [
+				{ day: '2026-01-01', depth: 0 },
+				{ day: '2026-01-02', depth: -0.2 },
+			],
+			x: 'day',
+			unit: 'percent',
+			series: [{ key: 'depth', label: 'Below its high', role: 'primary' }],
+			label: 'Underwater',
+		});
+
+		const fill = screen.getByRole('img', { name: 'Underwater' }).querySelector('path.fill');
+		expect(fill?.getAttribute('d')).toMatch(/L100,0L0,0Z$/);
+	});
+
 	it('draws zero only when a line crosses it', () => {
 		const { svg } = drawn();
 		expect(svg.querySelector('.zero')).not.toBeNull();

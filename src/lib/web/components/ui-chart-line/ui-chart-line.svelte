@@ -85,7 +85,7 @@
 	const fill = $derived(
 		area<number>()
 			.x((_, i) => xs[i] ?? 0)
-			.y0(VIEW)
+			.y0(values.crossed ? VIEW : Math.min(VIEW, Math.max(0, values.y(0))))
 			.y1((v) => values.y(v)),
 	);
 	const between = $derived(

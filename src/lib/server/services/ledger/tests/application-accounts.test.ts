@@ -1047,4 +1047,90 @@ describe('spending', () => {
 				]);
 			}));
 	});
+
+	describe('drops', () => {
+		const fell = async (ledger: Ledger, account: string | null = null) =>
+			(
+				await Accounts.listDrops({
+					ledger,
+					from: Temporal.PlainDate.from('2026-01-01'),
+					to: Temporal.PlainDate.from('2026-01-31'),
+					account,
+				})
+			)._unsafeUnwrap().succeeded[0];
+
+		it('counts what prices did, and neither buying nor selling', ({ context, db }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				const content = [
+					'2026-01-02 Buy',
+					'\tAssets:Zerodha 10 INFY @ 100',
+					'\tAssets:Bank',
+					'',
+					'P 2026-01-10 INFY 80',
+					'',
+					'2026-01-15 Buy more',
+					'\tAssets:Zerodha 10 INFY @ 80',
+					'\tAssets:Bank',
+					'',
+					'P 2026-01-20 INFY 90',
+					'',
+					'2026-01-25 Sell',
+					'\tAssets:Zerodha -15 INFY {80} @ 90',
+					'\tAssets:Bank 1350',
+					'\tIncome:Gains -150',
+					'',
+				].join('\n');
+				await Files.createFile({ ledger, key: 'a.rupea', content });
+
+				const drops = await fell(ledger);
+				const depthOn = (day: string) => drops?.underwater.find((u) => `${u.day}` === day)?.depth;
+
+				expect(drops?.lows.map((l) => [l.account, `${l.day}`])).toEqual([
+					['Assets:Zerodha', '2026-01-10'],
+				]);
+				expect(drops?.lows[0]?.depth).toBeCloseTo(-0.2);
+				expect(depthOn('2026-01-02')).toBe(0);
+				expect(depthOn('2026-01-15')).toBeCloseTo(-0.2);
+				expect(depthOn('2026-01-20')).toBeCloseTo(-0.1);
+				expect(depthOn('2026-01-31')).toBeCloseTo(-0.1);
+			}));
+
+		it('gives each account with lots its own low, and none to one without', ({ context, db }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				const content = [
+					'2026-01-02 Buy',
+					'\tAssets:Zerodha 10 INFY @ 100',
+					'\tAssets:Bank',
+					'',
+					'2026-01-02 Buy',
+					'\tAssets:Other 10 TCS @ 100',
+					'\tAssets:Bank',
+					'',
+					'P 2026-01-10 INFY 50',
+					'P 2026-01-10 TCS 110',
+					'',
+				].join('\n');
+				await Files.createFile({ ledger, key: 'a.rupea', content });
+
+				const lows = (await fell(ledger))?.lows.map((l) => [l.account, l.depth]);
+				expect(lows).toEqual([
+					['Assets:Zerodha', -0.5],
+					['Assets:Other', 0],
+				]);
+				expect((await fell(ledger, 'Assets:Other'))?.lows.map((l) => l.account)).toEqual([
+					'Assets:Other',
+				]);
+			}));
+
+		it('has nothing to say when no holding with lots was held', ({ context, db }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				const content = ['2026-01-02 Pay', '\tAssets:Bank 500', '\tIncome:Salary', ''].join('\n');
+				await Files.createFile({ ledger, key: 'a.rupea', content });
+
+				expect(await fell(ledger)).toBeUndefined();
+			}));
+	});
 });

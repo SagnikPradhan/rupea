@@ -85,6 +85,11 @@ export const viewInvested = (invested: Accounts.Invested) => ({
 	cost: formatAmount(invested.cost),
 });
 
+export const viewDrops = (drops: Accounts.Drops) => ({
+	underwater: drops.underwater.map((u) => ({ day: u.day.toString(), depth: u.depth })),
+	lows: drops.lows.map((l) => ({ account: l.account, depth: l.depth, day: l.day.toString() })),
+});
+
 export const viewReturns = (returns: Accounts.Returns) => ({
 	account: returns.account,
 	netIn: formatAmount(returns.netIn),

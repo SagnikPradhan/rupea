@@ -1,6 +1,11 @@
 import { render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
-import { listAccounts, listInvested, listReturns } from '#lib/endpoints/accounts.remote.ts';
+import {
+	listAccounts,
+	listDrops,
+	listInvested,
+	listReturns,
+} from '#lib/endpoints/accounts.remote.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
 import { openFilter } from '#tests/shared/filter.ts';
@@ -11,6 +16,7 @@ vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
 	listAccounts: vi.fn(),
 	listReturns: vi.fn(() => answer([])),
 	listInvested: vi.fn(() => answer([])),
+	listDrops: vi.fn(() => answer([])),
 }));
 vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
 	findFirstDay: vi.fn(() => answer('2025-03-14')),
@@ -123,6 +129,31 @@ describe('the accounts page', () => {
 		expect(vi.mocked(listInvested)).toHaveBeenCalledWith(
 			expect.objectContaining({ account: 'Assets:Broker' }),
 		);
+	});
+
+	it('charts how far investments fell, and asks for price history when it cannot', async () => {
+		visit('/l/h/accounts');
+		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
+		render(Page, { data });
+
+		expect(await screen.findByText('Needs price history.')).toBeTruthy();
+
+		vi.mocked(listDrops).mockReturnValue(
+			answer([
+				{
+					underwater: [
+						{ day: '2026-01-01', depth: 0 },
+						{ day: '2026-02-01', depth: -0.2 },
+					],
+					lows: [{ account: 'Assets:Broker', depth: -0.2, day: '2026-02-01' }],
+				},
+			]),
+		);
+		render(Page, { data });
+
+		expect(
+			await screen.findByRole('img', { name: /^How far investments stood below/ }),
+		).toBeTruthy();
 	});
 
 	it('divides the assets into rings, and says so when something owes', async () => {

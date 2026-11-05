@@ -5,17 +5,26 @@ import { BEGINNING, type Bucket, type Span } from '#lib/shared/dates.ts';
 import * as DB from '../adapters/database';
 import { DEFAULT_COMMODITY, type Amount, type Quantity } from '../domain/amounts';
 import { costOn } from '../domain/cost';
+import { dropsOf, type Drops } from '../domain/drawdown';
 import { byAccount, HOPS, pricedIn, valued, type Account, type Holding } from '../domain/holdings';
 import { returnsOf, type Returns } from '../domain/returns';
 import { spendingOf, type Spending } from '../domain/spending';
-import { parentsIn, partsIn } from '../domain/tree';
+import { BALANCE_TYPES } from '../domain/taxonomy';
+import { parentsIn, partsIn, type AccountNode } from '../domain/tree';
 import type { Ledger } from '../domain/types';
-import { symbolsOf, worthOf, type PriceSources, type PriceYear } from '../domain/worth';
+import {
+	movesOf,
+	symbolsOf,
+	worthOf,
+	type PriceSources,
+	type PriceYear,
+	type WorthOfOptions,
+} from '../domain/worth';
 import { checkLots } from './sync';
 
 export type { Account };
 export type { LotHistory, Worth } from '../adapters/database';
-export type { Returns, Spending };
+export type { Drops, Returns, Spending };
 
 type ListAccountsOptions = { ledger: Ledger; day: Temporal.PlainDate };
 
@@ -63,11 +72,21 @@ type WorthParts = {
 /** Worth from the later of a span's start and the first day the parts held anything, or none before a sync has built the ledger's years. */
 const worthOver = (
 	id: string,
-	{ from, to }: Span,
+	s: Span,
 	{ parts, byCommodity, held }: WorthParts,
 ): ResultAsync<DB.Worth[]> =>
+	walked(id, s, { parts, held }).map((w) => (w === null ? [] : worthOf({ ...w, byCommodity })));
+
+type Walked = { parts: DB.PartOf[]; held?: Set<string> | undefined };
+
+/** What worth is made of for these parts over a span, or null when they held nothing in it. */
+const walked = (
+	id: string,
+	{ from, to }: Span,
+	{ parts, held }: Walked,
+): ResultAsync<WorthOfOptions | null> =>
 	DB.findFirstHeld(id, { parts, to }).andThen((first) => {
-		if (first === null || Temporal.PlainDate.compare(first, to) > 0) return okAsync([]);
+		if (first === null || Temporal.PlainDate.compare(first, to) > 0) return okAsync(null);
 
 		const start = Temporal.PlainDate.compare(first, from) > 0 ? first : from;
 		const years = { from: start.year, to: to.year };
@@ -75,14 +94,22 @@ const worthOver = (
 
 		return DB.listBalanceYears(id, { accounts, ...years }).andThen((all) => {
 			const balances = held ? all.filter((b) => held.has(`${b.accountId} ${b.commodity}`)) : all;
-			if (balances.length === 0) return okAsync([]);
+			if (balances.length === 0) return okAsync(null);
 
 			const commodities = [...new Set(balances.map((b) => b.commodity))];
 
 			return DB.listPriceSources(id).andThen((sources) =>
 				pricesWalked({ id, start, years, sources, commodities, hops: HOPS }).map(
-					({ prices, opening }) =>
-						worthOf({ from: start, to, parts, byCommodity, balances, prices, sources, opening }),
+					({ prices, opening }) => ({
+						from: start,
+						to,
+						parts,
+						byCommodity: false,
+						balances,
+						prices,
+						sources,
+						opening,
+					}),
 				),
 			);
 		});
@@ -137,6 +164,49 @@ const investedOver = (id: string, { from, to }: Span, parts: DB.PartOf[]) =>
 			}));
 		});
 	});
+
+type ListDropsOptions = {
+	ledger: Ledger;
+	from: Temporal.PlainDate;
+	to: Temporal.PlainDate;
+	/** Narrows the lots to an account and those under it; every account with lots without one. */
+	account: string | null;
+};
+
+/**
+ * How far the holdings with lots fell from their high at the end of each day, and how far each
+ * account with lots did at its lowest, by the prices alone: what was put in or taken out does not
+ * count. Nothing comes back for a span in which no such holding was held.
+ */
+export const listDrops = ({
+	ledger,
+	from,
+	to,
+	account,
+}: ListDropsOptions): ResultAsync<Batch<Drops>> =>
+	DB.listProblems(ledger.id).andThen((f) =>
+		DB.listAccountTree(ledger.id)
+			.andThen((t) => dropsOver(ledger.id, { from, to }, t, account))
+			.map((d) => ({ succeeded: d === null ? [] : [d], failed: f })),
+	);
+
+const dropsOver = (id: string, span: Span, tree: AccountNode[], account: string | null) => {
+	const within = new Set(partsIn(tree, account).parts.map((p) => p.accountId));
+	const parts = tree
+		.filter((n) => within.has(n.id) && BALANCE_TYPES.includes(n.type))
+		.map((n) => ({ accountId: n.id, part: n.name }));
+
+	return DB.listCostMoves(id, { accounts: parts.map((p) => p.accountId), to: span.to }).andThen(
+		(moves) => {
+			const held = new Set(moves.map((m) => `${m.accountId} ${m.commodity}`));
+			const lotted = parts.filter((p) => moves.some((m) => m.accountId === p.accountId));
+
+			return walked(id, span, { parts: lotted, held }).map((w) =>
+				w === null ? null : dropsOf(w.from, movesOf(w)),
+			);
+		},
+	);
+};
 
 type PricesWalkedOptions = {
 	id: string;

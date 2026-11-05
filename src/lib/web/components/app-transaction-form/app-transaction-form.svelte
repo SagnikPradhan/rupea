@@ -24,7 +24,7 @@
 		{ label: 'Amount', kind: 'amount' as const },
 		{ label: '' },
 	];
-	const RARE_FIELDS = ['file', 'time', 'metadata', 'postings.0.commodity'];
+	const RARE_FIELDS = ['file', 'metadata', 'postings.0.commodity'];
 	const RARE_POSTING_FIELDS = ['commodity', 'price', 'cost', 'balance', 'metadata'];
 
 	const ACCOUNT_TYPE = /^(Assets|Liabilities|Income|Expenses|Equity)(:|$)/;
@@ -33,16 +33,31 @@
 	/** What each kind asks for: the box whose account takes the amount, then the one it balances against. */
 	const KINDS = {
 		Expense: [
-			{ label: 'Category', types: ['Expenses'], placeholder: 'Food' },
-			{ label: 'Paid from', types: HELD, placeholder: 'Bank' },
+			{
+				label: 'Category',
+				hint: 'What the money was spent on.',
+				types: ['Expenses'],
+				placeholder: 'Food',
+			},
+			{ label: 'Paid from', hint: 'The account the money left.', types: HELD, placeholder: 'Bank' },
 		],
 		Income: [
-			{ label: 'Paid into', types: HELD, placeholder: 'Bank' },
-			{ label: 'Source', types: ['Income'], placeholder: 'Salary' },
+			{
+				label: 'Paid into',
+				hint: 'The account the money arrived in.',
+				types: HELD,
+				placeholder: 'Bank',
+			},
+			{
+				label: 'Source',
+				hint: 'Where the money came from.',
+				types: ['Income'],
+				placeholder: 'Salary',
+			},
 		],
 		Transfer: [
-			{ label: 'To', types: HELD, placeholder: 'Savings' },
-			{ label: 'From', types: HELD, placeholder: 'Bank' },
+			{ label: 'To', hint: 'The account that receives it.', types: HELD, placeholder: 'Savings' },
+			{ label: 'From', hint: 'The account it leaves.', types: HELD, placeholder: 'Bank' },
 		],
 	};
 
@@ -214,10 +229,14 @@
 {#snippet entries(list: Entries, path: string)}
 	{#each list as entry, index (index)}
 		<div class="entry">
-			<Field label="Key" issues={issuesAt(`${path}.${index}.key`)}>
+			<Field
+				label="Key"
+				hint="The name of the detail, like ref."
+				issues={issuesAt(`${path}.${index}.key`)}
+			>
 				<input bind:value={entry.key} />
 			</Field>
-			<Field label="Value" issues={issuesAt(`${path}.${index}.value`)}>
+			<Field label="Value" hint="What it is, like 402." issues={issuesAt(`${path}.${index}.value`)}>
 				<input bind:value={entry.value} />
 			</Field>
 			<button type="button" class="link" onclick={() => list.splice(index, 1)}>Remove</button>
@@ -250,25 +269,37 @@
 		</div>
 	{/if}
 
-	<Field label="Description" issues={issuesAt('description')}>
+	<Field
+		label="Description"
+		hint="What it was, like Groceries or Rent."
+		issues={issuesAt('description')}
+	>
 		<input bind:value={form.description} />
 	</Field>
 
 	<div class="pair">
-		{#if !status.split}
-			<Field label="Amount" issues={issuesAt('postings.0.amount')}>
-				<input bind:value={simple.amount} inputmode="decimal" />
-			</Field>
-		{/if}
-		<Field label="Date" issues={issuesAt('date')}>
+		<Field label="Date" hint="The day it happened." issues={issuesAt('date')}>
 			<input type="date" bind:value={form.date} />
+		</Field>
+		<Field label="Time" hint="Optional. Orders the day's entries." issues={issuesAt('time')}>
+			<input type="time" step="1" bind:value={form.time} />
 		</Field>
 	</div>
 
 	{#if !status.split}
+		<Field
+			label="Amount"
+			hint="How much, without a currency sign."
+			issues={issuesAt('postings.0.amount')}
+		>
+			<input bind:value={simple.amount} inputmode="decimal" />
+		</Field>
+	{/if}
+
+	{#if !status.split}
 		<div class="pair">
 			{#each KINDS[simple.kind] as box, index (box.label)}
-				<Field label={box.label} issues={issuesAt(`postings.${index}.account`)}>
+				<Field label={box.label} hint={box.hint} issues={issuesAt(`postings.${index}.account`)}>
 					<input
 						bind:value={simple.accounts[index]}
 						list="transaction-accounts"
@@ -281,6 +312,10 @@
 			{/each}
 		</div>
 	{/if}
+
+	<Field label="Comment" hint="A note kept with the transaction.">
+		<input bind:value={form.comment} />
+	</Field>
 
 	<datalist id="transaction-files">
 		{#each keys as key (key)}<option value={key}></option>{/each}
@@ -306,23 +341,23 @@
 	{#if status.more || hasIssuesIn('', RARE_FIELDS)}
 		<div class="rare">
 			{#if !edit}
-				<Field label="File" issues={issuesAt('file')}>
+				<Field
+					label="File"
+					hint="Where it is written. A new name starts a new file."
+					issues={issuesAt('file')}
+				>
 					<input bind:value={form.file} list="transaction-files" spellcheck="false" />
 				</Field>
 			{/if}
 			{#if !status.split}
-				<Field label="Currency" issues={issuesAt('postings.0.commodity')}>
+				<Field
+					label="Currency"
+					hint="Leave empty for INR."
+					issues={issuesAt('postings.0.commodity')}
+				>
 					<input bind:value={simple.currency} placeholder="INR" />
 				</Field>
 			{/if}
-			<Field label="Time" issues={issuesAt('time')}>
-				<input type="time" step="1" bind:value={form.time} />
-			</Field>
-			<div class="wide">
-				<Field label="Comment">
-					<input bind:value={form.comment} />
-				</Field>
-			</div>
 			{@render entries(form.metadata, 'metadata')}
 		</div>
 	{/if}
@@ -385,27 +420,47 @@
 						<tr class="child">
 							<td colspan={COLUMNS.length}>
 								<div class="rare">
-									<Field label="Currency" issues={issuesAt(`${at}.commodity`)}>
+									<Field
+										label="Currency"
+										hint="Leave empty for INR."
+										issues={issuesAt(`${at}.commodity`)}
+									>
 										<input bind:value={posting.commodity} placeholder="INR" />
 									</Field>
-									<Field label="Price" issues={issuesAt(`${at}.price`)}>
+									<Field
+										label="Price"
+										hint="What one unit cost, like 1700 INR."
+										issues={issuesAt(`${at}.price`)}
+									>
 										<input bind:value={posting.price} />
 									</Field>
 									<label class="check">
 										<input type="checkbox" bind:checked={posting.total} />
 										Price for all units
 									</label>
-									<Field label="Lot cost" issues={issuesAt(`${at}.cost`)}>
+									<Field
+										label="Lot cost"
+										hint="What the units cost when bought."
+										issues={issuesAt(`${at}.cost`)}
+									>
 										<input bind:value={posting.cost} />
 									</Field>
-									<Field label="Lot date" issues={issuesAt(`${at}.costDate`)}>
+									<Field
+										label="Lot date"
+										hint="The day they were bought."
+										issues={issuesAt(`${at}.costDate`)}
+									>
 										<input type="date" bind:value={posting.costDate} />
 									</Field>
-									<Field label="Balance after" issues={issuesAt(`${at}.balance`)}>
+									<Field
+										label="Balance after"
+										hint="What the statement says is left."
+										issues={issuesAt(`${at}.balance`)}
+									>
 										<input bind:value={posting.balance} inputmode="decimal" />
 									</Field>
 									<div class="wide">
-										<Field label="Comment">
+										<Field label="Comment" hint="A note kept with this line.">
 											<input bind:value={posting.comment} />
 										</Field>
 									</div>
@@ -496,9 +551,9 @@
 
 	.rare {
 		display: grid;
-		grid-template-columns: repeat(auto-fill, minmax(var(--size-7), 1fr));
+		grid-template-columns: 1fr 1fr;
 		gap: var(--size-2);
-		align-items: end;
+		align-items: start;
 	}
 
 	.child .rare {
@@ -510,7 +565,7 @@
 		grid-column: 1 / -1;
 		grid-template-columns: 1fr 1fr auto;
 		gap: var(--size-2);
-		align-items: end;
+		align-items: start;
 	}
 
 	.amount input {
@@ -552,7 +607,8 @@
 	}
 
 	@media (width < 40rem) {
-		.pair {
+		.pair,
+		.rare {
 			grid-template-columns: 1fr;
 		}
 

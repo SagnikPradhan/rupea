@@ -3,16 +3,19 @@
 
 	type Props = {
 		label: string;
+		/** One line under the label saying what the box takes. */
+		hint?: string | undefined;
 		issues?: { message: string }[] | undefined;
 		children: Snippet;
 	};
 
-	const { label, issues = [], children }: Props = $props();
+	const { label, hint, issues = [], children }: Props = $props();
 </script>
 
 <div>
 	<label>
 		{label}
+		{#if hint}<small>{hint}</small>{/if}
 		{@render children()}
 	</label>
 	{#each issues as issue (issue.message)}
@@ -26,6 +29,11 @@
 		flex-direction: column;
 		gap: var(--size-1);
 		align-items: start;
+	}
+
+	small {
+		color: var(--color-ink-6);
+		font: var(--text-label);
 	}
 
 	p {

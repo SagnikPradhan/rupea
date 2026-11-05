@@ -39,16 +39,16 @@ vi.mock('#lib/endpoints/files.remote.ts', () => ({
 const opened = async () => {
 	visit('/l/h/transactions?add=1');
 	render(Page, { data });
-	return screen.findByLabelText('Description');
+	return screen.findByLabelText(/^Description/);
 };
 
 const fileBox = async () => {
 	await fireEvent.click(screen.getByRole('button', { name: 'More details' }));
-	return (await screen.findByLabelText('File')) as HTMLInputElement;
+	return (await screen.findByLabelText(/^File/)) as HTMLInputElement;
 };
 
 const type = (label: string, value: string, index = 0) =>
-	fireEvent.input(screen.getAllByLabelText(label)[index]!, { target: { value } });
+	fireEvent.input(screen.getAllByLabelText(new RegExp('^' + label))[index]!, { target: { value } });
 
 const fill = async () => {
 	await type('Description', 'Groceries');
@@ -107,7 +107,17 @@ describe('the add transaction panel', () => {
 				postings: [{ account: 'Expenses:Food', amount: '100' }, { account: 'Assets:Bank' }],
 			},
 		});
-		expect((screen.getByLabelText('Description') as HTMLInputElement).value).toBe('');
+		expect((screen.getByLabelText(/^Description/) as HTMLInputElement).value).toBe('');
+	});
+
+	it('shows date, time and comment at once, each with a line saying what it takes', async () => {
+		await opened();
+
+		expect(screen.getByLabelText(/^Date/)).toBeTruthy();
+		expect(screen.getByLabelText(/^Time/)).toBeTruthy();
+		expect(screen.getByLabelText(/^Comment/)).toBeTruthy();
+		expect(screen.getByText('The day it happened.')).toBeTruthy();
+		expect(screen.queryByLabelText(/^File/)).toBeNull();
 	});
 
 	it('says why the server refused, and keeps what was typed', async () => {
@@ -121,7 +131,7 @@ describe('the add transaction panel', () => {
 		await save();
 
 		expect((await screen.findByRole('alert')).textContent).toContain('off by 10.00');
-		expect((screen.getByLabelText('Description') as HTMLInputElement).value).toBe('Groceries');
+		expect((screen.getByLabelText(/^Description/) as HTMLInputElement).value).toBe('Groceries');
 	});
 
 	it('writes each kind as two sides, adding the account type someone new leaves off', async () => {
@@ -166,15 +176,15 @@ describe('the add transaction panel', () => {
 		await type('Category', 'Food');
 		await fireEvent.click(screen.getByRole('button', { name: 'Split' }));
 
-		const accounts = (await screen.findAllByLabelText('Account')) as HTMLInputElement[];
+		const accounts = (await screen.findAllByLabelText(/^Account/)) as HTMLInputElement[];
 		expect(accounts.map((a) => a.value)).toEqual(['Expenses:Food', '']);
 		expect(screen.queryByRole('button', { name: /Remove line/ })).toBeNull();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Add line' }));
-		expect(await screen.findAllByLabelText('Account')).toHaveLength(3);
+		expect(await screen.findAllByLabelText(/^Account/)).toHaveLength(3);
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Remove line 3' }));
-		await vi.waitFor(() => expect(screen.getAllByLabelText('Account')).toHaveLength(2));
+		await vi.waitFor(() => expect(screen.getAllByLabelText(/^Account/)).toHaveLength(2));
 	});
 });
 
@@ -210,7 +220,7 @@ describe('the edit transaction panel', () => {
 	const editing = async () => {
 		visit('/l/h/transactions?edit=7&at=2026-08');
 		render(Page, { data });
-		return (await screen.findByLabelText('Description')) as HTMLInputElement;
+		return (await screen.findByLabelText(/^Description/)) as HTMLInputElement;
 	};
 
 	beforeEach(() => {
@@ -222,9 +232,9 @@ describe('the edit transaction panel', () => {
 
 	it('shows the transaction as it is written, in lines', async () => {
 		expect((await editing()).value).toBe('Groceries');
-		expect(screen.getAllByLabelText('Account')).toHaveLength(2);
-		expect((screen.getAllByLabelText('Amount')[0] as HTMLInputElement).value).toBe('100.50');
-		expect(screen.queryByLabelText('File')).toBeNull();
+		expect(screen.getAllByLabelText(/^Account/)).toHaveLength(2);
+		expect((screen.getAllByLabelText(/^Amount/)[0] as HTMLInputElement).value).toBe('100.50');
+		expect(screen.queryByLabelText(/^File/)).toBeNull();
 	});
 
 	it('saves the changes against the version it read, then leaves the panel', async () => {

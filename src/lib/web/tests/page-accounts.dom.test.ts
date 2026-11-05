@@ -1,6 +1,11 @@
 import { render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
-import { listAccounts, listReturns, listWorth } from '#lib/endpoints/accounts.remote.ts';
+import {
+	listAccounts,
+	listDrops,
+	listInvested,
+	listReturns,
+} from '#lib/endpoints/accounts.remote.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
 import { openFilter } from '#tests/shared/filter.ts';
@@ -10,7 +15,8 @@ vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
 	listAccounts: vi.fn(),
 	listReturns: vi.fn(() => answer([])),
-	listWorth: vi.fn(),
+	listInvested: vi.fn(() => answer([])),
+	listDrops: vi.fn(() => answer([])),
 }));
 vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
 	findFirstDay: vi.fn(() => answer('2025-03-14')),
@@ -66,34 +72,10 @@ const accounts = [
 	},
 ];
 
-const worth = [
-	{
-		day: '2026-01-01',
-		assets: '1000',
-		liabilities: '0',
-		worth: '1000',
-		parts: [{ account: 'Assets:Bank', commodity: null, amount: '1000' }],
-		unpriced: 0,
-	},
-	{
-		day: '2026-09-01',
-		assets: '51500',
-		liabilities: '-1500',
-		worth: '50000',
-		parts: [
-			{ account: 'Assets:Bank', commodity: null, amount: '50000' },
-			{ account: 'Assets:Broker', commodity: null, amount: '1500' },
-			{ account: 'Liabilities:Card', commodity: null, amount: '-1500' },
-		],
-		unpriced: 0,
-	},
-];
-
 describe('the accounts page', () => {
 	it('nests accounts under their groups, and links holdings with lots', async () => {
 		visit('/l/h/accounts');
 		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
-		vi.mocked(listWorth).mockReturnValue(answer(worth));
 		render(Page, { data });
 
 		expect(await screen.findByTitle('Assets:Broker')).toBeTruthy();
@@ -103,63 +85,135 @@ describe('the accounts page', () => {
 		expect(screen.getByText('1 unpriced')).toBeTruthy();
 	});
 
-	it('shows the period picked beside the graph, each part and owing below zero as the accounts hold it', async () => {
+	it('reads the period picked from the address, and marks it in the filter', async () => {
 		visit('/l/h/accounts?at=2026-09');
 		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
-		vi.mocked(listWorth).mockReturnValue(answer(worth));
 		render(Page, { data });
 		await openFilter();
 
-		expect(await screen.findByText(/^Owed/)).toBeTruthy();
-		const key = within(screen.getByRole('figure'));
-		expect(key.getByText(/^Broker/).textContent).toContain('1,500');
-		expect(key.getByText(/^Card/).textContent).toContain('-1,500');
-		expect(screen.getByText(/^Owed/).textContent).toContain('-1,500');
-		expect(vi.mocked(listWorth)).toHaveBeenCalledWith(
+		expect(await screen.findByTitle('Assets:Broker')).toBeTruthy();
+		expect(vi.mocked(listAccounts)).toHaveBeenCalledWith(
 			expect.objectContaining({ period: { kind: 'month', at: '2026-09' } }),
 		);
 		expect(screen.getByRole('link', { name: 'Month' }).getAttribute('aria-current')).toBe('page');
 	});
 
-	it('narrows the graph and the table to the account picked, offering those under it', async () => {
+	it('narrows the table to the account picked, offering those under it', async () => {
 		visit('/l/h/accounts?account=Assets:Broker');
 		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
-		vi.mocked(listWorth).mockReturnValue(answer(worth));
 		render(Page, { data });
 		await openFilter();
 
 		await screen.findByRole('navigation', { name: 'Account' });
-		expect(vi.mocked(listWorth)).toHaveBeenCalledWith(
-			expect.objectContaining({ account: 'Assets:Broker' }),
-		);
 		expect(screen.getByTitle('Assets:Broker')).toBeTruthy();
 		expect(screen.queryByTitle('Assets:Bank')).toBeNull();
 		expect(screen.getByRole('link', { name: 'Select all' }).getAttribute('href')).toBe('?');
 	});
 
-	it('switches the graph for boxes of what each account holds at the end of the period', async () => {
-		visit('/l/h/accounts?chart=treemap&at=2026');
+	it('draws the value against the cost, and says so when no holding has a cost', async () => {
+		visit('/l/h/accounts?account=Assets:Broker');
 		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
-		vi.mocked(listWorth).mockReturnValue(answer(worth));
 		render(Page, { data });
-		await openFilter();
 
-		const chart = within(await screen.findByRole('navigation', { name: 'Chart' }));
+		expect(await screen.findByText('No investments with a cost in this period.')).toBeTruthy();
+
+		vi.mocked(listInvested).mockReturnValue(
+			answer([
+				{ day: '2026-01-01', value: '1500', cost: '1500' },
+				{ day: '2026-02-01', value: '2000', cost: '1500' },
+			]),
+		);
+		render(Page, { data });
+
+		expect(await screen.findByRole('img', { name: /^Value against cost from/ })).toBeTruthy();
+		expect(vi.mocked(listInvested)).toHaveBeenCalledWith(
+			expect.objectContaining({ account: 'Assets:Broker' }),
+		);
+	});
+
+	it('charts how far investments fell, and asks for price history when it cannot', async () => {
+		visit('/l/h/accounts');
+		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
+		render(Page, { data });
+
+		expect(await screen.findAllByText('Needs price history.')).toHaveLength(2);
+
+		vi.mocked(listDrops).mockReturnValue(
+			answer([
+				{
+					underwater: [
+						{ day: '2026-01-01', depth: 0 },
+						{ day: '2026-02-01', depth: -0.2 },
+					],
+					lows: [{ account: 'Assets:Broker', depth: -0.2, day: '2026-02-01' }],
+					swings: [{ account: 'Assets:Broker', swing: 0.2 }],
+				},
+			]),
+		);
+		render(Page, { data });
+
 		expect(
-			screen.getByRole('img', { name: 'What Assets held on 1 Sept 2026, by account' }),
+			await screen.findByRole('img', { name: /^How far investments stood below/ }),
 		).toBeTruthy();
-		expect(vi.mocked(listAccounts)).toHaveBeenCalledWith(
-			expect.objectContaining({ period: { kind: 'year', at: '2026' } }),
+		expect(screen.queryByRole('img', { name: /^Return a year against/ })).toBeNull();
+	});
+
+	it('plots return against swing for an account with both', async () => {
+		visit('/l/h/accounts');
+		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
+		vi.mocked(listReturns).mockReturnValue(
+			answer([{ account: 'Assets:Broker', netIn: '1500', xirr: 0.1, yearly: true }]),
 		);
-		expect(chart.getByRole('link', { name: 'Over time' }).getAttribute('href')).toContain(
-			'chart=time',
+		vi.mocked(listDrops).mockReturnValue(
+			answer([
+				{
+					underwater: [{ day: '2026-01-01', depth: 0 }],
+					lows: [],
+					swings: [{ account: 'Assets:Broker', swing: 0.2 }],
+				},
+			]),
 		);
+		render(Page, { data });
+
+		const plot = await screen.findByRole('img', { name: /^Return a year against/ });
+		expect(plot.querySelectorAll('.dot')).toHaveLength(1);
+	});
+
+	it('divides the assets into rings, and says so when something owes', async () => {
+		visit('/l/h/accounts');
+		vi.mocked(listAccounts).mockReturnValue(
+			answer([
+				...accounts,
+				{
+					account: 'Assets:Card',
+					parent: 'Assets',
+					total: '-300',
+					cost: null,
+					gain: null,
+					unpriced: 0,
+					holdings: [rupees('-300')],
+				},
+			]),
+		);
+		render(Page, { data });
+
+		expect(
+			await screen.findByRole('img', { name: 'How Assets divides across its accounts' }),
+		).toBeTruthy();
+		expect(screen.getByText('1 account is below zero, so not drawn')).toBeTruthy();
+	});
+
+	it('says there is nothing to divide on a ledger with no accounts under Assets', async () => {
+		visit('/l/h/accounts');
+		vi.mocked(listAccounts).mockReturnValue(answer([]));
+		render(Page, { data });
+
+		expect(await screen.findByText('Nothing to divide.')).toBeTruthy();
 	});
 
 	it('starts every figure at zero on a ledger with nothing in it yet', async () => {
 		visit('/l/h/accounts');
 		vi.mocked(listAccounts).mockReturnValue(answer([]));
-		vi.mocked(listWorth).mockReturnValue(answer([]));
 		render(Page, { data });
 
 		const strip = within(await screen.findByRole('region', { name: 'Figures' }));
@@ -178,7 +232,6 @@ describe('the accounts page', () => {
 				{ ...accounts[2]!, ...lost },
 			]),
 		);
-		vi.mocked(listWorth).mockReturnValue(answer(worth));
 		render(Page, { data });
 
 		const strip = within(await screen.findByRole('region', { name: 'Figures' }));
@@ -190,7 +243,6 @@ describe('the accounts page', () => {
 	it('shows what flowed into each Assets account and its XIRR, per year only over a year', async () => {
 		visit('/l/h/accounts?at=2026-09');
 		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
-		vi.mocked(listWorth).mockReturnValue(answer(worth));
 		vi.mocked(listReturns).mockReturnValue(
 			answer(
 				[

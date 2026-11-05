@@ -5,7 +5,16 @@ import * as Accounts from '#services/ledger/application/accounts.ts';
 import { query } from '$app/server';
 import * as v from 'valibot';
 import { Handle, inLedger } from './shared';
-import { viewAccount, viewLot, viewReturns, viewSpending, viewWorth } from './views';
+import {
+	viewAccount,
+	viewBridge,
+	viewDrops,
+	viewInvested,
+	viewLot,
+	viewReturns,
+	viewSpending,
+	viewWorth,
+} from './views';
 
 /** What each balance account held at the end of a period, valued at that day's prices. */
 export const listAccounts = query(
@@ -33,6 +42,51 @@ export const listWorth = query(
 				handle,
 				action: (l) => Accounts.listWorth({ ledger: l, from, to, account }),
 			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewWorth) })),
+		);
+	},
+);
+
+/** What the holdings with lots were worth at the end of each day of a period, beside what their lots had cost. */
+export const listInvested = query(
+	v.object({ handle: Handle, day: Day, period: Period, account: BalanceAccount }),
+	({ handle, day, period, account }) => {
+		const { from, to } = spansOf(period, day).current;
+
+		return replyFromBatch(
+			inLedger({
+				handle,
+				action: (l) => Accounts.listInvested({ ledger: l, from, to, account }),
+			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewInvested) })),
+		);
+	},
+);
+
+/** Why net worth moved over a period: the income and expenses, and what prices did to each group. */
+export const findBridge = query(
+	v.object({ handle: Handle, day: Day, period: Period }),
+	({ handle, day, period }) => {
+		const { from, to } = spansOf(period, day).current;
+
+		return replyFromBatch(
+			inLedger({
+				handle,
+				action: (l) => Accounts.findBridge({ ledger: l, from, to }),
+			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewBridge) })),
+		);
+	},
+);
+
+/** How far the holdings with lots stood below their high at the end of each day of a period, and how far each account fell at its lowest. */
+export const listDrops = query(
+	v.object({ handle: Handle, day: Day, period: Period, account: BalanceAccount }),
+	({ handle, day, period, account }) => {
+		const { from, to } = spansOf(period, day).current;
+
+		return replyFromBatch(
+			inLedger({
+				handle,
+				action: (l) => Accounts.listDrops({ ledger: l, from, to, account }),
+			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewDrops) })),
 		);
 	},
 );

@@ -1,8 +1,14 @@
 <script lang="ts">
-	import { listAccounts, listSpending, listWorth } from '#lib/endpoints/accounts.remote.ts';
+	import {
+		findBridge,
+		listAccounts,
+		listSpending,
+		listWorth,
+	} from '#lib/endpoints/accounts.remote.ts';
 	import { ASSETS, INCOME, LIABILITIES } from '#lib/shared/accounts.ts';
 	import type { Period } from '#lib/shared/dates.ts';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
+	import Waterfall from '#lib/web/components/ui-chart-waterfall/ui-chart-waterfall.svelte';
 	import Kpi from '#lib/web/components/ui-kpi/ui-kpi.svelte';
 	import KpiStrip from '#lib/web/components/ui-kpi-strip/ui-kpi-strip.svelte';
 	import NetWorth from '#lib/web/components/app-net-worth/app-net-worth.svelte';
@@ -10,7 +16,9 @@
 	import { isUnder } from '#lib/web/shared/accounts.ts';
 	import Statement from '#lib/web/components/app-statement/app-statement.svelte';
 	import StatementRow from '#lib/web/components/app-statement/app-statement-row.svelte';
+	import { stepsOf } from '#lib/web/shared/bridge.ts';
 	import {
+		formatDate,
 		formatWhole,
 		formatIsoDate,
 		formatDayMonth,
@@ -27,6 +35,7 @@
 	const lastMonth = { kind: 'month', at: lastMonthOf(day) } as const;
 
 	const worth = $derived(await listWorth({ handle, day, period, account }));
+	const moved = $derived(await findBridge({ handle, day, period }));
 	const balance = $derived(await listAccounts({ handle, day, period: now }));
 	const spending = $derived(
 		await listSpending({ handle, day, period: lastMonth, account: 'Expenses' }),
@@ -35,6 +44,7 @@
 	const earning = $derived(await listSpending({ handle, day, period: lastMonth, account: INCOME }));
 
 	const last = $derived(worth.data?.at(-1));
+	const bridge = $derived(moved.data?.[0]);
 	const accounts = $derived(balance.data ?? []);
 	const chosen = $derived(accounts.filter((a) => isUnder(a.account, account)));
 	const owned = $derived(groupsOf(chosen, ASSETS));
@@ -53,13 +63,14 @@
 	{handle}
 	errors={[
 		...(worth.errors ?? []),
+		...(moved.errors ?? []),
 		...(balance.errors ?? []),
 		...(spending.errors ?? []),
 		...(earning.errors ?? []),
 	]}
 />
 
-<NetWorth worth={worth.data ?? []} {accounts} {account} chart="time" />
+<NetWorth worth={worth.data ?? []} />
 
 <KpiStrip>
 	<Kpi
@@ -104,6 +115,24 @@
 			</div>
 		</Panel>
 
+		<Panel
+			title="What moved net worth"
+			subtitle={bridge
+				? `${formatDate(bridge.from)} to ${formatDate(bridge.to)} · from ${formatWhole(bridge.start)} to ${formatWhole(bridge.end)}`
+				: 'what saved, gained or lost money'}
+		>
+			{#if bridge}
+				<Waterfall
+					steps={stepsOf(bridge)}
+					label="Net worth from {formatWhole(bridge.start)} to {formatWhole(
+						bridge.end,
+					)}, by income, expenses and what prices did"
+				/>
+			{:else}
+				<p>Nothing held in this period.</p>
+			{/if}
+		</Panel>
+
 		<Panel title="Needs attention" subtitle="what to look at this week" soon />
 	</div>
 
@@ -144,8 +173,6 @@
 		</Statement>
 	</Panel>
 </div>
-
-<Panel title="What moved net worth" subtitle="what saved, gained or lost money this month" soon />
 
 <style>
 	.column {

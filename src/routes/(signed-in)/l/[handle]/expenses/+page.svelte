@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { listSpending } from '#lib/endpoints/accounts.remote.ts';
 	import { paramsOf, periodOf } from '#lib/shared/dates.ts';
-	import { ExpenseAccount, EXPENSES } from '#lib/shared/accounts.ts';
+	import { ExpenseAccount, EXPENSES, INCOME } from '#lib/shared/accounts.ts';
 	import { depthOf, nameOf } from '#lib/web/shared/accounts.ts';
 	import { flowsOf } from '#lib/web/shared/alluvial.ts';
 	import { OTHER, seriesOf } from '#lib/web/shared/chart.ts';
@@ -71,6 +71,9 @@
 	const scale = $derived(v.parse(v.fallback(Scale, 'linear'), page.url.searchParams.get('scale')));
 
 	const response = $derived(await listSpending({ handle, day, period, account }));
+	const earned = $derived(
+		account === EXPENSES ? await listSpending({ handle, day, period, account: INCOME }) : undefined,
+	);
 	const spending = $derived(response.data?.[0]);
 	const previous = $derived(response.data?.[1]);
 	const bucket = $derived(spending?.bucket ?? 'month');
@@ -82,6 +85,10 @@
 	const total = $derived(rows.find((t) => t.account === account));
 	const parts = $derived(partsOf(spending, account));
 	const divides = $derived(rows.length > 1);
+	const flows = $derived(
+		flowsOf({ rows, account, parts, income: earned?.data?.[0]?.totals ?? [] }),
+	);
+	const kept = $derived(flows.some((f) => f.into !== null));
 	const bars = $derived(barsOf({ spending, previous, account, parts }));
 	const whole = $derived(wholeOf({ spending, previous, account, parts }));
 	const other = $derived([whole, ...bars].some((b) => b[OTHER] !== '0'));
@@ -168,12 +175,16 @@
 <PanelGrid wide>
 	<Panel
 		title="Where the money went"
-		subtitle="what {nameOf(account)} divides into, two levels deep"
+		subtitle={kept
+			? 'what came in, then what was spent and what was kept'
+			: `what ${nameOf(account)} divides into, two levels deep`}
 	>
 		{#if divides}
 			<AlluvialChart
-				flows={flowsOf({ rows, account, parts })}
-				label="How {nameOf(account)} divides into the accounts under it, two levels deep"
+				{flows}
+				label={kept
+					? 'How what came in divides into what was spent and what was kept'
+					: `How ${nameOf(account)} divides into the accounts under it, two levels deep`}
 			/>
 		{:else}
 			<p>Nothing under {nameOf(account)} to divide.</p>

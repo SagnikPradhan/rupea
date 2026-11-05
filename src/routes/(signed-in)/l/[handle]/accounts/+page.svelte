@@ -1,21 +1,27 @@
 <script lang="ts">
-	import { listAccounts, listReturns, listWorth } from '#lib/endpoints/accounts.remote.ts';
+	import {
+		listAccounts,
+		listDrops,
+		listInvested,
+		listReturns,
+	} from '#lib/endpoints/accounts.remote.ts';
 	import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
 	import { periodOf } from '#lib/shared/dates.ts';
 	import { ASSETS, BalanceAccount } from '#lib/shared/accounts.ts';
 	import { depthOf, isUnder } from '#lib/web/shared/accounts.ts';
 	import AccountName from '#lib/web/components/app-account-name/app-account-name.svelte';
-	import ChoicePicker from '#lib/web/components/ui-picker-choice/ui-picker-choice.svelte';
 	import Bar from '#lib/web/components/ui-bar/ui-bar.svelte';
 	import BarRow from '#lib/web/components/ui-bar-row/ui-bar-row.svelte';
-	import FilterSection from '#lib/web/components/ui-filter-section/ui-filter-section.svelte';
 	import ListFilter from '#lib/web/components/app-list-filter/app-list-filter.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
+	import Drops from '#lib/web/components/app-drops/app-drops.svelte';
+	import Scatter from '#lib/web/components/ui-chart-scatter/ui-chart-scatter.svelte';
+	import Donut from '#lib/web/components/ui-chart-donut/ui-chart-donut.svelte';
+	import Invested from '#lib/web/components/app-invested/app-invested.svelte';
 	import Amount from '#lib/web/components/app-ledger-table/amount.svelte';
 	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
 	import Kpi from '#lib/web/components/ui-kpi/ui-kpi.svelte';
 	import KpiStrip from '#lib/web/components/ui-kpi-strip/ui-kpi-strip.svelte';
-	import NetWorth from '#lib/web/components/app-net-worth/app-net-worth.svelte';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
@@ -27,8 +33,9 @@
 		formatReturn,
 		formatWhole,
 	} from '#lib/web/shared/format.ts';
+	import { dotsOf } from '#lib/web/shared/dots.ts';
 	import { groupsInvested, investedOf, totalsOf } from '#lib/web/shared/invested.ts';
-	import { WorthChart, WORTH_CHART_LABELS } from '#lib/web/shared/choices.ts';
+	import { ringsOf } from '#lib/web/shared/rings.ts';
 	import { page } from '$app/state';
 	import * as v from 'valibot';
 
@@ -49,18 +56,15 @@
 	const thisYear = { kind: 'year', at: day.slice(0, 4) } as const;
 	const period = $derived(periodOf(page.url.searchParams, thisYear));
 	const account = $derived(v.parse(BalanceAccount, page.url.searchParams.get('account')));
-	const chart = $derived(
-		v.parse(v.fallback(WorthChart, 'time'), page.url.searchParams.get('chart')),
-	);
-	const [response, valued, earned, first] = $derived(
+	const [response, earned, first, grown, fallen] = $derived(
 		await Promise.all([
 			listAccounts({ handle, day, period }),
-			listWorth({ handle, day, period, account }),
 			listReturns({ handle, day, period }),
 			findFirstDay(handle),
+			listInvested({ handle, day, period, account }),
+			listDrops({ handle, day, period, account }),
 		]),
 	);
-	const worth = $derived(valued.data ?? []);
 	const earliest = $derived(first.data ?? null);
 	const accounts = $derived(response.data ?? []);
 	const returns = $derived(Object.fromEntries((earned.data ?? []).map((r) => [r.account, r])));
@@ -83,6 +87,17 @@
 			.reduce((t, a) => t + Number(a.total), 0),
 	);
 
+	const rings = $derived(
+		ringsOf(accounts, account !== null && isUnder(account, ASSETS) ? account : ASSETS),
+	);
+	const owing = $derived(
+		rings.skipped === 0
+			? undefined
+			: `${rings.skipped} ${rings.skipped === 1 ? 'account is' : 'accounts are'} below zero, so not drawn`,
+	);
+
+	const dots = $derived(dotsOf(invested, fallen.data?.[0]?.swings ?? [], rings.arcs));
+
 	const lotsOf = (account: string, commodity: string) =>
 		`/l/${handle}/accounts/lots?${new URLSearchParams({ account, commodity })}`;
 
@@ -97,23 +112,25 @@
 <PageHeader subtitle="What you own, and how it has grown">
 	Accounts
 	{#snippet actions()}
-		<ListFilter {period} {account} {accounts} today={day} first={earliest} moreParams={['chart']}>
-			{#snippet more()}
-				<FilterSection label="Chart">
-					<ChoicePicker param="chart" label="Chart" choices={WORTH_CHART_LABELS} current={chart} />
-				</FilterSection>
-			{/snippet}
-		</ListFilter>
+		<ListFilter {period} {account} {accounts} today={day} first={earliest} />
 	{/snippet}
 </PageHeader>
 
-<Issues {handle} errors={[...(response.errors ?? []), ...(earned.errors ?? [])]} />
+<Issues
+	{handle}
+	errors={[
+		...(response.errors ?? []),
+		...(earned.errors ?? []),
+		...(grown.errors ?? []),
+		...(fallen.errors ?? []),
+	]}
+/>
 
 <KpiStrip>
 	<Kpi
 		label="Invested value"
 		figure={formatWhole(String(totals.value))}
-		detail="on {formatWhole(String(totals.cost))} put in"
+		detail="on {formatWhole(String(totals.cost))} cost"
 	/>
 	<Kpi
 		label="Gain"
@@ -133,13 +150,13 @@
 	/>
 </KpiStrip>
 
-<NetWorth {worth} {accounts} {account} {chart} />
-
-<Panel
-	title="Value against cost"
-	subtitle="what the investments are worth, and what went into them"
-	soon
-/>
+<Panel title="Value against cost" subtitle="what the investments are worth, and what they cost">
+	{#if (grown.data ?? []).length > 0}
+		<Invested invested={grown.data ?? []} />
+	{:else}
+		<p>No investments with a cost in this period.</p>
+	{/if}
+</Panel>
 
 <PanelGrid>
 	<div class="column">
@@ -159,14 +176,44 @@
 			</ul>
 		</Panel>
 
-		<Panel title="Biggest drops" subtitle="how far investments fell from their high" soon />
+		<Panel title="Biggest drops" subtitle="how far investments fell from their high">
+			{#if fallen.data?.[0]}
+				<Drops drops={fallen.data[0]} />
+			{:else}
+				<p>Needs price history.</p>
+			{/if}
+		</Panel>
 	</div>
 
-	<Panel
-		title="Return and risk"
-		subtitle="each dot is an account, bigger dot, more money in it"
-		soon
-	/>
+	<div class="column">
+		<Panel
+			title="Where it sits"
+			subtitle="each ring is a level of accounts, the inner ring the groups"
+		>
+			{#if rings.arcs.length > 0}
+				<Donut
+					arcs={rings.arcs}
+					levels={rings.levels}
+					label="How {account ?? ASSETS} divides across its accounts"
+					note={owing}
+				/>
+			{:else}
+				<p>Nothing to divide.</p>
+			{/if}
+		</Panel>
+
+		<Panel title="Return and risk" subtitle="each dot is an account, bigger dot, more money in it">
+			{#if dots.length > 0}
+				<Scatter
+					{dots}
+					across="how much it swings in a year"
+					label="Return a year against how much each account swings"
+				/>
+			{:else}
+				<p>Needs price history.</p>
+			{/if}
+		</Panel>
+	</div>
 </PanelGrid>
 
 {#snippet returnOf(gain: string | null, cost: string | null)}

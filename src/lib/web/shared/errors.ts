@@ -67,6 +67,11 @@ export const explain = (error: RupeaError): string =>
 			(e) => `${e.account} has no XIRR: no rate makes its flows and values add up.`,
 		)
 		.with(
+			{ type: 'CostUnpriced' },
+			(e) =>
+				`Lots bought in ${e.commodity} on a day it has no price are left out of cost, so gains may read high. Add a P line for it.`,
+		)
+		.with(
 			{ type: 'FeedUnavailable' },
 			(e) => `${e.feed} couldn’t be reached for ${e.symbol}. It will be tried again.`,
 		)
@@ -111,4 +116,5 @@ export const isWarning = (e: RupeaError) =>
 	e.type === 'BalanceAssertionFailed' ||
 	e.type === 'BalanceAssertionAmbiguous' ||
 	e.type === 'ReturnUnpriced' ||
-	e.type === 'ReturnUnsolved';
+	e.type === 'ReturnUnsolved' ||
+	e.type === 'CostUnpriced';

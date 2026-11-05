@@ -953,4 +953,338 @@ describe('spending', () => {
 				['Expenses:Food', 'Expenses', 500_0000000000n, 0],
 			]);
 		}));
+
+	describe('invested', () => {
+		const valued = async (ledger: Ledger, account: string | null) =>
+			(
+				await Accounts.listInvested({
+					ledger,
+					from: Temporal.PlainDate.from('2026-01-01'),
+					to: Temporal.PlainDate.from('2026-10-05'),
+					account,
+				})
+			)
+				._unsafeUnwrap()
+				.succeeded.filter((i) => ['2026-01-02', '2026-03-01', '2026-10-01'].includes(`${i.day}`))
+				.map((i) => [`${i.day}`, i.value, i.cost]);
+
+		it('takes the cost of the lots a sale sold out, and not what it fetched', ({ context, db }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				const content = [
+					'2026-01-02 Buy',
+					'\tAssets:Zerodha 10 INFY @ 1500',
+					'\tAssets:Bank',
+					'',
+					'2026-03-01 Sell',
+					'\tAssets:Zerodha -4 INFY {1500} @ 1700',
+					'\tAssets:Bank 6800',
+					'\tIncome:Gains -800',
+					'',
+					'2026-10-01 Buy',
+					'\tAssets:Zerodha 1 INFY @ 1900',
+					'\tAssets:Bank',
+					'',
+					'P 2026-10-01 INFY 1800',
+					'',
+				].join('\n');
+				await Files.createFile({ ledger, key: 'a.rupea', content });
+
+				expect(await valued(ledger, null)).toEqual([
+					['2026-01-02', 15000_0000000000n, 15000_0000000000n],
+					['2026-03-01', 10200_0000000000n, 9000_0000000000n],
+					['2026-10-01', 12600_0000000000n, 10900_0000000000n],
+				]);
+			}));
+
+		it('values a cost in another currency at the price of the day it was paid', ({ context, db }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				const content = [
+					'P 2026-01-02 USD 80',
+					'P 2026-03-01 USD 90',
+					'P 2026-03-01 AAPL 110 USD',
+					'',
+					'2026-01-02 Buy',
+					'\tAssets:IBKR 2 AAPL @ 100 USD',
+					'\tAssets:IBKR -200 USD',
+					'',
+					'',
+				].join('\n');
+				await Files.createFile({ ledger, key: 'a.rupea', content });
+
+				expect(await valued(ledger, 'Assets:IBKR')).toEqual([
+					['2026-01-02', 16000_0000000000n, 16000_0000000000n],
+					['2026-03-01', 19800_0000000000n, 16000_0000000000n],
+					['2026-10-01', 19800_0000000000n, 16000_0000000000n],
+				]);
+			}));
+
+		it('says so when a cost currency had no price the day it was paid', ({ context, db }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				const content = [
+					'2026-01-02 Buy',
+					'\tAssets:IBKR 2 AAPL @ 100 USD',
+					'\tAssets:IBKR -200 USD',
+					'',
+				].join('\n');
+				await Files.createFile({ ledger, key: 'a.rupea', content });
+
+				const batch = (
+					await Accounts.listInvested({
+						ledger,
+						from: Temporal.PlainDate.from('2026-01-01'),
+						to: Temporal.PlainDate.from('2026-01-31'),
+						account: null,
+					})
+				)._unsafeUnwrap();
+
+				expect(batch.failed).toContainEqual({ type: 'CostUnpriced', commodity: 'USD' });
+			}));
+
+		it('counts only the holdings with lots, in the account asked for', ({ context, db }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				const content = [
+					'2026-01-02 Buy',
+					'\tAssets:Zerodha 10 INFY @ 1500',
+					'\tAssets:Bank',
+					'',
+					'2026-01-02 Buy',
+					'\tAssets:Other 1 TCS @ 3000',
+					'\tAssets:Bank',
+					'',
+				].join('\n');
+				await Files.createFile({ ledger, key: 'a.rupea', content });
+
+				expect((await valued(ledger, 'Assets:Zerodha'))[0]).toEqual([
+					'2026-01-02',
+					15000_0000000000n,
+					15000_0000000000n,
+				]);
+				expect((await valued(ledger, null))[0]).toEqual([
+					'2026-01-02',
+					18000_0000000000n,
+					18000_0000000000n,
+				]);
+			}));
+	});
+
+	describe('drops', () => {
+		const fell = async (ledger: Ledger, account: string | null = null) =>
+			(
+				await Accounts.listDrops({
+					ledger,
+					from: Temporal.PlainDate.from('2026-01-01'),
+					to: Temporal.PlainDate.from('2026-01-31'),
+					account,
+				})
+			)._unsafeUnwrap().succeeded[0];
+
+		it('counts what prices did, and neither buying nor selling', ({ context, db }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				const content = [
+					'2026-01-02 Buy',
+					'\tAssets:Zerodha 10 INFY @ 100',
+					'\tAssets:Bank',
+					'',
+					'P 2026-01-10 INFY 80',
+					'',
+					'2026-01-15 Buy more',
+					'\tAssets:Zerodha 10 INFY @ 80',
+					'\tAssets:Bank',
+					'',
+					'P 2026-01-20 INFY 90',
+					'',
+					'2026-01-25 Sell',
+					'\tAssets:Zerodha -15 INFY {80} @ 90',
+					'\tAssets:Bank 1350',
+					'\tIncome:Gains -150',
+					'',
+				].join('\n');
+				await Files.createFile({ ledger, key: 'a.rupea', content });
+
+				const drops = await fell(ledger);
+				const depthOn = (day: string) => drops?.underwater.find((u) => `${u.day}` === day)?.depth;
+
+				expect(drops?.lows.map((l) => [l.account, `${l.day}`])).toEqual([
+					['Assets:Zerodha', '2026-01-10'],
+				]);
+				expect(drops?.lows[0]?.depth).toBeCloseTo(-0.2);
+				expect(depthOn('2026-01-02')).toBe(0);
+				expect(depthOn('2026-01-15')).toBeCloseTo(-0.2);
+				expect(depthOn('2026-01-20')).toBeCloseTo(-0.1);
+				expect(depthOn('2026-01-31')).toBeCloseTo(-0.1);
+			}));
+
+		it('gives each account with lots its own low, and none to one without', ({ context, db }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				const content = [
+					'2026-01-02 Buy',
+					'\tAssets:Zerodha 10 INFY @ 100',
+					'\tAssets:Bank',
+					'',
+					'2026-01-02 Buy',
+					'\tAssets:Other 10 TCS @ 100',
+					'\tAssets:Bank',
+					'',
+					'P 2026-01-10 INFY 50',
+					'P 2026-01-10 TCS 110',
+					'',
+				].join('\n');
+				await Files.createFile({ ledger, key: 'a.rupea', content });
+
+				const lows = (await fell(ledger))?.lows.map((l) => [l.account, l.depth]);
+				expect(lows).toEqual([
+					['Assets:Zerodha', -0.5],
+					['Assets:Other', 0],
+				]);
+				expect((await fell(ledger, 'Assets:Other'))?.lows.map((l) => l.account)).toEqual([
+					'Assets:Other',
+				]);
+			}));
+
+		it('scales the spread of the days a price moved to a year, once enough of them have', ({
+			context,
+			db,
+		}) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				const start = Temporal.PlainDate.from('2026-01-02');
+				const quotes = Array.from(
+					{ length: 70 },
+					(_, i) => `P ${start.add({ days: i + 1 })} INFY ${i % 2 === 0 ? 101 : 100}`,
+				);
+				const content = [
+					'2026-01-02 Buy',
+					'\tAssets:Zerodha 10 INFY @ 100',
+					'\tAssets:Bank',
+					'2026-01-02 Buy',
+					'\tAssets:Other 10 TCS @ 100',
+					'\tAssets:Bank',
+					...quotes,
+					'',
+				].join('\n');
+				await Files.createFile({ ledger, key: 'a.rupea', content });
+
+				const drops = (
+					await Accounts.listDrops({
+						ledger,
+						from: start,
+						to: start.add({ days: 80 }),
+						account: null,
+					})
+				)._unsafeUnwrap().succeeded[0];
+
+				expect(drops?.swings.map((s) => s.account)).toEqual(['Assets:Zerodha']);
+				expect(drops?.swings[0]?.swing).toBeCloseTo(0.158, 2);
+			}));
+
+		it('has nothing to say when no holding with lots was held', ({ context, db }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				const content = ['2026-01-02 Pay', '\tAssets:Bank 500', '\tIncome:Salary', ''].join('\n');
+				await Files.createFile({ ledger, key: 'a.rupea', content });
+
+				expect(await fell(ledger)).toBeUndefined();
+			}));
+	});
+
+	describe('bridge', () => {
+		const crossed = async (ledger: Ledger) =>
+			(
+				await Accounts.findBridge({
+					ledger,
+					from: Temporal.PlainDate.from('2026-01-01'),
+					to: Temporal.PlainDate.from('2026-01-31'),
+				})
+			)._unsafeUnwrap().succeeded[0];
+
+		const UNIT = 10_000_000_000n;
+
+		it('splits the change in net worth into income, expenses and price moves', ({ context, db }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				const content = [
+					'2026-01-01 Opening',
+					'\tAssets:Bank 1000',
+					'\tEquity:Opening',
+					'',
+					'2026-01-02 Buy',
+					'\tAssets:Zerodha 10 INFY @ 100',
+					'\tAssets:Bank',
+					'',
+					'2026-01-05 Pay',
+					'\tAssets:Bank 500',
+					'\tIncome:Salary',
+					'',
+					'2026-01-06 Rent',
+					'\tExpenses:Rent 200',
+					'\tAssets:Bank',
+					'',
+					'P 2026-01-10 INFY 120',
+					'',
+				].join('\n');
+				await Files.createFile({ ledger, key: 'a.rupea', content });
+
+				const bridge = await crossed(ledger);
+
+				expect(bridge).toMatchObject({
+					start: 1000n * UNIT,
+					income: 500n * UNIT,
+					expenses: 200n * UNIT,
+					other: 0n,
+					end: 1500n * UNIT,
+				});
+				expect(bridge?.shifts).toEqual([{ account: 'Assets:Zerodha', amount: 200n * UNIT }]);
+			}));
+
+		it('reads income and expenses only after the first day anything was held', ({ context, db }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				const content = ['2026-01-31 Opening', '\tAssets:Bank 1000', '\tEquity:Opening', ''].join(
+					'\n',
+				);
+				await Files.createFile({ ledger, key: 'a.rupea', content });
+
+				expect(await crossed(ledger)).toMatchObject({
+					start: 1000n * UNIT,
+					income: 0n,
+					expenses: 0n,
+					end: 1000n * UNIT,
+				});
+			}));
+
+		it('keeps what neither income, expenses nor prices explain as other', ({ context, db }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				const content = [
+					'2026-01-01 Opening',
+					'\tAssets:Bank 1000',
+					'\tEquity:Opening',
+					'',
+					'2026-01-10 Gift',
+					'\tAssets:Bank 300',
+					'\tEquity:Gifts',
+					'',
+				].join('\n');
+				await Files.createFile({ ledger, key: 'a.rupea', content });
+
+				const bridge = await crossed(ledger);
+
+				expect(bridge).toMatchObject({ income: 0n, expenses: 0n, other: 300n * UNIT });
+				expect(bridge?.shifts).toEqual([]);
+			}));
+
+		it('has nothing to say when nothing was held', ({ context, db }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				await Files.createFile({ ledger, key: 'a.rupea', content: '' });
+
+				expect(await crossed(ledger)).toBeUndefined();
+			}));
+	});
 });

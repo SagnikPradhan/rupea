@@ -52,6 +52,36 @@ describe('the expenses page', () => {
 		expect(screen.getAllByText('1 unpriced')).toHaveLength(2);
 	});
 
+	it('draws what came in flowing into what was spent and what was kept, over all expenses', async () => {
+		visit('/l/h/expenses?at=2026');
+		const income = {
+			...spending,
+			totals: [
+				{ account: 'Income', parent: null, first: '2026-01-03', amount: '-3000', unpriced: 0 },
+				{
+					account: 'Income:Salary',
+					parent: 'Income',
+					first: '2026-01-03',
+					amount: '-3000',
+					unpriced: 0,
+				},
+			],
+		};
+		vi.mocked(listSpending).mockImplementation(({ account }) =>
+			answer(account === 'Income' ? [income] : [spending, previous]),
+		);
+		render(Page, { data });
+
+		expect(
+			await screen.findByRole('img', {
+				name: 'How what came in divides into what was spent and what was kept',
+			}),
+		).toBeTruthy();
+		expect(vi.mocked(listSpending)).toHaveBeenCalledWith(
+			expect.objectContaining({ account: 'Income' }),
+		);
+	});
+
 	it('folds the accounts under one until it is opened', async () => {
 		visit('/l/h/expenses?at=2026');
 		const dining = {

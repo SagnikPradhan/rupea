@@ -79,6 +79,29 @@ export const viewWorth = (worth: Accounts.Worth) => ({
 	unpriced: worth.unpriced,
 });
 
+export const viewInvested = (invested: Accounts.Invested) => ({
+	day: invested.day.toString(),
+	value: formatAmount(invested.value),
+	cost: formatAmount(invested.cost),
+});
+
+export const viewDrops = (drops: Accounts.Drops) => ({
+	underwater: drops.underwater.map((u) => ({ day: u.day.toString(), depth: u.depth })),
+	lows: drops.lows.map((l) => ({ account: l.account, depth: l.depth, day: l.day.toString() })),
+	swings: drops.swings,
+});
+
+export const viewBridge = (bridge: Accounts.Bridge) => ({
+	from: bridge.from.toString(),
+	to: bridge.to.toString(),
+	start: formatAmount(bridge.start),
+	income: formatAmount(bridge.income),
+	expenses: formatAmount(bridge.expenses),
+	shifts: bridge.shifts.map((s) => ({ account: s.account, amount: formatAmount(s.amount) })),
+	other: formatAmount(bridge.other),
+	end: formatAmount(bridge.end),
+});
+
 export const viewReturns = (returns: Accounts.Returns) => ({
 	account: returns.account,
 	netIn: formatAmount(returns.netIn),

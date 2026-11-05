@@ -15,6 +15,7 @@ const flow = (
 	column,
 	part,
 	from,
+	into: null,
 });
 
 const FLOWS = [
@@ -70,5 +71,32 @@ describe('the alluvial chart', () => {
 		const plot = drawn();
 		await fireEvent.pointerEnter(plot.querySelectorAll('path.band')[2] as Element);
 		expect(plot.querySelector('[role="tooltip"]')?.textContent).toContain('Groceries');
+	});
+
+	it('runs sources into one bar, names them and it, and shades what was saved green', () => {
+		const saved = (key: string, amount: number, column: number, from: string | null) => ({
+			...flow(key, amount, column, null, from),
+		});
+		render(AlluvialChart, {
+			flows: [
+				{ ...saved('Salary', 800, 0, null), into: 'Income' },
+				{ ...saved('Dividends', 200, 0, null), into: 'Income' },
+				saved('Income', 1000, 1, null),
+				saved('Rent', 600, 2, 'Income'),
+				saved('Saved', 400, 2, 'Income'),
+			],
+			label: 'Kept',
+		});
+		const plot = screen.getByRole('img', { name: 'Kept' });
+
+		expect(plot.querySelectorAll('path.band')).toHaveLength(4);
+		expect([...plot.querySelectorAll('.name')].map((t) => t.textContent)).toEqual([
+			'Salary',
+			'Dividends',
+			'Income',
+			'Rent',
+			'Saved',
+		]);
+		expect(plot.querySelectorAll('rect')[4]?.getAttribute('style')).toContain('--color-positive');
 	});
 });

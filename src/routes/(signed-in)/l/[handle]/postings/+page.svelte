@@ -63,9 +63,9 @@
 
 		<PagedTable
 			columns={[
-				{ label: 'Description' },
 				{ label: 'Date', kind: 'date' },
 				{ label: 'Account' },
+				{ label: 'Description' },
 				{ label: 'Amount', kind: 'amount' },
 			]}
 			{list}
@@ -76,11 +76,11 @@
 				{@const posting = list.rows[index]}
 				{#if posting}
 					<tr>
-						<th scope="row" class="truncate" title={posting.description}>
-							<a href={editHref(params, posting.transaction)}>{posting.description}</a>
-						</th>
 						<td class="date"><time datetime={posting.date}>{formatDate(posting.date)}</time></td>
 						<td><Account account={posting.account} /></td>
+						<th scope="row" class="description" title={posting.description}>
+							<a href={editHref(params, posting.transaction)}>{posting.description}</a>
+						</th>
 						<Amount value={posting.quantity} />
 					</tr>
 				{/if}
@@ -90,3 +90,10 @@
 
 	<TransactionAside {handle} {refresh} />
 </PanelGrid>
+
+<style>
+	.description {
+		width: 40%;
+		min-width: calc(var(--size-5) * 5);
+	}
+</style>

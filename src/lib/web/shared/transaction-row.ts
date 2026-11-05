@@ -1,10 +1,9 @@
 const SIDES = new Set(['Assets', 'Liabilities']);
 
-/** The account, category and amount a transaction's list row shows, from its postings. */
+/** The account, first category and number of further categories a transaction's list row shows. */
 export const rowOf = (postings: { account: string; quantity: string }[]) => {
 	const side = postings.find((p) => SIDES.has(p.account.split(':')[0] ?? '')) ?? postings[0];
-	const other = postings.find((p) => p !== side);
+	const others = postings.filter((p) => p !== side);
 
-	if (postings.length > 2) return { side, category: null, split: postings.length };
-	return { side, category: other ?? null, split: 0 };
+	return { side, category: others[0] ?? null, more: Math.max(others.length - 1, 0) };
 };

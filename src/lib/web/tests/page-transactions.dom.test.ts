@@ -66,7 +66,7 @@ describe('the transactions page', () => {
 		expect(screen.getByRole('alert').textContent).toContain('This posting can’t be read.');
 	});
 
-	it('shows a transaction of many lines as a split', async () => {
+	it('says how many more categories a split has', async () => {
 		visit('/l/h/transactions');
 		answering([
 			{
@@ -80,7 +80,7 @@ describe('the transactions page', () => {
 		]);
 		render(Page, { data });
 
-		expect(await screen.findByText(/Split · 3 lines/)).toBeTruthy();
+		expect(await screen.findByText('+1 more')).toBeTruthy();
 	});
 
 	it('links each description to editing it, keeping the filter', async () => {

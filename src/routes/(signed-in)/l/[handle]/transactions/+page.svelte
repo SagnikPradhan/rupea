@@ -65,10 +65,10 @@
 
 		<PagedTable
 			columns={[
-				{ label: 'Description' },
 				{ label: 'Date', kind: 'date' },
 				{ label: 'Account', optional: true },
 				{ label: 'Category', optional: true },
+				{ label: 'Description' },
 				{ label: 'Amount', kind: 'amount' },
 			]}
 			{list}
@@ -78,17 +78,8 @@
 			{#snippet row(index: number)}
 				{@const transaction = list.rows[index]}
 				{#if transaction}
-					{@const { side, category, split } = rowOf(transaction.postings)}
+					{@const { side, category, more } = rowOf(transaction.postings)}
 					<tr class:evidence={!transaction.counted}>
-						<th
-							scope="row"
-							class="truncate"
-							title={[transaction.description, transaction.comment].filter(Boolean).join('\n')}
-						>
-							{#if !transaction.counted}<Tag>evidence</Tag>{/if}
-							<a href={editHref(params, transaction.id)}>{transaction.description}</a>
-							{#if transaction.comment}<span class="comment">; {transaction.comment}</span>{/if}
-						</th>
 						<td class="date">
 							<time datetime={transaction.date}>{formatDate(transaction.date)}</time>
 							{#if transaction.time}<span>{transaction.time}</span>{/if}
@@ -97,9 +88,18 @@
 							>{#if side}<Account account={side.account} />{/if}</td
 						>
 						<td class="optional">
-							{#if split > 0}Split · {split} lines{/if}
 							{#if category}<Account account={category.account} />{/if}
+							{#if more > 0}<span class="more">+{more} more</span>{/if}
 						</td>
+						<th
+							scope="row"
+							class="description"
+							title={[transaction.description, transaction.comment].filter(Boolean).join('\n')}
+						>
+							{#if !transaction.counted}<Tag>evidence</Tag>{/if}
+							<a href={editHref(params, transaction.id)}>{transaction.description}</a>
+							{#if transaction.comment}<span class="comment">; {transaction.comment}</span>{/if}
+						</th>
 						<Amount value={side?.quantity ?? null} />
 					</tr>
 				{/if}
@@ -114,6 +114,15 @@
 	td span,
 	.comment {
 		color: var(--color-muted);
+	}
+
+	.description {
+		width: 40%;
+		min-width: calc(var(--size-5) * 5);
+	}
+
+	.more {
+		margin-left: var(--size-1);
 	}
 
 	.evidence {

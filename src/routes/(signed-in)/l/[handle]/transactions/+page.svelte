@@ -1,31 +1,27 @@
 <script lang="ts">
 	import { listAccountTree } from '#lib/endpoints/accounts.remote.ts';
-	import { findTransaction, findTransactionFiles } from '#lib/endpoints/files.remote.ts';
 	import { findFirstDay, listProblems } from '#lib/endpoints/ledger.remote.ts';
 	import { listTransactions } from '#lib/endpoints/transactions.remote.ts';
 	import { filterOf } from '#lib/shared/filter.ts';
+	import TransactionAside from '#lib/web/components/app-transaction-aside/app-transaction-aside.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
-	import TransactionForm from '#lib/web/components/app-transaction-form/app-transaction-form.svelte';
 	import Account from '#lib/web/components/app-ledger-table/account.svelte';
 	import Amount from '#lib/web/components/app-ledger-table/amount.svelte';
 	import Source from '#lib/web/components/app-ledger-table/source.svelte';
+	import ListChips from '#lib/web/components/app-list-chips/app-list-chips.svelte';
 	import ListFilter from '#lib/web/components/app-list-filter/app-list-filter.svelte';
 	import ListViews from '#lib/web/components/app-list-views/app-list-views.svelte';
 	import ListSearch from '#lib/web/components/app-list-search/app-list-search.svelte';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import PagedTable from '#lib/web/components/app-ledger-table-paged/app-ledger-table-paged.svelte';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
-	import Aside from '#lib/web/components/ui-aside/ui-aside.svelte';
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
-	import Chip from '#lib/web/components/ui-chip/ui-chip.svelte';
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
-	import { formatBucket, formatDate, formatIsoDate } from '#lib/web/shared/format.ts';
-	import { hrefWith } from '#lib/web/shared/links.ts';
+	import { formatDate, formatIsoDate } from '#lib/web/shared/format.ts';
+	import { editHref, hrefWith } from '#lib/web/shared/links.ts';
 	import { paged } from '#lib/web/shared/paged.svelte.ts';
-	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { MediaQuery } from 'svelte/reactivity';
 
 	const { data } = $props();
 
@@ -40,40 +36,16 @@
 	const list = $derived(paged(first, (after) => listTransactions({ handle, day, filter, after })));
 
 	const params = $derived([...page.url.searchParams]);
-	const wide = new MediaQuery('min-width: 90rem');
-	const editing = $derived(page.url.searchParams.get('edit'));
-	const adding = $derived(page.url.searchParams.has('add') || (wide.current && !editing));
-	const files = $derived(adding ? await findTransactionFiles(handle) : null);
-	const open = $derived(editing ? await findTransaction({ handle, id: editing }) : null);
-	const closed = $derived(hrefWith(params, { add: '', edit: '' }));
-
-	const periodLabel = $derived.by(() => {
-		const p = filter.period;
-		if (p.kind === 'month') return formatBucket.month(`${p.at}-01`);
-		if (p.kind === 'year') return p.at;
-		if (p.kind === 'custom') return `${formatDate(p.from)} – ${formatDate(p.to)}`;
-		return 'All time';
-	});
-
-	const editHref = (id: string) => hrefWith(params, { add: '', edit: id });
 
 	const refresh = async () => {
 		await listTransactions({ handle, day, filter, after: null }).refresh();
-		if (editing) await goto(closed);
 	};
 </script>
 
 <PageHeader subtitle="Everything in your ledger, newest first">
 	Transactions
 	{#snippet actions()}
-		{#if filter.period.kind !== 'all'}
-			<Chip toggle on href={hrefWith(params, { at: '', range: '', from: '', to: '' })}>
-				{periodLabel}
-			</Chip>
-		{/if}
-		{#if filter.account}
-			<Chip toggle on href={hrefWith(params, { account: '' })}>{filter.account}</Chip>
-		{/if}
+		<ListChips {filter} />
 		<ListFilter
 			period={filter.period}
 			account={filter.account || null}
@@ -115,7 +87,7 @@
 							title={[transaction.description, transaction.comment].filter(Boolean).join('\n')}
 						>
 							{#if !transaction.counted}<Tag>evidence</Tag>{/if}
-							<a href={editHref(transaction.id)}>{transaction.description}</a>
+							<a href={editHref(params, transaction.id)}>{transaction.description}</a>
 							{#if transaction.comment}<span class="comment">; {transaction.comment}</span>{/if}
 						</th>
 						<Source {handle} file={transaction.file} line={transaction.line} />
@@ -134,22 +106,7 @@
 		</PagedTable>
 	</Panel>
 
-	{#if files?.data}
-		<Aside title="Add transaction" closeBeside={false} onclose={() => goto(closed)}>
-			<TransactionForm
-				{handle}
-				keys={files.data.keys}
-				newest={files.data.newest}
-				onsaved={refresh}
-			/>
-		</Aside>
-	{:else if editing && open?.data}
-		<Aside title="Edit transaction" onclose={() => goto(closed)}>
-			{#key `${editing}:${open.data.version}`}
-				<TransactionForm {handle} keys={[]} newest={null} edit={open.data} onsaved={refresh} />
-			{/key}
-		</Aside>
-	{/if}
+	<TransactionAside {handle} {refresh} />
 </PanelGrid>
 
 <style>

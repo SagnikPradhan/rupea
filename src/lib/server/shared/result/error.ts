@@ -3,6 +3,8 @@ export type RupeaError =
 	| { type: 'CannotReadDirectory'; path: string; cause?: RupeaError[] }
 	| { type: 'CannotReadFile'; path: string; reason: string; cause?: RupeaError[] }
 	| { type: 'CannotMergeFile'; path: string }
+	| { type: 'CannotWriteTransaction'; path: string }
+	| { type: 'TransactionNotFound'; path: string; line: number }
 	| { type: 'StorageInvalidKey'; key: string }
 	| { type: 'StorageNotFound'; key: string }
 	| { type: 'StorageConflict'; key: string; expected: string | null; actual: string | null }

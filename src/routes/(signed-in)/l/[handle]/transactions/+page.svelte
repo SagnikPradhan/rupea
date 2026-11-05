@@ -3,17 +3,23 @@
 	import { findFirstDay, listProblems } from '#lib/endpoints/ledger.remote.ts';
 	import { listTransactions } from '#lib/endpoints/transactions.remote.ts';
 	import { filterOf } from '#lib/shared/filter.ts';
+	import TransactionAside from '#lib/web/components/app-transaction-aside/app-transaction-aside.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import Account from '#lib/web/components/app-ledger-table/account.svelte';
 	import Amount from '#lib/web/components/app-ledger-table/amount.svelte';
-	import Source from '#lib/web/components/app-ledger-table/source.svelte';
+	import ListChips from '#lib/web/components/app-list-chips/app-list-chips.svelte';
 	import ListFilter from '#lib/web/components/app-list-filter/app-list-filter.svelte';
 	import ListViews from '#lib/web/components/app-list-views/app-list-views.svelte';
 	import ListSearch from '#lib/web/components/app-list-search/app-list-search.svelte';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import PagedTable from '#lib/web/components/app-ledger-table-paged/app-ledger-table-paged.svelte';
+	import Button from '#lib/web/components/ui-button/ui-button.svelte';
+	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
+	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
 	import { formatDate, formatIsoDate } from '#lib/web/shared/format.ts';
+	import { editHref, hrefWith } from '#lib/web/shared/links.ts';
+	import { rowOf } from '#lib/web/shared/transaction-row.ts';
 	import { paged } from '#lib/web/shared/paged.svelte.ts';
 	import { page } from '$app/state';
 
@@ -28,11 +34,18 @@
 	const earliest = $derived((await findFirstDay(handle)).data ?? null);
 	const first = $derived(await listTransactions({ handle, day, filter, after: null }));
 	const list = $derived(paged(first, (after) => listTransactions({ handle, day, filter, after })));
+
+	const params = $derived([...page.url.searchParams]);
+
+	const refresh = async () => {
+		await listTransactions({ handle, day, filter, after: null }).refresh();
+	};
 </script>
 
-<PageHeader>
+<PageHeader subtitle="Everything in your ledger, newest first">
 	Transactions
 	{#snippet actions()}
+		<ListChips {filter} />
 		<ListFilter
 			period={filter.period}
 			account={filter.account || null}
@@ -40,66 +53,94 @@
 			today={day}
 			first={earliest}
 		/>
+		<Button primary href={hrefWith(params, { add: '1' })}>Add transaction</Button>
 	{/snippet}
 </PageHeader>
 
-<ListViews {handle} chosen="transactions"><ListSearch {filter} /></ListViews>
+<PanelGrid wide>
+	<Panel title="Transactions" subtitle="newest first">
+		<ListViews {handle} chosen="transactions"><ListSearch {filter} /></ListViews>
 
-<Issues {handle} errors={[...issues.errors, ...list.errors]} />
+		<Issues {handle} errors={[...issues.errors, ...list.errors]} />
 
-<PagedTable
-	columns={[
-		{ label: 'Date', kind: 'date' },
-		{ label: 'Description' },
-		{ label: 'Amount', kind: 'amount' },
-	]}
-	{list}
-	height={64}
-	empty="No transactions match."
->
-	{#snippet row(index: number)}
-		{@const transaction = list.rows[index]}
-		{#if transaction}
-			<tr class:evidence={!transaction.counted}>
-				<td class="date">
-					<time datetime={transaction.date}>{formatDate(transaction.date)}</time>
-					{#if transaction.time}<span>{transaction.time}</span>{/if}
-				</td>
-				<th
-					scope="row"
-					class="truncate"
-					title={[transaction.description, transaction.comment].filter(Boolean).join('\n')}
-				>
-					{#if !transaction.counted}<Tag>evidence</Tag>{/if}
-					{transaction.description}
-					{#if transaction.comment}<span class="comment">; {transaction.comment}</span>{/if}
-				</th>
-				<Source {handle} file={transaction.file} line={transaction.line} />
-			</tr>
-			{#each transaction.postings as posting, position (position)}
-				<tr class="child" class:evidence={!transaction.counted}>
-					<td></td>
-					<td>
-						<Account account={posting.account} />
-					</td>
-					<Amount value={posting.quantity} />
-				</tr>
-			{/each}
-		{/if}
-	{/snippet}
-</PagedTable>
+		<PagedTable
+			columns={[
+				{ label: 'Date', kind: 'date' },
+				{ label: 'From', kind: 'account', optional: true },
+				{ label: 'To', kind: 'account', optional: true },
+				{ label: 'Description' },
+				{ label: 'Amount', kind: 'amount' },
+			]}
+			{list}
+			height={54}
+			empty="No transactions match."
+		>
+			{#snippet row(index: number)}
+				{@const transaction = list.rows[index]}
+				{#if transaction}
+					{@const { from, to, more, amount } = rowOf(transaction.postings)}
+					<tr class:evidence={!transaction.counted}>
+						<td class="date">
+							<time datetime={transaction.date}>{formatDate(transaction.date)}</time>
+							{#if transaction.time}<span>{transaction.time}</span>{/if}
+						</td>
+						<td class="optional truncate"
+							>{#if from}<Account account={from.account} />{/if}</td
+						>
+						<td class="optional truncate">
+							<div class="cell inline">
+								<span class="name"
+									>{#if to}<Account account={to.account} />{/if}</span
+								>
+								{#if more > 0}<Tag>+{more}</Tag>{/if}
+							</div>
+						</td>
+						<th
+							scope="row"
+							class="description"
+							title={[transaction.description, transaction.comment].filter(Boolean).join('\n')}
+						>
+							<div class="cell">
+								<a href={editHref(params, transaction.id)}>{transaction.description}</a>
+								{#if !transaction.counted}<Tag>evidence</Tag>{/if}
+								{#if transaction.comment}<span class="comment">; {transaction.comment}</span>{/if}
+							</div>
+						</th>
+						<Amount value={amount} />
+					</tr>
+				{/if}
+			{/snippet}
+		</PagedTable>
+	</Panel>
+
+	<TransactionAside {handle} {refresh} />
+</PanelGrid>
 
 <style>
-	tr.child td {
-		overflow-wrap: break-word;
-	}
-
 	td span,
 	.comment {
 		color: var(--color-muted);
 	}
 
-	.evidence {
-		opacity: 0.6;
+	.inline {
+		flex-wrap: nowrap;
+	}
+
+	.name {
+		min-width: 0;
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.cell {
+		display: flex;
+		flex-wrap: wrap;
+		gap: var(--size-0) var(--size-2);
+		align-items: baseline;
+	}
+
+	.evidence :is(td, th, a) {
+		color: var(--color-muted);
 	}
 </style>

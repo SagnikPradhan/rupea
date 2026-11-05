@@ -8,7 +8,18 @@ import { answer } from '#tests/shared/queries.ts';
 import Page from '#routes/(signed-in)/l/[handle]/postings/+page.svelte';
 
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
-vi.mock('#lib/endpoints/accounts.remote.ts', () => ({ listAccountTree: vi.fn() }));
+vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
+vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
+	listAccountTree: vi.fn(),
+	listAccountNames: vi.fn(),
+}));
+vi.mock('#lib/endpoints/files.remote.ts', () => ({
+	findTransactionFiles: vi.fn(() => answer({ keys: [], newest: null })),
+	findTransaction: vi.fn(),
+	createTransaction: Object.assign(vi.fn(), { pending: 0 }),
+	saveTransaction: Object.assign(vi.fn(), { pending: 0 }),
+	deleteTransaction: Object.assign(vi.fn(), { pending: 0 }),
+}));
 vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
 	findFirstDay: vi.fn(() => answer('2025-03-14')),
 	listProblems: vi.fn(),
@@ -26,6 +37,7 @@ const answering = (rows: unknown[]) => {
 describe('the postings page', () => {
 	const food = {
 		key: '1:0',
+		transaction: '1',
 		file: 'bank.rupea',
 		line: 5,
 		date: '2026-08-29',
@@ -34,12 +46,21 @@ describe('the postings page', () => {
 		quantity: '100.00',
 	};
 
-	it('lists each posting under its description', async () => {
+	it('lists each posting with its description', async () => {
 		visit('/l/h/postings');
 		answering([food]);
 		render(Page, { data });
 
 		expect(await screen.findByTitle('Groceries')).toBeTruthy();
+	});
+
+	it('links each description to editing its transaction, keeping the filter', async () => {
+		visit('/l/h/postings?account=Expenses');
+		answering([food]);
+		render(Page, { data });
+
+		const link = (await screen.findByRole('link', { name: 'Groceries' })) as HTMLAnchorElement;
+		expect(link.getAttribute('href')).toBe('?account=Expenses&edit=1');
 	});
 
 	it('says when nothing matches the filter', async () => {

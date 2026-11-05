@@ -73,6 +73,7 @@ Boards exist at 1920, 1280 and 768 wide, in light and dark, and the page follows
 - **Search popover.** Results under a search field, with the matching part of an account path in ink.
 - **Filter card.** A page's filters: groups of chips and segments, and one toggle for extra options.
 - **Filter modal.** What the Filter button in a page header opens: an outlined card at the top right with a title and a close button, the filter card, then Reset and Apply. The page behind it is not dimmed.
+- **Aside.** What add and edit open: a panel beside the page from 90rem, a card at the top right below that, and the whole screen under 48rem, with a title and a close button. The close button may be left out beside the page when the page keeps its own way to close in view. Use `ui-aside` inside a wide `ui-panel-grid` for any such side form.
 - **Coming soon.** A dashed outline with a title and one muted line, "Needs data Rupea does not read yet". It stands in for a block whose data does not exist, so a page never shows invented numbers.
 
 ## Code

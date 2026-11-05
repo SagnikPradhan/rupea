@@ -9,3 +9,7 @@ export const hrefWith = (params: Iterable<[string, string]>, changes: Record<str
 	const merged = { ...Object.fromEntries(params), ...changes };
 	return `?${new URLSearchParams(Object.entries(merged).filter(([, value]) => value))}`;
 };
+
+/** A page's query opened on one transaction in its aside. */
+export const editHref = (p: Iterable<[string, string]>, id: string) =>
+	hrefWith(p, { add: '', edit: id });

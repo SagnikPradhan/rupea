@@ -1,15 +1,15 @@
 <script lang="ts">
 	import type { HTMLButtonAttributes } from 'svelte/elements';
 
-	type Props = HTMLButtonAttributes & { primary?: boolean; href?: string };
+	type Props = HTMLButtonAttributes & { primary?: boolean; destructive?: boolean; href?: string };
 
-	const { primary = false, href, children, ...rest }: Props = $props();
+	const { primary = false, destructive = false, href, children, ...rest }: Props = $props();
 </script>
 
 {#if href}
-	<a class:primary {href}>{@render children?.()}</a>
+	<a class:primary class:destructive {href}>{@render children?.()}</a>
 {:else}
-	<button class:primary {...rest}>
+	<button class:primary class:destructive {...rest}>
 		{@render children?.()}
 	</button>
 {/if}
@@ -23,6 +23,12 @@
 		background: var(--color-surface);
 		color: var(--color-ink);
 		text-decoration: none;
+	}
+
+	.destructive {
+		border-color: var(--color-negative-3);
+		background: var(--color-negative-1);
+		color: var(--color-negative);
 	}
 
 	.primary {

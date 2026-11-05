@@ -8,11 +8,13 @@
 
 <style>
 	span {
-		padding: 0 var(--size-1);
-		border: var(--size-line-0) solid var(--color-border);
+		display: inline-block;
+		padding: var(--size-0) var(--size-2);
 		border-radius: var(--radius-1);
-		color: var(--color-muted);
+		background: var(--color-ink-2);
+		color: var(--color-ink);
 		font: var(--text-label);
 		vertical-align: middle;
+		white-space: nowrap;
 	}
 </style>

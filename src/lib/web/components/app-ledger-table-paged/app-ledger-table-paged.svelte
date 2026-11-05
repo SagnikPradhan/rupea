@@ -47,7 +47,7 @@
 </script>
 
 <div {@attach place}>
-	<LedgerTable {columns}>
+	<LedgerTable {columns} fixed>
 		<tbody class="spacer" aria-hidden="true">
 			<tr><td colspan={columns.length} style:height="{before}px"></td></tr>
 		</tbody>

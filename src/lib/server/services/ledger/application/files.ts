@@ -124,21 +124,30 @@ export const createTransaction = ({
 
 type TransactionAt = { ledger: Ledger; file: string; line: number };
 
-type FindTransactionOptions = TransactionAt;
+type FindTransactionOptions = { ledger: Ledger; id: string };
 
-/** The form of the transaction that starts at a line of a file, with the version of the file it was read from. */
+/** The form of an indexed transaction, with where it stands and the version of the file it was read from. */
 export const findTransaction = ({
 	ledger,
-	file,
-	line,
-}: FindTransactionOptions): ResultAsync<{ form: TransactionForm; version: string }> =>
-	openFolder({ ledger, folder: 'files' }).andThen((s) =>
-		readText(s, file).andThen((f) =>
-			withContext('config')((c) => find(c.ledger, { file: f, line })).asyncAndThen((t) =>
-				okAsync({ form: t, version: f.version }),
+	id,
+}: FindTransactionOptions): ResultAsync<{
+	file: string;
+	line: number;
+	form: TransactionForm;
+	version: string;
+}> =>
+	DB.findTransactions(ledger.id, [id]).andThen(([indexed]) => {
+		if (!indexed) return errAsync(fault('TransactionNotFound', { path: id, line: 0 }));
+
+		const { file, line } = indexed.location;
+		return openFolder({ ledger, folder: 'files' }).andThen((s) =>
+			readText(s, file).andThen((f) =>
+				withContext('config')((c) => find(c.ledger, { file: f, line })).asyncAndThen((t) =>
+					okAsync({ file, line, form: t, version: f.version }),
+				),
 			),
-		),
-	);
+		);
+	});
 
 type SaveTransactionOptions = TransactionAt & { version: string; form: TransactionForm };
 

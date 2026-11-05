@@ -192,6 +192,8 @@ describe('the edit transaction panel', () => {
 		metadata: [],
 	});
 	const read = {
+		file: 'a.rupea',
+		line: 5,
 		version: 'v1',
 		form: {
 			file: 'a.rupea',
@@ -206,7 +208,7 @@ describe('the edit transaction panel', () => {
 	const done = { ok: true, data: { file: 'a.rupea', line: 5 }, errors: [] } as never;
 
 	const editing = async () => {
-		visit('/l/h/transactions?edit=a.rupea:5&at=2026-08');
+		visit('/l/h/transactions?edit=7&at=2026-08');
 		render(Page, { data });
 		return (await screen.findByLabelText('Description')) as HTMLInputElement;
 	};

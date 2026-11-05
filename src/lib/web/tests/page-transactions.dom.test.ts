@@ -70,7 +70,7 @@ describe('the transactions page', () => {
 		render(Page, { data });
 
 		const link = (await screen.findByRole('link', { name: 'Groceries' })) as HTMLAnchorElement;
-		expect(link.getAttribute('href')).toBe('?account=Expenses&edit=bank.rupea%3A4');
+		expect(link.getAttribute('href')).toBe('?account=Expenses&edit=1');
 	});
 
 	it('names the applied filters as chips that remove them', async () => {

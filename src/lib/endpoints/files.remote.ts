@@ -39,11 +39,9 @@ export const createTransaction = command(
 const Line = v.pipe(v.number(), v.integer(), v.minValue(1));
 
 export const findTransaction = query(
-	v.object({ handle: Handle, file: Key, line: Line }),
-	({ handle, file, line }) =>
-		replyFrom(
-			inLedger({ handle, action: (l) => Files.findTransaction({ ledger: l, file, line }) }),
-		),
+	v.object({ handle: Handle, id: v.string() }),
+	({ handle, id }) =>
+		replyFrom(inLedger({ handle, action: (l) => Files.findTransaction({ ledger: l, id }) })),
 );
 
 export const saveTransaction = command(

@@ -4,7 +4,7 @@ import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { ok } from '#lib/server/shared/result/result.ts';
 import { describe, expect } from 'vitest';
-import { groceries, put, salary, summary } from './fixtures/files';
+import { groceries, idAt, put, salary, summary } from './fixtures/files';
 
 describe('mutations', () => {
 	it('index what they write without a sync', ({ context, db }) =>
@@ -268,10 +268,18 @@ describe('changing a transaction from a form', () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({ ledger, key: 'a.rupea', content: salary + '\n' + groceries });
 
-			const found = await Files.findTransaction({ ledger, file: 'a.rupea', line: 5 });
+			const found = await Files.findTransaction({
+				ledger,
+				id: await idAt(ledger.id, 'a.rupea', 5),
+			});
 
 			expect(found).toMatchObject({
-				value: { form: { description: 'Groceries' }, version: expect.any(String) },
+				value: {
+					file: 'a.rupea',
+					line: 5,
+					form: { description: 'Groceries' },
+					version: expect.any(String),
+				},
 			});
 		}));
 
@@ -280,7 +288,7 @@ describe('changing a transaction from a form', () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({ ledger, key: 'a.rupea', content: salary + '\n' + groceries });
 			const found = (
-				await Files.findTransaction({ ledger, file: 'a.rupea', line: 5 })
+				await Files.findTransaction({ ledger, id: await idAt(ledger.id, 'a.rupea', 5) })
 			)._unsafeUnwrap();
 
 			const saved = await Files.saveTransaction({
@@ -303,7 +311,7 @@ describe('changing a transaction from a form', () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({ ledger, key: 'a.rupea', content: salary + '\n' + groceries });
 			const found = (
-				await Files.findTransaction({ ledger, file: 'a.rupea', line: 1 })
+				await Files.findTransaction({ ledger, id: await idAt(ledger.id, 'a.rupea', 1) })
 			)._unsafeUnwrap();
 
 			const deleted = await Files.deleteTransaction({
@@ -317,7 +325,7 @@ describe('changing a transaction from a form', () => {
 			expect(await summary(ledger.id)).toEqual(['a.rupea:1 Groceries']);
 		}));
 
-	it('refuses a file that changed since it was read, and a line with no transaction', ({
+	it('refuses a file that changed since it was read, and an id that is not indexed', ({
 		context,
 		db,
 	}) =>
@@ -332,7 +340,10 @@ describe('changing a transaction from a form', () => {
 				version: 'old',
 				form: edited,
 			});
-			const missing = await Files.findTransaction({ ledger, file: 'a.rupea', line: 2 });
+			const missing = await Files.findTransaction({
+				ledger,
+				id: '0198f6f0-0000-7000-8000-000000000000',
+			});
 
 			expect(stale).toMatchObject({ error: { type: 'StorageConflict' } });
 			expect(missing).toMatchObject({ error: { type: 'TransactionNotFound' } });

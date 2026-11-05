@@ -27,15 +27,6 @@
 
 	const { data } = $props();
 
-	/** The file and line an edit parameter names, as the list links them. */
-	const editOf = (edit: string | null) => {
-		const at = edit?.lastIndexOf(':') ?? -1;
-		const line = Number(edit?.slice(at + 1));
-		return edit && at > 0 && Number.isInteger(line) && line > 0
-			? { file: edit.slice(0, at), line }
-			: null;
-	};
-
 	const day = formatIsoDate(new Date());
 	const handle = $derived(data.ledger.handle);
 	const filter = $derived(filterOf(page.url.searchParams));
@@ -48,9 +39,9 @@
 
 	const params = $derived([...page.url.searchParams]);
 	const adding = $derived(page.url.searchParams.has('add'));
-	const editing = $derived(editOf(page.url.searchParams.get('edit')));
+	const editing = $derived(page.url.searchParams.get('edit'));
 	const files = $derived(adding ? await findTransactionFiles(handle) : null);
-	const open = $derived(editing ? await findTransaction({ handle, ...editing }) : null);
+	const open = $derived(editing ? await findTransaction({ handle, id: editing }) : null);
 	const closed = $derived(hrefWith(params, { add: '', edit: '' }));
 
 	const periodLabel = $derived.by(() => {
@@ -61,8 +52,7 @@
 		return 'All time';
 	});
 
-	const editHref = (file: string, line: number) =>
-		hrefWith(params, { add: '', edit: `${file}:${line}` });
+	const editHref = (id: string) => hrefWith(params, { add: '', edit: id });
 
 	const refresh = async () => {
 		await listTransactions({ handle, day, filter, after: null }).refresh();
@@ -122,7 +112,7 @@
 							title={[transaction.description, transaction.comment].filter(Boolean).join('\n')}
 						>
 							{#if !transaction.counted}<Tag>evidence</Tag>{/if}
-							<a href={editHref(transaction.file, transaction.line)}>{transaction.description}</a>
+							<a href={editHref(transaction.id)}>{transaction.description}</a>
 							{#if transaction.comment}<span class="comment">; {transaction.comment}</span>{/if}
 						</th>
 						<Source {handle} file={transaction.file} line={transaction.line} />
@@ -159,12 +149,12 @@
 	<PanelGrid wide>
 		<div class="list">{@render table()}</div>
 		<Panel title="Edit transaction" subtitle="changes are written to the ledger file">
-			{#key `${editing.file}:${editing.line}:${open.data.version}`}
+			{#key `${editing}:${open.data.version}`}
 				<TransactionForm
 					{handle}
 					keys={[]}
 					newest={null}
-					edit={{ ...editing, ...open.data }}
+					edit={open.data}
 					closeHref={closed}
 					onsaved={refresh}
 				/>

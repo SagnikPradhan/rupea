@@ -36,6 +36,42 @@ export const createTransaction = command(
 	},
 );
 
+const Line = v.pipe(v.number(), v.integer(), v.minValue(1));
+
+export const findTransaction = query(
+	v.object({ handle: Handle, file: Key, line: Line }),
+	({ handle, file, line }) =>
+		replyFrom(
+			inLedger({ handle, action: (l) => Files.findTransaction({ ledger: l, file, line }) }),
+		),
+);
+
+export const saveTransaction = command(
+	v.object({ handle: Handle, file: Key, line: Line, version: v.string(), form: TransactionForm }),
+	async ({ handle, file, line, version, form }) => {
+		const saved = await inLedger({
+			handle,
+			action: (l) => Files.saveTransaction({ ledger: l, file, line, version, form }),
+		});
+		void listFiles(handle).refresh();
+		void listProblems(handle).refresh();
+		return replyFrom(saved);
+	},
+);
+
+export const deleteTransaction = command(
+	v.object({ handle: Handle, file: Key, line: Line, version: v.string() }),
+	async ({ handle, file, line, version }) => {
+		const deleted = await inLedger({
+			handle,
+			action: (l) => Files.deleteTransaction({ ledger: l, file, line, version }),
+		});
+		void listFiles(handle).refresh();
+		void listProblems(handle).refresh();
+		return replyFrom(deleted);
+	},
+);
+
 /** A command, not a query: never cached, as the file may change behind the app's back. */
 export const readFile = command(v.object({ handle: Handle, key: Key }), ({ handle, key }) =>
 	replyFrom(inLedger({ handle, action: (l) => Files.readFile({ ledger: l, key }) })),

@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { listAccountTree } from '#lib/endpoints/accounts.remote.ts';
-	import { findTransactionFiles } from '#lib/endpoints/files.remote.ts';
+	import { findTransaction, findTransactionFiles } from '#lib/endpoints/files.remote.ts';
 	import { findFirstDay, listProblems } from '#lib/endpoints/ledger.remote.ts';
 	import { listTransactions } from '#lib/endpoints/transactions.remote.ts';
 	import { filterOf } from '#lib/shared/filter.ts';
@@ -17,13 +17,24 @@
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
+	import Chip from '#lib/web/components/ui-chip/ui-chip.svelte';
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
-	import { formatDate, formatIsoDate } from '#lib/web/shared/format.ts';
+	import { formatBucket, formatDate, formatIsoDate } from '#lib/web/shared/format.ts';
 	import { hrefWith } from '#lib/web/shared/links.ts';
 	import { paged } from '#lib/web/shared/paged.svelte.ts';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 
 	const { data } = $props();
+
+	/** The file and line an edit parameter names, as the list links them. */
+	const editOf = (edit: string | null) => {
+		const at = edit?.lastIndexOf(':') ?? -1;
+		const line = Number(edit?.slice(at + 1));
+		return edit && at > 0 && Number.isInteger(line) && line > 0
+			? { file: edit.slice(0, at), line }
+			: null;
+	};
 
 	const day = formatIsoDate(new Date());
 	const handle = $derived(data.ledger.handle);
@@ -35,16 +46,41 @@
 	const first = $derived(await listTransactions({ handle, day, filter, after: null }));
 	const list = $derived(paged(first, (after) => listTransactions({ handle, day, filter, after })));
 
-	const adding = $derived(page.url.searchParams.has('add'));
-	const files = $derived(adding ? await findTransactionFiles(handle) : null);
 	const params = $derived([...page.url.searchParams]);
-	const closed = $derived(hrefWith(params, { add: '' }));
-	const refresh = () => listTransactions({ handle, day, filter, after: null }).refresh();
+	const adding = $derived(page.url.searchParams.has('add'));
+	const editing = $derived(editOf(page.url.searchParams.get('edit')));
+	const files = $derived(adding ? await findTransactionFiles(handle) : null);
+	const open = $derived(editing ? await findTransaction({ handle, ...editing }) : null);
+	const closed = $derived(hrefWith(params, { add: '', edit: '' }));
+
+	const periodLabel = $derived.by(() => {
+		const p = filter.period;
+		if (p.kind === 'month') return formatBucket.month(`${p.at}-01`);
+		if (p.kind === 'year') return p.at;
+		if (p.kind === 'custom') return `${formatDate(p.from)} – ${formatDate(p.to)}`;
+		return 'All time';
+	});
+
+	const editHref = (file: string, line: number) =>
+		hrefWith(params, { add: '', edit: `${file}:${line}` });
+
+	const refresh = async () => {
+		await listTransactions({ handle, day, filter, after: null }).refresh();
+		if (editing) await goto(closed);
+	};
 </script>
 
-<PageHeader>
+<PageHeader subtitle="Everything in your ledger, newest first">
 	Transactions
 	{#snippet actions()}
+		{#if filter.period.kind !== 'all'}
+			<Chip toggle on href={hrefWith(params, { at: '', range: '', from: '', to: '' })}>
+				{periodLabel}
+			</Chip>
+		{/if}
+		{#if filter.account}
+			<Chip toggle on href={hrefWith(params, { account: '' })}>{filter.account}</Chip>
+		{/if}
 		<ListFilter
 			period={filter.period}
 			account={filter.account || null}
@@ -57,51 +93,53 @@
 </PageHeader>
 
 {#snippet table()}
-	<ListViews {handle} chosen="transactions"><ListSearch {filter} /></ListViews>
+	<Panel title="Transactions" subtitle="newest first">
+		<ListViews {handle} chosen="transactions"><ListSearch {filter} /></ListViews>
 
-	<Issues {handle} errors={[...issues.errors, ...list.errors]} />
+		<Issues {handle} errors={[...issues.errors, ...list.errors]} />
 
-	<PagedTable
-		columns={[
-			{ label: 'Date', kind: 'date' },
-			{ label: 'Description' },
-			{ label: 'Amount', kind: 'amount' },
-		]}
-		{list}
-		height={64}
-		empty="No transactions match."
-	>
-		{#snippet row(index: number)}
-			{@const transaction = list.rows[index]}
-			{#if transaction}
-				<tr class:evidence={!transaction.counted}>
-					<td class="date">
-						<time datetime={transaction.date}>{formatDate(transaction.date)}</time>
-						{#if transaction.time}<span>{transaction.time}</span>{/if}
-					</td>
-					<th
-						scope="row"
-						class="truncate"
-						title={[transaction.description, transaction.comment].filter(Boolean).join('\n')}
-					>
-						{#if !transaction.counted}<Tag>evidence</Tag>{/if}
-						{transaction.description}
-						{#if transaction.comment}<span class="comment">; {transaction.comment}</span>{/if}
-					</th>
-					<Source {handle} file={transaction.file} line={transaction.line} />
-				</tr>
-				{#each transaction.postings as posting, position (position)}
-					<tr class="child" class:evidence={!transaction.counted}>
-						<td></td>
-						<td>
-							<Account account={posting.account} />
+		<PagedTable
+			columns={[
+				{ label: 'Date', kind: 'date' },
+				{ label: 'Description' },
+				{ label: 'Amount', kind: 'amount' },
+			]}
+			{list}
+			height={64}
+			empty="No transactions match."
+		>
+			{#snippet row(index: number)}
+				{@const transaction = list.rows[index]}
+				{#if transaction}
+					<tr class:evidence={!transaction.counted}>
+						<td class="date">
+							<time datetime={transaction.date}>{formatDate(transaction.date)}</time>
+							{#if transaction.time}<span>{transaction.time}</span>{/if}
 						</td>
-						<Amount value={posting.quantity} />
+						<th
+							scope="row"
+							class="truncate"
+							title={[transaction.description, transaction.comment].filter(Boolean).join('\n')}
+						>
+							{#if !transaction.counted}<Tag>evidence</Tag>{/if}
+							<a href={editHref(transaction.file, transaction.line)}>{transaction.description}</a>
+							{#if transaction.comment}<span class="comment">; {transaction.comment}</span>{/if}
+						</th>
+						<Source {handle} file={transaction.file} line={transaction.line} />
 					</tr>
-				{/each}
-			{/if}
-		{/snippet}
-	</PagedTable>
+					{#each transaction.postings as posting, position (position)}
+						<tr class="child" class:evidence={!transaction.counted}>
+							<td></td>
+							<td>
+								<Account account={posting.account} />
+							</td>
+							<Amount value={posting.quantity} />
+						</tr>
+					{/each}
+				{/if}
+			{/snippet}
+		</PagedTable>
+	</Panel>
 {/snippet}
 
 {#if files?.data}
@@ -115,6 +153,22 @@
 				closeHref={closed}
 				onsaved={refresh}
 			/>
+		</Panel>
+	</PanelGrid>
+{:else if editing && open?.data}
+	<PanelGrid wide>
+		<div class="list">{@render table()}</div>
+		<Panel title="Edit transaction" subtitle="changes are written to the ledger file">
+			{#key `${editing.file}:${editing.line}:${open.data.version}`}
+				<TransactionForm
+					{handle}
+					keys={[]}
+					newest={null}
+					edit={{ ...editing, ...open.data }}
+					closeHref={closed}
+					onsaved={refresh}
+				/>
+			{/key}
 		</Panel>
 	</PanelGrid>
 {:else}

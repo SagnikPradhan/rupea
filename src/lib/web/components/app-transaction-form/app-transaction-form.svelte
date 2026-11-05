@@ -1,6 +1,10 @@
 <script lang="ts">
 	import { listAccountNames } from '#lib/endpoints/accounts.remote.ts';
-	import { createTransaction } from '#lib/endpoints/files.remote.ts';
+	import {
+		createTransaction,
+		deleteTransaction,
+		saveTransaction,
+	} from '#lib/endpoints/files.remote.ts';
 	import type { RupeaError } from '#lib/server/shared/result/error.ts';
 	import { TransactionForm } from '#lib/shared/transaction-form.ts';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
@@ -50,6 +54,8 @@
 		keys: string[];
 		/** The file picked at first. */
 		newest: string | null;
+		/** A transaction to change, as it was read from its file. */
+		edit?: { file: string; line: number; version: string; form: TransactionForm } | undefined;
 		/** Where leaving the form goes. */
 		closeHref: string;
 		/** Called after a transaction is written. */
@@ -58,7 +64,7 @@
 
 	type Entries = { key: string; value: string }[];
 
-	const { handle, keys, newest, closeHref, onsaved }: Props = $props();
+	const { handle, keys, newest, edit, closeHref, onsaved }: Props = $props();
 
 	const blank = () => ({
 		account: '',
@@ -74,21 +80,23 @@
 		more: false,
 	});
 
-	const form = $state({
-		file: untrack(() => newest ?? keys[0] ?? FIRST_FILE),
-		date: formatIsoDate(new Date()),
-		time: '',
-		description: '',
-		comment: '',
-		metadata: [] as Entries,
-		postings: [blank(), blank()],
-	});
+	const form = $state(
+		untrack(() => ({
+			file: edit?.file ?? newest ?? keys[0] ?? FIRST_FILE,
+			date: edit?.form.date ?? formatIsoDate(new Date()),
+			time: edit?.form.time ?? '',
+			description: edit?.form.description ?? '',
+			comment: edit?.form.comment ?? '',
+			metadata: (edit?.form.metadata ?? []) as Entries,
+			postings: edit?.form.postings.map((p) => ({ ...blank(), ...p })) ?? [blank(), blank()],
+		})),
+	);
 	const status = $state({
 		issues: {} as Record<string, { message: string }[]>,
 		errors: [] as RupeaError[],
 		saved: null as { file: string; line: number } | null,
-		more: false,
-		split: false,
+		more: untrack(() => edit !== undefined),
+		split: untrack(() => edit !== undefined),
 		accounts: [] as string[],
 	});
 	const simple = $state({
@@ -153,12 +161,22 @@
 		};
 		if (!checked.success || noAmount) return;
 
-		const created = await createTransaction({ handle, form: checked.output });
-		status.errors = created.errors;
-		if (!created.data) return;
+		const written = edit
+			? await saveTransaction({
+					handle,
+					file: edit.file,
+					line: edit.line,
+					version: edit.version,
+					form: checked.output,
+				})
+			: await createTransaction({ handle, form: checked.output });
+		status.errors = written.errors;
+		if (!written.data) return;
 
-		status.saved = created.data;
+		status.saved = written.data;
 		onsaved();
+		if (edit) return;
+
 		Object.assign(form, {
 			description: '',
 			comment: '',
@@ -167,6 +185,19 @@
 		});
 		Object.assign(simple, { amount: '', accounts: ['', ''] });
 		status.split = false;
+	}
+
+	async function remove() {
+		if (!edit) return;
+
+		const deleted = await deleteTransaction({
+			handle,
+			file: edit.file,
+			line: edit.line,
+			version: edit.version,
+		});
+		status.errors = deleted.errors;
+		if (deleted.errors.length === 0) onsaved();
 	}
 
 	function issuesByPath(issues: Parameters<typeof v.getDotPath>[0][]) {
@@ -274,9 +305,11 @@
 
 	{#if status.more || hasIssuesIn('', RARE_FIELDS)}
 		<div class="rare">
-			<Field label="File" issues={issuesAt('file')}>
-				<input bind:value={form.file} list="transaction-files" spellcheck="false" />
-			</Field>
+			{#if !edit}
+				<Field label="File" issues={issuesAt('file')}>
+					<input bind:value={form.file} list="transaction-files" spellcheck="false" />
+				</Field>
+			{/if}
 			{#if !status.split}
 				<Field label="Currency" issues={issuesAt('postings.0.commodity')}>
 					<input bind:value={simple.currency} placeholder="INR" />
@@ -391,7 +424,13 @@
 	{/each}
 
 	<div class="buttons">
-		<Button primary disabled={createTransaction.pending > 0}>Save</Button>
+		<Button primary disabled={createTransaction.pending + saveTransaction.pending > 0}>
+			{edit ? 'Save changes' : 'Save'}
+		</Button>
+		{#if edit}
+			<Button type="button" disabled={deleteTransaction.pending > 0} onclick={remove}>Delete</Button
+			>
+		{/if}
 		<Button href={closeHref}>Cancel</Button>
 	</div>
 

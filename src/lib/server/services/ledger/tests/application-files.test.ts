@@ -239,3 +239,103 @@ describe('reading a file', () => {
 			});
 		}));
 });
+
+describe('changing a transaction from a form', () => {
+	const posting = (account: string, amount = '') => ({
+		account,
+		amount,
+		commodity: '',
+		price: '',
+		total: false,
+		cost: '',
+		costDate: '',
+		balance: '',
+		comment: '',
+		metadata: [],
+	});
+	const edited = {
+		file: 'a.rupea',
+		date: '2026-08-29',
+		time: '',
+		description: 'Groceries and fruit',
+		comment: '',
+		metadata: [],
+		postings: [posting('Expenses:Food', '120'), posting('Assets:Bank')],
+	};
+
+	it('finds the form of a transaction and the version it was read as', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content: salary + '\n' + groceries });
+
+			const found = await Files.findTransaction({ ledger, file: 'a.rupea', line: 5 });
+
+			expect(found).toMatchObject({
+				value: { form: { description: 'Groceries' }, version: expect.any(String) },
+			});
+		}));
+
+	it('rewrites it and indexes the change', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content: salary + '\n' + groceries });
+			const found = (
+				await Files.findTransaction({ ledger, file: 'a.rupea', line: 5 })
+			)._unsafeUnwrap();
+
+			const saved = await Files.saveTransaction({
+				ledger,
+				file: 'a.rupea',
+				line: 5,
+				version: found.version,
+				form: edited,
+			});
+
+			expect(saved).toEqual(ok({ file: 'a.rupea', line: 5 }));
+			expect(await summary(ledger.id)).toEqual([
+				'a.rupea:1 Salary',
+				'a.rupea:5 Groceries and fruit',
+			]);
+		}));
+
+	it('takes it out of its file', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content: salary + '\n' + groceries });
+			const found = (
+				await Files.findTransaction({ ledger, file: 'a.rupea', line: 1 })
+			)._unsafeUnwrap();
+
+			const deleted = await Files.deleteTransaction({
+				ledger,
+				file: 'a.rupea',
+				line: 1,
+				version: found.version,
+			});
+
+			expect(deleted).toEqual(ok(undefined));
+			expect(await summary(ledger.id)).toEqual(['a.rupea:1 Groceries']);
+		}));
+
+	it('refuses a file that changed since it was read, and a line with no transaction', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content: salary });
+
+			const stale = await Files.saveTransaction({
+				ledger,
+				file: 'a.rupea',
+				line: 1,
+				version: 'old',
+				form: edited,
+			});
+			const missing = await Files.findTransaction({ ledger, file: 'a.rupea', line: 2 });
+
+			expect(stale).toMatchObject({ error: { type: 'StorageConflict' } });
+			expect(missing).toMatchObject({ error: { type: 'TransactionNotFound' } });
+			expect(await summary(ledger.id)).toEqual(['a.rupea:1 Salary']);
+		}));
+});

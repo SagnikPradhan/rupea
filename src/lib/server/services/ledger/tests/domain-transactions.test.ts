@@ -1,6 +1,6 @@
 import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
 import { TransactionForm } from '#lib/shared/transaction-form.ts';
-import { insert } from '#services/ledger/domain/transactions.ts';
+import { find, insert, remove, replace } from '#services/ledger/domain/transactions.ts';
 import { parse } from '#services/ledger/domain/parser.ts';
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
@@ -33,6 +33,95 @@ const december = '2026-12-01 Rent\n\tExpenses:Rent  100.00\n\tAssets:Bank\n';
 
 const inserted = (content: string, f: TransactionForm = form) =>
 	insert(defaultConfiguration.ledger, { file: { key: 'a.rupea', content }, form: f });
+
+const two = `${january}\n${december}`;
+const config = defaultConfiguration.ledger;
+const at = (line: number, content = two) => ({ file: { key: 'a.rupea', content }, line });
+
+describe('finding a transaction', () => {
+	it('gives back the form that writes it as it is', () => {
+		expect(find(config, at(5))._unsafeUnwrap()).toEqual({
+			file: 'a.rupea',
+			date: '2026-12-01',
+			time: '',
+			description: 'Rent',
+			comment: '',
+			metadata: [],
+			postings: [posting('Expenses:Rent', '100.00'), posting('Assets:Bank')],
+		});
+	});
+
+	it('names a line that starts no transaction', () => {
+		expect(find(config, at(2))._unsafeUnwrapErr()).toMatchObject({ type: 'TransactionNotFound' });
+	});
+
+	it('gives back what writing a full form made of it', () => {
+		const full: TransactionForm = {
+			...form,
+			time: '18:45:30',
+			comment: 'bought',
+			metadata: [{ key: 'broker', value: 'x' }],
+			postings: [
+				{
+					account: 'Assets:Fund',
+					amount: '10.00',
+					commodity: 'FUND',
+					price: '25.00 USD',
+					total: false,
+					cost: '20.00 USD',
+					costDate: '2025-12-01',
+					balance: '10.00',
+					comment: 'lot',
+					metadata: [{ key: 'folio', value: '7' }],
+				},
+				posting('Assets:Bank'),
+			],
+		};
+		const { content } = inserted('', full)._unsafeUnwrap();
+
+		expect(find(config, at(1, content))._unsafeUnwrap()).toEqual(full);
+	});
+});
+
+describe('replacing a transaction', () => {
+	it('keeps it where it stood when its day is the same', () => {
+		const { content, line } = replace(config, {
+			...at(5),
+			form: { ...form, date: '2026-12-01', description: 'Rent again' },
+		})._unsafeUnwrap();
+
+		expect(line).toBe(5);
+		expect(content).toContain('2026-12-01 Rent again');
+		expect(content).not.toContain('Rent\n');
+	});
+
+	it('moves it by its new day', () => {
+		const { content, line } = replace(config, { ...at(5), form })._unsafeUnwrap();
+
+		expect(line).toBe(5);
+		expect(content.indexOf('Groceries')).toBeGreaterThan(content.indexOf('Salary'));
+		expect(content).not.toContain('Rent');
+	});
+
+	it('refuses a line that starts no transaction', () => {
+		expect(replace(config, { ...at(2), form })._unsafeUnwrapErr()).toMatchObject({
+			type: 'TransactionNotFound',
+		});
+	});
+});
+
+describe('removing a transaction', () => {
+	it('leaves the others', () => {
+		const { content } = remove(config, at(1))._unsafeUnwrap();
+
+		expect(content).toContain('Rent');
+		expect(content).not.toContain('Salary');
+	});
+
+	it('names a line that starts no transaction', () => {
+		expect(remove(config, at(3))._unsafeUnwrapErr()).toMatchObject({ type: 'TransactionNotFound' });
+	});
+});
 
 describe('inserting a transaction', () => {
 	it('starts an empty file, leaving an empty amount out', () => {

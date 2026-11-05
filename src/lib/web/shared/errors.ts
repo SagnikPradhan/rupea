@@ -86,6 +86,10 @@ export const explain = (error: RupeaError): string =>
 			() => 'Only transactions can be added to another file. Add these to a new file instead.',
 		)
 		.with(
+			{ type: 'TransactionNotFound' },
+			() => 'That transaction is no longer where it was. Reload the list.',
+		)
+		.with(
 			{ type: 'CannotWriteTransaction' },
 			() =>
 				'This wouldn’t read back as written. Check the description, and that the file has no lines that can’t be read.',

@@ -18,7 +18,7 @@ const LAST = Temporal.PlainYearMonth.from('2026-10');
 const EMAIL = 'demo@rupea.dev';
 
 const PRICES = { NIFTYBEES: 235, GOLDBEES: 54 };
-const DIVIDEND_MONTHS = [1, 4, 7, 10];
+const DIVIDEND_MONTHS = new Set([1, 4, 7, 10]);
 const TRIPS: Record<number, [string, number]> = {
 	5: ['Goa trip', 52000],
 	11: ['Rajasthan trip', 64000],
@@ -70,7 +70,7 @@ const monthOf = (month: Temporal.PlainYearMonth, index: number, prices: Record<s
 
 const incomeOf = (month: Temporal.PlainYearMonth, index: number): Entry[] => {
 	const salary = index < 12 ? 160000 : 185000;
-	const dividend = DIVIDEND_MONTHS.includes(month.month);
+	const dividend = DIVIDEND_MONTHS.has(month.month);
 
 	return [
 		entry(month, 1, 'Salary', ['Assets:Bank:HDFC', salary, 'Income:Salary']),

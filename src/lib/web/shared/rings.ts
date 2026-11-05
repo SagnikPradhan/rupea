@@ -60,7 +60,10 @@ export const ringsOf = (accounts: Held[], root: string = ASSETS) => {
 	) => {
 		const total = sum(slices.map((s) => s.value));
 
-		slices.reduce((start, s, i) => {
+		const cursor = { start: at.from };
+
+		slices.forEach((s, i) => {
+			const start = cursor.start;
 			const width = (at.span * s.value) / total;
 			const part = at.part ?? i;
 			arcs.push({
@@ -77,8 +80,8 @@ export const ringsOf = (accounts: Held[], root: string = ASSETS) => {
 			if (at.level < levels)
 				place(under(s), { level: at.level + 1, from: start, span: width, part });
 
-			return start + width;
-		}, at.from);
+			cursor.start = start + width;
+		});
 	};
 
 	if (grand > 0 && levels > 0)

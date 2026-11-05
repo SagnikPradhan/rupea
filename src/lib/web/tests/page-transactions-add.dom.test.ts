@@ -125,7 +125,7 @@ describe('the add transaction panel', () => {
 	it('closes from the title bar or with Escape, keeping the filter', async () => {
 		visit('/l/h/transactions?add=1&at=2026-08');
 		render(Page, { data });
-		await screen.findByRole('dialog', { name: 'Add transaction' });
+		await screen.findByRole('complementary', { name: 'Add transaction' });
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Close' }));
 		await fireEvent.keyDown(window, { key: 'Escape' });

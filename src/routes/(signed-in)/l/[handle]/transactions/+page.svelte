@@ -15,7 +15,8 @@
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import PagedTable from '#lib/web/components/app-ledger-table-paged/app-ledger-table-paged.svelte';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
-	import Modal from '#lib/web/components/ui-modal/ui-modal.svelte';
+	import Aside from '#lib/web/components/ui-aside/ui-aside.svelte';
+	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import Chip from '#lib/web/components/ui-chip/ui-chip.svelte';
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
@@ -82,65 +83,72 @@
 	{/snippet}
 </PageHeader>
 
-<Panel title="Transactions" subtitle="newest first">
-	<ListViews {handle} chosen="transactions"><ListSearch {filter} /></ListViews>
+<PanelGrid wide>
+	<Panel title="Transactions" subtitle="newest first">
+		<ListViews {handle} chosen="transactions"><ListSearch {filter} /></ListViews>
 
-	<Issues {handle} errors={[...issues.errors, ...list.errors]} />
+		<Issues {handle} errors={[...issues.errors, ...list.errors]} />
 
-	<PagedTable
-		columns={[
-			{ label: 'Date', kind: 'date' },
-			{ label: 'Description' },
-			{ label: 'Amount', kind: 'amount' },
-		]}
-		{list}
-		height={64}
-		empty="No transactions match."
-	>
-		{#snippet row(index: number)}
-			{@const transaction = list.rows[index]}
-			{#if transaction}
-				<tr class:evidence={!transaction.counted}>
-					<td class="date">
-						<time datetime={transaction.date}>{formatDate(transaction.date)}</time>
-						{#if transaction.time}<span>{transaction.time}</span>{/if}
-					</td>
-					<th
-						scope="row"
-						class="truncate"
-						title={[transaction.description, transaction.comment].filter(Boolean).join('\n')}
-					>
-						{#if !transaction.counted}<Tag>evidence</Tag>{/if}
-						<a href={editHref(transaction.id)}>{transaction.description}</a>
-						{#if transaction.comment}<span class="comment">; {transaction.comment}</span>{/if}
-					</th>
-					<Source {handle} file={transaction.file} line={transaction.line} />
-				</tr>
-				{#each transaction.postings as posting, position (position)}
-					<tr class="child" class:evidence={!transaction.counted}>
-						<td></td>
-						<td>
-							<Account account={posting.account} />
+		<PagedTable
+			columns={[
+				{ label: 'Date', kind: 'date' },
+				{ label: 'Description' },
+				{ label: 'Amount', kind: 'amount' },
+			]}
+			{list}
+			height={64}
+			empty="No transactions match."
+		>
+			{#snippet row(index: number)}
+				{@const transaction = list.rows[index]}
+				{#if transaction}
+					<tr class:evidence={!transaction.counted}>
+						<td class="date">
+							<time datetime={transaction.date}>{formatDate(transaction.date)}</time>
+							{#if transaction.time}<span>{transaction.time}</span>{/if}
 						</td>
-						<Amount value={posting.quantity} />
+						<th
+							scope="row"
+							class="truncate"
+							title={[transaction.description, transaction.comment].filter(Boolean).join('\n')}
+						>
+							{#if !transaction.counted}<Tag>evidence</Tag>{/if}
+							<a href={editHref(transaction.id)}>{transaction.description}</a>
+							{#if transaction.comment}<span class="comment">; {transaction.comment}</span>{/if}
+						</th>
+						<Source {handle} file={transaction.file} line={transaction.line} />
 					</tr>
-				{/each}
-			{/if}
-		{/snippet}
-	</PagedTable>
-</Panel>
+					{#each transaction.postings as posting, position (position)}
+						<tr class="child" class:evidence={!transaction.counted}>
+							<td></td>
+							<td>
+								<Account account={posting.account} />
+							</td>
+							<Amount value={posting.quantity} />
+						</tr>
+					{/each}
+				{/if}
+			{/snippet}
+		</PagedTable>
+	</Panel>
 
-{#if files?.data}
-	<Modal title="Add transaction" onclose={() => goto(closed)}>
-		<TransactionForm {handle} keys={files.data.keys} newest={files.data.newest} onsaved={refresh} />
-	</Modal>
-{:else if editing && open?.data}
-	<Modal title="Edit transaction" onclose={() => goto(closed)}>
-		{#key `${editing}:${open.data.version}`}
-			<TransactionForm {handle} keys={[]} newest={null} edit={open.data} onsaved={refresh} />
-		{/key}
-	</Modal>
-{/if}
+	{#if files?.data}
+		<Aside title="Add transaction" onclose={() => goto(closed)}>
+			<TransactionForm
+				{handle}
+				keys={files.data.keys}
+				newest={files.data.newest}
+				onsaved={refresh}
+			/>
+		</Aside>
+	{:else if editing && open?.data}
+		<Aside title="Edit transaction" onclose={() => goto(closed)}>
+			{#key `${editing}:${open.data.version}`}
+				<TransactionForm {handle} keys={[]} newest={null} edit={open.data} onsaved={refresh} />
+			{/key}
+		</Aside>
+	{/if}
+</PanelGrid>
 
 <style>
 	tr.child td {

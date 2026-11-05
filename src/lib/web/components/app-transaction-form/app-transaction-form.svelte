@@ -24,9 +24,9 @@
 	const COLUMNS = [
 		{ label: 'Account' },
 		{ label: 'Amount', kind: 'amount' as const },
-		{ label: '' },
+		{ label: 'Price', kind: 'amount' as const },
 	];
-	const RARE_POSTING_FIELDS = ['commodity', 'price', 'cost', 'balance', 'metadata'];
+	const RARE_POSTING_FIELDS = ['commodity', 'cost', 'balance', 'metadata'];
 
 	const ACCOUNT_TYPE = /^(Assets|Liabilities|Income|Expenses|Equity)(:|$)/;
 	const HELD = ['Assets', 'Liabilities'];
@@ -340,7 +340,19 @@
 							/>
 							{@render problems(`${at}.amount`)}
 						</td>
-						<td class="actions">
+						<td class="amount">
+							<input
+								aria-label="Price"
+								bind:value={posting.price}
+								inputmode="decimal"
+								placeholder="Price"
+								size="8"
+							/>
+							{@render problems(`${at}.price`)}
+						</td>
+					</tr>
+					<tr class="child">
+						<td class="actions" colspan={COLUMNS.length}>
 							<button
 								type="button"
 								class="link"
@@ -373,12 +385,9 @@
 									>
 										<input bind:value={posting.commodity} placeholder="INR" />
 									</Field>
-									<Field label="Price" hint="What one unit cost." issues={issuesAt(`${at}.price`)}>
-										<input bind:value={posting.price} />
-									</Field>
 									<label class="check">
 										<input type="checkbox" bind:checked={posting.total} />
-										Price for all units
+										Price is for all units
 									</label>
 									<Field label="Lot cost" hint="Cost of the units." issues={issuesAt(`${at}.cost`)}>
 										<input bind:value={posting.cost} />
@@ -537,7 +546,7 @@
 	}
 
 	.actions {
-		width: 1%;
+		text-align: right;
 		white-space: nowrap;
 	}
 
@@ -584,8 +593,7 @@
 			gap: var(--size-1);
 		}
 
-		.account,
-		.actions {
+		.account {
 			grid-column: 1 / -1;
 		}
 

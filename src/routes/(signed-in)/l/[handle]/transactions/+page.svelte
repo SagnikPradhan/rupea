@@ -133,7 +133,7 @@
 	</Panel>
 
 	{#if files?.data}
-		<Aside title="Add transaction" onclose={() => goto(closed)}>
+		<Aside title="Add transaction" closeBeside={false} onclose={() => goto(closed)}>
 			<TransactionForm
 				{handle}
 				keys={files.data.keys}

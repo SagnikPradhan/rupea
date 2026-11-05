@@ -6,10 +6,12 @@
 	type Props = {
 		title: string;
 		onclose: () => void;
+		/** False when the page already has the way to close it in view while the aside sits beside it. */
+		closeBeside?: boolean;
 		children: Snippet;
 	};
 
-	const { title, onclose, children }: Props = $props();
+	const { title, onclose, closeBeside = true, children }: Props = $props();
 </script>
 
 <svelte:window onkeydown={(e) => e.key === 'Escape' && onclose()} />
@@ -17,7 +19,9 @@
 <aside aria-label={title}>
 	<header>
 		<h2>{title}</h2>
-		<IconButton label="Close" icon={IconClose} onclick={onclose} />
+		<span class={{ close: true, covered: !closeBeside }}>
+			<IconButton label="Close" icon={IconClose} onclick={onclose} />
+		</span>
 	</header>
 
 	<div class="body">{@render children()}</div>
@@ -58,6 +62,12 @@
 	h2 {
 		margin: 0;
 		font: var(--text-title);
+	}
+
+	@media (width >= 90rem) {
+		.covered {
+			display: none;
+		}
 	}
 
 	@media (width < 90rem) {

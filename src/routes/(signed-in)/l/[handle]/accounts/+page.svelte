@@ -15,6 +15,7 @@
 	import ListFilter from '#lib/web/components/app-list-filter/app-list-filter.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import Drops from '#lib/web/components/app-drops/app-drops.svelte';
+	import Scatter from '#lib/web/components/ui-chart-scatter/ui-chart-scatter.svelte';
 	import Donut from '#lib/web/components/ui-chart-donut/ui-chart-donut.svelte';
 	import Invested from '#lib/web/components/app-invested/app-invested.svelte';
 	import Amount from '#lib/web/components/app-ledger-table/amount.svelte';
@@ -32,6 +33,7 @@
 		formatReturn,
 		formatWhole,
 	} from '#lib/web/shared/format.ts';
+	import { dotsOf } from '#lib/web/shared/dots.ts';
 	import { groupsInvested, investedOf, totalsOf } from '#lib/web/shared/invested.ts';
 	import { ringsOf } from '#lib/web/shared/rings.ts';
 	import { page } from '$app/state';
@@ -93,6 +95,8 @@
 			? undefined
 			: `${rings.skipped} ${rings.skipped === 1 ? 'account is' : 'accounts are'} below zero, so not drawn`,
 	);
+
+	const dots = $derived(dotsOf(invested, fallen.data?.[0]?.swings ?? [], rings.arcs));
 
 	const lotsOf = (account: string, commodity: string) =>
 		`/l/${handle}/accounts/lots?${new URLSearchParams({ account, commodity })}`;
@@ -198,11 +202,17 @@
 			{/if}
 		</Panel>
 
-		<Panel
-			title="Return and risk"
-			subtitle="each dot is an account, bigger dot, more money in it"
-			soon
-		/>
+		<Panel title="Return and risk" subtitle="each dot is an account, bigger dot, more money in it">
+			{#if dots.length > 0}
+				<Scatter
+					{dots}
+					across="how much it swings in a year"
+					label="Return a year against how much each account swings"
+				/>
+			{:else}
+				<p>Needs price history.</p>
+			{/if}
+		</Panel>
 	</div>
 </PanelGrid>
 

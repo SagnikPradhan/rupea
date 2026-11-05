@@ -88,6 +88,7 @@ export const viewInvested = (invested: Accounts.Invested) => ({
 export const viewDrops = (drops: Accounts.Drops) => ({
 	underwater: drops.underwater.map((u) => ({ day: u.day.toString(), depth: u.depth })),
 	lows: drops.lows.map((l) => ({ account: l.account, depth: l.depth, day: l.day.toString() })),
+	swings: drops.swings,
 });
 
 export const viewReturns = (returns: Accounts.Returns) => ({

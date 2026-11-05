@@ -136,7 +136,7 @@ describe('the accounts page', () => {
 		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
 		render(Page, { data });
 
-		expect(await screen.findByText('Needs price history.')).toBeTruthy();
+		expect(await screen.findAllByText('Needs price history.')).toHaveLength(2);
 
 		vi.mocked(listDrops).mockReturnValue(
 			answer([
@@ -146,6 +146,7 @@ describe('the accounts page', () => {
 						{ day: '2026-02-01', depth: -0.2 },
 					],
 					lows: [{ account: 'Assets:Broker', depth: -0.2, day: '2026-02-01' }],
+					swings: [{ account: 'Assets:Broker', swing: 0.2 }],
 				},
 			]),
 		);
@@ -154,6 +155,28 @@ describe('the accounts page', () => {
 		expect(
 			await screen.findByRole('img', { name: /^How far investments stood below/ }),
 		).toBeTruthy();
+		expect(screen.queryByRole('img', { name: /^Return a year against/ })).toBeNull();
+	});
+
+	it('plots return against swing for an account with both', async () => {
+		visit('/l/h/accounts');
+		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
+		vi.mocked(listReturns).mockReturnValue(
+			answer([{ account: 'Assets:Broker', netIn: '1500', xirr: 0.1, yearly: true }]),
+		);
+		vi.mocked(listDrops).mockReturnValue(
+			answer([
+				{
+					underwater: [{ day: '2026-01-01', depth: 0 }],
+					lows: [],
+					swings: [{ account: 'Assets:Broker', swing: 0.2 }],
+				},
+			]),
+		);
+		render(Page, { data });
+
+		const plot = await screen.findByRole('img', { name: /^Return a year against/ });
+		expect(plot.querySelectorAll('.dot')).toHaveLength(1);
 	});
 
 	it('divides the assets into rings, and says so when something owes', async () => {

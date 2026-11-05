@@ -1124,6 +1124,42 @@ describe('spending', () => {
 				]);
 			}));
 
+		it('scales the spread of the days a price moved to a year, once enough of them have', ({
+			context,
+			db,
+		}) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				const start = Temporal.PlainDate.from('2026-01-02');
+				const quotes = Array.from(
+					{ length: 70 },
+					(_, i) => `P ${start.add({ days: i + 1 })} INFY ${i % 2 === 0 ? 101 : 100}`,
+				);
+				const content = [
+					'2026-01-02 Buy',
+					'\tAssets:Zerodha 10 INFY @ 100',
+					'\tAssets:Bank',
+					'2026-01-02 Buy',
+					'\tAssets:Other 10 TCS @ 100',
+					'\tAssets:Bank',
+					...quotes,
+					'',
+				].join('\n');
+				await Files.createFile({ ledger, key: 'a.rupea', content });
+
+				const drops = (
+					await Accounts.listDrops({
+						ledger,
+						from: start,
+						to: start.add({ days: 80 }),
+						account: null,
+					})
+				)._unsafeUnwrap().succeeded[0];
+
+				expect(drops?.swings.map((s) => s.account)).toEqual(['Assets:Zerodha']);
+				expect(drops?.swings[0]?.swing).toBeCloseTo(0.158, 2);
+			}));
+
 		it('has nothing to say when no holding with lots was held', ({ context, db }) =>
 			provide(context, async () => {
 				const ledger = await createLedger(db);

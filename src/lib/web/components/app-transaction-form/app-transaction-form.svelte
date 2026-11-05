@@ -11,7 +11,6 @@
 	import IconButton from '#lib/web/components/ui-button-icon/ui-button-icon.svelte';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import Field from '#lib/web/components/ui-field/ui-field.svelte';
-	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
 	import { explain } from '#lib/web/shared/errors.ts';
 	import { formatIsoDate } from '#lib/web/shared/format.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';
@@ -21,11 +20,6 @@
 	/** A ledger with no files yet starts this one. */
 	const FIRST_FILE = 'transactions.rupea';
 
-	const COLUMNS = [
-		{ label: 'Account' },
-		{ label: 'Amount', kind: 'amount' as const },
-		{ label: 'Currency' },
-	];
 	const RARE_POSTING_FIELDS = ['price', 'cost', 'balance', 'metadata'];
 
 	const ACCOUNT_TYPE = /^(Assets|Liabilities|Income|Expenses|Equity)(:|$)/;
@@ -243,12 +237,6 @@
 	</div>
 {/snippet}
 
-{#snippet problems(path: string)}
-	{#each issuesAt(path) as issue (issue.message)}
-		<p role="alert" class="problem">{issue.message}</p>
-	{/each}
-{/snippet}
-
 <form onsubmit={save} novalidate>
 	{#if !status.split}
 		<div class="kinds" role="group" aria-label="Kind">
@@ -313,105 +301,76 @@
 	</datalist>
 
 	{#if status.split}
-		<LedgerTable columns={COLUMNS} label="Lines">
-			{#each form.postings as posting, index (index)}
-				{@const at = `postings.${index}`}
-				<tbody>
-					<tr>
-						<td class="account">
-							<input
-								aria-label="Account"
-								placeholder="Expenses:Food"
-								bind:value={posting.account}
-								list="transaction-accounts"
-								spellcheck="false"
-								oninput={(e) => suggest(e.currentTarget.value)}
-								onfocus={(e) => suggest(e.currentTarget.value)}
-							/>
-							{@render problems(`${at}.account`)}
-						</td>
-						<td class="amount">
-							<input
-								aria-label="Amount"
-								bind:value={posting.amount}
-								inputmode="decimal"
-								placeholder="Auto"
-								size="8"
-							/>
-							{@render problems(`${at}.amount`)}
-						</td>
-						<td class="currency">
-							<input
-								aria-label="Currency"
-								bind:value={posting.commodity}
-								placeholder="INR"
-								size="6"
-							/>
-							{@render problems(`${at}.commodity`)}
-						</td>
-					</tr>
-					{#if posting.more || hasIssuesIn(`${at}.`, RARE_POSTING_FIELDS)}
-						<tr class="child">
-							<td colspan={COLUMNS.length}>
-								<div class="rare">
-									<Field label="Price" hint="What one unit cost." issues={issuesAt(`${at}.price`)}>
-										<input bind:value={posting.price} />
-									</Field>
-									<label class="check">
-										<input type="checkbox" bind:checked={posting.total} />
-										Price for all units
-									</label>
-									<Field label="Lot cost" hint="Cost of the units." issues={issuesAt(`${at}.cost`)}>
-										<input bind:value={posting.cost} />
-									</Field>
-									<Field
-										label="Lot date"
-										hint="The day they were bought."
-										issues={issuesAt(`${at}.costDate`)}
-									>
-										<input type="date" bind:value={posting.costDate} />
-									</Field>
-									<Field
-										label="Balance after"
-										hint="What is left after this."
-										issues={issuesAt(`${at}.balance`)}
-									>
-										<input bind:value={posting.balance} inputmode="decimal" />
-									</Field>
-									<Field label="Comment" hint="A note kept with it.">
-										<input bind:value={posting.comment} />
-									</Field>
-									{@render entries(posting.metadata, `${at}.metadata`)}
-								</div>
-							</td>
-						</tr>
+		{#each form.postings as posting, index (index)}
+			{@const at = `postings.${index}`}
+			<div class="line" role="group" aria-label="Line {index + 1}">
+				<div class="wide">
+					<Field label="Account" issues={issuesAt(`${at}.account`)}>
+						<input
+							placeholder="Expenses:Food"
+							bind:value={posting.account}
+							list="transaction-accounts"
+							spellcheck="false"
+							oninput={(e) => suggest(e.currentTarget.value)}
+							onfocus={(e) => suggest(e.currentTarget.value)}
+						/>
+					</Field>
+				</div>
+				<Field label="Amount" issues={issuesAt(`${at}.amount`)}>
+					<input bind:value={posting.amount} inputmode="decimal" placeholder="Auto" />
+				</Field>
+				<Field label="Currency" issues={issuesAt(`${at}.commodity`)}>
+					<input bind:value={posting.commodity} placeholder="INR" />
+				</Field>
+				{#if posting.more || hasIssuesIn(`${at}.`, RARE_POSTING_FIELDS)}
+					<Field label="Price" hint="What one unit cost." issues={issuesAt(`${at}.price`)}>
+						<input bind:value={posting.price} />
+					</Field>
+					<label class="check">
+						<input type="checkbox" bind:checked={posting.total} />
+						Price for all units
+					</label>
+					<Field label="Lot cost" hint="Cost of the units." issues={issuesAt(`${at}.cost`)}>
+						<input bind:value={posting.cost} />
+					</Field>
+					<Field label="Lot date" hint="When they were bought." issues={issuesAt(`${at}.costDate`)}>
+						<input type="date" bind:value={posting.costDate} />
+					</Field>
+					<Field
+						label="Balance after"
+						hint="What is left after this."
+						issues={issuesAt(`${at}.balance`)}
+					>
+						<input bind:value={posting.balance} inputmode="decimal" />
+					</Field>
+					<Field label="Comment" hint="A note kept with it.">
+						<input bind:value={posting.comment} />
+					</Field>
+					{@render entries(posting.metadata, `${at}.metadata`)}
+				{/if}
+				<div class="tools">
+					<button
+						type="button"
+						class="link"
+						aria-label="More about line {index + 1}"
+						aria-expanded={posting.more}
+						onclick={() => (posting.more = !posting.more)}
+					>
+						{posting.more ? 'Hide price and notes' : 'Price and notes'}
+					</button>
+					{#if form.postings.length > 2}
+						<button
+							type="button"
+							class="link"
+							aria-label="Remove line {index + 1}"
+							onclick={() => form.postings.splice(index, 1)}
+						>
+							Remove
+						</button>
 					{/if}
-					<tr class="child">
-						<td class="actions" colspan={COLUMNS.length}>
-							<button
-								type="button"
-								class="link"
-								aria-label="More about line {index + 1}"
-								aria-expanded={posting.more}
-								onclick={() => (posting.more = !posting.more)}
-							>
-								{posting.more ? 'Hide price and notes' : 'Price and notes'}
-							</button>
-							{#if form.postings.length > 2}
-								<button
-									type="button"
-									class="link"
-									aria-label="Remove line {index + 1}"
-									onclick={() => form.postings.splice(index, 1)}
-								>
-									Remove
-								</button>
-							{/if}
-						</td>
-					</tr>
-				</tbody>
-			{/each}
-		</LedgerTable>
+				</div>
+			</div>
+		{/each}
 		<button type="button" class="link" onclick={() => form.postings.push(blank())}>Add line</button>
 	{/if}
 
@@ -478,7 +437,7 @@
 
 	.pair {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: var(--size-2);
 	}
 
@@ -514,57 +473,41 @@
 		text-decoration: underline;
 	}
 
-	.rare {
+	.line {
 		display: grid;
-		grid-template-columns: 1fr 1fr;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: var(--size-3) var(--size-2);
+		align-items: start;
+		padding: var(--size-3);
+		border: var(--size-line-0) solid var(--color-border);
+		border-radius: var(--radius-1);
+		background: var(--color-subtle);
+	}
+
+	.tools {
+		display: flex;
+		gap: var(--size-3);
+		justify-content: end;
+		grid-column: 1 / -1;
+	}
+
+	.entry {
+		position: relative;
+		display: grid;
+		grid-column: 1 / -1;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: var(--size-2);
 		align-items: start;
 	}
 
-	.child .rare {
-		padding-block: var(--size-2) 0;
-		color: var(--color-ink);
+	.entry > :global(button) {
+		position: absolute;
+		inset-block-start: calc(var(--size-3) + var(--size-1));
+		inset-inline-end: var(--size-1);
 	}
 
-	.entry {
-		display: grid;
-		grid-column: 1 / -1;
-		grid-template-columns: 1fr 1fr auto;
-		gap: var(--size-2);
-		align-items: end;
-	}
-
-	.account input,
-	.currency input {
-		width: 100%;
-	}
-
-	.currency {
-		width: 1%;
-	}
-
-	.amount input {
-		width: auto;
-		font-family: var(--font-body);
-		text-align: right;
-	}
-
-	.actions {
-		text-align: right;
-		white-space: nowrap;
-	}
-
-	.actions .link + .link {
-		margin-left: var(--size-2);
-	}
-
-	.problem {
-		margin: var(--size-1) 0 0;
-		color: var(--color-negative);
-		font-family: var(--font-body);
-		font-size: var(--font-size-0);
-		text-align: left;
-		white-space: normal;
+	.entry :global(div:nth-child(2) input) {
+		padding-inline-end: calc(var(--size-4) + var(--size-1));
 	}
 
 	.check {
@@ -585,31 +528,9 @@
 
 	@media (width < 40rem) {
 		.pair,
-		.rare {
+		.line,
+		.entry {
 			grid-template-columns: 1fr;
-		}
-
-		form :global(thead) {
-			display: none;
-		}
-
-		tr:not(.child) {
-			display: grid;
-			grid-template-columns: 1fr 1fr;
-			gap: var(--size-1);
-		}
-
-		.account {
-			grid-column: 1 / -1;
-		}
-
-		tr:not(.child) td {
-			width: auto;
-			padding: 0;
-		}
-
-		.amount input {
-			width: 100%;
 		}
 	}
 </style>

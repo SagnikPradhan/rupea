@@ -1,10 +1,24 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
-import { createRawSnippet } from 'svelte';
-import { describe, expect, it } from 'vitest';
+import { createRawSnippet, flushSync } from 'svelte';
+import { describe, expect, it, vi } from 'vitest';
 import BarChart from '#lib/web/components/ui-chart-bar/ui-chart-bar.svelte';
 
-/** Every plot measures 100 by 100 pixels, so a pointer's pixels are the units the plot is drawn in. */
+/** Every plot measures 100 by 100 pixels, so pointer pixels are plot units. */
 Element.prototype.getBoundingClientRect = () => DOMRect.fromRect({ width: 100, height: 100 });
+vi.stubGlobal(
+	'ResizeObserver',
+	vi.fn(function (notify: (entries: unknown[]) => void) {
+		return {
+			observe: (target: Element) => {
+				const size = [{ inlineSize: 100, blockSize: 100 }];
+				const contentRect = { width: 100, height: 100 };
+				notify([{ target, contentRect, contentBoxSize: size, borderBoxSize: size }]);
+			},
+			unobserve: () => undefined,
+			disconnect: () => undefined,
+		};
+	}),
+);
 
 const ROWS = [
 	{ bucket: '2026-01-01', food: '2000', other: '500' },
@@ -39,6 +53,7 @@ const drawn = (options: { previous?: (string | null)[]; scale?: 'linear' | 'log'
 		scale: options.scale ?? 'linear',
 		summary,
 	});
+	flushSync();
 	const plot = screen.getByRole('img', { name: 'Spending' });
 	return { plot, svg: plot.querySelector('svg') as SVGSVGElement };
 };
@@ -91,15 +106,26 @@ describe('the bar chart', () => {
 		expect(document.querySelector('.zero')).toBeNull();
 	});
 
-	it('names a bar on the axis by its bucket, and its amounts up the side', () => {
+	it('names a bar on the axis by its bucket, skipping the ones a narrow plot has no room for, and its amounts up the side', () => {
 		const { plot } = drawn();
-		expect(labelsOf(plot, 'across')).toEqual(['Jan 2026', 'Feb 2026', 'Mar 2026']);
-		expect(labelsOf(plot, 'up')).toEqual(['0', '2K', '4K', '6K', '8K']);
+		expect(labelsOf(plot, 'across')).toEqual(['Jan 2026', 'Mar 2026']);
+		expect(labelsOf(plot, 'up')).toEqual(['0', '5K']);
+	});
+
+	it('fits the axis to the bars alone without a reference', () => {
+		const { plot } = drawn();
+		expect(labelsOf(plot, 'up')).toEqual(['0', '5K']);
+		expect(plot.querySelector('path.reference')).toBeNull();
+	});
+
+	it('stretches the axis to a reference that runs higher', () => {
+		const { plot } = drawn({ previous: ['1000', null, '900000'] });
+		expect(labelsOf(plot, 'up').at(-1)).not.toBe('5K');
 	});
 
 	it('weighs the bars against a dashed curve, which breaks where a value is missing', () => {
-		const { svg } = drawn({ previous: ['1000', null, '9000'] });
-		const d = svg.querySelector('path.reference')?.getAttribute('d') ?? '';
+		const { plot } = drawn({ previous: ['1000', null, '9000'] });
+		const d = plot.querySelector('path.reference')?.getAttribute('d') ?? '';
 		expect(d.match(/M/g)).toHaveLength(2);
 	});
 

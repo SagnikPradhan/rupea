@@ -85,3 +85,34 @@ const added = (head: Spent, spent: Spent[]) => ({
 	amount: sum(spent.map((s) => s.amount)),
 	unpriced: spent.reduce((n, s) => n + s.unpriced, 0),
 });
+
+/** What was spent on one day of the month, averaged over the months of a span that have it. */
+export type Daily = { day: number; amount: Amount; unpriced: number };
+
+/** Every day of the month from the 1st to the 31st, dated in the reference January the adapter buckets them in. */
+export const dailyOf = (spent: Spent[], span: Span): Daily[] => {
+	const earliest = spent.map((s) => s.first).toSorted(Temporal.PlainDate.compare)[0] ?? span.to;
+	const from = span.from.toString() === BEGINNING ? earliest : span.from;
+	const days = Object.groupBy(spent, (s) => s.bucket.day);
+
+	return Array.from({ length: 31 }, (_, i) => {
+		const rows = days[i + 1] ?? [];
+		const months = Math.max(monthsWith(i + 1, { from, to: span.to }), 1);
+
+		return {
+			day: i + 1,
+			amount: (sum(rows.map((r) => r.amount)) / BigInt(months)) as Amount,
+			unpriced: rows.reduce((n, r) => n + r.unpriced, 0),
+		};
+	});
+};
+
+/** How many months of a span have this day of the month inside it. */
+const monthsWith = (day: number, span: Span) =>
+	bucketsIn(span, 'month').filter((m) => {
+		if (m.daysInMonth < day) return false;
+		const on = m.with({ day });
+		return (
+			Temporal.PlainDate.compare(on, span.from) >= 0 && Temporal.PlainDate.compare(on, span.to) <= 0
+		);
+	}).length;

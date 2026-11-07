@@ -25,6 +25,7 @@
 			rows={drops.underwater}
 			x="day"
 			unit="percent"
+			falling
 			series={[{ key: 'depth', label: 'Below its high', role: 'primary' }]}
 			label="How far investments stood below their high from {formatDate(first.day)} to {formatDate(
 				last.day,

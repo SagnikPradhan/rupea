@@ -10,15 +10,29 @@
 		/** The field holding the amount a day is shaded by. */
 		y: keyof Row & string;
 		label: string;
-		/** Where a day leads, such as its postings. */
-		href: (day: string) => string;
+		/** Where a day leads, such as its postings; none draws it without a link. */
+		href?: (day: string) => string;
+		/** False draws days of the month from the 1st, under no weekday, for rows that stand for a day in every month. */
+		weekly?: boolean;
+		/** Draws each day as a rounded square whose area is its amount, on a tile, instead of shading its cell. */
+		squircles?: boolean;
 		/** Drawn above the calendar with the row under the cursor, or none. */
 		summary?: Snippet<[number | null]>;
 		/** Drawn below the calendar, such as a choice of chart. */
 		controls?: Snippet;
 	};
 
-	const { rows, x, y, label, href, summary, controls }: Props = $props();
+	const {
+		rows,
+		x,
+		y,
+		label,
+		href,
+		weekly = true,
+		squircles = false,
+		summary,
+		controls,
+	}: Props = $props();
 
 	const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 	const SHADES = 4;
@@ -30,7 +44,7 @@
 
 	/** Days in rows of seven from Monday, blank before the first day and after the last. */
 	const weeks = $derived.by(() => {
-		const first = rows[0] ? weekdayOf(String(rows[0][x])) : 0;
+		const first = weekly && rows[0] ? weekdayOf(String(rows[0][x])) : 0;
 		const cells = [...Array<null>(first).fill(null), ...rows.map((_, i) => i)];
 		const blanks = Array<null>((7 - (cells.length % 7)) % 7).fill(null);
 
@@ -42,19 +56,23 @@
 
 	/** The first of a month, and the first day shown, also name their month. */
 	const nameOf = (day: string, i: number) =>
-		i === 0 || day.endsWith('-01') ? formatBucket.day(day) : String(Number(day.slice(8)));
+		weekly && (i === 0 || day.endsWith('-01'))
+			? formatBucket.day(day)
+			: String(Number(day.slice(8)));
 
 	const weekdayOf = (day: string) => (new Date(day).getUTCDay() + 6) % 7;
 </script>
 
 <figure>
 	{@render summary?.(hovered.index)}
-	<table aria-label={label}>
-		<thead>
-			<tr>
-				{#each WEEKDAYS as weekday (weekday)}<th scope="col">{weekday}</th>{/each}
-			</tr>
-		</thead>
+	<table aria-label={label} class={{ squircles }}>
+		{#if weekly}
+			<thead>
+				<tr>
+					{#each WEEKDAYS as weekday (weekday)}<th scope="col">{weekday}</th>{/each}
+				</tr>
+			</thead>
+		{/if}
 		<tbody onpointerleave={() => (hovered.index = null)}>
 			{#each weeks as week, w (w)}
 				<tr>
@@ -66,16 +84,23 @@
 							{@const amount = amounts[i] ?? 0}
 							<td
 								class={{ negative: amount < 0 }}
-								data-shade={shadeOf(amount)}
+								data-shade={squircles ? 0 : shadeOf(amount)}
 								onpointerenter={() => (hovered.index = i)}
 							>
 								<a
-									href={href(day)}
+									href={href?.(day)}
 									title={formatAmount(String(rows[i]?.[y] ?? '0'))}
 									onfocus={() => (hovered.index = i)}
 									onblur={() => (hovered.index = null)}
 								>
+									{#if squircles}
+										<span
+											class="squircle"
+											style:--share={Math.sqrt(Math.max(amount, 0) / (most || 1))}
+										></span>
+									{/if}
 									<span class="day">{nameOf(day, i)}</span>
+
 									<data value={amount}>{amount === 0 ? '' : formatCompact(amount)}</data>
 								</a>
 							</td>
@@ -133,9 +158,37 @@
 		text-decoration: underline;
 	}
 
+	.squircles td {
+		border: var(--size-line-0) solid var(--color-subtle);
+		border-radius: var(--radius-1);
+	}
+
+	.squircles a {
+		position: relative;
+		justify-content: space-between;
+		aspect-ratio: 1;
+		padding: var(--size-1);
+	}
+
+	.squircle {
+		position: absolute;
+		inset: 0;
+		width: calc(var(--share) * 50%);
+		aspect-ratio: 1;
+		margin: auto;
+		border-radius: 35%;
+		corner-shape: squircle;
+		background: var(--color-ink-3);
+	}
+
 	data {
 		font-family: var(--font-mono);
 		text-align: right;
+	}
+
+	.squircles .day,
+	.squircles data {
+		position: relative;
 	}
 
 	[data-shade='1'] {

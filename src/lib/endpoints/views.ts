@@ -129,6 +129,12 @@ export const viewSpending = (spending: Accounts.Spending) => ({
 	})),
 });
 
+export const viewDaily = (daily: Accounts.Daily) => ({
+	day: daily.day,
+	amount: formatAmount(daily.amount),
+	unpriced: daily.unpriced,
+});
+
 export const viewLot = (lot: Accounts.LotHistory) => ({
 	file: lot.location.file,
 	line: lot.location.line,

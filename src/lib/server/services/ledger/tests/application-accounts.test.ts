@@ -860,6 +860,32 @@ describe('spending', () => {
 			]);
 		}));
 
+	it('averages spending on each day of the month over the months of the span that have it', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = [
+				'2026-01-31 Rent\n\tExpenses:Rent 300\n\tAssets:Bank\n',
+				'2026-02-05 Lunch\n\tExpenses:Food 100\n\tAssets:Bank\n',
+				'2026-03-05 Lunch\n\tExpenses:Food 200\n\tAssets:Bank\n',
+			].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const daily = await Accounts.listDailySpending({
+				ledger,
+				span: span('2026-01-01', '2026-03-31'),
+				account: 'Expenses',
+			});
+			const days = daily._unsafeUnwrap().succeeded;
+			expect(days).toHaveLength(31);
+			expect(days.filter((d) => d.amount !== 0n).map((d) => [d.day, d.amount])).toEqual([
+				[5, 100_0000000000n],
+				[31, 150_0000000000n],
+			]);
+		}));
+
 	it('narrows to an account and those under it, ignoring case', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);

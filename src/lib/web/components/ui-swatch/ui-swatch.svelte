@@ -1,10 +1,15 @@
 <script lang="ts">
 	import { edgeOf } from '#lib/web/shared/chart.ts';
 
-	const { shade }: { shade: string } = $props();
+	/** How much of the colour shows, from 1 for all of it. */
+	const { shade, tint = 1 }: { shade: string; tint?: number } = $props();
 </script>
 
-<span aria-hidden="true" style:background="var({shade})" style:border-color="var({edgeOf(shade)})"
+<span
+	aria-hidden="true"
+	style:opacity={tint}
+	style:background="var({shade})"
+	style:border-color="var({edgeOf(shade)})"
 ></span>
 
 <style>

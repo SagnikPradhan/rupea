@@ -6,10 +6,10 @@
 	import {
 		EDGE,
 		edgeOf,
+		labelsIn,
 		partAt,
 		pointerIn,
 		seriesOf,
-		SPACE,
 		stackOf,
 		valuesOf,
 		VIEW,
@@ -20,7 +20,13 @@
 	import type { Snippet } from 'svelte';
 
 	/** A field of the rows to plot: a part piled into every bar, in order from zero, or a dashed curve they are weighed against. */
-	type Series = { key: keyof Row & string; label: string; role: 'part' | 'reference' };
+	type Series = {
+		key: keyof Row & string;
+		label: string;
+		role: 'part' | 'reference';
+		/** Which chart colour a part takes; the next free one without. */
+		colour?: number;
+	};
 
 	type Props = {
 		/** One row per bar, as an endpoint returns them, with exact decimals. */
@@ -70,7 +76,9 @@
 	const lines = $derived(
 		references.map((s) => rows.map((r) => (r[s.key] == null ? null : Number(r[s.key])))),
 	);
-	const values = $derived(valuesOf({ piles, lines, scale }));
+	const measured = $state({ rect: undefined as DOMRectReadOnly | undefined });
+	const box = $derived({ width: measured.rect?.width ?? 0, height: measured.rect?.height ?? 0 });
+	const values = $derived(valuesOf({ piles, lines, scale, height: box.height }));
 
 	const step = $derived(VIEW / Math.max(rows.length, 1));
 	const width = $derived(Math.min(step * WIDTH.share, WIDTH.most));
@@ -83,7 +91,8 @@
 	);
 
 	const across = $derived.by(() => {
-		const stride = STRIDES.find((s) => s * step >= SPACE.across) ?? STRIDES.length;
+		const room = VIEW / labelsIn(box.width, 'across');
+		const stride = STRIDES.find((s) => s * step >= room) ?? STRIDES.length;
 		const name = formatBucket[bucket];
 
 		return rows
@@ -127,6 +136,7 @@
 			onpointermove={point}
 			onpointerdown={point}
 			onpointerleave={leave}
+			bind:contentRect={measured.rect}
 		>
 			<svg viewBox="0 0 {VIEW} {VIEW}" preserveAspectRatio="none">
 				{#if hovered.index !== null}
@@ -136,8 +146,8 @@
 				{#each parts as part, k (part.key)}
 					<g
 						class:faded={hovered.part !== null && hovered.part !== k}
-						style:--shade="var({seriesOf(k)})"
-						style:--edge="var({edgeOf(seriesOf(k))})"
+						style:--shade="var({seriesOf(parts[k]?.colour ?? k)})"
+						style:--edge="var({edgeOf(seriesOf(parts[k]?.colour ?? k))})"
 					>
 						{#each rows, i}
 							{@const bar = barOf(k, i)}
@@ -173,7 +183,7 @@
 					onpointerenter={() => (hovered.part = k)}
 					onpointerleave={() => (hovered.part = null)}
 				>
-					<Swatch shade={seriesOf(k)} />
+					<Swatch shade={seriesOf(part.colour ?? k)} />
 					{part.label}
 					<data>{formatAmount(String(shown[part.key] ?? '0'))}</data>
 				</span>
@@ -197,17 +207,14 @@
 	}
 
 	figcaption {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: space-between;
-		align-items: center;
+		display: grid;
+		align-items: start;
 		gap: var(--size-2);
 		color: var(--color-muted);
 		font: var(--text-label);
 	}
 
 	.key {
-		flex: 1 1 auto;
 		display: flex;
 		flex-wrap: wrap;
 		gap: var(--size-0) var(--size-2);
@@ -218,7 +225,12 @@
 		flex-wrap: wrap;
 		justify-content: end;
 		gap: var(--size-1) var(--size-2);
-		margin-left: auto;
+	}
+
+	@media (width >= 48rem) {
+		figcaption {
+			grid-template-columns: 1fr 1fr;
+		}
 	}
 
 	data {
@@ -240,7 +252,7 @@
 
 	.plot {
 		position: relative;
-		height: var(--size-height-1);
+		height: var(--size-height-0);
 		touch-action: pan-y;
 	}
 

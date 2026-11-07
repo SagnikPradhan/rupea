@@ -155,6 +155,26 @@ describe('fetching quotes', () => {
 			expect(await valueOf(second)).toBe(1605_0000000000n);
 		}));
 
+	it('queues a symbol again once a day has passed since its last fetch', ({ context, db }) =>
+		provide(context, async () => {
+			const first = await createLedger(db);
+			const second = await createLedger(db);
+			await Files.createFile({ ledger: first, key: 'a.rupea', content: fund('100005') });
+			await Sync.syncIndex(first);
+			const [symbolId = ''] = await symbolOf(db, '100005');
+			await fetchedWith(context, navs({ '17-10-2026': '160.5' }), symbolId);
+			await db
+				.updateTable('symbolFetches')
+				.set({ fetchedAt: new Date(Date.now() - 24 * 60 * 60 * 1000 - 1000) })
+				.where('symbolId', '=', symbolId)
+				.execute();
+
+			await Files.createFile({ ledger: second, key: 'a.rupea', content: fund('100005') });
+			await Sync.syncIndex(second);
+
+			expect((await queued(second)).map((j) => j.payload)).toEqual([{ symbol: symbolId }]);
+		}));
+
 	it('queues a symbol again after a fetch that failed for now, but not one the feed lacks', ({
 		context,
 		db,

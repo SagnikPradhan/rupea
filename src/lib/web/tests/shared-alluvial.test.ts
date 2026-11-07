@@ -20,9 +20,27 @@ describe('the flows', () => {
 			['Expenses', 1000, 0, null, null],
 			['Expenses:Food', 600, 1, 0, 'Expenses'],
 			['Expenses:Rent', 300, 1, 1, 'Expenses'],
-			[OTHER, 100, 1, 2, 'Expenses'],
+			[OTHER, 100, 1, 9, 'Expenses'],
 			['Expenses:Food:Groceries', 400, 2, 0, 'Expenses:Food'],
 			['Expenses:Food:Dining', 250, 2, 0, 'Expenses:Food'],
+		]);
+	});
+
+	it('take each part\u2019s colour from the ones given, so it keeps it', () => {
+		const coloured = flowsOf({
+			rows,
+			account: 'Expenses',
+			parts: ['Expenses:Food', 'Expenses:Rent'],
+			colours: { 'Expenses:Food': 4, 'Expenses:Rent': 1 },
+		});
+
+		expect(coloured.map((f) => [f.key, f.part])).toEqual([
+			['Expenses', null],
+			['Expenses:Food', 4],
+			['Expenses:Rent', 1],
+			[OTHER, 9],
+			['Expenses:Food:Groceries', 4],
+			['Expenses:Food:Dining', 4],
 		]);
 	});
 

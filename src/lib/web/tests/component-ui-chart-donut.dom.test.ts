@@ -23,13 +23,13 @@ const drawn = (note?: string) => {
 };
 
 describe('the donut chart', () => {
-	it('draws an arc for each account in each ring, and lists each account once with its share', () => {
+	it('draws an arc for each account in each ring, and lists each account once with its share, a sub-account behind its parent initials', () => {
 		const plot = drawn();
 
 		expect(plot.querySelectorAll('path')).toHaveLength(5);
 		expect(
 			screen.getAllByRole('listitem').map((l) => l.textContent?.replace(/\s+/g, ' ').trim()),
-		).toEqual(['Investments 75%', 'Gold 50%', 'Equity 25%', 'Bank 25%']);
+		).toEqual(['Investments 75%', 'A:I:Gold 50%', 'A:I:Equity 25%', 'Bank 25%']);
 	});
 
 	it('names the arc under the cursor in a tip, fading the other groups, until it leaves', async () => {

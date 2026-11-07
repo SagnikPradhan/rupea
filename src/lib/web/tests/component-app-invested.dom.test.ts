@@ -19,7 +19,7 @@ describe('the value against cost chart', () => {
 		const gain = screen.getByText(/^Gain \+500/);
 		expect(gain.classList.contains('positive')).toBe(true);
 		expect(gain.textContent).toContain('(+50%)');
-		expect(screen.getByRole('figure').querySelector('path.between')).toBeTruthy();
+		expect(screen.getByRole('figure').querySelector('path.gained')).toBeTruthy();
 		expect(screen.getByText(/^Cost/)).toBeTruthy();
 	});
 

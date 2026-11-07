@@ -2,7 +2,8 @@
 	color-scheme: light dark;
 
 	/* Type scale */
-	--font-size-1: 1.125rem; /* 18px, the base every other step is a multiple of */
+	/* The base every other step is a multiple of: 18px at 768px wide down to 16px at 1920px, in between by viewport width (utopia.fyi/blog/clamp) */
+	--font-size-1: clamp(1rem, 1.2083rem - 0.1736vw, 1.125rem);
 	--font-size-0: calc(var(--font-size-1) * 0.8);
 	--font-size-2: calc(var(--font-size-1) * 1.5);
 	--font-size-3: calc(var(--font-size-1) * 2.5);
@@ -69,17 +70,22 @@
 	--color-negative-5: color-mix(in srgb, var(--color-negative) 50%, transparent);
 	--color-negative-6: color-mix(in srgb, var(--color-negative) 70%, transparent);
 
+	/* Chart colours */
+	--color-chart-1: light-dark(#3a6aa7, #85b4f0); /* blue */
+	--color-chart-2: light-dark(#a76c12, #ebb25f); /* amber */
+	--color-chart-3: light-dark(#007b70, #68c4b8); /* teal */
+	--color-chart-4: light-dark(#924b84, #d690c6); /* magenta */
+	--color-chart-5: light-dark(#726c19, #c1bb6d); /* olive */
+	--color-chart-6: light-dark(#6355a2, #aa9fec); /* violet */
+	--color-chart-7: light-dark(#3a99ba, #8ad0eb); /* sky */
+	--color-chart-8: light-dark(#66442c, #bc957b); /* brown */
+	--color-chart-9: light-dark(#77818c, #95a0ab); /* slate */
+	--color-chart-10: light-dark(#c97e9b, #eda6c1); /* pink */
+
 	/* Roles */
 	--color-subtle: var(--color-ink-1);
 	--color-border: var(--color-ink-2);
 	--color-muted: color-mix(in srgb, var(--color-ink) 56%, transparent);
-}
-
-/* Every size is a multiple of --font-size-1, so this is the one size to change for a screen. */
-@media (width >= 90rem) {
-	:root {
-		--font-size-1: 1rem;
-	}
 }
 
 /* Theme chosen in the app */

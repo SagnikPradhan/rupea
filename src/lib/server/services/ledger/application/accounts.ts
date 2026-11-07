@@ -10,7 +10,7 @@ import { bridgeOf, type Bridge } from '../domain/bridge';
 import { dropsOf, type Drops } from '../domain/drawdown';
 import { byAccount, HOPS, pricedIn, valued, type Account, type Holding } from '../domain/holdings';
 import { returnsOf, type Returns } from '../domain/returns';
-import { spendingOf, type Spending } from '../domain/spending';
+import { dailyOf, spendingOf, type Daily, type Spending } from '../domain/spending';
 import { parentsIn, partsIn, type AccountNode } from '../domain/tree';
 import type { Ledger } from '../domain/types';
 import {
@@ -25,7 +25,7 @@ import { checkLots } from './sync';
 
 export type { Account };
 export type { LotHistory, Worth } from '../adapters/database';
-export type { Bridge, Drops, Returns, Spending };
+export type { Bridge, Daily, Drops, Returns, Spending };
 
 type ListAccountsOptions = { ledger: Ledger; day: Temporal.PlainDate };
 
@@ -348,6 +348,21 @@ export const listSpending = ({
 			.map((s) => ({ succeeded: s, failed: f })),
 	);
 };
+
+type ListDailySpendingOptions = { ledger: Ledger; span: Span; account: string };
+
+/** What an Expenses account and those under it averaged on each day of the month over a span, one row for each day from the 1st to the 31st. */
+export const listDailySpending = ({
+	ledger,
+	span,
+	account,
+}: ListDailySpendingOptions): ResultAsync<Batch<Daily>> =>
+	DB.listProblems(ledger.id).andThen((failed) =>
+		DB.listSpending(ledger.id, { ...span, bucket: 'dayOfMonth', account }).map((r) => ({
+			succeeded: dailyOf(r, span),
+			failed,
+		})),
+	);
 
 /** Every account, each with the one it is drawn under, as parentsIn divides them. */
 export const listAccountTree = (

@@ -8,7 +8,7 @@
 	import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
 	import { periodOf } from '#lib/shared/dates.ts';
 	import { ASSETS, BalanceAccount } from '#lib/shared/accounts.ts';
-	import { depthOf, isUnder } from '#lib/web/shared/accounts.ts';
+	import { depthOf, isUnder, prefixOf } from '#lib/web/shared/accounts.ts';
 	import AccountName from '#lib/web/components/app-account-name/app-account-name.svelte';
 	import Bar from '#lib/web/components/ui-bar/ui-bar.svelte';
 	import BarRow from '#lib/web/components/ui-bar-row/ui-bar-row.svelte';
@@ -32,12 +32,15 @@
 		formatPercent,
 		formatReturn,
 		formatWhole,
+		formatCompact,
 	} from '#lib/web/shared/format.ts';
 	import { dotsOf } from '#lib/web/shared/dots.ts';
-	import { groupsInvested, investedOf, totalsOf } from '#lib/web/shared/invested.ts';
+	import { groupsInvested, investedOf, nestedOf, totalsOf } from '#lib/web/shared/invested.ts';
 	import { ringsOf } from '#lib/web/shared/rings.ts';
 	import { page } from '$app/state';
 	import * as v from 'valibot';
+
+	const BASE_GROWTH = 0.12;
 
 	type Holding = {
 		commodity: string;
@@ -77,10 +80,9 @@
 	const groups = $derived(groupsInvested(invested));
 	const totals = $derived(totalsOf(groups));
 	const byReturn = $derived(
-		invested
-			.map((a) => ({ ...a, grew: a.cost > 0 ? a.gain / a.cost : 0 }))
-			.toSorted((a, b) => b.grew - a.grew),
+		nestedOf(invested.map((a) => ({ ...a, grew: a.cost > 0 ? a.gain / a.cost : 0 }))),
 	);
+	const bestGrew = $derived(Math.max(...byReturn.map((a) => a.grew), BASE_GROWTH));
 	const assets = $derived(
 		accounts
 			.filter((a) => a.parent === null && isUnder(a.account, ASSETS))
@@ -126,37 +128,41 @@
 	]}
 />
 
-<KpiStrip>
-	<Kpi
-		label="Invested value"
-		figure={formatWhole(String(totals.value))}
-		detail="on {formatWhole(String(totals.cost))} cost"
-	/>
-	<Kpi
-		label="Gain"
-		figure={formatWhole(String(totals.gain))}
-		detail="{formatReturn(String(totals.gain), String(totals.cost)) ?? '0%'} on cost"
-		tone={totals.gain > 0 ? 'positive' : totals.gain < 0 ? 'negative' : undefined}
-	/>
-	<Kpi
-		label="Return a year"
-		figure={totals.xirr === null ? '0%' : formatPercent(totals.xirr)}
-		detail="weighted by value across {groups.length} {groups.length === 1 ? 'account' : 'accounts'}"
-	/>
-	<Kpi
-		label="Put in"
-		figure={formatWhole(String(totals.netIn))}
-		detail="across {groups.length} {groups.length === 1 ? 'account' : 'accounts'}"
-	/>
-</KpiStrip>
+<PanelGrid narrow>
+	<div>
+		{#if (grown.data ?? []).length > 0}
+			<Invested invested={grown.data ?? []} />
+		{:else}
+			<p>No investments with a cost in this period.</p>
+		{/if}
+	</div>
 
-<Panel title="Value against cost" subtitle="what the investments are worth, and what they cost">
-	{#if (grown.data ?? []).length > 0}
-		<Invested invested={grown.data ?? []} />
-	{:else}
-		<p>No investments with a cost in this period.</p>
-	{/if}
-</Panel>
+	<KpiStrip>
+		<Kpi
+			label="Invested value"
+			figure={formatWhole(String(totals.value))}
+			detail="on {formatWhole(String(totals.cost))} cost"
+		/>
+		<Kpi
+			label="Gain"
+			figure={formatWhole(String(totals.gain))}
+			detail="{formatReturn(String(totals.gain), String(totals.cost)) ?? '0%'} on cost"
+			tone={totals.gain > 0 ? 'positive' : totals.gain < 0 ? 'negative' : undefined}
+		/>
+		<Kpi
+			label="Return a year"
+			figure={totals.xirr === null ? '0%' : formatPercent(totals.xirr)}
+			detail="weighted by value across {groups.length} {groups.length === 1
+				? 'account'
+				: 'accounts'}"
+		/>
+		<Kpi
+			label="Put in"
+			figure={formatWhole(String(totals.netIn))}
+			detail="across {groups.length} {groups.length === 1 ? 'account' : 'accounts'}"
+		/>
+	</KpiStrip>
+</PanelGrid>
 
 <PanelGrid>
 	<div class="column">
@@ -165,12 +171,14 @@
 				{#each byReturn as a (a.account)}
 					<BarRow
 						name={a.name}
-						detail="{a.xirr === null ? '' : `${formatPercent(a.xirr)} a year · `}gain {formatWhole(
-							String(a.gain),
-						)}"
+						prefix={prefixOf(a.account)}
+						detail={[
+							`gained ${formatCompact(a.gain)}`,
+							a.xirr === null ? '' : `${formatPercent(a.xirr)} a year`,
+						].join(' · ')}
 						figure={formatReturn(String(a.gain), String(a.cost)) ?? '0%'}
-						tone={a.gain > 0 ? 'positive' : a.gain < 0 ? 'negative' : undefined}
-						share={a.grew / (byReturn[0]?.grew || 1)}
+						tone={a.gain >= 0 ? 'positive' : 'negative'}
+						share={a.grew / bestGrew}
 					/>
 				{/each}
 			</ul>

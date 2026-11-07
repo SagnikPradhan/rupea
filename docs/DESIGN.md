@@ -10,7 +10,7 @@ When Penpot and this document disagree, Penpot wins and this document is fixed. 
 
 Use the role, never the value. A theme is a swap of the colour table, so a screen that names a hex breaks in the other theme.
 
-**Colour.** Four base colours in a light and a dark theme. They are the only hex values.
+**Colour.** Four base colours and ten chart colours, each in a light and a dark theme. They are the only hex values.
 
 | Base               | Light     | Dark      | Use                       |
 | ------------------ | --------- | --------- | ------------------------- |
@@ -20,6 +20,8 @@ Use the role, never the value. A theme is a swap of the colour table, so a scree
 | `--color-negative` | `#c62828` | `#ff7b72` | Money out and errors      |
 
 Ink and negative each have a scale, `-1` to `-6`, the colour at 6, 12, 24, 36, 50 and 70% over the surface. A scale is for things that rank, such as the parts of a chart and the heat of a calendar.
+
+The ten chart colours, `--color-chart-1` to `--color-chart-10`, are the one place colour carries identity rather than money: they tell the parts of a chart apart, in this order, the largest part first. They are blue, amber, teal, magenta, olive, violet, sky, brown, slate and pink, chosen at one lightness and chroma, with no red or green so a part is never read as a loss or a gain. Each passes 3:1 against the surface in both themes, as a chart mark must. Nothing else uses them.
 
 The semantic roles are built from the base colours and carry no hex of their own.
 
@@ -31,7 +33,7 @@ The semantic roles are built from the base colours and carry no hex of their own
 
 Muted sits off the scale at 56% because secondary text needs a contrast of 4.5:1 on the surface in both themes, and 50% falls short.
 
-**Type.** Eight styles on three families: Poppins for text (`--font-body`), Geist Mono for money, dates and code (`--font-mono`), Google Sans for display and the brand (`--font-heading`). Every size is a multiple of `--font-size-1`, 18px, so changing it scales the whole page together: from 90rem wide it is 16px, a little smaller than drawn, for a 1080p screen.
+**Type.** Eight styles on three families: Poppins for text (`--font-body`), Geist Mono for money, dates and code (`--font-mono`), Google Sans for display and the brand (`--font-heading`). Every size is a multiple of `--font-size-1`, so changing it scales the whole page together. It is fluid: 18px at 768px wide down to 16px at 1920px, in between by viewport width.
 
 | Token              | Face        | Size            | Weight | Line height |
 | ------------------ | ----------- | --------------- | ------ | ----------- |
@@ -46,7 +48,7 @@ Muted sits off the scale at 56% because secondary text needs a contrast of 4.5:1
 
 Each is a `font` shorthand, used as `font: var(--text-label)`, with colour set beside it, as Penpot pairs a typography token with a fill. `h1` is `text-heading-1`, `h2` is `text-title` and the body is `text-base`. Display is used once, for the one figure a page exists to show. Money is always mono.
 
-**Space.** One scale for every gap, padding and margin, each a multiple of `--size-2`, 18px: `--size-0` is a quarter, `--size-1` a half, `--size-2` one, `--size-3` one and a half, `--size-4` three, `--size-5` six. There are no in-between values. When none fits, use the nearest step.
+**Space.** One scale for every gap, padding and margin, each a multiple of `--size-2`, the base size: `--size-0` is a quarter, `--size-1` a half, `--size-2` one, `--size-3` one and a half, `--size-4` three, `--size-5` six. There are no in-between values. When none fits, use the nearest step.
 
 **Shape.** One corner, `--radius-1`, the same as `--size-1`, on every panel, field, chip and button. The small box inside a chip takes `--radius-0`, half of `--radius-1`. Every outline, border and rule is `--size-line-0`, 1px; `--size-line-1`, twice that, is for emphasis: focus, errors, underlines and the main line in a chart. Nothing casts a shadow.
 
@@ -57,7 +59,7 @@ Every page is built from the same components, in the same order: the navigation 
 - **Navigation.** The brand at the left; Home, Accounts, Income, Expenses, Liabilities, Transactions and Files in the centre; the theme toggle, the username and log out at the right. The current page is in ink and the rest are muted. At narrow widths the bar becomes a menu button that opens a drawer: an outlined card at the top right with the brand, the theme toggle and a close button over plain lists of the pages and the account.
 - **Page header.** The title in `text-heading-1`, one muted line saying what the page answers, then at the right the filters and the one primary action.
 - **Panel.** A `--color-subtle` outline, `--radius-1`, and `--size-3` of padding and gap. It starts with a panel heading: a `text-title` and one muted line saying what it shows. A panel is the only box; nothing else is boxed.
-- **Figures.** A muted `text-label` over a `text-figure` over a muted `text-data` line of context. A strip of four figures sits across the top of a page. Green and red appear in the context line only when a figure means a gain or a loss.
+- **Figures.** A `text-figure` over a muted `text-label` name over a muted `text-label` line of context, both in the body font. Four figures sit in one panel, stacked, beside the top chart of a page. That chart has no box or heading, since its hero figure names it. Green and red appear in the context line only when a figure means a gain or a loss.
 - **Statements and tables.** A name at the left and amounts right-aligned in mono, with `--size-1` above and below each row. A total sits under a line in `--color-border`. Column names are muted `text-label`.
 - **Graphs.** No frame and no grid. Context goes in a legend of mono names and amounts, and the value under the cursor in a tooltip. A hover is a small panel.
 

@@ -87,4 +87,12 @@ describe('the calendar', () => {
 		render(Calendar, { rows: [], x: 'day', y: 'total', label: 'Spending', href: () => '' });
 		expect(document.querySelectorAll('.day')).toHaveLength(0);
 	});
+
+	it('sets days of the month from the 1st, under no weekday and linking nowhere, when not weekly', () => {
+		render(Calendar, { rows: ROWS, x: 'day', y: 'total', label: 'Spending', weekly: false });
+
+		expect(screen.queryAllByRole('columnheader')).toHaveLength(0);
+		expect(cellOf('1')).toBeDefined();
+		expect(document.querySelector('a')?.getAttribute('href')).toBeNull();
+	});
 });

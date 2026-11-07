@@ -1,12 +1,16 @@
 <script lang="ts">
-	import { Dialog } from 'bits-ui';
-	import { MediaQuery } from 'svelte/reactivity';
+	import { Dialog, LinkPreview } from 'bits-ui';
 	import { signOut } from '#lib/endpoints/auth.remote.ts';
 	import IconClose from '@tabler/icons-svelte-runes/icons/x';
+	import IconLogout from '@tabler/icons-svelte-runes/icons/logout';
+	import IconMenu from '@tabler/icons-svelte-runes/icons/menu-2';
 	import type { Theme } from '#lib/server/shared/theme.ts';
+	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import IconButton from '#lib/web/components/ui-button-icon/ui-button-icon.svelte';
+	import Avatar from '#lib/web/components/ui-avatar/ui-avatar.svelte';
 	import SyncButton from '#lib/web/components/app-sync-button/app-sync-button.svelte';
 	import ThemeToggle from '#lib/web/components/app-theme-toggle/app-theme-toggle.svelte';
+	import { flowerOf } from '#lib/web/shared/flower.ts';
 	import { PAGES } from '#lib/web/shared/pages.ts';
 	import { afterNavigate } from '$app/navigation';
 	import { page } from '$app/state';
@@ -19,9 +23,7 @@
 
 	const { handle, username, theme }: Props = $props();
 
-	const wide = new MediaQuery('width >= 90rem');
 	const drawer = $state({ open: false });
-	const inBar = $derived(wide.current || !username);
 	const section = $derived(page.url.pathname.split('/')[3]);
 	const home = $derived({
 		label: 'Home',
@@ -37,6 +39,7 @@
 				}))
 			: [],
 	);
+	const tint = $derived(flowerOf(username ?? '').color);
 	const links = $derived([home, ...ledger]);
 
 	afterNavigate(() => (drawer.open = false));
@@ -50,9 +53,17 @@
 	</ul>
 {/snippet}
 
-{#snippet account()}
-	<span>{username}</span>
-	<button class="text" form="log-out">Log out</button>
+{#snippet signedIn()}
+	<div class="banner" style:--tint="var(--color-chart-{tint})">
+		<Avatar name={username ?? ''} />
+	</div>
+	<div class="body">
+		<div class="who">
+			<strong>Hello, {username}</strong>
+			<span>You are signed in.</span>
+		</div>
+		<Button form="log-out">Sign out</Button>
+	</div>
 {/snippet}
 
 {#snippet tools()}
@@ -69,12 +80,28 @@
 	{/if}
 
 	<div class="end">
-		{#if inBar}<div class="tools">{@render tools()}</div>{/if}
+		<div class={['tools', { wide: username }]}>{@render tools()}</div>
 		{#if username}
-			<div class="account wide">{@render account()}</div>
+			<LinkPreview.Root openDelay={100} closeDelay={200}>
+				<LinkPreview.Trigger>
+					{#snippet child({ props })}
+						<button {...props} class="avatar wide" type="button" aria-label="Account">
+							<Avatar name={username} />
+						</button>
+					{/snippet}
+				</LinkPreview.Trigger>
+				<LinkPreview.Content side="bottom" align="end" sideOffset={4}>
+					{#snippet child({ props, wrapperProps })}
+						<div {...wrapperProps}><div {...props} class="card">{@render signedIn()}</div></div>
+					{/snippet}
+				</LinkPreview.Content>
+			</LinkPreview.Root>
 			<Dialog.Root bind:open={drawer.open}>
 				<Dialog.Trigger>
-					{#snippet child({ props })}<button {...props} class="text menu">Menu</button>{/snippet}
+					{#snippet child({ props })}
+						<span class="menu"><IconButton {...props} label="Menu" icon={IconMenu} outlined /></span
+						>
+					{/snippet}
 				</Dialog.Trigger>
 				<Dialog.Content>
 					{#snippet child({ props })}
@@ -82,7 +109,7 @@
 							<div class="bar">
 								<span class="brand">Rupea</span>
 								<div class="tools">
-									{#if !inBar}{@render tools()}{/if}
+									{@render tools()}
 									<Dialog.Close>
 										{#snippet child({ props })}
 											<IconButton {...props} label="Close" icon={IconClose} outlined />
@@ -91,7 +118,14 @@
 								</div>
 							</div>
 							<nav aria-label="Pages in the menu">{@render pages()}</nav>
-							<div class="account">{@render account()}</div>
+							<div class="account">
+								<Avatar name={username} />
+								<div class="who">
+									<strong>Hello, {username}</strong>
+									<span>You are signed in.</span>
+								</div>
+								<IconButton form="log-out" label="Sign out" icon={IconLogout} outlined />
+							</div>
 						</div>
 					{/snippet}
 				</Dialog.Content>
@@ -153,27 +187,92 @@
 		padding: 0;
 	}
 
-	.account {
-		display: flex;
-		gap: var(--size-3);
-		align-items: center;
-		color: var(--color-muted);
-	}
-
-	.text {
+	.avatar {
 		padding: 0;
-		line-height: inherit;
 		border: 0;
 		background: none;
+	}
+
+	.card {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-1);
+		width: calc(var(--size-2) * 17);
+		padding: var(--size-1);
+		border: var(--size-line-0) solid var(--color-subtle);
+		border-radius: var(--radius-2);
+		background: var(--color-surface);
 		color: var(--color-muted);
 	}
 
-	.text:hover {
-		text-decoration: underline;
+	.banner {
+		display: flex;
+		align-items: flex-end;
+		height: calc(var(--size-4) * 1.25);
+		padding-inline: var(--size-1);
+		border-radius: var(--radius-1);
+		background: color-mix(in srgb, var(--tint) 12%, var(--color-surface));
 	}
 
-	.menu {
-		display: none;
+	.banner :global(svg) {
+		width: var(--size-4);
+		height: var(--size-4);
+		margin-bottom: calc(var(--size-4) / -2);
+		border: var(--size-line-1) solid var(--color-surface);
+		border-radius: 50%;
+	}
+
+	.body {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-2);
+		padding: var(--size-1);
+		padding-top: calc(var(--size-4) / 2 + var(--size-1));
+	}
+
+	.body > :global(button) {
+		align-self: flex-start;
+	}
+
+	.who {
+		display: flex;
+		flex-direction: column;
+		min-width: 0;
+	}
+
+	.who strong {
+		overflow: hidden;
+		font: var(--text-title);
+		color: var(--color-ink);
+		text-overflow: ellipsis;
+		white-space: nowrap;
+	}
+
+	.who span {
+		font: var(--text-label);
+	}
+
+	.account {
+		display: flex;
+		gap: var(--size-2);
+		align-items: center;
+		padding-top: var(--size-2);
+		border-top: var(--size-line-0) solid var(--color-border);
+	}
+
+	.account .who {
+		flex: 1;
+		color: var(--color-muted);
+	}
+
+	.account .who strong {
+		font: var(--text-base);
+	}
+
+	.account .who span {
+		overflow: hidden;
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
 	.drawer {
@@ -204,12 +303,6 @@
 		gap: var(--size-2);
 	}
 
-	.drawer .account {
-		flex-direction: column;
-		gap: var(--size-2);
-		align-items: flex-start;
-	}
-
 	@media (width < 48rem) {
 		header {
 			padding: var(--size-3);
@@ -221,7 +314,8 @@
 			padding-inline: var(--size-5);
 		}
 
-		.drawer {
+		.drawer,
+		.menu {
 			display: none;
 		}
 	}
@@ -229,10 +323,6 @@
 	@media (width < 90rem) {
 		.wide {
 			display: none;
-		}
-
-		.menu {
-			display: block;
 		}
 	}
 </style>

@@ -43,8 +43,27 @@ describe('the navigation', () => {
 				.getAllByRole('link')
 				.map((a) => a.textContent),
 		).toEqual(['Home']);
-		expect(screen.getAllByText('asha').length).toBeGreaterThan(0);
-		expect(screen.getAllByRole('button', { name: 'Log out' }).length).toBeGreaterThan(0);
+		expect(screen.getAllByRole('img', { name: 'asha' }).length).toBeGreaterThan(0);
+		expect(screen.getByRole('button', { name: 'Account' })).toBeTruthy();
+	});
+
+	it('greets the user, with Sign out, when the avatar is hovered', async () => {
+		render(Navigation, { handle: null, username: 'asha', theme: 'system' });
+		expect(screen.queryByText('You are signed in.')).toBeNull();
+
+		await fireEvent.pointerEnter(screen.getByRole('button', { name: 'Account' }));
+
+		expect(await screen.findByText('Hello, asha')).toBeTruthy();
+		expect(screen.getByRole('button', { name: 'Sign out' })).toBeTruthy();
+	});
+
+	it('greets the user, with Sign out, in the menu', async () => {
+		render(Navigation, { handle: null, username: 'asha', theme: 'system' });
+		await fireEvent.click(screen.getByRole('button', { name: 'Menu' }));
+		const menu = within(await screen.findByRole('dialog', { name: 'Menu' }));
+
+		expect(menu.getByText('You are signed in.')).toBeTruthy();
+		expect(menu.getByRole('button', { name: 'Sign out' })).toBeTruthy();
 	});
 
 	it('links the ledger pages, and marks Home as the current page on the home page', () => {
@@ -70,7 +89,7 @@ describe('the navigation', () => {
 	it('marks no page current on a page the bar does not list', async () => {
 		at('/l/h/postings', { handle: 'h' });
 		render(Navigation, { handle: 'h', username: 'asha', theme: 'system' });
-		await fireEvent.click(screen.getByRole('button', { name: 'Menu' }));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Menu' }));
 		await screen.findAllByRole('button', { name: 'Sync now' });
 
 		expect(
@@ -82,7 +101,7 @@ describe('the navigation', () => {
 	it('offers syncing on a ledger page only', async () => {
 		at('/l/h/accounts', { handle: 'h' });
 		render(Navigation, { handle: 'h', username: 'asha', theme: 'system' });
-		await fireEvent.click(screen.getByRole('button', { name: 'Menu' }));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Menu' }));
 
 		expect((await screen.findAllByRole('button', { name: 'Sync now' })).length).toBeGreaterThan(0);
 	});

@@ -59,4 +59,14 @@ describe('the dots of the return and risk chart', () => {
 
 		expect(dots).toEqual([]);
 	});
+
+	it('finds the group of an account whatever the case of its name', () => {
+		const dots = dotsOf(
+			[grown('assets:retirement:epf', 40, 0.05)],
+			[{ account: 'assets:retirement:epf', swing: 0.02 }],
+			RINGS.arcs,
+		);
+
+		expect(dots[0]?.part).toBe(RINGS.arcs.find((a) => a.key === 'Assets:Retirement')?.part);
+	});
 });

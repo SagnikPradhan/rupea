@@ -24,7 +24,11 @@ export const dotsOf = (grown: Grown[], swings: Swing[], arcs: Arc[]): Dot[] => {
 		const across = swingOf[a.account];
 		if (across === undefined || a.xirr === null || a.value <= 0) return [];
 
-		const group = groups.find((g) => a.account === g.key || a.account.startsWith(`${g.key}:`));
+		const name = a.account.toLowerCase();
+		const group = groups.find((g) => {
+			const key = g.key.toLowerCase();
+			return name === key || name.startsWith(`${key}:`);
+		});
 
 		return [
 			{

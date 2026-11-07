@@ -17,3 +17,7 @@ pre-commit:
     stylelint:
       glob: 'src/**/*.svelte'
       run: pnpm exec stylelint {staged_files}
+    harper:
+      glob: '*.{ts,js,md}'
+      exclude: ['drizzle/**', '.agents/**', 'packages/site/src/content/manual/glossary.md']
+      run: pnpm lint:prose {staged_files}

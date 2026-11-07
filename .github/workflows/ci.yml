@@ -16,8 +16,12 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: ./.github/actions/setup
+      - uses: jdx/mise-action@v5
+        with:
+          install_args: harper-cli
       - run: pnpm format:check
       - run: pnpm lint
+      - run: pnpm lint:prose
       - run: pnpm check
       - run: pnpm --filter site build
 

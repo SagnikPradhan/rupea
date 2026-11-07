@@ -1,6 +1,6 @@
 # A balance assertion is a point in time on its account
 
-A statement prints a running balance after every row, and an import writes it as `= balance` on the statement account's posting. An assertion is a point in time on the account, checked against every counted posting before it in any file. Within a file, postings are a sequence and are ordered by line. Across files on the same day, a posting is ordered against the assertion only when both have a time. Otherwise it is **unordered**, and the assertion is reported as ambiguous instead of being checked; adding a time on either side settles it.
+A statement prints a running balance after every row, and an import writes it as `= balance` on the statement account's posting. An assertion is a point in time on the account, checked against every counted posting before it in any file. Within a file, postings are a sequence and are ordered by line. Across files on the same day, a posting is ordered against the assertion only when both have a time. Otherwise, it is **unordered**, and the assertion is reported as ambiguous instead of being checked; adding a time on either side settles it.
 
 An event's money moves at its primary. A statement row that is evidence moves nothing, so if its primary sits in another file on the same day, the row's neighbours need times to check cleanly.
 

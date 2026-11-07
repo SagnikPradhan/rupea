@@ -66,13 +66,12 @@
 		<PagedTable
 			columns={[
 				{ label: 'Date', kind: 'date' },
-				{ label: 'From', kind: 'account', optional: true },
-				{ label: 'To', kind: 'account', optional: true },
+				{ label: 'From / To', kind: 'account', optional: true },
 				{ label: 'Description' },
 				{ label: 'Amount', kind: 'amount' },
 			]}
 			{list}
-			height={54}
+			height={78}
 			empty="No transactions match."
 		>
 			{#snippet row(index: number)}
@@ -84,11 +83,13 @@
 							<time datetime={transaction.date}>{formatDate(transaction.date)}</time>
 							{#if transaction.time}<span>{transaction.time}</span>{/if}
 						</td>
-						<td class="optional truncate"
-							>{#if from}<Account account={from.account} />{/if}</td
-						>
 						<td class="optional truncate">
-							<div class="cell inline">
+							<div class="line">
+								<span class="name"
+									>{#if from}<Account account={from.account} />{/if}</span
+								>
+							</div>
+							<div class="line">
 								<span class="name"
 									>{#if to}<Account account={to.account} />{/if}</span
 								>
@@ -122,8 +123,10 @@
 		color: var(--color-muted);
 	}
 
-	.inline {
-		flex-wrap: nowrap;
+	.line {
+		display: flex;
+		gap: var(--size-0) var(--size-2);
+		align-items: baseline;
 	}
 
 	.name {

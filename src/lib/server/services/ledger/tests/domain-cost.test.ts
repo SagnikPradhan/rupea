@@ -4,11 +4,12 @@ import { describe, expect, it } from 'vitest';
 
 const day = (d: string) => Temporal.PlainDate.from(d);
 const amount = (n: number) => (BigInt(n) * 10n ** 10n) as Amount;
-const move = (on: string, n: number, cost = 'INR'): CostMove => ({
+const move = (on: string, n: number, cost = 'INR', paid = on): CostMove => ({
 	accountId: 'a',
 	commodity: 'INFY',
 	cost,
 	day: day(on),
+	paid: day(paid),
 	amount: amount(n),
 });
 const DAYS = ['2026-01-01', '2026-01-02', '2026-01-03', '2026-01-05'].map(day);
@@ -28,6 +29,16 @@ describe('what lots had cost by each day', () => {
 		];
 
 		expect(costOn({ moves, rates, days: DAYS })).toEqual([0, 8000, 8000, 17000].map(amount));
+	});
+
+	it('takes a sale out at the rate of the day its lot was paid for, so selling all costs nothing', () => {
+		const moves = [move('2026-01-02', 100, 'USD'), move('2026-01-05', -100, 'USD', '2026-01-02')];
+		const rates = [
+			{ commodity: 'USD', day: day('2026-01-02'), rate: amount(80) },
+			{ commodity: 'USD', day: day('2026-01-05'), rate: amount(85) },
+		];
+
+		expect(costOn({ moves, rates, days: DAYS })).toEqual([0, 8000, 8000, 0].map(amount));
 	});
 
 	it('leaves out a move whose currency had no rate that day', () => {

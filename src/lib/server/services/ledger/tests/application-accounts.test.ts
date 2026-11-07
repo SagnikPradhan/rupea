@@ -1152,6 +1152,32 @@ describe('spending', () => {
 				]);
 			}));
 
+		it('takes a sale in another currency out at the price of the day its lot was paid', ({
+			context,
+			db,
+		}) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				const content = [
+					'P 2026-01-02 USD 80',
+					'P 2026-03-01 USD 90',
+					'P 2026-03-01 AAPL 110 USD',
+					'',
+					'2026-01-02 Buy',
+					'\tAssets:IBKR 2 AAPL @ 100 USD',
+					'\tAssets:IBKR -200 USD',
+					'',
+					'2026-03-01 Sell',
+					'\tAssets:IBKR -2 AAPL {100 USD} @ 110 USD',
+					'\tAssets:IBKR 220 USD',
+					'\tIncome:Gains -20 USD',
+					'',
+				].join('\n');
+				await Files.createFile({ ledger, key: 'a.rupea', content });
+
+				expect((await valued(ledger, 'Assets:IBKR'))[1]?.[2]).toBe(0n);
+			}));
+
 		it('says so when a cost currency had no price the day it was paid', ({ context, db }) =>
 			provide(context, async () => {
 				const ledger = await createLedger(db);

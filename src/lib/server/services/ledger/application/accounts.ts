@@ -150,9 +150,9 @@ const investedOver = (id: string, { from, to }: Span, parts: PartOf[]) =>
 		const held = new Set(moves.map((m) => `${m.accountId} ${m.commodity}`));
 		const lotted = parts.filter((p) => moves.some((m) => m.accountId === p.accountId));
 		const priced = moves.filter((m) => m.cost !== DEFAULT_COMMODITY);
-		const pairs = [...new Map(priced.map((m) => [`${m.cost} ${m.day}`, m])).values()].map((m) => ({
+		const pairs = [...new Map(priced.map((m) => [`${m.cost} ${m.paid}`, m])).values()].map((m) => ({
 			commodity: m.cost,
-			day: m.day,
+			day: m.paid,
 		}));
 
 		return ResultAsync.combine([

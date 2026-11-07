@@ -103,6 +103,7 @@ export const listCostMoves = (
 							'l.commodity',
 							'l.costCommodity',
 							'p.date',
+							'p.date as paid',
 							multiply(e.ref('l.units'), e.ref('l.costAmount')).as('amount'),
 						])
 						.where('l.ledgerId', '=', ledgerId)
@@ -113,11 +114,13 @@ export const listCostMoves = (
 								.selectFrom('disposals as d')
 								.innerJoin('lots as l', 'l.id', 'd.lotId')
 								.innerJoin('postings as p', 'p.id', 'd.postingId')
+								.innerJoin('postings as lp', 'lp.id', 'l.postingId')
 								.select((e) => [
 									'l.accountId',
 									'l.commodity',
 									'l.costCommodity',
 									'p.date',
+									'lp.date as paid',
 									multiply(e.ref('d.units'), e.ref('l.costAmount')).as('amount'),
 								])
 								.where('d.ledgerId', '=', ledgerId)
@@ -131,9 +134,10 @@ export const listCostMoves = (
 					'm.commodity',
 					'm.costCommodity',
 					'm.date',
+					'm.paid',
 					e.fn.sum<bigint>('m.amount').as('amount'),
 				])
-				.groupBy(['m.accountId', 'm.commodity', 'm.costCommodity', 'm.date'])
+				.groupBy(['m.accountId', 'm.commodity', 'm.costCommodity', 'm.date', 'm.paid'])
 				.orderBy('m.date')
 				.execute(),
 		).map((rows) =>
@@ -142,6 +146,7 @@ export const listCostMoves = (
 				commodity: r.commodity,
 				cost: r.costCommodity,
 				day: Temporal.PlainDate.from(r.date),
+				paid: Temporal.PlainDate.from(r.paid),
 				amount: r.amount as Amount,
 			})),
 		),

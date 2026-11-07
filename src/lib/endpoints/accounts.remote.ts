@@ -8,6 +8,7 @@ import { Handle, inLedger } from './shared';
 import {
 	viewAccount,
 	viewBridge,
+	viewDaily,
 	viewDrops,
 	viewInvested,
 	viewLot,
@@ -120,6 +121,19 @@ export const listSpending = query(
 			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewSpending) })),
 		);
 	},
+);
+
+/** What an Expenses account averaged on each day of the month over a period. */
+export const listDailySpending = query(
+	v.object({ handle: Handle, day: Day, period: Period, account: FlowAccount }),
+	({ handle, day, period, account }) =>
+		replyFromBatch(
+			inLedger({
+				handle,
+				action: (l) =>
+					Accounts.listDailySpending({ ledger: l, span: spansOf(period, day).current, account }),
+			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewDaily) })),
+		),
 );
 
 export const listLots = query(

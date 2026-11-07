@@ -31,6 +31,10 @@ describe('accounts', () => {
 					account: 'Expenses',
 				}),
 			);
+		const daily = (f: Temporal.PlainDate) =>
+			timed(context, () =>
+				Accounts.listDailySpending({ ledger, span: { from: f, to: TO }, account: 'Expenses' }),
+			);
 		const holdings = timed(context, () => Accounts.listAccounts({ ledger, day: TO }));
 		const tree = timed(context, () => Accounts.listAccountTree(ledger));
 		const lots = timed(context, () =>
@@ -61,6 +65,8 @@ describe('accounts', () => {
 			bench('returns all', returns(Temporal.PlainDate.from(BEGINNING))),
 			bench('spending 1y', spending(TO.subtract({ years: 1 }))),
 			bench('spending all', spending(Temporal.PlainDate.from(BEGINNING))),
+			bench('daily 1y', daily(TO.subtract({ years: 1 }))),
+			bench('daily all', daily(Temporal.PlainDate.from(BEGINNING))),
 			bench('holdings', holdings),
 			bench('tree', tree),
 			bench('lots', lots),

@@ -1,13 +1,16 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
-import { listSpending } from '#lib/endpoints/accounts.remote.ts';
+import { listDailySpending, listSpending } from '#lib/endpoints/accounts.remote.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
 import { openFilter } from '#tests/shared/filter.ts';
 import Page from '#routes/(signed-in)/l/[handle]/expenses/+page.svelte';
 
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
-vi.mock('#lib/endpoints/accounts.remote.ts', () => ({ listSpending: vi.fn() }));
+vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
+	listDailySpending: vi.fn(),
+	listSpending: vi.fn(),
+}));
 vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
 	findFirstDay: vi.fn(() => answer('2025-03-14')),
 }));
@@ -41,6 +44,20 @@ const spending = {
 const previous = { ...spending, from: '2025-01-01', buckets: ['2025-01-01'] };
 
 describe('the expenses page', () => {
+	it('draws a calendar of what was averaged on each day of the month', async () => {
+		visit('/l/h/expenses?at=2026');
+		vi.mocked(listSpending).mockReturnValue(answer([spending, previous]));
+		vi.mocked(listDailySpending).mockReturnValue(
+			answer(Array.from({ length: 31 }, (_, i) => ({ day: i + 1, amount: '10', unpriced: 0 }))),
+		);
+		render(Page, { data });
+
+		const calendar = await screen.findByRole('table', {
+			name: 'Average spending on each day of the month, over the period',
+		});
+		expect(within(calendar).getAllByRole('cell')).toHaveLength(35);
+	});
+
 	it('lists each account with its share, and links to its postings over the period picked', async () => {
 		visit('/l/h/expenses?at=2026');
 		vi.mocked(listSpending).mockReturnValue(answer([spending, previous]));

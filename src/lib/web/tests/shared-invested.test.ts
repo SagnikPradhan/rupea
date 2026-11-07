@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { groupsInvested, investedOf, totalsOf } from '#lib/web/shared/invested.ts';
+import { groupsInvested, investedOf, nestedOf, totalsOf } from '#lib/web/shared/invested.ts';
 
 const held = (account: string, total: string, cost: string | null, gain: string | null) => ({
 	account,
@@ -58,5 +58,30 @@ describe('the invested accounts', () => {
 		};
 
 		expect(totalsOf(investedOf(groups, returns)).xirr).toBeCloseTo(0.16);
+	});
+});
+
+describe('nesting accounts', () => {
+	it('puts each account before the ones under it and keeps sibling order', () => {
+		const order = [
+			'Assets:Equity',
+			'Assets:Debt',
+			'Assets:Equity:Stocks',
+			'Assets:Debt:Bonds',
+			'Assets:Equity:Funds',
+		];
+		const nested = nestedOf(order.map((account) => ({ account })));
+
+		expect(nested.map((a) => a.account)).toEqual([
+			'Assets:Equity',
+			'Assets:Equity:Stocks',
+			'Assets:Equity:Funds',
+			'Assets:Debt',
+			'Assets:Debt:Bonds',
+		]);
+	});
+
+	it('keeps an account whose parent is not listed', () => {
+		expect(nestedOf([{ account: 'Assets:Gold:Coins' }]).length).toBe(1);
 	});
 });

@@ -1,7 +1,8 @@
 <script lang="ts">
+	import AccountName from '#lib/web/components/app-account-name/app-account-name.svelte';
 	import Swatch from '#lib/web/components/ui-swatch/ui-swatch.svelte';
 	import Tooltip from '#lib/web/components/ui-tooltip/ui-tooltip.svelte';
-	import { seriesOf, VIEW } from '#lib/web/shared/chart.ts';
+	import { seriesOf, tintOf, VIEW } from '#lib/web/shared/chart.ts';
 	import { formatAmount, formatShare } from '#lib/web/shared/format.ts';
 	import type { Arc } from '#lib/web/shared/rings.ts';
 	import { arc } from 'd3-shape';
@@ -49,6 +50,7 @@
 						<path
 							class:faded={faded(a.part)}
 							style:--shade="var({seriesOf(a.part)})"
+							style:--tint={tintOf(a.level - 1)}
 							d={shape(a)}
 							role="presentation"
 							onpointerenter={() => (hovered.arc = a)}
@@ -68,8 +70,10 @@
 		<ul>
 			{#each entries as a (a.key)}
 				<li class={{ group: a.level === 1, faded: faded(a.part) }}>
-					<Swatch shade={seriesOf(a.part)} />
-					<span class="name">{a.label}</span>
+					<Swatch shade={seriesOf(a.part)} tint={tintOf(a.level - 1)} />
+					<span class="name">
+						{#if a.level > 1}<AccountName account={a.key} />{:else}{a.label}{/if}
+					</span>
 					<data>{formatShare(String(a.share), '1')}</data>
 				</li>
 			{/each}
@@ -86,16 +90,16 @@
 	}
 
 	.row {
-		display: flex;
-		flex-wrap: wrap;
+		display: grid;
+		grid-template-columns: repeat(auto-fit, minmax(calc(var(--size-2) * 12), 1fr));
 		align-items: center;
 		gap: var(--size-3);
 	}
 
 	.plot {
 		position: relative;
-		flex: none;
-		height: var(--size-height-1);
+		justify-self: center;
+		height: var(--size-height-0);
 		aspect-ratio: 1;
 	}
 
@@ -107,6 +111,7 @@
 
 	path {
 		fill: var(--shade);
+		fill-opacity: var(--tint);
 		stroke: var(--color-surface);
 		stroke-width: var(--size-line-0);
 		vector-effect: non-scaling-stroke;
@@ -117,7 +122,6 @@
 	}
 
 	ul {
-		flex: 1 1 var(--size-height-0);
 		display: flex;
 		flex-direction: column;
 		gap: var(--size-1);

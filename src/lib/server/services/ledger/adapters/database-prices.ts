@@ -99,7 +99,8 @@ export const listRatesThen = (
 type SpendingOptions = {
 	from: Temporal.PlainDate;
 	to: Temporal.PlainDate;
-	bucket: Bucket;
+	/** A day of the month puts every month's day n in one bucket, dated in January 2000. */
+	bucket: Bucket | 'dayOfMonth';
 	account: string;
 };
 
@@ -165,7 +166,10 @@ export const listSpending = (
 							's.account',
 							's.date',
 							's.postings',
-							sql<string>`date_trunc(${bucket}, ${e.ref('s.date')}::timestamp)::date`.as('bucket'),
+							(bucket === 'dayOfMonth'
+								? sql<string>`make_date(2000, 1, extract(day from ${e.ref('s.date')})::int)`
+								: sql<string>`date_trunc(${bucket}, ${e.ref('s.date')}::timestamp)::date`
+							).as('bucket'),
 							e
 								.case()
 								.when('s.commodity', '=', DEFAULT_COMMODITY)

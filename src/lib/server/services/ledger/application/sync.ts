@@ -251,9 +251,9 @@ const addProblems = (id: string, f: RupeaError[]): ResultAsync<RupeaError[]> =>
 		.map((p) => [...f, ...p])
 		.orElse((e) => ok([...f, e]));
 
-/** A symbol is fetched once a ledger links it, and again on later syncs until a fetch works. */
+/** A symbol is fetched once a ledger links it, and again on the first sync of each day, or on later syncs until a fetch works. */
 const queueFetches = (ledger: Ledger, failed: RupeaError[]): ResultAsync<RupeaError[]> =>
-	DB.listUnfetched(ledger.id)
+	DB.listStale(ledger.id)
 		.andThen((ids) =>
 			inOrder(
 				ids.map(

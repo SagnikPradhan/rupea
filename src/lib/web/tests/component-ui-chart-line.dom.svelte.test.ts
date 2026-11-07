@@ -82,8 +82,41 @@ describe('the line chart', () => {
 		});
 
 		const svg = screen.getByRole('img', { name: 'Against cost' }).querySelector('svg');
-		expect(svg?.querySelectorAll('path.between')).toHaveLength(1);
+		expect(svg?.querySelectorAll('path.gained')).toHaveLength(1);
+		expect(svg?.querySelectorAll('path.lost')).toHaveLength(1);
 		expect(svg?.querySelector('path.line.band')).not.toBeNull();
+	});
+
+	it('marks the figure as falling when told the measure only counts losses', () => {
+		render(LineChart, {
+			rows: ROWS,
+			x: 'day',
+			series: [{ key: 'worth', label: 'Below its high', role: 'primary' }],
+			falling: true,
+			label: 'Below its high',
+		});
+
+		expect(screen.getByRole('figure').classList.contains('falling')).toBe(true);
+	});
+
+	it('shades in red only where the primary line falls below the band line', () => {
+		render(LineChart, {
+			rows: [
+				{ day: '2026-01-01', value: '150', cost: '100' },
+				{ day: '2026-01-02', value: '150', cost: '100' },
+			],
+			x: 'day',
+			series: [
+				{ key: 'value', label: 'Value', role: 'primary' },
+				{ key: 'cost', label: 'Cost', role: 'band' },
+			],
+			label: 'Above cost',
+		});
+
+		const svg = screen.getByRole('img', { name: 'Above cost' }).querySelector('svg');
+		const height = (selector: string) => svg?.querySelector(selector)?.getAttribute('d') ?? '';
+		expect(height('path.gained')).not.toBe(height('path.lost'));
+		expect(height('path.lost')).toMatch(/^M[\d.]+,([\d.]+)L[\d.]+,\1/);
 	});
 
 	it('fills from the top down to a line that never rises above zero', () => {

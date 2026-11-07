@@ -13,6 +13,7 @@
 	import KpiStrip from '#lib/web/components/ui-kpi-strip/ui-kpi-strip.svelte';
 	import NetWorth from '#lib/web/components/app-net-worth/app-net-worth.svelte';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
+	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
 	import { isUnder } from '#lib/web/shared/accounts.ts';
 	import Statement from '#lib/web/components/app-statement/app-statement.svelte';
 	import StatementRow from '#lib/web/components/app-statement/app-statement-row.svelte';
@@ -70,27 +71,29 @@
 	]}
 />
 
-<NetWorth worth={worth.data ?? []} />
+<PanelGrid narrow>
+	<NetWorth worth={worth.data ?? []} />
 
-<KpiStrip>
-	<Kpi
-		label="Assets"
-		figure={formatWhole(last?.assets ?? '0')}
-		detail="in {owned.length} {owned.length === 1 ? 'group' : 'groups'}"
-	/>
-	<Kpi
-		label="Owed"
-		figure={formatWhole(owed)}
-		detail="{formatShare(owed, last?.assets ?? '0') ?? '0%'} of assets"
-	/>
-	<Kpi
-		label="Saved in {month}"
-		figure={formatWhole(saved.amount)}
-		detail="{formatShare(saved.amount, income.total.amount) ?? '0%'} of income"
-		tone={Number(saved.amount) > 0 ? 'positive' : undefined}
-	/>
-	<Kpi label="Cash cushion" soon />
-</KpiStrip>
+	<KpiStrip>
+		<Kpi
+			label="Assets"
+			figure={formatWhole(last?.assets ?? '0')}
+			detail="in {owned.length} {owned.length === 1 ? 'group' : 'groups'}"
+		/>
+		<Kpi
+			label="Owed"
+			figure={formatWhole(owed)}
+			detail="{formatShare(owed, last?.assets ?? '0') ?? '0%'} of assets"
+		/>
+		<Kpi
+			label="Saved in {month}"
+			figure={formatWhole(saved.amount)}
+			detail="{formatShare(saved.amount, income.total.amount) ?? '0%'} of income"
+			tone={Number(saved.amount) > 0 ? 'positive' : undefined}
+		/>
+		<Kpi label="Cash cushion" soon />
+	</KpiStrip>
+</PanelGrid>
 
 <div class="statements">
 	<div class="column">

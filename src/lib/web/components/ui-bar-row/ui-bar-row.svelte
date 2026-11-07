@@ -3,18 +3,21 @@
 
 	type Props = {
 		name: string;
+		prefix?: string;
 		detail?: string;
 		figure: string;
 		tone?: 'positive' | 'negative';
 		share: number;
 	};
 
-	const { name, detail, figure, tone, share }: Props = $props();
+	const { name, prefix, detail, figure, tone, share }: Props = $props();
 </script>
 
 <li>
 	<p>
-		<span class="name">{name}</span>
+		<span class="name"
+			>{#if prefix}<span class="prefix">{prefix}</span>{/if}{name}</span
+		>
 		{#if detail}<span class="detail">{detail}</span>{/if}
 		<span class={['figure', tone]}>{figure}</span>
 	</p>
@@ -34,11 +37,16 @@
 		align-items: baseline;
 	}
 
+	.name {
+		flex-grow: 1;
+	}
+
 	.detail,
 	.figure {
 		font: var(--text-data);
 	}
 
+	.prefix,
 	.detail {
 		color: var(--color-muted);
 	}

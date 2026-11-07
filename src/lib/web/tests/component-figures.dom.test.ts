@@ -7,7 +7,7 @@ import Kpi from '#lib/web/components/ui-kpi/ui-kpi.svelte';
 import KpiStrip from '#lib/web/components/ui-kpi-strip/ui-kpi-strip.svelte';
 
 describe('a kpi', () => {
-	it('puts the label over the figure over its context', () => {
+	it('puts the figure over the label over its context', () => {
 		render(Kpi, { label: 'Assets', figure: '1,00,000', detail: 'in 2 groups' });
 
 		expect(screen.getByText('Assets')).toBeTruthy();

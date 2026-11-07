@@ -5,8 +5,8 @@
 	import {
 		EDGE,
 		partAt,
+		labelsIn,
 		pointerIn,
-		SPACE,
 		stackOf,
 		valuesOf,
 		VIEW,
@@ -22,30 +22,34 @@
 	import type { Snippet } from 'svelte';
 	import type { Bucket } from '#lib/shared/dates.ts';
 
-	/** A field of the rows to plot, by what it means: the one measure a chart shows, what explains it, what counts against it, a line with the space shaded between it and the primary, or a part of it piled under the lines in its own shade. */
 	type Series = {
 		key: keyof Row & string;
 		label: string;
 		role: 'primary' | 'context' | 'negative' | 'band' | 'part';
-		/** A part's colour token. */
 		shade?: string;
 	};
 
 	type Props = {
-		/** One row per point, as an endpoint returns them, with ISO days and exact decimals. */
 		rows: Row[];
-		/** The field holding each row's ISO day. */
 		x: keyof Row & string;
 		series: Series[];
 		unit?: 'amount' | 'percent';
+		falling?: boolean;
 		label: string;
-		/** Drawn above the plot with the row under the cursor, or the last one. */
 		summary?: Snippet<[number]>;
-		/** Drawn below the plot opposite the key, such as a choice of chart. */
 		controls?: Snippet;
 	};
 
-	const { rows, x, series, unit = 'amount', label, summary, controls }: Props = $props();
+	const {
+		rows,
+		x,
+		series,
+		unit = 'amount',
+		falling = false,
+		label,
+		summary,
+		controls,
+	}: Props = $props();
 
 	const FORMATS = {
 		amount: { tick: formatCompact, value: formatAmount },
@@ -69,7 +73,9 @@
 		),
 	);
 	const lines = $derived(strokes.map((s) => rows.map((r) => Number(r[s.key]))));
-	const values = $derived(valuesOf({ piles, lines, scale: 'linear' }));
+	const measured = $state({ rect: undefined as DOMRectReadOnly | undefined });
+	const box = $derived({ width: measured.rect?.width ?? 0, height: measured.rect?.height ?? 0 });
+	const values = $derived(valuesOf({ piles, lines, scale: 'linear', height: box.height }));
 
 	const dates = $derived(
 		scaleUtc()
@@ -89,10 +95,16 @@
 			.y1((v) => values.y(v)),
 	);
 	const primary = $derived(lines[strokes.findIndex((s) => s.role === 'primary')] ?? []);
-	const between = $derived(
+	const gained = $derived(
 		area<number>()
 			.x((_, i) => xs[i] ?? 0)
-			.y0((_, i) => values.y(primary[i] ?? 0))
+			.y0((v) => values.y(v))
+			.y1((v, i) => values.y(Math.max(v, primary[i] ?? 0))),
+	);
+	const lost = $derived(
+		area<number>()
+			.x((_, i) => xs[i] ?? 0)
+			.y0((v, i) => values.y(Math.min(v, primary[i] ?? 0)))
 			.y1((v) => values.y(v)),
 	);
 	const pile = $derived(
@@ -103,10 +115,11 @@
 	);
 
 	const across = $derived.by(() => {
-		const ticks = dates.ticks(Math.min(VIEW / SPACE.across, rows.length - 1));
+		const fit = labelsIn(box.width, 'across');
+		const ticks = dates.ticks(Math.min(fit, rows.length - 1));
 		const name = formatBucket[bucketOf(ticks)];
 		const gap = dates(ticks[1] ?? 0) - dates(ticks[0] ?? 0);
-		const stride = gap > 0 ? Math.ceil(SPACE.across / gap) : 1;
+		const stride = gap > 0 ? Math.ceil(VIEW / fit / gap) : 1;
 
 		return ticks
 			.map((d) => ({ at: dates(d), label: name(d.toISOString().slice(0, 10)) }))
@@ -116,7 +129,6 @@
 
 	const shown = $derived(hovered.index ?? rows.length - 1);
 
-	/** Finds the point nearest the pointer, and the part whose pile it is over. */
 	const point = (e: PointerEvent) => {
 		const { left, top } = pointerIn(e);
 		const index = xs.reduce(
@@ -136,14 +148,13 @@
 
 	const leave = () => Object.assign(hovered, { index: null, part: null });
 
-	/** Where a part's tip stands: over its point, on the top edge of its pile. */
 	const tipOf = (k: number, i: number) => {
 		const [from, to] = piles[k]?.[i] ?? [0, 0];
 		return { left: xs[i] ?? 0, top: values.y(Math.max(from, to)) };
 	};
 </script>
 
-<figure>
+<figure class={{ falling }}>
 	{@render summary?.(shown)}
 	<div class="plot">
 		<div
@@ -153,6 +164,7 @@
 			onpointermove={point}
 			onpointerdown={point}
 			onpointerleave={leave}
+			bind:contentRect={measured.rect}
 		>
 			<svg viewBox="0 0 {VIEW} {VIEW}" preserveAspectRatio="none">
 				<defs>
@@ -175,7 +187,10 @@
 						d={fill(lines[0])}
 					/>{/if}
 				{#each lines as points, j (j)}
-					{#if strokes[j]?.role === 'band'}<path class="between" d={between(points)} />{/if}
+					{#if strokes[j]?.role === 'band'}
+						<path class="gained" d={gained(points)} />
+						<path class="lost" d={lost(points)} />
+					{/if}
 					<path class={['line', strokes[j]?.role]} d={path(points)} />
 				{/each}
 				{#if values.crossed}
@@ -286,7 +301,7 @@
 
 	.plot {
 		position: relative;
-		height: var(--size-height-1);
+		height: var(--size-height-0);
 		touch-action: pan-y;
 	}
 
@@ -323,9 +338,17 @@
 		opacity: 0.2;
 	}
 
-	.between {
-		fill: var(--color-positive);
+	.gained,
+	.lost {
 		fill-opacity: 0.2;
+	}
+
+	.gained {
+		fill: var(--color-positive);
+	}
+
+	.lost {
+		fill: var(--color-negative);
 	}
 
 	.line {
@@ -339,8 +362,13 @@
 		stroke-width: var(--size-line-1);
 	}
 
-	.line.negative {
+	.line.negative,
+	.falling .line.primary {
 		stroke: var(--color-negative);
+	}
+
+	.falling stop {
+		stop-color: var(--color-negative-2);
 	}
 
 	.zero {

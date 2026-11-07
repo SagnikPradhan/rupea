@@ -7,3 +7,14 @@ export type Scale = v.InferOutput<typeof Scale>;
 
 /** How the scale picker labels each scale. */
 export const SCALE_LABELS: Record<Scale, string> = { linear: 'Linear', log: 'Log' };
+
+/** Whether a chart draws the period before beside the one picked. */
+export const Compare = v.picklist(['with', 'without']);
+
+export type Compare = v.InferOutput<typeof Compare>;
+
+/** How the comparison picker labels each choice. */
+export const COMPARE_LABELS: Record<Compare, string> = {
+	with: 'Compare',
+	without: 'Hide',
+};

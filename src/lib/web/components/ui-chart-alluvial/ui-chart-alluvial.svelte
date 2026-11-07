@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Tooltip from '#lib/web/components/ui-tooltip/ui-tooltip.svelte';
 	import { SAVED } from '#lib/web/shared/alluvial.ts';
-	import { seriesOf, VIEW } from '#lib/web/shared/chart.ts';
+	import { seriesOf, tintOf, VIEW } from '#lib/web/shared/chart.ts';
 	import { formatAmount } from '#lib/web/shared/format.ts';
 	import { sankey, type SankeyLink, type SankeyNode } from 'd3-sankey';
 	import type { Snippet } from 'svelte';
@@ -12,6 +12,7 @@
 		label: string;
 		amount: number;
 		column: number;
+		depth: number;
 		part: number | null;
 		from: string | null;
 		into: string | null;
@@ -121,6 +122,7 @@
 					class="band"
 					class:faded={faded(band.into.flow.part)}
 					style:--shade="var({shadeOf(band.into.flow)})"
+					style:--tint={tintOf(band.into.flow.depth)}
 					d={band.d}
 					role="presentation"
 					onpointerenter={() => (hovered.node = band.into)}
@@ -131,6 +133,7 @@
 				<rect
 					class:faded={faded(box.flow.part)}
 					style:--shade="var({shadeOf(box.flow)})"
+					style:--tint={tintOf(box.flow.depth)}
 					x={box.x0}
 					y={box.y0}
 					width={NODE}
@@ -177,7 +180,7 @@
 
 	.plot {
 		position: relative;
-		height: var(--size-height-0);
+		height: var(--size-height-1);
 		touch-action: pan-y;
 	}
 
@@ -189,11 +192,12 @@
 
 	rect {
 		fill: var(--shade);
+		fill-opacity: var(--tint);
 	}
 
 	.band {
 		fill: var(--shade);
-		fill-opacity: 0.4;
+		fill-opacity: calc(0.4 * var(--tint));
 	}
 
 	.faded {

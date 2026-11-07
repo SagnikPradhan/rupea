@@ -39,3 +39,16 @@ export const totalsOf = (groups: Grown[]) => {
 		xirr: weight === 0 ? null : grown.reduce((t, g) => t + g.value * (g.xirr ?? 0), 0) / weight,
 	};
 };
+
+/** Each account followed by the accounts under it, siblings keeping the order they came in. */
+export const nestedOf = <Invested extends { account: string }>(i: Invested[]) => {
+	const accounts = new Set(i.map((a) => a.account));
+	const under = (p: string): Invested[] =>
+		i.filter((a) => parentOf(a.account) === p).flatMap((a) => [a, ...under(a.account)]);
+
+	return i
+		.filter((a) => !accounts.has(parentOf(a.account)))
+		.flatMap((a) => [a, ...under(a.account)]);
+};
+
+const parentOf = (a: string) => a.slice(0, a.lastIndexOf(':'));

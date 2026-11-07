@@ -1,12 +1,9 @@
 <script lang="ts">
-	/** A label and where it stands along its axis, as a percent of the plot. */
 	type Tick = { at: number; label: string };
 
 	type Props = {
-		/** Under the plot, such as dates. */
-		across: Tick[];
-		/** Beside it on the right, such as amounts. */
 		up: Tick[];
+		across: Tick[];
 	};
 
 	const { across, up }: Props = $props();

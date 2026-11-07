@@ -1,6 +1,6 @@
 <script lang="ts">
 	import Axes from '#lib/web/components/ui-chart-axes/ui-chart-axes.svelte';
-	import { SPACE, VIEW } from '#lib/web/shared/chart.ts';
+	import { labelsIn, VIEW } from '#lib/web/shared/chart.ts';
 	import type { Step } from '#lib/web/shared/bridge.ts';
 	import { formatChange, formatCompact, formatWhole } from '#lib/web/shared/format.ts';
 	import { scaleLinear } from 'd3-scale';
@@ -12,9 +12,12 @@
 
 	const { steps, label }: Props = $props();
 
-	/** How wide a bar is of the room it has, and how much room the plot leaves above and below the levels it reaches, as a share of them. */
+	/** A bar's share of its slot, and the room left above and below the levels, as a share of them. */
 	const FILL = 0.6;
 	const ROOM = 0.15;
+
+	const measured = $state({ rect: undefined as DOMRectReadOnly | undefined });
+	const height = $derived(measured.rect?.height ?? 0);
 
 	const levels = $derived(steps.flatMap((s) => (s.kind === 'total' ? [s.to] : [s.from, s.to])));
 	const low = $derived(Math.min(...levels));
@@ -47,12 +50,14 @@
 		}),
 	);
 	const across = $derived(bars.map((b) => ({ at: b.left + b.width / 2, label: b.label })));
-	const up = $derived(y.ticks(VIEW / SPACE.up).map((n) => ({ at: y(n), label: formatCompact(n) })));
+	const up = $derived(
+		y.ticks(labelsIn(height, 'up')).map((n) => ({ at: y(n), label: formatCompact(n) })),
+	);
 </script>
 
 <figure>
 	<div class="plot">
-		<div class="area" role="img" aria-label={label}>
+		<div class="area" role="img" aria-label={label} bind:contentRect={measured.rect}>
 			<svg viewBox="0 0 {VIEW} {VIEW}" preserveAspectRatio="none">
 				{#each bars.slice(0, -1) as b, i (b.key)}
 					{@const next = bars[i + 1]}
@@ -77,7 +82,7 @@
 <style>
 	.plot {
 		position: relative;
-		height: var(--size-height-1);
+		height: var(--size-height-0);
 	}
 
 	.area {

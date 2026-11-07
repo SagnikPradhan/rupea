@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { OTHER, OTHER_OWED } from '#lib/web/shared/chart.ts';
+import { OTHER, OTHER_OWED, PARTS } from '#lib/web/shared/chart.ts';
 import { areasOf, withAreas } from '#lib/web/shared/worth.ts';
 
 /** A day's parts, each an account or, after a space, one commodity it holds. */
@@ -13,14 +13,16 @@ const day = (parts: Record<string, string>) => ({
 
 describe('the areas', () => {
 	it('give the largest held then the largest owed a shade, by the last day, folding the rest of each side', () => {
+		const many = Object.fromEntries(
+			Array.from({ length: PARTS + 1 }, (_, i) => [
+				`Assets:${String.fromCharCode(65 + i)}`,
+				String(600 - i * 10),
+			]),
+		);
 		const worth = [
 			day({ 'Assets:Old': '900', 'Liabilities:Card': '-5' }),
 			day({
-				'Assets:A': '600',
-				'Assets:B': '500',
-				'Assets:C': '400',
-				'Assets:D': '300',
-				'Assets:E': '200',
+				...many,
 				'Assets:Old': '0',
 				'Liabilities:Card': '-50',
 				'Liabilities:Loan': '-80',
@@ -29,12 +31,15 @@ describe('the areas', () => {
 			}),
 		];
 
+		const named = Array.from({ length: PARTS - 1 }, (_, i) => [
+			String.fromCharCode(65 + i),
+			1,
+			`--color-chart-${i + 1}`,
+		]);
+
 		expect(areasOf(worth).map((a) => [a.label, a.parts.length, a.shade])).toEqual([
-			['A', 1, '--color-ink-6'],
-			['B', 1, '--color-ink-5'],
-			['C', 1, '--color-ink-4'],
-			['D', 1, '--color-ink-3'],
-			[OTHER, 2, '--color-ink-2'],
+			...named,
+			[OTHER, 3, '--color-chart-10'],
 			['Loan', 1, '--color-negative-6'],
 			['Card', 1, '--color-negative-5'],
 			[OTHER_OWED, 2, '--color-negative-4'],

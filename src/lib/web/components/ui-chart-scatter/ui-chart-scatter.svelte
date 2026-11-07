@@ -1,14 +1,13 @@
 <script lang="ts">
 	import Axes from '#lib/web/components/ui-chart-axes/ui-chart-axes.svelte';
 	import Tooltip from '#lib/web/components/ui-tooltip/ui-tooltip.svelte';
-	import { seriesOf, SPACE, VIEW } from '#lib/web/shared/chart.ts';
+	import { labelsIn, seriesOf, VIEW } from '#lib/web/shared/chart.ts';
 	import type { Dot } from '#lib/web/shared/dots.ts';
 	import { formatPercent } from '#lib/web/shared/format.ts';
 	import { scaleLinear, scaleSqrt } from 'd3-scale';
 
 	type Props = {
 		dots: Dot[];
-		/** Said under the plot, along the bottom axis. */
 		across: string;
 		label: string;
 	};
@@ -20,6 +19,8 @@
 	const NARROWEST = 4;
 
 	const hovered = $state({ dot: null as Dot | null });
+	const measured = $state({ rect: undefined as DOMRectReadOnly | undefined });
+	const box = $derived({ width: measured.rect?.width ?? 0, height: measured.rect?.height ?? 0 });
 
 	const xs = $derived(
 		scaleLinear()
@@ -39,16 +40,16 @@
 			.range([NARROWEST, WIDEST]),
 	);
 	const bottom = $derived(
-		xs.ticks(VIEW / SPACE.across).map((n) => ({ at: xs(n), label: formatPercent(n) })),
+		xs.ticks(labelsIn(box.width, 'across')).map((n) => ({ at: xs(n), label: formatPercent(n) })),
 	);
 	const side = $derived(
-		ys.ticks(VIEW / SPACE.up).map((n) => ({ at: ys(n), label: formatPercent(n) })),
+		ys.ticks(labelsIn(box.height, 'up')).map((n) => ({ at: ys(n), label: formatPercent(n) })),
 	);
 </script>
 
 <figure>
 	<div class="plot">
-		<div class="area" role="img" aria-label={label}>
+		<div class="area" role="img" aria-label={label} bind:contentRect={measured.rect}>
 			<svg viewBox="0 0 {VIEW} {VIEW}" preserveAspectRatio="none">
 				{#each side as tick (tick.at)}
 					<line x1="0" x2={VIEW} y1={tick.at} y2={tick.at} />
@@ -89,7 +90,7 @@
 
 	.plot {
 		position: relative;
-		height: var(--size-height-1);
+		height: var(--size-height-0);
 	}
 
 	.area {

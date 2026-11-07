@@ -100,8 +100,8 @@ export const saveFetch = (symbolId: string, error: RupeaError | null): ResultAsy
 		}),
 	);
 
-/** Symbols the ledger links that no fetch has worked for yet, unless the feed said it has none. */
-export const listUnfetched = (ledgerId: string): ResultAsync<string[]> =>
+/** Symbols the ledger links that no fetch has worked for since today began, unless the feed said it has none. */
+export const listStale = (ledgerId: string): ResultAsync<string[]> =>
 	withContext('db')((db) =>
 		attempt(() =>
 			db
@@ -110,7 +110,12 @@ export const listUnfetched = (ledgerId: string): ResultAsync<string[]> =>
 				.select('l.symbolId')
 				.distinct()
 				.where('l.ledgerId', '=', ledgerId)
-				.where('f.fetchedAt', 'is', null)
+				.where((e) =>
+					e.or([
+						e('f.fetchedAt', 'is', null),
+						e('f.fetchedAt', '<', sql<Date>`date_trunc('day', now())`),
+					]),
+				)
 				.where((e) => sql`${e.ref('f.error')}->>'type'`, 'is distinct from', 'FeedSymbolUnknown')
 				.execute()
 				.then((r) => r.map((s) => s.symbolId)),

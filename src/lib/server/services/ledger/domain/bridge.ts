@@ -37,8 +37,8 @@ const shiftsOf = (moves: Move[]): Shift[] =>
 
 /**
  * Splits the change in net worth into income, expenses and the price moves of each group. Whatever
- * those leave, such as a buy priced off the day's close, is kept as other, so the parts always
- * add up to the change.
+ * those leave, such as income reinvested into a priced unit or the effect of a foreign currency's
+ * price, is kept as other, which can be large or negative, so the parts always add up to the change.
  */
 export const bridgeOf = ({ moves, ...o }: BridgeOfOptions): Bridge => {
 	const shifts = shiftsOf(moves);

@@ -32,6 +32,7 @@ The running total is a window over the postings themselves, and an assertion's o
 ## Consequences
 
 - Each step that changes transactions or whether they count reports the days it touched, or a month goes stale until the check comes round, and an assertion until a later change reaches it.
+- Reports over a range also sum the monthly rows for the whole months in its middle, and so inherit that staleness: a month left wrong shows a wrong total until the check reaches it. Reads stay fast, and safeguards for a missed settle can come later.
 - A recount rewrites its transactions' postings too, or a posting counts when its transaction does not.
 - A recount scattered across decades rewrites every month between.
 - An edit to an old file works out every later assertion again, which costs about a second on 50 years asserted daily when every result moves.

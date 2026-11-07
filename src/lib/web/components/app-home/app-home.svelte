@@ -121,7 +121,7 @@
 		<Panel
 			title="What moved net worth"
 			subtitle={bridge
-				? `${formatDate(bridge.from)} to ${formatDate(bridge.to)} · from ${formatWhole(bridge.start)} to ${formatWhole(bridge.end)}`
+				? `${formatDate(bridge.from)} to ${formatDate(bridge.to)} · from ${formatWhole(bridge.start)} to ${formatWhole(bridge.end)}${account ? ' · all accounts' : ''}`
 				: 'what saved, gained or lost money'}
 		>
 			{#if bridge}

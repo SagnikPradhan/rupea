@@ -176,6 +176,13 @@ describe('the home page', () => {
 		expect(await screen.findByText('Nothing held in this period.')).toBeTruthy();
 	});
 
+	it('says the bridge covers all accounts when the Accounts filter is on', async () => {
+		visit('/?account=Assets:Bank');
+		render(Page, { data: { ...data, ledgers: [ledgers[0]!] } });
+
+		expect(await screen.findByText(/from 1,00,000 to 2,10,000 · all accounts$/)).toBeTruthy();
+	});
+
 	it('shows the first ledger, and the one asked for when there are several', async () => {
 		visit('/?ledger=b');
 		render(Page, { data: { ...data, ledgers } });

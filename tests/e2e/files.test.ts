@@ -24,7 +24,7 @@ test('creates a file, edits it, and saves with the keyboard', async ({
 	const tea = page.getByRole('rowgroup').filter({ hasText: 'TEA' });
 	await expect(tea).toContainText('20');
 
-	await tea.getByRole('link', { name: 'cash.rupea:1' }).click();
+	await visit(page, `${ledger}/files?file=cash.rupea&line=1`);
 	await expect(page.locator('.cm-linked')).toHaveText('2026-09-01 TEA');
 });
 

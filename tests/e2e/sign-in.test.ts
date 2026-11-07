@@ -6,7 +6,7 @@ test('a new user signs in with an emailed code, and gets a pet name', async ({ s
 	await visit(signedIn, '/');
 	await signedIn.getByRole('button', { name: 'Menu' }).click();
 	await expect(
-		signedIn.getByRole('dialog', { name: 'Menu' }).getByText(/^[a-z]+-[a-z]+$/),
+		signedIn.getByRole('dialog', { name: 'Menu' }).getByText(/^Hello, [a-z]+-[a-z]+$/),
 	).toBeVisible();
 	await expect(signedIn.getByRole('heading', { name: 'Home' })).toBeVisible();
 });

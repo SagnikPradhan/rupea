@@ -1,9 +1,9 @@
 import {
-	GroupRole,
-	parseAmount,
 	type Amount,
+	GroupRole,
 	type RupeaMetadata,
-} from '#services/ledger/application/shared.ts';
+	parseAmount,
+} from '#services/ledger/application/language.ts';
 import { describe, expect, it } from 'vitest';
 import {
 	Confidence,

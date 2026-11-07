@@ -1,5 +1,5 @@
 import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
-import { parse, parseAmount, type Amount } from '#services/ledger/application/shared.ts';
+import { type Amount, parse, parseAmount } from '#services/ledger/application/language.ts';
 import { describe, expect, it } from 'vitest';
 import { categorised, copy, draft, uncategorised } from '#services/extraction/domain/draft.ts';
 import type { RupeaRecord } from '#services/extraction/domain/types.ts';

@@ -1,4 +1,4 @@
-import type { Amount } from '#services/ledger/application/shared.ts';
+import type { Amount } from '#services/ledger/domain/amounts.ts';
 import { describe, expect, it } from 'vitest';
 import {
 	classify,

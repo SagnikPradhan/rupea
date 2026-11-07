@@ -83,6 +83,37 @@ export default defineConfig(
 		},
 	},
 	{
+		files: ['**/*.ts', '**/*.svelte'],
+		ignores: [
+			'src/lib/server/services/ledger/**',
+			'src/lib/server/shared/result/result.ts',
+			'src/lib/server/server.ts',
+			'src/lib/server/db/tables.ts',
+			'src/lib/server/services/*/adapters/database-schema.ts',
+			'scripts/**',
+		],
+		rules: {
+			'no-restricted-imports': [
+				'error',
+				{
+					paths: [
+						{
+							name: 'neverthrow',
+							message: 'Import from #lib/server/shared/result/result.ts; fault builds errors.',
+						},
+					],
+					patterns: [
+						{
+							group: ['\\#services/ledger/domain/*', '\\#services/ledger/adapters/*'],
+							message:
+								'Import from #services/ledger/application/language.ts, or an application module; the ledger keeps its domain and adapters to itself.',
+						},
+					],
+				},
+			],
+		},
+	},
+	{
 		files: ['src/**/*.test.ts'],
 		plugins: { rupea },
 		rules: { 'rupea/test-location': 'error' },

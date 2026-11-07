@@ -13,7 +13,7 @@ import {
 	viewInvested,
 	viewLot,
 	viewReturns,
-	viewSpending,
+	viewDeltas,
 	viewWorth,
 } from './views';
 
@@ -108,7 +108,7 @@ export const listReturns = query(
 );
 
 /** What flowed under an Expenses or Income account over a period, then over the one before it when there is one. */
-export const listSpending = query(
+export const listDeltas = query(
 	v.object({ handle: Handle, day: Day, period: Period, account: FlowAccount }),
 	({ handle, day, period, account }) => {
 		const { current, previous, bucket } = spansOf(period, day);
@@ -117,21 +117,21 @@ export const listSpending = query(
 		return replyFromBatch(
 			inLedger({
 				handle,
-				action: (l) => Accounts.listSpending({ ledger: l, spans, bucket, account }),
-			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewSpending) })),
+				action: (l) => Accounts.listDeltas({ ledger: l, spans, bucket, account }),
+			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewDeltas) })),
 		);
 	},
 );
 
 /** What an Expenses account averaged on each day of the month over a period. */
-export const listDailySpending = query(
+export const listDailyDeltas = query(
 	v.object({ handle: Handle, day: Day, period: Period, account: FlowAccount }),
 	({ handle, day, period, account }) =>
 		replyFromBatch(
 			inLedger({
 				handle,
 				action: (l) =>
-					Accounts.listDailySpending({ ledger: l, span: spansOf(period, day).current, account }),
+					Accounts.listDailyDeltas({ ledger: l, span: spansOf(period, day).current, account }),
 			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewDaily) })),
 		),
 );

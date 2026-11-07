@@ -2,7 +2,7 @@ import { fault } from '#lib/server/shared/result/error.ts';
 import { errAsync, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import * as Groups from '#services/ledger/application/groups.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
-import { GroupRole } from '#services/ledger/application/shared.ts';
+import { GroupRole } from '#services/ledger/application/language.ts';
 import * as DB from '../adapters/database';
 import { groupId } from '../domain/ids';
 import { suggest, type Suggestion } from '../domain/matching';

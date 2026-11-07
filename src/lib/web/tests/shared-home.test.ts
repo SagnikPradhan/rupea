@@ -60,7 +60,7 @@ describe('the income statement', () => {
 	});
 	const month = (amounts: Record<string, string>) => ({
 		buckets: [],
-		spent: [],
+		deltas: [],
 		totals: Object.entries(amounts).map(([a, n]) => total(a, n)),
 	});
 
@@ -105,7 +105,7 @@ describe('the income statement', () => {
 	it('reads Income as sizes, though it is credited as negative amounts', () => {
 		const pay = (n: string, m: string) => ({
 			buckets: [],
-			spent: [],
+			deltas: [],
 			totals: [
 				{ account: 'Income', parent: null, amount: n },
 				{ account: 'Income:Salary', parent: 'Income', amount: m },

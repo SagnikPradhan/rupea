@@ -1,4 +1,4 @@
-import { anyOf, before, containing, distance, noneOf } from '#lib/server/db/expressions.ts';
+import { anyOf, before, distance, noneOf } from '#lib/server/db/expressions.ts';
 import { ROWS_PER_STATEMENT, vectorText, type Database } from '#lib/server/db/index.ts';
 import { readOnly } from '#lib/server/db/read-only.ts';
 import type { Tables } from '#lib/server/db/tables.ts';
@@ -15,7 +15,14 @@ import { BALANCE_TYPES } from '../domain/taxonomy';
 import type { Filled, Unembedded } from '../domain/text';
 import type { RupeaMetadata, RupeaTransaction } from '../domain/types';
 import { touchedBy, type Touched } from './database-files';
-import { listingKey, newestFirst, toCost, toPrice, underAccount } from './database-queries';
+import {
+	listedIn,
+	listingKey,
+	newestFirst,
+	toCost,
+	toPrice,
+	underAccount,
+} from './database-queries';
 
 // Transactions searched near each line; the domain keeps the best few postings.
 const NEAREST = 50;
@@ -74,9 +81,7 @@ export const listTransactions = (
 			.selectFrom('transactions as t')
 			.select(['t.id', 't.date', 't.sortTime as time', 't.counted'])
 			.where('t.ledgerId', '=', ledgerId)
-			.where('t.date', '>=', filter.from.toString())
-			.where('t.date', '<=', filter.to.toString())
-			.where((e) => containing(e.ref('t.description'), filter.description))
+			.where(listedIn('t', filter))
 			.where((e) =>
 				filter.account !== null
 					? e.exists(

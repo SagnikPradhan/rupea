@@ -32,6 +32,14 @@ export const parentsIn = (tree: AccountNode[]): Record<string, string | null> =>
 	);
 };
 
+/** This account and every account under it, whatever their case. */
+export const idsUnder = (tree: AccountNode[], account: string): string[] => {
+	const name = account.toLowerCase();
+	return tree
+		.filter((n) => n.name.toLowerCase() === name || n.name.toLowerCase().startsWith(`${name}:`))
+		.map((n) => n.id);
+};
+
 /**
  * Which part of worth each balance account under one counts towards: an account it divides into,
  * or itself for what it holds directly. One that divides into nothing is divided by commodity, and

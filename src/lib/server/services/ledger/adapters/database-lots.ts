@@ -6,39 +6,19 @@ import { atomically } from '#lib/server/db/atomically.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { sql, type ExpressionBuilder, type SqlBool } from 'kysely';
-import type { Amount, Quantity } from '../domain/amounts';
+import type { Amount } from '../domain/amounts';
 import type { CostMove } from '../domain/cost';
-import { book, CURRENCIES, realised, type BookedPosting, type Booking } from '../domain/lots';
+import {
+	book,
+	CURRENCIES,
+	realised,
+	type BookedPosting,
+	type Booking,
+	type LotHistory,
+	type UnmatchedDisposal,
+} from '../domain/lots';
 import { BALANCE_TYPES } from '../domain/taxonomy';
-import type { DisposalKind, LotOrigin, RupeaParseLocation } from '../domain/types';
 import { ledgerOrder, multiply, toCost, toPrice, toQuantity } from './database-queries';
-
-export type UnmatchedDisposal = {
-	location: RupeaParseLocation;
-	account: string;
-	commodity: string;
-	kind: DisposalKind;
-	units: Amount;
-	named: boolean;
-};
-
-export type LotHistory = {
-	location: RupeaParseLocation;
-	date: Temporal.PlainDate;
-	origin: LotOrigin;
-	from: string | null;
-	units: Amount;
-	remaining: Amount;
-	cost: Quantity;
-	disposals: {
-		location: RupeaParseLocation;
-		date: Temporal.PlainDate;
-		kind: DisposalKind;
-		units: Amount;
-		price: Quantity | null;
-		gain: Quantity | null;
-	}[];
-};
 
 /** Books each commodity's lots again from its counted postings. */
 export const rebook = (ledgerId: string, commodities: string[]): ResultAsync<void> =>

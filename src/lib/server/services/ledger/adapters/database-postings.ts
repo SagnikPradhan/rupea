@@ -1,7 +1,6 @@
 import {
 	atOrBefore,
 	before,
-	containing,
 	distinctOf,
 	labels,
 	total,
@@ -16,10 +15,13 @@ import type { Amount } from '../domain/amounts';
 import type { Holding } from '../domain/holdings';
 import { BALANCE_TYPES } from '../domain/taxonomy';
 import type { RupeaParseLocation, RupeaPosting } from '../domain/types';
+import { BEGINNING } from '#lib/shared/dates.ts';
+import { deltasBetween } from './database-deltas';
 import type { HoldingKey } from './database-files';
 import {
 	amongHoldings,
 	ledgerOrder,
+	listedIn,
 	listingKey,
 	multiply,
 	newestFirst,
@@ -86,10 +88,8 @@ export const listPostings = (
 				'p.comment',
 			])
 			.where('t.ledgerId', '=', ledgerId)
-			.where('t.date', '>=', filter.from.toString())
-			.where('t.date', '<=', filter.to.toString())
+			.where(listedIn('t', filter))
 			.where('t.counted', '=', true)
-			.where((e) => containing(e.ref('t.description'), filter.description))
 			.where((e) => underAccount(e.ref('a.name'), filter.account))
 			.where(() => atOrBefore(listingKey('t'), after && [after.date, after.time, after.id]))
 			.where((e) =>
@@ -132,26 +132,20 @@ export const listPostings = (
 export const listHoldings = (ledgerId: string, day: Temporal.PlainDate): ResultAsync<Holding[]> =>
 	withContext('db')((db) => {
 		const on = day.toString();
-		const month = day.with({ day: 1 }).toString();
 
 		return attempt(() =>
 			db
 				.with('deltas', (q) =>
 					q
-						.selectFrom('monthlyDeltas as m')
+						.selectFrom(
+							deltasBetween(db, ledgerId, {
+								from: Temporal.PlainDate.from(BEGINNING),
+								after: day.add({ days: 1 }),
+								grain: 'month',
+							}).as('m'),
+						)
 						.select(['m.accountId', 'm.commodity', 'm.amount'])
-						.where('m.ledgerId', '=', ledgerId)
-						.where('m.accountType', 'in', BALANCE_TYPES)
-						.where('m.month', '<', month)
-						.unionAll(
-							q
-								.selectFrom('dailyDeltas as d')
-								.select(['d.accountId', 'd.commodity', 'd.amount'])
-								.where('d.ledgerId', '=', ledgerId)
-								.where('d.accountType', 'in', BALANCE_TYPES)
-								.where('d.date', '>=', month)
-								.where('d.date', '<=', on),
-						),
+						.where('m.accountType', 'in', BALANCE_TYPES),
 				)
 				.with('balances', (q) =>
 					q
@@ -238,12 +232,14 @@ export const saveBalanceChecks = (
 				.with('openings', (q) =>
 					q
 						.selectFrom('held as k')
-						.leftJoin('monthlyDeltas as m', (j) =>
-							j
-								.onRef('m.accountId', '=', 'k.accountId')
-								.onRef('m.commodity', '=', 'k.commodity')
-								.on('m.ledgerId', '=', ledgerId)
-								.on('m.month', '<', first),
+						.leftJoin(
+							deltasBetween(db, ledgerId, {
+								from: Temporal.PlainDate.from(BEGINNING),
+								after: Temporal.PlainDate.from(first),
+								grain: 'month',
+							}).as('m'),
+							(j) =>
+								j.onRef('m.accountId', '=', 'k.accountId').onRef('m.commodity', '=', 'k.commodity'),
 						)
 						.select((e) => ['k.accountId', 'k.commodity', total(e.ref('m.amount')).as('amount')])
 						.groupBy(['k.accountId', 'k.commodity']),

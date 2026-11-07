@@ -9,23 +9,28 @@ import { costOn, unpricedIn } from '../domain/cost';
 import { bridgeOf, type Bridge } from '../domain/bridge';
 import { dropsOf, type Drops } from '../domain/drawdown';
 import { byAccount, HOPS, pricedIn, valued, type Account, type Holding } from '../domain/holdings';
+import { type LotHistory } from '../domain/lots';
 import { returnsOf, type Returns } from '../domain/returns';
-import { dailyOf, spendingOf, type Daily, type Spending } from '../domain/spending';
-import { parentsIn, partsIn, type AccountNode } from '../domain/tree';
+import { dailyOf, deltasOf, type Daily, type Deltas } from '../domain/deltas';
+import { INVESTMENT_INCOME } from '../domain/taxonomy';
+import { idsUnder, parentsIn, partsIn, type AccountNode } from '../domain/tree';
 import type { Ledger } from '../domain/types';
 import {
 	movesOf,
 	symbolsOf,
 	worthOf,
+	type PartOf,
 	type PriceSources,
 	type PriceYear,
+	type Worth,
 	type WorthOfOptions,
 } from '../domain/worth';
-import { checkLots } from './sync';
+import { checkLots } from './sync-after';
 
 export type { Account };
-export type { LotHistory, Worth } from '../adapters/database';
-export type { Bridge, Daily, Drops, Returns, Spending };
+export type { LotHistory } from '../domain/lots';
+export type { Worth } from '../domain/worth';
+export type { Bridge, Daily, Drops, Returns, Deltas };
 
 type ListAccountsOptions = { ledger: Ledger; day: Temporal.PlainDate };
 
@@ -56,7 +61,7 @@ export const listWorth = ({
 	from,
 	to,
 	account,
-}: ListWorthOptions): ResultAsync<Batch<DB.Worth>> =>
+}: ListWorthOptions): ResultAsync<Batch<Worth>> =>
 	DB.listProblems(ledger.id).andThen((f) =>
 		DB.listAccountTree(ledger.id)
 			.andThen((t) => worthOver(ledger.id, { from, to }, partsIn(t, account)))
@@ -64,14 +69,14 @@ export const listWorth = ({
 	);
 
 type WorthParts = {
-	parts: DB.PartOf[];
+	parts: PartOf[];
 	byCommodity: boolean;
 	/** Counts only these account and commodity pairs, written as the account's id, a space and the commodity. */
 	held?: Set<string>;
 };
 
 /** Worth from the later of a span's start and the first day the parts held anything, or none before a sync has built the ledger's years. */
-const worthOver = (id: string, s: Span, p: WorthParts): ResultAsync<DB.Worth[]> =>
+const worthOver = (id: string, s: Span, p: WorthParts): ResultAsync<Worth[]> =>
 	walked(id, s, p).map((w) => (w === null ? [] : worthOf(w)));
 
 /** What worth is made of for these parts over a span, or null when they held nothing in it. */
@@ -80,7 +85,7 @@ const walked = (
 	{ from, to }: Span,
 	{ parts, byCommodity, held }: WorthParts,
 ): ResultAsync<WorthOfOptions | null> =>
-	DB.findFirstHeld(id, { parts, to }).andThen((first) => {
+	DB.findFirstDelta(id, { accounts: parts.map((p) => p.accountId), to }).andThen((first) => {
 		if (first === null || Temporal.PlainDate.compare(first, to) > 0) return okAsync(null);
 
 		const start = Temporal.PlainDate.compare(first, from) > 0 ? first : from;
@@ -140,7 +145,7 @@ export const listInvested = ({
 			})),
 	);
 
-const investedOver = (id: string, { from, to }: Span, parts: DB.PartOf[]) =>
+const investedOver = (id: string, { from, to }: Span, parts: PartOf[]) =>
 	DB.listCostMoves(id, { accounts: parts.map((p) => p.accountId), to }).andThen((moves) => {
 		const held = new Set(moves.map((m) => `${m.accountId} ${m.commodity}`));
 		const lotted = parts.filter((p) => moves.some((m) => m.accountId === p.accountId));
@@ -152,7 +157,7 @@ const investedOver = (id: string, { from, to }: Span, parts: DB.PartOf[]) =>
 
 		return ResultAsync.combine([
 			worthOver(id, { from, to }, { parts: lotted, byCommodity: false, held }),
-			DB.listRatesThen(id, pairs),
+			DB.listRates(id, { pairs, base: DEFAULT_COMMODITY }),
 		]).map(([worth, rates]) => {
 			const costs = costOn({ moves, rates, days: worth.map((w) => w.day) });
 			const days = worth.map((w, i) => ({
@@ -246,7 +251,7 @@ const bridgeOver = (l: Ledger, span: Span, tree: AccountNode[]) => {
 		const total = (a: string) =>
 			Temporal.PlainDate.compare(after.from, after.to) > 0
 				? okAsync(0n as Amount)
-				: listSpending({ ledger: l, spans: [after], bucket: 'month', account: a }).map(
+				: listDeltas({ ledger: l, spans: [after], bucket: 'month', account: a }).map(
 						(b) => b.succeeded[0]?.totals.find((t) => t.account === a)?.amount ?? (0n as Amount),
 					);
 
@@ -315,53 +320,76 @@ export const listReturns = ({
 	from,
 	to,
 }: ListReturnsOptions): ResultAsync<Batch<Returns>> =>
-	ResultAsync.combine([
-		heldBefore(ledger.id, from),
-		heldOn(ledger.id, to),
-		DB.listFlows(ledger.id, { from, to }),
-		DB.listAccountTree(ledger.id),
-	]).map(([s, end, flows, tree]) => {
-		const accounts = Object.keys(parentsIn(tree));
-		const returns = returnsOf({ accounts, start: s, end, flows, span: { from, to } });
+	DB.listAccountTree(ledger.id).andThen((tree) => {
+		const earning = INVESTMENT_INCOME.flatMap((n) => idsUnder(tree, n));
+		const flows = DB.listFlows(ledger.id, { earning, from, to, base: DEFAULT_COMMODITY });
 
-		return { succeeded: returns, failed: unsolvedIn(returns) };
+		return ResultAsync.combine([heldBefore(ledger.id, from), heldOn(ledger.id, to), flows]).map(
+			([s, end, f]) => {
+				const accounts = Object.keys(parentsIn(tree));
+				const returns = returnsOf({ accounts, start: s, end, flows: f, span: { from, to } });
+
+				return { succeeded: returns, failed: unsolvedIn(returns) };
+			},
+		);
 	});
 
-type ListSpendingOptions = { ledger: Ledger; spans: Span[]; bucket: Bucket; account: string };
+/** All of history starts long before a ledger does, so it starts on the first day these accounts moved. */
+const startedBy = (id: string, span: Span, accounts: string[]): ResultAsync<Span> =>
+	span.from.toString() === BEGINNING
+		? DB.findFirstDelta(id, { accounts, to: span.to }).map((d) => ({
+				from: d ?? span.to,
+				to: span.to,
+			}))
+		: okAsync(span);
 
-/** What an Expenses account and those under it gained in rupees over each span, one spending per span. */
-export const listSpending = ({
+type ListDeltasOptions = { ledger: Ledger; spans: Span[]; bucket: Bucket; account: string };
+
+/** What an account and those under it gained in the base currency over each span, one Deltas per span. */
+export const listDeltas = ({
 	ledger,
 	spans,
 	bucket,
 	account,
-}: ListSpendingOptions): ResultAsync<Batch<Spending>> => {
-	const spending = (s: Span, p: Record<string, string | null>) =>
-		DB.listSpending(ledger.id, { ...s, bucket, account }).map((r) =>
-			spendingOf(r, { span: s, bucket, parents: p }),
+}: ListDeltasOptions): ResultAsync<Batch<Deltas>> => {
+	const spending = (span: Span, tree: AccountNode[]) =>
+		startedBy(ledger.id, span, idsUnder(tree, account)).andThen((s) =>
+			DB.listDeltas(ledger.id, {
+				...s,
+				accounts: idsUnder(tree, account),
+				bucket,
+				base: DEFAULT_COMMODITY,
+			}).map((r) => deltasOf(r, { span: s, bucket, parents: parentsIn(tree) })),
 		);
 
 	return DB.listProblems(ledger.id).andThen((f) =>
 		DB.listAccountTree(ledger.id)
-			.map(parentsIn)
-			.andThen((p) => ResultAsync.combine(spans.map((s) => spending(s, p))))
+			.andThen((t) => ResultAsync.combine(spans.map((s) => spending(s, t))))
 			.map((s) => ({ succeeded: s, failed: f })),
 	);
 };
 
-type ListDailySpendingOptions = { ledger: Ledger; span: Span; account: string };
+type ListDailyDeltasOptions = { ledger: Ledger; span: Span; account: string };
 
-/** What an Expenses account and those under it averaged on each day of the month over a span, one row for each day from the 1st to the 31st. */
-export const listDailySpending = ({
+/** What an account and those under it averaged on each day of the month over a span, one row for each day from the 1st to the 31st. */
+export const listDailyDeltas = ({
 	ledger,
 	span,
 	account,
-}: ListDailySpendingOptions): ResultAsync<Batch<Daily>> =>
+}: ListDailyDeltasOptions): ResultAsync<Batch<Daily>> =>
 	DB.listProblems(ledger.id).andThen((failed) =>
-		DB.listSpending(ledger.id, { ...span, bucket: 'dayOfMonth', account }).map((r) => ({
-			succeeded: dailyOf(r, span),
-			failed,
-		})),
+		DB.listAccountTree(ledger.id).andThen((tree) => {
+			const accounts = idsUnder(tree, account);
+
+			return startedBy(ledger.id, span, accounts).andThen((s) =>
+				DB.listDeltas(ledger.id, {
+					...s,
+					accounts,
+					bucket: 'dayOfMonth',
+					base: DEFAULT_COMMODITY,
+				}).map((r) => ({ succeeded: dailyOf(r, s), failed })),
+			);
+		}),
 	);
 
 /** Every account, each with the one it is drawn under, as parentsIn divides them. */
@@ -385,7 +413,7 @@ export const listLots = ({
 	ledger,
 	account,
 	commodity,
-}: ListLotsOptions): ResultAsync<Batch<DB.LotHistory>> =>
+}: ListLotsOptions): ResultAsync<Batch<LotHistory>> =>
 	DB.listProblems(ledger.id).andThen((f) =>
 		DB.listLots(ledger.id, { account, commodity }).map((l) => ({ succeeded: l, failed: f })),
 	);

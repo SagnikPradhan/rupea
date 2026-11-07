@@ -3,15 +3,16 @@ import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import * as DB from '../adapters/database';
 import {
 	dedupeOf,
-	findJob,
+	findHandler,
 	partitionOf,
 	readPayload,
+	type Handler,
 	type Job,
 	type JobStatus,
 } from '../domain/jobs';
 
 export type { ClaimedJob, UserJob } from '../adapters/database';
-export type { Job, JobStatus };
+export type { Handler, Job, JobStatus };
 
 type EnqueueOptions<P> = {
 	job: Job<P>;
@@ -31,11 +32,11 @@ export const enqueue = <P>({ job, user, payload }: EnqueueOptions<P>): ResultAsy
 	});
 
 /** Runs a claimed job's own code, as the user who queued it. */
-export const runJob = (jobs: Job<unknown>[], claimed: DB.ClaimedJob): ResultAsync<void> =>
+export const runJob = (handlers: Handler<unknown>[], claimed: DB.ClaimedJob): ResultAsync<void> =>
 	asJob(claimed, () =>
-		findJob(jobs, claimed.name).asyncAndThen((j) =>
-			readPayload(j, claimed).asyncAndThen((p) =>
-				attempt(() => j.run(p, claimed.userId)).andThen((r) => r),
+		findHandler(handlers, claimed.name).asyncAndThen((h) =>
+			readPayload(h.job, claimed).asyncAndThen((p) =>
+				attempt(() => h.run(p, claimed.userId)).andThen((r) => r),
 			),
 		),
 	);

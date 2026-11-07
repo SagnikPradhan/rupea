@@ -1,9 +1,9 @@
 import type { DatabaseHandle } from '#lib/server/db/index.ts';
 import type { Subscription } from '#services/events/application/events.ts';
-import { importStatement } from '#services/extraction/adapters/jobs.ts';
-import type { Job } from '#services/jobs/application/jobs.ts';
+import { handlers as extraction } from '#services/extraction/adapters/jobs.ts';
+import type { Handler } from '#services/jobs/application/jobs.ts';
 import { startWorkers } from '#services/jobs/application/orchestrator.ts';
-import { fetchQuotes, syncLedger } from '#services/ledger/adapters/jobs.ts';
+import { handlers as ledger } from '#services/ledger/adapters/jobs.ts';
 import { syncChanged } from '#services/ledger/adapters/subscriptions.ts';
 import { publishChanges } from '#services/storage/application/changes.ts';
 import { fileURLToPath } from 'node:url';
@@ -18,7 +18,7 @@ const WORKER = {
 };
 
 /** Every job a server claims and a worker runs. */
-export const jobs: Job<unknown>[] = [importStatement, fetchQuotes, syncLedger];
+export const handlers: Handler<unknown>[] = [...extraction, ...ledger];
 
 /** What runs when each event is published. */
 export const subscriptions: Subscription<unknown>[] = [syncChanged];
@@ -42,7 +42,7 @@ export const startServer = async (o: ServerOptions) => {
 		execArgv: [],
 		env: workerEnv(o),
 		context: o.context,
-		jobs,
+		handlers,
 		ready: modelsReady(o.context),
 	});
 	const halt = startLoops(o.context, loops);

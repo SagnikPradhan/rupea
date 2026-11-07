@@ -1,4 +1,4 @@
-import type { Amount, RupeaParseLocation } from '#services/ledger/application/shared.ts';
+import type { Amount, RupeaParseLocation } from '#services/ledger/application/language.ts';
 
 export type Grid = string[][];
 

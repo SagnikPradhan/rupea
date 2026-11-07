@@ -25,7 +25,8 @@ import { print } from '../domain/printer';
 import { find, insert, remove, replace } from '../domain/transactions';
 import type { Ledger, RupeaFile, RupeaTransaction } from '../domain/types';
 import { openFolder } from './ledger';
-import { listLedgerFiles, reindex, type Move } from './sync';
+import { reindex } from './sync';
+import { listLedgerFiles, type Move } from './sync-index';
 
 export const listFiles = (l: Ledger): ResultAsync<Batch<RupeaFile>> =>
 	openFolder({ ledger: l, folder: 'files' }).andThen((s) =>

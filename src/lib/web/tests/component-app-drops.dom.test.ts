@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/svelte';
+import { render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 import Drops from '#lib/web/components/app-drops/app-drops.svelte';
 
@@ -32,7 +32,7 @@ describe('the drops chart', () => {
 	it('lists each account that fell with its low, and none that did not', () => {
 		render(Drops, { drops: DROPS });
 
-		const rows = screen
+		const rows = within(screen.getAllByRole('list').at(-1)!)
 			.getAllByRole('listitem')
 			.map((l) => l.textContent?.replace(/\s+/g, ' ').trim());
 		expect(rows).toEqual(['Gold low Feb 2026 -20%', 'Equity low Feb 2026 -10%']);

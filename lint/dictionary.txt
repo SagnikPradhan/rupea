@@ -196,3 +196,5 @@ XLS
 xlsx
 XLSX
 mulberry32
+rebook
+unindexed

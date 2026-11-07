@@ -1,4 +1,5 @@
 import { sql, type Expression, type SqlBool } from 'kysely';
+import { containing } from '#lib/server/db/expressions.ts';
 import { literalLike } from '#lib/server/db/index.ts';
 import type { Span } from '#lib/shared/dates.ts';
 import { AMOUNT_UNIT, type Amount, type Quantity } from '../domain/amounts';
@@ -10,6 +11,16 @@ const LISTED = ['date', 'sortTime', 'id'];
 /** Where a transaction falls among its ledger's, newest last, as a tuple a cursor compares with; more columns break ties. */
 export const listingKey = (t: string, ...ties: Expression<unknown>[]) =>
 	sql`(${sql.join([...LISTED.map((c) => column(t, c)), ...ties])})`;
+
+type ListedBetween = {
+	from: Temporal.PlainDate;
+	to: Temporal.PlainDate;
+	description: string | null;
+};
+
+/** A transaction dated within the span whose description contains the text, when there is any. */
+export const listedIn = (t: string, { from, to, description }: ListedBetween) =>
+	sql<SqlBool>`${column(t, 'date')} >= ${from.toString()} and ${column(t, 'date')} <= ${to.toString()} and ${containing(sql<string>`${column(t, 'description')}`, description)}`;
 
 /** Transactions newest first, as a page reads transactions_ledger_id_order backwards. */
 export const newestFirst = (t: string) => sql.join(LISTED.map((c) => sql`${column(t, c)} desc`));

@@ -1,9 +1,9 @@
-import { BEGINNING, bucketsIn, type Bucket, type Span } from '#lib/shared/dates.ts';
+import { bucketsIn, type Bucket, type Span } from '#lib/shared/dates.ts';
 import { sum, type Amount } from './amounts';
 import { byPath, parentsOf } from './taxonomy';
 
-/** What one Expenses account gained in rupees over one bucket, from the first day it spent, and how many of its amounts had no price. */
-export type Spent = {
+/** What one account gained in the base over one bucket, from the first day it changed, and how many of its amounts had no price. */
+export type Delta = {
 	account: string;
 	bucket: Temporal.PlainDate;
 	first: Temporal.PlainDate;
@@ -11,7 +11,7 @@ export type Spent = {
 	unpriced: number;
 };
 
-/** What one Expenses account and the accounts under it gained over a whole span. */
+/** What one account and the accounts under it gained over a whole span. */
 export type Total = {
 	account: string;
 	/** The account it is drawn under, as parentsIn divides them. */
@@ -21,49 +21,57 @@ export type Total = {
 	unpriced: number;
 };
 
-/** Spending over a span: the first and last day it covers, what its bars add up, every bucket between, each account's total, and each account's buckets. */
-export type Spending = {
+/** Deltas over a span: the first and last day it covers, what its bars add up, every bucket between, each account's total, and each account's buckets. */
+export type Deltas = {
 	from: Temporal.PlainDate;
 	to: Temporal.PlainDate;
 	bucket: Bucket;
 	buckets: Temporal.PlainDate[];
 	totals: Total[];
-	spent: Spent[];
+	deltas: Delta[];
 };
 
-type SpendingOfOptions = { span: Span; bucket: Bucket; parents: Record<string, string | null> };
+const texts = new WeakMap<Temporal.PlainDate, string>();
 
-/** All of history starts long before a ledger does, so it starts on the first day anything was spent. */
-export const spendingOf = (
-	spent: Spent[],
-	{ span, bucket, parents }: SpendingOfOptions,
-): Spending => {
-	const totals = totalsOf(spent, parents);
-	const from = span.from.toString() === BEGINNING ? (totals[0]?.first ?? span.to) : span.from;
-
-	return {
-		from,
-		to: span.to,
-		bucket,
-		buckets: bucketsIn({ from, to: span.to }, bucket),
-		totals,
-		spent: rolledUp(spent),
-	};
+/** A date as text, which sorts as the date does, worked out once for each date since a few dates fill thousands of rows. */
+const textOf = (d: Temporal.PlainDate): string => {
+	const text = texts.get(d) ?? d.toString();
+	texts.set(d, text);
+	return text;
 };
 
-/** Each account's spending and its parents', by path and then bucket. */
-const rolledUp = (spent: Spent[]): Spent[] => {
-	const groups = Object.groupBy(sharesOf(spent), (s) => `${s.account} ${s.bucket}`);
-	return Object.values(groups)
-		.flatMap((g) => (g?.[0] ? [{ ...g[0], ...added(g[0], g) }] : []))
-		.toSorted(
-			(a, b) => byPath(a.account, b.account) || Temporal.PlainDate.compare(a.bucket, b.bucket),
-		);
+type DeltasOfOptions = { span: Span; bucket: Bucket; parents: Record<string, string | null> };
+
+export const deltasOf = (deltas: Delta[], { span, bucket, parents }: DeltasOfOptions): Deltas => ({
+	from: span.from,
+	to: span.to,
+	bucket,
+	buckets: bucketsIn(span, bucket),
+	totals: totalsOf(deltas, parents),
+	deltas: rolledUp(deltas),
+});
+
+/** Each account's gain and its parents', by path and then bucket. */
+const rolledUp = (deltas: Delta[]): Delta[] => {
+	const byAccount = Object.groupBy(sharesOf(deltas), (s) => s.account);
+
+	return Object.keys(byAccount)
+		.toSorted(byPath)
+		.flatMap((account) => {
+			const byDay = Object.groupBy(byAccount[account] ?? [], (s) => textOf(s.bucket));
+
+			return Object.keys(byDay)
+				.toSorted()
+				.flatMap((day) => {
+					const g = byDay[day];
+					return g?.[0] ? [{ ...g[0], ...added(g[0], g) }] : [];
+				});
+		});
 };
 
-/** Each account's spending and its parents' over every bucket, by path, leaving out those not drawn. */
-const totalsOf = (spent: Spent[], parents: Record<string, string | null>): Total[] => {
-	const groups = Object.groupBy(sharesOf(spent), (s) => s.account);
+/** Each account's gain and its parents' over every bucket, by path, leaving out those not drawn. */
+const totalsOf = (deltas: Delta[], parents: Record<string, string | null>): Total[] => {
+	const groups = Object.groupBy(sharesOf(deltas), (s) => s.account);
 	return Object.entries(groups)
 		.flatMap(([account, g]) =>
 			g?.[0] && Object.hasOwn(parents, account)
@@ -74,30 +82,25 @@ const totalsOf = (spent: Spent[], parents: Record<string, string | null>): Total
 };
 
 /** Each amount once for its own account and once for each parent, which adds up the accounts under it. */
-const sharesOf = (r: Spent[]) =>
+const sharesOf = (r: Delta[]) =>
 	r.flatMap((s) => parentsOf(s.account).map((a) => ({ ...s, account: a })));
 
-const added = (head: Spent, spent: Spent[]) => ({
-	first: spent.reduce(
-		(a, s) => (Temporal.PlainDate.compare(a, s.first) <= 0 ? a : s.first),
-		head.first,
-	),
-	amount: sum(spent.map((s) => s.amount)),
-	unpriced: spent.reduce((n, s) => n + s.unpriced, 0),
+const added = (head: Delta, deltas: Delta[]) => ({
+	first: deltas.reduce((a, s) => (textOf(a) <= textOf(s.first) ? a : s.first), head.first),
+	amount: sum(deltas.map((s) => s.amount)),
+	unpriced: deltas.reduce((n, s) => n + s.unpriced, 0),
 });
 
-/** What was spent on one day of the month, averaged over the months of a span that have it. */
+/** What these accounts gained on one day of the month, averaged over the months of a span that have it. */
 export type Daily = { day: number; amount: Amount; unpriced: number };
 
 /** Every day of the month from the 1st to the 31st, dated in the reference January the adapter buckets them in. */
-export const dailyOf = (spent: Spent[], span: Span): Daily[] => {
-	const earliest = spent.map((s) => s.first).toSorted(Temporal.PlainDate.compare)[0] ?? span.to;
-	const from = span.from.toString() === BEGINNING ? earliest : span.from;
-	const days = Object.groupBy(spent, (s) => s.bucket.day);
+export const dailyOf = (deltas: Delta[], span: Span): Daily[] => {
+	const days = Object.groupBy(deltas, (s) => s.bucket.day);
 
 	return Array.from({ length: 31 }, (_, i) => {
 		const rows = days[i + 1] ?? [];
-		const months = Math.max(monthsWith(i + 1, { from, to: span.to }), 1);
+		const months = Math.max(monthsWith(i + 1, span), 1);
 
 		return {
 			day: i + 1,

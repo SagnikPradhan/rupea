@@ -5,6 +5,8 @@ import * as Accounts from '#services/ledger/application/accounts.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
 import { AMOUNT_UNIT, parseAmount, type Amount } from '#services/ledger/domain/amounts.ts';
+import { INVESTMENT_INCOME } from '#services/ledger/domain/taxonomy.ts';
+import { idsUnder } from '#services/ledger/domain/tree.ts';
 import { Feed, PriceSource } from '#services/ledger/domain/types.ts';
 import { BEGINNING } from '#lib/shared/dates.ts';
 import { createLedger } from '#tests/shared/seed.ts';
@@ -268,7 +270,7 @@ describe('evidence', () => {
 describe('net worth', () => {
 	const from = Temporal.PlainDate.from('2026-10-01');
 	const to = Temporal.PlainDate.from('2026-10-03');
-	const partsOf = (worth: DB.Worth | undefined) =>
+	const partsOf = (worth: Accounts.Worth | undefined) =>
 		worth?.parts.map((p) => `${p.commodity ?? p.account} ${p.amount / AMOUNT_UNIT}`).toSorted();
 
 	it('values each day at the prices known by then, owing liabilities', ({ context, db }) =>
@@ -729,6 +731,52 @@ describe('returns', () => {
 			expect(returns.failed).toEqual([{ type: 'ReturnUnsolved', account: 'Assets:Bank' }]);
 		}));
 
+	it('values a commodity in the base asked for, through as many prices as it takes', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = [
+				'P 2025-01-01 AAA 2 BBB',
+				'P 2025-01-01 BBB 3 CCC',
+				'P 2025-01-01 CCC 5 USD',
+				'P 2025-01-01 INR 0.0125 USD',
+				'',
+			].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const pair = (commodity: string) => ({
+				commodity,
+				day: Temporal.PlainDate.from('2025-01-02'),
+			});
+			const rates = await DB.listRates(ledger.id, {
+				pairs: ['AAA', 'INR', 'USD'].map(pair),
+				base: 'USD',
+			});
+
+			expect(rates._unsafeUnwrap().map((r) => [r.commodity, r.rate])).toEqual(
+				expect.arrayContaining([
+					['AAA', parseAmount('30')],
+					['INR', parseAmount('0.0125')],
+				]),
+			);
+		}));
+
+	it('leaves out a commodity whose prices go round without reaching the base', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = ['P 2025-01-01 AAA 2 BBB', 'P 2025-01-01 BBB 3 AAA', ''].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const rates = await DB.listRates(ledger.id, {
+				pairs: [{ commodity: 'AAA', day: Temporal.PlainDate.from('2025-01-02') }],
+				base: 'INR',
+			});
+
+			expect(rates._unsafeUnwrap()).toEqual([]);
+		}));
+
 	it('splits a transaction’s fees equally between what it holds other than rupees, the first taking what does not divide', ({
 		context,
 		db,
@@ -751,9 +799,12 @@ describe('returns', () => {
 			].join('\n');
 			await Files.createFile({ ledger, key: 'a.rupea', content: moved });
 
+			const tree = (await DB.listAccountTree(ledger.id))._unsafeUnwrap();
 			const flows = await DB.listFlows(ledger.id, {
+				earning: INVESTMENT_INCOME.flatMap((n) => idsUnder(tree, n)),
 				from: Temporal.PlainDate.from('2025-02-01'),
 				to: Temporal.PlainDate.from('2025-02-01'),
+				base: 'INR',
 			});
 			expect(flows._unsafeUnwrap().map((f) => [f.account, f.amount])).toEqual([
 				['Assets:Bank', -3n],
@@ -790,9 +841,9 @@ describe('spending', () => {
 		'P 2026-03-01 USD 90',
 		'',
 	].join('\n');
-	const buckets = (spending: Accounts.Spending | undefined) =>
-		spending?.spent.map((s) => [s.account, s.bucket.toString(), s.amount, s.unpriced]);
-	const totals = (spending: Accounts.Spending | undefined) =>
+	const buckets = (spending: Accounts.Deltas | undefined) =>
+		spending?.deltas.map((s) => [s.account, s.bucket.toString(), s.amount, s.unpriced]);
+	const totals = (spending: Accounts.Deltas | undefined) =>
 		spending?.totals.map((t) => [t.account, t.parent, t.amount, t.unpriced]);
 
 	it('adds up Income as it adds up Expenses, as the negative amounts it is credited', ({
@@ -804,7 +855,7 @@ describe('spending', () => {
 			const pay = ['2026-01-05 Pay', '\tIncome:Salary -5000', '\tAssets:Bank', ''].join('\n');
 			await Files.createFile({ ledger, key: 'a.rupea', content: `${content}\n${pay}` });
 
-			const spending = await Accounts.listSpending({
+			const spending = await Accounts.listDeltas({
 				ledger,
 				spans: [span('2026-01-01', '2026-12-31')],
 				bucket: 'month',
@@ -817,6 +868,41 @@ describe('spending', () => {
 			]);
 		}));
 
+	it('adds up only the days a span covers of the months at its edges, and the whole months between', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const more = ['2026-03-15 Fuel', '\tExpenses:Fuel 70', '\tAssets:Bank', ''].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content: `${content}\n${more}` });
+
+			const spending = await Accounts.listDeltas({
+				ledger,
+				spans: [
+					span('2026-01-11', '2026-01-31'),
+					span('2026-01-01', '2026-01-19'),
+					span('2026-01-15', '2026-03-14'),
+				],
+				bucket: 'month',
+				account: 'Expenses:Food',
+			});
+			const sums = (s: Accounts.Deltas | undefined) => s?.totals.map((t) => [t.account, t.amount]);
+			const [after, before, between] = spending._unsafeUnwrap().succeeded;
+			expect(sums(after)).toEqual([
+				['Expenses', -200_0000000000n],
+				['Expenses:Food:Groceries', -200_0000000000n],
+			]);
+			expect(sums(before)).toEqual([
+				['Expenses', 1000_0000000000n],
+				['Expenses:Food:Groceries', 1000_0000000000n],
+			]);
+			expect(sums(between)).toEqual([
+				['Expenses', -200_0000000000n],
+				['Expenses:Food:Groceries', -200_0000000000n],
+			]);
+		}));
+
 	it('adds up each account and its parents by bucket, leaving out one in between, net of refunds, at its own day’s price, counting each unpriced amount', ({
 		context,
 		db,
@@ -825,7 +911,7 @@ describe('spending', () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({ ledger, key: 'a.rupea', content });
 
-			const spending = await Accounts.listSpending({
+			const spending = await Accounts.listDeltas({
 				ledger,
 				spans: [span('2026-01-01', '2026-12-31')],
 				bucket: 'month',
@@ -873,7 +959,7 @@ describe('spending', () => {
 			].join('\n');
 			await Files.createFile({ ledger, key: 'a.rupea', content });
 
-			const daily = await Accounts.listDailySpending({
+			const daily = await Accounts.listDailyDeltas({
 				ledger,
 				span: span('2026-01-01', '2026-03-31'),
 				account: 'Expenses',
@@ -891,7 +977,7 @@ describe('spending', () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({ ledger, key: 'a.rupea', content });
 
-			const spending = await Accounts.listSpending({
+			const spending = await Accounts.listDeltas({
 				ledger,
 				spans: [span('2026-01-01', '2026-12-31')],
 				bucket: 'month',
@@ -912,7 +998,7 @@ describe('spending', () => {
 			].join('\n');
 			await Files.createFile({ ledger, key: 'a.rupea', content });
 
-			const spending = await Accounts.listSpending({
+			const spending = await Accounts.listDeltas({
 				ledger,
 				spans: [span('2026-01-01', '2026-01-31')],
 				bucket: 'month',
@@ -929,13 +1015,13 @@ describe('spending', () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({ ledger, key: 'a.rupea', content });
 
-			const byDay = await Accounts.listSpending({
+			const byDay = await Accounts.listDeltas({
 				ledger,
 				spans: [span('2026-01-15', '2026-01-31'), span('2026-01-01', '2026-01-14')],
 				bucket: 'day',
 				account: 'Expenses',
 			});
-			const byYear = await Accounts.listSpending({
+			const byYear = await Accounts.listDeltas({
 				ledger,
 				spans: [span('0001-01-01', '2026-12-31')],
 				bucket: 'year',
@@ -961,7 +1047,7 @@ describe('spending', () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({ ledger, key: 'a.rupea', content });
 
-			const spending = await Accounts.listSpending({
+			const spending = await Accounts.listDeltas({
 				ledger,
 				spans: [span('2025-11-15', '2026-01-31'), span('0001-01-01', '2026-12-31')],
 				bucket: 'month',
@@ -988,7 +1074,7 @@ describe('spending', () => {
 			await Files.createFile({ ledger, key: 'a.rupea', content: dinner('group').join('\n') });
 			await Files.createFile({ ledger, key: 'b.rupea', content: dinner('same-as').join('\n') });
 
-			const spending = await Accounts.listSpending({
+			const spending = await Accounts.listDeltas({
 				ledger,
 				spans: [span('2026-10-01', '2026-10-31')],
 				bucket: 'month',

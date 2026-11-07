@@ -5,11 +5,13 @@ import { fault } from '#lib/server/shared/result/error.ts';
 import { errAsync, ok, ResultAsync } from '#lib/server/shared/result/result.ts';
 import { byUser } from '#lib/server/shared/storage/storage.ts';
 import { listJobs, runJob } from '#services/jobs/application/jobs.ts';
-import { syncLedger } from '#services/ledger/adapters/jobs.ts';
+import { handlers } from '#services/ledger/adapters/jobs.ts';
+import { syncLedger } from '#services/ledger/application/jobs.ts';
 import { MODEL } from '#services/ledger/adapters/prediction-model2vec.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
 import * as Sync from '#services/ledger/application/sync.ts';
+import { checkLots } from '#services/ledger/application/sync-after.ts';
 import * as Transactions from '#services/ledger/application/transactions.ts';
 import { INDEXER } from '#services/ledger/domain/sync.ts';
 import { Feed, PriceSource } from '#services/ledger/domain/types.ts';
@@ -756,7 +758,7 @@ describe('syncing the ledger', () => {
 			const ledger = await createLedger(db);
 			const buy = '2026-10-01 Buy\n\tAssets:Zerodha 10 INFY @ 1500\n\tAssets:Bank\n';
 			const sell = '2026-10-01 Sell\n\tAssets:Zerodha -4 INFY {1500} @ 1700\n\tAssets:Bank\n';
-			const unmatched = async () => (await Sync.checkLots(ledger))._unsafeUnwrap().length;
+			const unmatched = async () => (await checkLots(ledger))._unsafeUnwrap().length;
 
 			await put(storage, ledger, 'a.rupea', `${sell}\n${buy}`);
 			await Sync.syncIndex(ledger);
@@ -1001,7 +1003,7 @@ describe('syncing the ledger', () => {
 			const ledger = await createLedger(db);
 			await put(storage, ledger, 'a.rupea', groceries);
 
-			const ran = await runJob([syncLedger], {
+			const ran = await runJob(handlers, {
 				id: '',
 				userId: ledger.owner,
 				name: syncLedger.name,

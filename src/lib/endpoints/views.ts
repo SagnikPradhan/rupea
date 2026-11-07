@@ -1,13 +1,13 @@
 import type * as Accounts from '#services/ledger/application/accounts.ts';
 import type * as Groups from '#services/ledger/application/groups.ts';
 import {
+	type Amount,
 	DEFAULT_COMMODITY,
+	type RupeaTransaction,
 	formatAmount,
 	formatQuantity,
 	printQuantity,
-	type Amount,
-	type RupeaTransaction,
-} from '#services/ledger/application/shared.ts';
+} from '#services/ledger/application/language.ts';
 import type * as Transactions from '#services/ledger/application/transactions.ts';
 import type * as Refinement from '#services/refinement/application/refinement.ts';
 
@@ -110,7 +110,7 @@ export const viewReturns = (returns: Accounts.Returns) => ({
 	yearly: returns.yearly,
 });
 
-export const viewSpending = (spending: Accounts.Spending) => ({
+export const viewDeltas = (spending: Accounts.Deltas) => ({
 	from: spending.from.toString(),
 	to: spending.to.toString(),
 	bucket: spending.bucket,
@@ -121,7 +121,7 @@ export const viewSpending = (spending: Accounts.Spending) => ({
 		amount: formatAmount(t.amount),
 		unpriced: t.unpriced,
 	})),
-	spent: spending.spent.map((s) => ({
+	deltas: spending.deltas.map((s) => ({
 		account: s.account,
 		bucket: s.bucket.toString(),
 		amount: formatAmount(s.amount),

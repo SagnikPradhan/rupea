@@ -1,6 +1,6 @@
 import { provide } from '#lib/server/shared/context/context.ts';
 import { listJobs } from '#services/jobs/application/jobs.ts';
-import { syncLedger } from '#services/ledger/adapters/jobs.ts';
+import { syncLedger } from '#services/ledger/application/jobs.ts';
 import { syncChanged } from '#services/ledger/adapters/subscriptions.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
 import { createLedger } from '#tests/shared/seed.ts';

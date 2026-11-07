@@ -12,7 +12,7 @@ export type Spent = {
 	buckets: string[];
 	/** Each account's total, and the account the server draws it under. */
 	totals: { account: string; parent: string | null; amount: string }[];
-	spent: { account: string; bucket: string; amount: string }[];
+	deltas: { account: string; bucket: string; amount: string }[];
 };
 
 type ChartOptions = {
@@ -65,10 +65,10 @@ export const partsOf = (spending: Spent | undefined, account: string) =>
 /** Both ranges start as far into their period, so their buckets match from the first one on. */
 export const barsOf = ({ spending, previous, account, parts }: ChartOptions) => {
 	const spent = Object.fromEntries(
-		(spending?.spent ?? []).map((s) => [`${s.account} ${s.bucket}`, Number(s.amount)]),
+		(spending?.deltas ?? []).map((s) => [`${s.account} ${s.bucket}`, Number(s.amount)]),
 	);
 	const earlier = Object.fromEntries(
-		(previous?.spent ?? []).filter((s) => s.account === account).map((s) => [s.bucket, s.amount]),
+		(previous?.deltas ?? []).filter((s) => s.account === account).map((s) => [s.bucket, s.amount]),
 	);
 
 	return (spending?.buckets ?? []).map((b, i) => {

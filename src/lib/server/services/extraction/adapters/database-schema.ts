@@ -1,16 +1,13 @@
 import * as PG from 'drizzle-orm/pg-core';
 import { base } from '#lib/server/db/columns.ts';
-import { ledgers } from '#services/ledger/adapters/database-schema.ts';
+import { ledgerColumn } from '#services/ledger/adapters/database-schema.ts';
 
 // What the statements folder holds, so a statement is found by its content without hashing the folder.
 export const statements = PG.pgTable(
 	'statements',
 	(t) => ({
 		...base,
-		ledgerId: t
-			.uuid()
-			.notNull()
-			.references(() => ledgers.id, { onDelete: 'cascade' }),
+		ledgerId: ledgerColumn(),
 		key: t.text().notNull(),
 		checksum: t.text().notNull(),
 		originalChecksum: t.text(),

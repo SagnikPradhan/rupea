@@ -8,47 +8,14 @@ import { sql } from 'kysely';
 import { NO_AMOUNT, writeSeries } from '../domain/series';
 import { BALANCE_TYPES } from '../domain/taxonomy';
 import { Feed, PriceSource } from '../domain/types';
-import type { BalanceYear, PartOf, PriceSources, PriceYear } from '../domain/worth';
+import type { BalanceYear, PriceSources, PriceYear } from '../domain/worth';
+import { BEGINNING } from '#lib/shared/dates.ts';
+import { deltasBetween } from './database-deltas';
 import type { HoldingKey } from './database-files';
 import { amongHoldings } from './database-queries';
 
 /** How many rows one statement writes, since each carries a year of amounts. */
 const ROWS_WRITTEN = 200;
-
-type FirstHeldOptions = { parts: PartOf[]; to: Temporal.PlainDate };
-
-/** The first day any of these accounts moved, or null when none did by the month holding to. */
-export const findFirstHeld = (
-	ledgerId: string,
-	{ parts, to }: FirstHeldOptions,
-): ResultAsync<Temporal.PlainDate | null> =>
-	withContext('db')((db) =>
-		attempt(async () => {
-			const accounts = parts.map((p) => p.accountId);
-			const first = await db
-				.selectFrom('monthlyDeltas as m')
-				.select((e) => e.fn.min('m.month').as('month'))
-				.where('m.ledgerId', '=', ledgerId)
-				.where('m.accountType', 'in', BALANCE_TYPES)
-				.where('m.month', '<=', to.toString())
-				.where((e) => anyOf(e.ref('m.accountId'), accounts, 'uuid'))
-				.executeTakeFirst();
-			if (!first?.month) return null;
-
-			const after = Temporal.PlainDate.from(first.month).add({ months: 1 }).toString();
-			const day = await db
-				.selectFrom('dailyDeltas as d')
-				.select((e) => e.fn.min('d.date').as('date'))
-				.where('d.ledgerId', '=', ledgerId)
-				.where('d.accountType', 'in', BALANCE_TYPES)
-				.where('d.date', '>=', first.month)
-				.where('d.date', '<', after)
-				.where((e) => anyOf(e.ref('d.accountId'), accounts, 'uuid'))
-				.executeTakeFirst();
-
-			return day?.date ? Temporal.PlainDate.from(day.date) : null;
-		}),
-	);
 
 type YearsOptions = { accounts: string[]; from: number; to: number };
 
@@ -185,9 +152,9 @@ const rewriteBalances = async (
 	ledgerId: string,
 	{ from, to, holdings }: BalanceYearsOptions,
 ) => {
-	const first = Temporal.PlainDate.from({ year: from, month: 1, day: 1 }).toString();
-	const after = to === null ? 'infinity' : `${(to + 1).toString().padStart(4, '0')}-01-01`;
-	const year = sql<number>`extract(year from ${sql.ref('d.date')})::integer`;
+	const first = Temporal.PlainDate.from({ year: from, month: 1, day: 1 });
+	const after = to === null ? null : Temporal.PlainDate.from({ year: to + 1, month: 1, day: 1 });
+	const year = sql<number>`extract(year from ${sql.ref('m.day')})::integer`;
 
 	await tx
 		.deleteFrom('balanceYears')
@@ -198,31 +165,31 @@ const rewriteBalances = async (
 		.execute();
 
 	const moved = await tx
-		.selectFrom('dailyDeltas as d')
+		.selectFrom(deltasBetween(tx, ledgerId, { from: first, after, grain: 'day' }).as('m'))
 		.select((e) => [
-			'd.accountId',
-			'd.accountType',
-			'd.commodity',
-			'd.date',
+			'm.accountId',
+			'm.accountType',
+			'm.commodity',
+			'm.day as date',
 			year.as('year'),
-			e.fn.sum<bigint>('d.amount').as('amount'),
+			e.ref('m.amount').as('amount'),
 		])
-		.where('d.ledgerId', '=', ledgerId)
-		.where('d.accountType', 'in', BALANCE_TYPES)
-		.where('d.date', '>=', first)
-		.where('d.date', '<', after)
-		.where((e) => amongHoldings(e.ref('d.accountId'), e.ref('d.commodity'), holdings))
-		.groupBy(['d.accountId', 'd.accountType', 'd.commodity', 'd.date'])
-		.orderBy('d.date')
+		.where('m.accountType', 'in', BALANCE_TYPES)
+		.where((e) => amongHoldings(e.ref('m.accountId'), e.ref('m.commodity'), holdings))
+		.orderBy('m.day')
 		.execute();
 	if (moved.length === 0) return;
 
 	const opening = await tx
-		.selectFrom('monthlyDeltas as m')
+		.selectFrom(
+			deltasBetween(tx, ledgerId, {
+				from: Temporal.PlainDate.from(BEGINNING),
+				after: first,
+				grain: 'month',
+			}).as('m'),
+		)
 		.select((e) => ['m.accountId', 'm.commodity', e.fn.sum<bigint>('m.amount').as('amount')])
-		.where('m.ledgerId', '=', ledgerId)
 		.where('m.accountType', 'in', BALANCE_TYPES)
-		.where('m.month', '<', first)
 		.where((e) => amongHoldings(e.ref('m.accountId'), e.ref('m.commodity'), holdings))
 		.groupBy(['m.accountId', 'm.commodity'])
 		.execute();

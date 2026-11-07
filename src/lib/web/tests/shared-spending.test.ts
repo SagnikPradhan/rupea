@@ -23,7 +23,7 @@ const spending: Spent = {
 		{ account: 'Expenses:Food:Groceries', parent: 'Expenses:Food', amount: '400' },
 		{ account: 'Expenses:Rent', parent: 'Expenses', amount: '300.25' },
 	],
-	spent: [
+	deltas: [
 		{ account: 'Expenses', bucket: '2026-01-01', amount: '700' },
 		{ account: 'Expenses:Food', bucket: '2026-01-01', amount: '600' },
 		{ account: 'Expenses', bucket: '2026-02-01', amount: '300.25' },
@@ -34,7 +34,7 @@ const spending: Spent = {
 const previous: Spent = {
 	buckets: ['2025-01-01'],
 	totals: [{ account: 'Expenses', parent: null, amount: '800' }],
-	spent: [{ account: 'Expenses', bucket: '2025-01-01', amount: '800' }],
+	deltas: [{ account: 'Expenses', bucket: '2025-01-01', amount: '800' }],
 };
 
 describe('account names', () => {

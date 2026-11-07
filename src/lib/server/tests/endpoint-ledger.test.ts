@@ -3,7 +3,7 @@ import {
 	listAccountTree,
 	listLots,
 	listReturns,
-	listSpending,
+	listDeltas,
 	listWorth,
 } from '#lib/endpoints/accounts.remote.ts';
 import { createFile } from '#lib/endpoints/files.remote.ts';
@@ -116,13 +116,13 @@ describe('accounts', () => {
 		ledger: handle,
 	}) =>
 		provide(context, async () => {
-			const month = await listSpending({
+			const month = await listDeltas({
 				handle,
 				day,
 				period: { kind: 'month', at: '2026-09' },
 				account: 'Expenses',
 			});
-			const all = await listSpending({ handle, day, period: { kind: 'all' }, account: 'Expenses' });
+			const all = await listDeltas({ handle, day, period: { kind: 'all' }, account: 'Expenses' });
 
 			expect(month.data).toHaveLength(2);
 			expect(all.data).toHaveLength(1);

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { listDailySpending, listSpending } from '#lib/endpoints/accounts.remote.ts';
+	import { listDailyDeltas, listDeltas } from '#lib/endpoints/accounts.remote.ts';
 	import { paramsOf, periodOf } from '#lib/shared/dates.ts';
 	import { ExpenseAccount, EXPENSES, INCOME } from '#lib/shared/accounts.ts';
 	import { depthOf, nameOf } from '#lib/web/shared/accounts.ts';
@@ -75,9 +75,9 @@
 
 	const [response, earned, daily] = $derived(
 		await Promise.all([
-			listSpending({ handle, day, period, account }),
-			account === EXPENSES ? listSpending({ handle, day, period, account: INCOME }) : undefined,
-			listDailySpending({ handle, day, period, account }),
+			listDeltas({ handle, day, period, account }),
+			account === EXPENSES ? listDeltas({ handle, day, period, account: INCOME }) : undefined,
+			listDailyDeltas({ handle, day, period, account }),
 		]),
 	);
 	const spending = $derived(response.data?.[0]);

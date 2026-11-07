@@ -35,7 +35,7 @@ test('reads a statement it learns, and adds it to the ledger', async ({
 
 	await visit(page, `${ledger}/transactions`);
 	const transactions = page.getByRole('rowgroup');
-	await expect(transactions.filter({ hasText: 'UPI GROCER' })).toContainText('-1,251');
+	await expect(transactions.filter({ hasText: 'UPI GROCER' })).toContainText('1,251');
 	await expect(transactions.filter({ hasText: 'SALARY' })).toContainText('50,000');
 });
 

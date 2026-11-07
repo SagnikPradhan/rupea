@@ -26,16 +26,15 @@ const it = base.extend<{ user: string }>({
 
 const recorder = (fail?: RupeaError) => {
 	const runs: { word: string; user: string }[] = [];
-	const job: Jobs.Job<Echo> = {
-		name: 'echo',
-		version: 1,
-		payload: echo,
+	const job: Jobs.Job<Echo> = { name: 'echo', version: 1, payload: echo };
+	const handler: Jobs.Handler<Echo> = {
+		job,
 		run: (p, user) => {
 			runs.push({ word: p.word, user });
 			return fail ? errAsync(fail) : okAsync(undefined);
 		},
 	};
-	return { job, runs };
+	return { job, handler, runs };
 };
 
 const abandoned = {
@@ -50,26 +49,29 @@ const rowsOf = (u: string) =>
 	withContext('db')((db) => db.selectFrom('jobs').selectAll().where('userId', '=', u).execute());
 
 const inProcess =
-	(l: Jobs.Job<unknown>[]): Dispatch =>
+	(l: Jobs.Handler<unknown>[]): Dispatch =>
 	(c) =>
 		runJob(l, c);
 
 /** Ticks until no job is due, and counts the jobs it settled. */
-const drain = async (l: Jobs.Job<unknown>[], dispatch = inProcess(l)): Promise<number> => {
+const drain = async (l: Jobs.Handler<unknown>[], dispatch = inProcess(l)): Promise<number> => {
 	await Orchestrator.releaseExpired(l);
-	return tickAll({ jobs: l, dispatch });
+	return tickAll({ handlers: l, dispatch });
 };
 
-const tickAll = (o: { jobs: Jobs.Job<unknown>[]; dispatch: Dispatch }): PromiseLike<number> =>
+const tickAll = (o: {
+	handlers: Jobs.Handler<unknown>[];
+	dispatch: Dispatch;
+}): PromiseLike<number> =>
 	Orchestrator.tick(o).then((t) => (t.unwrapOr(false) ? tickAll(o).then((n) => 1 + n) : 0));
 
 describe('a job', () => {
 	it('runs once, as the user who queued it, and shows them it succeeded', ({ context, user }) =>
 		provide(context, async () => {
-			const { job, runs } = recorder();
+			const { job, handler, runs } = recorder();
 
 			await Jobs.enqueue({ job, user, payload: { word: 'hi' } });
-			const ran = await drain([job]);
+			const ran = await drain([handler]);
 
 			expect(ran).toBe(1);
 			expect(runs).toEqual([{ word: 'hi', user }]);
@@ -79,11 +81,11 @@ describe('a job', () => {
 
 	it('is queued once while the same work waits', ({ context, user }) =>
 		provide(context, async () => {
-			const { job, runs } = recorder();
+			const { job, handler, runs } = recorder();
 
 			await Jobs.enqueue({ job, user, payload: { word: 'twice' } });
 			await Jobs.enqueue({ job, user, payload: { word: 'twice' } });
-			await drain([job]);
+			await drain([handler]);
 
 			expect(runs).toHaveLength(1);
 		}));
@@ -104,10 +106,10 @@ describe('a job', () => {
 	it('is tried again later after an error worth retrying', ({ context, user }) =>
 		provide(context, async () => {
 			const error = fault('UnknownError', { message: 'flaky' });
-			const { job, runs } = recorder(error);
+			const { job, handler, runs } = recorder(error);
 
 			await Jobs.enqueue({ job, user, payload: { word: 'again' } });
-			await drain([job]);
+			await drain([handler]);
 
 			const [row] = await rowsOf(user);
 			expect(runs).toHaveLength(1);
@@ -118,10 +120,10 @@ describe('a job', () => {
 	it('fails at once on an error not worth retrying, and keeps it', ({ context, user }) =>
 		provide(context, async () => {
 			const error = fault('ExtractionLocked', { path: 'a.pdf' });
-			const { job } = recorder(error);
+			const { job, handler } = recorder(error);
 
 			await Jobs.enqueue({ job, user, payload: { word: 'locked' } });
-			await drain([job]);
+			await drain([handler]);
 
 			const listed = await rowsOf(user);
 			expect(listed[0]).toMatchObject({ status: JobStatus.Failed, error });
@@ -129,10 +131,10 @@ describe('a job', () => {
 
 	it('fails without running when its payload is of another version', ({ context, user }) =>
 		provide(context, async () => {
-			const { job, runs } = recorder();
+			const { job, handler, runs } = recorder();
 
 			await Jobs.enqueue({ job, user, payload: { word: 'old' } });
-			await drain([{ ...job, version: 2 }]);
+			await drain([{ ...handler, job: { ...job, version: 2 } }]);
 
 			const listed = await rowsOf(user);
 			expect(runs).toEqual([]);
@@ -141,10 +143,10 @@ describe('a job', () => {
 
 	it('waits for a worker that knows its name and version', ({ context, user }) =>
 		provide(context, async () => {
-			const { job, runs } = recorder();
+			const { job, handler, runs } = recorder();
 
 			await Jobs.enqueue({ job: { ...job, version: 2 }, user, payload: { word: 'newer' } });
-			await drain([job]);
+			await drain([handler]);
 
 			const listed = await rowsOf(user);
 			expect(runs).toEqual([]);
@@ -153,11 +155,11 @@ describe('a job', () => {
 
 	it('runs the next job of its partition a worker knows, past a newer one', ({ context, user }) =>
 		provide(context, async () => {
-			const { job, runs } = recorder();
+			const { job, handler, runs } = recorder();
 
 			await Jobs.enqueue({ job: { ...job, version: 2 }, user, payload: { word: 'newer' } });
 			await Jobs.enqueue({ job, user, payload: { word: 'known' } });
-			await drain([job]);
+			await drain([handler]);
 
 			expect(runs).toEqual([{ word: 'known', user }]);
 		}));
@@ -169,22 +171,22 @@ describe('a job', () => {
 		provide(context, async () => {
 			const a = await createUser(db).then((u) => u.userId);
 			const b = await createUser(db).then((u) => u.userId);
-			const { job, runs } = recorder();
+			const { job, handler, runs } = recorder();
 
 			await Jobs.enqueue({ job, user: a, payload: { word: 'same' } });
 			await Jobs.enqueue({ job, user: b, payload: { word: 'same' } });
-			await drain([job]);
+			await drain([handler]);
 
 			expect(runs.map((r) => r.user).sort()).toEqual([a, b].sort());
 		}));
 
 	it('is tried again later when its worker stopped before finishing it', ({ context, db, user }) =>
 		provide(context, async () => {
-			const { job, runs } = recorder();
+			const { job, handler, runs } = recorder();
 
 			await Jobs.enqueue({ job, user, payload: { word: 'abandoned' } });
 			await db.updateTable('jobs').set(abandoned).where('userId', '=', user).execute();
-			await drain([job]);
+			await drain([handler]);
 
 			const [row] = await rowsOf(user);
 			expect(runs).toEqual([]);
@@ -194,11 +196,13 @@ describe('a job', () => {
 
 	it('fails when its worker stopped, if it retries no error', ({ context, db, user }) =>
 		provide(context, async () => {
-			const job = { ...recorder().job, retries: [] };
+			const { job: recorded, handler: recording } = recorder();
+			const job = { ...recorded, retries: [] };
+			const handler = { ...recording, job };
 
 			await Jobs.enqueue({ job, user, payload: { word: 'abandoned' } });
 			await db.updateTable('jobs').set(abandoned).where('userId', '=', user).execute();
-			await drain([job]);
+			await drain([handler]);
 
 			const [row] = await rowsOf(user);
 			expect(row).toMatchObject({ status: JobStatus.Failed, error: { type: 'UnknownError' } });
@@ -210,12 +214,12 @@ describe('a job', () => {
 		user,
 	}) =>
 		provide(context, async () => {
-			const { job, runs } = recorder();
+			const { job, handler, runs } = recorder();
 
 			await Jobs.enqueue({ job, user, payload: { word: 'edited' } });
 			await db.updateTable('jobs').set(abandoned).where('userId', '=', user).execute();
 			await Jobs.enqueue({ job, user, payload: { word: 'edited' } });
-			await drain([job]);
+			await drain([handler]);
 
 			const rows = await rowsOf(user);
 			expect(runs).toHaveLength(1);
@@ -234,6 +238,9 @@ describe('workers', () => {
 			version: 1,
 			payload: echo,
 			partition: (p) => partition(p.word),
+		};
+		const handler: Jobs.Handler<Echo> = {
+			job,
 			run: () => {
 				at.now += 1;
 				at.most = Math.max(at.most, at.now);
@@ -242,7 +249,7 @@ describe('workers', () => {
 				});
 			},
 		};
-		return { job, at };
+		return { job, handler, at };
 	};
 
 	/** Holds a job until `meet` of them run at once, or two seconds pass, so overlap never hangs on timing. */
@@ -252,12 +259,16 @@ describe('workers', () => {
 		await pause(50);
 	};
 
-	const started = async (context: RupeaContext, j: Jobs.Job<Echo>[], ready = Promise.resolve()) => {
+	const started = async (
+		context: RupeaContext,
+		j: Jobs.Handler<Echo>[],
+		ready = Promise.resolve(),
+	) => {
 		const handle = await createTemporaryDatabase();
 		const ctx = { ...context, db: handle.db };
 		const workers = Orchestrator.orchestrate({
 			context: ctx,
-			jobs: j,
+			handlers: j,
 			dispatch: inProcess(j),
 			count: 2,
 			ready,
@@ -273,8 +284,8 @@ describe('workers', () => {
 			.toBe(expected);
 
 	it('run jobs of one partition one at a time', async ({ context }) => {
-		const { job, at } = slow('slow', () => 'same');
-		const { ctx, handle, workers } = await started(context, [job]);
+		const { job, handler, at } = slow('slow', () => 'same');
+		const { ctx, handle, workers } = await started(context, [handler]);
 
 		await provide(ctx, async () => {
 			const user = (await createUser(ctx.db)).userId;
@@ -288,8 +299,8 @@ describe('workers', () => {
 	});
 
 	it('run jobs of different partitions side by side', async ({ context }) => {
-		const { job, at } = slow('slow', (w) => w, { now: 0, most: 0, meet: 2 });
-		const { ctx, handle, workers } = await started(context, [job]);
+		const { job, handler, at } = slow('slow', (w) => w, { now: 0, most: 0, meet: 2 });
+		const { ctx, handle, workers } = await started(context, [handler]);
 
 		await provide(ctx, async () => {
 			const user = (await createUser(ctx.db)).userId;
@@ -307,7 +318,7 @@ describe('workers', () => {
 	}) => {
 		const first = slow('first', () => 'same', { now: 0, most: 0, meet: 2 });
 		const second = slow('second', () => 'same', first.at);
-		const { ctx, handle, workers } = await started(context, [first.job, second.job]);
+		const { ctx, handle, workers } = await started(context, [first.handler, second.handler]);
 
 		await provide(ctx, async () => {
 			const user = (await createUser(ctx.db)).userId;
@@ -322,9 +333,9 @@ describe('workers', () => {
 	});
 
 	it('wait to claim until they are ready', async ({ context }) => {
-		const { job } = slow('slow', (w) => w);
+		const { job, handler } = slow('slow', (w) => w);
 		const ready = Promise.withResolvers<void>();
-		const { ctx, handle, workers } = await started(context, [job], ready.promise);
+		const { ctx, handle, workers } = await started(context, [handler], ready.promise);
 
 		await provide(ctx, async () => {
 			const user = (await createUser(ctx.db)).userId;
@@ -346,7 +357,7 @@ describe('workers', () => {
 		const warn = vi.spyOn(context.logger, 'warn');
 		const workers = Orchestrator.orchestrate({
 			context,
-			jobs: [],
+			handlers: [],
 			dispatch: inProcess([]),
 			count: 0,
 			ready: Promise.resolve(),
@@ -358,12 +369,8 @@ describe('workers', () => {
 });
 
 describe('a job in a worker process', () => {
-	const job: Jobs.Job<Echo> = {
-		name: 'echo',
-		version: 1,
-		payload: echo,
-		run: () => okAsync(undefined),
-	};
+	const job: Jobs.Job<Echo> = { name: 'echo', version: 1, payload: echo };
+	const handler: Jobs.Handler<Echo> = { job, run: () => okAsync(undefined) };
 
 	const forked = it.extend<{ pool: Processes }>({
 		pool: async ({}, use) => {
@@ -381,7 +388,7 @@ describe('a job in a worker process', () => {
 	forked('succeeds when the process returns no error', ({ context, pool, user }) =>
 		provide(context, async () => {
 			await Jobs.enqueue({ job, user, payload: { word: 'fine' } });
-			await drain([job], pool.dispatch);
+			await drain([handler], pool.dispatch);
 
 			const listed = await rowsOf(user);
 			expect(listed[0]?.status).toBe(JobStatus.Succeeded);
@@ -391,7 +398,7 @@ describe('a job in a worker process', () => {
 	forked('keeps the error the process returned', ({ context, pool, user }) =>
 		provide(context, async () => {
 			await Jobs.enqueue({ job, user, payload: { word: 'locked' } });
-			await drain([job], pool.dispatch);
+			await drain([handler], pool.dispatch);
 
 			const listed = await rowsOf(user);
 			expect(listed[0]).toMatchObject({
@@ -408,7 +415,7 @@ describe('a job in a worker process', () => {
 				const hanging = { ...job, timeout: 500 };
 
 				await Jobs.enqueue({ job: hanging, user, payload: { word: 'hang' } });
-				await drain([hanging], pool.dispatch);
+				await drain([{ ...handler, job: hanging }], pool.dispatch);
 
 				const listed = await rowsOf(user);
 				expect(listed[0]).toMatchObject({
@@ -421,7 +428,7 @@ describe('a job in a worker process', () => {
 	forked('is tried again later when its process exits', ({ context, pool, user }) =>
 		provide(context, async () => {
 			await Jobs.enqueue({ job, user, payload: { word: 'crash' } });
-			await drain([job], pool.dispatch);
+			await drain([handler], pool.dispatch);
 
 			const [row] = await rowsOf(user);
 			expect(row).toMatchObject({ status: JobStatus.Queued, attempts: 1 });

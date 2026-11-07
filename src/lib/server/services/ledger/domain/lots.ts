@@ -1,7 +1,40 @@
 import { v7 as uuidv7 } from 'uuid';
 import { DEFAULT_COMMODITY, min, multiply, sum, type Amount, type Quantity } from './amounts';
 import { unitPrice } from './prices';
-import { DisposalKind, LotOrigin, type LotCost, type Price } from './types';
+import {
+	DisposalKind,
+	LotOrigin,
+	type LotCost,
+	type Price,
+	type RupeaParseLocation,
+} from './types';
+
+export type UnmatchedDisposal = {
+	location: RupeaParseLocation;
+	account: string;
+	commodity: string;
+	kind: DisposalKind;
+	units: Amount;
+	named: boolean;
+};
+
+export type LotHistory = {
+	location: RupeaParseLocation;
+	date: Temporal.PlainDate;
+	origin: LotOrigin;
+	from: string | null;
+	units: Amount;
+	remaining: Amount;
+	cost: Quantity;
+	disposals: {
+		location: RupeaParseLocation;
+		date: Temporal.PlainDate;
+		kind: DisposalKind;
+		units: Amount;
+		price: Quantity | null;
+		gain: Quantity | null;
+	}[];
+};
 
 const FREE: Quantity = { amount: 0n as Amount, commodity: DEFAULT_COMMODITY };
 

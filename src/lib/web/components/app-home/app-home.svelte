@@ -2,7 +2,7 @@
 	import {
 		findBridge,
 		listAccounts,
-		listSpending,
+		listDeltas,
 		listWorth,
 	} from '#lib/endpoints/accounts.remote.ts';
 	import { ASSETS, INCOME, LIABILITIES } from '#lib/shared/accounts.ts';
@@ -39,10 +39,10 @@
 	const moved = $derived(await findBridge({ handle, day, period }));
 	const balance = $derived(await listAccounts({ handle, day, period: now }));
 	const spending = $derived(
-		await listSpending({ handle, day, period: lastMonth, account: 'Expenses' }),
+		await listDeltas({ handle, day, period: lastMonth, account: 'Expenses' }),
 	);
 
-	const earning = $derived(await listSpending({ handle, day, period: lastMonth, account: INCOME }));
+	const earning = $derived(await listDeltas({ handle, day, period: lastMonth, account: INCOME }));
 
 	const last = $derived(worth.data?.at(-1));
 	const bridge = $derived(moved.data?.[0]);

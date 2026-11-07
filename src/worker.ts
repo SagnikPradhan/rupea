@@ -1,4 +1,4 @@
-import { jobs, subscriptions } from '#lib/server/server.ts';
+import { handlers, subscriptions } from '#lib/server/server.ts';
 import { provide } from '#lib/server/shared/context/context.ts';
 import { readConfiguration } from '#lib/server/shared/context/config.ts';
 import { createContext, createDatabase } from '#lib/server/shared/context/environment.ts';
@@ -16,7 +16,7 @@ const context = createContext(config, database.db, dev, subscriptions);
 
 export default (c: ClaimedJob): Promise<RupeaError | null> =>
 	provide(context, () =>
-		runJob(jobs, c).match(
+		runJob(handlers, c).match(
 			() => null,
 			(e) => e,
 		),

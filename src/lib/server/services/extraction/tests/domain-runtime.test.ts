@@ -1,5 +1,5 @@
 import { err } from '#lib/server/shared/result/result.ts';
-import { formatAmount } from '#services/ledger/application/shared.ts';
+import { formatAmount } from '#services/ledger/application/language.ts';
 import { describe, expect, it } from 'vitest';
 import { readRecords } from '#services/extraction/domain/runtime.ts';
 import { parseSchema, type RupeaSchema } from '#services/extraction/domain/schema.ts';

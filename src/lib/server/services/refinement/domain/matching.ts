@@ -2,11 +2,11 @@ import { sha256 } from '#lib/server/shared/hash.ts';
 import { byCodeUnit } from '#lib/server/shared/text.ts';
 import {
 	GroupRole,
-	formatQuantity,
-	linksOf,
 	type LinkEdit,
 	type RupeaTransaction,
-} from '#services/ledger/application/shared.ts';
+	formatQuantity,
+	linksOf,
+} from '#services/ledger/application/language.ts';
 
 export enum Confidence {
 	Duplicate = 'duplicate',

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
-import { listDailySpending, listSpending } from '#lib/endpoints/accounts.remote.ts';
+import { listDailyDeltas, listDeltas } from '#lib/endpoints/accounts.remote.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
 import { openFilter } from '#tests/shared/filter.ts';
@@ -8,8 +8,8 @@ import Page from '#routes/(signed-in)/l/[handle]/expenses/+page.svelte';
 
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
-	listDailySpending: vi.fn(),
-	listSpending: vi.fn(),
+	listDailyDeltas: vi.fn(),
+	listDeltas: vi.fn(),
 }));
 vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
 	findFirstDay: vi.fn(() => answer('2025-03-14')),
@@ -36,7 +36,7 @@ const spending = {
 			unpriced: 0,
 		},
 	],
-	spent: [
+	deltas: [
 		{ account: 'Expenses', bucket: '2026-01-01', first: '2026-01-03', amount: '600', unpriced: 1 },
 		{ account: 'Expenses', bucket: '2026-02-01', first: '2026-02-01', amount: '400', unpriced: 0 },
 	],
@@ -46,8 +46,8 @@ const previous = { ...spending, from: '2025-01-01', buckets: ['2025-01-01'] };
 describe('the expenses page', () => {
 	it('draws a calendar of what was averaged on each day of the month', async () => {
 		visit('/l/h/expenses?at=2026');
-		vi.mocked(listSpending).mockReturnValue(answer([spending, previous]));
-		vi.mocked(listDailySpending).mockReturnValue(
+		vi.mocked(listDeltas).mockReturnValue(answer([spending, previous]));
+		vi.mocked(listDailyDeltas).mockReturnValue(
 			answer(Array.from({ length: 31 }, (_, i) => ({ day: i + 1, amount: '10', unpriced: 0 }))),
 		);
 		render(Page, { data });
@@ -60,7 +60,7 @@ describe('the expenses page', () => {
 
 	it('lists each account with its share, and links to its postings over the period picked', async () => {
 		visit('/l/h/expenses?at=2026');
-		vi.mocked(listSpending).mockReturnValue(answer([spending, previous]));
+		vi.mocked(listDeltas).mockReturnValue(answer([spending, previous]));
 		render(Page, { data });
 
 		const food = await screen.findByTitle('Expenses:Food');
@@ -84,7 +84,7 @@ describe('the expenses page', () => {
 				},
 			],
 		};
-		vi.mocked(listSpending).mockImplementation(({ account }) =>
+		vi.mocked(listDeltas).mockImplementation(({ account }) =>
 			answer(account === 'Income' ? [income] : [spending, previous]),
 		);
 		render(Page, { data });
@@ -94,7 +94,7 @@ describe('the expenses page', () => {
 				name: 'How what came in divides into what was spent and what was kept',
 			}),
 		).toBeTruthy();
-		expect(vi.mocked(listSpending)).toHaveBeenCalledWith(
+		expect(vi.mocked(listDeltas)).toHaveBeenCalledWith(
 			expect.objectContaining({ account: 'Income' }),
 		);
 	});
@@ -109,7 +109,7 @@ describe('the expenses page', () => {
 			unpriced: 0,
 		};
 		const nested = { ...spending, totals: [...spending.totals, dining] };
-		vi.mocked(listSpending).mockReturnValue(answer([nested, previous]));
+		vi.mocked(listDeltas).mockReturnValue(answer([nested, previous]));
 		render(Page, { data });
 
 		const fold = await screen.findByRole('button', { name: 'Accounts under Food' });
@@ -127,7 +127,7 @@ describe('the expenses page', () => {
 
 	it('says when nothing was spent', async () => {
 		visit('/l/h/expenses');
-		vi.mocked(listSpending).mockReturnValue(answer([]));
+		vi.mocked(listDeltas).mockReturnValue(answer([]));
 		render(Page, { data });
 
 		expect(await screen.findByText('Nothing spent in this period.')).toBeTruthy();
@@ -135,7 +135,7 @@ describe('the expenses page', () => {
 
 	it('shows a month as a calendar of days, with no monthly rate', async () => {
 		visit('/l/h/expenses?at=2026-01');
-		vi.mocked(listSpending).mockReturnValue(answer([{ ...spending, bucket: 'day' }]));
+		vi.mocked(listDeltas).mockReturnValue(answer([{ ...spending, bucket: 'day' }]));
 		render(Page, { data });
 
 		await screen.findByTitle('Expenses:Food');
@@ -144,11 +144,11 @@ describe('the expenses page', () => {
 
 	it('narrows to an account, listing it and those under it against its own total', async () => {
 		visit('/l/h/expenses?account=Expenses:Food');
-		vi.mocked(listSpending).mockReturnValue(answer([spending]));
+		vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 		render(Page, { data });
 
 		await screen.findByTitle('Expenses:Food');
-		expect(vi.mocked(listSpending)).toHaveBeenCalledWith(
+		expect(vi.mocked(listDeltas)).toHaveBeenCalledWith(
 			expect.objectContaining({ account: 'Expenses:Food' }),
 		);
 		expect(screen.queryByTitle('Expenses')).toBeNull();
@@ -157,7 +157,7 @@ describe('the expenses page', () => {
 
 	it('picks from the accounts right under Expenses', async () => {
 		visit('/l/h/expenses');
-		vi.mocked(listSpending).mockReturnValue(answer([spending]));
+		vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 		render(Page, { data });
 		await openFilter();
 
@@ -172,7 +172,7 @@ describe('the expenses page', () => {
 
 	it('draws how the spending divides beside the spending over time', async () => {
 		visit('/l/h/expenses');
-		vi.mocked(listSpending).mockReturnValue(answer([spending]));
+		vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 		render(Page, { data });
 
 		expect(await screen.findByRole('img', { name: /^How Expenses divides/ })).toBeTruthy();
@@ -182,7 +182,7 @@ describe('the expenses page', () => {
 	it('sums up the month under the pointer against the same month before', async () => {
 		Element.prototype.getBoundingClientRect = () => DOMRect.fromRect({ width: 100, height: 100 });
 		visit('/l/h/expenses?at=2026');
-		vi.mocked(listSpending).mockReturnValue(answer([spending, previous]));
+		vi.mocked(listDeltas).mockReturnValue(answer([spending, previous]));
 		render(Page, { data });
 
 		const plot = await screen.findByRole('img', { name: /^Spending from/ });
@@ -193,7 +193,7 @@ describe('the expenses page', () => {
 
 	it('rises from nothing, with no percent, when the period before spent nothing there', async () => {
 		visit('/l/h/expenses?at=2026');
-		vi.mocked(listSpending).mockReturnValue(answer([spending, { ...previous, totals: [] }]));
+		vi.mocked(listDeltas).mockReturnValue(answer([spending, { ...previous, totals: [] }]));
 		render(Page, { data });
 
 		const change = await screen.findByText(/vs previous/);
@@ -202,7 +202,7 @@ describe('the expenses page', () => {
 
 	it('offers an account deeper than the groups as a choice of its own', async () => {
 		visit('/l/h/expenses?account=Expenses:Food:Dining');
-		vi.mocked(listSpending).mockReturnValue(answer([spending]));
+		vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 		render(Page, { data });
 		await openFilter();
 
@@ -212,11 +212,11 @@ describe('the expenses page', () => {
 
 	it('reads the months before today for a span', async () => {
 		visit('/l/h/expenses?span=3&account=Expenses:Food');
-		vi.mocked(listSpending).mockReturnValue(answer([spending]));
+		vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 		render(Page, { data });
 
 		await screen.findByTitle('Expenses:Food');
-		expect(vi.mocked(listSpending)).toHaveBeenCalledWith(
+		expect(vi.mocked(listDeltas)).toHaveBeenCalledWith(
 			expect.objectContaining({ period: expect.objectContaining({ kind: 'custom' }) }),
 		);
 	});
@@ -235,7 +235,7 @@ describe('the expenses page', () => {
 			total('Expenses:Bills', '100'),
 			total('Expenses:Rent', '900'),
 		];
-		vi.mocked(listSpending).mockReturnValue(answer([{ ...spending, totals }]));
+		vi.mocked(listDeltas).mockReturnValue(answer([{ ...spending, totals }]));
 		render(Page, { data });
 
 		await screen.findByTitle('Expenses:Rent');
@@ -245,7 +245,7 @@ describe('the expenses page', () => {
 
 	it('marks no span when the link asks for a period of its own', async () => {
 		visit('/l/h/expenses?at=2026');
-		vi.mocked(listSpending).mockReturnValue(answer([spending]));
+		vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 		render(Page, { data });
 		await openFilter();
 
@@ -255,7 +255,7 @@ describe('the expenses page', () => {
 
 	it('says so when nothing lies under the account', async () => {
 		visit('/l/h/expenses?account=Expenses:Rent');
-		vi.mocked(listSpending).mockReturnValue(answer([spending]));
+		vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 		render(Page, { data });
 
 		expect(await screen.findByText('Nothing under Rent to divide.')).toBeTruthy();

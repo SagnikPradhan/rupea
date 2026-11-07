@@ -6,7 +6,7 @@ import { v7 as uuidv7 } from 'uuid';
 import { describe, expect } from 'vitest';
 import { attemptWrite } from '#lib/server/db/errors.ts';
 import type { Database } from '#lib/server/db/index.ts';
-import { AccountType } from '#services/ledger/domain/types.ts';
+import { AccountType } from '#services/ledger/application/language.ts';
 
 const findLedger = (db: Database, id: string) =>
 	db.selectFrom('ledgers').selectAll().where('id', '=', id).executeTakeFirst();

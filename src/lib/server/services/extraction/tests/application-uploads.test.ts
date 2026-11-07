@@ -5,7 +5,8 @@ import { provide } from '#lib/server/shared/context/context.ts';
 import { ok } from '#lib/server/shared/result/result.ts';
 import * as Schemas from '#services/extraction/application/schemas.ts';
 import * as Drafts from '#services/extraction/application/drafts.ts';
-import { importStatement } from '#services/extraction/adapters/jobs.ts';
+import { handlers } from '#services/extraction/adapters/jobs.ts';
+import { importStatement } from '#services/extraction/application/jobs.ts';
 import * as Statements from '#services/extraction/application/statements.ts';
 import * as Uploads from '#services/extraction/application/uploads.ts';
 import { listJobs } from '#services/jobs/application/jobs.ts';
@@ -37,7 +38,7 @@ const runImports = async (l: Ledger) => {
 	const ended = [];
 	for (const job of queued.toReversed().filter((j) => j.status === 'queued'))
 		ended.push(
-			await runJob([importStatement], {
+			await runJob(handlers, {
 				id: job.id,
 				userId: l.owner,
 				name: importStatement.name,

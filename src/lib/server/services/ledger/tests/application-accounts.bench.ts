@@ -24,7 +24,7 @@ describe('accounts', () => {
 			timed(context, () => Accounts.listReturns({ ledger, from: f, to: TO }));
 		const spending = (f: Temporal.PlainDate) =>
 			timed(context, () =>
-				Accounts.listSpending({
+				Accounts.listDeltas({
 					ledger,
 					spans: [{ from: f, to: TO }],
 					bucket: 'month',
@@ -33,7 +33,7 @@ describe('accounts', () => {
 			);
 		const daily = (f: Temporal.PlainDate) =>
 			timed(context, () =>
-				Accounts.listDailySpending({ ledger, span: { from: f, to: TO }, account: 'Expenses' }),
+				Accounts.listDailyDeltas({ ledger, span: { from: f, to: TO }, account: 'Expenses' }),
 			);
 		const holdings = timed(context, () => Accounts.listAccounts({ ledger, day: TO }));
 		const tree = timed(context, () => Accounts.listAccountTree(ledger));

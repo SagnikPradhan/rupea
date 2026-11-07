@@ -2,7 +2,11 @@ import { parseDate } from '#lib/server/shared/dates.ts';
 import { batch, type Batch } from '#lib/server/shared/result/batch.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
-import { displayLocation, parseAmount, type Amount } from '#services/ledger/application/shared.ts';
+import {
+	type Amount,
+	displayLocation,
+	parseAmount,
+} from '#services/ledger/application/language.ts';
 import { match, P } from 'ts-pattern';
 import type { Locator, Path, RupeaSchema, Transform } from './schema';
 import { STATEMENT_ERA, type Grid, type RupeaRecord } from './types';

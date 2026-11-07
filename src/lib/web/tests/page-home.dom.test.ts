@@ -1,11 +1,6 @@
 import { render, screen, within } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-	findBridge,
-	listAccounts,
-	listSpending,
-	listWorth,
-} from '#lib/endpoints/accounts.remote.ts';
+import { findBridge, listAccounts, listDeltas, listWorth } from '#lib/endpoints/accounts.remote.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
 import Page from '#routes/(signed-in)/+page.svelte';
@@ -14,7 +9,7 @@ vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
 	findBridge: vi.fn(),
 	listAccounts: vi.fn(),
-	listSpending: vi.fn(),
+	listDeltas: vi.fn(),
 	listWorth: vi.fn(),
 }));
 const account = (name: string, parent: string | null, total: string) => ({
@@ -59,7 +54,7 @@ const spend = (from: string, amounts: Record<string, string>, top = 'Expenses') 
 	to: from,
 	bucket: 'month',
 	buckets: [from],
-	spent: [],
+	deltas: [],
 	totals: Object.entries(amounts).map(([a, amount]) => ({
 		account: a,
 		parent: a === top ? null : top,
@@ -88,7 +83,7 @@ beforeEach(() => {
 	vi.mocked(findBridge).mockReturnValue(answer([bridge]));
 	vi.mocked(listWorth).mockReturnValue(answer(worth));
 	vi.mocked(listAccounts).mockReturnValue(answer(accounts));
-	vi.mocked(listSpending).mockImplementation(({ account }) =>
+	vi.mocked(listDeltas).mockImplementation(({ account }) =>
 		answer(
 			account === 'Income'
 				? [
@@ -140,7 +135,7 @@ describe('the home page', () => {
 		expect(vi.mocked(listWorth)).toHaveBeenCalledWith(
 			expect.objectContaining({ handle: 'a', period: expect.objectContaining({ kind: 'custom' }) }),
 		);
-		expect(vi.mocked(listSpending)).toHaveBeenCalledWith(
+		expect(vi.mocked(listDeltas)).toHaveBeenCalledWith(
 			expect.objectContaining({
 				period: { kind: 'month', at: expect.stringMatching(/^\d{4}-\d{2}$/) },
 			}),
@@ -195,7 +190,7 @@ describe('the home page', () => {
 	it('starts every figure at zero on a ledger with nothing in it yet', async () => {
 		vi.mocked(listWorth).mockReturnValue(answer([]));
 		vi.mocked(listAccounts).mockReturnValue(answer([]));
-		vi.mocked(listSpending).mockReturnValue(answer([]));
+		vi.mocked(listDeltas).mockReturnValue(answer([]));
 		visit('/');
 		render(Page, { data: { ...data, ledgers: [ledgers[0]!] } });
 		await screen.findByText('Balance sheet');

@@ -5,7 +5,7 @@ import { err, errAsync, ok, okAsync, type ResultAsync } from '#lib/server/shared
 import { isLedgerFile } from '#lib/shared/statements.ts';
 import { findImported, importFile, parseFile } from '#services/ledger/application/files.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
-import type { RupeaTransaction } from '#services/ledger/application/shared.ts';
+import type { RupeaTransaction } from '#services/ledger/application/language.ts';
 import { predictAccounts } from '#services/ledger/application/prediction.ts';
 import { categorised, copy, draft, uncategorised, type Draft } from '../domain/draft';
 import { readRecords } from '../domain/runtime';

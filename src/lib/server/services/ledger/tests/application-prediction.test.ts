@@ -1,6 +1,7 @@
 import { models as pinned } from '#lib/server/shared/onnx/models.ts';
 import { okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import type { Amount, RupeaTransaction } from '#services/ledger/application/shared.ts';
+import type { Amount } from '#services/ledger/domain/amounts.ts';
+import type { RupeaTransaction } from '#services/ledger/domain/types.ts';
 import { provide } from '#lib/server/shared/context/context.ts';
 import type { Models } from '#lib/server/shared/onnx/runtime.ts';
 import * as Files from '#services/ledger/application/files.ts';

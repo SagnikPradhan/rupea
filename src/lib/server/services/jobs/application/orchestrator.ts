@@ -16,7 +16,7 @@ import {
 	type Run,
 } from '../adapters/database';
 import { processes, type Dispatch } from '../adapters/processes';
-import { endingOf, findJob, timeoutOf, type Ending, type Job } from '../domain/jobs';
+import { endingOf, findHandler, timeoutOf, type Ending, type Handler } from '../domain/jobs';
 import { asJob } from './jobs';
 
 const LEASE = 120_000;
@@ -37,7 +37,7 @@ type StartOptions = {
 	execArgv: string[];
 	env: Record<string, string>;
 	context: RupeaContext;
-	jobs: Job<unknown>[];
+	handlers: Handler<unknown>[];
 	/** Settles once the workers' models are ready; nothing is claimed before. */
 	ready: Promise<void>;
 };
@@ -48,7 +48,7 @@ export const startWorkers = (o: StartOptions) => {
 	const pool = processes({ entry: o.entry, count, env: o.env, execArgv: o.execArgv });
 	const orchestrator = orchestrate({
 		context: o.context,
-		jobs: o.jobs,
+		handlers: o.handlers,
 		dispatch: pool.dispatch,
 		count,
 		ready: o.ready,
@@ -70,7 +70,7 @@ export const startWorkers = (o: StartOptions) => {
 
 type OrchestrateOptions = {
 	context: RupeaContext;
-	jobs: Job<unknown>[];
+	handlers: Handler<unknown>[];
 	dispatch: Dispatch;
 	count: number;
 	/** Claims start once it settles. */
@@ -92,13 +92,13 @@ export const orchestrate = (o: OrchestrateOptions) => {
 		}
 	};
 
-	const names = o.jobs.map((j) => j.name);
+	const names = o.handlers.map((h) => h.job.name);
 	const sweeping = setInterval(
 		() => provide(o.context, () => sweep(names).orTee(logged)),
 		SWEEP_EVERY,
 	);
 	const releasing = setInterval(
-		() => provide(o.context, () => releaseExpired(o.jobs).orTee(logged)),
+		() => provide(o.context, () => releaseExpired(o.handlers).orTee(logged)),
 		RELEASE_EVERY,
 	);
 	const loops = Array.from({ length: o.count }, loop);
@@ -114,18 +114,19 @@ export const orchestrate = (o: OrchestrateOptions) => {
 };
 
 type TickOptions = {
-	jobs: Job<unknown>[];
+	handlers: Handler<unknown>[];
 	dispatch: Dispatch;
 };
 
 /** Claims the next due job, dispatches it and settles how it ended; false when none was due. */
 export const tick = (o: TickOptions): ResultAsync<boolean> =>
-	claimJob(o.jobs, LEASE).andThen((c) =>
-		c ? dispatchAndSettle(o, c).map(() => true) : okAsync(false),
-	);
+	claimJob(
+		o.handlers.map((h) => h.job),
+		LEASE,
+	).andThen((c) => (c ? dispatchAndSettle(o, c).map(() => true) : okAsync(false)));
 
 /** Queues again, or fails, the claims whose lease ran out because their worker died. */
-export const releaseExpired = (l: Job<unknown>[]): ResultAsync<void> =>
+export const releaseExpired = (l: Handler<unknown>[]): ResultAsync<void> =>
 	listExpired(RELEASED_AT_ONCE)
 		.andThen((e) => batchAsync(e.map((r) => settle(r, abandoned(l, r)))))
 		.map((b) => b.failed.forEach(logged));
@@ -136,18 +137,18 @@ const stopped = (c: RupeaContext) => {
 };
 
 const dispatchAndSettle = (o: TickOptions, c: ClaimedJob): ResultAsync<void> =>
-	findJob(o.jobs, c.name).asyncAndThen((j) =>
+	findHandler(o.handlers, c.name).asyncAndThen((h) =>
 		asJob(c, () =>
-			holdClaim(c, () => o.dispatch(c, timeoutOf(j)))
+			holdClaim(c, () => o.dispatch(c, timeoutOf(h.job)))
 				.map(() => null)
 				.orElse((e) => okAsync(e))
-				.andThen((e) => settle(c, endingOf(c.attempts, e, j.retries))),
+				.andThen((e) => settle(c, endingOf(c.attempts, e, h.job.retries))),
 		),
 	);
 
 /** How a run whose worker stopped settles: like an `UnknownError` of its job, if we know it. */
-const abandoned = (l: Job<unknown>[], r: Run): Ending => {
-	const retries = findJob(l, r.name).map((j) => j.retries);
+const abandoned = (l: Handler<unknown>[], r: Run): Ending => {
+	const retries = findHandler(l, r.name).map((h) => h.job.retries);
 	return endingOf(r.attempts, ABANDONED, retries.unwrapOr(undefined));
 };
 

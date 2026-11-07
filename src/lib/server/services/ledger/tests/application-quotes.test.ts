@@ -3,7 +3,8 @@ import { provide, type RupeaContext } from '#lib/server/shared/context/context.t
 import { fault } from '#lib/server/shared/result/error.ts';
 import { err, ok } from '#lib/server/shared/result/result.ts';
 import { listJobs, runJob } from '#services/jobs/application/jobs.ts';
-import { fetchQuotes } from '#services/ledger/adapters/jobs.ts';
+import { handlers } from '#services/ledger/adapters/jobs.ts';
+import { fetchQuotes } from '#services/ledger/application/jobs.ts';
 import * as Accounts from '#services/ledger/application/accounts.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
@@ -74,7 +75,7 @@ describe('fetching quotes', () => {
 			const fetch = navs({ '17-10-2026': '160.5', '16-10-2026': '161' });
 
 			const ran = await provide({ ...context, fetch }, () =>
-				runJob([fetchQuotes], {
+				runJob(handlers, {
 					id: job?.id ?? '',
 					userId: ledger.owner,
 					name: fetchQuotes.name,

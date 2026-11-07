@@ -44,6 +44,12 @@ export const ledgers = PG.pgTable(
 	(t) => [PG.index('ledgers_owner_id').on(t.ownerId)],
 );
 
+/** The column that names the ledger a row belongs to, for the tables of other services. */
+export const ledgerColumn = () =>
+	PG.uuid()
+		.notNull()
+		.references(() => ledgers.id, { onDelete: 'cascade' });
+
 export const memberships = PG.pgTable(
 	'memberships',
 	(t) => ({

@@ -1,4 +1,4 @@
-import { parentsIn, partsIn, type AccountNode } from '#services/ledger/domain/tree.ts';
+import { idsUnder, parentsIn, partsIn, type AccountNode } from '#services/ledger/domain/tree.ts';
 import { AccountType } from '#services/ledger/domain/types.ts';
 import { describe, expect, it } from 'vitest';
 
@@ -34,6 +34,15 @@ const partsOf = (account: string | null) => {
 	const { parts, byCommodity } = partsIn(tree, account);
 	return { parts: parts.map((p) => `${p.accountId} ${p.part}`), byCommodity };
 };
+
+describe('idsUnder', () => {
+	it('is the account and every account under it, whatever the case, and not one that only starts with its name', () => {
+		const names = treeOf('Assets', 'Assets:Bank', 'Assets:Banking', 'Expenses');
+		expect(idsUnder(names, 'assets:bank')).toEqual(['Assets:Bank']);
+		expect(idsUnder(names, 'ASSETS')).toEqual(['Assets', 'Assets:Bank', 'Assets:Banking']);
+		expect(idsUnder(names, 'Income')).toEqual([]);
+	});
+});
 
 describe('parentsIn', () => {
 	it('leaves out an account with one under it and nothing posted, drawing that one in its place', () => {

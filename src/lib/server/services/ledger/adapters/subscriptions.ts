@@ -3,7 +3,7 @@ import type { Subscription } from '#services/events/application/events.ts';
 import { enqueue } from '#services/jobs/application/jobs.ts';
 import { filesChanged } from '#services/storage/application/changes.ts';
 import { handleOf } from '../application/ledger';
-import { syncLedger } from './jobs';
+import { syncLedger } from '../application/jobs';
 
 /** Queues a sync of each ledger whose files may have changed. */
 export const syncChanged: Subscription<{ keys: string[] }> = {

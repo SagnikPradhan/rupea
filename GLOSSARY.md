@@ -244,6 +244,10 @@ _Avoid_: Query (kept for a future query language), search
 What Expenses accounts gained over a period, in rupees at the prices known by each posting's day, net of refunds and counting only counted transactions. An amount with no price yet is left out and counted as unpriced.
 _Avoid_: Expenses (an account type), outflow, burn
 
+**Delta**:
+What one account gained in one commodity on one day: the sum of its counted postings. Reports add deltas up, valued in the base currency, so spending, income and worth are one read over different accounts. The ledger keeps them by day and by month.
+_Avoid_: Move (a transfer), change, movement
+
 **Bucket**:
 The days a chart adds up into one bar: a day, a month or a year, set by the period.
 _Avoid_: Interval, bin, period

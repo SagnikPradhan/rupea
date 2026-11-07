@@ -16,8 +16,8 @@ export enum JobStatus {
 }
 
 /**
- * Work a service runs outside a request. It may run more than once, so running it again must be
- * harmless. Its callbacks are methods, so a list of `Job<unknown>` holds a job of any payload.
+ * Work a service runs outside a request, as the code that queues it knows it. Its callbacks are
+ * methods, so a list of `Job<unknown>` holds a job of any payload.
  */
 export type Job<P> = {
 	name: string;
@@ -32,12 +32,20 @@ export type Job<P> = {
 	dedupe?(payload: P): string;
 	/** Milliseconds a run may take before its process is killed, five minutes when left out. */
 	timeout?: number;
+};
+
+/** What runs a job. It may run more than once, so running it again must be harmless. */
+export type Handler<P> = {
+	job: Job<P>;
 	run(payload: P, user: string): ResultAsync<void>;
 };
 
-export const findJob = (jobs: Job<unknown>[], name: string): Result<Job<unknown>> => {
-	const job = jobs.find((j) => j.name === name);
-	return job ? ok(job) : err(fault('JobUnknown', { name }));
+export const findHandler = (
+	handlers: Handler<unknown>[],
+	name: string,
+): Result<Handler<unknown>> => {
+	const handler = handlers.find((h) => h.job.name === name);
+	return handler ? ok(handler) : err(fault('JobUnknown', { name }));
 };
 
 export const partitionOf = <P>(j: Job<P>, p: P, u: string): string => j.partition?.(p, u) ?? u;

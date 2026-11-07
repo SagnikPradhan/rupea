@@ -1,5 +1,5 @@
 import type { Kyselify } from 'drizzle-orm/kysely';
-import type { AccountType } from '#services/ledger/domain/types.ts';
+import type { AccountType } from '#services/ledger/application/language.ts';
 import type { emailCodes, sessions, users } from '#services/auth/adapters/database-schema.ts';
 import type {
 	statementContents,

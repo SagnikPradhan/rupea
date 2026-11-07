@@ -19,7 +19,7 @@ The evidence is thin in places. Each persona says how strong its evidence is, an
 - **Triggers:** tired of updating a net-worth sheet by hand. Burned by a tracker app that was sold, redesigned or paywalled (Kuvera, ET Money). Wants no lock-in.
 - **Must never:** lock their data in, or pivot into selling them loans or products.
 - **Turned off by:** paywalls on basics, redesigns that remove features, wrong holdings.
-- **Evidence:** strong. Spreadsheets lead net-worth tracking in both crowds sampled. SEBI 2025: 9.5% of households hold market products, 23% in the top metros, and 21% of investors find tracking performance hard. About 45 of Kuvera's 80 newest low reviews blame its redesign after the sale to CRED.
+- **Evidence:** strong. Spreadsheets lead net-worth tracking in both crowds sampled. SEBI 2025: 9.5% of households hold market products, 23% in the top metros, and 21% of investors find tracking performance hard. About 45 of Kuvera's 80 newest low reviews blame its redesign after the sale to CRED. Of 414 Fold App Store reviews, 10 pay ₹2,999 a year for an aggregator, and one paying user still wants export.
 
 ## Tracker
 
@@ -29,7 +29,7 @@ The evidence is thin in places. Each persona says how strong its evidence is, an
 - **Triggers:** a first salary, a month where UPI spending ran away, quitting an app after typing every expense.
 - **Must never:** make them type every transaction.
 - **Turned off by:** effort, transactions counted twice, broken capture, ads, asking for a phone number, loan and marketing spam, losing their data.
-- **Evidence:** medium. Spending is what most people track (about 80% of coded comments). Manual-entry fatigue is the top reason people quit. About 12% already use their card or bank statement as the log. The phone is where most people say they note spending; whether they want Rupea there is untested.
+- **Evidence:** medium. Spending is what most people track (about 80% of coded comments). Manual-entry fatigue is the top reason people quit. About 12% already use their card or bank statement as the log. The phone is where most people say they note spending; whether they want Rupea there is untested. Everything named in one r/india thread on small UPI spends is free, and no one said they pay.
 
 ## Bookkeeper
 
@@ -39,7 +39,7 @@ The evidence is thin in places. Each persona says how strong its evidence is, an
 - **Triggers:** they saw the lines a form wrote and found them easy. Or they arrive from hledger, beancount or ledger and want imports, linking and a web interface.
 - **Must never:** break the file format, or hide the text behind the app.
 - **Turned off by:** a format that drifts away from ledger and hledger with no reason, and features that work only through the app.
-- **Evidence:** weak for arrivals (about 1 to 3% of coded comments use plain text). The ramp itself is a hypothesis.
+- **Evidence:** weak for arrivals (about 1 to 3% of coded comments use plain text). The ramp itself is a hypothesis. Abroad, 13 of 187 comments on hosted open-source budgeting say self-hosting setup is too hard, and 14 pay for managed hosting.
 
 ## Caretaker
 

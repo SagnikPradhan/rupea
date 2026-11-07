@@ -9,8 +9,9 @@ These would change the personas if closed. Close them before giving a weak perso
 - **The general public.** Nearly all comments come from investing and personal finance subreddits. r/india, the city subreddits, r/IndiaTax, r/CreditCardsIndia and r/TwoXIndia were not sampled.
 - **Caretaker.** Family threads were picked for the topic and skew to conflict. No survey sizes the need for a tool.
 - **Money in two countries.** Vendor pages only.
-- **Willingness to pay.** Competitor prices are known, but few rupee amounts come from users, and how many pay for tracking is unknown.
-- **App reviews.** About 80 low-rated Play Store reviews per app, newest first. No App Store reviews, and none at all for Copilot.
+- **Willingness to pay.** No one measured Indian willingness to pay for hosting or sync. Fold's 2.4% self-reported payers is not a conversion rate, no Indian was heard paying for file hosting, and Fold's subscriber count is unknown.
+- **App reviews.** About 80 low-rated Play Store reviews per app, newest first. App Store reviews exist only for Fold (414). None for axio, INDmoney or Kuvera, and none at all for Copilot.
+- **Reddit search.** The Arctic Shift search endpoints time out, so threads must be found by web search. The Monarch cheaper-tier thread returned 7 of its comments.
 - **Competitor prices.** ET Money, Kuvera, Value Research and Lunch Money prices are snippets only.
 - **Plain-text and self-hosted users.** Their complaints come from GitHub issue titles, not users. No Indian user of Paisa, hledger or Firefly was found.
 - **Plain text as a ramp.** No evidence either way. Only talking to people who try it will tell.
@@ -20,12 +21,12 @@ These would change the personas if closed. Close them before giving a weak perso
 
 Sorted by how much the answer would change the roadmap. `/pm research` takes the first.
 
-1. Would people pay for hosting and sync, and how much? Fold charges ₹1,499 to ₹2,999 a year, and Monarch users ask for a cheaper tier. It decides whether hosting pays, and which plans to build.
-2. How do people outside the investing forums keep track, such as r/india, the city subreddits and r/CreditCardsIndia? It tests whether the Tracker and Investor hold for the wider public.
-3. What do people leaving Kuvera need first, after tax harvesting and goals? It could move the Investor's import and returns work up.
-4. Do Indian users of Paisa, hledger or Firefly exist, and why did they pick them? It tests how Bookkeepers arrive.
-5. Does seeing the lines a form wrote make plain text feel easy? It tests the ramp, and only talking to people who try it will tell.
-6. How many people keep track for a partner or parents, and what do they need? It decides whether the Caretaker gets work.
+1. Would Indian users pay for hosted sync of statements and ledger files, and at what price? Ask in r/personalfinanceindia and r/IndiaInvestments with a plain ladder (free, ₹1,000, ₹2,000 a year). It decides whether hosting is the paid product.
+2. What do Fold's paying and cancelling users say on Fold's own subreddit and Discord? It shows what ₹2,999 buys and what makes people stop.
+3. Does the Investor pay for returns and net worth at all, or only for tracking? Check Kuvera leavers, ET Money Genius and Value Research from their own pages. It decides whether the paid tier is for investors or for spending.
+4. How do people outside the investing forums keep track, such as r/india, the city subreddits and r/CreditCardsIndia? It tests whether the Tracker and Investor hold for the wider public.
+5. How many Indian self-hosters of Actual, Paisa or Firefly pay for hosting? It tests whether the Bookkeeper pays.
+6. Do people pay more for a family plan, and would a lifetime plan sell here? Fold's lifetime is ₹49,999. It decides the Caretaker's work and whether to sell lifetime or yearly.
 
 ## Findings
 
@@ -74,6 +75,9 @@ Some stop happily once saving is automatic, and spend the rest. Many outgrow app
 
 - Phone in 106 of the 165 who said, laptop in 40, both in 19.
 - They pay small one-off or lifetime amounts. Fold's price was called steep. It is now ₹2,999 a year with a ₹49,999 lifetime plan, not the ₹999 seen earlier. One person paid ₹499 a year for backup and export. Abroad, YNAB charges $109 and Monarch $99.99 a year, and price is their second complaint after broken bank sync.
+- Fold's own page confirms ₹2,999 a year and ₹49,999 lifetime, with a 15-day trial and refund. Of 414 App Store India reviews, 10 (2.4%) say they pay, for bank fetch, auto-tagging and an AI assistant, never for storage or sync. 12 more (2.9%) say they would. This changes the earlier "small one-off amounts": a few Indians pay ₹2,999 a year for an aggregator, but reviewers are self-selected, so it says nothing about how many. The only rupee figure offered unprompted was "2-300 a year" (June 2025).
+- Four Fold reviews complain that web access, family accounts or export moved behind the paywall, and one paying user still wants Excel export.
+- Abroad, paid hosting of an open-source ledger app is real. In 187 comments across four threads, 14 mention managed hosting of Actual Budget at about $1.40 a month, 13 say self-hosting setup is too hard, and 20 mention hosting it free. Users accept the fee because the data stays theirs. This is not India.
 
 ### Families
 
@@ -104,7 +108,7 @@ Many small open-source CAS parsers and offline statement readers exist, such as 
 
 ## Sources
 
-All gathered on 2026-10-29. Reddit comments came from the Arctic Shift archive; raw comments are not kept in the repo.
+Gathered on 2026-10-29, except the rows dated 2026-11-08. Reddit comments came from the Arctic Shift archive; raw comments are not kept in the repo.
 
 | Source | What | Size |
 |---|---|---|
@@ -119,4 +123,9 @@ All gathered on 2026-10-29. Reddit comments came from the Arctic Shift archive; 
 | Competitor threads | Eight r/personalfinanceindia threads on Kuvera, Fold, axio and Money Manager, and one r/MonarchMoney thread on price | about 270 comments |
 | GitHub issues | Paisa (82 coded), hledger, Fava, Firefly III and Actual | about 100 titles |
 | Product pages | Pricing and feature pages for YNAB, Monarch, Copilot, Fold and Actual | read |
+| Fold pricing blog, 2026-11-08 | fold.money/blog/price-of-free-software, read in full | page |
+| App Store India reviews, Fold, 2026-11-08 | Newest first, 2023-03-03 to 2026-11-05. Coded by regex and reading. | 414 reviews, 81 mention paying or price |
+| Monarch pricing, 2026-11-08 | monarch.com/pricing, and the cheaper-tier thread r/MonarchMoney 1x0pmqq | page, 7 comments returned |
+| Hosted open-source analogues, 2026-11-08 | r/ynab 1dtlg6t, 1e4ewh5, 1dta2it and r/selfhosted 1dcq0e6, on YNAB's price and Actual on PikaPods. Abroad. | 187 comments |
+| r/india 1s8kxw0, 2026-11-08 | UPI tracking apps. Everything named is free. | 19 of 27 comments |
 | Search snippets and blogs | Thread titles and vendor posts, from before comments could be read. Leads, not evidence. | — |

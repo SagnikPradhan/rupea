@@ -16,6 +16,10 @@ What no competitor does well, and Rupea could.
 - **Returns that are right.** Correct returns from lots, cost and prices. Kuvera showed a 400% XIRR, and 18 of Paisa's 82 open issues are calculations. Investor.
 - **Paid for by the people it serves.** No loans (axio, INDmoney), commission (ET Money) or ads (Money Manager, Fold's free tier). Investor.
 - **Plain text that is easy to start.** About 26 of Paisa's 82 open issues are install and setup, and hledger and Fava have no statement import. A form and an import that show the lines they wrote has no direct rival. Bookkeeper, Tracker.
+- **Hosting that costs about a convenience fee, with files you keep.** Hosted Rupea would set up the server and sync, and leave files you can download any time. Actual users accept about $1.40 a month only because the data stays theirs, and the only rupee figure users offered was "2-300 a year". Investor, Bookkeeper.
+- **A free exit.** Charge for hosting, sync and backup, never for export, history, returns or a web app. Fold moved web access and export behind Plus, and a paying user still wants export. Investor, Tracker.
+- **Family sync that does not charge per account.** Fold's Plus gives 5 secondary accounts and took family tracking out of free. Files per person could be hosted for one price. The Caretaker is parked, so test demand first.
+- **A trial that needs no card.** Monarch's card for the trial draws complaints (3 of 80), and YNAB's 34 days need none. Tracker.
 - **A first import that pays off in minutes.** Fold's five-minute setup is what its fans praise. A first statement that ends in a net-worth chart can match it. Tracker.
 
 Pricing ideas from abroad, for later: a trial with no credit card (YNAB), a cheaper tier that only tracks (a Monarch thread asking for one scored 74), one plan shared by up to six people (YNAB), free self-hosting (Actual), and a lifetime option (Cashew, Fold).
@@ -29,7 +33,7 @@ Apps that Indian users name in the research.
 | Kuvera | Investments, sold to CRED | 2026-10-29 |
 | INDmoney | Investments and spending, aggregator, broker | 2026-10-29 |
 | ET Money | Investments | 2026-10-29 |
-| Fold | Spending, aggregator | 2026-10-29 |
+| Fold | Spending, aggregator | 2026-11-08 |
 | axio | Spending from SMS, lender | 2026-10-29 |
 | Money Manager | Spending, manual | 2026-10-29 |
 | Cashew | Spending, manual | 2026-10-29 |
@@ -42,7 +46,7 @@ Apps that Indian users name in the research.
 | hledger and Fava | Plain-text ledgers and their web views | 2026-10-29 |
 | Paisa | Plain-text ledger, built for India | 2026-10-29 |
 | Firefly III | Self-hosted, database | 2026-10-29 |
-| Actual Budget | Self-hosted budgeting | 2026-10-29 |
+| Actual Budget | Self-hosted budgeting | 2026-11-08 |
 
 ## Abroad
 
@@ -51,7 +55,7 @@ For ideas on design and pricing, not direct competition.
 | Name | Kind | Checked |
 |---|---|---|
 | YNAB | Budgeting | 2026-10-29 |
-| Monarch | Spending and net worth | 2026-10-29 |
+| Monarch | Spending and net worth | 2026-11-08 |
 | Copilot | Spending and net worth | 2026-10-29 |
 | Lunch Money | Spending, for people who like control | 2026-10-29 |
 
@@ -84,14 +88,15 @@ For ideas on design and pricing, not direct competition.
 - **Rupea is worse at:** cannot buy funds or run SIPs.
 - **Sources:** Play Store; [1u1t2vi](https://reddit.com/comments/1u1t2vi); snippets.
 
-### Fold · checked 2026-10-29
+### Fold · checked 2026-11-08
 
 - **Does well:** account aggregator for banks, cards, funds, stocks and EPF, "no SMS scraping". Setup in five minutes, a responsive team. 4.63 from 1,428 ratings.
 - **Complaints:** of 71, about 14 bank fetch failures (SBI, Kotak, IDFC), 9 paywalls, 8 crashes or OTP, 5 missing auto-tagging. Three call export behind the paywall a dealbreaker: "It's my own bank data."
-- **Price:** free with ads and five refreshes a month. Plus is ₹2,999 a year (early bird ₹1,499 to ₹2,009), lifetime ₹49,999. Export, tags and the web app are paid.
+- **Price:** free with ads and five refreshes a month. Plus is ₹2,999 a year (early bird ₹1,499 to ₹2,009), lifetime ₹49,999, with a 15-day trial and refund. Web app, filtered export, up to 5 secondary accounts and premium tags are paid. The blog lists AI tagging, EPF and US stocks as likely paid later.
+- **App Store reviews:** of 414 (274 five-star), about 4 are paywall moves (web app, family accounts, export, an ended trial) and about 14 are a bank or card that is unsupported or broken. 10 say they pay, for bank fetch, auto-tagging and an AI assistant integration.
 - **Rupea is better at:** any bank through statements, full history, free plain-text export, no ads.
-- **Rupea is worse at:** no automatic sync.
-- **Sources:** [fold.money blog](https://fold.money/blog/price-of-free-software); Play Store; [1wftl9f](https://reddit.com/comments/1wftl9f).
+- **Rupea is worse at:** no automatic sync, no AI assistant integration, polish.
+- **Sources:** [fold.money blog](https://fold.money/blog/price-of-free-software); Play Store; App Store India reviews (id 1626994334); [1wftl9f](https://reddit.com/comments/1wftl9f).
 
 ### axio · checked 2026-10-29
 
@@ -158,11 +163,11 @@ The closest competitor.
 - **Rupea is worse at:** API, rules, maturity.
 - **Sources:** [github.com/firefly-iii/firefly-iii](https://github.com/firefly-iii/firefly-iii).
 
-### Actual Budget · checked 2026-10-29
+### Actual Budget · checked 2026-11-08
 
 - **Does well:** fast, local-first, offline, optional end-to-end encryption, self-hosted, imports from YNAB. 29.8k stars, MIT.
 - **Complaints:** from issue titles: bank sync providers, currency symbols, reports. Sync covers the US and Europe only.
-- **Price:** free; paid hosting through PikaPods.
+- **Price:** free; paid hosting through PikaPods at about $1.40 a month (user-reported, 20% to the Actual developers per one user), and bank sync at about $15 a year. In four threads, 13 of 187 comments say setup is too hard, and the iOS app asks for $7.99 a month when it cannot reach a self-hosted server.
 - **Rupea is better at:** Indian PDF statements, investments, text files.
 - **Rupea is worse at:** budgeting, polish, offline sync.
 - **Sources:** [actualbudget.org](https://actualbudget.org), [GitHub](https://github.com/actualbudget/actual).
@@ -176,11 +181,11 @@ The closest competitor.
 - **Rupea is worse at:** budgeting and goals.
 - **Sources:** [ynab.com/pricing](https://www.ynab.com/pricing); Play Store.
 
-### Monarch · checked 2026-10-29
+### Monarch · checked 2026-11-08
 
 - **Does well:** clean dashboards for spending and net worth, quick linking, listens to feedback.
 - **Complaints:** of 80, about 15 bank disconnects, 6 against paying, 3 against a card for the trial. A thread asking for a cheaper tier scored 74.
-- **Price:** $99.99 a year.
+- **Price:** Core is $99.99 a year or $14.99 a month, with a one-week trial. A Plus tier above Core adds forecasting and business income, and people asking for a cheaper tier got one above instead.
 - **Rupea is better at:** cost, India, no aggregator.
 - **Rupea is worse at:** polish, automatic sync, a phone app.
 - **Sources:** [monarch.com/pricing](https://www.monarch.com/pricing); Play Store; [r/MonarchMoney](https://reddit.com/comments/1x0pmqq).

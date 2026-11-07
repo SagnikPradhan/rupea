@@ -68,7 +68,7 @@ Boards exist at 1920, 1280 and 768 wide, in light and dark, and the page follows
 ## Controls
 
 - **Button.** A secondary button is outlined in `--color-border` on the surface. The one main action on a page is primary: filled in ink with surface text. An icon button is a secondary button holding one icon instead of a label, for close and the theme toggle.
-- **Chip.** A filter that is on or off, with a box before its label. On is outlined in ink with a checked box; off is outlined in `--color-border` with an empty box.
+- **Chip.** A filter that is on or off, with a box before its label. On is outlined in ink with a checked box; off is outlined in `--color-border` with an empty box. A chip with no link is a button, for choosing one of a few, like the kind of a transaction.
 - **Segmented control.** Pick one of a few views. The chosen segment sits on a bordered surface; the others are muted text.
 - **Toggle and checkbox.** A setting, or a selected row. On is ink.
 - **Field.** A muted label over an outlined input.

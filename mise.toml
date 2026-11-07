@@ -1,2 +1,3 @@
 [tools]
 node = "26"
+harper-cli = "3.0.0"

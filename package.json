@@ -19,6 +19,7 @@
 		"format": "prettier --write .",
 		"format:check": "prettier --check .",
 		"lint": "eslint . && stylelint 'src/**/*.svelte'",
+		"lint:prose": "lint/prose.sh",
 		"lint:fix": "eslint --fix . && stylelint --fix 'src/**/*.svelte'",
 		"db:generate": "drizzle-kit generate",
 		"db:migrate": "drizzle-kit migrate",

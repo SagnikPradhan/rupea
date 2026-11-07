@@ -140,13 +140,13 @@ records:
 
 A record has five fields. Rupea needs the first three:
 
-| Field         | What it holds                                                                                                                                                     |
-| ------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `date`        | The day of the transaction.                                                                                                                                       |
-| `amount`      | Money in is positive, money out is negative, as the account sees it.                                                                                              |
-| `description` | What the statement says about the transaction.                                                                                                                    |
-| `category`    | Optional. A category the statement gives. It counts only when it names an account, like `Expenses:Food`. Otherwise Rupea guesses one from your past transactions. |
-| `balance`     | Optional. The running balance the statement prints after each row. Rupea checks your ledger against it.                                                           |
+| Field         | What it holds                                                                                                                                                      |
+| ------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `date`        | The day of the transaction.                                                                                                                                        |
+| `amount`      | Money in is positive, money out is negative, as the account sees it.                                                                                               |
+| `description` | What the statement says about the transaction.                                                                                                                     |
+| `category`    | Optional. A category the statement gives. It counts only when it names an account, like `Expenses:Food`. Otherwise, Rupea guesses one from your past transactions. |
+| `balance`     | Optional. The running balance the statement prints after each row. Rupea checks your ledger against it.                                                            |
 
 Each field is a **path**: `from` says where the value is, and `pipe` turns the text found there into a value.
 
@@ -183,7 +183,7 @@ Most fields need one locator. Moving matters when a statement doesn't keep a val
 
 ### Debits and credits: two paths
 
-Many statements put money out and money in in two columns. Give a field a list of paths, and Rupea takes the first one that reads:
+Many statements put money out and money in across two columns. Give a field a list of paths, and Rupea takes the first one that reads:
 
 ```yaml
 amount:

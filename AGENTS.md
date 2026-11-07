@@ -38,7 +38,7 @@ await eventBus.publish('user.updated', updated);
 ```
 
 - Sibling modules share a shape: the same kind of input, the same output, the same form. `readGrid(upload)` and `readPdf(options)` both produce a `Grid`, but they take different inputs and are written differently. That's a break.
-- A top-heavy function, with elaborate validation and a small tail of logic, is asymmetric. Parse input at the boundary when there is one. Otherwise extract validation into a named step at the same level.
+- A top-heavy function, with elaborate validation and a small tail of logic, is asymmetric. Parse input at the boundary when there is one. Otherwise, extract validation into a named step at the same level.
 - Asymmetry draws attention, so spend it on what matters. The structure should make the exception obvious without a comment.
 - Prefer parallel code to shared helpers, until duplication raises the maintenance cost without making anything simpler.
 
@@ -58,7 +58,7 @@ const wasm = createRequire(import.meta.url).resolve('@embedpdf/pdfium/pdfium.was
 - A guard gets a blank line after it.
 - In a longer body, a `return` gets a blank line before it when it does something different from the lines above. It stays attached when it just hands back what the line above built.
 - A short function stays compact. Don't spread a two- or three-line body over five lines, since file size is a cost too. Split only on a real shift in thinking.
-- Five or more lines in one group need a good reason. Otherwise split them, or extract a helper when part of the group builds one value.
+- Five or more lines in one group need a good reason. Otherwise, split them, or extract a helper when part of the group builds one value.
 - The same applies to object fields and test blocks.
 - Order files most important first: constants, then exported entry points, then helpers. A type alias sits right above the function it describes.
 

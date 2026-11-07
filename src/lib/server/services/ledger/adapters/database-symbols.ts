@@ -77,13 +77,13 @@ const upsertQuotes = async (
 	await rewritePriceYears(tx, rows);
 };
 
-/** A fetch that worked clears the error; one that failed keeps when the failing began. */
+/** Every fetch records when it was tried; one that worked clears the error, and one that failed keeps when the failing began. */
 export const saveFetch = (symbolId: string, error: RupeaError | null): ResultAsync<void> =>
 	withContext('db')((db) =>
 		attempt(async () => {
 			const now = new Date();
 			const row = error
-				? { symbolId, error: json(error), failingSince: now }
+				? { symbolId, error: json(error), failingSince: now, fetchedAt: now }
 				: { symbolId, error: null, failingSince: null, fetchedAt: now };
 			await db
 				.insertInto('symbolFetches')
@@ -100,7 +100,7 @@ export const saveFetch = (symbolId: string, error: RupeaError | null): ResultAsy
 		}),
 	);
 
-/** Symbols the ledger links that no fetch has worked for since today began, unless the feed said it has none. */
+/** Symbols the ledger links that no fetch has tried since today began in UTC, unless the feed said it has none. */
 export const listStale = (ledgerId: string): ResultAsync<string[]> =>
 	withContext('db')((db) =>
 		attempt(() =>
@@ -113,7 +113,7 @@ export const listStale = (ledgerId: string): ResultAsync<string[]> =>
 				.where((e) =>
 					e.or([
 						e('f.fetchedAt', 'is', null),
-						e('f.fetchedAt', '<', sql<Date>`date_trunc('day', now())`),
+						e('f.fetchedAt', '<', sql<Date>`date_trunc('day', now(), 'UTC')`),
 					]),
 				)
 				.where((e) => sql`${e.ref('f.error')}->>'type'`, 'is distinct from', 'FeedSymbolUnknown')

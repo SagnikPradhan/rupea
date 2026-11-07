@@ -132,7 +132,8 @@ describe('fetching quotes', () => {
 				status: 503,
 			});
 			expect(failed).toEqual(err(unavailable));
-			expect(first).toMatchObject({ fetchedAt: null, error: unavailable });
+			expect(first).toMatchObject({ error: unavailable });
+			expect(first?.fetchedAt).toBeInstanceOf(Date);
 			expect(second?.failingSince).toEqual(first?.failingSince);
 			expect(recovered).toMatchObject({ failingSince: null, error: null });
 			expect(recovered?.fetchedAt).toBeInstanceOf(Date);
@@ -176,7 +177,7 @@ describe('fetching quotes', () => {
 			expect((await queued(second)).map((j) => j.payload)).toEqual([{ symbol: symbolId }]);
 		}));
 
-	it('queues a symbol again after a fetch that failed for now, but not one the feed lacks', ({
+	it('queues a failed symbol again the next day, but not on the day it failed or one the feed lacks', ({
 		context,
 		db,
 	}) =>
@@ -198,6 +199,14 @@ describe('fetching quotes', () => {
 			);
 
 			await db.deleteFrom('jobs').where('userId', '=', ledger.owner).execute();
+			await Sync.syncIndex(ledger);
+
+			expect(await queued(ledger)).toEqual([]);
+
+			await db
+				.updateTable('symbolFetches')
+				.set({ fetchedAt: new Date(Date.now() - 24 * 60 * 60 * 1000 - 1000) })
+				.execute();
 			await Sync.syncIndex(ledger);
 
 			expect((await queued(ledger)).map((j) => j.payload)).toEqual([{ symbol: down }]);

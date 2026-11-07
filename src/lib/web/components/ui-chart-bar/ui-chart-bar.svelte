@@ -1,6 +1,6 @@
 <script lang="ts" generics="Row extends Record<string, unknown>">
 	import Axes from '#lib/web/components/ui-chart-axes/ui-chart-axes.svelte';
-	import Swatch from '#lib/web/components/ui-swatch/ui-swatch.svelte';
+	import Key from '#lib/web/components/ui-chart-key/ui-chart-key.svelte';
 	import Tooltip from '#lib/web/components/ui-tooltip/ui-tooltip.svelte';
 	import type { Bucket } from '#lib/shared/dates.ts';
 	import {
@@ -103,6 +103,20 @@
 
 	const shown = $derived((hovered.index === null ? undefined : rows[hovered.index]) ?? whole);
 
+	const entries = $derived([
+		...parts.map((p, k) => ({
+			label: p.label,
+			amount: formatCompact(Number(shown[p.key] ?? 0)),
+			shade: seriesOf(p.colour ?? k),
+			part: k,
+		})),
+		...references.map((r) => ({
+			label: r.label,
+			amount: shown[r.key] == null ? undefined : formatCompact(Number(shown[r.key])),
+			mark: 'reference' as const,
+		})),
+	]);
+
 	/** Finds the bar under the pointer, and the part of it, or none beside the bar or above it. */
 	const point = (e: PointerEvent) => {
 		const { left, top } = pointerIn(e);
@@ -175,26 +189,7 @@
 		</div>
 	</div>
 	<figcaption>
-		<div class="key">
-			{#each parts as part, k (part.key)}
-				<span
-					role="presentation"
-					class:faded={hovered.part !== null && hovered.part !== k}
-					onpointerenter={() => (hovered.part = k)}
-					onpointerleave={() => (hovered.part = null)}
-				>
-					<Swatch shade={seriesOf(part.colour ?? k)} />
-					{part.label}
-					<data>{formatAmount(String(shown[part.key] ?? '0'))}</data>
-				</span>
-			{/each}
-			{#each references as line (line.key)}
-				<span class="reference">
-					{line.label}
-					{#if shown[line.key] != null}<data>{formatAmount(String(shown[line.key]))}</data>{/if}
-				</span>
-			{/each}
-		</div>
+		<Key {entries} focus={hovered.part} onfocus={(part: number | null) => (hovered.part = part)} />
 		{#if controls}<div class="controls">{@render controls()}</div>{/if}
 	</figcaption>
 </figure>
@@ -208,46 +203,31 @@
 
 	figcaption {
 		display: grid;
-		align-items: start;
+		align-items: end;
 		gap: var(--size-2);
 		color: var(--color-muted);
 		font: var(--text-label);
 	}
 
-	.key {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--size-0) var(--size-2);
+	data::before {
+		content: '– ';
 	}
 
 	.controls {
 		display: flex;
 		flex-wrap: wrap;
 		justify-content: end;
-		gap: var(--size-1) var(--size-2);
+		gap: var(--size-1);
 	}
 
 	@media (width >= 48rem) {
 		figcaption {
-			grid-template-columns: 1fr 1fr;
+			grid-template-columns: 2fr 1fr;
 		}
 	}
 
 	data {
 		font-family: var(--font-mono);
-	}
-
-	span.reference::before {
-		content: '';
-		display: inline-block;
-		width: var(--size-2);
-		margin-right: var(--size-0);
-		vertical-align: middle;
-		border-top: var(--size-line-0) dashed var(--color-muted);
-	}
-
-	span.faded {
-		opacity: 0.6;
 	}
 
 	.plot {

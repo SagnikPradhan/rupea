@@ -218,12 +218,15 @@ describe('the line chart with parts', () => {
 	it('keys each part with its shade', () => {
 		piled();
 		expect(caption()).toContain('Bank');
-		expect(screen.getByText('Card').closest('span')?.querySelector('span')).not.toBeNull();
+		expect(screen.getByText('Card').closest('li')?.querySelector('span')).not.toBeNull();
 	});
 
 	it('fades the other parts while one is focused in the key, but not for a line', async () => {
 		const { svg } = piled();
-		const [worth, bank] = [screen.getByText('Net worth'), screen.getByText('Bank')];
+		const [worth, bank] = [
+			screen.getByText('Net worth').closest('li')!,
+			screen.getByText('Bank').closest('li')!,
+		];
 
 		await fireEvent.pointerEnter(bank);
 		expect(svg.querySelectorAll('path.part.faded')).toHaveLength(2);
@@ -246,9 +249,7 @@ describe('the line chart with parts', () => {
 		const plot = screen.getByRole('img', { name: 'Net worth' });
 
 		expect(plot.querySelectorAll('path.part')).toHaveLength(3);
-		expect(screen.getByText('Shares').closest('span')?.querySelector('data')?.textContent).toBe(
-			'0',
-		);
+		expect(screen.getByText('Shares').closest('li')?.querySelector('data')?.textContent).toBe('0');
 	});
 
 	it('names the part under the pointer and fades the others', async () => {
@@ -259,6 +260,6 @@ describe('the line chart with parts', () => {
 		await fireEvent.pointerMove(plot, { clientX: 99, clientY: top + 1 });
 		expect(plot.querySelector('[role="tooltip"]')?.textContent).toContain('Shares');
 		expect(svg.querySelectorAll('path.part.faded')).toHaveLength(2);
-		expect(screen.getByText('Bank').closest('span')?.classList.contains('faded')).toBe(true);
+		expect(screen.getByText('Bank').closest('li')?.classList.contains('faded')).toBe(true);
 	});
 });

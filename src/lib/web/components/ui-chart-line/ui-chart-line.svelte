@@ -1,6 +1,6 @@
 <script lang="ts" generics="Row extends Record<string, unknown>">
 	import Axes from '#lib/web/components/ui-chart-axes/ui-chart-axes.svelte';
-	import Swatch from '#lib/web/components/ui-swatch/ui-swatch.svelte';
+	import Key from '#lib/web/components/ui-chart-key/ui-chart-key.svelte';
 	import Tooltip from '#lib/web/components/ui-tooltip/ui-tooltip.svelte';
 	import {
 		EDGE,
@@ -52,8 +52,16 @@
 	}: Props = $props();
 
 	const FORMATS = {
-		amount: { tick: formatCompact, value: formatAmount },
-		percent: { tick: formatPercent, value: (v: string) => formatPercent(Number(v)) },
+		amount: {
+			tick: formatCompact,
+			value: formatAmount,
+			short: (v: string) => formatCompact(Number(v)),
+		},
+		percent: {
+			tick: formatPercent,
+			value: (v: string) => formatPercent(Number(v)),
+			short: (v: string) => formatPercent(Number(v)),
+		},
 	};
 
 	const BUCKETS: { days: number; bucket: Bucket }[] = [
@@ -128,6 +136,16 @@
 	const up = $derived(values.ticks.map((n) => ({ at: values.y(n), label: FORMATS[unit].tick(n) })));
 
 	const shown = $derived(hovered.index ?? rows.length - 1);
+	const entries = $derived(
+		series.map((s) => ({
+			label: s.label,
+			amount:
+				s.role === 'primary' ? undefined : FORMATS[unit].short(String(rows[shown]?.[s.key] ?? '0')),
+			shade: s.shade,
+			mark: s.role === 'part' ? undefined : s.role,
+			part: s.role === 'part' ? parts.indexOf(s) : undefined,
+		})),
+	);
 
 	const point = (e: PointerEvent) => {
 		const { left, top } = pointerIn(e);
@@ -214,23 +232,7 @@
 		</div>
 	</div>
 	<figcaption>
-		<div class="key">
-			{#each series as line (line.key)}
-				{@const k = parts.indexOf(line)}
-				<span
-					role="presentation"
-					class={[line.role, { faded: k >= 0 && hovered.part !== null && hovered.part !== k }]}
-					onpointerenter={() => k >= 0 && (hovered.part = k)}
-					onpointerleave={() => k >= 0 && (hovered.part = null)}
-				>
-					{#if line.shade}<Swatch shade={line.shade} />{/if}
-					{line.label}
-					{#if line.role !== 'primary'}
-						<data>{FORMATS[unit].value(String(rows[shown]?.[line.key] ?? ''))}</data>
-					{/if}
-				</span>
-			{/each}
-		</div>
+		<Key {entries} focus={hovered.part} onfocus={(part: number | null) => (hovered.part = part)} />
 		{#if controls}<div class="controls">{@render controls()}</div>{/if}
 	</figcaption>
 </figure>
@@ -243,60 +245,28 @@
 	}
 
 	figcaption {
-		display: flex;
-		flex-wrap: wrap;
-		justify-content: space-between;
-		align-items: center;
+		display: grid;
+		align-items: end;
 		gap: var(--size-2);
 		color: var(--color-muted);
 		font: var(--text-label);
-	}
-
-	.key {
-		flex: 1 1 auto;
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--size-0) var(--size-2);
 	}
 
 	.controls {
 		display: flex;
 		flex-wrap: wrap;
 		justify-content: end;
-		gap: var(--size-1) var(--size-2);
-		margin-left: auto;
+		gap: var(--size-1);
+	}
+
+	@media (width >= 48rem) {
+		figcaption {
+			grid-template-columns: 2fr 1fr;
+		}
 	}
 
 	data {
 		font-family: var(--font-mono);
-	}
-
-	span.primary::before,
-	span.context::before,
-	span.band::before,
-	span.negative::before {
-		content: '';
-		display: inline-block;
-		width: var(--size-2);
-		margin-right: var(--size-0);
-		vertical-align: middle;
-		border-top: var(--size-line-0) solid var(--color-muted);
-	}
-
-	span.primary::before {
-		border-top: var(--size-line-1) solid var(--color-ink);
-	}
-
-	span.negative {
-		color: var(--color-negative);
-	}
-
-	span.negative::before {
-		border-top-color: var(--color-negative);
-	}
-
-	span.faded {
-		opacity: 0.6;
 	}
 
 	.plot {

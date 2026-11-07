@@ -136,7 +136,7 @@ describe('the bar chart', () => {
 
 	it('keys each part with the hovered bar’s amount, or the whole’s', async () => {
 		const { plot } = drawn();
-		expect(key()).toContain('9,500');
+		expect(key()).toContain('9.5K');
 
 		await fireEvent.pointerMove(plot, { clientX: 50, clientY: 0 });
 		expect(key()).toContain('-500');
@@ -152,13 +152,13 @@ describe('the bar chart', () => {
 			whole: { bucket: '', food: '9500' },
 			label: 'Spending',
 		});
-		expect(screen.getByText('Other').closest('span')?.querySelector('data')?.textContent).toBe('0');
+		expect(screen.getByText('Other').closest('li')?.querySelector('data')?.textContent).toBe('0');
 	});
 
 	it('keys the line beside the parts, with the hovered bar’s value or the whole’s', async () => {
 		const { plot } = drawn({ previous: ['1000', null, '9000'] });
-		const line = () => screen.getByRole('figure').querySelector('span.reference')?.textContent;
-		expect(line()).toContain('Previous 9,800');
+		const line = () => screen.getByRole('figure').querySelector('li.reference')?.textContent;
+		expect(line()).toContain('Previous 9.8K');
 
 		await fireEvent.pointerMove(plot, { clientX: 50, clientY: 0 });
 		expect(line()?.trim()).toBe('Previous');
@@ -174,7 +174,7 @@ describe('the bar chart', () => {
 		expect(tip()).toContain('Food');
 		expect(tip()).toContain('2,000');
 		expect(svg.querySelectorAll('g')[1]?.classList.contains('faded')).toBe(true);
-		expect(screen.getByText('Other').closest('span')?.classList.contains('faded')).toBe(true);
+		expect(screen.getByText('Other').closest('li')?.classList.contains('faded')).toBe(true);
 
 		await over(16, other.y + other.height / 2);
 		expect(tip()).toContain('Other');
@@ -189,7 +189,7 @@ describe('the bar chart', () => {
 
 	it('fades the other parts while one is focused in the key', async () => {
 		const { svg } = drawn();
-		const food = screen.getByText('Food');
+		const food = screen.getByText('Food').closest('li')!;
 
 		await fireEvent.pointerEnter(food);
 		expect(svg.querySelectorAll('g')[1]?.classList.contains('faded')).toBe(true);

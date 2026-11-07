@@ -88,7 +88,7 @@
 	}
 
 	table.fixed :global(th.account) {
-		width: calc(var(--size-5) * 2);
+		width: calc(var(--size-5) * 3);
 	}
 
 	table.fixed :global(th.amount) {

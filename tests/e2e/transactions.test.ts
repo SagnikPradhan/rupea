@@ -87,3 +87,77 @@ test('lists the postings of chosen days, then any range again', async ({
 	await expect(page).not.toHaveURL(/from=/);
 	await expect(rows.filter({ hasText: 'Shop 149' })).toBeVisible();
 });
+
+const uber =
+	'2026-10-23 UPI-AJMIRA ARJUN-********26-2@IBL-NSPB0000002-131730338927-UPI\n\tAssets:Checking:HDFC = 2182947.61\n\tExpenses:Travel:Uber 270.00\n';
+
+const swiggy =
+	'2026/07/11 RAZ*Swiggy,Bangalore\n    Expenses:Food:Swiggy      829.00 INR\n    Liabilities:CreditCard:Axis\n';
+
+test('opens a two-sided transaction in the simple view, and detail on request', async ({
+	signedIn: page,
+	ledger,
+}) => {
+	await createFile(page, ledger, 'bank.rupea', [rent, swiggy, uber].join('\n'));
+	const panel = page.getByRole('complementary');
+
+	for (const [name, amount] of [
+		['Rent', '9000.00'],
+		['RAZ*Swiggy,Bangalore', '829.00'],
+		['UPI-AJMIRA ARJUN-********26-2@IBL-NSPB0000002-131730338927-UPI', '270.00'],
+	] as const) {
+		await visit(page, `${ledger}/transactions`);
+		await page.getByRole('link', { name }).click();
+		await expect(panel.getByLabel('Amount')).toHaveValue(amount);
+		await expect(panel.getByLabel('Account', { exact: true })).toHaveCount(0);
+	}
+
+	await panel.getByRole('button', { name: 'Detail' }).click();
+
+	await expect(panel.getByLabel('Account', { exact: true })).toHaveCount(2);
+});
+
+test('shows the same values after a reload as before it', async ({ signedIn: page, ledger }) => {
+	await createFile(page, ledger, 'bank.rupea', [rent, swiggy].join('\n'));
+	await visit(page, `${ledger}/transactions`);
+	await page.getByRole('link', { name: 'Rent' }).click();
+	const panel = page.getByRole('complementary');
+	await expect(panel.getByLabel('Amount')).toHaveValue('9000.00');
+
+	await panel.getByLabel('Description').fill('Changed');
+	await panel.getByLabel('Amount').fill('1');
+
+	await page.reload();
+
+	await expect(panel.getByLabel('Amount')).toHaveValue('9000.00');
+	await expect(panel.getByLabel('Description')).toHaveValue('Rent');
+	await expect(panel.getByLabel('Category')).toHaveValue('Expenses:Housing');
+	await expect(panel.getByLabel('Paid from')).toHaveValue('Assets:Bank');
+	await expect(panel.getByLabel('Date')).toHaveValue('2025-06-15');
+});
+
+test('opens the transaction that was clicked, whichever order they are clicked in', async ({
+	signedIn: page,
+	ledger,
+}) => {
+	const entries = ['One', 'Two', 'Three'].map(
+		(name, i) => `2025-06-1${i + 1} ${name}\n\tExpenses:Food ${(i + 1) * 100}\n\tAssets:Bank\n`,
+	);
+	await createFile(page, ledger, 'bank.rupea', entries.join('\n'));
+	await visit(page, `${ledger}/transactions`);
+	const panel = page.getByRole('complementary');
+
+	for (const [name, amount] of [
+		['One', '100.00'],
+		['Three', '300.00'],
+		['Two', '200.00'],
+		['One', '100.00'],
+		['Three', '300.00'],
+		['Three', '300.00'],
+		['Two', '200.00'],
+	] as const) {
+		await page.getByRole('link', { name, exact: true }).click();
+		await expect(panel.getByLabel('Description')).toHaveValue(name);
+		await expect(panel.getByLabel('Amount')).toHaveValue(amount);
+	}
+});

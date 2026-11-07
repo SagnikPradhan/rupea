@@ -34,7 +34,7 @@
 	</Aside>
 {:else if editing && open?.data}
 	<Aside title="Edit transaction" onclose={() => goto(closed)}>
-		{#key `${editing}:${open.data.version}`}
+		{#key `${open.data.file}:${open.data.line}:${open.data.version}`}
 			<TransactionForm {handle} keys={[]} newest={null} edit={open.data} onsaved={saved} />
 		{/key}
 	</Aside>

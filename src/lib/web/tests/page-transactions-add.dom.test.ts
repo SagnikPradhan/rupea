@@ -42,7 +42,11 @@ const opened = async () => {
 	return screen.findByLabelText(/^Description/);
 };
 
+const detail = () => fireEvent.click(screen.getByRole('button', { name: 'Detail' }));
+
 const fileBox = async () => {
+	await opened();
+	await detail();
 	return (await screen.findByLabelText(/^File/)) as HTMLInputElement;
 };
 
@@ -68,12 +72,10 @@ describe('the add transaction panel', () => {
 	});
 
 	it('picks the file with the latest transaction, and starts a file in an empty ledger', async () => {
-		await opened();
 		expect((await fileBox()).value).toBe('b.rupea');
 
 		document.body.innerHTML = '';
 		vi.mocked(findTransactionFiles).mockReturnValue(answer({ keys: [], newest: null }));
-		await opened();
 		expect((await fileBox()).value).toBe('transactions.rupea');
 	});
 
@@ -110,16 +112,47 @@ describe('the add transaction panel', () => {
 		expect((screen.getByLabelText(/^Description/) as HTMLInputElement).value).toBe('');
 	});
 
-	it('shows date, time and comment at once, each with a line saying what it takes', async () => {
+	it('opens simple, with the day and the amount and nothing for the ledger to parse', async () => {
 		await opened();
 
 		expect(screen.getByLabelText(/^Date/)).toBeTruthy();
-		expect(screen.getByLabelText(/^Time/)).toBeTruthy();
-		expect(screen.getByLabelText(/^Comment/)).toBeTruthy();
 		expect(screen.getByText('The day it happened.')).toBeTruthy();
-		expect(screen.getByLabelText(/^File/)).toBeTruthy();
+		expect(screen.getByLabelText(/^Amount/)).toBeTruthy();
+		for (const hidden of [/^Time/, /^Comment/, /^File/, /^Currency/])
+			expect(screen.queryByLabelText(hidden)).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Add detail' })).toBeNull();
+	});
+
+	it('puts the cursor in the amount of a new entry, and leaves an edit alone', async () => {
+		await opened();
+		expect(document.activeElement).toBe(screen.getByLabelText(/^Amount/));
+	});
+
+	it('shows time, comment, file and details in the detail view', async () => {
+		await opened();
+		await detail();
+
+		for (const shown of [/^Time/, /^Comment/, /^File/])
+			expect(await screen.findByLabelText(shown)).toBeTruthy();
 		expect(screen.getByRole('button', { name: 'Add detail' })).toBeTruthy();
-		expect(screen.queryByRole('button', { name: 'More details' })).toBeNull();
+	});
+
+	it('names the entry after its category when the description is left empty', async () => {
+		vi.mocked(createTransaction).mockResolvedValue({
+			ok: true,
+			data: { file: 'b.rupea', line: 7 },
+			errors: [],
+		} as never);
+		await opened();
+		await type('Amount', '100');
+		await type('Category', 'Food');
+		await type('Paid from', 'Assets:Bank');
+		await save();
+
+		await screen.findByRole('status');
+		expect(vi.mocked(createTransaction).mock.calls[0]?.[0]).toMatchObject({
+			form: { description: 'Food' },
+		});
 	});
 
 	it('closes from the title bar or with Escape, keeping the filter', async () => {
@@ -137,6 +170,7 @@ describe('the add transaction panel', () => {
 
 	it('adds a detail as a key and a value, and takes it out with its icon button', async () => {
 		await opened();
+		await detail();
 		await fireEvent.click(screen.getByRole('button', { name: 'Add detail' }));
 
 		expect(screen.getByLabelText(/^Key/)).toBeTruthy();
@@ -217,10 +251,11 @@ describe('the add transaction panel', () => {
 		await opened();
 		await type('Amount', '100');
 		await type('Category', 'Food');
-		await fireEvent.click(screen.getByRole('button', { name: 'Split' }));
+		await detail();
 
 		const accounts = (await screen.findAllByLabelText(/^Account/)) as HTMLInputElement[];
 		expect(accounts.map((a) => a.value)).toEqual(['Expenses:Food', '']);
+		expect(screen.getByRole('button', { name: 'Simple' })).toBeTruthy();
 		expect(screen.queryByRole('button', { name: /Remove line/ })).toBeNull();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Add a line' }));
@@ -273,11 +308,140 @@ describe('the edit transaction panel', () => {
 		vi.mocked(findTransaction).mockReturnValue(answer(read));
 	});
 
-	it('shows the transaction as it is written, in lines', async () => {
+	it('opens a two-sided transaction as the simple view shows it', async () => {
 		expect((await editing()).value).toBe('Groceries');
-		expect(screen.getAllByLabelText(/^Account/)).toHaveLength(2);
+		expect((screen.getByLabelText(/^Amount/) as HTMLInputElement).value).toBe('100.50');
+		expect((screen.getByLabelText(/^Category/) as HTMLInputElement).value).toBe('Expenses:Food');
+		expect((screen.getByLabelText(/^Paid from/) as HTMLInputElement).value).toBe('Assets:Bank');
+		expect(screen.getByRole('button', { name: 'Expense' }).getAttribute('aria-pressed')).toBe(
+			'true',
+		);
+		expect(screen.queryByLabelText(/^Account/)).toBeNull();
+	});
+
+	it('does not take the cursor when an existing transaction opens', async () => {
+		await editing();
+
+		expect(document.activeElement).not.toBe(screen.getByLabelText(/^Amount/));
+	});
+
+	it('shows the same transaction in lines in the detail view, without the file box', async () => {
+		await editing();
+		await detail();
+
+		expect(await screen.findAllByLabelText(/^Account/)).toHaveLength(2);
 		expect((screen.getAllByLabelText(/^Amount/)[0] as HTMLInputElement).value).toBe('100.50');
 		expect(screen.queryByLabelText(/^File/)).toBeNull();
+	});
+
+	it('opens in detail when simple cannot show it, and will not switch until it can', async () => {
+		vi.mocked(findTransaction).mockReturnValue(
+			answer({
+				...read,
+				form: {
+					...read.form,
+					postings: [
+						posting('Expenses:Food', '60'),
+						posting('Expenses:Fuel', '40'),
+						posting('Assets:Bank', '-100'),
+					],
+				},
+			}),
+		);
+		await editing();
+
+		expect(await screen.findAllByLabelText(/^Account/)).toHaveLength(3);
+		expect((screen.getByRole('button', { name: 'Simple' }) as HTMLButtonElement).disabled).toBe(
+			true,
+		);
+		expect(screen.getByText(/^Simple fits two lines/)).toBeTruthy();
+
+		await fireEvent.click(screen.getByRole('button', { name: 'Remove line 2' }));
+		await vi.waitFor(() => expect(screen.getAllByLabelText(/^Account/)).toHaveLength(2));
+		expect((screen.getByRole('button', { name: 'Simple' }) as HTMLButtonElement).disabled).toBe(
+			true,
+		);
+
+		await type('Amount', '100', 0);
+		await vi.waitFor(() =>
+			expect((screen.getByRole('button', { name: 'Simple' }) as HTMLButtonElement).disabled).toBe(
+				false,
+			),
+		);
+	});
+
+	it('goes back to simple from detail with what was typed there', async () => {
+		await editing();
+		await detail();
+		await type('Amount', '75', 0);
+		await fireEvent.click(screen.getByRole('button', { name: 'Simple' }));
+
+		expect(((await screen.findByLabelText(/^Amount/)) as HTMLInputElement).value).toBe('75');
+		expect(screen.queryByLabelText(/^Account/)).toBeNull();
+	});
+
+	describe('a bank statement entry, with the amount on the second line and a balance on the first', () => {
+		const statement = {
+			...read,
+			form: {
+				...read.form,
+				postings: [
+					{ ...posting('Assets:Checking:HDFC', ''), balance: '2182947.61' },
+					posting('Expenses:Travel:Uber', '270.00'),
+				],
+			},
+		};
+
+		beforeEach(() => {
+			vi.mocked(findTransaction).mockReturnValue(answer(statement));
+			vi.mocked(saveTransaction).mockResolvedValue(done);
+		});
+
+		it('opens in simple, and writes the balance back to the same account', async () => {
+			await editing();
+
+			expect((screen.getByLabelText(/^Amount/) as HTMLInputElement).value).toBe('270.00');
+			expect((screen.getByLabelText(/^Category/) as HTMLInputElement).value).toBe(
+				'Expenses:Travel:Uber',
+			);
+
+			await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+			await vi.waitFor(() => expect(saveTransaction).toHaveBeenCalled());
+			expect(vi.mocked(saveTransaction).mock.calls[0]?.[0]).toMatchObject({
+				form: {
+					postings: [
+						{ account: 'Expenses:Travel:Uber', amount: '270.00', balance: '' },
+						{ account: 'Assets:Checking:HDFC', amount: '', balance: '2182947.61' },
+					],
+				},
+			});
+		});
+
+		it('drops the balance when its account is changed to another', async () => {
+			await editing();
+			await type('Paid from', 'Assets:Cash');
+			await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+			await vi.waitFor(() => expect(saveTransaction).toHaveBeenCalled());
+			expect(vi.mocked(saveTransaction).mock.calls[0]?.[0]).toMatchObject({
+				form: { postings: [{}, { account: 'Assets:Cash', balance: '' }] },
+			});
+		});
+	});
+
+	it('keeps a time and comment the simple view does not show', async () => {
+		vi.mocked(findTransaction).mockReturnValue(
+			answer({ ...read, form: { ...read.form, time: '09:30:00', comment: 'receipt' } }),
+		);
+		vi.mocked(saveTransaction).mockResolvedValue(done);
+		await editing();
+		await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+		await vi.waitFor(() => expect(saveTransaction).toHaveBeenCalled());
+		expect(vi.mocked(saveTransaction).mock.calls[0]?.[0]).toMatchObject({
+			form: { time: '09:30:00', comment: 'receipt' },
+		});
 	});
 
 	it('saves the changes against the version it read, then leaves the panel', async () => {

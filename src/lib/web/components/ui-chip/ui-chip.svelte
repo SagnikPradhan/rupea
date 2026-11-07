@@ -3,26 +3,31 @@
 	import type { Snippet } from 'svelte';
 
 	type Props = {
-		href: string;
+		/** A chip without a link is a button that calls onclick. */
+		href?: string;
+		onclick?: () => void;
 		on?: boolean;
 		toggle?: boolean;
 		children: Snippet;
 	};
 
-	const { href, on = false, toggle = false, children }: Props = $props();
+	const { href, onclick, on = false, toggle = false, children }: Props = $props();
 </script>
 
-<a
+<svelte:element
+	this={href === undefined ? 'button' : 'a'}
 	class={['chip', { on }]}
 	{href}
-	role={toggle ? 'button' : undefined}
-	aria-pressed={toggle ? on : undefined}
+	{onclick}
+	type={href === undefined ? 'button' : undefined}
+	role={toggle && href !== undefined ? 'button' : undefined}
+	aria-pressed={toggle || href === undefined ? on : undefined}
 >
 	<span class="box" aria-hidden="true"
 		>{#if on}<IconCheck size={14} />{/if}</span
 	>
 	{@render children()}
-</a>
+</svelte:element>
 
 <style>
 	.chip {
@@ -34,6 +39,7 @@
 		border-radius: var(--radius-1);
 		background: var(--color-surface);
 		color: var(--color-ink);
+		font: inherit;
 		text-decoration: none;
 	}
 

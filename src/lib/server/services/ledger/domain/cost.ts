@@ -6,6 +6,8 @@ export type CostMove = {
 	commodity: string;
 	cost: string;
 	day: Temporal.PlainDate;
+	/** The day the lot was paid for, which is the day the move is valued at, a sale's included. */
+	paid: Temporal.PlainDate;
 	amount: Amount;
 };
 
@@ -40,7 +42,7 @@ export const costOn = ({ moves, rates, days }: CostOnOptions): Amount[] => {
 export const unpricedIn = (moves: CostMove[], rates: RateThen[]): string[] => {
 	const rateOf = ratesIn(rates);
 	const missing = moves.filter(
-		(m) => m.cost !== DEFAULT_COMMODITY && !rateOf.has(`${m.cost} ${m.day}`),
+		(m) => m.cost !== DEFAULT_COMMODITY && !rateOf.has(`${m.cost} ${m.paid}`),
 	);
 
 	return [...new Set(missing.map((m) => m.cost))];
@@ -58,6 +60,6 @@ const ratesIn = (rates: RateThen[]) => {
 
 const rupees = (move: CostMove, rates: Map<string, Amount>) => {
 	if (move.cost === DEFAULT_COMMODITY) return move.amount;
-	const rate = rates.get(`${move.cost} ${move.day}`);
+	const rate = rates.get(`${move.cost} ${move.paid}`);
 	return rate === undefined ? 0n : multiply(move.amount, rate);
 };

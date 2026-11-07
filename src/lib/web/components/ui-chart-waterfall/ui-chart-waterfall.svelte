@@ -19,7 +19,7 @@
 	const measured = $state({ rect: undefined as DOMRectReadOnly | undefined });
 	const height = $derived(measured.rect?.height ?? 0);
 
-	const levels = $derived(steps.flatMap((s) => (s.kind === 'total' ? [s.to] : [s.from, s.to])));
+	const levels = $derived(steps.flatMap((s) => [s.from, s.to]));
 	const low = $derived(Math.min(...levels));
 	const high = $derived(Math.max(...levels));
 	const y = $derived(
@@ -32,7 +32,7 @@
 	const bars = $derived(
 		steps.map((s, i) => {
 			const top = y(Math.max(s.from, s.to));
-			const bottom = s.kind === 'total' ? VIEW : y(Math.min(s.from, s.to));
+			const bottom = y(Math.min(s.from, s.to));
 
 			return {
 				...s,

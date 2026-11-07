@@ -31,4 +31,14 @@ describe('the waterfall chart', () => {
 		expect(screen.getByText('-200')).toBeTruthy();
 		expect(screen.getAllByText('1,000')).toHaveLength(1);
 	});
+
+	it('draws the totals from zero, so their heights keep the proportion of what they hold', () => {
+		render(Waterfall, { steps: STEPS, label: 'Net worth' });
+		const rects = Array.from(
+			screen.getByRole('img', { name: 'Net worth' }).querySelectorAll('rect'),
+		);
+		const [start, , , end] = rects.map((r) => Number(r.getAttribute('height')));
+
+		expect((start ?? 0) / (end ?? 1)).toBeCloseTo(1000 / 1300, 5);
+	});
 });

@@ -49,6 +49,17 @@ describe('a chip', () => {
 		const chip = screen.getByRole('button', { name: 'Last 2 years' });
 		expect(chip.getAttribute('aria-pressed')).toBe('true');
 	});
+
+	it('is a pressed button that calls back when it has no link', async () => {
+		const onclick = vi.fn();
+		render(Chip, { onclick, on: true, children: label });
+
+		const chip = screen.getByRole('button', { name: 'Last 2 years' });
+		await fireEvent.click(chip);
+
+		expect(chip.getAttribute('aria-pressed')).toBe('true');
+		expect(onclick).toHaveBeenCalledOnce();
+	});
 });
 
 describe('a filter modal', () => {

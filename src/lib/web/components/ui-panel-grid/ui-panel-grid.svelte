@@ -18,6 +18,7 @@
 	div {
 		display: grid;
 		grid-template-columns: subgrid;
+		align-items: start;
 		row-gap: var(--size-3);
 	}
 
@@ -30,16 +31,12 @@
 			grid-column: span 6;
 		}
 
-		.wide > :global(:first-child:not(:only-child)) {
+		.wide > :global(:first-child) {
 			grid-column: span 8;
 		}
 
-		.wide > :global(:last-child:not(:only-child)) {
+		.wide > :global(:last-child:not(:first-child)) {
 			grid-column: span 4;
-		}
-
-		.wide > :global(:only-child) {
-			grid-column: span 12;
 		}
 
 		.narrow > :global(:first-child) {

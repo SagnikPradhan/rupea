@@ -7,10 +7,12 @@
 	} from '#lib/endpoints/files.remote.ts';
 	import type { RupeaError } from '#lib/server/shared/result/error.ts';
 	import { TransactionForm } from '#lib/shared/transaction-form.ts';
+	import { KINDS, simpleOf, type Kind } from '#lib/shared/transaction-simple.ts';
 	import IconRemove from '@tabler/icons-svelte-runes/icons/trash';
 	import IconButton from '#lib/web/components/ui-button-icon/ui-button-icon.svelte';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import Field from '#lib/web/components/ui-field/ui-field.svelte';
+	import SegmentedControl from '#lib/web/components/ui-segmented-control/ui-segmented-control.svelte';
 	import { explain } from '#lib/web/shared/errors.ts';
 	import { formatIsoDate } from '#lib/web/shared/format.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';
@@ -23,40 +25,6 @@
 	const RARE_POSTING_FIELDS = ['price', 'cost', 'balance', 'metadata'];
 
 	const ACCOUNT_TYPE = /^(Assets|Liabilities|Income|Expenses|Equity)(:|$)/;
-	const HELD = ['Assets', 'Liabilities'];
-
-	/** What each kind asks for: the box whose account takes the amount, then the one it balances against. */
-	const KINDS = {
-		Expense: [
-			{
-				label: 'Category',
-				hint: 'What the money was spent on.',
-				types: ['Expenses'],
-				placeholder: 'Food',
-			},
-			{ label: 'Paid from', hint: 'The account the money left.', types: HELD, placeholder: 'Bank' },
-		],
-		Income: [
-			{
-				label: 'Paid into',
-				hint: 'Where the money lands.',
-				types: HELD,
-				placeholder: 'Bank',
-			},
-			{
-				label: 'Source',
-				hint: 'Where the money came from.',
-				types: ['Income'],
-				placeholder: 'Salary',
-			},
-		],
-		Transfer: [
-			{ label: 'To', hint: 'The account it goes to.', types: HELD, placeholder: 'Savings' },
-			{ label: 'From', hint: 'The account it leaves.', types: HELD, placeholder: 'Bank' },
-		],
-	};
-
-	type Kind = keyof typeof KINDS;
 
 	type Props = {
 		handle: string;
@@ -103,15 +71,22 @@
 		issues: {} as Record<string, { message: string }[]>,
 		errors: [] as RupeaError[],
 		saved: null as { file: string; line: number } | null,
-		split: untrack(() => edit !== undefined),
 		accounts: [] as string[],
 	});
+	const fit = untrack(() => (edit ? simpleOf(form.postings) : null));
 	const simple = $state({
-		kind: 'Expense' as Kind,
-		amount: '',
-		currency: '',
-		accounts: ['', ''],
+		kind: (fit?.kind ?? 'Expense') as Kind,
+		amount: fit?.amount ?? '',
+		currency: fit?.currency ?? '',
+		accounts: fit?.accounts ?? ['', ''],
+		balances: fit?.balances ?? ['', ''],
 	});
+	const mode = $state({ detail: untrack(() => edit !== undefined && fit === null) });
+	const fitsSimple = $derived(simpleOf(form.postings) !== null);
+
+	const focusOnAdd = (input: HTMLInputElement) => {
+		if (!edit) input.focus();
+	};
 
 	const issuesAt = (path: string) => status.issues[path] ?? [];
 	const hasIssuesIn = (path: string, fields: string[]) =>
@@ -142,16 +117,32 @@
 			account: qualified(simple.accounts[index] ?? '', box.types[0] ?? ''),
 			amount: index === 0 ? simple.amount : '',
 			commodity: index === 0 ? simple.currency : '',
+			balance: simple.balances[index] ?? '',
 		}));
 
-	function split() {
+	/** An empty description in the simple view takes the name of the category, or Transfer. */
+	const describedSimple = () => {
+		if (simple.kind === 'Transfer') return 'Transfer';
+		return simple.accounts[simple.kind === 'Expense' ? 0 : 1]?.trim().split(':').at(-1) ?? '';
+	};
+
+	function showDetail() {
 		form.postings = postingsOfSimple();
-		status.split = true;
+		mode.detail = true;
+	}
+
+	function showSimple() {
+		const fitting = simpleOf(form.postings);
+		if (!fitting) return;
+
+		Object.assign(simple, fitting);
+		mode.detail = false;
 	}
 
 	function pick(kind: Kind) {
 		simple.kind = kind;
 		simple.accounts = ['', ''];
+		simple.balances = ['', ''];
 	}
 
 	async function save(event: SubmitEvent) {
@@ -159,9 +150,10 @@
 		status.saved = null;
 		status.errors = [];
 
-		const postings = status.split ? form.postings : postingsOfSimple();
-		const checked = v.safeParse(TransactionForm, { ...form, postings });
-		const noAmount = !status.split && simple.amount.trim() === '';
+		const postings = mode.detail ? form.postings : postingsOfSimple();
+		const description = form.description.trim() || (mode.detail ? '' : describedSimple());
+		const checked = v.safeParse(TransactionForm, { ...form, description, postings });
+		const noAmount = !mode.detail && simple.amount.trim() === '';
 		status.issues = {
 			...(checked.success ? {} : issuesByPath(checked.issues)),
 			...(noAmount ? { 'postings.0.amount': [{ message: 'Write an amount.' }] } : {}),
@@ -190,8 +182,8 @@
 			metadata: [],
 			postings: [blank(), blank()],
 		});
-		Object.assign(simple, { amount: '', accounts: ['', ''] });
-		status.split = false;
+		Object.assign(simple, { amount: '', accounts: ['', ''], balances: ['', ''] });
+		mode.detail = false;
 	}
 
 	async function remove() {
@@ -237,46 +229,63 @@
 	</div>
 {/snippet}
 
-<form onsubmit={save} novalidate>
-	{#if !status.split}
-		<div class="kinds" role="group" aria-label="Kind">
-			{#each Object.keys(KINDS) as Kind[] as kind (kind)}
-				<button
-					type="button"
-					class="link"
-					aria-pressed={simple.kind === kind}
-					onclick={() => pick(kind)}>{kind}</button
-				>
-			{/each}
-		</div>
-	{/if}
-
+{#snippet description()}
 	<Field label="Description" hint="What it was, like Rent." issues={issuesAt('description')}>
 		<input bind:value={form.description} />
 	</Field>
+{/snippet}
 
+{#snippet day()}
 	<div class="pair">
 		<Field label="Date" hint="The day it happened." issues={issuesAt('date')}>
 			<input type="date" bind:value={form.date} />
 		</Field>
-		<Field label="Time" hint="To order within a day." issues={issuesAt('time')}>
-			<input type="time" step="1" bind:value={form.time} />
-		</Field>
+		{#if mode.detail}
+			<Field label="Time" hint="To order within a day." issues={issuesAt('time')}>
+				<input type="time" step="1" bind:value={form.time} />
+			</Field>
+		{/if}
 	</div>
+{/snippet}
 
-	{#if !status.split}
-		<div class="pair">
-			<Field
-				label="Amount"
-				hint="How much, no currency sign."
-				issues={issuesAt('postings.0.amount')}
-			>
-				<input bind:value={simple.amount} inputmode="decimal" />
-			</Field>
-			<Field label="Currency" hint="Leave empty for INR." issues={issuesAt('postings.0.commodity')}>
-				<input bind:value={simple.currency} placeholder="INR" />
-			</Field>
-		</div>
+<form onsubmit={save} novalidate autocomplete="off">
+	<div class="kinds" role="group" aria-label="View">
+		<button
+			type="button"
+			class="link"
+			aria-pressed={!mode.detail}
+			disabled={mode.detail && !fitsSimple}
+			onclick={showSimple}>Simple</button
+		>
+		<button type="button" class="link" aria-pressed={mode.detail} onclick={showDetail}
+			>Detail</button
+		>
+	</div>
+	{#if mode.detail && !fitsSimple}
+		<p class="reason">Simple fits two lines with an amount and nothing extra.</p>
+	{/if}
+
+	{#if !mode.detail}
+		<SegmentedControl
+			fill
+			label="Kind"
+			segments={Object.keys(KINDS).map((kind) => ({
+				name: kind,
+				chosen: simple.kind === kind,
+				onclick: () => pick(kind as Kind),
+			}))}
+		/>
+	{/if}
+
+	{#if mode.detail}
+		{@render description()}
+		{@render day()}
+	{/if}
+
+	{#if !mode.detail}
+		<Field label="Amount" hint="How much, no currency sign." issues={issuesAt('postings.0.amount')}>
+			<input bind:value={simple.amount} inputmode="decimal" {@attach focusOnAdd} />
+		</Field>
 
 		<div class="pair">
 			{#each KINDS[simple.kind] as box, index (box.label)}
@@ -286,21 +295,25 @@
 						list="transaction-accounts"
 						placeholder={box.placeholder}
 						spellcheck="false"
-						oninput={(e) => suggestFor(e.currentTarget.value, box.types)}
+						oninput={(e) => {
+							simple.balances[index] = '';
+							suggestFor(e.currentTarget.value, box.types);
+						}}
 						onfocus={(e) => suggestFor(e.currentTarget.value, box.types)}
 					/>
 				</Field>
 			{/each}
 		</div>
 
-		<button type="button" class="link" onclick={split}>Split</button>
+		{@render day()}
+		{@render description()}
 	{/if}
 
 	<datalist id="transaction-accounts">
 		{#each status.accounts as account (account)}<option value={account}></option>{/each}
 	</datalist>
 
-	{#if status.split}
+	{#if mode.detail}
 		<section class="lines" aria-labelledby="lines-heading">
 			<div class="intro">
 				<h3 id="lines-heading">Lines</h3>
@@ -389,23 +402,23 @@
 			{/each}
 		</section>
 		<Button type="button" onclick={() => form.postings.push(blank())}>Add a line</Button>
-	{/if}
 
-	<Field label="Comment" hint="A note kept with it.">
-		<textarea bind:value={form.comment} rows="2"></textarea>
-	</Field>
-
-	{#if !edit}
-		<Field label="File" hint="A new name starts a new file." issues={issuesAt('file')}>
-			<input bind:value={form.file} list="transaction-files" spellcheck="false" />
+		<Field label="Comment" hint="A note kept with it.">
+			<textarea bind:value={form.comment} rows="2"></textarea>
 		</Field>
+
+		{#if !edit}
+			<Field label="File" hint="A new name starts a new file." issues={issuesAt('file')}>
+				<input bind:value={form.file} list="transaction-files" spellcheck="false" />
+			</Field>
+		{/if}
+
+		{@render entries(form.metadata, 'metadata')}
+
+		<datalist id="transaction-files">
+			{#each keys as key (key)}<option value={key}></option>{/each}
+		</datalist>
 	{/if}
-
-	{@render entries(form.metadata, 'metadata')}
-
-	<datalist id="transaction-files">
-		{#each keys as key (key)}<option value={key}></option>{/each}
-	</datalist>
 
 	{#each status.errors as error, index (index)}
 		<p role="alert">{explain(error)}</p>
@@ -490,13 +503,21 @@
 		font: inherit;
 	}
 
-	form > .link,
 	form > :global(button) {
 		align-self: start;
 	}
 
-	.link:hover {
+	.link:disabled {
+		color: var(--color-muted);
+	}
+
+	.link:hover:not(:disabled) {
 		text-decoration: underline;
+	}
+
+	.reason {
+		color: var(--color-muted);
+		font: var(--text-label);
 	}
 
 	.lines {

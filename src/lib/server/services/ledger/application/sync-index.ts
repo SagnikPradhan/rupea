@@ -53,8 +53,7 @@ export const indexEach = ({
 	const read = (k: string) =>
 		readText(storage, k).andThen((f) => indexFile({ ledgerId, file: f, full }));
 
-	// A move between counted and review folders changes what the file counts, so
-	// it is indexed again; otherwise only its key changes.
+	/** A move between counted and review folders changes what the file counts, so it is indexed again; otherwise only its key changes. */
 	const move = ({ from, to }: Move): ResultAsync<Indexed> =>
 		DB.renameIndexedFile(ledgerId, from, to).andThen((t) =>
 			isCounted(from) === isCounted(to) ? okAsync({ failed: [], ...t }) : read(to),

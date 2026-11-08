@@ -5,7 +5,7 @@
 	import { BalanceAccount, LIABILITIES } from '#lib/shared/accounts.ts';
 	import { depthOf, isUnder, nameOf } from '#lib/web/shared/accounts.ts';
 	import { formatIsoDate, formatWhole } from '#lib/web/shared/format.ts';
-	import { linesOf, owedOf, rowsOf } from '#lib/web/shared/liabilities.ts';
+	import { duesOf, owedOf, rowsOf } from '#lib/web/shared/liabilities.ts';
 	import { ringsOf } from '#lib/web/shared/rings.ts';
 	import AccountName from '#lib/web/components/app-account-name/app-account-name.svelte';
 	import ListFilter from '#lib/web/components/app-list-filter/app-list-filter.svelte';
@@ -53,12 +53,8 @@
 	const owed = $derived(owedOf(response.data ?? []));
 	const shown = $derived(owed.filter((a) => isUnder(a.account, account)));
 	const rows = $derived(rowsOf(shown, moved?.totals ?? [], settled, termed.data ?? []));
-	const lines = $derived(
-		linesOf(
-			(moved?.deltas ?? []).filter((d) => isUnder(d.account, account)),
-			owed,
-		),
-	);
+	const dues = $derived(duesOf(owed, termed.data ?? [], day));
+	const owing = $derived(formatWhole(String(dues.reduce((t, d) => t + d.amount, 0))));
 	const total = $derived(shown.find((a) => a.account === (account ?? LIABILITIES))?.total ?? '0');
 	const rings = $derived(ringsOf(owed, account ?? LIABILITIES));
 	const credit = $derived(
@@ -108,18 +104,16 @@
 <Issues {handle} errors={[...(response.errors ?? []), ...(flowed.errors ?? [])]} />
 
 <PanelGrid narrow>
-	<div>
-		{#if lines.length > 0 && moved}
-			<Timeline
-				{lines}
-				buckets={moved.buckets}
-				bucket={moved.bucket}
-				label="What was paid down on each loan and card, over the period"
-			/>
+	<Panel
+		title="Next 30 days"
+		subtitle="{dues.length} {dues.length === 1 ? 'payment' : 'payments'} · {owing} in all"
+	>
+		{#if dues.length > 0}
+			<Timeline {dues} label="The payments due in the next 30 days, by day" />
 		{:else}
-			<p>Nothing paid down in this period.</p>
+			<p>Nothing due in the next 30 days.</p>
 		{/if}
-	</div>
+	</Panel>
 	<KpiStrip>
 		<Kpi label="Due in 30 days" soon />
 		<Kpi label="Interest a month" soon />
@@ -129,44 +123,33 @@
 </PanelGrid>
 
 <PanelGrid>
-	<Panel title="What you owe" subtitle="owed by loan and card, the inner ring the groups">
-		{#if rings.arcs.length > 0}
-			<Donut
-				arcs={rings.arcs}
-				levels={rings.levels}
-				label="How what is owed divides across its accounts"
-				note={credit}
-			/>
-		{:else}
-			<p>Nothing owed.</p>
-		{/if}
-	</Panel>
 	<div class="column">
+		<Panel title="What you owe" subtitle="owed by loan and card, the inner ring the groups">
+			{#if rings.arcs.length > 0}
+				<Donut
+					arcs={rings.arcs}
+					levels={rings.levels}
+					label="How what is owed divides across its accounts"
+					amounts
+					note={credit}
+				/>
+			{:else}
+				<p>Nothing owed.</p>
+			{/if}
+		</Panel>
 		<Panel
 			title="When each loan ends"
 			subtitle="how much of each loan is paid, and the year it ends"
 			soon
 		/>
+	</div>
+	<div class="column">
+		<Panel title="Card balance" subtitle="the average balance of the cards, by month" soon />
 		<Panel title="Card limits" subtitle="used out of each card’s limit" soon />
 	</div>
 </PanelGrid>
 
-<PanelGrid>
-	{#if setup}
-		<Aside title="Set up {nameOf(setup)}" onclose={() => goto(setupHref(null))}>
-			{#key setup}
-				<TermsForm
-					{handle}
-					account={setup}
-					{current}
-					onsaved={() => listTerms({ handle, day }).refresh()}
-				/>
-			{/key}
-		</Aside>
-	{/if}
-	{#if !setup}
-		<Panel title="Card balance" subtitle="the average balance of the cards, by month" soon />
-	{/if}
+<PanelGrid wide={setup !== null} full={setup === null}>
 	<Panel
 		title="All liabilities"
 		subtitle="{rows.length} {rows.length === 1 ? 'account' : 'accounts'} · {formatWhole(
@@ -199,7 +182,9 @@
 							<td class="amount">{row.rate === null ? '' : `${row.rate}%`}</td>
 							<Amount value={row.monthly} />
 							<td class="amount">{row.due ?? ''}</td>
-							<td><a href={setupHref(row.account)}>{row.set ? 'Edit' : 'Set up'}</a></td>
+							<td class="nowrap"
+								><a href={setupHref(row.account)}>{row.set ? 'Edit' : 'Set up'}</a></td
+							>
 						</tr>
 					{/each}
 				</tbody>
@@ -215,6 +200,18 @@
 			<p>Nothing owed.</p>
 		{/if}
 	</Panel>
+	{#if setup}
+		<Aside title="Set up {nameOf(setup)}" onclose={() => goto(setupHref(null))}>
+			{#key setup}
+				<TermsForm
+					{handle}
+					account={setup}
+					{current}
+					onsaved={() => listTerms({ handle, day }).refresh()}
+				/>
+			{/key}
+		</Aside>
+	{/if}
 </PanelGrid>
 
 <style>
@@ -222,6 +219,10 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--size-3);
+	}
+
+	.nowrap {
+		white-space: nowrap;
 	}
 
 	a {

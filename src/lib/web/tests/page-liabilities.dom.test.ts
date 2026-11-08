@@ -134,18 +134,19 @@ describe('the liabilities page', () => {
 		expect(screen.getByText(/3,00,000 owed/)).toBeTruthy();
 	});
 
-	it('draws a circle for each payment on the account that holds the debt, not on its groups', async () => {
+	it('stands a pin on the next 30 days for each account with a due day and an amount', async () => {
 		open('/l/h/liabilities');
 
-		const plot = await screen.findByRole('img', { name: /^What was paid down/ });
-		expect(plot.querySelectorAll('.track')).toHaveLength(2);
-		expect(plot.querySelectorAll('.circle')).toHaveLength(3);
+		const pins = await screen.findByRole('list', { name: /^The payments due in the next 30 days/ });
+		expect(pins.querySelectorAll('li')).toHaveLength(1);
+		expect(within(pins).getByText('42,000')).toBeTruthy();
+		expect(screen.getByText(/1 payment · 42,000 in all/)).toBeTruthy();
 	});
 
-	it('says so when nothing was paid down', async () => {
-		open('/l/h/liabilities', [{ ...moved, deltas: [], totals: [] }]);
+	it('says so when nothing is due in the next 30 days', async () => {
+		open('/l/h/liabilities', [moved], []);
 
-		expect(await screen.findByText('Nothing paid down in this period.')).toBeTruthy();
+		expect(await screen.findByText('Nothing due in the next 30 days.')).toBeTruthy();
 	});
 
 	it('divides what is owed into rings, and says so when an account is in credit', async () => {
@@ -189,7 +190,6 @@ describe('the liabilities page', () => {
 		expect((within(aside).getByLabelText(/Monthly payment/) as HTMLInputElement).value).toBe(
 			'42,000',
 		);
-		expect(screen.queryByText('Card balance')).toBeNull();
 	});
 
 	it('ignores a setup request for an account that is not a liability', async () => {

@@ -1,159 +1,102 @@
 <script lang="ts">
-	import Axes from '#lib/web/components/ui-chart-axes/ui-chart-axes.svelte';
-	import Tooltip from '#lib/web/components/ui-tooltip/ui-tooltip.svelte';
-	import { labelsIn, VIEW } from '#lib/web/shared/chart.ts';
 	import { formatAmount, formatBucket } from '#lib/web/shared/format.ts';
-	import type { Bucket } from '#lib/shared/dates.ts';
-
-	type Circle = { bucket: string; paid: number };
 
 	type Props = {
-		lines: { key: string; label: string; circles: Circle[] }[];
-		buckets: string[];
-		bucket: Bucket;
+		/** The payments in the order of their days, each drawn as a pin. */
+		dues: { key: string; label: string; amount: number; due: string }[];
 		label: string;
 	};
 
-	const { lines, buckets, bucket, label }: Props = $props();
+	const { dues, label }: Props = $props();
 
-	const hovered = $state({ key: null as string | null, bucket: null as string | null });
-	const measured = $state({ rect: undefined as DOMRectReadOnly | undefined });
-
-	const widest = $derived(
-		Math.max(
-			...lines.flatMap((l) =>
-				l.circles.filter((c) => buckets.includes(c.bucket)).map((c) => c.paid),
-			),
-			0,
-		),
-	);
-	const step = $derived(Math.ceil(buckets.length / labelsIn(measured.rect?.width ?? 0, 'across')));
-	const across = $derived(
-		buckets.flatMap((b, i) =>
-			i % step === 0 ? [{ at: leftOf(i), label: formatBucket[bucket](b) }] : [],
-		),
-	);
-	const under = $derived(
-		lines.flatMap((l, row) =>
-			l.circles.flatMap((c) =>
-				c.bucket === hovered.bucket && l.key === hovered.key
-					? [{ line: l, circle: c, top: ((row + 0.5) / lines.length) * VIEW }]
-					: [],
-			),
-		)[0],
-	);
-
-	function leftOf(i: number) {
-		return ((i + 0.5) / buckets.length) * VIEW;
-	}
+	const widest = $derived(Math.max(...dues.map((d) => d.amount), 0));
 </script>
 
-<figure>
-	<div class="chart">
-		<ul>
-			{#each lines as line (line.key)}
-				<li>{line.label}</li>
-			{/each}
-		</ul>
-		<div class="plot">
-			<div
-				class="area"
-				role="img"
-				aria-label={label}
-				style:--count={buckets.length}
-				bind:contentRect={measured.rect}
-			>
-				{#each lines as line (line.key)}
-					<div class="track">
-						{#each line.circles as c (c.bucket)}
-							{@const at = buckets.indexOf(c.bucket)}
-							{#if at >= 0}
-								<span
-									class="circle"
-									class:faded={hovered.key !== null &&
-										(hovered.key !== line.key || hovered.bucket !== c.bucket)}
-									role="presentation"
-									style:left="{leftOf(at)}%"
-									style:--spread={Math.sqrt(c.paid / widest)}
-									onpointerenter={() => {
-										hovered.key = line.key;
-										hovered.bucket = c.bucket;
-									}}
-									onpointerleave={() => {
-										hovered.key = null;
-										hovered.bucket = null;
-									}}
-								></span>
-							{/if}
-						{/each}
-					</div>
-				{/each}
-				<Axes {across} up={[]} />
-				{#if under}
-					<Tooltip left={leftOf(buckets.indexOf(under.circle.bucket))} top={under.top}>
-						{under.line.label}
-						<data>{formatAmount(String(under.circle.paid))}</data>
-						{formatBucket[bucket](under.circle.bucket)}
-					</Tooltip>
-				{/if}
-			</div>
-		</div>
-	</div>
-</figure>
+<ol aria-label={label}>
+	{#each dues as d (d.key)}
+		<li style:--spread={Math.sqrt(d.amount / widest)}>
+			<span class="name">{d.label}</span>
+			<data value={d.amount}>{formatAmount(String(d.amount))}</data>
+			<span class="bubble"><span class="circle"></span></span>
+			<span class="stem"></span>
+			<span class="axis"></span>
+			<time datetime={d.due}>{formatBucket.day(d.due)}</time>
+		</li>
+	{/each}
+</ol>
 
 <style>
-	.chart {
-		display: grid;
-		grid-template-columns: auto 1fr;
-		gap: var(--size-2);
-	}
-
-	ul {
-		display: grid;
-		grid-auto-rows: var(--size-4);
+	ol {
+		display: flex;
 		margin: 0;
 		padding: 0;
+		overflow-x: auto;
 		list-style: none;
-		font: var(--text-label);
 	}
 
 	li {
 		display: flex;
+		flex: 1;
+		flex-direction: column;
 		align-items: center;
+		min-width: calc(var(--size-5) * 1.25);
 	}
 
-	.plot {
-		position: relative;
-		padding-bottom: var(--size-3);
+	.name {
+		max-width: 100%;
+		overflow: hidden;
+		font: var(--text-base);
+		text-overflow: ellipsis;
+		white-space: nowrap;
 	}
 
-	.area {
-		position: relative;
+	data,
+	time {
+		color: var(--color-muted);
+		font: var(--text-data);
 	}
 
-	.track {
-		position: relative;
-		height: var(--size-4);
-		border-bottom: var(--size-line-0) solid var(--color-border);
+	.bubble {
+		display: flex;
+		align-items: flex-end;
+		justify-content: center;
+		height: var(--size-5);
+		margin-block-start: var(--size-1);
 	}
 
 	.circle {
-		position: absolute;
-		top: 50%;
-		width: calc(var(--size-2) + var(--spread) * var(--size-3));
-		max-width: calc(100% / var(--count));
+		width: calc(var(--size-5) * var(--spread));
 		aspect-ratio: 1;
-		background: var(--color-muted);
+		background: var(--color-ink-2);
 		border-radius: 50%;
-		opacity: 0.85;
+	}
+
+	.stem {
+		width: var(--size-line-0);
+		height: var(--size-3);
+		background: var(--color-ink);
+	}
+
+	.axis {
+		position: relative;
+		width: 100%;
+		height: var(--size-line-0);
+		background: var(--color-border);
+	}
+
+	.axis::after {
+		position: absolute;
+		inset-block-start: 50%;
+		inset-inline-start: 50%;
+		width: var(--size-0);
+		aspect-ratio: 1;
+		background: var(--color-ink);
+		border-radius: 50%;
+		content: '';
 		transform: translate(-50%, -50%);
 	}
 
-	.faded {
-		opacity: 0.2;
-	}
-
-	data {
-		font-family: var(--font-mono);
+	time {
+		margin-block-start: var(--size-1);
 	}
 </style>

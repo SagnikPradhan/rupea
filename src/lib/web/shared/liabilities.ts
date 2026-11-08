@@ -12,8 +12,6 @@ type Set = { account: string; held: v.InferOutput<typeof Terms> | null };
 
 type Moved = { account: string; amount: string };
 
-type Payment = { account: string; bucket: string; amount: string };
-
 /**
  * The accounts under Liabilities, each total turned from a balance into what is
  * owed, so an account in credit owes less than nothing.
@@ -56,23 +54,38 @@ const columnsOf = (s: Set | undefined) => ({
 });
 
 /**
- * For each account that holds a debt, a circle for every bucket it was paid
- * down in; the groups over them are left out, as are buckets where it grew.
+ * The payments that fall due in the thirty days from today: a loan's monthly
+ * payment and what a card holds, on the next day of the month each is due.
  */
-export const linesOf = (payments: Payment[], owed: Held[]) => {
+export const duesOf = (owed: Held[], set: Set[], today: string) => {
 	const parents = new Set(owed.map((a) => a.parent));
-	const debts = new Set(owed.filter((a) => !parents.has(a.account)).map((a) => a.account));
-	const paid = payments.filter((p) => debts.has(p.account) && Number(p.amount) > 0);
-	const byAccount = Object.groupBy(paid, (p) => p.account);
+	const held = Object.fromEntries(set.map((s) => [s.account.toLowerCase(), s.held]));
+	const last = shifted(today, 30);
 
-	return Object.keys(byAccount)
-		.toSorted(byCodeUnit)
-		.map((account) => ({
-			key: account,
-			label: nameOf(account),
-			circles: (byAccount[account] ?? []).map((p) => ({
-				bucket: p.bucket,
-				paid: Number(p.amount),
-			})),
-		}));
+	return owed
+		.filter((a) => !parents.has(a.account))
+		.flatMap((a) => {
+			const terms = held[a.account.toLowerCase()];
+			const amount = Number(terms?.kind === 'loan' ? terms.payment?.replaceAll(',', '') : a.total);
+			const due = terms?.due ? nextDue(today, terms.due) : '';
+
+			return amount > 0 && due !== '' && due <= last
+				? [{ key: a.account, label: nameOf(a.account), amount, due }]
+				: [];
+		})
+		.toSorted((a, b) => byCodeUnit(a.due, b.due));
 };
+
+const nextDue = (today: string, day: number) => {
+	const t = new Date(today);
+	const here = dayOf(t.getUTCFullYear(), t.getUTCMonth(), day);
+	return here >= today ? here : dayOf(t.getUTCFullYear(), t.getUTCMonth() + 1, day);
+};
+
+const dayOf = (year: number, month: number, day: number) => {
+	const last = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+	return new Date(Date.UTC(year, month, Math.min(day, last))).toISOString().slice(0, 10);
+};
+
+const shifted = (d: string, n: number) =>
+	new Date(Date.parse(d) + n * 86_400_000).toISOString().slice(0, 10);

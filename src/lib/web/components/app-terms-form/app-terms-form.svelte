@@ -12,13 +12,13 @@
 	const FIELDS: Record<'loan' | 'card', { key: string; label: string; hint: string }[]> = {
 		loan: [
 			{ key: 'rate', label: 'Interest rate', hint: 'A year, like 8.5.' },
-			{ key: 'payment', label: 'Monthly payment', hint: 'The EMI, no currency sign.' },
-			{ key: 'due', label: 'Due day', hint: 'Day of the month, like 5.' },
+			{ key: 'payment', label: 'Monthly payment', hint: 'The EMI.' },
+			{ key: 'due', label: 'Due day', hint: 'Day of the month.' },
 		],
 		card: [
 			{ key: 'limit', label: 'Card limit', hint: 'No currency sign.' },
-			{ key: 'statement', label: 'Statement day', hint: 'Day of the month, like 1.' },
-			{ key: 'due', label: 'Due day', hint: 'Day of the month, like 20.' },
+			{ key: 'statement', label: 'Statement day', hint: 'Day of the month.' },
+			{ key: 'due', label: 'Due day', hint: 'Day of the month.' },
 			{ key: 'rate', label: 'Interest rate', hint: 'A year, like 42.' },
 		],
 	};
@@ -112,11 +112,13 @@
 		]}
 	/>
 
-	{#each FIELDS[form.kind] as field (`${form.kind}-${field.key}`)}
-		<Field label={field.label} hint={field.hint} issues={issuesAt(field.key)}>
-			<input bind:value={form.values[field.key]} inputmode="decimal" />
-		</Field>
-	{/each}
+	<div class="pair">
+		{#each FIELDS[form.kind] as field (`${form.kind}-${field.key}`)}
+			<Field label={field.label} hint={field.hint} issues={issuesAt(field.key)}>
+				<input bind:value={form.values[field.key]} inputmode="decimal" />
+			</Field>
+		{/each}
+	</div>
 
 	{#if form.kind === 'loan'}
 		<Field label="Interest" hint="How the interest is worked out.">
@@ -157,6 +159,12 @@
 	input,
 	select {
 		width: 100%;
+	}
+
+	.pair {
+		display: grid;
+		grid-template-columns: repeat(2, minmax(0, 1fr));
+		gap: var(--size-2);
 	}
 
 	p {

@@ -4,13 +4,14 @@
 	type Props = {
 		wide?: boolean;
 		narrow?: boolean;
+		full?: boolean;
 		children: Snippet;
 	};
 
-	const { wide = false, narrow = false, children }: Props = $props();
+	const { wide = false, narrow = false, full = false, children }: Props = $props();
 </script>
 
-<div class={{ wide, narrow }}>
+<div class={{ wide, narrow, full }}>
 	{@render children()}
 </div>
 
@@ -37,6 +38,10 @@
 
 		.wide > :global(:last-child:not(:first-child)) {
 			grid-column: span 4;
+		}
+
+		.full > :global(*) {
+			grid-column: span 12;
 		}
 
 		.narrow > :global(:first-child) {

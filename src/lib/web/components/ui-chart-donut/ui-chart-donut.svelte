@@ -12,11 +12,13 @@
 		arcs: Arc[];
 		levels: number;
 		label: string;
+		/** Shows what each part holds as well as its share. */
+		amounts?: boolean;
 		/** Said under the rings, which keep the line free when there is none. */
 		note?: string;
 	};
 
-	const { arcs, levels, label, note }: Props = $props();
+	const { arcs, levels, label, amounts = false, note }: Props = $props();
 
 	/** How far from the centre the rings start and end, as a percent of the plot. */
 	const HOLE = 22;
@@ -42,7 +44,7 @@
 </script>
 
 <figure>
-	<div class="row">
+	<div class={{ row: true, amounts }}>
 		<div class="plot" role="img" aria-label={label}>
 			<svg viewBox="0 0 {VIEW} {VIEW}">
 				<g transform="translate({VIEW / 2} {VIEW / 2})">
@@ -74,7 +76,12 @@
 					<span class="name">
 						{#if a.level > 1}<AccountName account={a.key} />{:else}{a.label}{/if}
 					</span>
-					<data>{formatShare(String(a.share), '1')}</data>
+					<data
+						>{amounts ? `${formatAmount(String(a.value))} · ` : ''}{formatShare(
+							String(a.share),
+							'1',
+						)}</data
+					>
 				</li>
 			{/each}
 		</ul>
@@ -94,6 +101,10 @@
 		grid-template-columns: repeat(auto-fit, minmax(calc(var(--size-2) * 12), 1fr));
 		align-items: center;
 		gap: var(--size-3);
+	}
+
+	.amounts {
+		grid-template-columns: auto 1fr;
 	}
 
 	.plot {

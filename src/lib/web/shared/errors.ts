@@ -32,6 +32,14 @@ export const explain = (error: RupeaError): string =>
 		)
 		.with({ type: 'ParseUnknownFeed' }, (e) => `“${e.feed}” isn’t a feed. Link to mfapi or yahoo.`)
 		.with(
+			{ type: 'ParseInvalidAccountLine' },
+			() => 'This A line should give a date or *, then an account.',
+		)
+		.with(
+			{ type: 'AccountRepeated' },
+			(e) => `${e.account} is set up more than once from the same day.`,
+		)
+		.with(
 			{ type: 'LinkRepeated' },
 			(e) => `${e.commodity} is linked more than once from the same day.`,
 		)
@@ -96,6 +104,10 @@ export const explain = (error: RupeaError): string =>
 			{ type: 'CannotWriteTransaction' },
 			() =>
 				'This wouldn’t read back as written. Check the description, and that the file has no lines that can’t be read.',
+		)
+		.with(
+			{ type: 'CannotWriteTerms' },
+			() => 'These terms wouldn’t read back as written. Check them for a line break.',
 		)
 		.with({ type: 'StorageConflict' }, () => 'This file changed since you opened it.')
 		.with({ type: 'StorageNotFound' }, () => 'This file no longer exists.')

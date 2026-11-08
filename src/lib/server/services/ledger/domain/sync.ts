@@ -8,7 +8,7 @@ export type SyncPlan = { changed: string[]; gone: string[] };
  * Goes up whenever indexing changes what it makes of a file, so sync indexes
  * every file again.
  */
-export const INDEXER = 3;
+export const INDEXER = 4;
 
 /**
  * Which stored files to index again, as they are new, at another version or

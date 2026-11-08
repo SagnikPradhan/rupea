@@ -1,5 +1,7 @@
 import {
 	NodeKind,
+	type RupeaAccount,
+	type RupeaAccountNode,
 	type RupeaEntries,
 	type RupeaEntryNode,
 	type RupeaFileNode,
@@ -25,6 +27,7 @@ export const toNode = (file: RupeaLedgerFile): RupeaFileNode => ({
 		...file.transactions.map(transactionNode),
 		...file.prices.map(priceNode),
 		...file.links.map(linkNode),
+		...file.accounts.map(accountNode),
 	],
 });
 
@@ -60,6 +63,13 @@ export const linkOf = (l: RupeaLinkNode): RupeaLink => ({
 	commodity: l.commodity,
 	feed: l.feed,
 	symbol: l.symbol,
+});
+
+export const accountOf = (a: RupeaAccountNode): RupeaAccount => ({
+	location: a.location,
+	since: a.since,
+	account: a.account,
+	metadata: toMetadata(a.metadata),
 });
 
 export const toMetadata = (entries: RupeaEntries): RupeaMetadata =>
@@ -120,6 +130,16 @@ const linkNode = (l: RupeaLink): RupeaEntryNode => ({
 	commodity: l.commodity,
 	feed: l.feed,
 	symbol: l.symbol,
+	children: [],
+});
+
+const accountNode = (a: RupeaAccount): RupeaEntryNode => ({
+	kind: NodeKind.Account,
+	location: a.location,
+	comments: [],
+	since: a.since,
+	account: a.account,
+	metadata: entriesOf(a.metadata),
 	children: [],
 });
 

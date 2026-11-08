@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
-import { listAccounts, listDeltas } from '#lib/endpoints/accounts.remote.ts';
+import { listAccounts, listDeltas, listTerms, saveTerms } from '#lib/endpoints/accounts.remote.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
 import { openFilter } from '#tests/shared/filter.ts';
@@ -10,6 +10,8 @@ vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
 	listAccounts: vi.fn(),
 	listDeltas: vi.fn(),
+	listTerms: vi.fn(),
+	saveTerms: Object.assign(vi.fn(), { pending: 0 }),
 }));
 vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
 	findFirstDay: vi.fn(() => answer('2025-03-14')),
@@ -68,8 +70,17 @@ const moved = {
 	],
 };
 
-const open = (path: string, shown: unknown = [moved]) => {
+const terms = [
+	{
+		account: 'Liabilities:Loans:Home',
+		current: { kind: 'loan', rate: '8.5', payment: '42,000', due: '5', note: 'keep' },
+		held: { kind: 'loan', rate: 8.5, payment: '42,000', due: 5, method: 'reducing' },
+	},
+];
+
+const open = (path: string, shown: unknown = [moved], written: unknown = terms) => {
 	visit(path);
+	vi.mocked(listTerms).mockReturnValue(answer(written as never));
 	vi.mocked(listAccounts).mockReturnValue(answer(accounts));
 	vi.mocked(listDeltas).mockReturnValue(answer(shown as never));
 	render(Page, { data });
@@ -123,18 +134,22 @@ describe('the liabilities page', () => {
 		expect(screen.getByText(/3,00,000 owed/)).toBeTruthy();
 	});
 
-	it('draws a circle for each payment on the account that holds the debt, not on its groups', async () => {
+	it('stands a pin for each payment made and each one still due, a line to each account', async () => {
+		vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-08') });
 		open('/l/h/liabilities');
 
-		const plot = await screen.findByRole('img', { name: /^What was paid down/ });
-		expect(plot.querySelectorAll('.track')).toHaveLength(2);
-		expect(plot.querySelectorAll('.circle')).toHaveLength(3);
+		const chart = await screen.findByRole('list', { name: /^The payments made and due/ });
+		const pins = within(chart).getAllByRole('listitem');
+		expect(pins.filter((p) => p.classList.contains('past'))).toHaveLength(3);
+		expect(pins).toHaveLength(4);
+		expect(screen.getByText(/3 made · 1 still to fall due/)).toBeTruthy();
+		vi.useRealTimers();
 	});
 
-	it('says so when nothing was paid down', async () => {
-		open('/l/h/liabilities', [{ ...moved, deltas: [], totals: [] }]);
+	it('says so when no payment was made or is due in the period', async () => {
+		open('/l/h/liabilities', [{ ...moved, deltas: [], totals: [] }], []);
 
-		expect(await screen.findByText('Nothing paid down in this period.')).toBeTruthy();
+		expect(await screen.findByText('No payments in this period.')).toBeTruthy();
 	});
 
 	it('divides what is owed into rings, and says so when an account is in credit', async () => {
@@ -155,5 +170,107 @@ describe('the liabilities page', () => {
 		await screen.findByTitle('Liabilities:Loans:Home');
 		expect(screen.getAllByText('Coming soon').length).toBeGreaterThanOrEqual(4);
 		expect(screen.getByText('Debt-free by')).toBeTruthy();
+	});
+
+	it('shows the rate, monthly payment and due day an A line sets, and offers to set up the rest', async () => {
+		open('/l/h/liabilities');
+
+		const home = (await screen.findByTitle('Liabilities:Loans:Home')).closest('tr')!;
+		expect(within(home).getByText('8.5%')).toBeTruthy();
+		expect(within(home).getByText('42,000')).toBeTruthy();
+		expect(within(home).getByText('5')).toBeTruthy();
+		expect(within(home).getByRole('link', { name: 'Edit' })).toBeTruthy();
+
+		const card = screen.getByTitle('Liabilities:Card').closest('tr')!;
+		expect(within(card).getByRole('link', { name: 'Set up' })).toBeTruthy();
+	});
+
+	it('opens the terms of the account asked for beside the table, with what it has now', async () => {
+		open('/l/h/liabilities?setup=Liabilities:Loans:Home');
+
+		const aside = await screen.findByRole('complementary', { name: 'Set up Home' });
+		expect((within(aside).getByLabelText(/Interest rate/) as HTMLInputElement).value).toBe('8.5');
+		expect((within(aside).getByLabelText(/Monthly payment/) as HTMLInputElement).value).toBe(
+			'42,000',
+		);
+	});
+
+	it('ignores a setup request for an account that is not a liability', async () => {
+		open('/l/h/liabilities?setup=Assets:Bank');
+
+		expect(await screen.findByText('Card balance')).toBeTruthy();
+		expect(screen.queryByRole('complementary', { name: /^Set up/ })).toBeNull();
+	});
+
+	it('always offers to add a liability beside the table, saving under Liabilities', async () => {
+		open('/l/h/liabilities');
+		vi.mocked(saveTerms).mockResolvedValue({ data: { file: 'main.rupea' }, errors: [] } as never);
+
+		const aside = await screen.findByRole('complementary', { name: 'Add a liability' });
+		await fireEvent.input(within(aside).getByLabelText(/Name/), {
+			target: { value: 'Loans:Bike' },
+		});
+		await fireEvent.input(within(aside).getByLabelText(/Interest rate/), {
+			target: { value: '9' },
+		});
+		await fireEvent.click(within(aside).getByRole('button', { name: 'Save' }));
+
+		expect(await within(aside).findByText('Saved in main.rupea')).toBeTruthy();
+		expect(vi.mocked(saveTerms)).toHaveBeenCalledWith(
+			expect.objectContaining({
+				form: expect.objectContaining({ account: 'Liabilities:Loans:Bike' }),
+			}),
+		);
+	});
+
+	it('asks for a name before adding a liability', async () => {
+		open('/l/h/liabilities');
+		vi.mocked(saveTerms).mockClear();
+
+		const aside = await screen.findByRole('complementary', { name: 'Add a liability' });
+		await fireEvent.click(within(aside).getByRole('button', { name: 'Save' }));
+
+		expect(await within(aside).findByText('Pick an account.')).toBeTruthy();
+		expect(vi.mocked(saveTerms)).not.toHaveBeenCalled();
+	});
+
+	it('writes the terms as asked, keeping the keys it does not know', async () => {
+		open('/l/h/liabilities?setup=Liabilities:Loans:Home');
+		vi.mocked(saveTerms).mockResolvedValue({ data: { file: 'main.rupea' }, errors: [] } as never);
+
+		const aside = await screen.findByRole('complementary', { name: 'Set up Home' });
+		await fireEvent.input(within(aside).getByLabelText(/Interest rate/), {
+			target: { value: '9' },
+		});
+		await fireEvent.click(within(aside).getByRole('button', { name: 'Save' }));
+
+		expect(await within(aside).findByText('Saved in main.rupea')).toBeTruthy();
+		expect(vi.mocked(saveTerms)).toHaveBeenCalledWith({
+			handle: 'h',
+			form: {
+				account: 'Liabilities:Loans:Home',
+				entries: [
+					['kind', 'loan'],
+					['rate', '9'],
+					['payment', '42,000'],
+					['due', '5'],
+					['note', 'keep'],
+				],
+			},
+		});
+	});
+
+	it('does not save a rate that is not a number', async () => {
+		open('/l/h/liabilities?setup=Liabilities:Card');
+		vi.mocked(saveTerms).mockClear();
+
+		const aside = await screen.findByRole('complementary', { name: 'Set up Card' });
+		await fireEvent.input(within(aside).getByLabelText(/Interest rate/), {
+			target: { value: 'high' },
+		});
+		await fireEvent.click(within(aside).getByRole('button', { name: 'Save' }));
+
+		expect(await within(aside).findByText('Check the terms against the hints.')).toBeTruthy();
+		expect(vi.mocked(saveTerms)).not.toHaveBeenCalled();
 	});
 });

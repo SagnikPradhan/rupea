@@ -1,14 +1,15 @@
 <script lang="ts">
-	import { listAccounts, listDeltas } from '#lib/endpoints/accounts.remote.ts';
+	import { listAccounts, listDeltas, listTerms } from '#lib/endpoints/accounts.remote.ts';
 	import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
 	import { paramsOf, periodOf } from '#lib/shared/dates.ts';
 	import { BalanceAccount, LIABILITIES } from '#lib/shared/accounts.ts';
-	import { depthOf, isUnder } from '#lib/web/shared/accounts.ts';
+	import { depthOf, isUnder, nameOf } from '#lib/web/shared/accounts.ts';
 	import { formatIsoDate, formatWhole } from '#lib/web/shared/format.ts';
-	import { linesOf, owedOf, rowsOf } from '#lib/web/shared/liabilities.ts';
+	import { duesOf, linesOf, owedOf, rowsOf } from '#lib/web/shared/liabilities.ts';
 	import { ringsOf } from '#lib/web/shared/rings.ts';
 	import AccountName from '#lib/web/components/app-account-name/app-account-name.svelte';
 	import ListFilter from '#lib/web/components/app-list-filter/app-list-filter.svelte';
+	import TermsForm from '#lib/web/components/app-terms-form/app-terms-form.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import Amount from '#lib/web/components/app-ledger-table/amount.svelte';
 	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
@@ -18,10 +19,14 @@
 	import FilterSection from '#lib/web/components/ui-filter-section/ui-filter-section.svelte';
 	import Kpi from '#lib/web/components/ui-kpi/ui-kpi.svelte';
 	import KpiStrip from '#lib/web/components/ui-kpi-strip/ui-kpi-strip.svelte';
+	import Aside from '#lib/web/components/ui-aside/ui-aside.svelte';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
+	import Field from '#lib/web/components/ui-field/ui-field.svelte';
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
+	import { hrefWith } from '#lib/web/shared/links.ts';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import * as v from 'valibot';
 
@@ -37,23 +42,25 @@
 	const account = $derived(picked !== null && isUnder(picked, LIABILITIES) ? picked : null);
 	const settled = $derived(page.url.searchParams.get('settled') === 'yes');
 
-	const [response, flowed, first] = $derived(
+	const [response, flowed, first, termed] = $derived(
 		await Promise.all([
 			listAccounts({ handle, day, period }),
 			listDeltas({ handle, day, period, account: LIABILITIES }),
 			findFirstDay(handle),
+			listTerms({ handle, day }),
 		]),
 	);
 	const moved = $derived(flowed.data?.[0]);
 	const owed = $derived(owedOf(response.data ?? []));
 	const shown = $derived(owed.filter((a) => isUnder(a.account, account)));
-	const rows = $derived(rowsOf(shown, moved?.totals ?? [], settled));
-	const lines = $derived(
-		linesOf(
-			(moved?.deltas ?? []).filter((d) => isUnder(d.account, account)),
-			owed,
-		),
-	);
+	const rows = $derived(rowsOf(shown, moved?.totals ?? [], settled, termed.data ?? []));
+	const from = $derived(moved?.from ?? `${day.slice(0, 4)}-01-01`);
+	const bucket = $derived(moved?.bucket ?? 'month');
+	const to = $derived(moved?.to ?? `${day.slice(0, 4)}-12-31`);
+	const dues = $derived(duesOf(owed, termed.data ?? [], day, to));
+	const lines = $derived(linesOf(owed, moved?.deltas ?? [], dues, bucket));
+	const pins = $derived(lines.flatMap((l) => l.pins));
+	const made = $derived(pins.filter((p) => p.past).length);
 	const total = $derived(shown.find((a) => a.account === (account ?? LIABILITIES))?.total ?? '0');
 	const rings = $derived(ringsOf(owed, account ?? LIABILITIES));
 	const credit = $derived(
@@ -61,6 +68,16 @@
 			? undefined
 			: `${rings.skipped} ${rings.skipped === 1 ? 'account is' : 'accounts are'} in credit, so not drawn`,
 	);
+
+	const setup = $derived.by(() => {
+		const asked = v.parse(BalanceAccount, page.url.searchParams.get('setup'));
+		return asked !== null && isUnder(asked, LIABILITIES) ? asked : null;
+	});
+	const current = $derived(
+		termed.data?.find((t) => t.account.toLowerCase() === setup?.toLowerCase())?.current ?? {},
+	);
+	const fresh = $state({ name: '' });
+	const setupHref = (a: string | null) => hrefWith(page.url.searchParams, { setup: a ?? '' });
 
 	const postingsOf = (a: string) =>
 		`/l/${handle}/postings?${new URLSearchParams({ account: a, ...paramsOf(period) })}`;
@@ -94,18 +111,20 @@
 <Issues {handle} errors={[...(response.errors ?? []), ...(flowed.errors ?? [])]} />
 
 <PanelGrid narrow>
-	<div>
-		{#if lines.length > 0 && moved}
+	<Panel title="Payments" subtitle="{made} made · {pins.length - made} still to fall due">
+		{#if lines.length > 0}
 			<Timeline
 				{lines}
-				buckets={moved.buckets}
-				bucket={moved.bucket}
-				label="What was paid down on each loan and card, over the period"
+				{from}
+				{to}
+				{bucket}
+				today={day}
+				label="The payments made and due on each account"
 			/>
 		{:else}
-			<p>Nothing paid down in this period.</p>
+			<p>No payments in this period.</p>
 		{/if}
-	</div>
+	</Panel>
 	<KpiStrip>
 		<Kpi label="Due in 30 days" soon />
 		<Kpi label="Interest a month" soon />
@@ -115,30 +134,33 @@
 </PanelGrid>
 
 <PanelGrid>
-	<Panel title="What you owe" subtitle="owed by loan and card, the inner ring the groups">
-		{#if rings.arcs.length > 0}
-			<Donut
-				arcs={rings.arcs}
-				levels={rings.levels}
-				label="How what is owed divides across its accounts"
-				note={credit}
-			/>
-		{:else}
-			<p>Nothing owed.</p>
-		{/if}
-	</Panel>
 	<div class="column">
+		<Panel title="What you owe" subtitle="owed by loan and card, the inner ring the groups">
+			{#if rings.arcs.length > 0}
+				<Donut
+					arcs={rings.arcs}
+					levels={rings.levels}
+					label="How what is owed divides across its accounts"
+					amounts
+					note={credit}
+				/>
+			{:else}
+				<p>Nothing owed.</p>
+			{/if}
+		</Panel>
 		<Panel
 			title="When each loan ends"
 			subtitle="how much of each loan is paid, and the year it ends"
 			soon
 		/>
+	</div>
+	<div class="column">
+		<Panel title="Card balance" subtitle="the average balance of the cards, by month" soon />
 		<Panel title="Card limits" subtitle="used out of each card’s limit" soon />
 	</div>
 </PanelGrid>
 
-<PanelGrid>
-	<Panel title="Card balance" subtitle="the average balance of the cards, by month" soon />
+<PanelGrid wide>
 	<Panel
 		title="All liabilities"
 		subtitle="{rows.length} {rows.length === 1 ? 'account' : 'accounts'} · {formatWhole(
@@ -151,6 +173,10 @@
 					{ label: 'Account' },
 					{ label: 'Owed', kind: 'amount' },
 					{ label: 'Paid down', kind: 'amount' },
+					{ label: 'Rate', kind: 'amount' },
+					{ label: 'Monthly', kind: 'amount' },
+					{ label: 'Due', kind: 'amount' },
+					{ label: 'Terms' },
 				]}
 			>
 				<tbody>
@@ -164,6 +190,12 @@
 							</th>
 							<Amount value={row.owed} />
 							<Amount value={row.paid} signed />
+							<td class="amount">{row.rate === null ? '' : `${row.rate}%`}</td>
+							<Amount value={row.monthly} />
+							<td class="amount">{row.due ?? ''}</td>
+							<td class="nowrap"
+								><a href={setupHref(row.account)}>{row.set ? 'Edit' : 'Set up'}</a></td
+							>
 						</tr>
 					{/each}
 				</tbody>
@@ -179,6 +211,32 @@
 			<p>Nothing owed.</p>
 		{/if}
 	</Panel>
+	{#if setup}
+		<Aside title="Set up {nameOf(setup)}" onclose={() => goto(setupHref(null))}>
+			{#key setup}
+				<TermsForm
+					{handle}
+					account={setup}
+					{current}
+					onsaved={() => listTerms({ handle, day }).refresh()}
+				/>
+			{/key}
+		</Aside>
+	{:else}
+		<Aside title="Add a liability" closeBeside={false} onclose={() => {}}>
+			<div class="add">
+				<Field label="Name" hint="Under Liabilities, like Loans:Car or Cards:Regalia.">
+					<input bind:value={fresh.name} />
+				</Field>
+				<TermsForm
+					{handle}
+					account="Liabilities:{fresh.name.trim()}"
+					current={{}}
+					onsaved={() => listTerms({ handle, day }).refresh()}
+				/>
+			</div>
+		</Aside>
+	{/if}
 </PanelGrid>
 
 <style>
@@ -186,6 +244,20 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--size-3);
+	}
+
+	.add {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-3);
+	}
+
+	input {
+		width: 100%;
+	}
+
+	.nowrap {
+		white-space: nowrap;
 	}
 
 	a {

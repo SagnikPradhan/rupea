@@ -17,7 +17,7 @@ import {
 	type Quantity,
 } from './amounts';
 import { movesInKind } from './lots';
-import { linkOf, priceOf, toMetadata, transactionOf } from './nodes';
+import { accountOf, linkOf, priceOf, toMetadata, transactionOf } from './nodes';
 import { accountType } from './taxonomy';
 import {
 	Feed,
@@ -25,6 +25,7 @@ import {
 	PriceKind,
 	type LotCost,
 	type Price,
+	type RupeaAccount,
 	type RupeaEntries,
 	type RupeaEntryNode,
 	type RupeaFailedNode,
@@ -54,6 +55,7 @@ type RupeaParsedFile = Batch<RupeaTransaction> & {
 	metadata: RupeaMetadata;
 	prices: RupeaMarketPrice[];
 	links: RupeaLink[];
+	accounts: RupeaAccount[];
 };
 
 /** What a file holds for the ledger, read from its tree. */
@@ -103,6 +105,7 @@ const parsedFrom = (tree: RupeaFileNode): RupeaParsedFile => {
 		metadata: toMetadata(tree.metadata),
 		prices: entries.flatMap((e) => (e.kind === NodeKind.Price ? [priceOf(e)] : [])),
 		links: entries.flatMap((e) => (e.kind === NodeKind.Link ? [linkOf(e)] : [])),
+		accounts: entries.flatMap((e) => (e.kind === NodeKind.Account ? [accountOf(e)] : [])),
 		succeeded: entries.flatMap((e) => (e.kind === NodeKind.Transaction ? [transactionOf(e)] : [])),
 		failed: entries.flatMap((e) => (e.kind === NodeKind.Failed ? e.errors : [])),
 	};
@@ -197,6 +200,7 @@ const readNode = (
 	isUnchanged: IsUnchanged,
 ): RupeaEntryNode[] => {
 	if (isPLine(line)) return [readPLine(c, line, commentsUnder(rest))];
+	if (isALine(line)) return [readALine(c, line, takeWhile(rest, isMetadata), commentsUnder(rest))];
 	if (isMetadata(line)) return [failed([line], commentsUnder(rest), [detached(line)])];
 
 	const body = bodyOf(rest);
@@ -212,8 +216,8 @@ const readNode = (
 };
 
 /**
- * After a bad header only P lines are read; the lines between them are kept as
- * written.
+ * After a bad header only P and A lines are read; the lines between them are
+ * kept as written.
  */
 const unread = (
 	c: LedgerConfiguration,
@@ -222,11 +226,15 @@ const unread = (
 	error: RupeaError,
 ): RupeaEntryNode[] => {
 	const entries: RupeaEntryNode[] = [
-		failed(trimBlank([line, ...takeWhile(input, (l) => !isPLine(l))]), [], [error]),
+		failed(trimBlank([line, ...takeWhile(input, (l) => !isDirective(l))]), [], [error]),
 	];
 	for (const line of drain(input)) {
-		entries.push(readPLine(c, line, []));
-		const between = trimBlank(takeWhile(input, (l) => !isPLine(l)));
+		entries.push(
+			isALine(line)
+				? readALine(c, line, takeWhile(input, isMetadata), commentsUnder(input))
+				: readPLine(c, line, []),
+		);
+		const between = trimBlank(takeWhile(input, (l) => !isDirective(l)));
 		if (between.length > 0) entries.push(failed(between, [], []));
 	}
 	return entries;
@@ -377,6 +385,46 @@ const readPLine = (c: LedgerConfiguration, l: RupeaLine, comments: string[]): Ru
 		(v) => ({ kind: NodeKind.Price, comments, ...v, children: [] }),
 		unread,
 	);
+};
+
+/** An A line sets an account up, with the dash lines under it as its terms. */
+const isALine = ({ content }: RupeaLine) => /^A\s/.test(content);
+const isDirective = (l: RupeaLine) => isPLine(l) || isALine(l);
+
+const readALine = (
+	c: LedgerConfiguration,
+	l: RupeaLine,
+	dashes: RupeaLine[],
+	comments: string[],
+): RupeaEntryNode => {
+	const unread = (e: RupeaError[]) => failed([l, ...dashes], comments, e);
+	const metadata = readMetadata(dashes);
+
+	return parseAccountLine(c, l).match(
+		(v) =>
+			metadata.failed.length > 0
+				? unread(metadata.failed)
+				: { kind: NodeKind.Account, comments, ...v, metadata: metadata.entries, children: [] },
+		(e) => unread([e, ...metadata.failed]),
+	);
+};
+
+const parseAccountLine = (
+	{ dateFormats }: LedgerConfiguration,
+	{ location, content }: RupeaLine,
+): Result<{ location: RupeaParseLocation; since: Temporal.PlainDate | null; account: string }> => {
+	const at = { location: displayLocation(location) };
+	const words = content.trim().split(/\s+/).slice(1);
+	const since =
+		words[0] === '*'
+			? { value: null, rest: words.slice(1) }
+			: readWords(dateFormats, words, parseDate);
+	const [account = '', ...extra] = since?.rest ?? [];
+	if (!since || account === '' || extra.length > 0)
+		return err(fault('ParseInvalidAccountLine', at));
+	if (!accountType(account)) return err(fault('ParseInvalidAccount', { ...at, account }));
+
+	return ok({ location, since: since.value, account });
 };
 
 type Written = { posting: WrittenPosting; metadata: RupeaEntries; comments: string[] };

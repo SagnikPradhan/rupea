@@ -2,8 +2,11 @@ import { replyFrom, replyFromBatch } from '#lib/server/shared/result/reply.ts';
 import { Day, Period, spansOf } from '#lib/shared/dates.ts';
 import { BalanceAccount, FlowAccount } from '#lib/shared/accounts.ts';
 import * as Accounts from '#services/ledger/application/accounts.ts';
-import { query } from '$app/server';
+import * as Terms from '#services/ledger/application/terms.ts';
+import { TermsForm } from '#lib/shared/terms.ts';
+import { command, query } from '$app/server';
 import * as v from 'valibot';
+import { listProblems } from './ledger.remote';
 import { Handle, inLedger } from './shared';
 import {
 	viewAccount,
@@ -177,4 +180,24 @@ export const listAccountNames = query(
 		replyFrom(
 			inLedger({ handle, action: (l) => Accounts.listAccountNames({ ledger: l, prefix }) }),
 		),
+);
+
+/** What the A lines of a ledger set each account up with on a day. */
+export const listTerms = query(v.object({ handle: Handle, day: Day }), ({ handle, day }) =>
+	replyFrom(
+		inLedger({ handle, action: (l) => Terms.listTerms({ ledger: l, day: day.toString() }) }),
+	),
+);
+
+/** Sets up an account by writing its terms under an A * line. */
+export const saveTerms = command(
+	v.object({ handle: Handle, form: TermsForm }),
+	async ({ handle, form }) => {
+		const saved = await inLedger({
+			handle,
+			action: (l) => Terms.saveTerms({ ledger: l, ...form }),
+		});
+		void listProblems(handle).refresh();
+		return replyFrom(saved);
+	},
 );

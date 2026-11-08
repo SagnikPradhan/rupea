@@ -2,69 +2,78 @@ import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 import Timeline from '#lib/web/components/ui-chart-timeline/ui-chart-timeline.svelte';
 
-const BUCKETS = ['2026-01-01', '2026-02-01', '2026-03-01'];
-
 const LINES = [
 	{
 		key: 'Liabilities:Loans:Home',
 		label: 'Home',
-		circles: [
-			{ bucket: '2026-01-01', paid: 34500 },
-			{ bucket: '2026-03-01', paid: 34500 },
+		pins: [
+			{ at: '2026-01-01', amount: 30000, past: true },
+			{ at: '2026-07-01', amount: 15000, past: false },
 		],
 	},
 	{
-		key: 'Liabilities:Card',
-		label: 'Card',
-		circles: [{ bucket: '2026-02-01', paid: 8000 }],
+		key: 'Liabilities:Loans:Car',
+		label: 'Car',
+		pins: [{ at: '2026-12-31', amount: 7500, past: false }],
 	},
 ];
 
-const drawn = () => {
-	render(Timeline, { lines: LINES, buckets: BUCKETS, bucket: 'month', label: 'Payments' });
-	return screen.getByRole('img', { name: 'Payments' });
+const drawn = (from = '2026-01-01', to = '2026-12-31') => {
+	const { container } = render(Timeline, {
+		lines: LINES,
+		from,
+		to,
+		today: '2026-06-01',
+		bucket: 'month',
+		label: 'Payments',
+	});
+	return container;
 };
 
+const pinsOf = (c: HTMLElement) => Array.from(c.querySelectorAll<HTMLElement>('[role=listitem]'));
+
 describe('the timeline chart', () => {
-	it('names a row for each account and draws a circle for each payment, the larger payment wider', () => {
-		const plot = drawn();
-		const [home, , card] = Array.from(plot.querySelectorAll<HTMLElement>('.circle'));
+	it('stands a pin for each payment, the ones made drawn solid', () => {
+		const pins = pinsOf(drawn());
 
-		expect(screen.getByText('Home')).toBeTruthy();
-		expect(screen.getByText('Card')).toBeTruthy();
-		expect(plot.querySelectorAll('.track')).toHaveLength(2);
-		expect(plot.querySelectorAll('.circle')).toHaveLength(3);
-		expect(parseFloat(home?.style.getPropertyValue('--spread') ?? '0')).toBeGreaterThan(
-			parseFloat(card?.style.getPropertyValue('--spread') ?? '0'),
+		expect(pins).toHaveLength(3);
+		expect(pins.map((p) => p.classList.contains('past'))).toEqual([true, false, false]);
+	});
+
+	it('places a pin in the middle of its month along the axis and sizes it by its amount', () => {
+		const [first, second] = pinsOf(drawn());
+
+		expect(parseFloat(first?.style.left ?? '')).toBeCloseTo((15.5 / 365) * 100, 1);
+		expect(parseFloat(second?.style.left ?? '')).toBeCloseTo((196.5 / 365) * 100, 1);
+		expect(parseFloat(first?.style.getPropertyValue('--spread') ?? '')).toBe(1);
+		expect(parseFloat(second?.style.getPropertyValue('--spread') ?? '')).toBeCloseTo(
+			Math.sqrt(0.5),
 		);
 	});
 
-	it('places a circle at its bucket along the dates', () => {
-		const plot = drawn();
-		const lefts = Array.from(plot.querySelectorAll<HTMLElement>('.circle')).map((c) =>
-			parseFloat(c.style.left),
-		);
+	it('puts each account on a lane of its own', () => {
+		const lanes = pinsOf(drawn()).map((p) => p.style.getPropertyValue('--lane'));
 
-		expect(lefts[0]).toBeLessThan(lefts[2] ?? 0);
-		expect(lefts[2]).toBeLessThan(lefts[1] ?? 0);
+		expect(lanes).toEqual(['0', '0', '1']);
 	});
 
-	it('labels the dates along the bottom', () => {
-		const plot = drawn();
+	it('says the name, amount and day of a pin on hover', async () => {
+		const [pin] = pinsOf(drawn());
+		await fireEvent.pointerEnter(pin!);
 
-		expect(plot.textContent).toMatch(/Jan/);
+		expect(screen.getByRole('tooltip').textContent).toMatch(/Home.*30,000.*Jan 2026/);
 	});
 
-	it('names the payment under the cursor with its date and amount, fading the others', async () => {
-		const plot = drawn();
-		const first = plot.querySelectorAll('.circle')[0] as Element;
+	it('labels the axis by month', () => {
+		const ticks = drawn().querySelectorAll('.ticks time');
 
-		await fireEvent.pointerEnter(first);
-		expect(plot.querySelector('[role="tooltip"]')?.textContent).toMatch(/Home/);
-		expect(plot.querySelector('[role="tooltip"]')?.textContent).toMatch(/Jan/);
-		expect(plot.querySelectorAll('.circle.faded')).toHaveLength(2);
+		expect(ticks).toHaveLength(12);
+		expect(ticks[0]?.textContent).toBe('Jan');
+	});
 
-		await fireEvent.pointerLeave(first);
-		expect(plot.querySelector('[role="tooltip"]')).toBeNull();
+	it('labels the axis by year over a long span', () => {
+		const ticks = Array.from(drawn('2023-01-01', '2026-12-31').querySelectorAll('.ticks time'));
+
+		expect(ticks.map((t) => t.textContent)).toEqual(['2023', '2024', '2025', '2026']);
 	});
 });

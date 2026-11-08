@@ -8,5 +8,6 @@ export * from './database-postings';
 export * from './database-problems';
 export * from './database-rates';
 export * from './database-symbols';
+export * from './database-terms';
 export * from './database-transactions';
 export * from './database-years';

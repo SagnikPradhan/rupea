@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { linesOf, owedOf, rowsOf } from '#lib/web/shared/liabilities.ts';
+import { duesOf, linesOf, owedOf, rowsOf } from '#lib/web/shared/liabilities.ts';
 
 const held = (account: string, parent: string | null, total: string) => ({
 	account,
@@ -92,65 +92,122 @@ describe('the rows of the table', () => {
 	});
 });
 
-describe('the payments on the timeline', () => {
+describe('the payments due in the period', () => {
 	const owed = owedOf(ACCOUNTS);
+	const loan = (payment: string | undefined, due: number | undefined) => ({
+		kind: 'loan' as const,
+		payment,
+		due,
+		method: 'reducing' as const,
+	});
+	const set = [
+		{ account: 'Liabilities:Loans:Home', held: loan('34,500', 5) },
+		{ account: 'Liabilities:Loans:Car', held: loan('12,400', 10) },
+		{ account: 'liabilities:card', held: { kind: 'card' as const, due: 31 } },
+	];
 
-	it('draws a circle for each bucket an account was paid down in, for the accounts that hold the debt and not the groups', () => {
-		const lines = linesOf(
-			[
-				{ account: 'Liabilities:Loans', bucket: '2026-03-01', amount: '12000' },
-				{ account: 'Liabilities:Loans:Home', bucket: '2026-03-01', amount: '10000' },
-				{ account: 'Liabilities:Loans:Home', bucket: '2026-04-01', amount: '10000' },
-				{ account: 'Liabilities:Loans:Car', bucket: '2026-03-01', amount: '2000' },
-			],
+	it('puts a payment on its due day of each month left, a card paying what it holds and a loan its payment', () => {
+		const dues = duesOf(owed, set, '2026-11-08', '2026-12-31');
+
+		expect(dues.map((d) => [d.label, d.amount, d.due])).toEqual([
+			['Home', 34500, '2026-12-05'],
+			['Car', 12400, '2026-11-10'],
+			['Car', 12400, '2026-12-10'],
+			['Card', 25000, '2026-11-30'],
+			['Card', 25000, '2026-12-31'],
+		]);
+	});
+
+	it('counts a payment due today and none after the period ends', () => {
+		const dues = duesOf(owed, set, '2026-11-05', '2026-11-09');
+
+		expect(dues.map((d) => d.due)).toEqual(['2026-11-05']);
+	});
+
+	it('leaves out groups, accounts with no due day or amount, and cards that hold nothing', () => {
+		const dues = duesOf(
 			owed,
+			[
+				{ account: 'Liabilities:Loans', held: loan('1', 5) },
+				{ account: 'Liabilities:Loans:Home', held: loan(undefined, 5) },
+				{ account: 'Liabilities:Loans:Car', held: loan('12,400', undefined) },
+				{ account: 'Liabilities:Loans:Old', held: { kind: 'card' as const, due: 5 } },
+				{ account: 'Liabilities:Card', held: null },
+			],
+			'2026-11-08',
+			'2026-12-31',
 		);
 
-		expect(lines).toEqual([
+		expect(dues).toEqual([]);
+	});
+});
+
+describe('the terms of the accounts', () => {
+	it('gives each row its rate, monthly payment and due day, blank when the account has no terms', () => {
+		const owed = owedOf(ACCOUNTS);
+		const terms = [
 			{
-				key: 'Liabilities:Loans:Car',
-				label: 'Car',
-				circles: [{ bucket: '2026-03-01', paid: 2000 }],
+				account: 'Liabilities:Loans:Home',
+				held: {
+					kind: 'loan' as const,
+					rate: 8.5,
+					payment: '42,000',
+					due: 5,
+					method: 'reducing' as const,
+				},
 			},
-			{
-				key: 'Liabilities:Loans:Home',
-				label: 'Home',
-				circles: [
-					{ bucket: '2026-03-01', paid: 10000 },
-					{ bucket: '2026-04-01', paid: 10000 },
+			{ account: 'liabilities:card', held: { kind: 'card' as const, rate: 42, due: 20 } },
+			{ account: 'Liabilities:Loans:Old', held: null },
+		];
+		const rows = rowsOf(owed, [], true, terms);
+		const shown = (account: string) => rows.find((r) => r.account === account);
+
+		expect(shown('Liabilities:Loans:Home')).toMatchObject({
+			set: true,
+			rate: 8.5,
+			monthly: '42000',
+			due: 5,
+		});
+		expect(shown('Liabilities:Card')).toMatchObject({
+			set: true,
+			rate: 42,
+			monthly: null,
+			due: 20,
+		});
+		expect(shown('Liabilities:Loans:Old')).toMatchObject({ set: true, rate: null });
+		expect(shown('Liabilities:Loans:Car')).toMatchObject({
+			set: false,
+			rate: null,
+			monthly: null,
+			due: null,
+		});
+	});
+});
+
+describe('the lines of the timeline', () => {
+	it('gives each account its payments made and still due, in order of day, and leaves out the rest', () => {
+		const owed = owedOf(ACCOUNTS);
+		const lines = linesOf(
+			owed,
+			[
+				{ account: 'Liabilities:Loans:Home', bucket: '2026-02-01', amount: '30000' },
+				{ account: 'Liabilities:Loans:Home', bucket: '2026-01-01', amount: '30000' },
+				{ account: 'Liabilities:Loans:Car', bucket: '2026-01-01', amount: '0' },
+				{ account: 'Liabilities:Loans', bucket: '2026-01-01', amount: '60000' },
+			],
+			[{ key: 'Liabilities:Loans:Home', amount: 34500, due: '2026-12-05' }],
+			'month',
+		);
+
+		expect(lines.map((l) => [l.label, l.pins.map((p) => [p.at, p.past])])).toEqual([
+			[
+				'Home',
+				[
+					['2026-01-01', true],
+					['2026-02-01', true],
+					['2026-12-01', false],
 				],
-			},
-		]);
-	});
-
-	it('draws one row for a loan under a group nothing is posted to, which listAccounts leaves out', () => {
-		const alone = owedOf([
-			held('Liabilities', null, '-250000'),
-			held('Liabilities:Loans:Home', 'Liabilities', '-250000'),
-		]);
-
-		const lines = linesOf(
-			[
-				{ account: 'Liabilities:Loans', bucket: '2026-03-01', amount: '10000' },
-				{ account: 'Liabilities:Loans:Home', bucket: '2026-03-01', amount: '10000' },
 			],
-			alone,
-		);
-
-		expect(lines.map((l) => l.key)).toEqual(['Liabilities:Loans:Home']);
-	});
-
-	it('leaves out a bucket where the debt grew', () => {
-		const lines = linesOf(
-			[
-				{ account: 'Liabilities:Card', bucket: '2026-03-01', amount: '-9000' },
-				{ account: 'Liabilities:Card', bucket: '2026-04-01', amount: '9000' },
-			],
-			owed,
-		);
-
-		expect(lines).toEqual([
-			{ key: 'Liabilities:Card', label: 'Card', circles: [{ bucket: '2026-04-01', paid: 9000 }] },
 		]);
 	});
 });

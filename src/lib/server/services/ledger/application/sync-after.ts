@@ -60,6 +60,7 @@ export const checkLedger = (l: Ledger): ResultAsync<RupeaError[]> =>
 		.andThen((e) => DB.listBalanceChecks(l.id).map((c) => [...e.failed, ...c.map(toBalanceError)]))
 		.andThen((f) => checkLots(l).map((k) => [...f, ...k]))
 		.andThen((f) => checkLinks(l).map((k) => [...f, ...k]))
+		.andThen((f) => checkTerms(l).map((k) => [...f, ...k]))
 		.orElse((e) => ok([e]));
 
 export const checkLots = (l: Ledger): ResultAsync<RupeaError[]> =>
@@ -79,6 +80,13 @@ const checkLinks = (l: Ledger): ResultAsync<RupeaError[]> =>
 	DB.listRepeatedLinks(l.id).map((r) =>
 		r.map((k) =>
 			fault('LinkRepeated', { location: k.locations.join(', '), commodity: k.commodity }),
+		),
+	);
+
+const checkTerms = (l: Ledger): ResultAsync<RupeaError[]> =>
+	DB.listRepeatedTerms(l.id).map((r) =>
+		r.map((k) =>
+			fault('AccountRepeated', { location: k.locations.join(', '), account: k.account }),
 		),
 	);
 

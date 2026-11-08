@@ -1,159 +1,197 @@
 <script lang="ts">
-	import Axes from '#lib/web/components/ui-chart-axes/ui-chart-axes.svelte';
 	import Tooltip from '#lib/web/components/ui-tooltip/ui-tooltip.svelte';
-	import { labelsIn, VIEW } from '#lib/web/shared/chart.ts';
-	import { formatAmount, formatBucket } from '#lib/web/shared/format.ts';
 	import type { Bucket } from '#lib/shared/dates.ts';
-
-	type Circle = { bucket: string; paid: number };
+	import { formatAmount, formatBucket, formatMonth } from '#lib/web/shared/format.ts';
 
 	type Props = {
-		lines: { key: string; label: string; circles: Circle[] }[];
-		buckets: string[];
+		/** A line for each account, with a pin for each payment made or still due. */
+		lines: {
+			key: string;
+			label: string;
+			pins: { at: string; amount: number; past: boolean }[];
+		}[];
+		/** The first and last day of the axis, and the day the past ends. */
+		from: string;
+		to: string;
+		today: string;
+		/** What a pin's day stands for, a day, month or year. */
 		bucket: Bucket;
 		label: string;
 	};
 
-	const { lines, buckets, bucket, label }: Props = $props();
+	const { lines, from, to, today, bucket, label }: Props = $props();
 
-	const hovered = $state({ key: null as string | null, bucket: null as string | null });
-	const measured = $state({ rect: undefined as DOMRectReadOnly | undefined });
+	/** The lanes the plot has room for, so a few accounts do not squash it. */
+	const LEAST = 3;
 
-	const widest = $derived(
-		Math.max(
-			...lines.flatMap((l) =>
-				l.circles.filter((c) => buckets.includes(c.bucket)).map((c) => c.paid),
-			),
-			0,
-		),
+	const DAY = 86_400_000;
+
+	/** When the bucket a day starts ends, so a pin can stand in the middle of it. */
+	const ENDS: Record<Bucket, (d: string) => number> = {
+		day: (d) => Date.parse(d) + DAY,
+		month: (d) => Date.UTC(Number(d.slice(0, 4)), Number(d.slice(5, 7)), 1),
+		year: (d) => Date.UTC(Number(d.slice(0, 4)) + 1, 0, 1),
+	};
+
+	const hovered = $state({ pin: null as string | null });
+
+	const widest = $derived(Math.max(...lines.flatMap((l) => l.pins.map((p) => p.amount)), 0));
+	const months = $derived(
+		(Number(to.slice(0, 4)) - Number(from.slice(0, 4))) * 12 +
+			Number(to.slice(5, 7)) -
+			Number(from.slice(5, 7)),
 	);
-	const step = $derived(Math.ceil(buckets.length / labelsIn(measured.rect?.width ?? 0, 'across')));
-	const across = $derived(
-		buckets.flatMap((b, i) =>
-			i % step === 0 ? [{ at: leftOf(i), label: formatBucket[bucket](b) }] : [],
-		),
-	);
-	const under = $derived(
-		lines.flatMap((l, row) =>
-			l.circles.flatMap((c) =>
-				c.bucket === hovered.bucket && l.key === hovered.key
-					? [{ line: l, circle: c, top: ((row + 0.5) / lines.length) * VIEW }]
-					: [],
-			),
-		)[0],
+	const yearly = $derived(months > 14);
+	const ticks = $derived(
+		Array.from({ length: yearly ? Math.ceil(months / 12) + 1 : months + 2 }, (_, k) =>
+			new Date(
+				Date.UTC(
+					Number(from.slice(0, 4)),
+					(yearly ? 0 : Number(from.slice(5, 7)) - 1) + k * (yearly ? 12 : 1),
+					1,
+				),
+			)
+				.toISOString()
+				.slice(0, 10),
+		).filter((d) => d >= from && d <= to),
 	);
 
-	function leftOf(i: number) {
-		return ((i + 0.5) / buckets.length) * VIEW;
-	}
+	const unit = $derived(yearly ? 'year' : 'month');
+	const span = $derived(Date.parse(to) + DAY - Date.parse(from));
+
+	const leftOf = (d: string, by: Bucket) =>
+		Math.min(Math.max(((Date.parse(d) + ENDS[by](d)) / 2 - Date.parse(from)) / span, 0), 1) * 100;
 </script>
 
-<figure>
-	<div class="chart">
-		<ul>
-			{#each lines as line (line.key)}
-				<li>{line.label}</li>
+<div class="chart" style:--lanes={Math.max(lines.length, LEAST)}>
+	<div class="plot" role="list" aria-label={label}>
+		<span class="today" style:left="{leftOf(today, 'day')}%"></span>
+		{#each lines as line, lane (line.key)}
+			{#each line.pins as p (`${p.at}${p.past}`)}
+				{@const id = `${line.key}${p.at}${p.past}`}
+				<span
+					class={{ pin: true, past: p.past }}
+					role="listitem"
+					aria-label="{line.label}, {formatAmount(String(p.amount))}, {formatBucket[bucket](p.at)}"
+					style:left="{leftOf(p.at, bucket)}%"
+					style:--lane={lane}
+					style:--spread={Math.sqrt(p.amount / widest)}
+					onpointerenter={() => (hovered.pin = id)}
+					onpointerleave={() => (hovered.pin = null)}
+				>
+					<span class="circle"></span>
+					<span class="stem"></span>
+					{#if hovered.pin === id}
+						<Tooltip left={50} top={0}>
+							{line.label}
+							<data value={p.amount}>{formatAmount(String(p.amount))}</data>
+							<time datetime={p.at}>{formatBucket[bucket](p.at)}</time>
+						</Tooltip>
+					{/if}
+				</span>
 			{/each}
-		</ul>
-		<div class="plot">
-			<div
-				class="area"
-				role="img"
-				aria-label={label}
-				style:--count={buckets.length}
-				bind:contentRect={measured.rect}
-			>
-				{#each lines as line (line.key)}
-					<div class="track">
-						{#each line.circles as c (c.bucket)}
-							{@const at = buckets.indexOf(c.bucket)}
-							{#if at >= 0}
-								<span
-									class="circle"
-									class:faded={hovered.key !== null &&
-										(hovered.key !== line.key || hovered.bucket !== c.bucket)}
-									role="presentation"
-									style:left="{leftOf(at)}%"
-									style:--spread={Math.sqrt(c.paid / widest)}
-									onpointerenter={() => {
-										hovered.key = line.key;
-										hovered.bucket = c.bucket;
-									}}
-									onpointerleave={() => {
-										hovered.key = null;
-										hovered.bucket = null;
-									}}
-								></span>
-							{/if}
-						{/each}
-					</div>
-				{/each}
-				<Axes {across} up={[]} />
-				{#if under}
-					<Tooltip left={leftOf(buckets.indexOf(under.circle.bucket))} top={under.top}>
-						{under.line.label}
-						<data>{formatAmount(String(under.circle.paid))}</data>
-						{formatBucket[bucket](under.circle.bucket)}
-					</Tooltip>
-				{/if}
-			</div>
-		</div>
+		{/each}
 	</div>
-</figure>
+	<div class="ticks" aria-hidden="true">
+		{#each ticks as t (t)}
+			<time datetime={t} style:left="{leftOf(t, unit)}%"
+				>{yearly ? formatBucket.year(t) : formatMonth(t)}</time
+			>
+		{/each}
+	</div>
+</div>
 
 <style>
 	.chart {
-		display: grid;
-		grid-template-columns: auto 1fr;
-		gap: var(--size-2);
-	}
-
-	ul {
-		display: grid;
-		grid-auto-rows: var(--size-4);
-		margin: 0;
-		padding: 0;
-		list-style: none;
-		font: var(--text-label);
-	}
-
-	li {
 		display: flex;
-		align-items: center;
+		flex-direction: column;
+		gap: var(--size-1);
+		padding-inline: var(--size-3);
 	}
 
 	.plot {
 		position: relative;
-		padding-bottom: var(--size-3);
+		height: calc(var(--size-3) * (var(--lanes) + 2) + var(--size-2));
+		border-block-end: var(--size-line-0) solid var(--color-border);
 	}
 
-	.area {
-		position: relative;
+	.today {
+		position: absolute;
+		inset-block: 0;
+		border-inline-start: var(--size-line-0) dashed var(--color-border);
 	}
 
-	.track {
-		position: relative;
-		height: var(--size-4);
-		border-bottom: var(--size-line-0) solid var(--color-border);
+	.pin {
+		position: absolute;
+		pointer-events: none;
+		inset-block-end: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
+		width: calc(var(--size-3) * var(--spread));
+		min-width: var(--size-2);
+		transform: translateX(-50%);
 	}
 
 	.circle {
-		position: absolute;
-		top: 50%;
-		width: calc(var(--size-2) + var(--spread) * var(--size-3));
-		max-width: calc(100% / var(--count));
+		position: relative;
+		min-width: var(--size-2);
+		pointer-events: auto;
+		z-index: 1;
+		width: 100%;
 		aspect-ratio: 1;
-		background: var(--color-muted);
+		background: var(--color-ink-2);
+		border: var(--size-line-0) solid var(--color-ink-2);
 		border-radius: 50%;
-		opacity: 0.85;
-		transform: translate(-50%, -50%);
+		opacity: 0.35;
 	}
 
-	.faded {
-		opacity: 0.2;
+	.past .circle {
+		opacity: 1;
 	}
 
-	data {
-		font-family: var(--font-mono);
+	.stem {
+		width: var(--size-line-0);
+		height: calc(var(--size-3) * var(--lane) + var(--size-3));
+		background: var(--color-border);
+	}
+
+	.stem::after {
+		position: absolute;
+		inset-block-end: 0;
+		inset-inline-start: 50%;
+		width: var(--size-0);
+		aspect-ratio: 1;
+		background: var(--color-ink);
+		border-radius: 50%;
+		content: '';
+		transform: translate(-50%, 50%);
+	}
+
+	.pin:hover {
+		z-index: 2;
+	}
+
+	.pin:hover .circle {
+		background: var(--color-ink);
+		border-color: var(--color-ink);
+		opacity: 1;
+	}
+
+	.pin:hover .stem,
+	.pin:hover .stem::after {
+		background: var(--color-ink);
+	}
+
+	.ticks {
+		position: relative;
+		height: 1lh;
+	}
+
+	.ticks time {
+		position: absolute;
+		color: var(--color-muted);
+		font: var(--text-data);
+		transform: translateX(-50%);
 	}
 </style>

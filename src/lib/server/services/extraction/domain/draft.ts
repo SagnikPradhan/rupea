@@ -52,6 +52,7 @@ export const draft = (options: DraftOptions): Draft => ({
 				.map(toTransaction(options.account)),
 			prices: [],
 			links: [],
+			accounts: [],
 		}),
 	),
 	failed: options.failed,
@@ -69,7 +70,13 @@ export const copy = ({ config, statement, text }: CopyOptions): Draft => ({
 	content:
 		print(
 			config,
-			toNode({ metadata: sourceMetadata(statement), transactions: [], prices: [], links: [] }),
+			toNode({
+				metadata: sourceMetadata(statement),
+				transactions: [],
+				prices: [],
+				links: [],
+				accounts: [],
+			}),
 		) + text.join('\n'),
 	failed: [],
 });

@@ -2,8 +2,11 @@ import { replyFrom, replyFromBatch } from '#lib/server/shared/result/reply.ts';
 import { Day, Period, spansOf } from '#lib/shared/dates.ts';
 import { BalanceAccount, FlowAccount } from '#lib/shared/accounts.ts';
 import * as Accounts from '#services/ledger/application/accounts.ts';
-import { query } from '$app/server';
+import * as Terms from '#services/ledger/application/terms.ts';
+import { TermsForm } from '#lib/shared/terms.ts';
+import { command, query } from '$app/server';
 import * as v from 'valibot';
+import { listProblems } from './ledger.remote';
 import { Handle, inLedger } from './shared';
 import {
 	viewAccount,
@@ -177,4 +180,23 @@ export const listAccountNames = query(
 		replyFrom(
 			inLedger({ handle, action: (l) => Accounts.listAccountNames({ ledger: l, prefix }) }),
 		),
+);
+
+/** The terms the A lines of a ledger set for its accounts. */
+export const listTerms = query(Handle, (h) =>
+	replyFrom(inLedger({ handle: h, action: Terms.listTerms })),
+);
+
+/** Sets up a liability by writing its terms under an A * line. */
+export const saveTerms = command(
+	v.object({ handle: Handle, form: TermsForm }),
+	async ({ handle, form }) => {
+		const saved = await inLedger({
+			handle,
+			action: (l) => Terms.saveTerms({ ledger: l, ...form }),
+		});
+		void listTerms(handle).refresh();
+		void listProblems(handle).refresh();
+		return replyFrom(saved);
+	},
 );

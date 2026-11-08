@@ -8,6 +8,7 @@ import {
 	PriceKind,
 	type LotCost,
 	type Price,
+	type RupeaAccountNode,
 	type RupeaEntries,
 	type RupeaEntryNode,
 	type RupeaFileNode,
@@ -42,6 +43,7 @@ const printEntry = (c: LedgerConfiguration, column: number, e: RupeaEntryNode): 
 		.with({ kind: NodeKind.Transaction }, (t) => printTransaction(c, column, t))
 		.with({ kind: NodeKind.Price }, (p) => printPrice(c, p) + printComments('', p.comments))
 		.with({ kind: NodeKind.Link }, (l) => printLink(c, l) + printComments('', l.comments))
+		.with({ kind: NodeKind.Account }, (a) => printAccount(c, a) + printComments('', a.comments))
 		.with({ kind: NodeKind.Note }, (n) => printComments('', n.comments))
 		.with({ kind: NodeKind.Failed }, (f) => printLines(f.lines) + printComments('', f.comments))
 		.exhaustive();
@@ -119,6 +121,9 @@ const printPrice = ({ dateFormats }: LedgerConfiguration, p: RupeaMarketPrice): 
 
 const printLink = ({ dateFormats }: LedgerConfiguration, l: RupeaLink): string =>
 	`P ${l.since ? printDate(dateFormats[0], l.since) : '*'} ${l.commodity} ${l.feed}:${l.symbol}\n`;
+
+const printAccount = ({ dateFormats }: LedgerConfiguration, a: RupeaAccountNode): string =>
+	`A ${a.since ? printDate(dateFormats[0], a.since) : '*'} ${a.account}\n${printMetadata('\t', a.metadata)}`;
 
 const printMetadata = (t: string, m: RupeaEntries): string =>
 	m.map(([key, value]) => `${t}- ${key}: ${value}\n`).join('');

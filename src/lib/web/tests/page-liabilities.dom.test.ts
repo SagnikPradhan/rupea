@@ -1,6 +1,6 @@
-import { render, screen } from '@testing-library/svelte';
+import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
-import { listAccounts, listDeltas } from '#lib/endpoints/accounts.remote.ts';
+import { listAccounts, listDeltas, listTerms, saveTerms } from '#lib/endpoints/accounts.remote.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
 import { openFilter } from '#tests/shared/filter.ts';
@@ -10,6 +10,8 @@ vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
 	listAccounts: vi.fn(),
 	listDeltas: vi.fn(),
+	listTerms: vi.fn(),
+	saveTerms: Object.assign(vi.fn(), { pending: 0 }),
 }));
 vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
 	findFirstDay: vi.fn(() => answer('2025-03-14')),
@@ -68,8 +70,17 @@ const moved = {
 	],
 };
 
-const open = (path: string, shown: unknown = [moved]) => {
+const terms = [
+	{
+		account: 'Liabilities:Loans:Home',
+		since: null,
+		terms: { kind: ['loan'], rate: ['8.5'], payment: ['42,000'], due: ['5'], note: ['keep'] },
+	},
+];
+
+const open = (path: string, shown: unknown = [moved], written: unknown = terms) => {
 	visit(path);
+	vi.mocked(listTerms).mockReturnValue(answer(written as never));
 	vi.mocked(listAccounts).mockReturnValue(answer(accounts));
 	vi.mocked(listDeltas).mockReturnValue(answer(shown as never));
 	render(Page, { data });
@@ -155,5 +166,69 @@ describe('the liabilities page', () => {
 		await screen.findByTitle('Liabilities:Loans:Home');
 		expect(screen.getAllByText('Coming soon').length).toBeGreaterThanOrEqual(4);
 		expect(screen.getByText('Debt-free by')).toBeTruthy();
+	});
+
+	it('shows the rate, monthly payment and due day an A line sets, and offers to set up the rest', async () => {
+		open('/l/h/liabilities');
+
+		const home = (await screen.findByTitle('Liabilities:Loans:Home')).closest('tr')!;
+		expect(within(home).getByText('8.5%')).toBeTruthy();
+		expect(within(home).getByText('42,000')).toBeTruthy();
+		expect(within(home).getByText('5')).toBeTruthy();
+		expect(within(home).getByRole('link', { name: 'Edit' })).toBeTruthy();
+
+		const card = screen.getByTitle('Liabilities:Card').closest('tr')!;
+		expect(within(card).getByRole('link', { name: 'Set up' })).toBeTruthy();
+	});
+
+	it('opens the terms of the account asked for beside the table, with what it has now', async () => {
+		open('/l/h/liabilities?setup=Liabilities:Loans:Home');
+
+		const aside = await screen.findByRole('complementary', { name: 'Set up Home' });
+		expect((within(aside).getByLabelText(/Interest rate/) as HTMLInputElement).value).toBe('8.5');
+		expect((within(aside).getByLabelText(/Monthly payment/) as HTMLInputElement).value).toBe(
+			'42,000',
+		);
+		expect(screen.queryByText('Card balance')).toBeNull();
+	});
+
+	it('writes the terms as asked, keeping the keys it does not know', async () => {
+		open('/l/h/liabilities?setup=Liabilities:Loans:Home');
+		vi.mocked(saveTerms).mockResolvedValue({ data: { file: 'main.rupea' }, errors: [] } as never);
+
+		const aside = await screen.findByRole('complementary', { name: 'Set up Home' });
+		await fireEvent.input(within(aside).getByLabelText(/Interest rate/), {
+			target: { value: '9' },
+		});
+		await fireEvent.click(within(aside).getByRole('button', { name: 'Save' }));
+
+		expect(await within(aside).findByText('Saved in main.rupea')).toBeTruthy();
+		expect(vi.mocked(saveTerms)).toHaveBeenCalledWith({
+			handle: 'h',
+			form: {
+				account: 'Liabilities:Loans:Home',
+				entries: [
+					['kind', 'loan'],
+					['rate', '9'],
+					['payment', '42,000'],
+					['due', '5'],
+					['note', 'keep'],
+				],
+			},
+		});
+	});
+
+	it('does not save a rate that is not a number', async () => {
+		open('/l/h/liabilities?setup=Liabilities:Card');
+		vi.mocked(saveTerms).mockClear();
+
+		const aside = await screen.findByRole('complementary', { name: 'Set up Card' });
+		await fireEvent.input(within(aside).getByLabelText(/Interest rate/), {
+			target: { value: 'high' },
+		});
+		await fireEvent.click(within(aside).getByRole('button', { name: 'Save' }));
+
+		expect(await within(aside).findByText('Check this against the hint.')).toBeTruthy();
+		expect(vi.mocked(saveTerms)).not.toHaveBeenCalled();
 	});
 });

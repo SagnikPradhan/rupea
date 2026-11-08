@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { linesOf, owedOf, rowsOf } from '#lib/web/shared/liabilities.ts';
+import { linesOf, owedOf, rowsOf, termsOf } from '#lib/web/shared/liabilities.ts';
 
 const held = (account: string, parent: string | null, total: string) => ({
 	account,
@@ -152,5 +152,68 @@ describe('the payments on the timeline', () => {
 		expect(lines).toEqual([
 			{ key: 'Liabilities:Card', label: 'Card', circles: [{ bucket: '2026-04-01', paid: 9000 }] },
 		]);
+	});
+});
+
+describe('the terms of the accounts', () => {
+	const line = (account: string, since: string | null, terms: Record<string, string[]>) => ({
+		account,
+		since,
+		terms,
+	});
+
+	it('reads the A * line of each account by its kind', () => {
+		const terms = termsOf([
+			line('Liabilities:Loans:Home', null, { kind: ['loan'], rate: ['8.5%'], payment: ['42,000'] }),
+			line('Liabilities:Card', null, { kind: ['card'], apr: ['42'], due: ['20'] }),
+		]);
+
+		expect(terms).toEqual({
+			'Liabilities:Loans:Home': { kind: 'loan', rate: 8.5, payment: '42,000', method: 'reducing' },
+			'Liabilities:Card': { kind: 'card', apr: 42, due: 20 },
+		});
+	});
+
+	it('leaves out dated lines, which are not read yet, and lines that are neither a loan nor a card', () => {
+		const terms = termsOf([
+			line('Liabilities:Card', '2026-06-01', { kind: ['card'] }),
+			line('Liabilities:Odd', null, { kind: ['house'] }),
+		]);
+
+		expect(terms).toEqual({});
+	});
+
+	it('gives each row its rate, monthly payment and due day, blank when the account has no terms', () => {
+		const owed = owedOf(ACCOUNTS);
+		const terms = termsOf([
+			line('Liabilities:Loans:Home', null, {
+				kind: ['loan'],
+				rate: ['8.5'],
+				payment: ['42,000'],
+				due: ['5'],
+			}),
+			line('Liabilities:Card', null, { kind: ['card'], apr: ['42'], due: ['20'] }),
+		]);
+		const rows = rowsOf(owed, [], true, terms);
+		const shown = (account: string) => rows.find((r) => r.account === account);
+
+		expect(shown('Liabilities:Loans:Home')).toMatchObject({
+			set: true,
+			rate: 8.5,
+			monthly: '42000',
+			due: 5,
+		});
+		expect(shown('Liabilities:Card')).toMatchObject({
+			set: true,
+			rate: 42,
+			monthly: null,
+			due: 20,
+		});
+		expect(shown('Liabilities:Loans:Car')).toMatchObject({
+			set: false,
+			rate: null,
+			monthly: null,
+			due: null,
+		});
 	});
 });

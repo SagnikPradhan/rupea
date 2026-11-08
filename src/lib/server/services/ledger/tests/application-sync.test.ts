@@ -7,6 +7,7 @@ import { byUser } from '#lib/server/shared/storage/storage.ts';
 import { listJobs, runJob } from '#services/jobs/application/jobs.ts';
 import { handlers } from '#services/ledger/adapters/jobs.ts';
 import { syncLedger } from '#services/ledger/application/jobs.ts';
+import * as DB from '#services/ledger/adapters/database.ts';
 import { MODEL } from '#services/ledger/adapters/prediction-model2vec.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
@@ -233,6 +234,52 @@ describe('syncing the ledger', () => {
 
 			expect(await issues(ledger)).toEqual(
 				ok([fault('LinkRepeated', { location: 'a.rupea:1, b.rupea:1', commodity: 'HNFI' })]),
+			);
+		}));
+
+	it('indexes the terms an A line sets, replacing them when the file changes', ({
+		context,
+		db,
+		storage,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const held = async () => (await DB.listTerms(ledger.id))._unsafeUnwrap();
+
+			await put(
+				storage,
+				ledger,
+				'main.rupea',
+				'A * Liabilities:Card\n\t- limit: 50000\n\nA 2026-06-01 Liabilities:Card\n\t- limit: 80000\n',
+			);
+			await Sync.syncIndex(ledger);
+			const first = await held();
+
+			await put(storage, ledger, 'main.rupea', 'A * Liabilities:Loans:Home\n\t- rate: 8.5%\n');
+			await Sync.syncIndex(ledger);
+
+			expect(first.map((t) => [t.account, t.since, t.terms, t.file, t.line])).toEqual([
+				['Liabilities:Card', null, { limit: ['50000'] }, 'main.rupea', 1],
+				['Liabilities:Card', '2026-06-01', { limit: ['80000'] }, 'main.rupea', 4],
+			]);
+			expect((await held()).map((t) => [t.account, t.terms])).toEqual([
+				['Liabilities:Loans:Home', { rate: ['8.5%'] }],
+			]);
+		}));
+
+	it('warns of an account set up twice from one day, across files', ({ context, db, storage }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await put(storage, ledger, 'a.rupea', 'A * Liabilities:Card\n\t- limit: 1\n');
+			await put(storage, ledger, 'b.rupea', 'A * Liabilities:Card\n\t- limit: 2\n');
+
+			expect(await issues(ledger)).toEqual(
+				ok([
+					fault('AccountRepeated', {
+						location: 'a.rupea:1, b.rupea:1',
+						account: 'Liabilities:Card',
+					}),
+				]),
 			);
 		}));
 

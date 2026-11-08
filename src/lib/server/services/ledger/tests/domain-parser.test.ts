@@ -453,6 +453,7 @@ describe('market prices', () => {
 				price(2, '2026-10-17', 'AAPL', '230.5', 'USD'),
 			],
 			links: [],
+			accounts: [],
 			succeeded: [],
 			failed: [],
 		});
@@ -552,6 +553,79 @@ describe('links', () => {
 			prices: [],
 			failed: [{ type: 'ParseInvalidPrice', location: at }],
 		});
+	});
+});
+
+describe('account lines', () => {
+	const parseFile = (lines: string[]) =>
+		parse(defaultConfiguration.ledger, { key: file, content: `${lines.join('\n')}\n` });
+	const terms = (
+		line: number,
+		since: string | null,
+		account: string,
+		kept: Record<string, string[]>,
+	) => ({
+		location: { file, line },
+		since: since === null ? null : Temporal.PlainDate.from(since),
+		account,
+		terms: kept,
+	});
+
+	it('reads A * and the dash lines under it as the terms of an account', () => {
+		const parsed = parseFile([
+			'A * Liabilities:Loans:Home',
+			'- rate: 8.5%',
+			'- payment: 42000',
+			'; a comment under it',
+			'',
+			'2026-10-01 Pay EMI',
+			'\tLiabilities:Loans:Home 42000',
+			'\tAssets:Bank',
+		]);
+
+		expect(parsed.failed).toEqual([]);
+		expect(parsed.accounts).toEqual([
+			terms(1, null, 'Liabilities:Loans:Home', { rate: ['8.5%'], payment: ['42000'] }),
+		]);
+		expect(parsed.succeeded).toHaveLength(1);
+	});
+
+	it('reads a date in place of the star, and an account with no terms', () => {
+		expect(parseFile(['A 2026-01-01 Liabilities:Card']).accounts).toEqual([
+			terms(1, '2026-01-01', 'Liabilities:Card', {}),
+		]);
+	});
+
+	it.each([
+		['no account', 'A *'],
+		['no date', 'A Liabilities:Card'],
+		['a date that is not one', 'A soon Liabilities:Card'],
+		['two accounts', 'A * Liabilities:Card Liabilities:Loan'],
+	])('reads an A line with %s as a bad one', (_, line) => {
+		expect(parseFile([line])).toMatchObject({
+			accounts: [],
+			failed: [{ type: 'ParseInvalidAccountLine', location: at }],
+		});
+	});
+
+	it('rejects an account that is not under a root', () => {
+		expect(parseFile(['A * Mortgage'])).toMatchObject({
+			accounts: [],
+			failed: [{ type: 'ParseInvalidAccount', location: at, account: 'Mortgage' }],
+		});
+	});
+
+	it('rejects a metadata line it cannot read', () => {
+		const parsed = parseFile(['A * Liabilities:Card', '- limit']);
+
+		expect(parsed.accounts).toEqual([]);
+		expect(parsed.failed).toMatchObject([{ type: 'ParseInvalidMetadata', location: `${file}:2` }]);
+	});
+
+	it('still reads A lines after a bad transaction header', () => {
+		const parsed = parseFile(['not a header', 'A * Liabilities:Card', '- limit: 50000']);
+
+		expect(parsed.accounts).toEqual([terms(2, null, 'Liabilities:Card', { limit: ['50000'] })]);
 	});
 });
 

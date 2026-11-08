@@ -303,6 +303,33 @@ export const symbolLinks = PG.pgTable(
 );
 
 /**
+ * What an A line sets an account up with from since on, or from the start when
+ * it is null: the dash lines under it, by key.
+ */
+export const accountTerms = PG.pgTable(
+	'account_terms',
+	(t) => ({
+		...base,
+		ledgerId: t
+			.uuid()
+			.notNull()
+			.references(() => ledgers.id, { onDelete: 'cascade' }),
+		account: t.text().notNull(),
+		since: t.date(),
+		terms: t.jsonb().$type<Record<string, string[]>>().notNull(),
+		fileId: t
+			.uuid()
+			.notNull()
+			.references(() => ledgerFiles.id, { onDelete: 'cascade' }),
+		line: t.integer().notNull(),
+	}),
+	(t) => [
+		PG.index('account_terms_ledger_id_account').on(t.ledgerId, t.account),
+		PG.index('account_terms_file_id').on(t.fileId),
+	],
+);
+
+/**
  * How a feed symbol's last fetches went: when one last worked, and since when
  * they have failed.
  */

@@ -1,14 +1,15 @@
 <script lang="ts">
-	import { listAccounts, listDeltas } from '#lib/endpoints/accounts.remote.ts';
+	import { listAccounts, listDeltas, listTerms } from '#lib/endpoints/accounts.remote.ts';
 	import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
 	import { paramsOf, periodOf } from '#lib/shared/dates.ts';
 	import { BalanceAccount, LIABILITIES } from '#lib/shared/accounts.ts';
 	import { depthOf, isUnder } from '#lib/web/shared/accounts.ts';
 	import { formatIsoDate, formatWhole } from '#lib/web/shared/format.ts';
-	import { linesOf, owedOf, rowsOf } from '#lib/web/shared/liabilities.ts';
+	import { linesOf, owedOf, rowsOf, termsOf } from '#lib/web/shared/liabilities.ts';
 	import { ringsOf } from '#lib/web/shared/rings.ts';
 	import AccountName from '#lib/web/components/app-account-name/app-account-name.svelte';
 	import ListFilter from '#lib/web/components/app-list-filter/app-list-filter.svelte';
+	import TermsForm from '#lib/web/components/app-terms-form/app-terms-form.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import Amount from '#lib/web/components/app-ledger-table/amount.svelte';
 	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
@@ -18,10 +19,13 @@
 	import FilterSection from '#lib/web/components/ui-filter-section/ui-filter-section.svelte';
 	import Kpi from '#lib/web/components/ui-kpi/ui-kpi.svelte';
 	import KpiStrip from '#lib/web/components/ui-kpi-strip/ui-kpi-strip.svelte';
+	import Aside from '#lib/web/components/ui-aside/ui-aside.svelte';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
+	import { hrefWith } from '#lib/web/shared/links.ts';
+	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import * as v from 'valibot';
 
@@ -37,17 +41,21 @@
 	const account = $derived(picked !== null && isUnder(picked, LIABILITIES) ? picked : null);
 	const settled = $derived(page.url.searchParams.get('settled') === 'yes');
 
-	const [response, flowed, first] = $derived(
+	const setup = $derived(page.url.searchParams.get('setup'));
+
+	const [response, flowed, first, written] = $derived(
 		await Promise.all([
 			listAccounts({ handle, day, period }),
 			listDeltas({ handle, day, period, account: LIABILITIES }),
 			findFirstDay(handle),
+			listTerms(handle),
 		]),
 	);
 	const moved = $derived(flowed.data?.[0]);
 	const owed = $derived(owedOf(response.data ?? []));
 	const shown = $derived(owed.filter((a) => isUnder(a.account, account)));
-	const rows = $derived(rowsOf(shown, moved?.totals ?? [], settled));
+	const terms = $derived(termsOf(written.data ?? []));
+	const rows = $derived(rowsOf(shown, moved?.totals ?? [], settled, terms));
 	const lines = $derived(
 		linesOf(
 			(moved?.deltas ?? []).filter((d) => isUnder(d.account, account)),
@@ -61,6 +69,11 @@
 			? undefined
 			: `${rings.skipped} ${rings.skipped === 1 ? 'account is' : 'accounts are'} in credit, so not drawn`,
 	);
+
+	const current = $derived(
+		(written.data ?? []).find((t) => t.account === setup && t.since === null)?.terms ?? {},
+	);
+	const setupHref = (a: string | null) => hrefWith(page.url.searchParams, { setup: a ?? '' });
 
 	const postingsOf = (a: string) =>
 		`/l/${handle}/postings?${new URLSearchParams({ account: a, ...paramsOf(period) })}`;
@@ -138,7 +151,16 @@
 </PanelGrid>
 
 <PanelGrid>
-	<Panel title="Card balance" subtitle="the average balance of the cards, by month" soon />
+	{#if setup}
+		<Aside title="Set up {nameOf(setup)}" onclose={() => goto(setupHref(null))}>
+			{#key setup}
+				<TermsForm {handle} account={setup} {current} onsaved={() => {}} />
+			{/key}
+		</Aside>
+	{/if}
+	{#if !setup}
+		<Panel title="Card balance" subtitle="the average balance of the cards, by month" soon />
+	{/if}
 	<Panel
 		title="All liabilities"
 		subtitle="{rows.length} {rows.length === 1 ? 'account' : 'accounts'} · {formatWhole(
@@ -151,6 +173,10 @@
 					{ label: 'Account' },
 					{ label: 'Owed', kind: 'amount' },
 					{ label: 'Paid down', kind: 'amount' },
+					{ label: 'Rate', kind: 'amount' },
+					{ label: 'Monthly', kind: 'amount' },
+					{ label: 'Due', kind: 'amount' },
+					{ label: 'Terms' },
 				]}
 			>
 				<tbody>
@@ -164,6 +190,10 @@
 							</th>
 							<Amount value={row.owed} />
 							<Amount value={row.paid} signed />
+							<td class="amount">{row.rate === null ? '' : `${row.rate}%`}</td>
+							<Amount value={row.monthly} />
+							<td class="amount">{row.due ?? ''}</td>
+							<td><a href={setupHref(row.account)}>{row.set ? 'Edit' : 'Set up'}</a></td>
 						</tr>
 					{/each}
 				</tbody>

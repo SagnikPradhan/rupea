@@ -58,6 +58,10 @@ _Avoid_: Ticker, code
 A `P` line naming a feed's symbol in place of a price, so a commodity is priced by that feed from its date, or from the start with `*`.
 _Avoid_: Mapping, binding
 
+**Terms**:
+What an account is set up with by an `A` line: a loan's rate and EMI, a card's limit and due day. Kept as written in the ledger's files, and read by the app according to the account's kind.
+_Avoid_: Settings, configuration, details
+
 **Alias**:
 The commodity a link prices, as the ledger names it.
 _Avoid_: Local symbol

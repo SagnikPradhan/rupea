@@ -4,6 +4,7 @@ export type RupeaError =
 	| { type: 'CannotReadFile'; path: string; reason: string; cause?: RupeaError[] }
 	| { type: 'CannotMergeFile'; path: string }
 	| { type: 'CannotWriteTransaction'; path: string }
+	| { type: 'CannotWriteTerms'; path: string }
 	| { type: 'TransactionNotFound'; path: string; line: number }
 	| { type: 'StorageInvalidKey'; key: string }
 	| { type: 'StorageNotFound'; key: string }
@@ -24,6 +25,8 @@ export type RupeaError =
 	| { type: 'ParseDetachedMetadata'; location: string }
 	| { type: 'ParseInvalidPrice'; location: string }
 	| { type: 'ParseUnknownFeed'; location: string; feed: string }
+	| { type: 'ParseInvalidAccountLine'; location: string }
+	| { type: 'AccountRepeated'; location: string; account: string }
 	| { type: 'LinkRepeated'; location: string; commodity: string }
 	| { type: 'FeedUnavailable'; feed: string; symbol: string; status?: number }
 	| { type: 'FeedSymbolUnknown'; feed: string; symbol: string }

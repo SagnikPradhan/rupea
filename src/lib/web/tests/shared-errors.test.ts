@@ -59,6 +59,18 @@ describe('explain', () => {
 			'“google” isn’t a feed. Link to mfapi or yahoo.',
 		],
 		[
+			fault('ParseInvalidAccountLine', { location: at }),
+			'This A line should give a date or *, then an account.',
+		],
+		[
+			fault('CannotWriteTerms', { path: 'main.rupea' }),
+			'These terms wouldn’t read back as written. Check them for a line break.',
+		],
+		[
+			fault('AccountRepeated', { location: at, account: 'Liabilities:Card' }),
+			'Liabilities:Card is set up more than once from the same day.',
+		],
+		[
 			fault('LinkRepeated', { location: at, commodity: 'HNFI' }),
 			'HNFI is linked more than once from the same day.',
 		],

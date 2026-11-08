@@ -80,6 +80,7 @@ const ledger = (t: RupeaTransaction[]): RupeaLedgerFile => ({
 	transactions: t,
 	prices: [],
 	links: [],
+	accounts: [],
 });
 
 const annotated: RupeaLedgerFile = {
@@ -128,6 +129,7 @@ const annotated: RupeaLedgerFile = {
 	],
 	prices: [],
 	links: [],
+	accounts: [],
 };
 
 const printed = (t: RupeaLedgerFile) => print(defaultConfiguration.ledger, toNode(t));
@@ -195,6 +197,7 @@ describe('printing a ledger', () => {
 			metadata: {},
 			prices: [],
 			links: [],
+			accounts: [],
 			succeeded: transactions,
 			failed: [],
 		});
@@ -226,6 +229,7 @@ describe('printing a ledger', () => {
 			metadata: annotated.metadata,
 			prices: [],
 			links: [],
+			accounts: [],
 			succeeded: annotated.transactions,
 			failed: [],
 		});
@@ -330,6 +334,25 @@ describe('printing a ledger', () => {
 			'P * HNFI mfapi:120716',
 			'',
 		]);
+	});
+
+	it('writes A lines with their terms where they were, and reads them back', () => {
+		const content = [
+			'A * Liabilities:Loans:Home',
+			'\t- rate: 8.5%',
+			'\t- payment: 42000',
+			'; a comment under an A line',
+			'',
+			'P 2026-10-17 INFY 1820.00',
+			'',
+			'A 2026-01-01 Liabilities:Card',
+			'',
+		].join('\n');
+		const parsed = parse(defaultConfiguration.ledger, { key: 'a.rupea', content });
+
+		expect(parsed.failed).toEqual([]);
+		expect(parsed.accounts).toHaveLength(2);
+		expect(reprinted(content)).toBe(content);
 	});
 
 	it('writes P lines in a row as one block', () => {

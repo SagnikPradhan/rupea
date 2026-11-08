@@ -120,11 +120,23 @@ export type RupeaLink = {
 	symbol: string;
 };
 
+/**
+ * What an account is set up with from a day on, or from the start when since is
+ * null: the dash lines under an A line, kept as written.
+ */
+export type RupeaAccount = {
+	location: RupeaParseLocation;
+	since: Temporal.PlainDate | null;
+	account: string;
+	terms: RupeaMetadata;
+};
+
 export type RupeaLedgerFile = {
 	metadata: RupeaMetadata;
 	transactions: RupeaTransaction[];
 	prices: RupeaMarketPrice[];
 	links: RupeaLink[];
+	accounts: RupeaAccount[];
 };
 
 /**
@@ -137,6 +149,7 @@ export enum NodeKind {
 	Posting = 'posting',
 	Price = 'price',
 	Link = 'link',
+	Account = 'account',
 	Note = 'note',
 	Failed = 'failed',
 }
@@ -153,7 +166,12 @@ export type RupeaFileNode = {
 };
 
 export type RupeaEntryNode =
-	RupeaTransactionNode | RupeaPriceNode | RupeaLinkNode | RupeaNoteNode | RupeaFailedNode;
+	| RupeaTransactionNode
+	| RupeaPriceNode
+	| RupeaLinkNode
+	| RupeaAccountNode
+	| RupeaNoteNode
+	| RupeaFailedNode;
 
 export type RupeaNode = RupeaFileNode | RupeaEntryNode | RupeaPostingNode;
 
@@ -201,6 +219,16 @@ export type RupeaLinkNode = {
 	commodity: string;
 	feed: Feed;
 	symbol: string;
+	children: [];
+};
+
+export type RupeaAccountNode = {
+	kind: NodeKind.Account;
+	location: RupeaParseLocation;
+	comments: string[];
+	since: Temporal.PlainDate | null;
+	account: string;
+	metadata: RupeaEntries;
 	children: [];
 };
 

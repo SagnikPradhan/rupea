@@ -111,7 +111,7 @@
 
 	.plot {
 		position: relative;
-		height: calc(var(--size-3) * (var(--lanes) + 1) + var(--size-2));
+		height: calc(var(--size-3) * (var(--lanes) + 2) + var(--size-2));
 		border-block-end: var(--size-line-0) solid var(--color-border);
 	}
 
@@ -152,7 +152,7 @@
 
 	.stem {
 		width: var(--size-line-0);
-		height: calc(var(--size-3) * var(--lane) + var(--size-1));
+		height: calc(var(--size-3) * var(--lane) + var(--size-3));
 		background: var(--color-border);
 	}
 

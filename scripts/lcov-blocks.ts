@@ -27,6 +27,6 @@ const numberFile = (file: string): string => {
 	return file.replace(BRANCH, renumbered);
 };
 
-if (import.meta.main)
-	for (const path of process.argv.slice(2))
-		await writeFile(path, numberBlocks(await readFile(path, 'utf8')));
+const renumber = async (p: string) => writeFile(p, numberBlocks(await readFile(p, 'utf8')));
+
+if (import.meta.main) await Promise.all(process.argv.slice(2).map(renumber));

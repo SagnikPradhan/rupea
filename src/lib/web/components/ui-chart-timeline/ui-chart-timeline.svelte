@@ -1,102 +1,138 @@
 <script lang="ts">
-	import { formatAmount, formatBucket } from '#lib/web/shared/format.ts';
+	import { formatAmount, formatBucket, formatMonth } from '#lib/web/shared/format.ts';
 
 	type Props = {
-		/** The payments in the order of their days, each drawn as a pin. */
-		dues: { key: string; label: string; amount: number; due: string }[];
+		/** A line for each account, with a pin for each payment made or still due. */
+		lines: {
+			key: string;
+			label: string;
+			pins: { at: string; amount: number; past: boolean }[];
+		}[];
+		/** The first and last day of the axis, and the day the past ends. */
+		from: string;
+		to: string;
+		today: string;
 		label: string;
 	};
 
-	const { dues, label }: Props = $props();
+	const { lines, from, to, today, label }: Props = $props();
 
-	const widest = $derived(Math.max(...dues.map((d) => d.amount), 0));
+	const widest = $derived(Math.max(...lines.flatMap((l) => l.pins.map((p) => p.amount)), 0));
+	const months = $derived(
+		(Number(to.slice(0, 4)) - Number(from.slice(0, 4))) * 12 +
+			Number(to.slice(5, 7)) -
+			Number(from.slice(5, 7)),
+	);
+	const yearly = $derived(months > 14);
+	const ticks = $derived(
+		Array.from({ length: yearly ? Math.ceil(months / 12) + 1 : months + 2 }, (_, k) =>
+			new Date(
+				Date.UTC(
+					Number(from.slice(0, 4)),
+					(yearly ? 0 : Number(from.slice(5, 7)) - 1) + k * (yearly ? 12 : 1),
+					1,
+				),
+			)
+				.toISOString()
+				.slice(0, 10),
+		).filter((d) => d >= from && d <= to),
+	);
+
+	const leftOf = (d: string) =>
+		Math.min(
+			Math.max((Date.parse(d) - Date.parse(from)) / (Date.parse(to) - Date.parse(from)), 0),
+			1,
+		) * 100;
 </script>
 
-<ol aria-label={label}>
-	{#each dues as d (d.key)}
-		<li style:--spread={Math.sqrt(d.amount / widest)}>
-			<span class="name">{d.label}</span>
-			<data value={d.amount}>{formatAmount(String(d.amount))}</data>
-			<span class="bubble"><span class="circle"></span></span>
-			<span class="stem"></span>
-			<span class="axis"></span>
-			<time datetime={d.due}>{formatBucket.day(d.due)}</time>
-		</li>
+<div class="chart" role="list" aria-label={label} style:--today="{leftOf(today)}%">
+	{#each lines as line (line.key)}
+		<div class="line" role="listitem">
+			<span class="name">{line.label}</span>
+			<div class="track">
+				{#each line.pins as p (p.at)}
+					<data
+						class={{ pin: true, past: p.past }}
+						style:left="{leftOf(p.at)}%"
+						style:--spread={Math.sqrt(p.amount / widest)}
+						value={p.amount}
+						title="{line.label} · {formatAmount(String(p.amount))} · {formatBucket.day(p.at)}"
+					></data>
+				{/each}
+			</div>
+		</div>
 	{/each}
-</ol>
+	<div class="line">
+		<span></span>
+		<div class="ticks" aria-hidden="true">
+			{#each ticks as t (t)}
+				<time datetime={t} style:left="{leftOf(t)}%"
+					>{yearly ? formatBucket.year(t) : formatMonth(t)}</time
+				>
+			{/each}
+		</div>
+	</div>
+</div>
 
 <style>
-	ol {
+	.chart {
 		display: flex;
-		margin: 0;
-		padding: 0;
-		overflow-x: auto;
-		list-style: none;
+		flex-direction: column;
+		gap: var(--size-1);
 	}
 
-	li {
-		display: flex;
-		flex: 1;
-		flex-direction: column;
+	.line {
+		display: grid;
+		grid-template-columns: calc(var(--size-5) * 2) 1fr;
 		align-items: center;
-		min-width: calc(var(--size-5) * 1.25);
+		gap: var(--size-2);
 	}
 
 	.name {
-		max-width: 100%;
 		overflow: hidden;
 		font: var(--text-base);
 		text-overflow: ellipsis;
 		white-space: nowrap;
 	}
 
-	data,
-	time {
-		color: var(--color-muted);
-		font: var(--text-data);
-	}
-
-	.bubble {
-		display: flex;
-		align-items: flex-end;
-		justify-content: center;
-		height: var(--size-5);
-		margin-block-start: var(--size-1);
-	}
-
-	.circle {
-		width: calc(var(--size-5) * var(--spread));
-		aspect-ratio: 1;
-		background: var(--color-ink-2);
-		border-radius: 50%;
-	}
-
-	.stem {
-		width: var(--size-line-0);
-		height: var(--size-3);
-		background: var(--color-ink);
-	}
-
-	.axis {
+	.track {
 		position: relative;
-		width: 100%;
-		height: var(--size-line-0);
-		background: var(--color-border);
+		height: var(--size-4);
+		border-block-end: var(--size-line-0) solid var(--color-border);
 	}
 
-	.axis::after {
+	.track::before {
+		position: absolute;
+		inset-block: 0;
+		inset-inline-start: var(--today);
+		border-inline-start: var(--size-line-0) dashed var(--color-border);
+		content: '';
+	}
+
+	.pin {
 		position: absolute;
 		inset-block-start: 50%;
-		inset-inline-start: 50%;
-		width: var(--size-0);
+		width: calc(var(--size-3) * var(--spread));
+		min-width: var(--size-1);
 		aspect-ratio: 1;
-		background: var(--color-ink);
+		border: var(--size-line-0) solid var(--color-ink-2);
 		border-radius: 50%;
-		content: '';
 		transform: translate(-50%, -50%);
 	}
 
+	.past {
+		background: var(--color-ink-2);
+	}
+
+	.ticks {
+		position: relative;
+		height: 1lh;
+	}
+
 	time {
-		margin-block-start: var(--size-1);
+		position: absolute;
+		color: var(--color-muted);
+		font: var(--text-data);
+		transform: translateX(-50%);
 	}
 </style>

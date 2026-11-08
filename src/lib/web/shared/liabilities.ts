@@ -54,38 +54,61 @@ const columnsOf = (s: Set | undefined) => ({
 });
 
 /**
- * The payments that fall due in the thirty days from today: a loan's monthly
- * payment and what a card holds, on the next day of the month each is due.
+ * The payments that fall due from today to the end of the period: a loan's
+ * monthly payment and what a card holds, on its due day of each month.
  */
-export const duesOf = (owed: Held[], set: Set[], today: string) => {
+export const duesOf = (owed: Held[], set: Set[], today: string, to: string) => {
 	const parents = new Set(owed.map((a) => a.parent));
 	const held = Object.fromEntries(set.map((s) => [s.account.toLowerCase(), s.held]));
-	const last = shifted(today, 30);
+	const first = new Date(today);
+	const months = (Number(to.slice(0, 4)) - first.getUTCFullYear()) * 12 + 12;
 
 	return owed
 		.filter((a) => !parents.has(a.account))
 		.flatMap((a) => {
 			const terms = held[a.account.toLowerCase()];
 			const amount = Number(terms?.kind === 'loan' ? terms.payment?.replaceAll(',', '') : a.total);
-			const due = terms?.due ? nextDue(today, terms.due) : '';
+			const day = terms?.due ?? 0;
 
-			return amount > 0 && due !== '' && due <= last
-				? [{ key: a.account, label: nameOf(a.account), amount, due }]
+			return amount > 0 && day > 0
+				? Array.from({ length: months }, (_, k) =>
+						dayOf(first.getUTCFullYear(), first.getUTCMonth() + k, day),
+					)
+						.filter((d) => d >= today && d <= to)
+						.map((d) => ({ key: a.account, label: nameOf(a.account), amount, due: d }))
 				: [];
-		})
-		.toSorted((a, b) => byCodeUnit(a.due, b.due));
+		});
 };
 
-const nextDue = (today: string, day: number) => {
-	const t = new Date(today);
-	const here = dayOf(t.getUTCFullYear(), t.getUTCMonth(), day);
-	return here >= today ? here : dayOf(t.getUTCFullYear(), t.getUTCMonth() + 1, day);
+/**
+ * A line for each loan or card with payments, holding a pin for each payment
+ * made in the period and each one still to fall due.
+ */
+export const linesOf = (
+	owed: Held[],
+	paid: { account: string; bucket: string; amount: string }[],
+	dues: { key: string; amount: number; due: string }[],
+) => {
+	const parents = new Set(owed.map((a) => a.parent));
+	const pins = [
+		...paid
+			.filter((p) => Number(p.amount) > 0)
+			.map((p) => ({ key: p.account, at: p.bucket, amount: Number(p.amount), past: true })),
+		...dues.map((d) => ({ key: d.key, at: d.due, amount: d.amount, past: false })),
+	];
+
+	return owed
+		.filter((a) => !parents.has(a.account))
+		.map((a) => ({
+			key: a.account,
+			label: nameOf(a.account),
+			pins: pins.filter((p) => p.key === a.account).toSorted((a, b) => byCodeUnit(a.at, b.at)),
+		}))
+		.filter((l) => l.pins.length > 0)
+		.toSorted((a, b) => byCodeUnit(a.label, b.label));
 };
 
 const dayOf = (year: number, month: number, day: number) => {
 	const last = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
 	return new Date(Date.UTC(year, month, Math.min(day, last))).toISOString().slice(0, 10);
 };
-
-const shifted = (d: string, n: number) =>
-	new Date(Date.parse(d) + n * 86_400_000).toISOString().slice(0, 10);

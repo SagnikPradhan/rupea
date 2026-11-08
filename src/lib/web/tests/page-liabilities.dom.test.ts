@@ -134,19 +134,23 @@ describe('the liabilities page', () => {
 		expect(screen.getByText(/3,00,000 owed/)).toBeTruthy();
 	});
 
-	it('stands a pin on the next 30 days for each account with a due day and an amount', async () => {
+	it('stands a pin for each payment made and each one still due, a line to each account', async () => {
+		vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-08') });
 		open('/l/h/liabilities');
 
-		const pins = await screen.findByRole('list', { name: /^The payments due in the next 30 days/ });
-		expect(pins.querySelectorAll('li')).toHaveLength(1);
-		expect(within(pins).getByText('42,000')).toBeTruthy();
-		expect(screen.getByText(/1 payment · 42,000 in all/)).toBeTruthy();
+		const chart = await screen.findByRole('list', { name: /^The payments made and due/ });
+		const [car, home] = within(chart).getAllByRole('listitem');
+		expect(home?.querySelectorAll('data.past')).toHaveLength(2);
+		expect(home?.querySelectorAll('data:not(.past)')).toHaveLength(1);
+		expect(car?.querySelectorAll('data.past')).toHaveLength(1);
+		expect(screen.getByText(/3 made · 1 still to fall due/)).toBeTruthy();
+		vi.useRealTimers();
 	});
 
-	it('says so when nothing is due in the next 30 days', async () => {
-		open('/l/h/liabilities', [moved], []);
+	it('says so when no payment was made or is due in the period', async () => {
+		open('/l/h/liabilities', [{ ...moved, deltas: [], totals: [] }], []);
 
-		expect(await screen.findByText('Nothing due in the next 30 days.')).toBeTruthy();
+		expect(await screen.findByText('No payments in this period.')).toBeTruthy();
 	});
 
 	it('divides what is owed into rings, and says so when an account is in credit', async () => {

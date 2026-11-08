@@ -5,7 +5,7 @@
 	import { BalanceAccount, LIABILITIES } from '#lib/shared/accounts.ts';
 	import { depthOf, isUnder, nameOf } from '#lib/web/shared/accounts.ts';
 	import { formatIsoDate, formatWhole } from '#lib/web/shared/format.ts';
-	import { duesOf, owedOf, rowsOf } from '#lib/web/shared/liabilities.ts';
+	import { duesOf, linesOf, owedOf, rowsOf } from '#lib/web/shared/liabilities.ts';
 	import { ringsOf } from '#lib/web/shared/rings.ts';
 	import AccountName from '#lib/web/components/app-account-name/app-account-name.svelte';
 	import ListFilter from '#lib/web/components/app-list-filter/app-list-filter.svelte';
@@ -53,8 +53,12 @@
 	const owed = $derived(owedOf(response.data ?? []));
 	const shown = $derived(owed.filter((a) => isUnder(a.account, account)));
 	const rows = $derived(rowsOf(shown, moved?.totals ?? [], settled, termed.data ?? []));
-	const dues = $derived(duesOf(owed, termed.data ?? [], day));
-	const owing = $derived(formatWhole(String(dues.reduce((t, d) => t + d.amount, 0))));
+	const from = $derived(moved?.from ?? `${day.slice(0, 4)}-01-01`);
+	const to = $derived(moved?.to ?? `${day.slice(0, 4)}-12-31`);
+	const dues = $derived(duesOf(owed, termed.data ?? [], day, to));
+	const lines = $derived(linesOf(owed, moved?.deltas ?? [], dues));
+	const pins = $derived(lines.flatMap((l) => l.pins));
+	const made = $derived(pins.filter((p) => p.past).length);
 	const total = $derived(shown.find((a) => a.account === (account ?? LIABILITIES))?.total ?? '0');
 	const rings = $derived(ringsOf(owed, account ?? LIABILITIES));
 	const credit = $derived(
@@ -104,14 +108,11 @@
 <Issues {handle} errors={[...(response.errors ?? []), ...(flowed.errors ?? [])]} />
 
 <PanelGrid narrow>
-	<Panel
-		title="Next 30 days"
-		subtitle="{dues.length} {dues.length === 1 ? 'payment' : 'payments'} · {owing} in all"
-	>
-		{#if dues.length > 0}
-			<Timeline {dues} label="The payments due in the next 30 days, by day" />
+	<Panel title="Payments" subtitle="{made} made · {pins.length - made} still to fall due, by day">
+		{#if lines.length > 0}
+			<Timeline {lines} {from} {to} today={day} label="The payments made and due on each account" />
 		{:else}
-			<p>Nothing due in the next 30 days.</p>
+			<p>No payments in this period.</p>
 		{/if}
 	</Panel>
 	<KpiStrip>

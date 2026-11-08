@@ -1,5 +1,7 @@
 import { LIABILITIES } from '#lib/shared/accounts.ts';
-import { isUnder } from './accounts';
+import { isUnder, nameOf } from './accounts';
+
+const ZERO = /^-?0*(\.0*)?$/;
 
 type Held = { account: string; parent: string | null; total: string; unpriced: number };
 
@@ -12,9 +14,12 @@ type Payment = { account: string; bucket: string; amount: string };
  * owed, so an account in credit owes less than nothing.
  */
 export const owedOf = (h: Held[]) =>
-	h
-		.filter((a) => isUnder(a.account, LIABILITIES))
-		.map((a) => ({ ...a, total: String(-Number(a.total)) }));
+	h.filter((a) => isUnder(a.account, LIABILITIES)).map((a) => ({ ...a, total: flipped(a.total) }));
+
+const flipped = (t: string) => {
+	if (ZERO.test(t)) return t;
+	return t.startsWith('-') ? t.slice(1) : `-${t}`;
+};
 
 /**
  * A row for each account under the root with what it owes and what it paid down
@@ -33,7 +38,7 @@ export const rowsOf = (owed: Held[], moved: Moved[], settled: boolean) => {
 			unpriced: a.unpriced,
 		}));
 
-	return settled ? rows : rows.filter((r) => Number(r.owed) !== 0 || Number(r.paid) !== 0);
+	return settled ? rows : rows.filter((r) => !ZERO.test(r.owed) || !ZERO.test(r.paid));
 };
 
 /**
@@ -41,14 +46,16 @@ export const rowsOf = (owed: Held[], moved: Moved[], settled: boolean) => {
  * down in; the groups over them are left out, as are buckets where it grew.
  */
 export const linesOf = (payments: Payment[], owed: Held[]) => {
-	const parents = owed.map((a) => a.parent);
-	const paid = payments.filter((p) => !parents.includes(p.account) && Number(p.amount) > 0);
+	const parents = new Set(owed.map((a) => a.parent));
+	const debts = new Set(owed.filter((a) => !parents.has(a.account)).map((a) => a.account));
+	const paid = payments.filter((p) => debts.has(p.account) && Number(p.amount) > 0);
 	const byAccount = Object.groupBy(paid, (p) => p.account);
 
 	return Object.keys(byAccount)
 		.toSorted()
 		.map((account) => ({
-			account,
+			key: account,
+			label: nameOf(account),
 			circles: (byAccount[account] ?? []).map((p) => ({
 				bucket: p.bucket,
 				paid: Number(p.amount),

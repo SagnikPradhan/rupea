@@ -123,8 +123,8 @@ export const listReturns = query(
 );
 
 /**
- * What flowed under an Expenses or Income account over a period, then over the
- * one before it when there is one.
+ * What flowed under an Expenses, Income or Liabilities account over a period,
+ * then over the one before it when there is one.
  */
 export const listDeltas = query(
 	v.object({ handle: Handle, day: Day, period: Period, account: FlowAccount }),
@@ -141,7 +141,10 @@ export const listDeltas = query(
 	},
 );
 
-/** What an Expenses account averaged on each day of the month over a period. */
+/**
+ * What an Expenses, Income or Liabilities account averaged on each day of the
+ * month over a period.
+ */
 export const listDailyDeltas = query(
 	v.object({ handle: Handle, day: Day, period: Period, account: FlowAccount }),
 	({ handle, day, period, account }) =>

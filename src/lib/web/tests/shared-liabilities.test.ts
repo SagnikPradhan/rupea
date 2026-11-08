@@ -35,6 +35,14 @@ describe('what is owed', () => {
 		]);
 	});
 
+	it('keeps every digit of a large amount with decimals', () => {
+		const owed = owedOf([
+			held('Liabilities:Loan', 'Liabilities', '-12345678901234567890.1234567891'),
+		]);
+
+		expect(owed.map((a) => a.total)).toEqual(['12345678901234567890.1234567891']);
+	});
+
 	it('shows an account in credit as owing less than nothing', () => {
 		const owed = owedOf([
 			held('Liabilities', null, '500'),
@@ -71,6 +79,12 @@ describe('the rows of the table', () => {
 		expect(rows.map((r) => r.account)).toContain('Liabilities:Loans:Old');
 	});
 
+	it('treats a balance of 0.00 as settled', () => {
+		const rows = rowsOf(owedOf([held('Liabilities:Old', 'Liabilities', '0.00')]), [], false);
+
+		expect(rows).toEqual([]);
+	});
+
 	it('brings back every settled account when asked', () => {
 		const rows = rowsOf(owed, totals, true);
 
@@ -94,17 +108,36 @@ describe('the payments on the timeline', () => {
 
 		expect(lines).toEqual([
 			{
-				account: 'Liabilities:Loans:Car',
+				key: 'Liabilities:Loans:Car',
+				label: 'Car',
 				circles: [{ bucket: '2026-03-01', paid: 2000 }],
 			},
 			{
-				account: 'Liabilities:Loans:Home',
+				key: 'Liabilities:Loans:Home',
+				label: 'Home',
 				circles: [
 					{ bucket: '2026-03-01', paid: 10000 },
 					{ bucket: '2026-04-01', paid: 10000 },
 				],
 			},
 		]);
+	});
+
+	it('draws one row for a loan under a group nothing is posted to, which listAccounts leaves out', () => {
+		const alone = owedOf([
+			held('Liabilities', null, '-250000'),
+			held('Liabilities:Loans:Home', 'Liabilities', '-250000'),
+		]);
+
+		const lines = linesOf(
+			[
+				{ account: 'Liabilities:Loans', bucket: '2026-03-01', amount: '10000' },
+				{ account: 'Liabilities:Loans:Home', bucket: '2026-03-01', amount: '10000' },
+			],
+			alone,
+		);
+
+		expect(lines.map((l) => l.key)).toEqual(['Liabilities:Loans:Home']);
 	});
 
 	it('leaves out a bucket where the debt grew', () => {
@@ -117,7 +150,7 @@ describe('the payments on the timeline', () => {
 		);
 
 		expect(lines).toEqual([
-			{ account: 'Liabilities:Card', circles: [{ bucket: '2026-04-01', paid: 9000 }] },
+			{ key: 'Liabilities:Card', label: 'Card', circles: [{ bucket: '2026-04-01', paid: 9000 }] },
 		]);
 	});
 });

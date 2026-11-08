@@ -19,7 +19,14 @@
 	const hovered = $state({ key: null as string | null, bucket: null as string | null });
 	const measured = $state({ rect: undefined as DOMRectReadOnly | undefined });
 
-	const widest = $derived(Math.max(...lines.flatMap((l) => l.circles.map((c) => c.paid)), 0));
+	const widest = $derived(
+		Math.max(
+			...lines.flatMap((l) =>
+				l.circles.filter((c) => buckets.includes(c.bucket)).map((c) => c.paid),
+			),
+			0,
+		),
+	);
 	const step = $derived(Math.ceil(buckets.length / labelsIn(measured.rect?.width ?? 0, 'across')));
 	const across = $derived(
 		buckets.flatMap((b, i) =>

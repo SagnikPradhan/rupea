@@ -3,7 +3,7 @@
 	import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
 	import { paramsOf, periodOf } from '#lib/shared/dates.ts';
 	import { BalanceAccount, LIABILITIES } from '#lib/shared/accounts.ts';
-	import { depthOf, isUnder, nameOf } from '#lib/web/shared/accounts.ts';
+	import { depthOf, isUnder } from '#lib/web/shared/accounts.ts';
 	import { formatIsoDate, formatWhole } from '#lib/web/shared/format.ts';
 	import { linesOf, owedOf, rowsOf } from '#lib/web/shared/liabilities.ts';
 	import { ringsOf } from '#lib/web/shared/rings.ts';
@@ -52,7 +52,7 @@
 		linesOf(
 			(moved?.deltas ?? []).filter((d) => isUnder(d.account, account)),
 			owed,
-		).map((l) => ({ ...l, key: l.account, label: nameOf(l.account) })),
+		),
 	);
 	const total = $derived(shown.find((a) => a.account === (account ?? LIABILITIES))?.total ?? '0');
 	const rings = $derived(ringsOf(owed, account ?? LIABILITIES));

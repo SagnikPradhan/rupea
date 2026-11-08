@@ -7,6 +7,7 @@ import {
 	findTransactionFiles,
 	saveTransaction,
 } from '#lib/endpoints/files.remote.ts';
+import { listAccountNames } from '#lib/endpoints/accounts.remote.ts';
 import { goto } from '$app/navigation';
 import { fault } from '#lib/server/shared/result/error.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
@@ -502,5 +503,119 @@ describe('the edit transaction panel', () => {
 
 		expect((await screen.findByRole('alert')).textContent).toContain('no longer where it was');
 		expect(goto).not.toHaveBeenCalled();
+	});
+});
+
+describe('the lines of an entry', () => {
+	const suggested = () =>
+		[...document.querySelectorAll('#transaction-accounts option')].map((o) =>
+			o.getAttribute('value'),
+		);
+
+	beforeEach(() => {
+		vi.mocked(listAccountNames).mockClear();
+		vi.mocked(createTransaction).mockReset();
+		vi.mocked(findTransactionFiles).mockReturnValue(
+			answer({ keys: ['b.rupea'], newest: 'b.rupea' }),
+		);
+	});
+
+	it('suggests accounts of the kind as someone comes to a box or types in it', async () => {
+		await opened();
+		await fireEvent.focus(screen.getByLabelText(/^Category/));
+		await type('Paid from', 'Ba');
+
+		await vi.waitFor(() => expect(suggested()).toEqual(['Assets:Bank']));
+		const prefixes = vi.mocked(listAccountNames).mock.calls.map((c) => c[0].prefix);
+		expect(prefixes).toEqual(['Expenses', 'Assets:Ba', 'Liabilities:Ba']);
+	});
+
+	it('suggests accounts by what is typed in a line, and not by kind', async () => {
+		await opened();
+		await detail();
+		const [account] = (await screen.findAllByLabelText(/^Account/)) as HTMLInputElement[];
+		await fireEvent.focus(account!);
+		await fireEvent.input(account!, { target: { value: 'Exp' } });
+
+		await vi.waitFor(() => expect(suggested()).toEqual(['Assets:Bank']));
+		const prefixes = vi.mocked(listAccountNames).mock.calls.map((c) => c[0].prefix);
+		expect(prefixes).toEqual(['', 'Exp']);
+	});
+
+	it('writes the extra fields of a line, which open and close with its button', async () => {
+		vi.mocked(createTransaction).mockResolvedValue({
+			ok: true,
+			data: { file: 'b.rupea', line: 3 },
+			errors: [],
+		} as never);
+		await opened();
+		await detail();
+		await type('Description', 'Buy');
+		await type('Account', 'Assets:Broker', 0);
+		await type('Amount', '5', 0);
+		await type('Currency', 'AAPL', 0);
+		await type('Account', 'Assets:Bank', 1);
+
+		expect(screen.queryByLabelText(/^Lot cost/)).toBeNull();
+		await fireEvent.click(screen.getByRole('button', { name: 'More about line 1' }));
+		await type('Price', '180.25 USD');
+		await fireEvent.click(screen.getByLabelText('Price for all units'));
+		await type('Lot cost', '900');
+		await type('Lot date', '2026-01-02');
+		await type('Balance after', '5');
+		await type('Comment', 'bought on a dip', 0);
+		await fireEvent.click(screen.getAllByRole('button', { name: 'Add detail' })[0]!);
+		await type('Key', 'order');
+		await type('Value', 'A-1');
+		expect(screen.getByRole('button', { name: 'More about line 1' }).textContent).toContain(
+			'Hide extra fields',
+		);
+		await fireEvent.click(screen.getByRole('button', { name: 'More about line 1' }));
+		expect(screen.queryByLabelText(/^Lot cost/)).toBeNull();
+		await fireEvent.click(screen.getByRole('button', { name: 'More about line 1' }));
+		await save();
+
+		await vi.waitFor(() => expect(createTransaction).toHaveBeenCalled());
+		expect(vi.mocked(createTransaction).mock.calls[0]?.[0].form.postings[0]).toMatchObject({
+			account: 'Assets:Broker',
+			commodity: 'AAPL',
+			price: '180.25 USD',
+			total: true,
+			cost: '900',
+			costDate: '2026-01-02',
+			balance: '5',
+			comment: 'bought on a dip',
+			metadata: [{ key: 'order', value: 'A-1' }],
+		});
+	});
+
+	it('opens the extra fields of a line that has something wrong in them', async () => {
+		await opened();
+		await detail();
+		await type('Description', 'Buy');
+		await type('Account', 'Assets:Broker', 0);
+		await type('Amount', '5', 0);
+		await type('Account', 'Assets:Bank', 1);
+		await fireEvent.click(screen.getByRole('button', { name: 'More about line 1' }));
+		await type('Price', 'dear');
+		await fireEvent.click(screen.getByRole('button', { name: 'More about line 1' }));
+		expect(screen.queryByLabelText(/^Lot cost/)).toBeNull();
+
+		await save();
+
+		expect(await screen.findByText('Write a price, like 180.25 USD.')).toBeTruthy();
+		expect(screen.getByLabelText(/^Lot cost/)).toBeTruthy();
+		expect(createTransaction).not.toHaveBeenCalled();
+	});
+
+	it('takes a line out of three with its button, and puts a detail on the entry', async () => {
+		await opened();
+		await detail();
+		await fireEvent.click(screen.getByRole('button', { name: 'Add a line' }));
+		await type('Account', 'Assets:Cash', 2);
+		await fireEvent.click(screen.getByRole('button', { name: 'Remove line 1' }));
+
+		await vi.waitFor(() => expect(screen.getAllByLabelText(/^Account/)).toHaveLength(2));
+		expect((screen.getAllByLabelText(/^Account/)[1] as HTMLInputElement).value).toBe('Assets:Cash');
 	});
 });

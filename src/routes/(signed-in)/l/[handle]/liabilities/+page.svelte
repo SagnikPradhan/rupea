@@ -23,6 +23,7 @@
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
+	import Field from '#lib/web/components/ui-field/ui-field.svelte';
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
 	import { hrefWith } from '#lib/web/shared/links.ts';
 	import { goto } from '$app/navigation';
@@ -75,6 +76,7 @@
 	const current = $derived(
 		termed.data?.find((t) => t.account.toLowerCase() === setup?.toLowerCase())?.current ?? {},
 	);
+	const fresh = $state({ name: '' });
 	const setupHref = (a: string | null) => hrefWith(page.url.searchParams, { setup: a ?? '' });
 
 	const postingsOf = (a: string) =>
@@ -158,7 +160,7 @@
 	</div>
 </PanelGrid>
 
-<PanelGrid wide={setup !== null} full={setup === null}>
+<PanelGrid wide>
 	<Panel
 		title="All liabilities"
 		subtitle="{rows.length} {rows.length === 1 ? 'account' : 'accounts'} · {formatWhole(
@@ -220,6 +222,20 @@
 				/>
 			{/key}
 		</Aside>
+	{:else}
+		<Aside title="Add a liability" closeBeside={false} onclose={() => {}}>
+			<div class="add">
+				<Field label="Name" hint="Under Liabilities, like Loans:Car or Cards:Regalia.">
+					<input bind:value={fresh.name} />
+				</Field>
+				<TermsForm
+					{handle}
+					account="Liabilities:{fresh.name.trim()}"
+					current={{}}
+					onsaved={() => listTerms({ handle, day }).refresh()}
+				/>
+			</div>
+		</Aside>
 	{/if}
 </PanelGrid>
 
@@ -228,6 +244,16 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--size-3);
+	}
+
+	.add {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-3);
+	}
+
+	input {
+		width: 100%;
 	}
 
 	.nowrap {

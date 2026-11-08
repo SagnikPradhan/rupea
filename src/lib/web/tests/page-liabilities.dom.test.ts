@@ -199,7 +199,39 @@ describe('the liabilities page', () => {
 		open('/l/h/liabilities?setup=Assets:Bank');
 
 		expect(await screen.findByText('Card balance')).toBeTruthy();
-		expect(screen.queryByRole('complementary')).toBeNull();
+		expect(screen.queryByRole('complementary', { name: /^Set up/ })).toBeNull();
+	});
+
+	it('always offers to add a liability beside the table, saving under Liabilities', async () => {
+		open('/l/h/liabilities');
+		vi.mocked(saveTerms).mockResolvedValue({ data: { file: 'main.rupea' }, errors: [] } as never);
+
+		const aside = await screen.findByRole('complementary', { name: 'Add a liability' });
+		await fireEvent.input(within(aside).getByLabelText(/Name/), {
+			target: { value: 'Loans:Bike' },
+		});
+		await fireEvent.input(within(aside).getByLabelText(/Interest rate/), {
+			target: { value: '9' },
+		});
+		await fireEvent.click(within(aside).getByRole('button', { name: 'Save' }));
+
+		expect(await within(aside).findByText('Saved in main.rupea')).toBeTruthy();
+		expect(vi.mocked(saveTerms)).toHaveBeenCalledWith(
+			expect.objectContaining({
+				form: expect.objectContaining({ account: 'Liabilities:Loans:Bike' }),
+			}),
+		);
+	});
+
+	it('asks for a name before adding a liability', async () => {
+		open('/l/h/liabilities');
+		vi.mocked(saveTerms).mockClear();
+
+		const aside = await screen.findByRole('complementary', { name: 'Add a liability' });
+		await fireEvent.click(within(aside).getByRole('button', { name: 'Save' }));
+
+		expect(await within(aside).findByText('Pick an account.')).toBeTruthy();
+		expect(vi.mocked(saveTerms)).not.toHaveBeenCalled();
 	});
 
 	it('writes the terms as asked, keeping the keys it does not know', async () => {

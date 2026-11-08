@@ -135,6 +135,9 @@
 		</Field>
 	{/if}
 
+	{#each issuesAt('account') as issue (issue.message)}
+		<p role="alert">{issue.message}</p>
+	{/each}
 	{#each issuesAt('entries') as issue (issue.message)}
 		<p role="alert">{issue.message}</p>
 	{/each}

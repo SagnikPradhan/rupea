@@ -36,6 +36,11 @@ jobs:
           key: models-${{ hashFiles('src/lib/server/shared/onnx/models.ts') }}
       - run: pnpm models
       - run: pnpm test:coverage
+      - uses: coverallsapp/github-action@v2
+        with:
+          file: coverage/lcov.info
+          flag-name: unit
+          parallel: true
       - uses: actions/upload-artifact@v7
         with:
           name: coverage-unit
@@ -55,6 +60,12 @@ jobs:
       # them again through apt has taken up to 14 minutes on a slow mirror.
       - run: pnpm playwright install --only-shell chromium
       - run: pnpm test:e2e:coverage
+      - if: ${{ !cancelled() }}
+        uses: coverallsapp/github-action@v2
+        with:
+          file: coverage/e2e/lcov.info
+          flag-name: e2e
+          parallel: true
       - if: ${{ !cancelled() }}
         uses: actions/upload-artifact@v7
         with:
@@ -83,23 +94,6 @@ jobs:
     if: ${{ !cancelled() }}
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v7
-      - uses: ./.github/actions/setup
-      - uses: actions/download-artifact@v8
-        with:
-          pattern: coverage-*
-          path: coverage
-      - run: pnpm exec tsx scripts/lcov-blocks.ts coverage/coverage-unit/lcov.info coverage/coverage-e2e/lcov.info
-      - uses: coverallsapp/github-action@v2
-        with:
-          file: coverage/coverage-unit/lcov.info
-          flag-name: unit
-          parallel: true
-      - uses: coverallsapp/github-action@v2
-        with:
-          file: coverage/coverage-e2e/lcov.info
-          flag-name: e2e
-          parallel: true
       - uses: coverallsapp/github-action@v2
         with:
           parallel-finished: true

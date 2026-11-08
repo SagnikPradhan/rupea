@@ -1,0 +1,57 @@
+import { LIABILITIES } from '#lib/shared/accounts.ts';
+import { isUnder } from './accounts';
+
+type Held = { account: string; parent: string | null; total: string; unpriced: number };
+
+type Moved = { account: string; amount: string };
+
+type Payment = { account: string; bucket: string; amount: string };
+
+/**
+ * The accounts under Liabilities, each total turned from a balance into what is
+ * owed, so an account in credit owes less than nothing.
+ */
+export const owedOf = (h: Held[]) =>
+	h
+		.filter((a) => isUnder(a.account, LIABILITIES))
+		.map((a) => ({ ...a, total: String(-Number(a.total)) }));
+
+/**
+ * A row for each account under the root with what it owes and what it paid down
+ * over the period; settled accounts that did not move are left out unless asked
+ * for.
+ */
+export const rowsOf = (owed: Held[], moved: Moved[], settled: boolean) => {
+	const paid = Object.fromEntries(moved.map((m) => [m.account, m.amount]));
+	const rows = owed
+		.filter((a) => a.parent !== null)
+		.map((a) => ({
+			account: a.account,
+			parent: a.parent,
+			owed: a.total,
+			paid: paid[a.account] ?? '0',
+			unpriced: a.unpriced,
+		}));
+
+	return settled ? rows : rows.filter((r) => Number(r.owed) !== 0 || Number(r.paid) !== 0);
+};
+
+/**
+ * For each account that holds a debt, a circle for every bucket it was paid
+ * down in; the groups over them are left out, as are buckets where it grew.
+ */
+export const linesOf = (payments: Payment[], owed: Held[]) => {
+	const parents = owed.map((a) => a.parent);
+	const paid = payments.filter((p) => !parents.includes(p.account) && Number(p.amount) > 0);
+	const byAccount = Object.groupBy(paid, (p) => p.account);
+
+	return Object.keys(byAccount)
+		.toSorted()
+		.map((account) => ({
+			account,
+			circles: (byAccount[account] ?? []).map((p) => ({
+				bucket: p.bucket,
+				paid: Number(p.amount),
+			})),
+		}));
+};

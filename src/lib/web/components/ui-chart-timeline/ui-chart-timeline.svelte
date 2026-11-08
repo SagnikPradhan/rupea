@@ -21,6 +21,9 @@
 
 	const { lines, from, to, today, bucket, label }: Props = $props();
 
+	/** The lanes the plot has room for, so a few accounts do not squash it. */
+	const LEAST = 5;
+
 	const hovered = $state({ pin: null as string | null });
 
 	const widest = $derived(Math.max(...lines.flatMap((l) => l.pins.map((p) => p.amount)), 0));
@@ -51,7 +54,7 @@
 		) * 100;
 </script>
 
-<div class="chart" style:--lanes={lines.length}>
+<div class="chart" style:--lanes={Math.max(lines.length, LEAST)}>
 	<div class="plot" role="list" aria-label={label}>
 		<span class="today" style:left="{leftOf(today)}%"></span>
 		{#each lines as line, lane (line.key)}

@@ -124,17 +124,7 @@ describe('accounts', () => {
 			});
 			const all = await listDeltas({ handle, day, period: { kind: 'all' }, account: 'Expenses' });
 
-			const monthly = await listDeltas({
-				handle,
-				day,
-				period: { kind: 'month', at: '2026-09' },
-				account: 'Expenses',
-				by: 'month',
-			});
-
 			expect(month.data).toHaveLength(2);
-			expect(month.data?.[0]?.bucket).toBe('day');
-			expect(monthly.data?.[0]?.bucket).toBe('month');
 			expect(all.data).toHaveLength(1);
 		}));
 });

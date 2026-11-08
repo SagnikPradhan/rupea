@@ -196,6 +196,7 @@ describe('the lines of the timeline', () => {
 				{ account: 'Liabilities:Loans', bucket: '2026-01-01', amount: '60000' },
 			],
 			[{ key: 'Liabilities:Loans:Home', amount: 34500, due: '2026-12-05' }],
+			'month',
 		);
 
 		expect(lines.map((l) => [l.label, l.pins.map((p) => [p.at, p.past])])).toEqual([
@@ -204,7 +205,7 @@ describe('the lines of the timeline', () => {
 				[
 					['2026-01-01', true],
 					['2026-02-01', true],
-					['2026-12-05', false],
+					['2026-12-01', false],
 				],
 			],
 		]);

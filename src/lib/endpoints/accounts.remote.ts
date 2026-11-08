@@ -127,20 +127,12 @@ export const listReturns = query(
 
 /**
  * What flowed under an Expenses, Income or Liabilities account over a period,
- * then over the one before it when there is one, in buckets of the size asked
- * for or the one that fits the period.
+ * then over the one before it when there is one.
  */
 export const listDeltas = query(
-	v.object({
-		handle: Handle,
-		day: Day,
-		period: Period,
-		account: FlowAccount,
-		by: v.optional(v.picklist(['day', 'month', 'year'])),
-	}),
-	({ handle, day, period, account, by }) => {
-		const { current, previous, bucket: fitted } = spansOf(period, day);
-		const bucket = by ?? fitted;
+	v.object({ handle: Handle, day: Day, period: Period, account: FlowAccount }),
+	({ handle, day, period, account }) => {
+		const { current, previous, bucket } = spansOf(period, day);
 		const spans = previous ? [current, previous] : [current];
 
 		return replyFromBatch(

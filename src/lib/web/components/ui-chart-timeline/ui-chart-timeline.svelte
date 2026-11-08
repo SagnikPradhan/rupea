@@ -1,5 +1,6 @@
 <script lang="ts">
 	import Tooltip from '#lib/web/components/ui-tooltip/ui-tooltip.svelte';
+	import type { Bucket } from '#lib/shared/dates.ts';
 	import { formatAmount, formatBucket, formatMonth } from '#lib/web/shared/format.ts';
 
 	type Props = {
@@ -13,10 +14,12 @@
 		from: string;
 		to: string;
 		today: string;
+		/** What a pin's day stands for, a day, month or year. */
+		bucket: Bucket;
 		label: string;
 	};
 
-	const { lines, from, to, today, label }: Props = $props();
+	const { lines, from, to, today, bucket, label }: Props = $props();
 
 	const hovered = $state({ pin: null as string | null });
 
@@ -52,12 +55,12 @@
 	<div class="plot" role="list" aria-label={label}>
 		<span class="today" style:left="{leftOf(today)}%"></span>
 		{#each lines as line, lane (line.key)}
-			{#each line.pins as p (p.at)}
-				{@const id = `${line.key}${p.at}`}
+			{#each line.pins as p (`${p.at}${p.past}`)}
+				{@const id = `${line.key}${p.at}${p.past}`}
 				<span
 					class={{ pin: true, past: p.past }}
 					role="listitem"
-					aria-label="{line.label}, {formatAmount(String(p.amount))}, {formatBucket.day(p.at)}"
+					aria-label="{line.label}, {formatAmount(String(p.amount))}, {formatBucket[bucket](p.at)}"
 					style:left="{leftOf(p.at)}%"
 					style:--lane={lane}
 					style:--spread={Math.sqrt(p.amount / widest)}
@@ -70,7 +73,7 @@
 						<Tooltip left={50} top={0}>
 							{line.label}
 							<data value={p.amount}>{formatAmount(String(p.amount))}</data>
-							<time datetime={p.at}>{formatBucket.day(p.at)}</time>
+							<time datetime={p.at}>{formatBucket[bucket](p.at)}</time>
 						</Tooltip>
 					{/if}
 				</span>
@@ -108,17 +111,20 @@
 
 	.pin {
 		position: absolute;
+		pointer-events: none;
 		inset-block-end: 0;
 		display: flex;
 		flex-direction: column;
 		align-items: center;
 		width: calc(var(--size-3) * var(--spread));
-		min-width: var(--size-1);
+		min-width: var(--size-2);
 		transform: translateX(-50%);
 	}
 
 	.circle {
 		position: relative;
+		min-width: var(--size-2);
+		pointer-events: auto;
 		z-index: 1;
 		width: 100%;
 		aspect-ratio: 1;
@@ -148,6 +154,16 @@
 		border-radius: 50%;
 		content: '';
 		transform: translate(-50%, 50%);
+	}
+
+	.pin:hover {
+		z-index: 2;
+	}
+
+	.pin:hover .circle {
+		background: var(--color-ink);
+		border-color: var(--color-ink);
+		opacity: 1;
 	}
 
 	.pin:hover .stem,

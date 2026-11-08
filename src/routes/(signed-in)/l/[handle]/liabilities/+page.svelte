@@ -44,7 +44,7 @@
 	const [response, flowed, first, termed] = $derived(
 		await Promise.all([
 			listAccounts({ handle, day, period }),
-			listDeltas({ handle, day, period, account: LIABILITIES, by: 'day' }),
+			listDeltas({ handle, day, period, account: LIABILITIES }),
 			findFirstDay(handle),
 			listTerms({ handle, day }),
 		]),
@@ -54,9 +54,10 @@
 	const shown = $derived(owed.filter((a) => isUnder(a.account, account)));
 	const rows = $derived(rowsOf(shown, moved?.totals ?? [], settled, termed.data ?? []));
 	const from = $derived(moved?.from ?? `${day.slice(0, 4)}-01-01`);
+	const bucket = $derived(moved?.bucket ?? 'month');
 	const to = $derived(moved?.to ?? `${day.slice(0, 4)}-12-31`);
 	const dues = $derived(duesOf(owed, termed.data ?? [], day, to));
-	const lines = $derived(linesOf(owed, moved?.deltas ?? [], dues));
+	const lines = $derived(linesOf(owed, moved?.deltas ?? [], dues, bucket));
 	const pins = $derived(lines.flatMap((l) => l.pins));
 	const made = $derived(pins.filter((p) => p.past).length);
 	const total = $derived(shown.find((a) => a.account === (account ?? LIABILITIES))?.total ?? '0');
@@ -108,9 +109,16 @@
 <Issues {handle} errors={[...(response.errors ?? []), ...(flowed.errors ?? [])]} />
 
 <PanelGrid narrow>
-	<Panel title="Payments" subtitle="{made} made · {pins.length - made} still to fall due, by day">
+	<Panel title="Payments" subtitle="{made} made · {pins.length - made} still to fall due">
 		{#if lines.length > 0}
-			<Timeline {lines} {from} {to} today={day} label="The payments made and due on each account" />
+			<Timeline
+				{lines}
+				{from}
+				{to}
+				{bucket}
+				today={day}
+				label="The payments made and due on each account"
+			/>
 		{:else}
 			<p>No payments in this period.</p>
 		{/if}

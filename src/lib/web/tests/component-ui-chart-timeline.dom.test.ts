@@ -24,6 +24,7 @@ const drawn = (from = '2026-01-01', to = '2026-12-31') => {
 		from,
 		to,
 		today: '2026-06-01',
+		bucket: 'month',
 		label: 'Payments',
 	});
 	return container;
@@ -60,7 +61,7 @@ describe('the timeline chart', () => {
 		const [pin] = pinsOf(drawn());
 		await fireEvent.pointerEnter(pin!);
 
-		expect(screen.getByRole('tooltip').textContent).toMatch(/Home.*30,000.*1 Jan/);
+		expect(screen.getByRole('tooltip').textContent).toMatch(/Home.*30,000.*Jan 2026/);
 	});
 
 	it('labels the axis by month', () => {

@@ -1,8 +1,16 @@
 import { LIABILITIES } from '#lib/shared/accounts.ts';
+import type { Bucket } from '#lib/shared/dates.ts';
 import type { Terms } from '#lib/shared/terms.ts';
 import { byCodeUnit } from '#lib/shared/text.ts';
 import type * as v from 'valibot';
 import { isUnder, nameOf } from './accounts';
+
+/** The first day of the bucket a day falls in. */
+const STARTS: Record<Bucket, (d: string) => string> = {
+	day: (d) => d,
+	month: (d) => `${d.slice(0, 7)}-01`,
+	year: (d) => `${d.slice(0, 4)}-01-01`,
+};
 
 const ZERO = /^-?0*(\.0*)?$/;
 
@@ -82,19 +90,21 @@ export const duesOf = (owed: Held[], set: Set[], today: string, to: string) => {
 
 /**
  * A line for each loan or card with payments, holding a pin for each payment
- * made in the period and each one still to fall due.
+ * made in the period and each one still to fall due, each on the first day of
+ * its bucket.
  */
 export const linesOf = (
 	owed: Held[],
 	paid: { account: string; bucket: string; amount: string }[],
 	dues: { key: string; amount: number; due: string }[],
+	bucket: Bucket,
 ) => {
 	const parents = new Set(owed.map((a) => a.parent));
 	const pins = [
 		...paid
 			.filter((p) => Number(p.amount) > 0)
 			.map((p) => ({ key: p.account, at: p.bucket, amount: Number(p.amount), past: true })),
-		...dues.map((d) => ({ key: d.key, at: d.due, amount: d.amount, past: false })),
+		...dues.map((d) => ({ key: d.key, at: STARTS[bucket](d.due), amount: d.amount, past: false })),
 	];
 
 	return owed

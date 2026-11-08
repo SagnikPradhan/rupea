@@ -22,7 +22,16 @@
 	const { lines, from, to, today, bucket, label }: Props = $props();
 
 	/** The lanes the plot has room for, so a few accounts do not squash it. */
-	const LEAST = 5;
+	const LEAST = 3;
+
+	const DAY = 86_400_000;
+
+	/** When the bucket a day starts ends, so a pin can stand in the middle of it. */
+	const ENDS: Record<Bucket, (d: string) => number> = {
+		day: (d) => Date.parse(d) + DAY,
+		month: (d) => Date.UTC(Number(d.slice(0, 4)), Number(d.slice(5, 7)), 1),
+		year: (d) => Date.UTC(Number(d.slice(0, 4)) + 1, 0, 1),
+	};
 
 	const hovered = $state({ pin: null as string | null });
 
@@ -47,16 +56,16 @@
 		).filter((d) => d >= from && d <= to),
 	);
 
-	const leftOf = (d: string) =>
-		Math.min(
-			Math.max((Date.parse(d) - Date.parse(from)) / (Date.parse(to) - Date.parse(from)), 0),
-			1,
-		) * 100;
+	const unit = $derived(yearly ? 'year' : 'month');
+	const span = $derived(Date.parse(to) + DAY - Date.parse(from));
+
+	const leftOf = (d: string, by: Bucket) =>
+		Math.min(Math.max(((Date.parse(d) + ENDS[by](d)) / 2 - Date.parse(from)) / span, 0), 1) * 100;
 </script>
 
 <div class="chart" style:--lanes={Math.max(lines.length, LEAST)}>
 	<div class="plot" role="list" aria-label={label}>
-		<span class="today" style:left="{leftOf(today)}%"></span>
+		<span class="today" style:left="{leftOf(today, 'day')}%"></span>
 		{#each lines as line, lane (line.key)}
 			{#each line.pins as p (`${p.at}${p.past}`)}
 				{@const id = `${line.key}${p.at}${p.past}`}
@@ -64,7 +73,7 @@
 					class={{ pin: true, past: p.past }}
 					role="listitem"
 					aria-label="{line.label}, {formatAmount(String(p.amount))}, {formatBucket[bucket](p.at)}"
-					style:left="{leftOf(p.at)}%"
+					style:left="{leftOf(p.at, bucket)}%"
 					style:--lane={lane}
 					style:--spread={Math.sqrt(p.amount / widest)}
 					onpointerenter={() => (hovered.pin = id)}
@@ -85,7 +94,7 @@
 	</div>
 	<div class="ticks" aria-hidden="true">
 		{#each ticks as t (t)}
-			<time datetime={t} style:left="{leftOf(t)}%"
+			<time datetime={t} style:left="{leftOf(t, unit)}%"
 				>{yearly ? formatBucket.year(t) : formatMonth(t)}</time
 			>
 		{/each}

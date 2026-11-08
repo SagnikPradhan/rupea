@@ -40,11 +40,11 @@ describe('the timeline chart', () => {
 		expect(pins.map((p) => p.classList.contains('past'))).toEqual([true, false, false]);
 	});
 
-	it('places a pin by its day along the axis and sizes it by its amount', () => {
+	it('places a pin in the middle of its month along the axis and sizes it by its amount', () => {
 		const [first, second] = pinsOf(drawn());
 
-		expect(first?.style.left).toBe('0%');
-		expect(parseFloat(second?.style.left ?? '')).toBeCloseTo((181 / 364) * 100, 0);
+		expect(parseFloat(first?.style.left ?? '')).toBeCloseTo((15.5 / 365) * 100, 1);
+		expect(parseFloat(second?.style.left ?? '')).toBeCloseTo((196.5 / 365) * 100, 1);
 		expect(parseFloat(first?.style.getPropertyValue('--spread') ?? '')).toBe(1);
 		expect(parseFloat(second?.style.getPropertyValue('--spread') ?? '')).toBeCloseTo(
 			Math.sqrt(0.5),

@@ -44,7 +44,7 @@
 	const [response, flowed, first, termed] = $derived(
 		await Promise.all([
 			listAccounts({ handle, day, period }),
-			listDeltas({ handle, day, period, account: LIABILITIES }),
+			listDeltas({ handle, day, period, account: LIABILITIES, by: 'day' }),
 			findFirstDay(handle),
 			listTerms({ handle, day }),
 		]),

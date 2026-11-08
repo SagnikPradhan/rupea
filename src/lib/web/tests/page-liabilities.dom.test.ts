@@ -139,10 +139,9 @@ describe('the liabilities page', () => {
 		open('/l/h/liabilities');
 
 		const chart = await screen.findByRole('list', { name: /^The payments made and due/ });
-		const [car, home] = within(chart).getAllByRole('listitem');
-		expect(home?.querySelectorAll('data.past')).toHaveLength(2);
-		expect(home?.querySelectorAll('data:not(.past)')).toHaveLength(1);
-		expect(car?.querySelectorAll('data.past')).toHaveLength(1);
+		const pins = within(chart).getAllByRole('listitem');
+		expect(pins.filter((p) => p.classList.contains('past'))).toHaveLength(3);
+		expect(pins).toHaveLength(4);
 		expect(screen.getByText(/3 made · 1 still to fall due/)).toBeTruthy();
 		vi.useRealTimers();
 	});

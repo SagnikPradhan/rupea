@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Tooltip from '#lib/web/components/ui-tooltip/ui-tooltip.svelte';
 	import { formatAmount, formatBucket, formatMonth } from '#lib/web/shared/format.ts';
 
 	type Props = {
@@ -16,6 +17,8 @@
 	};
 
 	const { lines, from, to, today, label }: Props = $props();
+
+	const hovered = $state({ pin: null as string | null });
 
 	const widest = $derived(Math.max(...lines.flatMap((l) => l.pins.map((p) => p.amount)), 0));
 	const months = $derived(
@@ -45,32 +48,41 @@
 		) * 100;
 </script>
 
-<div class="chart" role="list" aria-label={label} style:--today="{leftOf(today)}%">
-	{#each lines as line (line.key)}
-		<div class="line" role="listitem">
-			<span class="name">{line.label}</span>
-			<div class="track">
-				{#each line.pins as p (p.at)}
-					<data
-						class={{ pin: true, past: p.past }}
-						style:left="{leftOf(p.at)}%"
-						style:--spread={Math.sqrt(p.amount / widest)}
-						value={p.amount}
-						title="{line.label} · {formatAmount(String(p.amount))} · {formatBucket.day(p.at)}"
-					></data>
-				{/each}
-			</div>
-		</div>
-	{/each}
-	<div class="line">
-		<span></span>
-		<div class="ticks" aria-hidden="true">
-			{#each ticks as t (t)}
-				<time datetime={t} style:left="{leftOf(t)}%"
-					>{yearly ? formatBucket.year(t) : formatMonth(t)}</time
+<div class="chart" style:--lanes={lines.length}>
+	<div class="plot" role="list" aria-label={label}>
+		<span class="today" style:left="{leftOf(today)}%"></span>
+		{#each lines as line, lane (line.key)}
+			{#each line.pins as p (p.at)}
+				{@const id = `${line.key}${p.at}`}
+				<span
+					class={{ pin: true, past: p.past }}
+					role="listitem"
+					aria-label="{line.label}, {formatAmount(String(p.amount))}, {formatBucket.day(p.at)}"
+					style:left="{leftOf(p.at)}%"
+					style:--lane={lane}
+					style:--spread={Math.sqrt(p.amount / widest)}
+					onpointerenter={() => (hovered.pin = id)}
+					onpointerleave={() => (hovered.pin = null)}
 				>
+					<span class="circle"></span>
+					<span class="stem"></span>
+					{#if hovered.pin === id}
+						<Tooltip left={50} top={0}>
+							{line.label}
+							<data value={p.amount}>{formatAmount(String(p.amount))}</data>
+							<time datetime={p.at}>{formatBucket.day(p.at)}</time>
+						</Tooltip>
+					{/if}
+				</span>
 			{/each}
-		</div>
+		{/each}
+	</div>
+	<div class="ticks" aria-hidden="true">
+		{#each ticks as t (t)}
+			<time datetime={t} style:left="{leftOf(t)}%"
+				>{yearly ? formatBucket.year(t) : formatMonth(t)}</time
+			>
+		{/each}
 	</div>
 </div>
 
@@ -79,49 +91,68 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--size-1);
+		padding-inline: var(--size-3);
 	}
 
-	.line {
-		display: grid;
-		grid-template-columns: calc(var(--size-5) * 2) 1fr;
-		align-items: center;
-		gap: var(--size-2);
-	}
-
-	.name {
-		overflow: hidden;
-		font: var(--text-base);
-		text-overflow: ellipsis;
-		white-space: nowrap;
-	}
-
-	.track {
+	.plot {
 		position: relative;
-		height: var(--size-4);
+		height: calc(var(--size-3) * (var(--lanes) + 1) + var(--size-2));
 		border-block-end: var(--size-line-0) solid var(--color-border);
 	}
 
-	.track::before {
+	.today {
 		position: absolute;
 		inset-block: 0;
-		inset-inline-start: var(--today);
 		border-inline-start: var(--size-line-0) dashed var(--color-border);
-		content: '';
 	}
 
 	.pin {
 		position: absolute;
-		inset-block-start: 50%;
+		inset-block-end: 0;
+		display: flex;
+		flex-direction: column;
+		align-items: center;
 		width: calc(var(--size-3) * var(--spread));
 		min-width: var(--size-1);
-		aspect-ratio: 1;
-		border: var(--size-line-0) solid var(--color-ink-2);
-		border-radius: 50%;
-		transform: translate(-50%, -50%);
+		transform: translateX(-50%);
 	}
 
-	.past {
+	.circle {
+		position: relative;
+		z-index: 1;
+		width: 100%;
+		aspect-ratio: 1;
 		background: var(--color-ink-2);
+		border: var(--size-line-0) solid var(--color-ink-2);
+		border-radius: 50%;
+		opacity: 0.35;
+	}
+
+	.past .circle {
+		opacity: 1;
+	}
+
+	.stem {
+		width: var(--size-line-0);
+		height: calc(var(--size-3) * var(--lane) + var(--size-1));
+		background: var(--color-border);
+	}
+
+	.stem::after {
+		position: absolute;
+		inset-block-end: 0;
+		inset-inline-start: 50%;
+		width: var(--size-0);
+		aspect-ratio: 1;
+		background: var(--color-ink);
+		border-radius: 50%;
+		content: '';
+		transform: translate(-50%, 50%);
+	}
+
+	.pin:hover .stem,
+	.pin:hover .stem::after {
+		background: var(--color-ink);
 	}
 
 	.ticks {
@@ -129,7 +160,7 @@
 		height: 1lh;
 	}
 
-	time {
+	.ticks time {
 		position: absolute;
 		color: var(--color-muted);
 		font: var(--text-data);

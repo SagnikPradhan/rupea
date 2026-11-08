@@ -252,7 +252,10 @@ describe('workers', () => {
 		return { job, handler, at };
 	};
 
-	/** Holds a job until `meet` of them run at once, or two seconds pass, so overlap never hangs on timing. */
+	/**
+	 * Holds a job until `meet` of them run at once, or two seconds pass, so
+	 * overlap never hangs on timing.
+	 */
 	const overlap = async (at: { now: number; meet: number }) => {
 		const until = Date.now() + 2000;
 		while (at.now < at.meet && Date.now() < until) await pause(10);

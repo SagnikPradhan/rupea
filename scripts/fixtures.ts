@@ -17,7 +17,10 @@ type Profile = {
 	monthly: boolean;
 };
 
-/** What the files of each ledger look like; the wide one has many accounts and commodities in small monthly files. */
+/**
+ * What the files of each ledger look like; the wide one has many accounts and
+ * commodities in small monthly files.
+ */
 const PROFILES: Record<string, Profile> = {
 	'twenty-years': { years: 20, perDay: () => 10, shops: 40, stocks: 10, monthly: false },
 	'fifty-years': { years: 50, perDay: (i) => 5 + (i % 3), shops: 40, stocks: 10, monthly: false },
@@ -28,7 +31,10 @@ type Shop = { name: string; account: string };
 
 type Cast = { employer: string; landlord: string; us: string; stocks: string[]; shops: Shop[] };
 
-/** What moves between days: shares' prices, the dollar's rate, the rate of the latest dollars bought and what the card owes. */
+/**
+ * What moves between days: shares' prices, the dollar's rate, the rate of the
+ * latest dollars bought and what the card owes.
+ */
 type Books = { prices: Record<string, number>; usd: number; funded: number; owed: number };
 
 type Built = { opening: string; files: { key: string; content: string }[] };
@@ -106,7 +112,10 @@ const booksOf = (cast: Cast): Books => ({
 
 type DayOptions = { d: Temporal.PlainDate; count: number; first: number; cast: Cast; books: Books };
 
-/** Spending first, then what the day settles, so a card bill meets every spend before it. */
+/**
+ * Spending first, then what the day settles, so a card bill meets every spend
+ * before it.
+ */
 const dayOf = (o: DayOptions) => [
 	...Array.from({ length: o.count }, () => spendOf(o)).flat(),
 	...monthlyOf(o),
@@ -171,7 +180,10 @@ const monthlyOf = ({ d, first, cast, books }: DayOptions) => {
 	return [];
 };
 
-/** Each share's price walks a little from the day before; the dollar's rate moves in whole rupees. */
+/**
+ * Each share's price walks a little from the day before; the dollar's rate
+ * moves in whole rupees.
+ */
 const pricesOf = (d: Temporal.PlainDate, cast: Cast, books: Books) => {
 	books.usd = Math.min(95, Math.max(60, books.usd + faker.number.int({ min: -1, max: 1 })));
 

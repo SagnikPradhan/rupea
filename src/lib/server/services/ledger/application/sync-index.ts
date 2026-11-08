@@ -19,7 +19,10 @@ export type Indexed = {
 	grouped: boolean;
 };
 
-/** What indexing and recounting touched, merged: the commodities to rebook, the days to total again, and the holdings they post to. */
+/**
+ * What indexing and recounting touched, merged: the commodities to rebook, the
+ * days to total again, and the holdings they post to.
+ */
 export type Settling = { commodities: string[]; span: Span | null; holdings: DB.HoldingKey[] };
 
 export type Move = { from: string; to: string };
@@ -34,14 +37,20 @@ export type ReindexOptions = {
 	full?: boolean;
 };
 
-/** The ledger files in a ledger's files folder, leaving out the statements waiting there. */
+/**
+ * The ledger files in a ledger's files folder, leaving out the statements
+ * waiting there.
+ */
 export const listLedgerFiles = (storage: Storage): ResultAsync<Entry[]> =>
 	storage
 		.list()
 		.mapErr((e) => fault('CannotReadDirectory', { path: '', cause: [e] }))
 		.map((e) => e.filter((f) => f.key.endsWith('.rupea') && !f.key.startsWith(`${STATEMENTS}/`)));
 
-/** Indexes one file at a time, each in a savepoint, so a file that fails is reported and leaves the others. */
+/**
+ * Indexes one file at a time, each in a savepoint, so a file that fails is
+ * reported and leaves the others.
+ */
 export const indexEach = ({
 	ledgerId,
 	storage,
@@ -53,7 +62,10 @@ export const indexEach = ({
 	const read = (k: string) =>
 		readText(storage, k).andThen((f) => indexFile({ ledgerId, file: f, full }));
 
-	/** A move between counted and review folders changes what the file counts, so it is indexed again; otherwise only its key changes. */
+	/**
+	 * A move between counted and review folders changes what the file counts, so
+	 * it is indexed again; otherwise only its key changes.
+	 */
 	const move = ({ from, to }: Move): ResultAsync<Indexed> =>
 		DB.renameIndexedFile(ledgerId, from, to).andThen((t) =>
 			isCounted(from) === isCounted(to) ? okAsync({ failed: [], ...t }) : read(to),
@@ -76,7 +88,10 @@ export const indexEach = ({
 
 type IndexFileOptions = { ledgerId: string; file: RupeaFile; full: boolean };
 
-/** A file waiting for review keeps only its metadata, so where it came from is known, but nothing in it counts or fails. */
+/**
+ * A file waiting for review keeps only its metadata, so where it came from is
+ * known, but nothing in it counts or fails.
+ */
 const indexFile = ({ ledgerId, file, full }: IndexFileOptions): ResultAsync<Indexed> =>
 	withContext('config')((config) =>
 		DB.findHeld(ledgerId, file.key).andThen((held) => {

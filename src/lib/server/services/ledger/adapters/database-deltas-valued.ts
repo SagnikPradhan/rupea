@@ -15,15 +15,18 @@ type DeltasOptions = {
 	accounts: string[];
 	from: Temporal.PlainDate;
 	to: Temporal.PlainDate;
-	/** A day of the month puts every month's day n in one bucket, dated in January 2000. */
+	/**
+	 * A day of the month puts every month's day n in one bucket, dated in January
+	 * 2000.
+	 */
 	bucket: Bucket | 'dayOfMonth';
 	base: string;
 };
 
 /**
- * What these accounts gained over a span, whatever their type, valued in the base at the latest
- * price on or before each amount's own day, as worth does, and added up by account and the bucket
- * its day falls in.
+ * What these accounts gained over a span, whatever their type, valued in the
+ * base at the latest price on or before each amount's own day, as worth does,
+ * and added up by account and the bucket its day falls in.
  */
 export const listDeltas = (
 	ledgerId: string,
@@ -138,11 +141,13 @@ export const listDeltas = (
 type FlowsOptions = Span & { earning: string[]; base: string };
 
 /**
- * What flowed into each Assets account on each day in the base: the value of its counted postings,
- * less its share of their transaction's net investment income, which the earning accounts post. That income goes to the
- * transaction's Assets postings of commodities other than the base, or to its base ones when it has
- * none, split equally with what does not divide going to the first. A posting is valued at its own
- * price when it names one, then at the latest price on or before its day, as worth does.
+ * What flowed into each Assets account on each day in the base: the value of
+ * its counted postings, less its share of their transaction's net investment
+ * income, which the earning accounts post. That income goes to the
+ * transaction's Assets postings of commodities other than the base, or to its
+ * base ones when it has none, split equally with what does not divide going to
+ * the first. A posting is valued at its own price when it names one, then at
+ * the latest price on or before its day, as worth does.
  */
 export const listFlows = (
 	ledgerId: string,

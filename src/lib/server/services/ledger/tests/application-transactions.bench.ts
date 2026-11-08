@@ -52,7 +52,10 @@ describe('transactions', () => {
 	});
 });
 
-/** The cursor that starts a page this many pages down, or of the last page when there are fewer. */
+/**
+ * The cursor that starts a page this many pages down, or of the last page when
+ * there are fewer.
+ */
 const pageAfter = async (
 	ledger: Ledger,
 	pages: number,

@@ -5,11 +5,17 @@ import { parseAmount } from '../domain/amounts';
 import { Feed } from '../domain/types';
 import { readJson, type ListQuotes, type Quote } from './feed';
 
-/** Yahoo's chart endpoint is undocumented; it turns away requests without a browser's user agent. */
+/**
+ * Yahoo's chart endpoint is undocumented; it turns away requests without a
+ * browser's user agent.
+ */
 const URL = 'https://query1.finance.yahoo.com/v8/finance/chart';
 const HEADERS = { 'user-agent': 'Mozilla/5.0' };
 
-/** Currencies Yahoo quotes in their hundredth, and the ISO currency they are a hundredth of. */
+/**
+ * Currencies Yahoo quotes in their hundredth, and the ISO currency they are a
+ * hundredth of.
+ */
 const HUNDREDTHS: Record<string, string> = {
 	GBp: 'GBP',
 	GBX: 'GBP',
@@ -31,7 +37,10 @@ const Series = v.object({
 });
 const Chart = v.object({ chart: v.object({ result: v.tuple([Series]) }) });
 
-/** Each trading day's close, dated where the exchange is; a day without one is left out. */
+/**
+ * Each trading day's close, dated where the exchange is; a day without one is
+ * left out.
+ */
 export const listQuotes: ListQuotes = (fetch, symbol, since) =>
 	readJson(fetch, {
 		feed: Feed.Yahoo,

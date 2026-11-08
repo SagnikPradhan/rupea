@@ -6,7 +6,10 @@ import * as Mfapi from '../adapters/feed-mfapi';
 import * as Yahoo from '../adapters/feed-yahoo';
 import { Feed, PriceSource } from '../domain/types';
 
-/** How each feed is asked for quotes, and the source they are saved as; a ledger's own symbols are priced by its files. */
+/**
+ * How each feed is asked for quotes, and the source they are saved as; a
+ * ledger's own symbols are priced by its files.
+ */
 const FEEDS: Partial<Record<Feed, { listQuotes: ListQuotes; source: PriceSource }>> = {
 	[Feed.Mfapi]: { listQuotes: Mfapi.listQuotes, source: PriceSource.Mfapi },
 	[Feed.Yahoo]: { listQuotes: Yahoo.listQuotes, source: PriceSource.Yahoo },
@@ -14,7 +17,10 @@ const FEEDS: Partial<Record<Feed, { listQuotes: ListQuotes; source: PriceSource 
 
 type FetchQuotesOptions = { symbolId: string };
 
-/** Saves a feed symbol's quotes from its latest one on, and how the fetch went; a symbol since removed is left alone. */
+/**
+ * Saves a feed symbol's quotes from its latest one on, and how the fetch went;
+ * a symbol since removed is left alone.
+ */
 export const fetchQuotes = ({ symbolId }: FetchQuotesOptions): ResultAsync<void> =>
 	DB.findSymbol(symbolId).andThen((s) => {
 		const feed = s && FEEDS[s.feed];

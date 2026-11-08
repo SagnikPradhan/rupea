@@ -10,7 +10,11 @@ type Worth = { parts: Part[] };
 /** An area of the chart, the parts it adds up, and its colour token. */
 export type Area = { key: string; label: string; parts: string[]; shade: string };
 
-/** The parts that get an area of their own: the largest held, then the largest owed, by what they were worth on the last day; the rest of each side is folded into one. */
+/**
+ * The parts that get an area of their own: the largest held, then the largest
+ * owed, by what they were worth on the last day; the rest of each side is
+ * folded into one.
+ */
 export const areasOf = (worth: Worth[]) => {
 	const totals = totalsOf(worth.flatMap((w) => w.parts));
 	const labels = Object.fromEntries(Object.entries(totals).map(([k, t]) => [k, t.label]));
@@ -58,7 +62,10 @@ const sideOf = (keys: string[], { labels, most, rest, shade }: Side): Area[] => 
 		: areas;
 };
 
-/** A part of a commodity is told apart from its account's, so both can have an area. */
+/**
+ * A part of a commodity is told apart from its account's, so both can have an
+ * area.
+ */
 const keyOf = (p: Part) => (p.commodity === null ? p.account : `${p.account} ${p.commodity}`);
 
 const labelOf = (p: Part) => p.commodity ?? nameOf(p.account);

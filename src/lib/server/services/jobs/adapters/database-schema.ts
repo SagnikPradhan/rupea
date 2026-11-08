@@ -7,7 +7,10 @@ import { JobStatus } from '../domain/jobs';
 
 export const jobStatus = PG.pgEnum('job_status', JobStatus);
 
-/** Jobs of one name and partition run one at a time, which `jobs_name_partition_running` enforces. */
+/**
+ * Jobs of one name and partition run one at a time, which
+ * `jobs_name_partition_running` enforces.
+ */
 export const jobs = PG.pgTable(
 	'jobs',
 	(t) => ({

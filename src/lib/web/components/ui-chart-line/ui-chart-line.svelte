@@ -158,7 +158,10 @@
 		hovered.part = partAt(piles, index, values.y.invert(top));
 	};
 
-	/** Dates a year or a month apart are named by their year or month, nearer ones by their day. */
+	/**
+	 * Dates a year or a month apart are named by their year or month, nearer ones
+	 * by their day.
+	 */
 	const bucketOf = ([first, second]: Date[]): Bucket => {
 		const days = ((second?.getTime() ?? 0) - (first?.getTime() ?? 0)) / 86_400_000;
 		return BUCKETS.find((b) => days >= b.days)?.bucket ?? 'day';

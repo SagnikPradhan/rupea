@@ -3,7 +3,10 @@
 	import type { Snippet } from 'svelte';
 
 	type Props = {
-		/** One row per day, in order, as an endpoint returns them, with exact decimals. */
+		/**
+		 * One row per day, in order, as an endpoint returns them, with exact
+		 * decimals.
+		 */
 		rows: Row[];
 		/** The field holding each row's ISO day. */
 		x: keyof Row & string;
@@ -12,9 +15,15 @@
 		label: string;
 		/** Where a day leads, such as its postings; none draws it without a link. */
 		href?: (day: string) => string;
-		/** False draws days of the month from the 1st, under no weekday, for rows that stand for a day in every month. */
+		/**
+		 * False draws days of the month from the 1st, under no weekday, for rows
+		 * that stand for a day in every month.
+		 */
 		weekly?: boolean;
-		/** Draws each day as a rounded square whose area is its amount, on a tile, instead of shading its cell. */
+		/**
+		 * Draws each day as a rounded square whose area is its amount, on a tile,
+		 * instead of shading its cell.
+		 */
 		squircles?: boolean;
 		/** Drawn above the calendar with the row under the cursor, or none. */
 		summary?: Snippet<[number | null]>;
@@ -42,7 +51,10 @@
 	const amounts = $derived(rows.map((r) => Number(r[y] ?? 0)));
 	const most = $derived(Math.max(0, ...amounts));
 
-	/** Days in rows of seven from Monday, blank before the first day and after the last. */
+	/**
+	 * Days in rows of seven from Monday, blank before the first day and after the
+	 * last.
+	 */
 	const weeks = $derived.by(() => {
 		const first = weekly && rows[0] ? weekdayOf(String(rows[0][x])) : 0;
 		const cells = [...Array<null>(first).fill(null), ...rows.map((_, i) => i)];
@@ -51,7 +63,10 @@
 		return [...cells, ...blanks].flatMap((_, i, all) => (i % 7 ? [] : [all.slice(i, i + 7)]));
 	});
 
-	/** How dark a day is, from none for nothing spent to the darkest for the month's largest day. */
+	/**
+	 * How dark a day is, from none for nothing spent to the darkest for the
+	 * month's largest day.
+	 */
 	const shadeOf = (amount: number) => (amount > 0 ? Math.ceil((amount / most) * SHADES) : 0);
 
 	/** The first of a month, and the first day shown, also name their month. */

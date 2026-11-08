@@ -8,7 +8,10 @@ import type { HoldingKey } from './database-files';
 
 const LISTED = ['date', 'sortTime', 'id'];
 
-/** Where a transaction falls among its ledger's, newest last, as a tuple a cursor compares with; more columns break ties. */
+/**
+ * Where a transaction falls among its ledger's, newest last, as a tuple a
+ * cursor compares with; more columns break ties.
+ */
 export const listingKey = (t: string, ...ties: Expression<unknown>[]) =>
 	sql`(${sql.join([...LISTED.map((c) => column(t, c)), ...ties])})`;
 
@@ -18,14 +21,23 @@ type ListedBetween = {
 	description: string | null;
 };
 
-/** A transaction dated within the span whose description contains the text, when there is any. */
+/**
+ * A transaction dated within the span whose description contains the text, when
+ * there is any.
+ */
 export const listedIn = (t: string, { from, to, description }: ListedBetween) =>
 	sql<SqlBool>`${column(t, 'date')} >= ${from.toString()} and ${column(t, 'date')} <= ${to.toString()} and ${containing(sql<string>`${column(t, 'description')}`, description)}`;
 
-/** Transactions newest first, as a page reads transactions_ledger_id_order backwards. */
+/**
+ * Transactions newest first, as a page reads transactions_ledger_id_order
+ * backwards.
+ */
 export const newestFirst = (t: string) => sql.join(LISTED.map((c) => sql`${column(t, c)} desc`));
 
-/** The order a ledger's postings happen in: by day, by time with none first, then by file and line. */
+/**
+ * The order a ledger's postings happen in: by day, by time with none first,
+ * then by file and line.
+ */
 export const ledgerOrder = (t: string, f: string) =>
 	sql.join([
 		column(t, 'date'),
@@ -34,17 +46,26 @@ export const ledgerOrder = (t: string, f: string) =>
 		column(t, 'line'),
 	]);
 
-/** An amount times a price per unit, rounded to a ten-billionth as the domain's multiply is. */
+/**
+ * An amount times a price per unit, rounded to a ten-billionth as the domain's
+ * multiply is.
+ */
 export const multiply = (a: Expression<unknown>, b: Expression<unknown>) =>
 	sql<bigint>`round(${a} * ${b} / ${sql.lit(AMOUNT_UNIT)})`;
 
-/** This account or any under it, ignoring case, so it reads through accounts_ledger_id_lower_name; every account when there is none. */
+/**
+ * This account or any under it, ignoring case, so it reads through
+ * accounts_ledger_id_lower_name; every account when there is none.
+ */
 export const underAccount = (c: Expression<string>, a: string | null) =>
 	a !== null
 		? sql<SqlBool>`(lower(${c}) = lower(${a}) or lower(${c}) like lower(${literalLike(a)}) || ':%')`
 		: sql<SqlBool>`true`;
 
-/** One of these accounts holding its commodity; every holding when there are none to name. */
+/**
+ * One of these accounts holding its commodity; every holding when there are
+ * none to name.
+ */
 export const amongHoldings = (
 	a: Expression<string>,
 	c: Expression<string>,

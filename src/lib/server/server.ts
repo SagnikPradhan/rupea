@@ -11,7 +11,10 @@ import type { ViteHotContext } from 'vite/types/hot.d.ts';
 import type { RupeaContext } from './shared/context/context';
 import { startLoops, type Loop } from './shared/loops';
 
-/** Worker entries, relative to this module: `vite dev` watches one into .svelte-kit, and the build puts the other in build/server/entries. */
+/**
+ * Worker entries, relative to this module: `vite dev` watches one into
+ * .svelte-kit, and the build puts the other in build/server/entries.
+ */
 const WORKER = {
 	dev: '../../../.svelte-kit/worker/worker.js',
 	built: '../../worker/worker.js',
@@ -32,7 +35,10 @@ type ServerOptions = {
 	dev: boolean;
 };
 
-/** Starts the jobs and loops; a dev reload kills the last reload's, and shutdown stops them gracefully. */
+/**
+ * Starts the jobs and loops; a dev reload kills the last reload's, and shutdown
+ * stops them gracefully.
+ */
 export const startServer = async (o: ServerOptions) => {
 	await import.meta.hot?.data.kill?.();
 	await o.database.migrate();
@@ -56,7 +62,10 @@ export const startServer = async (o: ServerOptions) => {
 		process.once('sveltekit:shutdown', () => halt().then(workers.stop).then(o.database.close));
 };
 
-/** Replaces the last reload's handlers, which would recycle workers it already killed. */
+/**
+ * Replaces the last reload's handlers, which would recycle workers it already
+ * killed.
+ */
 const watchBuilds = (
 	hot: ViteHotContext,
 	workers: { kill: () => Promise<void>; recycle: () => Promise<void> },
@@ -68,14 +77,20 @@ const watchBuilds = (
 	hot.on('rupea:worker-built', hot.data.recycle);
 };
 
-/** Jobs wait for the server to download the models, which workers then only check. */
+/**
+ * Jobs wait for the server to download the models, which workers then only
+ * check.
+ */
 const modelsReady = (c: RupeaContext) =>
 	c.models.ready().match(
 		() => undefined,
 		(e) => c.logger.warn({ error: e }, 'models not downloaded, jobs that need them fail'),
 	);
 
-/** Workers read their configuration as the server does, from these variables over its own. */
+/**
+ * Workers read their configuration as the server does, from these variables
+ * over its own.
+ */
 const workerEnv = (o: ServerOptions) => ({
 	DATABASE_URL: o.database.url,
 	RUPEA_MODELS_MODE: 'verify',

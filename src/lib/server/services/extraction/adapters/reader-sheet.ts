@@ -18,7 +18,10 @@ export const readCsv = (o: Upload): ResultAsync<Contents> =>
 		(t) => unreadable(o.name, 'not a readable statement', t),
 	);
 
-/** An .xls, which banks also send as HTML or text; SheetJS reads whichever it is. */
+/**
+ * An .xls, which banks also send as HTML or text; SheetJS reads whichever it
+ * is.
+ */
 export const readXls = (o: Upload): ResultAsync<Contents> => {
 	if (isEncrypted(o.content)) return errAsync(fault('ExtractionLocked', { path: o.name }));
 

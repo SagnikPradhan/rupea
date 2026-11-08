@@ -1,6 +1,9 @@
 import { defineConfig } from 'vite';
 
-/** The worker is a Node entry of its own, built apart from SvelteKit: once by `vite build`, and watched by `vite dev`. */
+/**
+ * The worker is a Node entry of its own, built apart from SvelteKit: once by
+ * `vite build`, and watched by `vite dev`.
+ */
 export default defineConfig({
 	build: {
 		ssr: true,

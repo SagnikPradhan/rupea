@@ -30,7 +30,10 @@ type KeepRunningOptions = {
 	restarts?: number;
 };
 
-/** Runs the loop until the signal aborts, starting it again after a growing delay whenever it stops before. */
+/**
+ * Runs the loop until the signal aborts, starting it again after a growing
+ * delay whenever it stops before.
+ */
 const keepRunning = async ({
 	loop,
 	signal,

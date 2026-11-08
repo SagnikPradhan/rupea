@@ -20,7 +20,10 @@ type EnqueueOptions<P> = {
 	payload: P;
 };
 
-/** Queues a job to run as `user`; inside `atomically`, only once the transaction commits. */
+/**
+ * Queues a job to run as `user`; inside `atomically`, only once the transaction
+ * commits.
+ */
 export const enqueue = <P>({ job, user, payload }: EnqueueOptions<P>): ResultAsync<void> =>
 	DB.createJob({
 		userId: user,

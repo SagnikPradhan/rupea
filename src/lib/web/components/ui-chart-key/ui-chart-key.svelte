@@ -15,7 +15,10 @@
 
 	type Props = {
 		entries: Entry[];
-		/** The part the pointer is on, in the key or in the chart; the other parts fade. */
+		/**
+		 * The part the pointer is on, in the key or in the chart; the other parts
+		 * fade.
+		 */
 		focus: number | null;
 		onfocus: (part: number | null) => void;
 	};

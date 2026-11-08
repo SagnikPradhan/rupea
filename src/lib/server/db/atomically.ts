@@ -7,8 +7,9 @@ import { attempt, type ResultAsync } from '../shared/result/result';
 const ROLLBACK = 'rolled back';
 
 /**
- * Runs `f` in one database transaction, provided as `db`; a failed result rolls it back. Inside
- * another, it runs in a savepoint, so only its own writes roll back.
+ * Runs `f` in one database transaction, provided as `db`; a failed result rolls
+ * it back. Inside another, it runs in a savepoint, so only its own writes roll
+ * back.
  */
 export const atomically = <T>(f: () => ResultAsync<T>): ResultAsync<T> =>
 	withContext()((context) =>
@@ -33,7 +34,10 @@ const savepoint = async <T>(db: Database, run: () => Promise<T>): Promise<T> => 
 	);
 };
 
-/** Rejects with the error as cause, since Kysely rolls a transaction back only when its callback does. */
+/**
+ * Rejects with the error as cause, since Kysely rolls a transaction back only
+ * when its callback does.
+ */
 const unwrap = async <T>(f: () => ResultAsync<T>): Promise<T> => {
 	const result = await f();
 	return result.isOk()

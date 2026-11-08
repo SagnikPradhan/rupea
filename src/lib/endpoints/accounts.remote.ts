@@ -17,7 +17,10 @@ import {
 	viewWorth,
 } from './views';
 
-/** What each balance account held at the end of a period, valued at that day's prices. */
+/**
+ * What each balance account held at the end of a period, valued at that day's
+ * prices.
+ */
 export const listAccounts = query(
 	v.object({ handle: Handle, day: Day, period: Period }),
 	({ handle, day, period }) => {
@@ -47,7 +50,10 @@ export const listWorth = query(
 	},
 );
 
-/** What the holdings with lots were worth at the end of each day of a period, beside what their lots had cost. */
+/**
+ * What the holdings with lots were worth at the end of each day of a period,
+ * beside what their lots had cost.
+ */
 export const listInvested = query(
 	v.object({ handle: Handle, day: Day, period: Period, account: BalanceAccount }),
 	({ handle, day, period, account }) => {
@@ -62,7 +68,10 @@ export const listInvested = query(
 	},
 );
 
-/** Why net worth moved over a period: the income and expenses, and what prices did to each group. */
+/**
+ * Why net worth moved over a period: the income and expenses, and what prices
+ * did to each group.
+ */
 export const findBridge = query(
 	v.object({ handle: Handle, day: Day, period: Period }),
 	({ handle, day, period }) => {
@@ -77,7 +86,10 @@ export const findBridge = query(
 	},
 );
 
-/** How far the holdings with lots stood below their high at the end of each day of a period, and how far each account fell at its lowest. */
+/**
+ * How far the holdings with lots stood below their high at the end of each day
+ * of a period, and how far each account fell at its lowest.
+ */
 export const listDrops = query(
 	v.object({ handle: Handle, day: Day, period: Period, account: BalanceAccount }),
 	({ handle, day, period, account }) => {
@@ -92,7 +104,10 @@ export const listDrops = query(
 	},
 );
 
-/** What flowed into each Assets account over a period less what flowed out, and its XIRR. */
+/**
+ * What flowed into each Assets account over a period less what flowed out, and
+ * its XIRR.
+ */
 export const listReturns = query(
 	v.object({ handle: Handle, day: Day, period: Period }),
 	({ handle, day, period }) => {
@@ -107,7 +122,10 @@ export const listReturns = query(
 	},
 );
 
-/** What flowed under an Expenses or Income account over a period, then over the one before it when there is one. */
+/**
+ * What flowed under an Expenses or Income account over a period, then over the
+ * one before it when there is one.
+ */
 export const listDeltas = query(
 	v.object({ handle: Handle, day: Day, period: Period, account: FlowAccount }),
 	({ handle, day, period, account }) => {

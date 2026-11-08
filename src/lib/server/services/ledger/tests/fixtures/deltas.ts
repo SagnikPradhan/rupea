@@ -2,7 +2,10 @@ import type { Database } from '#lib/server/db/index.ts';
 import { sql } from 'kysely';
 import { AMOUNT_UNIT } from '../../domain/amounts';
 
-/** Each stored month that differs from the daily deltas it sums, as "account commodity month: stored ≠ summed". */
+/**
+ * Each stored month that differs from the daily deltas it sums, as "account
+ * commodity month: stored ≠ summed".
+ */
 export const drift = async (db: Database, ledgerId: string) => {
 	const rows = await sql<{ key: string; stored: string | null; summed: string | null }>`
 		with m as (
@@ -21,7 +24,10 @@ export const drift = async (db: Database, ledgerId: string) => {
 	return rows.rows.map((r) => `${r.key}: ${r.stored} ≠ ${r.summed}`);
 };
 
-/** The ledger's stored months, as "account commodity month units", in that order. */
+/**
+ * The ledger's stored months, as "account commodity month units", in that
+ * order.
+ */
 export const months = async (db: Database, ledgerId: string) => {
 	const rows = await db
 		.selectFrom('monthlyDeltas as m')

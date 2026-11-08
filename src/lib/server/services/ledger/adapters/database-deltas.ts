@@ -15,7 +15,10 @@ const FOREVER = 'infinity';
 
 type MonthlyDeltasOptions = { span: Span; holdings: HoldingKey[] };
 
-/** Rewrites these holdings' months from the one holding the span's start to the one holding its end. */
+/**
+ * Rewrites these holdings' months from the one holding the span's start to the
+ * one holding its end.
+ */
 export const saveMonthlyDeltas = (
 	ledgerId: string,
 	{ span, holdings }: MonthlyDeltasOptions,
@@ -36,7 +39,11 @@ export const saveMonthlyDeltas = (
 		),
 	);
 
-/** Rewrites the twelve months after the ledger's checked_through and moves it on, back to the start after its last month. Returns the years they fall in, or null for a ledger with no transactions. */
+/**
+ * Rewrites the twelve months after the ledger's checked_through and moves it
+ * on, back to the start after its last month. Returns the years they fall in,
+ * or null for a ledger with no transactions.
+ */
 export const saveCheckedMonths = (
 	ledgerId: string,
 ): ResultAsync<{ from: number; to: number } | null> =>
@@ -79,7 +86,10 @@ export const saveEveryMonth = (ledgerId: string): ResultAsync<void> =>
 
 type FirstMoveOptions = { accounts: string[]; to: Temporal.PlainDate };
 
-/** The first day any of these accounts moved, or null when none did by the month holding to. */
+/**
+ * The first day any of these accounts moved, or null when none did by the month
+ * holding to.
+ */
 export const findFirstDelta = (
 	ledgerId: string,
 	{ accounts, to }: FirstMoveOptions,
@@ -116,7 +126,11 @@ type DeltasOptions = {
 	grain: 'month' | 'day';
 };
 
-/** What each account moved of each commodity, whatever its type, dated by the day, or by the month's first day where the month is whole and its total can be read. */
+/**
+ * What each account moved of each commodity, whatever its type, dated by the
+ * day, or by the month's first day where the month is whole and its total can
+ * be read.
+ */
 export const deltasBetween = (db: Database, ledgerId: string, o: DeltasOptions) => {
 	const from = o.from.toString();
 	const after = o.after?.toString() ?? FOREVER;
@@ -139,7 +153,10 @@ export const deltasBetween = (db: Database, ledgerId: string, o: DeltasOptions) 
 		.unionAll(days(whole?.after ?? from, whole ? after : from));
 };
 
-/** The months from the first to start on or after the start to the last to end before the stop, or null when none is whole. */
+/**
+ * The months from the first to start on or after the start to the last to end
+ * before the stop, or null when none is whole.
+ */
 const wholeMonths = ({ from, after }: DeltasOptions) => {
 	const first = from.day === 1 ? from : from.with({ day: 1 }).add({ months: 1 });
 	const end = after?.with({ day: 1 }) ?? null;
@@ -189,7 +206,10 @@ const rewrite = async (tx: Database, { ledgerId, first, after, holdings }: Rewri
 		.execute();
 };
 
-/** The day after checked_through, or the ledger's first day when it is none, and its last day. */
+/**
+ * The day after checked_through, or the ledger's first day when it is none, and
+ * its last day.
+ */
 const findChecked = (tx: Database, ledgerId: string) =>
 	tx
 		.selectFrom('ledgers as l')

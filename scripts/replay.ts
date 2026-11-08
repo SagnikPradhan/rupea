@@ -36,14 +36,20 @@ const models = createModels({
 	logger,
 });
 
-/** One file of the ledger, read as a statement of the account most of its postings name. */
+/**
+ * One file of the ledger, read as a statement of the account most of its
+ * postings name.
+ */
 type Statement = { account: string; first: string; transactions: RupeaTransaction[] };
 
 /** A past transaction, as the index would find it near a line. */
 type Remembered = { vector: Float32Array; transaction: RupeaTransaction };
 
 const statements = (await readStatements(root)).toSorted((a, b) => a.first.localeCompare(b.first));
-/** Accounts used by the statements before the one predicted, as a real import would know them. */
+/**
+ * Accounts used by the statements before the one predicted, as a real import
+ * would know them.
+ */
 const accounts = new Set<string>();
 
 const history: Remembered[] = [];
@@ -65,7 +71,10 @@ console.table({
 	precision: share(guessed.filter((o) => o.right).length, guessed.length),
 });
 
-/** Predicts each line of a statement from the statements before it, as an import would. */
+/**
+ * Predicts each line of a statement from the statements before it, as an import
+ * would.
+ */
 async function predictStatement(statement: Statement) {
 	const lines = statement.transactions.flatMap((t) => lineOf(statement.account, t));
 	if (lines.length === 0 || (!cold && history.length === 0)) return [];
@@ -87,7 +96,10 @@ async function predictStatement(statement: Statement) {
 	}));
 }
 
-/** A transaction between the statement's account and one other, with the other as the answer. */
+/**
+ * A transaction between the statement's account and one other, with the other
+ * as the answer.
+ */
 function lineOf(account: string, t: RupeaTransaction) {
 	const own = t.postings.find((p) => p.account === account);
 	const other = t.postings.find((p) => p.account !== account);
@@ -105,7 +117,10 @@ async function remember(transactions: RupeaTransaction[]) {
 	}));
 }
 
-/** What the index's nearest search returns: every posting of the closest transactions. */
+/**
+ * What the index's nearest search returns: every posting of the closest
+ * transactions.
+ */
 function nearestTo(vector: Float32Array): Neighbour[] {
 	return history
 		.map((h) => ({ h, similarity: h.vector.reduce((s, v, i) => s + v * (vector[i] ?? 0), 0) }))

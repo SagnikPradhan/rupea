@@ -39,8 +39,9 @@ export const findLatestPrices = (
 	);
 
 /**
- * What one unit of each commodity was worth in the base on each of its days, at the latest price
- * on or before that day, through as many prices as it takes. A pair with no price is left out.
+ * What one unit of each commodity was worth in the base on each of its days, at
+ * the latest price on or before that day, through as many prices as it takes. A
+ * pair with no price is left out.
  */
 type RatesOptions = { pairs: { commodity: string; day: Temporal.PlainDate }[]; base: string };
 
@@ -86,13 +87,19 @@ type InBaseOptions = {
 	base: string;
 };
 
-/** An amount in the base: itself when it is, else at its rate, which is null when no price reaches the base. */
+/**
+ * An amount in the base: itself when it is, else at its rate, which is null
+ * when no price reaches the base.
+ */
 export const inBase = ({ amount, commodity, rate, base }: InBaseOptions) =>
 	sql<
 		bigint | null
 	>`case when ${commodity} = ${base} then ${amount} else ${multiply(amount, rate)} end`;
 
-/** The ledger's own symbols, so each commodity is looked up once rather than once a day. */
+/**
+ * The ledger's own symbols, so each commodity is looked up once rather than
+ * once a day.
+ */
 export const ownSymbols = (db: Database, ledgerId: string) =>
 	db
 		.selectFrom('symbols')
@@ -113,7 +120,10 @@ type Converting = {
 	own: { id: string; symbol: string };
 };
 
-/** Each wanted commodity and day at a rate of one for itself, then through its prices to the base. */
+/**
+ * Each wanted commodity and day at a rate of one for itself, then through its
+ * prices to the base.
+ */
 export const ratesOf =
 	(db: Database, ledgerId: string, base: string) => (q: QueryCreator<Converting>) =>
 		q
@@ -129,7 +139,11 @@ export const ratesOf =
 			.where('w.commodity', '<>', base)
 			.unionAll(nextRate(db, ledgerId, base));
 
-/** Each commodity's next price on its way to the base, from the one the rate reached last, never to a commodity it has been through, so prices that go round end. */
+/**
+ * Each commodity's next price on its way to the base, from the one the rate
+ * reached last, never to a commodity it has been through, so prices that go
+ * round end.
+ */
 const nextRate =
 	(db: Database, ledgerId: string, base: string) => (r: ExpressionBuilder<Converting, never>) =>
 		r
@@ -162,8 +176,9 @@ type PriceOnOptions = {
 };
 
 /**
- * The latest price of a commodity on or before a day, from the ledger's own symbol or the feed it
- * links to on that day. On one day a P line beats an at-price, and either beats a feed's quote.
+ * The latest price of a commodity on or before a day, from the ledger's own
+ * symbol or the feed it links to on that day. On one day a P line beats an
+ * at-price, and either beats a feed's quote.
  */
 const priceOn = (db: Database, ledgerId: string, { symbolId, commodity, day }: PriceOnOptions) =>
 	db
@@ -179,7 +194,10 @@ const priceOn = (db: Database, ledgerId: string, { symbolId, commodity, day }: P
 		.orderBy('c.rank')
 		.limit(1);
 
-/** The latest price of a symbol on or before a day, where a P line beats an at-price on the same day. */
+/**
+ * The latest price of a symbol on or before a day, where a P line beats an
+ * at-price on the same day.
+ */
 const ownPrice = (db: Database, symbolId: Expression<string | null>, day: Expression<string>) =>
 	db
 		.selectFrom('prices')
@@ -196,7 +214,10 @@ const ownPrice = (db: Database, symbolId: Expression<string | null>, day: Expres
 		.orderBy('prices.line', 'desc')
 		.limit(1);
 
-/** The latest quote on or before a day of the feed a commodity links to on that day. */
+/**
+ * The latest quote on or before a day of the feed a commodity links to on that
+ * day.
+ */
 const quotedPrice = (
 	db: Database,
 	ledgerId: string,
@@ -228,8 +249,9 @@ const quotedPrice = (
 		.limit(1);
 
 /**
- * A commodity's links, each holding from its since until the next. A link from the start holds
- * from -infinity, so of two links from one day the later written holds.
+ * A commodity's links, each holding from its since until the next. A link from
+ * the start holds from -infinity, so of two links from one day the later
+ * written holds.
  */
 const linksOf = (db: Database, ledgerId: string, commodity: Expression<string>) =>
 	db

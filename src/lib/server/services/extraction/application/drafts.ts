@@ -14,7 +14,10 @@ import type { RupeaRecord } from '../domain/types';
 import { addSchema, isBuiltin, recogniseStatement, type SchemaText } from './schemas';
 import { readByChecksum, readStatement, type Statement } from './statements';
 
-/** Why a statement waits for its user to unlock it or describe it, which no job can. */
+/**
+ * Why a statement waits for its user to unlock it or describe it, which no job
+ * can.
+ */
 const WAITING = new Set(['ExtractionLocked', 'ExtractionUnrecognised']);
 
 type ExtractOptions = {
@@ -49,7 +52,10 @@ export const importStatement = ({ ledger, statement, schema }: ExtractOptions) =
 
 type DraftUploadOptions = { ledger: Ledger; checksum: string };
 
-/** Files an upload for review, unless a file has it already: a ledger file as written, a statement read with the schema that recognises it. */
+/**
+ * Files an upload for review, unless a file has it already: a ledger file as
+ * written, a statement read with the schema that recognises it.
+ */
 export const draftUpload = ({ ledger, checksum }: DraftUploadOptions): ResultAsync<void> =>
 	findImported({ ledger, checksums: [checksum] })
 		.andThen((i) => (i.length > 0 ? okAsync(null) : readByChecksum({ ledger, checksum })))

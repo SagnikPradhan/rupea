@@ -16,12 +16,18 @@ export const DATE_FORMATS = [
 
 export const TIME_FORMATS = ['HH:mm', 'H:mm', 'HH:mm:ss', 'H:mm:ss', 'h:mm a', 'h:mm:ss a'];
 
-/** date-fns fills fields a format leaves out with the 1st, January or 1970, so this avoids all three. */
+/**
+ * Date-fns fills fields a format leaves out with the 1st, January or 1970, so
+ * this avoids all three.
+ */
 const SAMPLE = new Date(2026, 7, 29, 14, 30);
 
 const REMEMBERED = 10_000;
 
-/** Reading is costly and always gives the same answer, and a ledger repeats few dates across many lines. */
+/**
+ * Reading is costly and always gives the same answer, and a ledger repeats few
+ * dates across many lines.
+ */
 const reads = new Map<string, Date | null>();
 
 export type ReadOptions = { format: string; text: string; reference?: Date | undefined };
@@ -65,7 +71,11 @@ const read = (o: ReadOptions): Date | null => {
 	return d;
 };
 
-/** Whether a text could print as its format, which is cheap to tell and rules out most: a line is tried against every format, and most of those texts are never seen again. */
+/**
+ * Whether a text could print as its format, which is cheap to tell and rules
+ * out most: a line is tried against every format, and most of those texts are
+ * never seen again.
+ */
 const fits = ({ format, text }: ReadOptions): boolean => {
 	const shape = shapes.get(format) ?? shapes.set(format, shapeOfFormat(format)).get(format);
 
@@ -76,7 +86,10 @@ const shapes = new Map<string, string | null>();
 
 const shapeOfText = (t: string) => t.replace(/\d+/g, '0').replace(/[a-z]+/gi, 'a');
 
-/** Null for a format with anything but plain numbers, month names and am or pm, which could print as something else. */
+/**
+ * Null for a format with anything but plain numbers, month names and am or pm,
+ * which could print as something else.
+ */
 const shapeOfFormat = (format: string) => {
 	const shape = format
 		.replace(/M{3,}|a{5}|a{1,3}(?!a)/g, '_')

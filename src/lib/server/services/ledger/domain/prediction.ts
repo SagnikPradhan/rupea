@@ -10,7 +10,10 @@ const PRIOR = 0.25;
 
 export const THRESHOLDS: Thresholds = { history: 0.15, spelled: 0.5, name: 0.35 };
 
-/** Uncategorised postings are unsettled guesses; learning from them would only make the guess surer. */
+/**
+ * Uncategorised postings are unsettled guesses; learning from them would only
+ * make the guess surer.
+ */
 const GUESSED = /(^|:)Uncategorized$/;
 
 const TYPES: Record<'out' | 'in', AccountType[]> = {
@@ -18,7 +21,10 @@ const TYPES: Record<'out' | 'in', AccountType[]> = {
 	out: [AccountType.Expenses, AccountType.Liabilities, AccountType.Equity, AccountType.Assets],
 };
 
-/** Accounts a line can spell out: they name who was paid or paid us, while an asset or liability names a bank or card. */
+/**
+ * Accounts a line can spell out: they name who was paid or paid us, while an
+ * asset or liability names a bank or card.
+ */
 const PAYEES = [AccountType.Expenses, AccountType.Income];
 
 export type Source = 'history' | 'spelled' | 'name' | 'fallback';
@@ -61,7 +67,10 @@ export type ClassifyOptions = {
 
 type TextsOptions = { lines: Line[]; accounts: string[] };
 
-/** What to embed: the words of each distinct line, which are searched near, then the accounts' names. */
+/**
+ * What to embed: the words of each distinct line, which are searched near, then
+ * the accounts' names.
+ */
 export const textsOf = ({ lines, accounts }: TextsOptions) => {
 	const searched = wordsOf(lines.map((l) => l.description));
 	const named = candidates(accounts).map((c) => c.text);
@@ -71,7 +80,10 @@ export const textsOf = ({ lines, accounts }: TextsOptions) => {
 	};
 };
 
-/** The vectors are those of the texts to embed, and nearest is what was found near the searched ones. */
+/**
+ * The vectors are those of the texts to embed, and nearest is what was found
+ * near the searched ones.
+ */
 export const classify = (
 	options: ClassifyOptions,
 	vectors: Float32Array[],
@@ -169,7 +181,10 @@ export const fallback = (amount: Amount): Prediction => ({
 	source: 'fallback',
 });
 
-/** The user's own accounts, by name, and the global ones only where they have none of the same type and last name. */
+/**
+ * The user's own accounts, by name, and the global ones only where they have
+ * none of the same type and last name.
+ */
 const candidates = (accounts: string[]) => {
 	const ours = accounts.filter((a) => !GUESSED.test(a));
 	const owned = new Set(ours.map(kindOf));
@@ -185,7 +200,10 @@ const lastOf = (a: string) => accountText(a.split(':').at(-1) ?? '');
 
 const kindOf = (a: string) => `${accountType(a)} ${lastOf(a)}`;
 
-/** The one account whose last part the line spells out, taking the deepest when it also spells a parent. */
+/**
+ * The one account whose last part the line spells out, taking the deepest when
+ * it also spells a parent.
+ */
 const spelledIn = (words: string, accounts: string[]) => {
 	const spelled = accounts.filter((a) => spells(words, lastOf(a)));
 	const deepest = spelled.filter((a) => !spelled.some((b) => b.startsWith(`${a}:`)));

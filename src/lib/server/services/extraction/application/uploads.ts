@@ -21,7 +21,10 @@ type UploadOptions = {
 	uploads: Upload[];
 };
 
-/** Stores each upload, and queues a job that drafts it; one failing does not stop the rest. */
+/**
+ * Stores each upload, and queues a job that drafts it; one failing does not
+ * stop the rest.
+ */
 export const uploadStatements = ({
 	ledger,
 	user,
@@ -29,7 +32,10 @@ export const uploadStatements = ({
 }: UploadOptions): ResultAsync<Batch<string>> =>
 	batchInOrder(uploads.map((u) => () => uploadOne({ ledger, user, upload: u })));
 
-/** Statements uploaded lately, newest first, with the file each was imported into. */
+/**
+ * Statements uploaded lately, newest first, with the file each was imported
+ * into.
+ */
 export const listStatements = (
 	ledger: Ledger,
 ): ResultAsync<{ key: string; file: string | null }[]> =>

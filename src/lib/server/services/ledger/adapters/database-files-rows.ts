@@ -53,7 +53,10 @@ export const deleteOwnedBy = async (db: Database, transactions: string[]) => {
 		.execute();
 };
 
-/** A kept transaction keeps whether it counts, which settling decides, and its embedding. */
+/**
+ * A kept transaction keeps whether it counts, which settling decides, and its
+ * embedding.
+ */
 export const saveTransactions = async (db: Database, rows: TransactionRow[]) => {
 	for (const chunk of chunks(rows, ROWS_PER_STATEMENT))
 		await db // NOSONAR -- a transaction's statements share one connection, so they run in turn
@@ -78,7 +81,10 @@ type RowsOptions = {
 	matchOf: (t: RupeaTransaction) => OldTransaction | undefined;
 };
 
-/** Each table's rows for a parsed file, its prices and links still to be put on their symbols. */
+/**
+ * Each table's rows for a parsed file, its prices and links still to be put on
+ * their symbols.
+ */
 export const rowsOf = ({ ledgerId, fileId, file, failed, lineHashes, matchOf }: RowsOptions) => {
 	const indexed = file.transactions.map((t) => {
 		const match = matchOf(t);
@@ -172,8 +178,10 @@ export const rowsOf = ({ ledgerId, fileId, file, failed, lineHashes, matchOf }: 
 };
 
 /**
- * Deletes a file's transactions that no new row kept, by id, and rows without an embedding take their description's.
- * The select still sees the deleted rows, as Postgres runs a statement on one snapshot, so the update keeps to the others.
+ * Deletes a file's transactions that no new row kept, by id, and rows without
+ * an embedding take their description's. The select still sees the deleted
+ * rows, as Postgres runs a statement on one snapshot, so the update keeps to
+ * the others.
  */
 export const replaceOldTransactions = (db: Database, fileId: string, unmatched: string[]) =>
 	db

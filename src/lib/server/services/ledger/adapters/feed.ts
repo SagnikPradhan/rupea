@@ -11,7 +11,10 @@ export type Fetch = typeof globalThis.fetch;
 /** A symbol's closing price on a day, in an ISO currency. */
 export type Quote = { date: Temporal.PlainDate; price: Quantity };
 
-/** A feed's quotes of a symbol, oldest first: from a day on, or all of them when since is null. */
+/**
+ * A feed's quotes of a symbol, oldest first: from a day on, or all of them when
+ * since is null.
+ */
 export type ListQuotes = (
 	fetch: Fetch,
 	symbol: string,
@@ -26,7 +29,10 @@ type ReadJsonOptions<T> = {
 	schema: v.GenericSchema<unknown, T>;
 };
 
-/** A feed that is down or busy is worth asking again later; an answer it cannot give is not. */
+/**
+ * A feed that is down or busy is worth asking again later; an answer it cannot
+ * give is not.
+ */
 export const readJson = <T>(fetch: Fetch, o: ReadJsonOptions<T>): ResultAsync<T> => {
 	const asked = { feed: o.feed, symbol: o.symbol };
 	const invalid = (r: string) => fault('FeedInvalidResponse', { ...asked, reason: r });

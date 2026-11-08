@@ -3,7 +3,11 @@ import { nameOf } from './accounts';
 
 type Held = { account: string; parent: string | null; total: string };
 
-/** An arc of one ring, from and to as fractions of the circle; own is false for the rest of an account its sub-accounts leave, and for an arc carried outward past the last of its sub-accounts. */
+/**
+ * An arc of one ring, from and to as fractions of the circle; own is false for
+ * the rest of an account its sub-accounts leave, and for an arc carried outward
+ * past the last of its sub-accounts.
+ */
 export type Arc = {
 	key: string;
 	label: string;
@@ -21,10 +25,11 @@ type Slice = { held: Held; value: number; own: boolean };
 const sum = (n: number[]) => n.reduce((t, x) => t + x, 0);
 
 /**
- * Divides what an account holds into rings, one per level of accounts under it: each account's arc
- * is as wide as what it and those under it hold, and its sub-accounts divide it in the ring
- * outside. What an account holds beyond its sub-accounts, and an account with none, carries on as
- * an arc of its own name out to the last ring. An account that holds nothing, or owes, has no arc;
+ * Divides what an account holds into rings, one per level of accounts under it:
+ * each account's arc is as wide as what it and those under it hold, and its
+ * sub-accounts divide it in the ring outside. What an account holds beyond its
+ * sub-accounts, and an account with none, carries on as an arc of its own name
+ * out to the last ring. An account that holds nothing, or owes, has no arc;
  * skipped counts the accounts that owe.
  */
 export const ringsOf = (accounts: Held[], root: string = ASSETS) => {

@@ -70,7 +70,10 @@ export const deleteTransaction = command(
 	},
 );
 
-/** A command, not a query: never cached, as the file may change behind the app's back. */
+/**
+ * A command, not a query: never cached, as the file may change behind the app's
+ * back.
+ */
 export const readFile = command(v.object({ handle: Handle, key: Key }), ({ handle, key }) =>
 	replyFrom(inLedger({ handle, action: (l) => Files.readFile({ ledger: l, key }) })),
 );

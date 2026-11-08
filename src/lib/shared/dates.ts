@@ -1,6 +1,9 @@
 import * as v from 'valibot';
 
-/** A day as the viewer's calendar shows it, sent as an ISO date like `2026-10-21`. */
+/**
+ * A day as the viewer's calendar shows it, sent as an ISO date like
+ * `2026-10-21`.
+ */
 export const Day = v.pipe(
 	v.string(),
 	v.isoDate(),
@@ -13,7 +16,10 @@ export const BEGINNING = '0001-01-01';
 /** The first and last day of a span, both included. */
 export type Span = { from: Temporal.PlainDate; to: Temporal.PlainDate };
 
-/** The first day of the earliest span to the last day of the latest, or none without spans. */
+/**
+ * The first day of the earliest span to the last day of the latest, or none
+ * without spans.
+ */
 export const coverOf = (spans: Span[]): Span | null => {
 	const days = spans.flatMap((s) => [s.from, s.to]).toSorted(Temporal.PlainDate.compare);
 	const [from, to] = [days.at(0), days.at(-1)];
@@ -30,14 +36,20 @@ const YEAR_NAME = /^\d{4}$/;
 const MOST_DAYS = 31;
 const MOST_MONTHS = 36;
 
-/** An ISO date only has the right shape, so 2026-02-30 passes it; a day that exists comes back the same. */
+/**
+ * An ISO date only has the right shape, so 2026-02-30 passes it; a day that
+ * exists comes back the same.
+ */
 const exists = (d: string) =>
 	!Number.isNaN(Date.parse(d)) && new Date(d).toISOString().startsWith(d);
 
 /** An ISO day that exists, kept as text. */
 const IsoDay = v.pipe(v.string(), v.isoDate(), v.check(exists));
 
-/** What a page of a ledger's history covers: a calendar month or year, all of history, or the days between two. */
+/**
+ * What a page of a ledger's history covers: a calendar month or year, all of
+ * history, or the days between two.
+ */
 export const Period = v.variant('kind', [
 	v.object({ kind: v.literal('month'), at: v.pipe(v.string(), v.regex(MONTH_NAME)) }),
 	v.object({ kind: v.literal('year'), at: v.pipe(v.string(), v.regex(YEAR_NAME)) }),
@@ -50,7 +62,10 @@ export const Period = v.variant('kind', [
 
 export type Period = v.InferOutput<typeof Period>;
 
-/** The period a URL picks with at, range=all, or from and to; the fallback when it picks none. */
+/**
+ * The period a URL picks with at, range=all, or from and to; the fallback when
+ * it picks none.
+ */
 export const periodOf = (
 	params: { get: (key: string) => string | null },
 	fallback: Period,
@@ -74,10 +89,16 @@ export const paramsOf = (period: Period): Record<string, string> => {
 	return { at: period.at };
 };
 
-/** What a chart of spending covers: its span, the one before to weigh it against, and its buckets. */
+/**
+ * What a chart of spending covers: its span, the one before to weigh it
+ * against, and its buckets.
+ */
 type Spans = { current: Span; previous: Span | null; bucket: Bucket };
 
-/** A period's spans, each cut short at the day; a month or year is weighed against the one before, as far in, and days against as many before them. */
+/**
+ * A period's spans, each cut short at the day; a month or year is weighed
+ * against the one before, as far in, and days against as many before them.
+ */
 export const spansOf = (period: Period, day: Temporal.PlainDate): Spans => {
 	if (period.kind === 'all') return spansEver(day);
 	if (period.kind === 'custom') return spansBetween(period, day);
@@ -150,7 +171,10 @@ const bucketBetween = (from: Temporal.PlainDate, to: Temporal.PlainDate): Bucket
 	return 'year';
 };
 
-/** A month or year from its first day, cut short at the day while it runs; one yet to start begins on the day. */
+/**
+ * A month or year from its first day, cut short at the day while it runs; one
+ * yet to start begins on the day.
+ */
 const calendarSpan = (
 	first: Temporal.PlainDate,
 	unit: 'months' | 'years',

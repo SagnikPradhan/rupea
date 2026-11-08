@@ -19,7 +19,10 @@
 	import { curveMonotoneX, line } from 'd3-shape';
 	import type { Snippet } from 'svelte';
 
-	/** A field of the rows to plot: a part piled into every bar, in order from zero, or a dashed curve they are weighed against. */
+	/**
+	 * A field of the rows to plot: a part piled into every bar, in order from
+	 * zero, or a dashed curve they are weighed against.
+	 */
 	type Series = {
 		key: keyof Row & string;
 		label: string;
@@ -36,7 +39,10 @@
 		/** How many days one bar adds up, which names it on the axis. */
 		bucket: Bucket;
 		series: Series[];
-		/** What the key reads while no bar is under the cursor, such as the parts' totals. */
+		/**
+		 * What the key reads while no bar is under the cursor, such as the parts'
+		 * totals.
+		 */
 		whole: Row;
 		label: string;
 		scale?: Scale;
@@ -58,9 +64,15 @@
 		controls,
 	}: Props = $props();
 
-	/** A bar fills this share of its step, and no more than this percent of the plot. */
+	/**
+	 * A bar fills this share of its step, and no more than this percent of the
+	 * plot.
+	 */
 	const WIDTH = { share: 0.6, most: 4 };
-	/** How many bars apart the axis may name them, so the names land on whole quarters and years. */
+	/**
+	 * How many bars apart the axis may name them, so the names land on whole
+	 * quarters and years.
+	 */
 	const STRIDES = [1, 2, 3, 6, 12, 24, 48];
 
 	const hovered = $state({ index: null as number | null, part: null as number | null });
@@ -117,7 +129,10 @@
 		})),
 	]);
 
-	/** Finds the bar under the pointer, and the part of it, or none beside the bar or above it. */
+	/**
+	 * Finds the bar under the pointer, and the part of it, or none beside the bar
+	 * or above it.
+	 */
 	const point = (e: PointerEvent) => {
 		const { left, top } = pointerIn(e);
 		const index = Math.min(Math.max(Math.floor(left / step), 0), rows.length - 1);
@@ -129,7 +144,10 @@
 
 	const leave = () => Object.assign(hovered, { index: null, part: null });
 
-	/** Where a part stands in its bar, on top of the parts before it that run the same way. */
+	/**
+	 * Where a part stands in its bar, on top of the parts before it that run the
+	 * same way.
+	 */
 	const barOf = (k: number, i: number) => {
 		const [from, to] = piles[k]?.[i] ?? [0, 0];
 		const top = values.y(Math.max(from, to));

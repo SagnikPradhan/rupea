@@ -7,13 +7,20 @@ import { UNTOUCHED, type Indexed, type Settling } from './sync-index';
 
 type SettleOptions = { ledgerId: string; indexed: Indexed };
 
-/** Settles what spans files once indexed: which transactions count, then the lots, months and assertions they and the recount touched, and the accounts left unused. */
+/**
+ * Settles what spans files once indexed: which transactions count, then the
+ * lots, months and assertions they and the recount touched, and the accounts
+ * left unused.
+ */
 export const settle = ({ ledgerId, indexed }: SettleOptions): ResultAsync<RupeaError[]> =>
 	recount(ledgerId, indexed.grouped)
 		.andThen((r) => settleTouched(ledgerId, merged(indexed, r)))
 		.map(() => indexed.failed);
 
-/** Settles as settle does, but over everything, since what reading a file did not touch may be what is wrong. */
+/**
+ * Settles as settle does, but over everything, since what reading a file did
+ * not touch may be what is wrong.
+ */
 export const settleAll = (id: string): ResultAsync<void> =>
 	recount(id, true).andThen(() => settleEverything(id));
 
@@ -39,7 +46,10 @@ const settleEverything = (id: string): ResultAsync<void> =>
 		.andThen(() => saveChecksAll(id))
 		.andThen(() => deleteUnusedAll(id));
 
-/** Whether a transaction counts depends only on its group's links, so what no changed transaction links leaves all as they were. */
+/**
+ * Whether a transaction counts depends only on its group's links, so what no
+ * changed transaction links leaves all as they were.
+ */
 const recount = (id: string, g: boolean): ResultAsync<DB.Touched> =>
 	g
 		? DB.listGroupTransactions(id).andThen((m) => DB.recount(id, checkGroups(m).uncounted))
@@ -58,7 +68,10 @@ const saveMonths = (id: string, t: Settling): ResultAsync<void> =>
 
 const saveMonthsAll = (id: string): ResultAsync<void> => DB.saveEveryMonth(id);
 
-/** Puts right the months the check has come round to and the years they fall in, so what a bug left wrong does not stay. */
+/**
+ * Puts right the months the check has come round to and the years they fall in,
+ * so what a bug left wrong does not stay.
+ */
 const repairMonths = (id: string): ResultAsync<void> =>
 	DB.saveCheckedMonths(id).andThen((y) =>
 		y ? DB.saveBalanceYears(id, { ...y, holdings: null }) : okAsync(),
@@ -77,7 +90,10 @@ const saveChecks = (id: string, t: Settling): ResultAsync<void> =>
 const saveChecksAll = (id: string): ResultAsync<void> =>
 	DB.saveBalanceChecks(id, { from: Temporal.PlainDate.from(BEGINNING), holdings: null });
 
-/** An account with postings keeps those above it, so only one left without any can leave accounts unused, and most edits skip the scan of every account. */
+/**
+ * An account with postings keeps those above it, so only one left without any
+ * can leave accounts unused, and most edits skip the scan of every account.
+ */
 const deleteUnused = (id: string, t: Settling): ResultAsync<void> =>
 	DB.anyEmptied(t.holdings.map((k) => k.accountId)).andThen((e) =>
 		e ? DB.deleteUnusedAccounts(id) : okAsync(),

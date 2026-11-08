@@ -8,7 +8,10 @@
 	type Props = {
 		columns: Column[];
 		label?: string;
-		/** Sizes the columns by their headers, so rows that come and go do not move them. */
+		/**
+		 * Sizes the columns by their headers, so rows that come and go do not move
+		 * them.
+		 */
 		fixed?: boolean;
 		children: Snippet;
 	};

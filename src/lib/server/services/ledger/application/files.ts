@@ -40,7 +40,10 @@ export const readFile = ({ ledger, key }: ReadFileOptions): ResultAsync<RupeaFil
 
 type FindImportedOptions = { ledger: Ledger; checksums: string[] };
 
-/** Of these statement checksums, those a file was imported from, with each such file. */
+/**
+ * Of these statement checksums, those a file was imported from, with each such
+ * file.
+ */
 export const findImported = ({
 	ledger,
 	checksums,
@@ -49,13 +52,19 @@ export const findImported = ({
 
 type FindLatestFileOptions = { ledger: Ledger; account: string };
 
-/** The counted file holding an account's latest transaction, where its next ones likely go. */
+/**
+ * The counted file holding an account's latest transaction, where its next ones
+ * likely go.
+ */
 export const findLatestFile = ({
 	ledger,
 	account,
 }: FindLatestFileOptions): ResultAsync<string | null> => DB.findLatestFile(ledger.id, account);
 
-/** The files a new transaction can go in, and the one with the ledger's latest transaction. */
+/**
+ * The files a new transaction can go in, and the one with the ledger's latest
+ * transaction.
+ */
 export const findTransactionFiles = (
 	l: Ledger,
 ): ResultAsync<{ keys: string[]; newest: string | null }> =>
@@ -77,7 +86,10 @@ export const parseFile = ({ key, content }: ParseFileOptions): Batch<RupeaTransa
 
 type FormatFileOptions = { content: string };
 
-/** Writes a file as Rupea prints it, without saving it; lines that do not read stay as written. */
+/**
+ * Writes a file as Rupea prints it, without saving it; lines that do not read
+ * stay as written.
+ */
 export const formatFile = ({ content }: FormatFileOptions): string =>
 	withContext('config')((c) => print(c.ledger, parseTree(c.ledger, { key: '', content })));
 
@@ -86,7 +98,10 @@ type CreateFileOptions = { ledger: Ledger; key: string; content: string };
 export const createFile = ({ ledger, key, content }: CreateFileOptions): ResultAsync<RupeaFile> =>
 	writeFile({ ledger, key, content, ifVersion: null });
 
-/** Creates a file, numbering its name when it is taken, as nothing reviewed it yet; the same file twice is kept once. */
+/**
+ * Creates a file, numbering its name when it is taken, as nothing reviewed it
+ * yet; the same file twice is kept once.
+ */
 export const importFile = ({ ledger, key, content }: CreateFileOptions): ResultAsync<RupeaFile> =>
 	openFolder({ ledger, folder: 'files' }).andThen((s) =>
 		writeNumberedText(s, key, content).andTee((f) =>
@@ -106,7 +121,10 @@ export const editFile = ({
 
 type CreateTransactionOptions = { ledger: Ledger; form: TransactionForm };
 
-/** Adds a form's transaction to its file, or to a new file of that name; written only if the file is unchanged since it was read. */
+/**
+ * Adds a form's transaction to its file, or to a new file of that name; written
+ * only if the file is unchanged since it was read.
+ */
 export const createTransaction = ({
 	ledger,
 	form,
@@ -127,7 +145,10 @@ type TransactionAt = { ledger: Ledger; file: string; line: number };
 
 type FindTransactionOptions = { ledger: Ledger; id: string };
 
-/** The form of an indexed transaction, with where it stands and the version of the file it was read from. */
+/**
+ * The form of an indexed transaction, with where it stands and the version of
+ * the file it was read from.
+ */
 export const findTransaction = ({
 	ledger,
 	id,
@@ -152,7 +173,10 @@ export const findTransaction = ({
 
 type SaveTransactionOptions = TransactionAt & { version: string; form: TransactionForm };
 
-/** Rewrites the transaction at a line, if its file is still the version it was read as. */
+/**
+ * Rewrites the transaction at a line, if its file is still the version it was
+ * read as.
+ */
 export const saveTransaction = ({
 	ledger,
 	file,
@@ -166,7 +190,10 @@ export const saveTransaction = ({
 
 type DeleteTransactionOptions = TransactionAt & { version: string };
 
-/** Takes the transaction at a line out of its file, if the file is still the version it was read as. */
+/**
+ * Takes the transaction at a line out of its file, if the file is still the
+ * version it was read as.
+ */
 export const deleteTransaction = ({
 	ledger,
 	file,
@@ -192,7 +219,10 @@ export const renameFiles = ({ ledger, moves }: RenameFilesOptions): ResultAsync<
 
 type AddFileOptions = { ledger: Ledger; from: string; to: string };
 
-/** What adding a draft did, with what undoing it takes: the file as it was, if any, and the draft. */
+/**
+ * What adding a draft did, with what undoing it takes: the file as it was, if
+ * any, and the draft.
+ */
 export type Addition = {
 	file: RupeaFile;
 	added: number;

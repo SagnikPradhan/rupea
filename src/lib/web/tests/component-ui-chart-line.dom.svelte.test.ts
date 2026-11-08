@@ -3,7 +3,10 @@ import { createRawSnippet } from 'svelte';
 import { describe, expect, it } from 'vitest';
 import LineChart from '#lib/web/components/ui-chart-line/ui-chart-line.svelte';
 
-/** Every plot measures 100 by 100 pixels, so a pointer's pixels are the units the plot is drawn in. */
+/**
+ * Every plot measures 100 by 100 pixels, so a pointer's pixels are the units
+ * the plot is drawn in.
+ */
 Element.prototype.getBoundingClientRect = () => DOMRect.fromRect({ width: 100, height: 100 });
 
 const ROWS = [

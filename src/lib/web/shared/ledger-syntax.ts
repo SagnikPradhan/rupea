@@ -10,7 +10,10 @@ const KEY = /^-\s+[^\s:]+:/;
 
 const negative = Tag.define();
 
-/** Mirrors the line kinds the ledger parser tells apart; it only colours, never validates. */
+/**
+ * Mirrors the line kinds the ledger parser tells apart; it only colours, never
+ * validates.
+ */
 const language = StreamLanguage.define<Line>({
 	startState: () => ({ kind: 'other', account: false }),
 	tokenTable: { negative },

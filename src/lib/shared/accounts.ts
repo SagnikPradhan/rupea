@@ -5,19 +5,28 @@ export const ASSETS = 'Assets';
 export const LIABILITIES = 'Liabilities';
 export const INCOME = 'Income';
 
-/** The account the expenses page is narrowed to, Expenses itself unless one under it is given. */
+/**
+ * The account the expenses page is narrowed to, Expenses itself unless one
+ * under it is given.
+ */
 export const ExpenseAccount = v.fallback(
 	v.pipe(v.string(), v.trim(), v.check(isUnderAny([EXPENSES]))),
 	EXPENSES,
 );
 
-/** The account the income statement reads, Expenses or Income itself unless one under either is given. */
+/**
+ * The account the income statement reads, Expenses or Income itself unless one
+ * under either is given.
+ */
 export const FlowAccount = v.fallback(
 	v.pipe(v.string(), v.trim(), v.check(isUnderAny([EXPENSES, INCOME]))),
 	EXPENSES,
 );
 
-/** The account net worth is narrowed to, an Assets or Liabilities one, or none for every balance account. */
+/**
+ * The account net worth is narrowed to, an Assets or Liabilities one, or none
+ * for every balance account.
+ */
 export const BalanceAccount = v.fallback(
 	v.nullable(v.pipe(v.string(), v.trim(), v.check(isUnderAny([ASSETS, LIABILITIES])))),
 	null,

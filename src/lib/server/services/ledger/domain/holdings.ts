@@ -4,7 +4,10 @@ import { byPath, parentsOf } from './taxonomy';
 
 export const HOPS = 2;
 
-/** Units held now in one account, and what its open lots cost in all, when that is one commodity. */
+/**
+ * Units held now in one account, and what its open lots cost in all, when that
+ * is one commodity.
+ */
 export type Holding = { account: string; commodity: string; units: Amount; cost: Quantity | null };
 
 export type ValuedHolding = {
@@ -19,7 +22,10 @@ export type ValuedHolding = {
 	gain: Amount | null;
 };
 
-/** The commodities holdings need a price for: their own, and what their lots cost in. */
+/**
+ * The commodities holdings need a price for: their own, and what their lots
+ * cost in.
+ */
 export const pricedIn = (hs: Holding[]) => [
 	...new Set(hs.flatMap((h) => (h.cost ? [h.commodity, h.cost.commodity] : [h.commodity]))),
 ];
@@ -42,16 +48,25 @@ export type Account = {
 	account: string;
 	/** The account it is drawn under, as parentsIn divides them. */
 	parent: string | null;
-	/** What the account holds itself, rupees included; a parent may hold nothing of its own. */
+	/**
+	 * What the account holds itself, rupees included; a parent may hold nothing
+	 * of its own.
+	 */
 	holdings: ValuedHolding[];
 	total: Amount;
-	/** What the holdings under it with both a cost and a price cost in rupees, and gained since. */
+	/**
+	 * What the holdings under it with both a cost and a price cost in rupees, and
+	 * gained since.
+	 */
 	cost: Amount | null;
 	gain: Amount | null;
 	unpriced: number;
 };
 
-/** Each account holding something and every parent of one that is drawn, a parent first, totalling all held under it. */
+/**
+ * Each account holding something and every parent of one that is drawn, a
+ * parent first, totalling all held under it.
+ */
 export const byAccount = (
 	holdings: ValuedHolding[],
 	parents: Record<string, string | null>,

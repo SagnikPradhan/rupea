@@ -1,4 +1,7 @@
-/** Where uploads and their imports wait for review; the ledger counts nothing under it. */
+/**
+ * Where uploads and their imports wait for review; the ledger counts nothing
+ * under it.
+ */
 const REVIEW = '_';
 export const STATEMENTS = `${REVIEW}/statements`;
 export const IMPORTS = `${REVIEW}/imports`;

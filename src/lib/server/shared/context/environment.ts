@@ -15,7 +15,10 @@ const createStorages = (c: RupeaConfiguration): Storages => ({
 	local: byUser(localStorage(resolve(c.storage.files))),
 });
 
-/** Kept across dev reloads, since a second embedded server on the same directory fails to start. */
+/**
+ * Kept across dev reloads, since a second embedded server on the same directory
+ * fails to start.
+ */
 export const createDatabase = (c: RupeaConfiguration): Promise<DatabaseHandle> => {
 	const kept: Promise<DatabaseHandle> | undefined = import.meta.hot?.data.database;
 	if (kept) return kept;

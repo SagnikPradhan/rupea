@@ -479,7 +479,10 @@ describe('linked feeds', () => {
 			'\n',
 		);
 
-	/** Saves a feed's quotes as a fetch would, for a symbol a ledger already links. */
+	/**
+	 * Saves a feed's quotes as a fetch would, for a symbol a ledger already
+	 * links.
+	 */
 	const quoted = async (db: Database, feed: Feed, symbol: string, q: Record<string, string>) => {
 		const found = await db
 			.selectFrom('symbols')

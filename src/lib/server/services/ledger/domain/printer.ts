@@ -23,7 +23,10 @@ export const PRICE_SIGN: Record<PriceKind, string> = {
 	[PriceKind.Total]: '@@',
 };
 
-/** One blank line between entries, except between P lines; amounts aligned across the file. */
+/**
+ * One blank line between entries, except between P lines; amounts aligned
+ * across the file.
+ */
 export const print = (c: LedgerConfiguration, file: RupeaFileNode): string => {
 	const column = columnOf(file);
 	const top = printMetadata('', file.metadata) + printComments('', file.comments);
@@ -120,7 +123,10 @@ const printLink = ({ dateFormats }: LedgerConfiguration, l: RupeaLink): string =
 const printMetadata = (t: string, m: RupeaEntries): string =>
 	m.map(([key, value]) => `${t}- ${key}: ${value}\n`).join('');
 
-/** A comment that starts with another semicolon keeps it close, as in ;; heading. */
+/**
+ * A comment that starts with another semicolon keeps it close, as in ;;
+ * heading.
+ */
 const printComments = (t: string, c: string[]): string =>
 	c.map((x) => (x === '' || x.startsWith(';') ? `${t};${x}\n` : `${t}; ${x}\n`)).join('');
 

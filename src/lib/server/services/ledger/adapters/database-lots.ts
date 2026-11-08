@@ -33,7 +33,10 @@ export const rebook = (ledgerId: string, commodities: string[]): ResultAsync<voi
 		),
 	);
 
-/** Every commodity balance accounts hold that could have lots, which is all but currencies. */
+/**
+ * Every commodity balance accounts hold that could have lots, which is all but
+ * currencies.
+ */
 export const listLotCommodities = (ledgerId: string): ResultAsync<string[]> =>
 	withContext('db')((db) =>
 		attempt(() =>
@@ -86,7 +89,10 @@ export const listUnmatched = (ledgerId: string): ResultAsync<UnmatchedDisposal[]
 
 type CostMovesOptions = { accounts: string[]; to: Temporal.PlainDate };
 
-/** Each day's change in what these accounts' lots cost, as lots are taken in and disposals give units up at the cost of the lot they come from. */
+/**
+ * Each day's change in what these accounts' lots cost, as lots are taken in and
+ * disposals give units up at the cost of the lot they come from.
+ */
 export const listCostMoves = (
 	ledgerId: string,
 	{ accounts, to }: CostMovesOptions,

@@ -10,15 +10,18 @@ import {
 } from '#lib/server/shared/result/result.ts';
 import * as v from 'valibot';
 
-/** Something a service announces it did, named in the past tense, for other services to act on. */
+/**
+ * Something a service announces it did, named in the past tense, for other
+ * services to act on.
+ */
 export type Event<P> = {
 	name: string;
 	payload: v.GenericSchema<unknown, P>;
 };
 
 /**
- * Runs in the publisher's process, so work that must outlive it queues a job. Its callback is a
- * method, so a list of `Subscription<unknown>` holds any.
+ * Runs in the publisher's process, so work that must outlive it queues a job.
+ * Its callback is a method, so a list of `Subscription<unknown>` holds any.
  */
 export type Subscription<P> = {
 	event: Event<P>;
@@ -31,7 +34,10 @@ type PublishOptions<P> = {
 	payload: P;
 };
 
-/** Runs every subscriber for `user`, failing only when the event's own payload does not parse. */
+/**
+ * Runs every subscriber for `user`, failing only when the event's own payload
+ * does not parse.
+ */
 export const publish = <P>({
 	event,
 	user,

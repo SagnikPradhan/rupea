@@ -1,29 +1,40 @@
 import { shownDays, type Move } from './worth';
 
-/** How far below its high something stood at the end of a day, as a fraction at or below zero. */
+/**
+ * How far below its high something stood at the end of a day, as a fraction at
+ * or below zero.
+ */
 type Underwater = { day: Temporal.PlainDate; depth: number };
 
 /** The lowest an account fell below its high, and the day it did. */
 type Low = { account: string; depth: number; day: Temporal.PlainDate };
 
-/** How much an account's value swings in a year, as the spread of its daily moves. */
+/**
+ * How much an account's value swings in a year, as the spread of its daily
+ * moves.
+ */
 type Swing = { account: string; swing: number };
 
 export type Drops = { underwater: Underwater[]; lows: Low[]; swings: Swing[] };
 
-/** The fewest days that moved before an account's swing is said, as less says nothing of a year. */
+/**
+ * The fewest days that moved before an account's swing is said, as less says
+ * nothing of a year.
+ */
 const MOST_QUIET = 60;
 
 /** The days a year of prices moves on. */
 const TRADING_DAYS = 252;
 
 /**
- * Chains each day's price-only change into an index of what the holdings would be worth had
- * nothing been put in or taken out, and measures it against its high so far. The underwater line
- * is of all parts together; long spans keep each stretch's lowest and highest days, and the last.
- * A part that held nothing priced has no low; lows come worst first. A part's swing is the
- * spread of its daily moves over the days it moved at all, since a day without a new price would
- * understate it, scaled to a year, and is left out below MOST_QUIET such days.
+ * Chains each day's price-only change into an index of what the holdings would
+ * be worth had nothing been put in or taken out, and measures it against its
+ * high so far. The underwater line is of all parts together; long spans keep
+ * each stretch's lowest and highest days, and the last. A part that held
+ * nothing priced has no low; lows come worst first. A part's swing is the
+ * spread of its daily moves over the days it moved at all, since a day without
+ * a new price would understate it, scaled to a year, and is left out below
+ * MOST_QUIET such days.
  */
 export const dropsOf = (from: Temporal.PlainDate, moves: Move[]): Drops => {
 	const together = depthsOf({

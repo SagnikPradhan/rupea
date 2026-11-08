@@ -14,7 +14,10 @@ export type Entry = {
 	key: string;
 	size: number;
 	modified: Date;
-	/** Opaque to everyone but the storage, and different whenever the content may be. */
+	/**
+	 * Opaque to everyone but the storage, and different whenever the content may
+	 * be.
+	 */
 	version: string;
 };
 
@@ -31,7 +34,10 @@ export interface Storage {
 	write(options: WriteOptions): ResultAsync<Entry>;
 	delete(key: string): ResultAsync<void>;
 	rename(from: string, to: string): ResultAsync<Entry>;
-	/** Yields each key under `prefix` that may have changed, by anyone, until the signal aborts. */
+	/**
+	 * Yields each key under `prefix` that may have changed, by anyone, until the
+	 * signal aborts.
+	 */
 	watch(signal: AbortSignal, prefix?: string): AsyncIterable<string>;
 }
 
@@ -122,7 +128,10 @@ export const writeText = (s: Storage, o: WriteTextOptions): ResultAsync<TextFile
 export const writeNumberedText = (s: Storage, k: string, t: string): ResultAsync<TextFile> =>
 	writeNumbered(s, k, encoder.encode(t)).map((e) => ({ ...e, content: t }));
 
-/** Writes a new key, or the first of `name-02.ext`, `name-03.ext` and on that is free or holds this content already, so writing again is harmless. */
+/**
+ * Writes a new key, or the first of `name-02.ext`, `name-03.ext` and on that is
+ * free or holds this content already, so writing again is harmless.
+ */
 export const writeNumbered = (s: Storage, k: string, c: Uint8Array): ResultAsync<Entry> =>
 	writeAt(s, k, c, 1);
 

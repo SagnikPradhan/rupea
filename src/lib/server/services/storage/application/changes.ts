@@ -5,7 +5,10 @@ import type { Change } from '#lib/server/shared/storage/storage.ts';
 import { publish, type Event } from '#services/events/application/events.ts';
 import * as v from 'valibot';
 
-/** One write raises several changes, and a checkout raises one for each file it touches. */
+/**
+ * One write raises several changes, and a checkout raises one for each file it
+ * touches.
+ */
 const WINDOW = 250;
 
 const FilesChanged = v.object({ keys: v.array(v.string()) });
@@ -16,7 +19,10 @@ export const filesChanged: Event<v.InferOutput<typeof FilesChanged>> = {
 	payload: FilesChanged,
 };
 
-/** Publishes `files-changed` for each user whose storage changed, at most once a window, until the signal aborts. */
+/**
+ * Publishes `files-changed` for each user whose storage changed, at most once a
+ * window, until the signal aborts.
+ */
 export const publishChanges = (s: AbortSignal): Promise<void> =>
 	withContext(
 		'storages',

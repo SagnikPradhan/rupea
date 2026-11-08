@@ -11,7 +11,10 @@
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import { formatColumn } from '#lib/web/shared/format.ts';
 
-	/** A starting point: Rupea's built-in HDFC savings schema, which the manual walks through. */
+	/**
+	 * A starting point: Rupea's built-in HDFC savings schema, which the manual
+	 * walks through.
+	 */
 	const EXAMPLE = `version: v1
 name: HDFC Bank savings account
 match:

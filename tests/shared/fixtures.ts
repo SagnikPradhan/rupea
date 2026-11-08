@@ -21,9 +21,11 @@ const LOCK = 20261021;
 const SEEDED = 'ledger.json';
 
 /**
- * A copy of a ledger that `pnpm fixtures` wrote, with its own database and storage.
+ * A copy of a ledger that `pnpm fixtures` wrote, with its own database and
+ * storage.
  *
- * The first copy of a name in a run seeds it, and every copy after, in this worker or another, clones that.
+ * The first copy of a name in a run seeds it, and every copy after, in this
+ * worker or another, clones that.
  */
 export const cloneFixture = async (name: string, models: Models) => {
 	const server = inject('postgres');
@@ -53,7 +55,10 @@ export const cloneFixture = async (name: string, models: Models) => {
 	};
 };
 
-/** What a benchmark times: the call inside the context, failing the run when it fails. */
+/**
+ * What a benchmark times: the call inside the context, failing the run when it
+ * fails.
+ */
 export const timed =
 	<T>(context: ReturnType<typeof createTestContext>, f: () => ResultAsync<T>) =>
 	() =>
@@ -86,7 +91,10 @@ const seed = async ({ server, name, source, seeded, models }: SeedOptions) => {
 	await writeFile(join(seeded, SEEDED), JSON.stringify(ledger));
 };
 
-/** Holds a lock every worker of the run shares, so a fixture is seeded once and never cloned half-built. */
+/**
+ * Holds a lock every worker of the run shares, so a fixture is seeded once and
+ * never cloned half-built.
+ */
 const locked = async (server: string, f: () => Promise<void>) => {
 	const client = new pg.Client(server);
 	await client.connect();

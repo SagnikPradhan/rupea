@@ -14,7 +14,10 @@ import { addProblems, checkLedger, embed, queueFetches } from './sync-after';
 import { indexEach, listLedgerFiles, type ReindexOptions } from './sync-index';
 import { settle, settleAll } from './sync-settle';
 
-/** What is wrong with the ledger: the problems sync kept, and what checking the ledger finds. */
+/**
+ * What is wrong with the ledger: the problems sync kept, and what checking the
+ * ledger finds.
+ */
 export const listProblems = (l: Ledger): ResultAsync<Batch<never>> =>
 	DB.listProblems(l.id).andThen((p) =>
 		checkLedger(l).map((e) => ({ succeeded: [], failed: [...p, ...e] })),
@@ -24,7 +27,10 @@ export const listProblems = (l: Ledger): ResultAsync<Batch<never>> =>
 export const sync = (l: Ledger): ResultAsync<void> =>
 	enqueue({ job: syncJob, user: l.owner, payload: { ledger: l.handle } });
 
-/** Queues a sync that reads every file again and rebuilds all that is worked out from them, for when the index itself is in doubt. */
+/**
+ * Queues a sync that reads every file again and rebuilds all that is worked out
+ * from them, for when the index itself is in doubt.
+ */
 export const resync = (l: Ledger): ResultAsync<void> =>
 	enqueue({ job: syncJob, user: l.owner, payload: { ledger: l.handle, full: true } });
 
@@ -37,16 +43,26 @@ export const findSync = (l: Ledger): ResultAsync<JobStatus | null> =>
 		limit: 1,
 	}).map((j) => j[0]?.status ?? null);
 
-/** Brings the index up to date without checking the ledger, which costs a pass over every group. */
+/**
+ * Brings the index up to date without checking the ledger, which costs a pass
+ * over every group.
+ */
 export const syncIndex = (l: Ledger): ResultAsync<RupeaError[]> => syncWith(l, update);
 
-/** Syncs the index as a job does, logging what failed, since nobody waits for its answer. */
+/**
+ * Syncs the index as a job does, logging what failed, since nobody waits for
+ * its answer.
+ */
 export const syncLedger = (l: Ledger): ResultAsync<void> => logged(syncIndex(l));
 
 /** Syncs as resync asks, logging what failed as syncLedger does. */
 export const resyncLedger = (l: Ledger): ResultAsync<void> => logged(syncWith(l, rebuild));
 
-/** Brings the index up to date with these files as the ledger's only writer, then settles what they touched. A ledger indexed before the year tables gets them first, so a change never leaves it with only some. */
+/**
+ * Brings the index up to date with these files as the ledger's only writer,
+ * then settles what they touched. A ledger indexed before the year tables gets
+ * them first, so a change never leaves it with only some.
+ */
 export const reindex = (o: ReindexOptions): ResultAsync<RupeaError[]> =>
 	exclusively(o.ledgerId, () => DB.saveMissingYears(o.ledgerId).andThen(() => indexAndSettle(o)));
 
@@ -68,7 +84,10 @@ const logged = (synced: ResultAsync<RupeaError[]>): ResultAsync<void> =>
 			.map(() => undefined),
 	);
 
-/** Runs `f` in one transaction as the ledger's only writer, so what it indexes is settled with it or not at all. */
+/**
+ * Runs `f` in one transaction as the ledger's only writer, so what it indexes
+ * is settled with it or not at all.
+ */
 const exclusively = <T>(id: string, f: () => ResultAsync<T>): ResultAsync<T> =>
 	atomically(() => DB.lockLedger(id).andThen(f));
 
@@ -89,7 +108,10 @@ const update = (s: Storage, id: string, stored: Entry[]): ResultAsync<RupeaError
 				: indexAndSettle({ ledgerId: id, storage: s, ...p });
 		});
 
-/** Reads every file again whether or not it changed, then settles all the ledger, since what reading a file did not touch may be what is wrong. */
+/**
+ * Reads every file again whether or not it changed, then settles all the
+ * ledger, since what reading a file did not touch may be what is wrong.
+ */
 const rebuild = (s: Storage, id: string, stored: Entry[]): ResultAsync<RupeaError[]> =>
 	DB.listIndexedFiles(id)
 		.andThen((indexed) =>

@@ -23,7 +23,10 @@ const keys = async (s: Storage, prefix?: string) => {
 	return listed.isOk() ? listed.value.map((e) => e.key).sort() : listed;
 };
 
-/** Collects what the storage reports changed under prefix while act runs, until it reports key. */
+/**
+ * Collects what the storage reports changed under prefix while act runs, until
+ * it reports key.
+ */
 const watched = async (s: Storage, key: string, act: () => Promise<void>, prefix = '') => {
 	const probe = [prefix, 'probe'].filter((k) => k !== '').join('/');
 	const controller = new AbortController();

@@ -55,14 +55,20 @@ const UNITS = ['B', 'kB', 'MB'];
 /** Groups an amount in whole rupees, like 1,250. */
 export const formatWhole = (t: string) => wholes.format(t as Intl.StringNumericLiteral);
 
-/** Groups an amount like -1250.50 or 10 AAPL, rounding rupees to whole ones and units, as any amount naming a commodity counts, to four places. */
+/**
+ * Groups an amount like -1250.50 or 10 AAPL, rounding rupees to whole ones and
+ * units, as any amount naming a commodity counts, to four places.
+ */
 export const formatAmount = (text: string, units = false) => {
 	const [amount = '', ...commodity] = text.split(' ');
 	const format = units || commodity.length > 0 ? quantities : wholes;
 	return [format.format(amount as Intl.StringNumericLiteral), ...commodity].join(' ');
 };
 
-/** An amount with every digit, for a tooltip, or nothing when what is shown already has them all. */
+/**
+ * An amount with every digit, for a tooltip, or nothing when what is shown
+ * already has them all.
+ */
 export const formatExact = (text: string, shown = formatAmount(text)) => {
 	const [amount = '', ...commodity] = text.split(' ');
 	const exact = [exacts.format(amount as Intl.StringNumericLiteral), ...commodity].join(' ');
@@ -72,7 +78,10 @@ export const formatExact = (text: string, shown = formatAmount(text)) => {
 /** Formats an ISO date like `2026-08-29`. */
 export const formatDate = (d: string) => days.format(new Date(d));
 
-/** Formats the day of a moment, such as a file's last change, in the viewer's time zone. */
+/**
+ * Formats the day of a moment, such as a file's last change, in the viewer's
+ * time zone.
+ */
 export const formatMoment = (d: Date) => moments.format(d);
 
 /** Formats a byte count in the largest unit it fills, like `1.2 kB`. */
@@ -87,7 +96,10 @@ export const formatColumn = (index: number): string => {
 	return prefix + String.fromCodePoint(65 + (index % 26));
 };
 
-/** Formats the day of a moment in the viewer's time zone as an ISO date, like `2026-10-21`. */
+/**
+ * Formats the day of a moment in the viewer's time zone as an ISO date, like
+ * `2026-10-21`.
+ */
 export const formatIsoDate = (d: Date) => isoDays.format(d);
 
 /** Formats a UTC day without its year, like `21 Oct`, for chart axes. */
@@ -117,7 +129,10 @@ export const formatPercent = (r: number) => percents.format(r);
 export const formatShare = (p: string, w: string) =>
 	Number(w) > 0 ? shares.format(Number(p) / Number(w)) : null;
 
-/** A gain as a signed share of what it cost, like +25.1%, or nothing without a positive cost. */
+/**
+ * A gain as a signed share of what it cost, like +25.1%, or nothing without a
+ * positive cost.
+ */
 export const formatReturn = (g: string | null, c: string | null) =>
 	g === null || c === null || Number(c) <= 0 ? null : formatPercent(Number(g) / Number(c));
 

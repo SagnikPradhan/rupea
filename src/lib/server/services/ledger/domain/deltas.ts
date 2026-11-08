@@ -2,7 +2,10 @@ import { bucketsIn, type Bucket, type Span } from '#lib/shared/dates.ts';
 import { sum, type Amount } from './amounts';
 import { byPath, parentsOf } from './taxonomy';
 
-/** What one account gained in the base over one bucket, from the first day it changed, and how many of its amounts had no price. */
+/**
+ * What one account gained in the base over one bucket, from the first day it
+ * changed, and how many of its amounts had no price.
+ */
 export type Delta = {
 	account: string;
 	bucket: Temporal.PlainDate;
@@ -21,7 +24,10 @@ export type Total = {
 	unpriced: number;
 };
 
-/** Deltas over a span: the first and last day it covers, what its bars add up, every bucket between, each account's total, and each account's buckets. */
+/**
+ * Deltas over a span: the first and last day it covers, what its bars add up,
+ * every bucket between, each account's total, and each account's buckets.
+ */
 export type Deltas = {
 	from: Temporal.PlainDate;
 	to: Temporal.PlainDate;
@@ -33,7 +39,10 @@ export type Deltas = {
 
 const texts = new WeakMap<Temporal.PlainDate, string>();
 
-/** A date as text, which sorts as the date does, worked out once for each date since a few dates fill thousands of rows. */
+/**
+ * A date as text, which sorts as the date does, worked out once for each date
+ * since a few dates fill thousands of rows.
+ */
 const textOf = (d: Temporal.PlainDate): string => {
 	const text = texts.get(d) ?? d.toString();
 	texts.set(d, text);
@@ -69,7 +78,10 @@ const rolledUp = (deltas: Delta[]): Delta[] => {
 		});
 };
 
-/** Each account's gain and its parents' over every bucket, by path, leaving out those not drawn. */
+/**
+ * Each account's gain and its parents' over every bucket, by path, leaving out
+ * those not drawn.
+ */
 const totalsOf = (deltas: Delta[], parents: Record<string, string | null>): Total[] => {
 	const groups = Object.groupBy(sharesOf(deltas), (s) => s.account);
 	return Object.entries(groups)
@@ -81,7 +93,10 @@ const totalsOf = (deltas: Delta[], parents: Record<string, string | null>): Tota
 		.toSorted((a, b) => byPath(a.account, b.account));
 };
 
-/** Each amount once for its own account and once for each parent, which adds up the accounts under it. */
+/**
+ * Each amount once for its own account and once for each parent, which adds up
+ * the accounts under it.
+ */
 const sharesOf = (r: Delta[]) =>
 	r.flatMap((s) => parentsOf(s.account).map((a) => ({ ...s, account: a })));
 
@@ -91,10 +106,16 @@ const added = (head: Delta, deltas: Delta[]) => ({
 	unpriced: deltas.reduce((n, s) => n + s.unpriced, 0),
 });
 
-/** What these accounts gained on one day of the month, averaged over the months of a span that have it. */
+/**
+ * What these accounts gained on one day of the month, averaged over the months
+ * of a span that have it.
+ */
 export type Daily = { day: number; amount: Amount; unpriced: number };
 
-/** Every day of the month from the 1st to the 31st, dated in the reference January the adapter buckets them in. */
+/**
+ * Every day of the month from the 1st to the 31st, dated in the reference
+ * January the adapter buckets them in.
+ */
 export const dailyOf = (deltas: Delta[], span: Span): Daily[] => {
 	const days = Object.groupBy(deltas, (s) => s.bucket.day);
 

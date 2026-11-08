@@ -3,16 +3,25 @@ import { HOPS } from './holdings';
 import { NO_AMOUNT, readSeries } from './series';
 import { AccountType } from './types';
 
-/** Up to this many days are all shown; beyond it each stretch shows its lowest and highest. */
+/**
+ * Up to this many days are all shown; beyond it each stretch shows its lowest
+ * and highest.
+ */
 const MOST_DAYS = 1000;
 
-/** What balance accounts were worth in rupees at the end of one day, owing below zero as the accounts hold it, and how many commodities had no price. */
+/**
+ * What balance accounts were worth in rupees at the end of one day, owing below
+ * zero as the accounts hold it, and how many commodities had no price.
+ */
 export type Worth = {
 	day: Temporal.PlainDate;
 	assets: Amount;
 	liabilities: Amount;
 	worth: Amount;
-	/** What each part was worth: an account, or one commodity it holds when worth is divided by commodity. */
+	/**
+	 * What each part was worth: an account, or one commodity it holds when worth
+	 * is divided by commodity.
+	 */
 	parts: { account: string; commodity: string | null; amount: Amount }[];
 	unpriced: number;
 };
@@ -30,7 +39,10 @@ export type BalanceYear = {
 
 export type PriceYear = { symbolId: string; priceCommodity: string; year: number; amounts: Buffer };
 
-/** Where a commodity's prices come from: a ledger's own symbol, or a feed's while a link holds. */
+/**
+ * Where a commodity's prices come from: a ledger's own symbol, or a feed's
+ * while a link holds.
+ */
 export type PriceSources = {
 	own: { id: string; symbol: string }[];
 	/** A null since holds from the start, and a null until for good. */
@@ -59,9 +71,10 @@ export type WorthOfOptions = {
 };
 
 /**
- * Each day values its balances at the latest price on or before it, reaching rupees in at most
- * two prices and rounding each step as multiply does, and each part's balances are added before
- * they are valued. Long spans keep each stretch's lowest and highest days, and the last.
+ * Each day values its balances at the latest price on or before it, reaching
+ * rupees in at most two prices and rounding each step as multiply does, and
+ * each part's balances are added before they are valued. Long spans keep each
+ * stretch's lowest and highest days, and the last.
  */
 export const worthOf = (o: WorthOfOptions): Worth[] => {
 	const count = o.from.until(o.to).days + 1;
@@ -98,13 +111,16 @@ export const worthOf = (o: WorthOfOptions): Worth[] => {
 	});
 };
 
-/** What a part's holdings of the day before were worth at that day's prices and at the day before's, in step by day from the first. */
+/**
+ * What a part's holdings of the day before were worth at that day's prices and
+ * at the day before's, in step by day from the first.
+ */
 export type Move = { part: string; asset: boolean; before: bigint[]; after: bigint[] };
 
 /**
- * Values each part's holdings of the day before at the prices of both days, so that what
- * changed between the two is price alone and not what was put in or taken out. A holding with no
- * price on either day counts on neither.
+ * Values each part's holdings of the day before at the prices of both days, so
+ * that what changed between the two is price alone and not what was put in or
+ * taken out. A holding with no price on either day counts on neither.
  */
 export const movesOf = (o: WorthOfOptions): Move[] => {
 	const count = o.from.until(o.to).days + 1;
@@ -139,7 +155,10 @@ type Span = { count: number; offsetOf: (year: number) => number };
 
 type Group = { asset: boolean; part: string; commodity: string; units: bigint[] };
 
-/** What each part held of each commodity on each day, assets and liabilities apart. */
+/**
+ * What each part held of each commodity on each day, assets and liabilities
+ * apart.
+ */
 const groupsOf = ({
 	parts,
 	balances,
@@ -174,7 +193,10 @@ const groupsOf = ({
 	return [...groups.values()];
 };
 
-/** Lays a holding's years out over the span, each carrying on from its last day until the next. */
+/**
+ * Lays a holding's years out over the span, each carrying on from its last day
+ * until the next.
+ */
 const dailyBalances = (years: BalanceYear[], { count, offsetOf }: Span) => {
 	const daily = Array.from({ length: count }, () => 0n);
 
@@ -291,7 +313,10 @@ const dayIndex = (date: string, offsetOf: (year: number) => number) => {
 	return offsetOf(day.year) + day.dayOfYear - 1;
 };
 
-/** Each part's worth that is not nothing, or each commodity's when worth is divided by commodity. */
+/**
+ * Each part's worth that is not nothing, or each commodity's when worth is
+ * divided by commodity.
+ */
 const sharesOf = (
 	groups: { part: string; commodity: string; value: bigint | null }[],
 	byCommodity: boolean,
@@ -307,7 +332,10 @@ const sharesOf = (
 	return [...shares.values()].filter((s) => s.amount !== 0n);
 };
 
-/** Every day of a short span; of a long one, each stretch's lowest and highest in order, and the first and last, which the chart reads its change from. */
+/**
+ * Every day of a short span; of a long one, each stretch's lowest and highest
+ * in order, and the first and last, which the chart reads its change from.
+ */
 export const shownDays = <T extends number | bigint>(worth: T[]) => {
 	if (worth.length <= MOST_DAYS) return worth.map((_, i) => i);
 

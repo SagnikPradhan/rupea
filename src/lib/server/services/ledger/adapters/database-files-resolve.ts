@@ -6,9 +6,9 @@ import { accountType, parentsOf } from '../domain/taxonomy';
 import { Feed } from '../domain/types';
 
 /**
- * Puts each row on its ledger's account of that name, whatever its case, made with every account
- * above it the first time it is named. New accounts go in sorted, as symbols do, and each finds its
- * parent by name once all are in.
+ * Puts each row on its ledger's account of that name, whatever its case, made
+ * with every account above it the first time it is named. New accounts go in
+ * sorted, as symbols do, and each finds its parent by name once all are in.
  */
 export const withAccounts = async <R>(
 	db: Database,
@@ -60,9 +60,10 @@ const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 type Owner = { feed: Feed; ledgerId: string | null };
 
 /**
- * Puts each row on its owner's symbol of that name, made the first time it is named. New symbols
- * go in sorted, so two syncs making the same ones take their locks in one order, and one another
- * sync made meanwhile is updated in place so that it is still returned.
+ * Puts each row on its owner's symbol of that name, made the first time it is
+ * named. New symbols go in sorted, so two syncs making the same ones take their
+ * locks in one order, and one another sync made meanwhile is updated in place
+ * so that it is still returned.
  */
 export const withSymbols = async <R>(
 	db: Database,
@@ -101,7 +102,10 @@ export const withSymbols = async <R>(
 	);
 };
 
-/** Puts each link on its feed's symbol, which every ledger shares; one feed at a time, in order. */
+/**
+ * Puts each link on its feed's symbol, which every ledger shares; one feed at a
+ * time, in order.
+ */
 export const withFeedSymbols = async <R>(
 	db: Database,
 	rows: { feed: Feed; symbol: string; row: R }[],

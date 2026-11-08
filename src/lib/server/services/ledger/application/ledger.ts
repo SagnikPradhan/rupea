@@ -11,7 +11,10 @@ export type { Ledger };
 // A random handle clashes rarely enough that a few tries settle it.
 const TRIES = 5;
 
-/** Statements wait for review among the files, beside what is imported from them. */
+/**
+ * Statements wait for review among the files, beside what is imported from
+ * them.
+ */
 const FOLDERS = {
 	files: 'files',
 	statements: `files/${STATEMENTS}`,
@@ -46,20 +49,30 @@ type OpenFolderOptions = {
 	folder: 'files' | 'statements' | 'schemas';
 };
 
-/** One of a ledger's folders in its owner's storage, for a caller that reached the ledger through `withLedger`. */
+/**
+ * One of a ledger's folders in its owner's storage, for a caller that reached
+ * the ledger through `withLedger`.
+ */
 export const openFolder = ({ ledger, folder }: OpenFolderOptions): ResultAsync<Storage> =>
 	withStorage({
 		user: ledger.owner,
 		action: (s) => ok(scoped(s, `ledgers/${ledger.handle}/${FOLDERS[folder]}`)),
 	});
 
-/** The handle of the ledger whose files hold a key of its owner's storage, counting the folders above them, since moving a folder reports only the folder. */
+/**
+ * The handle of the ledger whose files hold a key of its owner's storage,
+ * counting the folders above them, since moving a folder reports only the
+ * folder.
+ */
 export const handleOf = (key: string): string | null => {
 	const [top, handle, folder = FOLDERS.files] = key.split('/');
 	return top === 'ledgers' && handle && folder === FOLDERS.files ? handle : null;
 };
 
-/** The day of the ledger's first transaction, before which no period can be picked, or none before it has one. */
+/**
+ * The day of the ledger's first transaction, before which no period can be
+ * picked, or none before it has one.
+ */
 export const findFirstDay = (l: Ledger): ResultAsync<Temporal.PlainDate | null> =>
 	DB.findFirstDay(l.id);
 

@@ -6,7 +6,10 @@ import type { Spent } from './spending';
 /** The most expense groups the income statement names before the rest. */
 const NAMED = 5;
 
-/** What the span chip offers, in the order a click steps through them; the key is the months it reaches back. */
+/**
+ * What the span chip offers, in the order a click steps through them; the key
+ * is the months it reaches back.
+ */
 export const SPANS: Record<string, string> = {
 	'12': 'Last year',
 	'24': 'Last 2 years',
@@ -14,7 +17,10 @@ export const SPANS: Record<string, string> = {
 	all: 'All time',
 };
 
-/** What the span chip of a page about a year of money offers, in the order a click steps through them. */
+/**
+ * What the span chip of a page about a year of money offers, in the order a
+ * click steps through them.
+ */
 export const MONTHS: Record<string, string> = {
 	'3': 'Last 3 months',
 	'6': 'Last 6 months',
@@ -38,7 +44,10 @@ export const MONTHS_BRIEF: Record<string, string> = {
 	all: 'All',
 };
 
-/** What the account chip offers, in the order a click steps through them; the key is the account. */
+/**
+ * What the account chip offers, in the order a click steps through them; the
+ * key is the account.
+ */
 export const SIDES: Record<string, string> = {
 	'': 'All accounts',
 	Assets: 'Assets',
@@ -66,7 +75,10 @@ export const lastMonthOf = (day: string) => {
 	return new Date(Date.UTC(Number(day.slice(0, 4)), month - 1, 1)).toISOString().slice(0, 7);
 };
 
-/** The accounts directly under a top account, the largest first; what is owed counts as a size, not a sign. */
+/**
+ * The accounts directly under a top account, the largest first; what is owed
+ * counts as a size, not a sign.
+ */
 export const groupsOf = (accounts: { account: string; total: string }[], top: string) =>
 	accounts
 		.filter((a) => depthOf(a.account) === 1 && isUnder(a.account, top))
@@ -76,7 +88,11 @@ export const groupsOf = (accounts: { account: string; total: string }[], top: st
 /** An amount of what is owed as a size, without the sign of a liability. */
 export const owedOf = (l: string) => String(Math.abs(Number(l)));
 
-/** What the groups under Expenses or Income came to, Income without the minus it is credited with, over a month and the one before, the largest groups named and the rest together. */
+/**
+ * What the groups under Expenses or Income came to, Income without the minus it
+ * is credited with, over a month and the one before, the largest groups named
+ * and the rest together.
+ */
 export const statementOf = (
 	top: 'Expenses' | 'Income',
 	spending: Spent | undefined,

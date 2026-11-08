@@ -23,7 +23,10 @@ export const anyEmptied = (accounts: string[]): ResultAsync<boolean> =>
 		).map((a) => a !== undefined),
 	);
 
-/** Deletes the accounts no posting names any longer, neither them nor one under them. */
+/**
+ * Deletes the accounts no posting names any longer, neither them nor one under
+ * them.
+ */
 export const deleteUnusedAccounts = (ledgerId: string): ResultAsync<void> =>
 	withContext('db')((db) =>
 		attempt(async () => {

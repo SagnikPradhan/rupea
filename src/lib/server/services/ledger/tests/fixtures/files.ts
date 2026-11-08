@@ -19,7 +19,10 @@ export const put = (storage: Storage, ledger: Ledger, key: string, text: string)
 		content: new TextEncoder().encode(text),
 	});
 
-/** Every transaction of the ledger, oldest id first, which a request never reads. */
+/**
+ * Every transaction of the ledger, oldest id first, which a request never
+ * reads.
+ */
 export const listAllTransactions = (ledgerId: string) =>
 	withContext('db')((db) =>
 		attempt(() =>
@@ -66,7 +69,10 @@ export const listed = async (l: Ledger) =>
 		await Transactions.listTransactions({ ledger: l, filter: everything, after: null })
 	)._unsafeUnwrap().rows;
 
-/** What the ledger shows wrong once synced: the problems sync kept and what the checks find. */
+/**
+ * What the ledger shows wrong once synced: the problems sync kept and what the
+ * checks find.
+ */
 export const issues = (l: Ledger) =>
 	Sync.syncIndex(l)
 		.andThen(() => Sync.listProblems(l))

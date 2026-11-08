@@ -11,13 +11,19 @@ export type {
 	PostingCursor,
 } from '../adapters/database';
 
-/** A transaction lists with its postings, so a page holds fewer of them than of postings. */
+/**
+ * A transaction lists with its postings, so a page holds fewer of them than of
+ * postings.
+ */
 const TRANSACTIONS_PER_PAGE = 100;
 const POSTINGS_PER_PAGE = 200;
 
 type ListOptions<C> = { ledger: Ledger; filter: DB.ListFilter; after: C | null };
 
-/** A page of transactions, newest first; evidence of a group is listed but not counted. */
+/**
+ * A page of transactions, newest first; evidence of a group is listed but not
+ * counted.
+ */
 export const listTransactions = ({
 	ledger,
 	filter,

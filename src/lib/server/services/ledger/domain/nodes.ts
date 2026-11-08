@@ -13,7 +13,10 @@ import {
 	type RupeaTransactionNode,
 } from './types';
 
-/** A file as it is written first; a single outgoing posting leaves its amount out. */
+/**
+ * A file as it is written first; a single outgoing posting leaves its amount
+ * out.
+ */
 export const toNode = (file: RupeaLedgerFile): RupeaFileNode => ({
 	kind: NodeKind.File,
 	comments: [],

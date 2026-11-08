@@ -1,10 +1,16 @@
 const CENTER = 16;
 const PALETTE = 10;
 
-/** One petal pointing up from the centre of a 32 by 32 square, turned by rotate degrees. */
+/**
+ * One petal pointing up from the centre of a 32 by 32 square, turned by rotate
+ * degrees.
+ */
 type Petal = { d: string; rotate: number };
 
-/** A flower drawn from a name: a chart colour, an outer ring of petals, an inner ring turned half a step, and a core. */
+/**
+ * A flower drawn from a name: a chart colour, an outer ring of petals, an inner
+ * ring turned half a step, and a core.
+ */
 export type Flower = { color: number; outer: Petal[]; inner: Petal[]; core: number };
 
 /** The same name always gives the same flower. */
@@ -42,7 +48,10 @@ const petal = (reach: number, width: number): string => {
 
 const round = (n: number): number => Math.round(n * 10) / 10;
 
-/** Numbers between 0 and 1 that depend only on the name: an FNV-1a hash of it seeds a mulberry32 stream. */
+/**
+ * Numbers between 0 and 1 that depend only on the name: an FNV-1a hash of it
+ * seeds a mulberry32 stream.
+ */
 const sequence = (name: string): (() => number) => {
 	const seed = { value: 2166136261 };
 	for (const char of name) seed.value = Math.imul(seed.value ^ char.charCodeAt(0), 16777619);

@@ -16,8 +16,9 @@ export enum JobStatus {
 }
 
 /**
- * Work a service runs outside a request, as the code that queues it knows it. Its callbacks are
- * methods, so a list of `Job<unknown>` holds a job of any payload.
+ * Work a service runs outside a request, as the code that queues it knows it.
+ * Its callbacks are methods, so a list of `Job<unknown>` holds a job of any
+ * payload.
  */
 export type Job<P> = {
 	name: string;
@@ -26,15 +27,27 @@ export type Job<P> = {
 	payload: v.GenericSchema<unknown, P>;
 	/** The errors worth another attempt, `UnknownError` when left out. */
 	retries?: RupeaError['type'][];
-	/** Jobs of this name with the same partition run one at a time, the user's by default. */
+	/**
+	 * Jobs of this name with the same partition run one at a time, the user's by
+	 * default.
+	 */
 	partition?(payload: P, user: string): string;
-	/** A job whose dedupe key is already queued is not queued again, the payload by default. */
+	/**
+	 * A job whose dedupe key is already queued is not queued again, the payload
+	 * by default.
+	 */
 	dedupe?(payload: P): string;
-	/** Milliseconds a run may take before its process is killed, five minutes when left out. */
+	/**
+	 * Milliseconds a run may take before its process is killed, five minutes when
+	 * left out.
+	 */
 	timeout?: number;
 };
 
-/** What runs a job. It may run more than once, so running it again must be harmless. */
+/**
+ * What runs a job. It may run more than once, so running it again must be
+ * harmless.
+ */
 export type Handler<P> = {
 	job: Job<P>;
 	run(payload: P, user: string): ResultAsync<void>;
@@ -73,7 +86,10 @@ export type Ending =
 	| { type: 'retried'; error: RupeaError; delay: number }
 	| { type: 'failed'; error: RupeaError };
 
-/** How a run that ended with `e` settles: retried while attempts are left and `retried` lists it. */
+/**
+ * How a run that ended with `e` settles: retried while attempts are left and
+ * `retried` lists it.
+ */
 export const endingOf = (attempts: number, e: RupeaError | null, retried = RETRIED): Ending => {
 	if (!e) return { type: 'succeeded' };
 	if (attempts < MAX_ATTEMPTS && retried.includes(e.type))

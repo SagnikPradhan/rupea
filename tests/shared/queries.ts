@@ -1,8 +1,9 @@
 import type { RupeaError } from '#lib/server/shared/result/error.ts';
 
 /**
- * Stands in for a remote query on a page: awaited for its reply, refreshed for nothing. Typed as
- * never, so it mocks any query without restating SvelteKit's types.
+ * Stands in for a remote query on a page: awaited for its reply, refreshed for
+ * nothing. Typed as never, so it mocks any query without restating SvelteKit's
+ * types.
  */
 export const answer = (data: unknown, errors: RupeaError[] = []): never => {
 	const reply = { ok: errors.length === 0, data, errors };
@@ -19,8 +20,8 @@ type Form = { result: Reply | undefined; submit: () => Promise<void> };
 const replies = new WeakMap<object, Reply>();
 
 /**
- * Stands in for a remote form on a page: its fields render as plain inputs, and submitting it
- * hands the enhance callback the reply given to `respond`.
+ * Stands in for a remote form on a page: its fields render as plain inputs, and
+ * submitting it hands the enhance callback the reply given to `respond`.
  */
 export const fakeForm = (): never => {
 	const field: Record<string, unknown> = { as: attributes, allIssues: () => [] };

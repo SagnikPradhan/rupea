@@ -55,7 +55,10 @@ type GuessOptions = {
 	transactions: RupeaTransaction[];
 };
 
-/** Embeds as the model would, then searches the transactions in memory as the database would. */
+/**
+ * Embeds as the model would, then searches the transactions in memory as the
+ * database would.
+ */
 const classify = (embed: Embed, o: GuessOptions) => {
 	const accounts = [...new Set(o.transactions.flatMap((t) => t.postings.map((p) => p.account)))];
 	const options = { ...o, accounts };

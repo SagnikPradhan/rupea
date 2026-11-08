@@ -64,7 +64,10 @@ export type Recognised = { key: string; content: string; builtin: boolean };
 
 type RecogniseStatementOptions = { ledger: Ledger; statement: string };
 
-/** The schema that reads a statement: one of the ledger's, or a built-in one when none of the ledger's match. */
+/**
+ * The schema that reads a statement: one of the ledger's, or a built-in one
+ * when none of the ledger's match.
+ */
 export const recogniseStatement = ({
 	ledger,
 	statement,

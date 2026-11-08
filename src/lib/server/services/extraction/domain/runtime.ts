@@ -45,7 +45,10 @@ export const readRecords = ({
 		return batch((kept.length > 0 ? kept : rows).map((r) => record({ schema, sheet, row: r })));
 	});
 
-/** Where a schema's header and columns sit in a grid, which fails unless the grid has them all. */
+/**
+ * Where a schema's header and columns sit in a grid, which fails unless the
+ * grid has them all.
+ */
 export const layout = ({
 	schema,
 	file,

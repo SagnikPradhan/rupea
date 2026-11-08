@@ -24,7 +24,10 @@ import {
 
 type InsertOptions = { file: Pick<RupeaFile, 'key' | 'content'>; form: TransactionForm };
 
-/** Writes a form's transaction into a file by date, only if the file then reads back as meant. */
+/**
+ * Writes a form's transaction into a file by date, only if the file then reads
+ * back as meant.
+ */
 export const insert = (
 	c: LedgerConfiguration,
 	{ file, form }: InsertOptions,
@@ -126,7 +129,10 @@ const entryOf = (
 	return ok(entry);
 };
 
-/** Puts an entry among the others by its date, or back where an old one stood, and prints the file. */
+/**
+ * Puts an entry among the others by its date, or back where an old one stood,
+ * and prints the file.
+ */
 const placed = (
 	c: LedgerConfiguration,
 	key: string,
@@ -144,7 +150,10 @@ const placed = (
 	}));
 };
 
-/** Prints a changed tree, refusing it if the text would read back as anything else. */
+/**
+ * Prints a changed tree, refusing it if the text would read back as anything
+ * else.
+ */
 const written = (
 	c: LedgerConfiguration,
 	key: string,
@@ -166,7 +175,10 @@ const placeOf = (entries: RupeaEntryNode[], t: RupeaTransactionNode) => {
 	return later < 0 ? entries.length : later;
 };
 
-/** A node without where it sits or why it failed, and without what an elided posting works out. */
+/**
+ * A node without where it sits or why it failed, and without what an elided
+ * posting works out.
+ */
 const shapeOf = (node: RupeaFileNode | RupeaEntryNode) =>
 	JSON.stringify(node, (key, value: unknown) => {
 		if (key === 'location' || key === 'errors') return undefined;

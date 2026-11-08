@@ -83,8 +83,9 @@ export type ClaimedJob = {
 type Known = { name: string; version: number };
 
 /**
- * Runs the job due first that we know, in a partition with none running. A claim that raced
- * another to the same partition breaks `jobs_name_partition_running`, and tries again past it.
+ * Runs the job due first that we know, in a partition with none running. A
+ * claim that raced another to the same partition breaks
+ * `jobs_name_partition_running`, and tries again past it.
  */
 export const claimJob = (known: Known[], lease: number): ResultAsync<ClaimedJob | null> => {
 	if (known.length === 0) return okAsync(null);
@@ -116,8 +117,9 @@ export const finishJob = (r: Run, error: RupeaError | null): ResultAsync<void> =
 };
 
 /**
- * Queues a run again after `delay`, or deletes it when a copy was queued while it ran. The requeue
- * runs in a savepoint, since the copy's unique violation aborts the transaction it happens in.
+ * Queues a run again after `delay`, or deletes it when a copy was queued while
+ * it ran. The requeue runs in a savepoint, since the copy's unique violation
+ * aborts the transaction it happens in.
  */
 export const retryJob = (r: Run, error: RupeaError, delay: number): ResultAsync<void> => {
 	const queued = { status: JobStatus.Queued, error, runAt: later(delay) };
@@ -139,7 +141,10 @@ export const listExpired = (limit: number): ResultAsync<Run[]> =>
 		),
 	);
 
-/** Fails the jobs that waited a day under a name no server knows, and deletes old ones. */
+/**
+ * Fails the jobs that waited a day under a name no server knows, and deletes
+ * old ones.
+ */
 export const sweep = (l: string[]): ResultAsync<void> => failUnknown(l).andThen(deleteFinished);
 
 const failUnknown = (known: string[]): ResultAsync<void> =>

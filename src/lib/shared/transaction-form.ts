@@ -60,7 +60,10 @@ const Time = v.union(
 	'Pick a time.',
 );
 
-/** A transaction as its form holds it, each box checked on its own; whether it balances is for the server. */
+/**
+ * A transaction as its form holds it, each box checked on its own; whether it
+ * balances is for the server.
+ */
 export const TransactionForm = v.object({
 	file: v.pipe(
 		Line,

@@ -12,7 +12,10 @@ export const STATUS_LABELS: Record<Status, string> = {
 	new: 'New',
 };
 
-/** Where a statement stands: added once a counted file cites it, ready while its draft waits in review, and waiting for setup when its job drafted nothing. */
+/**
+ * Where a statement stands: added once a counted file cites it, ready while its
+ * draft waits in review, and waiting for setup when its job drafted nothing.
+ */
 export function statusOf(
 	statement: { file: string | null },
 	job: { status: string } | undefined,
@@ -29,7 +32,10 @@ export function statusOf(
 export const accountOf = (s: string, f: { postings: { account: string }[] }[]) =>
 	isLedgerFile(s) ? undefined : f[0]?.postings[0]?.account;
 
-/** A new home for a statement's transactions: its account's last name and the month they end in, or a ledger file's own name. */
+/**
+ * A new home for a statement's transactions: its account's last name and the
+ * month they end in, or a ledger file's own name.
+ */
 export function suggestedFile(
 	statement: string,
 	found: { date: string; postings: { account: string }[] }[],

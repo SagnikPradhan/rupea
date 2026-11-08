@@ -6,7 +6,10 @@ import { visit } from './support/visit.ts';
 
 const data = (name: string) => resolve('tests/e2e/data', name);
 
-/** Uploads the statement under a name, with as many trailing newlines, so each upload is its own. */
+/**
+ * Uploads the statement under a name, with as many trailing newlines, so each
+ * upload is its own.
+ */
 const upload = async (page: Page, ledger: string, name: string, copy: number) => {
 	const content = (await readFile(data('statement.csv'), 'utf8')) + '\n'.repeat(copy);
 	await visit(page, `${ledger}/import`);

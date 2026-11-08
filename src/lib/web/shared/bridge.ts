@@ -9,7 +9,10 @@ type Moved = {
 	end: string;
 };
 
-/** A bar of the bridge: a total stands from the bottom, a step runs from where the one before it ended. */
+/**
+ * A bar of the bridge: a total stands from the bottom, a step runs from where
+ * the one before it ended.
+ */
 export type Step = {
 	key: string;
 	label: string;
@@ -21,7 +24,10 @@ export type Step = {
 /** How many groups are named before the rest are folded into one bar. */
 const NAMED = 4;
 
-/** Net worth at the start, income, expenses, the four groups prices moved most, everything else, and net worth at the end. */
+/**
+ * Net worth at the start, income, expenses, the four groups prices moved most,
+ * everything else, and net worth at the end.
+ */
 export const stepsOf = (b: Moved): Step[] => {
 	const shifts = b.shifts
 		.map((s) => ({ key: s.account, label: nameOf(s.account), amount: Number(s.amount) }))

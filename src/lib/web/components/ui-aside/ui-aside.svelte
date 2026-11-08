@@ -6,7 +6,10 @@
 	type Props = {
 		title: string;
 		onclose: () => void;
-		/** False when the page already has the way to close it in view while the aside sits beside it. */
+		/**
+		 * False when the page already has the way to close it in view while the
+		 * aside sits beside it.
+		 */
 		closeBeside?: boolean;
 		children: Snippet;
 	};

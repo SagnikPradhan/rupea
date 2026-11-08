@@ -9,7 +9,10 @@ export type Reply<T> = {
 	errors: RupeaError[];
 };
 
-/** Takes a result, or one on its way, such as a `ResultAsync`, whose own `then` is typed too loosely for a remote function. */
+/**
+ * Takes a result, or one on its way, such as a `ResultAsync`, whose own `then`
+ * is typed too loosely for a remote function.
+ */
 export const replyFrom = <T>(result: Result<T> | PromiseLike<Result<T>>): Promise<Reply<T>> =>
 	Promise.resolve(result).then((r) =>
 		r.match(

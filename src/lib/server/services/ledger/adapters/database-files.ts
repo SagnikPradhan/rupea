@@ -50,7 +50,10 @@ export const listIndexedFiles = (ledgerId: string): ResultAsync<IndexedFile[]> =
 		),
 	);
 
-/** Of these checksums, those in a file's metadata, unlocked or as uploaded, with each file that cites one. */
+/**
+ * Of these checksums, those in a file's metadata, unlocked or as uploaded, with
+ * each file that cites one.
+ */
 export const findImported = (
 	ledgerId: string,
 	checksums: string[],
@@ -110,7 +113,10 @@ export type Held = {
 	hashCounts: Record<string, number>;
 };
 
-/** What a file's rows hold: its transactions, and how many of each hash can go unread, which is none if an older indexer read it. */
+/**
+ * What a file's rows hold: its transactions, and how many of each hash can go
+ * unread, which is none if an older indexer read it.
+ */
 export const findHeld = (ledgerId: string, key: string): ResultAsync<Held> =>
 	withContext('db')((db) =>
 		attempt(async () => {
@@ -146,7 +152,11 @@ type IndexFileOptions = {
 
 export type HoldingKey = { accountId: string; commodity: string };
 
-/** What changing a file touched: the commodities whose lots it held before or holds now, the days its transactions span, what they post to, and whether any names a group. */
+/**
+ * What changing a file touched: the commodities whose lots it held before or
+ * holds now, the days its transactions span, what they post to, and whether any
+ * names a group.
+ */
 export type Touched = {
 	commodities: string[];
 	spans: Span[];
@@ -154,7 +164,13 @@ export type Touched = {
 	grouped: boolean;
 };
 
-/** Replaces what a file indexes and what failed to parse in it, each transaction keeping its id where it can and each description its embedding, so saving a file neither moves a page nor re-embeds it. Transactions that hold what they held keep their rows, so a small edit writes little, and those whose lines did not change are not even compared. */
+/**
+ * Replaces what a file indexes and what failed to parse in it, each transaction
+ * keeping its id where it can and each description its embedding, so saving a
+ * file neither moves a page nor re-embeds it. Transactions that hold what they
+ * held keep their rows, so a small edit writes little, and those whose lines
+ * did not change are not even compared.
+ */
 export const indexFile = (
 	ledgerId: string,
 	{ key, version, file, failed, held, unchanged, lineHashes }: IndexFileOptions,
@@ -256,7 +272,10 @@ export const unindexFile = (ledgerId: string, key: string): ResultAsync<Touched>
 		),
 	);
 
-/** A key spans no days and changes no amount or group, so a rename touches only the commodities whose lots the file holds. */
+/**
+ * A key spans no days and changes no amount or group, so a rename touches only
+ * the commodities whose lots the file holds.
+ */
 export const renameIndexedFile = (
 	ledgerId: string,
 	from: string,
@@ -283,7 +302,10 @@ const touchedByEither = (before: Touched, after: Touched): Touched => ({
 	grouped: before.grouped || after.grouped,
 });
 
-/** What these transactions touch: the commodities whose lots they hold, the days they span, what they post to, and whether any names a group. */
+/**
+ * What these transactions touch: the commodities whose lots they hold, the days
+ * they span, what they post to, and whether any names a group.
+ */
 export const touchedBy = async (db: Database, ids: string[]): Promise<Touched> => {
 	const holdings = await db
 		.selectFrom('postings')

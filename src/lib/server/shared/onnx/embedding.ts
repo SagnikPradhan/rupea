@@ -5,7 +5,10 @@ import { fault } from '../result/error';
 import { err, ok, type Result } from '../result/result';
 import type { ModelFile } from './download';
 
-/** A model2vec static model, whose vector for a text is the mean of its tokens' rows. */
+/**
+ * A model2vec static model, whose vector for a text is the mean of its tokens'
+ * rows.
+ */
 export type EmbeddingModel = { source: ModelFile; tokenizer: ModelFile };
 
 /** A loaded model2vec model, with one row of size weights per token id. */
@@ -42,7 +45,10 @@ export const parseTable = (bytes: Uint8Array): Result<{ rows: Float32Array; size
 export const vectors = (m: Model2vec, t: string[]): Float32Array[] =>
 	t.map(encode(m.tokenizer)).map((i) => pool(m, i));
 
-/** Token ids without the special ones or unknown tokens, which model2vec leaves out too. */
+/**
+ * Token ids without the special ones or unknown tokens, which model2vec leaves
+ * out too.
+ */
 const encode = (tokenizer: Tokenizer) => (text: string) => {
 	const unknown = tokenizer.token_to_id('[UNK]');
 	return tokenizer.encode(text, { add_special_tokens: false }).ids.filter((id) => id !== unknown);

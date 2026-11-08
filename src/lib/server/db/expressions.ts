@@ -3,15 +3,24 @@ import { literalLike } from './index';
 
 type ArrayType = 'text' | 'uuid';
 
-/** Like `in`, but a list of any length is one parameter, and an empty list matches nothing. */
+/**
+ * Like `in`, but a list of any length is one parameter, and an empty list
+ * matches nothing.
+ */
 export const anyOf = (c: Expression<string>, v: string[], t: ArrayType) =>
 	sql<SqlBool>`${c} = any(${v}::${sql.raw(t)}[])`;
 
-/** Like `not in`, but a list of any length is one parameter, and an empty list excludes nothing. */
+/**
+ * Like `not in`, but a list of any length is one parameter, and an empty list
+ * excludes nothing.
+ */
 export const noneOf = (c: Expression<string>, v: string[], t: ArrayType) =>
 	sql<SqlBool>`${c} <> all(${v}::${sql.raw(t)}[])`;
 
-/** Rows whose column contains the text anywhere, ignoring case, or every row when there is no text. */
+/**
+ * Rows whose column contains the text anywhere, ignoring case, or every row
+ * when there is no text.
+ */
 export const containing = (c: Expression<string>, t: string | null) =>
 	t !== null ? sql<SqlBool>`${c} ilike '%' || ${literalLike(t)} || '%'` : sql<SqlBool>`true`;
 
@@ -19,7 +28,10 @@ export const containing = (c: Expression<string>, t: string | null) =>
 export const before = (c: Expression<unknown>, v: unknown[] | null) =>
 	v !== null ? sql<SqlBool>`${c} < (${sql.join(v)})` : sql<SqlBool>`true`;
 
-/** Rows whose tuple sorts before or at these values, or every row when there are none. */
+/**
+ * Rows whose tuple sorts before or at these values, or every row when there are
+ * none.
+ */
 export const atOrBefore = (c: Expression<unknown>, v: unknown[] | null) =>
 	v !== null ? sql<SqlBool>`${c} <= (${sql.join(v)})` : sql<SqlBool>`true`;
 
@@ -27,7 +39,10 @@ export const atOrBefore = (c: Expression<unknown>, v: unknown[] | null) =>
 export const distance = (a: Expression<unknown>, b: Expression<unknown>) =>
 	sql<number>`${a} <=> ${b}`;
 
-/** The sum of a column, or zero when there are no rows. A condition limits it to the rows where it holds. */
+/**
+ * The sum of a column, or zero when there are no rows. A condition limits it to
+ * the rows where it holds.
+ */
 export const total = (c: Expression<bigint | null>, w?: Expression<SqlBool>) =>
 	w === undefined
 		? sql<bigint>`coalesce(sum(${c}), 0)`
@@ -41,7 +56,10 @@ export const distinctOf = <T>(c: Expression<T | null>, w: Expression<SqlBool>) =
 export const labels = (a: Expression<unknown>, b: Expression<unknown>) =>
 	sql<string[]>`coalesce(array_agg(distinct ${a} || ':' || ${b}), '{}')`;
 
-/** The sum of a column over the rows on days before each one's, restarting for each partition. A condition limits it to the rows where it holds. */
+/**
+ * The sum of a column over the rows on days before each one's, restarting for
+ * each partition. A condition limits it to the rows where it holds.
+ */
 export const totalBefore = (
 	c: Expression<bigint | null>,
 	p: Expression<unknown>[],
@@ -53,5 +71,8 @@ export const totalBefore = (
 /** The first day of the month a date falls in. */
 export const monthOf = (d: Expression<string>) => sql<string>`date_trunc('month', ${d})::date`;
 
-/** A value for a jsonb column, which the driver would otherwise send as a Postgres array when it is one. */
+/**
+ * A value for a jsonb column, which the driver would otherwise send as a
+ * Postgres array when it is one.
+ */
 export const json = <T>(v: T) => sql<T>`${JSON.stringify(v)}::jsonb`;

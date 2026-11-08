@@ -19,7 +19,10 @@ const ROWS_WRITTEN = 200;
 
 type YearsOptions = { accounts: string[]; from: number; to: number };
 
-/** These accounts' balance years in a span of years, and each holding's last before it, whose last day carries on into it. */
+/**
+ * These accounts' balance years in a span of years, and each holding's last
+ * before it, whose last day carries on into it.
+ */
 export const listBalanceYears = (
 	ledgerId: string,
 	{ accounts, from, to }: YearsOptions,
@@ -57,7 +60,10 @@ export const listBalanceYears = (
 		}),
 	);
 
-/** The ledger's own symbols and its links, each link holding from its since until the next, so of two from one day the later written holds. */
+/**
+ * The ledger's own symbols and its links, each link holding from its since
+ * until the next, so of two from one day the later written holds.
+ */
 export const listPriceSources = (ledgerId: string): ResultAsync<PriceSources> =>
 	withContext('db')((db) =>
 		attempt(async () => {
@@ -111,11 +117,18 @@ type BalanceYearsOptions = {
 	holdings: HoldingKey[] | null;
 };
 
-/** Rewrites these holdings' balance years in a span of years. A move changes every balance after it, so it needs every later year too. Monthly deltas must already hold what they moved. */
+/**
+ * Rewrites these holdings' balance years in a span of years. A move changes
+ * every balance after it, so it needs every later year too. Monthly deltas must
+ * already hold what they moved.
+ */
 export const saveBalanceYears = (id: string, o: BalanceYearsOptions): ResultAsync<void> =>
 	atomically(() => withContext('db')((tx) => attempt(() => rewriteBalances(tx, id, o))));
 
-/** Builds what a ledger indexed before these tables lacks: its balance years when it has none, and the price years of its symbols that have none. */
+/**
+ * Builds what a ledger indexed before these tables lacks: its balance years
+ * when it has none, and the price years of its symbols that have none.
+ */
 export const saveMissingYears = (ledgerId: string): ResultAsync<void> =>
 	atomically(() =>
 		withContext('db')((tx) =>
@@ -134,7 +147,10 @@ export const saveMissingYears = (ledgerId: string): ResultAsync<void> =>
 		),
 	);
 
-/** Rebuilds all a ledger's balance years and the price years of every symbol it uses. */
+/**
+ * Rebuilds all a ledger's balance years and the price years of every symbol it
+ * uses.
+ */
 export const saveEveryYear = (ledgerId: string): ResultAsync<void> =>
 	atomically(() =>
 		withContext('db')((tx) =>
@@ -220,7 +236,10 @@ const daysIn = (y: number) => Temporal.PlainDate.from({ year: y, month: 1, day: 
 
 const dayOf = (d: string) => Temporal.PlainDate.from(d).dayOfYear - 1;
 
-/** A holding's balance on each day of each year it moved in, carrying on from what it opened with. */
+/**
+ * A holding's balance on each day of each year it moved in, carrying on from
+ * what it opened with.
+ */
 const yearsOf = (moves: { date: string; year: number; amount: bigint }[], opening: bigint) => {
 	const years = Map.groupBy(moves, (m) => m.year);
 	const running = [opening];
@@ -260,7 +279,10 @@ const pricesOf = (tx: Database, symbols: string[]) =>
 		.where((e) => anyOf(e.ref('p.symbolId'), symbols, 'uuid'))
 		.execute();
 
-/** Every price of those of these symbols with no year row at all. A symbol has rows for all its priced years or none, so one row says it is built. */
+/**
+ * Every price of those of these symbols with no year row at all. A symbol has
+ * rows for all its priced years or none, so one row says it is built.
+ */
 const unbuiltPrices = async (tx: Database, symbols: string[]) => {
 	const built = await tx
 		.selectFrom('priceYears as y')
@@ -279,11 +301,12 @@ const unbuiltPrices = async (tx: Database, symbols: string[]) => {
 export type PriceChange = { symbolId: string; date: string };
 
 /**
- * Rewrites the years these prices fall in, each day keeping the price that wins it: a P line over
- * an at-price, then the later line. A year stays apart from every other, since a read carries the
- * last price on itself. A symbol is shared across ledgers, so each writer holds it until commit,
- * taking them in order so that two writers cannot wait on each other. A symbol with no rows yet
- * gets all its years, not only these.
+ * Rewrites the years these prices fall in, each day keeping the price that wins
+ * it: a P line over an at-price, then the later line. A year stays apart from
+ * every other, since a read carries the last price on itself. A symbol is
+ * shared across ledgers, so each writer holds it until commit, taking them in
+ * order so that two writers cannot wait on each other. A symbol with no rows
+ * yet gets all its years, not only these.
  */
 export const rewritePriceYears = async (tx: Database, changes: PriceChange[]) => {
 	const locked = [...new Set(changes.map((c) => c.symbolId))].toSorted((a, b) =>

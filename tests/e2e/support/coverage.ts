@@ -9,7 +9,10 @@ export const startCoverage = async (page: Page) => {
 	if (recording) await page.coverage.startJSCoverage({ resetOnNavigation: false });
 };
 
-/** Chromium drops a page's coverage once it loads another, so save it before each load. */
+/**
+ * Chromium drops a page's coverage once it loads another, so save it before
+ * each load.
+ */
 export const saveCoverage = async (page: Page) => {
 	if (recording)
 		await page.coverage.stopJSCoverage().then((c) => new CoverageReport(options).add(c));

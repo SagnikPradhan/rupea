@@ -42,7 +42,10 @@ import {
 const COMMODITY = /^[A-Za-z][A-Za-z0-9._-]*$/;
 const LINK = /\s(?<feed>[A-Za-z]+):(?<symbol>\S+)\s*$/;
 
-/** The feeds a link can name; a ledger's own symbols are priced by its files, never linked. */
+/**
+ * The feeds a link can name; a ledger's own symbols are priced by its files,
+ * never linked.
+ */
 const LINKED: Record<string, Feed> = { mfapi: Feed.Mfapi, yahoo: Feed.Yahoo };
 
 export const displayLocation = ({ file, line }: RupeaParseLocation): string => `${file}:${line}`;
@@ -61,7 +64,10 @@ export const parse = (
 
 export type UnchangedEntry = { hash: string; line: number };
 
-/** As parse, leaving out each transaction whose lines hash to one held, so only what changed is read. */
+/**
+ * As parse, leaving out each transaction whose lines hash to one held, so only
+ * what changed is read.
+ */
 export const parseChanged = (
 	c: LedgerConfiguration,
 	f: Pick<RupeaFile, 'key' | 'content'>,
@@ -102,13 +108,19 @@ const parsedFrom = (tree: RupeaFileNode): RupeaParsedFile => {
 	};
 };
 
-/** Metadata above the first entry belongs to the file, and a comment to what sits right above it. */
+/**
+ * Metadata above the first entry belongs to the file, and a comment to what
+ * sits right above it.
+ */
 export const parseTree = (
 	c: LedgerConfiguration,
 	f: Pick<RupeaFile, 'key' | 'content'>,
 ): RupeaFileNode => readTree(c, f, () => false);
 
-/** Whether a transaction's lines match what is already stored, so it needs no reading. */
+/**
+ * Whether a transaction's lines match what is already stored, so it needs no
+ * reading.
+ */
 type IsUnchanged = (entry: RupeaLine[]) => boolean;
 
 const readTree = (
@@ -138,7 +150,10 @@ export const lines = (file: string, content: string): RupeaLine[] =>
 			content: text,
 		}));
 
-/** The file's own metadata, and the comments among it and right after it, before a blank line. */
+/**
+ * The file's own metadata, and the comments among it and right after it, before
+ * a blank line.
+ */
 const readPreamble = (input: Cursor<RupeaLine>) => {
 	const taken = takeWhile(input, (l) => isBlank(l) || isMetadata(l) || isComment(l));
 	const start = Math.max(
@@ -196,7 +211,10 @@ const readNode = (
 	return [readTransaction(c, { line, header: header.value, body })];
 };
 
-/** After a bad header only P lines are read; the lines between them are kept as written. */
+/**
+ * After a bad header only P lines are read; the lines between them are kept as
+ * written.
+ */
 const unread = (
 	c: LedgerConfiguration,
 	line: RupeaLine,
@@ -340,7 +358,10 @@ export const isComment = ({ content }: RupeaLine) => content.trimStart().startsW
 /** Indentation means nothing to a metadata line; the dash does. */
 export const isMetadata = ({ content }: RupeaLine) => /^\s*-(\s|$)/.test(content);
 
-/** Any indent makes a posting, as in Ledger and hledger, even the one space an editor carries over. */
+/**
+ * Any indent makes a posting, as in Ledger and hledger, even the one space an
+ * editor carries over.
+ */
 export const isPosting = (l: RupeaLine) =>
 	/^\s/.test(l.content) && !isBlank(l) && !isMetadata(l) && !isComment(l);
 
@@ -360,7 +381,10 @@ const readPLine = (c: LedgerConfiguration, l: RupeaLine, comments: string[]): Ru
 
 type Written = { posting: WrittenPosting; metadata: RupeaEntries; comments: string[] };
 
-/** Each commodity nets to zero by weight; a posting without an amount takes what is left. */
+/**
+ * Each commodity nets to zero by weight; a posting without an amount takes what
+ * is left.
+ */
 const balance = (location: RupeaParseLocation, written: Written[]): Result<RupeaPostingNode[]> => {
 	const at = { location: displayLocation(location) };
 	if (written.length < 2) return err(fault('ParseMissingTransactionBody', at));
@@ -400,7 +424,10 @@ const balance = (location: RupeaParseLocation, written: Written[]): Result<Rupea
 
 type Weighed = { amount: Amount; commodity: string; price: Price | null; cost: LotCost | null };
 
-/** Its lot cost, else its price, else itself; a lot cost moving in kind only picks lots. */
+/**
+ * Its lot cost, else its price, else itself; a lot cost moving in kind only
+ * picks lots.
+ */
 const weight = (p: Weighed, transaction: Weighed[]): Quantity => {
 	const units = transaction.filter((t) => t.commodity === p.commodity).map((t) => t.amount);
 	if (p.cost !== null && !movesInKind(units))
@@ -464,8 +491,9 @@ const parsePriceLine = (
 };
 
 /**
- * P date|* commodity feed:symbol, where * links it from the start. Any other P line is a price,
- * so a line that only ends in a word with a colon is a bad price. Feeds spell symbols in capitals.
+ * P date|* commodity feed:symbol, where * links it from the start. Any other P
+ * line is a price, so a line that only ends in a word with a colon is a bad
+ * price. Feeds spell symbols in capitals.
  */
 const readLink = (
 	{ dateFormats }: LedgerConfiguration,
@@ -546,7 +574,10 @@ type PostingParts = {
 	balance: string | undefined;
 };
 
-/** Cuts a posting at its marks from the right: `=` for a balance, `@` for a price, `{` for a lot. */
+/**
+ * Cuts a posting at its marks from the right: `=` for a balance, `@` for a
+ * price, `{` for a lot.
+ */
 const splitPosting = (content: string): PostingParts | undefined => {
 	const [head, balance] = cut(content, '=');
 	const [held, priced] = cut(head, '@');
@@ -579,7 +610,7 @@ const checkAccount = (
 	);
 };
 
-/** cost [commodity][, date], the date in a configured format. */
+/** Cost [commodity][, date], the date in a configured format. */
 const readLotCost = (formats: string[], text: string | undefined): LotCost | null | undefined => {
 	if (text === undefined) return null;
 
@@ -604,9 +635,15 @@ const readDate = (
 	return date?.rest.length === 0 ? date.value : undefined;
 };
 
-/** A commodity left out means the home one for an amount, the posting's own for a balance. */
+/**
+ * A commodity left out means the home one for an amount, the posting's own for
+ * a balance.
+ */
 type WrittenQuantity = { amount: Amount; commodity: string | null };
-/** An amount and optionally its commodity; null without text, undefined if it is neither. */
+/**
+ * An amount and optionally its commodity; null without text, undefined if it is
+ * neither.
+ */
 const readQuantity = (text: string | undefined): WrittenQuantity | null | undefined => {
 	if (text === undefined) return null;
 

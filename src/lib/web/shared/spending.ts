@@ -26,7 +26,10 @@ type ChartOptions = {
 export const rowsOf = <Total extends { account: string }>(t: Total[], a: string) =>
 	t.filter((r) => isUnder(r.account, a));
 
-/** The top account, then each account under it followed by its own, the largest first at every level. */
+/**
+ * The top account, then each account under it followed by its own, the largest
+ * first at every level.
+ */
 export const largestFirst = <
 	Total extends { account: string; parent: string | null; amount: string },
 >(
@@ -54,7 +57,10 @@ export const shownOf = <Total extends { account: string; parent: string | null }
 	return t.filter((r) => r.account === a || open(r.parent));
 };
 
-/** The largest accounts the server draws under one each get a share of every bar, the largest first. */
+/**
+ * The largest accounts the server draws under one each get a share of every
+ * bar, the largest first.
+ */
 export const partsOf = (spending: Spent | undefined, account: string) =>
 	(spending?.totals ?? [])
 		.filter((t) => t.parent === account)
@@ -62,7 +68,10 @@ export const partsOf = (spending: Spent | undefined, account: string) =>
 		.slice(0, PARTS - 1)
 		.map((t) => t.account);
 
-/** Both ranges start as far into their period, so their buckets match from the first one on. */
+/**
+ * Both ranges start as far into their period, so their buckets match from the
+ * first one on.
+ */
 export const barsOf = ({ spending, previous, account, parts }: ChartOptions) => {
 	const spent = Object.fromEntries(
 		(spending?.deltas ?? []).map((s) => [`${s.account} ${s.bucket}`, Number(s.amount)]),
@@ -102,7 +111,10 @@ export const daysIn = (f: string, t: string) =>
 /** How many average months a span covers, counting both of its days. */
 export const monthsIn = (f: string, t: string) => daysIn(f, t) / MONTH_DAYS;
 
-/** What a bar holds, by part; whatever the parts leave, to the paisa, is the other spending. */
+/**
+ * What a bar holds, by part; whatever the parts leave, to the paisa, is the
+ * other spending.
+ */
 const piled = (
 	{ account, parts }: { account: string; parts: string[] },
 	bucket: string,

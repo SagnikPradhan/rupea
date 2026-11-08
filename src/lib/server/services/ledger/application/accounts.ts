@@ -34,7 +34,10 @@ export type { Bridge, Daily, Drops, Returns, Deltas };
 
 type ListAccountsOptions = { ledger: Ledger; day: Temporal.PlainDate };
 
-/** What each balance account held at the end of a day, valued at that day's prices. */
+/**
+ * What each balance account held at the end of a day, valued at that day's
+ * prices.
+ */
 export const listAccounts = ({ ledger, day }: ListAccountsOptions): ResultAsync<Batch<Account>> =>
 	DB.listProblems(ledger.id).andThen((failed) =>
 		ResultAsync.combine([DB.listHoldings(ledger.id, day), DB.listAccountTree(ledger.id)])
@@ -51,11 +54,17 @@ type ListWorthOptions = {
 	ledger: Ledger;
 	from: Temporal.PlainDate;
 	to: Temporal.PlainDate;
-	/** Narrows the balances to an account and those under it; every balance account without one. */
+	/**
+	 * Narrows the balances to an account and those under it; every balance
+	 * account without one.
+	 */
 	account: string | null;
 };
 
-/** What balance accounts were worth in rupees at the end of each day, from the ledger's first day at the earliest, divided into the parts partsIn picks. */
+/**
+ * What balance accounts were worth in rupees at the end of each day, from the
+ * ledger's first day at the earliest, divided into the parts partsIn picks.
+ */
 export const listWorth = ({
 	ledger,
 	from,
@@ -71,15 +80,24 @@ export const listWorth = ({
 type WorthParts = {
 	parts: PartOf[];
 	byCommodity: boolean;
-	/** Counts only these account and commodity pairs, written as the account's id, a space and the commodity. */
+	/**
+	 * Counts only these account and commodity pairs, written as the account's id,
+	 * a space and the commodity.
+	 */
 	held?: Set<string>;
 };
 
-/** Worth from the later of a span's start and the first day the parts held anything, or none before a sync has built the ledger's years. */
+/**
+ * Worth from the later of a span's start and the first day the parts held
+ * anything, or none before a sync has built the ledger's years.
+ */
 const worthOver = (id: string, s: Span, p: WorthParts): ResultAsync<Worth[]> =>
 	walked(id, s, p).map((w) => (w === null ? [] : worthOf(w)));
 
-/** What worth is made of for these parts over a span, or null when they held nothing in it. */
+/**
+ * What worth is made of for these parts over a span, or null when they held
+ * nothing in it.
+ */
 const walked = (
 	id: string,
 	{ from, to }: Span,
@@ -121,14 +139,18 @@ type ListInvestedOptions = {
 	ledger: Ledger;
 	from: Temporal.PlainDate;
 	to: Temporal.PlainDate;
-	/** Narrows the lots to an account and those under it; every account with lots without one. */
+	/**
+	 * Narrows the lots to an account and those under it; every account with lots
+	 * without one.
+	 */
 	account: string | null;
 };
 
 /**
- * What the holdings with lots in an account and those under it were worth in rupees at the end of
- * each day, as listWorth values them, beside what their lots had cost, each at the price of the
- * day it was taken in. A sale takes the cost of the lots it sold out, not what it fetched.
+ * What the holdings with lots in an account and those under it were worth in
+ * rupees at the end of each day, as listWorth values them, beside what their
+ * lots had cost, each at the price of the day it was taken in. A sale takes the
+ * cost of the lots it sold out, not what it fetched.
  */
 export const listInvested = ({
 	ledger,
@@ -174,14 +196,18 @@ type ListDropsOptions = {
 	ledger: Ledger;
 	from: Temporal.PlainDate;
 	to: Temporal.PlainDate;
-	/** Narrows the lots to an account and those under it; every account with lots without one. */
+	/**
+	 * Narrows the lots to an account and those under it; every account with lots
+	 * without one.
+	 */
 	account: string | null;
 };
 
 /**
- * How far the holdings with lots fell from their high at the end of each day, and how far each
- * account with lots did at its lowest, by the prices alone: what was put in or taken out does not
- * count. Nothing comes back for a span in which no such holding was held.
+ * How far the holdings with lots fell from their high at the end of each day,
+ * and how far each account with lots did at its lowest, by the prices alone:
+ * what was put in or taken out does not count. Nothing comes back for a span in
+ * which no such holding was held.
  */
 export const listDrops = ({
 	ledger,
@@ -226,10 +252,11 @@ type FindBridgeOptions = {
 };
 
 /**
- * Why net worth went from the end of the span's first day, or the first day anything was held, to
- * its last: the income and expenses after that day, and what prices did to each group of balances,
- * valued as listWorth values them, over every balance account, as income and expenses belong to
- * the whole ledger. Nothing comes back for a span in which nothing was held.
+ * Why net worth went from the end of the span's first day, or the first day
+ * anything was held, to its last: the income and expenses after that day, and
+ * what prices did to each group of balances, valued as listWorth values them,
+ * over every balance account, as income and expenses belong to the whole
+ * ledger. Nothing comes back for a span in which nothing was held.
  */
 export const findBridge = ({ ledger, from, to }: FindBridgeOptions): ResultAsync<Batch<Bridge>> =>
 	DB.listProblems(ledger.id).andThen((f) =>
@@ -280,7 +307,10 @@ type PricesWalkedOptions = {
 
 type PricesWalked = { prices: PriceYear[]; opening: Record<string, Quantity> };
 
-/** The price years and opening prices of these commodities and of the currencies they are quoted in, as far as a commodity converts. */
+/**
+ * The price years and opening prices of these commodities and of the currencies
+ * they are quoted in, as far as a commodity converts.
+ */
 const pricesWalked = ({
 	commodities,
 	hops,
@@ -306,7 +336,10 @@ const pricesWalked = ({
 	});
 };
 
-/** Nothing is priced before all of history, whose day before Postgres cannot write. */
+/**
+ * Nothing is priced before all of history, whose day before Postgres cannot
+ * write.
+ */
 const pricesBefore = (id: string, d: Temporal.PlainDate, c: string[]) =>
 	d.toString() === BEGINNING
 		? okAsync<Record<string, Quantity>>({})
@@ -314,7 +347,10 @@ const pricesBefore = (id: string, d: Temporal.PlainDate, c: string[]) =>
 
 type ListReturnsOptions = { ledger: Ledger; from: Temporal.PlainDate; to: Temporal.PlainDate };
 
-/** What flowed into each Assets account over a span less what flowed out, and its XIRR; failures are only those of XIRR, as accounts report the rest. */
+/**
+ * What flowed into each Assets account over a span less what flowed out, and
+ * its XIRR; failures are only those of XIRR, as accounts report the rest.
+ */
 export const listReturns = ({
 	ledger,
 	from,
@@ -334,7 +370,10 @@ export const listReturns = ({
 		);
 	});
 
-/** All of history starts long before a ledger does, so it starts on the first day these accounts moved. */
+/**
+ * All of history starts long before a ledger does, so it starts on the first
+ * day these accounts moved.
+ */
 const startedBy = (id: string, span: Span, accounts: string[]): ResultAsync<Span> =>
 	span.from.toString() === BEGINNING
 		? DB.findFirstDelta(id, { accounts, to: span.to }).map((d) => ({
@@ -345,7 +384,10 @@ const startedBy = (id: string, span: Span, accounts: string[]): ResultAsync<Span
 
 type ListDeltasOptions = { ledger: Ledger; spans: Span[]; bucket: Bucket; account: string };
 
-/** What an account and those under it gained in the base currency over each span, one Deltas per span. */
+/**
+ * What an account and those under it gained in the base currency over each
+ * span, one Deltas per span.
+ */
 export const listDeltas = ({
 	ledger,
 	spans,
@@ -371,7 +413,10 @@ export const listDeltas = ({
 
 type ListDailyDeltasOptions = { ledger: Ledger; span: Span; account: string };
 
-/** What an account and those under it averaged on each day of the month over a span, one row for each day from the 1st to the 31st. */
+/**
+ * What an account and those under it averaged on each day of the month over a
+ * span, one row for each day from the 1st to the 31st.
+ */
 export const listDailyDeltas = ({
 	ledger,
 	span,
@@ -392,7 +437,10 @@ export const listDailyDeltas = ({
 		}),
 	);
 
-/** Every account, each with the one it is drawn under, as parentsIn divides them. */
+/**
+ * Every account, each with the one it is drawn under, as parentsIn divides
+ * them.
+ */
 export const listAccountTree = (
 	l: Ledger,
 ): ResultAsync<{ account: string; parent: string | null }[]> =>
@@ -421,11 +469,17 @@ export const listLots = ({
 const heldOn = (id: string, d: Temporal.PlainDate) =>
 	DB.listHoldings(id, d).andThen((h) => valuedOn(id, d, h));
 
-/** Nothing is held before all of history, whose day before Postgres cannot write. */
+/**
+ * Nothing is held before all of history, whose day before Postgres cannot
+ * write.
+ */
 const heldBefore = (id: string, d: Temporal.PlainDate) =>
 	d.toString() === BEGINNING ? okAsync([]) : heldOn(id, d.subtract({ days: 1 }));
 
-/** Each account whose XIRR could not be worked out, unless one under it could not either. */
+/**
+ * Each account whose XIRR could not be worked out, unless one under it could
+ * not either.
+ */
 const unsolvedIn = (returns: Returns[]): RupeaError[] => {
 	const failed = returns.filter((r) => r.xirr === null);
 	const deepest = failed.filter((r) => !failed.some((o) => o.account.startsWith(`${r.account}:`)));

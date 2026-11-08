@@ -3,12 +3,22 @@ import { nameOf } from './accounts';
 import { OTHER, PARTS } from './chart';
 import { sumOf } from './numbers';
 
-/** How many accounts the last column names, the largest under any part, so a long history still fits. */
+/**
+ * How many accounts the last column names, the largest under any part, so a
+ * long history still fits.
+ */
 const MOST = 8;
-/** The smallest share of the whole an account in the last column takes, as any less would be a hairline. */
+/**
+ * The smallest share of the whole an account in the last column takes, as any
+ * less would be a hairline.
+ */
 const SMALLEST = 0.02;
 
-/** An account in a column, the part whose shade it takes, the account it flows from, and the account in the next column it flows into when no other flows there. */
+/**
+ * An account in a column, the part whose shade it takes, the account it flows
+ * from, and the account in the next column it flows into when no other flows
+ * there.
+ */
 export type Flow = {
 	key: string;
 	label: string;
@@ -28,7 +38,10 @@ type FlowsOptions = {
 	rows: Row[];
 	account: string;
 	parts: string[];
-	/** The colour each part takes, as coloursOf gives it; a part without one takes the next free. */
+	/**
+	 * The colour each part takes, as coloursOf gives it; a part without one takes
+	 * the next free.
+	 */
 	colours?: Record<string, number> | undefined;
 	/** What the Income accounts were credited, as the server counts it, negative. */
 	income?: Row[];
@@ -37,7 +50,11 @@ type FlowsOptions = {
 /** The key of what income left over, which is no account. */
 export const SAVED = 'Saved';
 
-/** The sources of income, Income, then the parts, other and what was saved; or, without income, the account, its parts and the accounts under them, if large enough to see. */
+/**
+ * The sources of income, Income, then the parts, other and what was saved; or,
+ * without income, the account, its parts and the accounts under them, if large
+ * enough to see.
+ */
 export const flowsOf = ({
 	rows,
 	account,
@@ -49,7 +66,10 @@ export const flowsOf = ({
 		? flowsKept({ rows, account, parts, colours, income })
 		: flowsSpent({ rows, account, parts, colours });
 
-/** The account, its parts and the rest of it as other, then the largest accounts under the parts, if large enough to see; refunds have nothing to flow. */
+/**
+ * The account, its parts and the rest of it as other, then the largest accounts
+ * under the parts, if large enough to see; refunds have nothing to flow.
+ */
 const flowsSpent = ({ rows, account, parts, colours }: FlowsOptions): Flow[] => {
 	const middle = sharesOf({ rows, account, parts, colours }, { column: 1, from: account });
 	const whole = amountOf(middle);
@@ -63,7 +83,10 @@ const flowsSpent = ({ rows, account, parts, colours }: FlowsOptions): Flow[] => 
 	return [flow(account, whole, { column: 0, part: null, from: null }), ...middle, ...under];
 };
 
-/** Each source of income into Income, then into the parts, other and what was left over. */
+/**
+ * Each source of income into Income, then into the parts, other and what was
+ * left over.
+ */
 const flowsKept = ({ rows, account, parts, colours, income = [] }: FlowsOptions): Flow[] => {
 	const sources = income
 		.filter((r) => r.parent === INCOME && Number(r.amount) < 0)
@@ -83,7 +106,10 @@ const flowsKept = ({ rows, account, parts, colours, income = [] }: FlowsOptions)
 	];
 };
 
-/** The parts of an account and the rest of it as other, the ones with something to flow. */
+/**
+ * The parts of an account and the rest of it as other, the ones with something
+ * to flow.
+ */
 const sharesOf = (
 	{ rows, account, parts, colours = {} }: FlowsOptions,
 	at: { column: number; from: string },

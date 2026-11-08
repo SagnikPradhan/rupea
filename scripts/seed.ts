@@ -24,7 +24,10 @@ const TRIPS: Record<number, [string, number]> = {
 	11: ['Rajasthan trip', 64000],
 };
 
-/** What each spending account takes in a month: how many times, and the least and most each time. */
+/**
+ * What each spending account takes in a month: how many times, and the least
+ * and most each time.
+ */
 const SPENDING: Record<string, [number, number, number]> = {
 	'Expenses:Food:Groceries': [5, 3000, 5000],
 	'Expenses:Food:Dining': [6, 600, 3000],

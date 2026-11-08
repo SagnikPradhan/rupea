@@ -7,13 +7,17 @@ const YEAR = 365;
 const TOLERANCE = 1e-9;
 const STEPS = 100;
 
-/** What flowed into one Assets account on one day in rupees, and how many of its postings had no price. */
+/**
+ * What flowed into one Assets account on one day in rupees, and how many of its
+ * postings had no price.
+ */
 export type Flow = { account: string; day: Temporal.PlainDate; amount: Amount; unpriced: number };
 
 /**
- * What flowed into an Assets account and those under it over a span less what flowed out, and its
- * XIRR: per year over a year or more, and over the span itself when shorter. XIRR is null when
- * something had no price or no rate solves it.
+ * What flowed into an Assets account and those under it over a span less what
+ * flowed out, and its XIRR: per year over a year or more, and over the span
+ * itself when shorter. XIRR is null when something had no price or no rate
+ * solves it.
  */
 export type Returns = {
 	account: string;
@@ -31,7 +35,10 @@ type ReturnsOptions = {
 	span: { from: Temporal.PlainDate; to: Temporal.PlainDate };
 };
 
-/** Each Assets account with anything under it: what it held the day before the span, what flowed, and what it held at its end. */
+/**
+ * Each Assets account with anything under it: what it held the day before the
+ * span, what flowed, and what it held at its end.
+ */
 export const returnsOf = ({ accounts, start, end, flows, span }: ReturnsOptions): Returns[] =>
 	accounts
 		.filter((a) => accountType(a) === AccountType.Assets)
@@ -68,9 +75,10 @@ const valueOf = (h: ValuedHolding[]) => sum(h.map((x) => x.value ?? (0n as Amoun
 type Entry = { day: Temporal.PlainDate; amount: bigint };
 
 /**
- * The rate at which every entry, discounted from its own day to the first that moved anything,
- * adds up to zero; entries are paid out when positive. A span covering fewer than a year of days,
- * counting both ends, gives the return over the span rather than per year, as GIPS asks.
+ * The rate at which every entry, discounted from its own day to the first that
+ * moved anything, adds up to zero; entries are paid out when positive. A span
+ * covering fewer than a year of days, counting both ends, gives the return over
+ * the span rather than per year, as GIPS asks.
  */
 const xirrOf = (entries: Entry[]) => {
 	const moving = entries.filter((x) => x.amount !== 0n);
@@ -98,7 +106,10 @@ const xirrOf = (entries: Entry[]) => {
 
 type Timed = { years: number; amount: number };
 
-/** Newton's method from 10%, then bisection when it strays below -100% or does not settle. */
+/**
+ * Newton's method from 10%, then bisection when it strays below -100% or does
+ * not settle.
+ */
 const solve = (timed: Timed[]): number | null => {
 	const npv = (r: number) => timed.reduce((t, x) => t + x.amount * (1 + r) ** -x.years, 0);
 	const slope = (r: number) =>

@@ -1,7 +1,10 @@
 import { BALANCE_TYPES } from './taxonomy';
 import type { AccountType } from './types';
 
-/** An account, the one right above it, and whether any posting names it rather than one under it. */
+/**
+ * An account, the one right above it, and whether any posting names it rather
+ * than one under it.
+ */
 export type AccountNode = {
 	id: string;
 	name: string;
@@ -11,9 +14,10 @@ export type AccountNode = {
 };
 
 /**
- * Each account's parent as charts and pickers divide accounts. An account with one account right
- * under it and nothing posted to it divides into nothing, so it is left out and the one under it
- * takes its place; top-level accounts always divide.
+ * Each account's parent as charts and pickers divide accounts. An account with
+ * one account right under it and nothing posted to it divides into nothing, so
+ * it is left out and the one under it takes its place; top-level accounts
+ * always divide.
  */
 export const parentsIn = (tree: AccountNode[]): Record<string, string | null> => {
 	const byId = Object.fromEntries(tree.map((n) => [n.id, n]));
@@ -41,9 +45,10 @@ export const idsUnder = (tree: AccountNode[], account: string): string[] => {
 };
 
 /**
- * Which part of worth each balance account under one counts towards: an account it divides into,
- * or itself for what it holds directly. One that divides into nothing is divided by commodity, and
- * no account at all stands for every top balance account.
+ * Which part of worth each balance account under one counts towards: an account
+ * it divides into, or itself for what it holds directly. One that divides into
+ * nothing is divided by commodity, and no account at all stands for every top
+ * balance account.
  */
 export const partsIn = (tree: AccountNode[], account: string | null) => {
 	const byId = Object.fromEntries(tree.map((n) => [n.id, n]));
@@ -89,6 +94,9 @@ const standIn = (tree: AccountNode[], account: string) => {
 
 const childrenIn = (t: AccountNode[]) => Object.groupBy(t, (n) => n.parentId ?? '');
 
-/** An account in between, with nothing posted to it and only one account under it. */
+/**
+ * An account in between, with nothing posted to it and only one account under
+ * it.
+ */
 const isSkipped = (n: AccountNode, c: Partial<Record<string, AccountNode[]>>) =>
 	n.parentId !== null && !n.posted && c[n.id]?.length === 1;

@@ -1,4 +1,7 @@
-/** Stands in for $app/state: `vi.mock('$app/state', () => import('#tests/shared/app-state.ts'))`. */
+/**
+ * Stands in for $app/state: `vi.mock('$app/state', () =>
+ * import('#tests/shared/app-state.ts'))`.
+ */
 const current = { url: new URL('https://rupea.test/') };
 
 export const page = {
@@ -12,7 +15,10 @@ export const visit = (path: string) => {
 	current.url = new URL(path, 'https://rupea.test');
 };
 
-/** What the layouts hand a ledger's pages: a signed-in user looking at the ledger `h`. */
+/**
+ * What the layouts hand a ledger's pages: a signed-in user looking at the
+ * ledger `h`.
+ */
 export const data = {
 	user: { username: 'asha' },
 	theme: 'system' as const,

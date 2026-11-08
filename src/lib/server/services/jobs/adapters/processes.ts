@@ -7,26 +7,44 @@ import type { ClaimedJob } from './database';
 const IDLE = 5 * 60 * 1000;
 
 type ProcessesOptions = {
-	/** The module whose default export runs a claimed job and returns its error or null. */
+	/**
+	 * The module whose default export runs a claimed job and returns its error or
+	 * null.
+	 */
 	entry: string;
 	count: number;
-	/** Added to the server's own, since Tinypool gives a child only the variables it is passed. */
+	/**
+	 * Added to the server's own, since Tinypool gives a child only the variables
+	 * it is passed.
+	 */
 	env: Record<string, string>;
 	execArgv: string[];
 };
 
-/** Sends a claimed job to a worker and waits for it to end, failing it once it outlasts `timeout`. */
+/**
+ * Sends a claimed job to a worker and waits for it to end, failing it once it
+ * outlasts `timeout`.
+ */
 export type Dispatch = (c: ClaimedJob, timeout: number) => ResultAsync<void>;
 
 export type Processes = {
-	/** Kills the process running the job once it outlasts `timeout`, failing with `JobTimedOut`. */
+	/**
+	 * Kills the process running the job once it outlasts `timeout`, failing with
+	 * `JobTimedOut`.
+	 */
 	dispatch: Dispatch;
 	stop: () => Promise<void>;
-	/** Replaces each process once its job ends, so the next job loads the worker module afresh. */
+	/**
+	 * Replaces each process once its job ends, so the next job loads the worker
+	 * module afresh.
+	 */
 	recycle: () => Promise<void>;
 };
 
-/** Runs each job in a child process, so a crash in native code takes down only that job. */
+/**
+ * Runs each job in a child process, so a crash in native code takes down only
+ * that job.
+ */
 export const processes = (o: ProcessesOptions): Processes => {
 	const pool = new Tinypool({
 		filename: o.entry,

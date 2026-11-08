@@ -7,7 +7,10 @@ type Returned = { netIn: string; xirr: number | null };
 
 type Grown = { value: number; cost: number; gain: number; netIn: number; xirr: number | null };
 
-/** The accounts under Assets that have a cost, the largest first, with what their costed holdings are worth, what went into them and how fast they grew. */
+/**
+ * The accounts under Assets that have a cost, the largest first, with what
+ * their costed holdings are worth, what went into them and how fast they grew.
+ */
 export const investedOf = (accounts: Held[], returns: Record<string, Returned | undefined>) =>
 	accounts
 		.filter((a) => a.cost !== null && depthOf(a.account) >= 1 && isUnder(a.account, ASSETS))
@@ -22,11 +25,17 @@ export const investedOf = (accounts: Held[], returns: Record<string, Returned | 
 		}))
 		.toSorted((a, b) => b.value - a.value);
 
-/** The groups directly under Assets among them, so a group and its accounts are not counted twice. */
+/**
+ * The groups directly under Assets among them, so a group and its accounts are
+ * not counted twice.
+ */
 export const groupsInvested = <Invested extends { account: string }>(i: Invested[]) =>
 	i.filter((a) => depthOf(a.account) === 1);
 
-/** What the groups are worth together, what went into them, what they gained, and their returns weighted by what each is worth. */
+/**
+ * What the groups are worth together, what went into them, what they gained,
+ * and their returns weighted by what each is worth.
+ */
 export const totalsOf = (groups: Grown[]) => {
 	const grown = groups.filter((g) => g.xirr !== null);
 	const weight = grown.reduce((t, g) => t + g.value, 0);
@@ -40,7 +49,10 @@ export const totalsOf = (groups: Grown[]) => {
 	};
 };
 
-/** Each account followed by the accounts under it, siblings keeping the order they came in. */
+/**
+ * Each account followed by the accounts under it, siblings keeping the order
+ * they came in.
+ */
 export const nestedOf = <Invested extends { account: string }>(i: Invested[]) => {
 	const accounts = new Set(i.map((a) => a.account));
 	const under = (p: string): Invested[] =>

@@ -2,7 +2,10 @@ import type { TransactionForm } from './transaction-form';
 
 const HELD = ['Assets', 'Liabilities'];
 
-/** What each kind asks for: the box whose account takes the amount, then the one it balances against. */
+/**
+ * What each kind asks for: the box whose account takes the amount, then the one
+ * it balances against.
+ */
 export const KINDS = {
 	Expense: [
 		{
@@ -41,7 +44,10 @@ export function simpleOf(postings: Line[]) {
 	return read(first, second) ?? read(second, first);
 }
 
-/** Reads the lines as given, first the box that takes the amount; the lines may write the amount on either. */
+/**
+ * Reads the lines as given, first the box that takes the amount; the lines may
+ * write the amount on either.
+ */
 function read(a: Line, b: Line) {
 	const accounts = [a.account, b.account];
 	const kind = Object.keys(KINDS).find((k) =>

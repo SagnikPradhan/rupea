@@ -28,7 +28,10 @@ export type GroupCheck = { uncounted: string[]; failed: RupeaError[] };
 
 export type GroupLink = { group: string; role: GroupRole };
 
-/** A broken group counts all its members, so a mistake shows as a double count rather than as money gone missing. */
+/**
+ * A broken group counts all its members, so a mistake shows as a double count
+ * rather than as money gone missing.
+ */
 export const checkGroups = (transactions: GroupMember[]): GroupCheck => {
 	const linked = transactions.map((t) => ({ transaction: t, links: linksOf(t.metadata) }));
 	const tangled = linked.filter((l) => l.links.length > 1);
@@ -59,7 +62,10 @@ export const linksOf = (m: RupeaMetadata): GroupLink[] =>
 		(m[GROUP_KEY[r]] ?? []).map((e) => ({ group: e, role: r })),
 	);
 
-/** Each transaction marked with whether it counts, beside what `checkGroups` found. */
+/**
+ * Each transaction marked with whether it counts, beside what `checkGroups`
+ * found.
+ */
 export const counted = <T extends GroupMember>(transactions: T[]) => {
 	const groups = checkGroups(transactions);
 	const uncounted = new Set(groups.uncounted);
@@ -99,7 +105,10 @@ const checkGroup = (
 	};
 };
 
-/** Only balance accounts both sides post to are compared; categories are guesses. */
+/**
+ * Only balance accounts both sides post to are compared; categories are
+ * guesses.
+ */
 const disagreements = (
 	group: string,
 	primary: GroupMember,

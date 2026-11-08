@@ -106,7 +106,10 @@
 	/** A commodity's row is named by it, so its units need no code after them. */
 	const numberOf = (quantity: string | null) => quantity?.split(' ')[0] ?? null;
 
-	/** A group adds up sub-accounts or several holdings; any other account reads as its one holding. */
+	/**
+	 * A group adds up sub-accounts or several holdings; any other account reads
+	 * as its one holding.
+	 */
 	const isGroup = (account: { account: string; holdings: Holding[] }, next?: { account: string }) =>
 		account.holdings.length > 1 || (next?.account.startsWith(`${account.account}:`) ?? false);
 </script>

@@ -28,7 +28,10 @@ type Stored = {
 
 type StoreStatementOptions = { ledger: Ledger; upload: Upload };
 
-/** Stores an upload in a folder for the day; content the ledger has already comes back where it is, and a taken name is numbered. */
+/**
+ * Stores an upload in a folder for the day; content the ledger has already
+ * comes back where it is, and a taken name is numbered.
+ */
 export const storeStatement = ({ ledger, upload }: StoreStatementOptions): ResultAsync<Stored> => {
 	if (!isReadable(upload.name))
 		return errAsync(fault('ExtractionUnsupportedFile', { path: upload.name }));
@@ -50,7 +53,10 @@ export const storeStatement = ({ ledger, upload }: StoreStatementOptions): Resul
 
 type UnlockStatementOptions = { ledger: Ledger; statement: string; password: string };
 
-/** Replaces a locked statement with its content unlocked. The password is not kept. */
+/**
+ * Replaces a locked statement with its content unlocked. The password is not
+ * kept.
+ */
 export const unlockStatement = ({
 	ledger,
 	statement,
@@ -65,7 +71,10 @@ export const unlockStatement = ({
 
 type ReadByChecksumOptions = { ledger: Ledger; checksum: string };
 
-/** The statement stored with this content, wherever it was moved, or null once deleted. */
+/**
+ * The statement stored with this content, wherever it was moved, or null once
+ * deleted.
+ */
 export const readByChecksum = ({
 	ledger,
 	checksum,

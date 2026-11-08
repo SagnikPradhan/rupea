@@ -103,14 +103,20 @@
 		status.accounts = [...new Set(names.flatMap((n) => n.data ?? []))];
 	}
 
-	/** Someone new types Food and means Expenses:Food; a full account name stays as it is. */
+	/**
+	 * Someone new types Food and means Expenses:Food; a full account name stays
+	 * as it is.
+	 */
 	function qualified(typed: string, type: string) {
 		const name = typed.trim().replace(/\s+/g, '-');
 		if (name === '' || ACCOUNT_TYPE.test(name)) return name;
 		return `${type}:${name}`;
 	}
 
-	/** The two sides of a simple entry; the second works out as the opposite of the first. */
+	/**
+	 * The two sides of a simple entry; the second works out as the opposite of
+	 * the first.
+	 */
 	const postingsOfSimple = () =>
 		KINDS[simple.kind].map((box, index) => ({
 			...blank(),
@@ -120,7 +126,10 @@
 			balance: simple.balances[index] ?? '',
 		}));
 
-	/** An empty description in the simple view takes the name of the category, or Transfer. */
+	/**
+	 * An empty description in the simple view takes the name of the category, or
+	 * Transfer.
+	 */
 	const describedSimple = () => {
 		if (simple.kind === 'Transfer') return 'Transfer';
 		return simple.accounts[simple.kind === 'Expense' ? 0 : 1]?.trim().split(':').at(-1) ?? '';

@@ -9,7 +9,10 @@ type MergeOptions = {
 	file: { key: string; content: string };
 };
 
-/** Writes a draft's transactions into a file by date, leaving out those it holds already, and adds the draft's metadata to the file's. */
+/**
+ * Writes a draft's transactions into a file by date, leaving out those it holds
+ * already, and adds the draft's metadata to the file's.
+ */
 export const merge = (c: LedgerConfiguration, { draft, file }: MergeOptions) => {
 	const from = parse(c, draft);
 	const into = parse(c, file);
@@ -45,7 +48,10 @@ export const merge = (c: LedgerConfiguration, { draft, file }: MergeOptions) => 
 	});
 };
 
-/** A drafted transaction is held already when one has its date, description and first posting, each held one matching once. */
+/**
+ * A drafted transaction is held already when one has its date, description and
+ * first posting, each held one matching once.
+ */
 const unseen = (held: RupeaTransaction[], drafted: RupeaTransaction[]) => {
 	const counts: Record<string, number> = {};
 	for (const t of held) counts[keyOf(t)] = (counts[keyOf(t)] ?? 0) + 1;
@@ -62,7 +68,10 @@ const keyOf = (t: RupeaTransaction) => {
 	return [t.date, t.description, p?.account, p?.amount, p?.commodity].join('|');
 };
 
-/** The line a transaction goes above: the first held one dated after it, or the end. */
+/**
+ * The line a transaction goes above: the first held one dated after it, or the
+ * end.
+ */
 const placeOf = (held: RupeaTransaction[], t: RupeaTransaction, end: number) => {
 	const later = held.find((h) => Temporal.PlainDate.compare(h.date, t.date) > 0);
 	return later ? later.location.line - 1 : end;

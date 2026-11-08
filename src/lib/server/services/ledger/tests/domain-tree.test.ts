@@ -2,7 +2,10 @@ import { idsUnder, parentsIn, partsIn, type AccountNode } from '#services/ledger
 import { AccountType } from '#services/ledger/domain/types.ts';
 import { describe, expect, it } from 'vitest';
 
-/** A tree of the accounts named, each under the one its name is under; those starred are posted to. */
+/**
+ * A tree of the accounts named, each under the one its name is under; those
+ * starred are posted to.
+ */
 const treeOf = (...names: string[]): AccountNode[] =>
 	names.map((written) => {
 		const name = written.replace('*', '');

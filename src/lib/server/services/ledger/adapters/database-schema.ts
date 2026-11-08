@@ -44,7 +44,10 @@ export const ledgers = PG.pgTable(
 	(t) => [PG.index('ledgers_owner_id').on(t.ownerId)],
 );
 
-/** The column that names the ledger a row belongs to, for the tables of other services. */
+/**
+ * The column that names the ledger a row belongs to, for the tables of other
+ * services.
+ */
 export const ledgerColumn = () =>
 	PG.uuid()
 		.notNull()
@@ -190,7 +193,10 @@ export const postings = PG.pgTable(
 	],
 );
 
-/** A ledger's accounts and every account above one, one per name whatever its case, spelt as first indexed. */
+/**
+ * A ledger's accounts and every account above one, one per name whatever its
+ * case, spelt as first indexed.
+ */
 export const accounts = PG.pgTable(
 	'accounts',
 	(t) => ({
@@ -212,7 +218,10 @@ export const accounts = PG.pgTable(
 	],
 );
 
-/** What a feed calls a commodity; a ledger's own commodities are symbols of the ledger feed. */
+/**
+ * What a feed calls a commodity; a ledger's own commodities are symbols of the
+ * ledger feed.
+ */
 export const symbols = PG.pgTable(
 	'symbols',
 	(t) => ({
@@ -230,7 +239,10 @@ export const symbols = PG.pgTable(
 	],
 );
 
-/** A ledger's prices are read from its files, and a feed's quotes, one a day, are fetched. */
+/**
+ * A ledger's prices are read from its files, and a feed's quotes, one a day,
+ * are fetched.
+ */
 export const prices = PG.pgTable(
 	'prices',
 	(t) => ({
@@ -259,7 +271,10 @@ export const prices = PG.pgTable(
 	],
 );
 
-/** Prices a ledger's commodity by a feed's symbol from since on, or from the start when it is null. */
+/**
+ * Prices a ledger's commodity by a feed's symbol from since on, or from the
+ * start when it is null.
+ */
 export const symbolLinks = PG.pgTable(
 	'symbol_links',
 	(t) => ({
@@ -287,7 +302,10 @@ export const symbolLinks = PG.pgTable(
 	],
 );
 
-/** How a feed symbol's last fetches went: when one last worked, and since when they have failed. */
+/**
+ * How a feed symbol's last fetches went: when one last worked, and since when
+ * they have failed.
+ */
 export const symbolFetches = PG.pgTable('symbol_fetches', (t) => ({
 	...base,
 	symbolId: t
@@ -332,7 +350,10 @@ export const lots = PG.pgTable(
 	],
 );
 
-/** What an account's counted postings of a commodity moved in one month, so history before a day is summed by the month. */
+/**
+ * What an account's counted postings of a commodity moved in one month, so
+ * history before a day is summed by the month.
+ */
 export const monthlyDeltas = PG.pgTable(
 	'monthly_deltas',
 	(t) => ({
@@ -360,7 +381,10 @@ export const monthlyDeltas = PG.pgTable(
 	],
 );
 
-/** What an account held of a commodity on each day of a year it moved in; a year it did not move in holds what the one before ended on. */
+/**
+ * What an account held of a commodity on each day of a year it moved in; a year
+ * it did not move in holds what the one before ended on.
+ */
 export const balanceYears = PG.pgTable(
 	'balance_years',
 	(t) => ({
@@ -389,7 +413,10 @@ export const balanceYears = PG.pgTable(
 	],
 );
 
-/** A symbol's prices in one currency on each day of a year, each day's being the one that wins it; a day without one holds NO_AMOUNT. */
+/**
+ * A symbol's prices in one currency on each day of a year, each day's being the
+ * one that wins it; a day without one holds NO_AMOUNT.
+ */
 export const priceYears = PG.pgTable(
 	'price_years',
 	(t) => ({

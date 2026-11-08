@@ -1,6 +1,9 @@
 import { spells } from './text';
 
-/** Well-known merchants, by what they sell in the plain words an account might be named with. */
+/**
+ * Well-known merchants, by what they sell in the plain words an account might
+ * be named with.
+ */
 const MERCHANTS: Record<string, string[]> = {
 	'food delivery restaurants': [
 		'swiggy',
@@ -244,7 +247,10 @@ const MERCHANTS: Record<string, string[]> = {
 	'salon home services': ['urban company', 'urbanclap', 'naturals'],
 };
 
-/** The words with what the merchants they name sell, so they can be compared with account names. */
+/**
+ * The words with what the merchants they name sell, so they can be compared
+ * with account names.
+ */
 export const described = (words: string): string =>
 	[
 		words,

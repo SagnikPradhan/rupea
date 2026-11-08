@@ -8,7 +8,10 @@ const data = (name: string) => resolve('tests/e2e/data', name);
 
 const books = '2026-08-29 Tea\n\tExpenses:Food 10\n\tAssets:Cash\n';
 
-/** Uploads a statement Rupea does not know and describes it with the bank's format. */
+/**
+ * Uploads a statement Rupea does not know and describes it with the bank's
+ * format.
+ */
 const describeStatement = async (page: Page, ledger: string) => {
 	await visit(page, `${ledger}/import`);
 	await page.getByLabel('Statements').setInputFiles(data('statement.csv'));

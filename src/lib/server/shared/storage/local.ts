@@ -138,7 +138,10 @@ export const localStorage = (root: string): Storage => {
 	return { list, read, write, delete: delete_, rename: rename_, watch: watch_ };
 };
 
-/** Versions by nanosecond mtime and size, so telling a change apart reads no content. */
+/**
+ * Versions by nanosecond mtime and size, so telling a change apart reads no
+ * content.
+ */
 const entryOf = (key: string, stats: BigIntStats): Entry => ({
 	key,
 	size: Number(stats.size),

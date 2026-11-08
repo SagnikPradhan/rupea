@@ -5,7 +5,10 @@ const ImportPayload = v.object({ ledger: v.string(), checksum: v.string(), name:
 
 export type ImportPayload = v.InferOutput<typeof ImportPayload>;
 
-/** Drafts an upload for review; one ledger's imports run one at a time, so their rebooks never race. */
+/**
+ * Drafts an upload for review; one ledger's imports run one at a time, so their
+ * rebooks never race.
+ */
 export const importStatement: Job<ImportPayload> = {
 	name: 'import-statement',
 	version: 1,

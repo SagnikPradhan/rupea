@@ -41,7 +41,10 @@ export const findLatestQuote = (symbolId: string): ResultAsync<Temporal.PlainDat
 		),
 	);
 
-/** A day quoted again replaces the quote it had, since a feed may correct one; within one answer the last quote of a day wins. */
+/**
+ * A day quoted again replaces the quote it had, since a feed may correct one;
+ * within one answer the last quote of a day wins.
+ */
 export const saveQuotes = (id: string, s: PriceSource, q: Quote[]): ResultAsync<void> =>
 	atomically(() => withContext('db')((tx) => attempt(() => upsertQuotes(tx, id, s, q))));
 
@@ -77,7 +80,10 @@ const upsertQuotes = async (
 	await rewritePriceYears(tx, rows);
 };
 
-/** Every fetch records when it was tried; one that worked clears the error, and one that failed keeps when the failing began. */
+/**
+ * Every fetch records when it was tried; one that worked clears the error, and
+ * one that failed keeps when the failing began.
+ */
 export const saveFetch = (symbolId: string, error: RupeaError | null): ResultAsync<void> =>
 	withContext('db')((db) =>
 		attempt(async () => {
@@ -100,7 +106,10 @@ export const saveFetch = (symbolId: string, error: RupeaError | null): ResultAsy
 		}),
 	);
 
-/** Symbols the ledger links that no fetch has tried since today began in UTC, unless the feed said it has none. */
+/**
+ * Symbols the ledger links that no fetch has tried since today began in UTC,
+ * unless the feed said it has none.
+ */
 export const listStale = (ledgerId: string): ResultAsync<string[]> =>
 	withContext('db')((db) =>
 		attempt(() =>
@@ -124,7 +133,10 @@ export const listStale = (ledgerId: string): ResultAsync<string[]> =>
 
 export type RepeatedLink = { commodity: string; locations: string[] };
 
-/** Commodities linked more than once from one day, which would leave their price to chance. */
+/**
+ * Commodities linked more than once from one day, which would leave their price
+ * to chance.
+ */
 export const listRepeatedLinks = (ledgerId: string): ResultAsync<RepeatedLink[]> =>
 	withContext('db')((db) =>
 		attempt(() =>

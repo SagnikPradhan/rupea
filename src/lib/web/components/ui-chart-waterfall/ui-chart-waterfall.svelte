@@ -12,7 +12,10 @@
 
 	const { steps, label }: Props = $props();
 
-	/** A bar's share of its slot, and the room left above and below the levels, as a share of them. */
+	/**
+	 * A bar's share of its slot, and the room left above and below the levels, as
+	 * a share of them.
+	 */
 	const FILL = 0.6;
 	const ROOM = 0.15;
 

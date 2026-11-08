@@ -1,12 +1,18 @@
 import { DEFAULT_COMMODITY, multiply, type Amount } from './amounts';
 
-/** What lots took in or gave up at what they cost per unit, on one day, in the commodity they cost in. */
+/**
+ * What lots took in or gave up at what they cost per unit, on one day, in the
+ * commodity they cost in.
+ */
 export type CostMove = {
 	accountId: string;
 	commodity: string;
 	cost: string;
 	day: Temporal.PlainDate;
-	/** The day the lot was paid for, which is the day the move is valued at, a sale's included. */
+	/**
+	 * The day the lot was paid for, which is the day the move is valued at, a
+	 * sale's included.
+	 */
 	paid: Temporal.PlainDate;
 	amount: Amount;
 };
@@ -17,8 +23,9 @@ export type RateThen = { commodity: string; day: Temporal.PlainDate; rate: Amoun
 type CostOnOptions = { moves: CostMove[]; rates: RateThen[]; days: Temporal.PlainDate[] };
 
 /**
- * What the lots had cost in rupees by the end of each day: the sum of every move up to it, each
- * valued at the price of its own day. A move whose cost commodity had no price then is left out.
+ * What the lots had cost in rupees by the end of each day: the sum of every
+ * move up to it, each valued at the price of its own day. A move whose cost
+ * commodity had no price then is left out.
  */
 export const costOn = ({ moves, rates, days }: CostOnOptions): Amount[] => {
 	const rateOf = ratesIn(rates);
@@ -38,7 +45,10 @@ export const costOn = ({ moves, rates, days }: CostOnOptions): Amount[] => {
 	});
 };
 
-/** The commodities lots cost in whose price was missing on a day they were paid in, which costOn leaves out. */
+/**
+ * The commodities lots cost in whose price was missing on a day they were paid
+ * in, which costOn leaves out.
+ */
 export const unpricedIn = (moves: CostMove[], rates: RateThen[]): string[] => {
 	const rateOf = ratesIn(rates);
 	const missing = moves.filter(

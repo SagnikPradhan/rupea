@@ -32,7 +32,10 @@ const GRACE = 20_000;
 const ABANDONED = unknownError('the worker stopped before the job finished');
 
 type StartOptions = {
-	/** The worker module, the flags Node needs to run it, and the variables it reads. */
+	/**
+	 * The worker module, the flags Node needs to run it, and the variables it
+	 * reads.
+	 */
 	entry: string;
 	execArgv: string[];
 	env: Record<string, string>;
@@ -42,7 +45,10 @@ type StartOptions = {
 	ready: Promise<void>;
 };
 
-/** Orchestrates jobs here and runs each in one of up to `jobs.workers` processes. */
+/**
+ * Orchestrates jobs here and runs each in one of up to `jobs.workers`
+ * processes.
+ */
 export const startWorkers = (o: StartOptions) => {
 	const count = o.context.config.jobs.workers;
 	const pool = processes({ entry: o.entry, count, env: o.env, execArgv: o.execArgv });
@@ -118,14 +124,20 @@ type TickOptions = {
 	dispatch: Dispatch;
 };
 
-/** Claims the next due job, dispatches it and settles how it ended; false when none was due. */
+/**
+ * Claims the next due job, dispatches it and settles how it ended; false when
+ * none was due.
+ */
 export const tick = (o: TickOptions): ResultAsync<boolean> =>
 	claimJob(
 		o.handlers.map((h) => h.job),
 		LEASE,
 	).andThen((c) => (c ? dispatchAndSettle(o, c).map(() => true) : okAsync(false)));
 
-/** Queues again, or fails, the claims whose lease ran out because their worker died. */
+/**
+ * Queues again, or fails, the claims whose lease ran out because their worker
+ * died.
+ */
 export const releaseExpired = (l: Handler<unknown>[]): ResultAsync<void> =>
 	listExpired(RELEASED_AT_ONCE)
 		.andThen((e) => batchAsync(e.map((r) => settle(r, abandoned(l, r)))))
@@ -146,7 +158,10 @@ const dispatchAndSettle = (o: TickOptions, c: ClaimedJob): ResultAsync<void> =>
 		),
 	);
 
-/** How a run whose worker stopped settles: like an `UnknownError` of its job, if we know it. */
+/**
+ * How a run whose worker stopped settles: like an `UnknownError` of its job, if
+ * we know it.
+ */
 const abandoned = (l: Handler<unknown>[], r: Run): Ending => {
 	const retries = findHandler(l, r.name).map((h) => h.job.retries);
 	return endingOf(r.attempts, ABANDONED, retries.unwrapOr(undefined));

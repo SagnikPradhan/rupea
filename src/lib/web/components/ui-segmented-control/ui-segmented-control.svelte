@@ -2,7 +2,10 @@
 	type Props = {
 		label: string;
 		fill?: boolean;
-		/** A segment with an href is a link; one with only a click handler is a button. */
+		/**
+		 * A segment with an href is a link; one with only a click handler is a
+		 * button.
+		 */
 		segments: { name: string; chosen: boolean; href?: string; onclick?: () => void }[];
 	};
 

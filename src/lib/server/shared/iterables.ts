@@ -2,7 +2,10 @@ import { setTimeout } from 'node:timers/promises';
 
 const CLOSED = Symbol('closed');
 
-/** Groups what `items` yields into one array for each `ms` after a group's first item. */
+/**
+ * Groups what `items` yields into one array for each `ms` after a group's first
+ * item.
+ */
 export async function* inWindows<T>(items: AsyncIterable<T>, ms: number): AsyncIterable<T[]> {
 	const iterator = items[Symbol.asyncIterator]();
 	const pending = { next: iterator.next() };

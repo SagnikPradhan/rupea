@@ -36,7 +36,10 @@ export const createLedger = ({ owner, handle, name }: CreateLedgerOptions): Resu
 		),
 	);
 
-/** Holds the ledger's lock until the transaction ends, so its writers take turns. */
+/**
+ * Holds the ledger's lock until the transaction ends, so its writers take
+ * turns.
+ */
 export const lockLedger = (ledgerId: string): ResultAsync<void> =>
 	withContext('db')((db) =>
 		attempt(async () => {

@@ -30,7 +30,10 @@ const uploads = (l: Ledger, files: Record<string, string>) =>
 		uploads: Object.entries(files).map(([name, t]) => ({ name, content: encode(t) })),
 	});
 
-/** Runs each queued import as a worker would, oldest first, and returns how each ended. */
+/**
+ * Runs each queued import as a worker would, oldest first, and returns how each
+ * ended.
+ */
 const runImports = async (l: Ledger) => {
 	const queued = (
 		await listJobs({ userId: l.owner, name: importStatement.name, payload: {}, limit: 50 })

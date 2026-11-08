@@ -6,7 +6,11 @@
 	import { sankey, type SankeyLink, type SankeyNode } from 'd3-sankey';
 	import type { Snippet } from 'svelte';
 
-	/** A bar in a column, the part whose shade it takes, the bar before it that flows into it, and the bar after it that it flows into when no other flows there. */
+	/**
+	 * A bar in a column, the part whose shade it takes, the bar before it that
+	 * flows into it, and the bar after it that it flows into when no other flows
+	 * there.
+	 */
 	type Flow = {
 		key: string;
 		label: string;
@@ -33,15 +37,24 @@
 
 	const { flows, label, summary, controls }: Props = $props();
 
-	/** How wide a bar is, and the space between two in a column, as a percent of the plot. */
+	/**
+	 * How wide a bar is, and the space between two in a column, as a percent of
+	 * the plot.
+	 */
 	const NODE = 1;
 	const GAP = 2;
-	/** A name is written beside a bar only when the bar is at least this percent of the plot tall. */
+	/**
+	 * A name is written beside a bar only when the bar is at least this percent
+	 * of the plot tall.
+	 */
 	const NAMED = 8;
 
 	const hovered = $state({ node: null as Box | null });
 
-	/** Keeps the bars in the order given, each column stacked once, so the parts line up with the key. */
+	/**
+	 * Keeps the bars in the order given, each column stacked once, so the parts
+	 * line up with the key.
+	 */
 	const laid = $derived(
 		sankey<Flow, object>()
 			.nodeId((f) => idOf(f.column, f.key))
@@ -92,7 +105,10 @@
 		key === SAVED ? '--color-positive' : part === null ? '--color-muted' : seriesOf(part);
 	const idOf = (column: number, key: string) => `${column} ${key}`;
 
-	/** d3-sankey types the edges of a laid-out bar as optional, though the layout always sets them. */
+	/**
+	 * D3-sankey types the edges of a laid-out bar as optional, though the layout
+	 * always sets them.
+	 */
 	const boxOf = (node: SankeyNode<Flow, object>): Box => ({
 		flow: node,
 		x0: node.x0 as number,
@@ -101,7 +117,10 @@
 		y1: node.y1 as number,
 	});
 
-	/** A band as the shape between its edges, which stays true when the plot is stretched, as a stroke as wide as the band would not. */
+	/**
+	 * A band as the shape between its edges, which stays true when the plot is
+	 * stretched, as a stroke as wide as the band would not.
+	 */
 	const bandOf = (link: SankeyLink<Flow, object>) => {
 		const from = boxOf(link.source as SankeyNode<Flow, object>).x1;
 		const to = boxOf(link.target as SankeyNode<Flow, object>).x0;

@@ -120,7 +120,11 @@ export const listTransactions = (
 		};
 	});
 
-/** Marks these transactions and their postings uncounted and every other counted, writing only the rows that change, and returns what those rows touch. */
+/**
+ * Marks these transactions and their postings uncounted and every other
+ * counted, writing only the rows that change, and returns what those rows
+ * touch.
+ */
 export const recount = (ledgerId: string, uncounted: string[]): ResultAsync<Touched> =>
 	atomically(() =>
 		withContext('db')((tx) =>

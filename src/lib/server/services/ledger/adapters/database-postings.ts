@@ -50,7 +50,10 @@ export type BalanceCheck = {
 	commodity: string;
 	expected: Amount;
 	actual: Amount;
-	/** The transactions, as file:line, that could fall either side of the assertion. */
+	/**
+	 * The transactions, as file:line, that could fall either side of the
+	 * assertion.
+	 */
 	unordered: string[];
 };
 
@@ -128,7 +131,10 @@ export const listPostings = (
 		};
 	});
 
-/** What each balance account held at the end of a day, and what its lots still open then cost; history before the day's month is summed by the month. */
+/**
+ * What each balance account held at the end of a day, and what its lots still
+ * open then cost; history before the day's month is summed by the month.
+ */
 export const listHoldings = (ledgerId: string, day: Temporal.PlainDate): ResultAsync<Holding[]> =>
 	withContext('db')((db) => {
 		const on = day.toString();
@@ -209,7 +215,11 @@ export const listHoldings = (ledgerId: string, day: Temporal.PlainDate): ResultA
 
 type BalanceChecksOptions = { from: Temporal.PlainDate; holdings: HoldingKey[] | null };
 
-/** Stores what these holdings, or all when null, hold at their assertions from from's month on, and the other files' transactions that day it cannot order. An assertion depends only on its own account and commodity. */
+/**
+ * Stores what these holdings, or all when null, hold at their assertions from
+ * from's month on, and the other files' transactions that day it cannot order.
+ * An assertion depends only on its own account and commodity.
+ */
 export const saveBalanceChecks = (
 	ledgerId: string,
 	{ from, holdings }: BalanceChecksOptions,
@@ -357,7 +367,10 @@ export const saveBalanceChecks = (
 		}),
 	);
 
-/** The assertions that do not hold, each only where its account's error differs from the one before, or that cannot be ordered. */
+/**
+ * The assertions that do not hold, each only where its account's error differs
+ * from the one before, or that cannot be ordered.
+ */
 export const listBalanceChecks = (ledgerId: string): ResultAsync<BalanceCheck[]> =>
 	withContext('db')((db) =>
 		attempt(() =>
@@ -428,7 +441,10 @@ export const listBalanceChecks = (ledgerId: string): ResultAsync<BalanceCheck[]>
 		),
 	);
 
-/** The lots a ledger had bought by a day, and how many units of each it still held then. */
+/**
+ * The lots a ledger had bought by a day, and how many units of each it still
+ * held then.
+ */
 const lotsOpenOn = (db: Database, ledgerId: string, on: string) =>
 	db
 		.selectFrom('lots as l')
@@ -445,7 +461,10 @@ const lotsOpenOn = (db: Database, ledgerId: string, on: string) =>
 		.where('l.ledgerId', '=', ledgerId)
 		.where('o.date', '<=', on);
 
-/** How many units of a lot were sold or moved by a day, or none when nothing was. */
+/**
+ * How many units of a lot were sold or moved by a day, or none when nothing
+ * was.
+ */
 const disposedOn = (db: Database, lotId: Expression<string>, on: string) =>
 	db
 		.selectFrom('disposals as d')

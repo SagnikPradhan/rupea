@@ -47,7 +47,10 @@ describe('files', () => {
 	});
 });
 
-/** A day inside a yearly or monthly file, as an entry dated elsewhere would stretch what the file spans. */
+/**
+ * A day inside a yearly or monthly file, as an entry dated elsewhere would
+ * stretch what the file spans.
+ */
 const dayIn = (key: string) => {
 	const period = key.replace('.rupea', '');
 	return period.length === 4 ? `${period}-06-15` : `${period}-15`;

@@ -12,16 +12,25 @@ import { filled, wordsOf, type Unembedded } from '../domain/text';
 import { DisposalKind, type Ledger } from '../domain/types';
 import { fetchQuotes, syncLedger } from './jobs';
 
-/** Past transactions embedded per sync, latest first. A sync that fills this queues the next, so a large ledger catches up without stalling one. */
+/**
+ * Past transactions embedded per sync, latest first. A sync that fills this
+ * queues the next, so a large ledger catches up without stalling one.
+ */
 const EMBEDDED = 500;
 
-/** What failed to parse is kept as a problem, so it is reported on every sync without parsing again. */
+/**
+ * What failed to parse is kept as a problem, so it is reported on every sync
+ * without parsing again.
+ */
 export const addProblems = (l: Ledger, f: RupeaError[]): ResultAsync<RupeaError[]> =>
 	DB.listProblems(l.id)
 		.map((p) => [...f, ...p])
 		.orElse((e) => ok([...f, e]));
 
-/** A symbol is fetched once a ledger links it, and again on the first sync of each day, or on later syncs until a fetch works. */
+/**
+ * A symbol is fetched once a ledger links it, and again on the first sync of
+ * each day, or on later syncs until a fetch works.
+ */
 export const queueFetches = (l: Ledger, f: RupeaError[]): ResultAsync<RupeaError[]> =>
 	DB.listStale(l.id)
 		.andThen((ids) =>
@@ -41,7 +50,10 @@ export const embed = (l: Ledger, f: RupeaError[]): ResultAsync<RupeaError[]> =>
 		.map(() => f)
 		.orElse((e) => ok([...f, e]));
 
-/** Groups and balances span files, so they are checked after every file is in place. Evidence is not counted: a group's money moves at its primary. */
+/**
+ * Groups and balances span files, so they are checked after every file is in
+ * place. Evidence is not counted: a group's money moves at its primary.
+ */
 export const checkLedger = (l: Ledger): ResultAsync<RupeaError[]> =>
 	DB.listGroupTransactions(l.id)
 		.map(checkGroups)
@@ -70,7 +82,10 @@ const checkLinks = (l: Ledger): ResultAsync<RupeaError[]> =>
 		),
 	);
 
-/** An assertion that could go either way is not checked; a time on either side settles it. */
+/**
+ * An assertion that could go either way is not checked; a time on either side
+ * settles it.
+ */
 const toBalanceError = (c: DB.BalanceCheck): RupeaError =>
 	c.unordered.length > 0
 		? fault('BalanceAssertionAmbiguous', {

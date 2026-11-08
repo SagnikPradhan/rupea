@@ -18,7 +18,10 @@ vi.mock('$app/server', () => import('#tests/shared/app-server.ts'));
 const hdfc = '2026-10-03 NEFT TO INTERACTIVE BROKERS\n\tAssets:HDFC -1000\n\tAssets:IBKR\n';
 const ibkr = '2026-10-03 Deposit\n\tAssets:IBKR 1000\n\tAssets:HDFC\n';
 
-/** A ledger its owner is signed in to, where a transfer shows in both banks' files. */
+/**
+ * A ledger its owner is signed in to, where a transfer shows in both banks'
+ * files.
+ */
 const it = base.extend<{ ledger: string }>({
 	ledger: async ({ context, db }, use) => {
 		const ledger = await createLedger(db);

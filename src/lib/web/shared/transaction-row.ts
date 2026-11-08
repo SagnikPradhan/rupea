@@ -1,4 +1,7 @@
-/** Where a transaction's list row says the money left, where it went, and how much. */
+/**
+ * Where a transaction's list row says the money left, where it went, and how
+ * much.
+ */
 export const rowOf = (postings: { account: string; quantity: string }[]) => {
 	const from = postings.find((p) => p.quantity.startsWith('-')) ?? null;
 	const to = postings.filter((p) => p !== from);

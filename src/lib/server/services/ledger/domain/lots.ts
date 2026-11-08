@@ -43,10 +43,16 @@ export const CURRENCIES = Intl.supportedValuesOf('currency');
 
 export const hasLots = (c: string) => !CURRENCIES.includes(c);
 
-/** A commodity moves in kind when its units in a transaction net to zero, so lot costs only pick lots. */
+/**
+ * A commodity moves in kind when its units in a transaction net to zero, so lot
+ * costs only pick lots.
+ */
 export const movesInKind = (u: Amount[]) => sum(u) === 0n;
 
-/** A posting in the commodity being booked, in ledger order; `held` when its account is a balance account. */
+/**
+ * A posting in the commodity being booked, in ledger order; `held` when its
+ * account is a balance account.
+ */
 export type BookedPosting = {
 	id: string;
 	transaction: string;

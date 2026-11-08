@@ -28,7 +28,10 @@ export const notAmong = (old: OldTransaction[], rows: { id: string }[]) => {
 	return old.filter((o) => !ids.has(o.id));
 };
 
-/** Hands out old transactions by date, time and description, in file order, so an edit or a line added above keeps them. */
+/**
+ * Hands out old transactions by date, time and description, in file order, so
+ * an edit or a line added above keeps them.
+ */
 export const matchesFrom = (old: OldTransaction[]) => {
 	const free = Object.groupBy(old, (o) => `${o.date} ${o.time} ${o.description}`);
 
@@ -60,7 +63,10 @@ type MetadataHeld = {
 	value: string;
 };
 
-/** Each transaction's fingerprint: what it holds beyond its own row, its postings and all their metadata, as text to compare. */
+/**
+ * Each transaction's fingerprint: what it holds beyond its own row, its
+ * postings and all their metadata, as text to compare.
+ */
 const fingerprintsOf = (postings: PostingHeld[], metadata: MetadataHeld[]) => {
 	const entries = (rows: MetadataHeld[] = []) => rows.map((m) => [m.position, m.key, m.value]);
 	const byTransaction = Object.groupBy(postings, (p) => p.transactionId);
@@ -167,7 +173,10 @@ type UnchangedPricesOptions = {
 	unchangedRows: TransactionRow[];
 };
 
-/** The posting prices of unchanged transactions, which no parse found, on the lines those are on now. */
+/**
+ * The posting prices of unchanged transactions, which no parse found, on the
+ * lines those are on now.
+ */
 export const pricesOfUnchanged = ({
 	fileId,
 	prices,
@@ -195,7 +204,10 @@ export const pricesOfUnchanged = ({
 	});
 };
 
-/** Of a file's prices, those to delete and those to add; all of them when an older indexer read it. */
+/**
+ * Of a file's prices, those to delete and those to add; all of them when an
+ * older indexer read it.
+ */
 export const priceChangesFrom = <P extends PriceHeld>(
 	old: (PriceHeld & { id: string })[],
 	prices: P[],
@@ -218,7 +230,11 @@ type ChangesOptions<P, M> = {
 	metadata: M[];
 };
 
-/** Of a file's rows, only those to write: a transaction's own when new, on another line or read from other lines, and what it holds when that differs. Moved are those whose order changed, which lots and assertions depend on. */
+/**
+ * Of a file's rows, only those to write: a transaction's own when new, on
+ * another line or read from other lines, and what it holds when that differs.
+ * Moved are those whose order changed, which lots and assertions depend on.
+ */
 export const changesFrom = <P extends PostingHeld, M extends MetadataHeld>({
 	old,
 	fingerprintBefore,
@@ -280,7 +296,10 @@ type UnchangedOptions = {
 	unchanged: UnchangedEntry[];
 };
 
-/** The old row of each unchanged transaction, on the line it is on now; rows of one hash go in file order. */
+/**
+ * The old row of each unchanged transaction, on the line it is on now; rows of
+ * one hash go in file order.
+ */
 export const rowsOfUnchanged = ({
 	ledgerId,
 	fileId,

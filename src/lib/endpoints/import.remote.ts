@@ -27,7 +27,10 @@ export const uploadStatements = form(
 	},
 );
 
-/** Statements uploaded lately, whether a file was imported from each, and whether a job imports it. */
+/**
+ * Statements uploaded lately, whether a file was imported from each, and
+ * whether a job imports it.
+ */
 export const listStatements = query(Handle, (h) =>
 	replyFrom(inLedger({ handle: h, action: Uploads.listStatements })),
 );
@@ -90,7 +93,10 @@ export const recogniseStatement = command(
 		),
 );
 
-/** The draft a statement makes with an unsaved schema, checked as the ledger would read it. */
+/**
+ * The draft a statement makes with an unsaved schema, checked as the ledger
+ * would read it.
+ */
 export const previewStatement = command(
 	v.object({
 		handle: Handle,

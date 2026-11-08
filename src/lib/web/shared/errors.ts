@@ -3,7 +3,10 @@ import type { RupeaError } from '#lib/server/shared/result/error.ts';
 
 export type Place = { file: string; line: string | null };
 
-/** Says what went wrong in a sentence; where it went wrong is left to `placesOf`. */
+/**
+ * Says what went wrong in a sentence; where it went wrong is left to
+ * `placesOf`.
+ */
 export const explain = (error: RupeaError): string =>
 	match(error)
 		.with(
@@ -99,7 +102,10 @@ export const explain = (error: RupeaError): string =>
 		.with({ type: 'StorageInvalidKey' }, (e) => `“${e.key}” isn’t a valid file name.`)
 		.otherwise((e) => `Something went wrong (${e.type}).`);
 
-/** Names an error and every detail it carries, for someone writing a schema to read. */
+/**
+ * Names an error and every detail it carries, for someone writing a schema to
+ * read.
+ */
 export const detail = (error: RupeaError) =>
 	[
 		error.type,
@@ -120,7 +126,10 @@ const toPlace = (text: string): Place => {
 	return found?.[1] && found[2] ? { file: found[1], line: found[2] } : { file: text, line: null };
 };
 
-/** Assertions and XIRR only report on the ledger; nothing is wrong with the data they point at. */
+/**
+ * Assertions and XIRR only report on the ledger; nothing is wrong with the data
+ * they point at.
+ */
 export const isWarning = (e: RupeaError) =>
 	e.type === 'BalanceAssertionFailed' ||
 	e.type === 'BalanceAssertionAmbiguous' ||

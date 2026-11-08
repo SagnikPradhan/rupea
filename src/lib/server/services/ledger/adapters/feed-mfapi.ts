@@ -15,7 +15,10 @@ const History = v.object({
 	),
 });
 
-/** A scheme's NAVs in rupees. mfapi answers a scheme it does not know with an empty scheme 0. */
+/**
+ * A scheme's NAVs in rupees. mfapi answers a scheme it does not know with an
+ * empty scheme 0.
+ */
 export const listQuotes: ListQuotes = (fetch, symbol, since) =>
 	readJson(fetch, { feed: Feed.Mfapi, symbol, url: urlOf(symbol, since), schema: History }).andThen(
 		(h) =>

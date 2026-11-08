@@ -4,7 +4,10 @@ import { attempt, type ResultAsync } from '../shared/result/result';
 
 const UNIQUE_VIOLATION = '23505';
 
-/** Like `attempt`, but a write that breaks a unique constraint fails with `UniqueViolation`. */
+/**
+ * Like `attempt`, but a write that breaks a unique constraint fails with
+ * `UniqueViolation`.
+ */
 export const attemptWrite = <T>(f: () => PromiseLike<T>): ResultAsync<T> => attempt(f, fromDriver);
 
 export const violates = (e: RupeaError, c: string): boolean =>

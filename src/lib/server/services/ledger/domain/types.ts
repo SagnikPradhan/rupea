@@ -9,7 +9,10 @@ export enum AccountType {
 	Equity = 'Equity',
 }
 
-/** How a posting wrote its price, @ for one unit or @@ for all, so it prints back the same. */
+/**
+ * How a posting wrote its price, @ for one unit or @@ for all, so it prints
+ * back the same.
+ */
 export enum PriceKind {
 	Unit = 'unit',
 	Total = 'total',
@@ -23,7 +26,10 @@ export enum PriceSource {
 	Yahoo = 'yahoo',
 }
 
-/** Where a symbol's prices come from; a ledger's own symbols are priced by its files. */
+/**
+ * Where a symbol's prices come from; a ledger's own symbols are priced by its
+ * files.
+ */
 export enum Feed {
 	Ledger = 'ledger',
 	Mfapi = 'mfapi',
@@ -74,7 +80,10 @@ export type RupeaPosting = {
 	commodity: string;
 	price: Price | null;
 	cost: LotCost | null;
-	/** What the account holds of the posting's commodity after it, if the file asserts it. */
+	/**
+	 * What the account holds of the posting's commodity after it, if the file
+	 * asserts it.
+	 */
 	balance: Amount | null;
 	metadata: RupeaMetadata;
 	/** The comment lines under it, joined, if any. */
@@ -99,7 +108,10 @@ export type RupeaMarketPrice = {
 	price: Quantity;
 };
 
-/** Prices a commodity by a feed's symbol from a day on, or from the start when since is null. */
+/**
+ * Prices a commodity by a feed's symbol from a day on, or from the start when
+ * since is null.
+ */
 export type RupeaLink = {
 	location: RupeaParseLocation;
 	since: Temporal.PlainDate | null;
@@ -115,7 +127,10 @@ export type RupeaLedgerFile = {
 	links: RupeaLink[];
 };
 
-/** What a file is read into, in the order it was written, so it prints back without loss. */
+/**
+ * What a file is read into, in the order it was written, so it prints back
+ * without loss.
+ */
 export enum NodeKind {
 	File = 'file',
 	Transaction = 'transaction',
@@ -189,7 +204,10 @@ export type RupeaLinkNode = {
 	children: [];
 };
 
-/** Comments that nothing above holds, after a blank line or at the top of the entries. */
+/**
+ * Comments that nothing above holds, after a blank line or at the top of the
+ * entries.
+ */
 export type RupeaNoteNode = { kind: NodeKind.Note; comments: string[]; children: [] };
 
 /** Lines that do not read, kept as written. */

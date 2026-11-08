@@ -4,7 +4,10 @@ type Validated = { value?: unknown; issues?: readonly unknown[] };
 type Schema = { '~standard': { validate: (input: unknown) => Validated | Promise<Validated> } };
 type Handler = (input: unknown) => unknown;
 
-/** Stands in for $app/server: `vi.mock('$app/server', () => import('#tests/shared/app-server.ts'))`. */
+/**
+ * Stands in for $app/server: `vi.mock('$app/server', () =>
+ * import('#tests/shared/app-server.ts'))`.
+ */
 export const request = {
 	locals: { user: null as User | null },
 	cookies: new Map<string, string>(),
@@ -55,6 +58,9 @@ const run = async (schema: Schema | Handler, handler: Handler | undefined, input
 	return handler?.(parsed.value);
 };
 
-/** SvelteKit refuses a remote module whose exports lack the marks its own functions carry. */
+/**
+ * SvelteKit refuses a remote module whose exports lack the marks its own
+ * functions carry.
+ */
 const marked = <T extends object>(type: string, remote: T) =>
 	Object.assign(remote, { __: { type } });

@@ -2,7 +2,10 @@
 	import type { Snippet } from 'svelte';
 
 	type Props = {
-		/** The point it describes, as a percent of its positioned container; the tooltip sits centred above it. */
+		/**
+		 * The point it describes, as a percent of its positioned container; the
+		 * tooltip sits centred above it.
+		 */
 		left: number;
 		top: number;
 		children: Snippet;

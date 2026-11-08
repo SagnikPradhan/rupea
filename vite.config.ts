@@ -46,8 +46,11 @@ export default defineConfig({
 		},
 	],
 	builder: {},
-	// Coverage of the built app, as under mcr, maps back to src through these.
-	build: { sourcemap: process.env['NODE_V8_COVERAGE'] ? 'inline' : false },
+	// Coverage of the built app, as under mcr, maps back to src through the source map. Minifying
+	// rewrites ternaries and chains into branches the unit run does not have, so they do not merge.
+	build: process.env['NODE_V8_COVERAGE']
+		? { sourcemap: 'inline', minify: false }
+		: { sourcemap: false },
 	test: {
 		// Reading a PDF runs the models on several threads; a worker per core leaves them none.
 		maxWorkers: '50%',

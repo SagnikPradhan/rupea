@@ -14,6 +14,8 @@ export const startCoverage = async (page: Page) => {
  * each load.
  */
 export const saveCoverage = async (page: Page) => {
-	if (recording)
-		await page.coverage.stopJSCoverage().then((c) => new CoverageReport(options).add(c));
+	if (!recording) return;
+
+	const entries = await page.coverage.stopJSCoverage();
+	if (entries.length) await new CoverageReport(options).add(entries);
 };

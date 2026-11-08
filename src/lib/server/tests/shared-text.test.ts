@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import { byCodeUnit, cut } from '#lib/server/shared/text.ts';
+import { byCodeUnit } from '#lib/shared/text.ts';
+import { cut } from '#lib/server/shared/text.ts';
 
 describe('cutting text', () => {
 	it('splits at the first mark only', () => {

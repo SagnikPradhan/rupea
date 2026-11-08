@@ -54,10 +54,11 @@ const round = (n: number): number => Math.round(n * 10) / 10;
  */
 const sequence = (name: string): (() => number) => {
 	const seed = { value: 2166136261 };
-	for (const char of name) seed.value = Math.imul(seed.value ^ char.charCodeAt(0), 16777619);
+	for (const char of name)
+		seed.value = Math.imul(seed.value ^ (char.codePointAt(0) ?? 0), 16777619);
 
 	return () => {
-		seed.value = (seed.value + 0x6d2b79f5) | 0;
+		seed.value = (seed.value + 0x6d2b79f5) >>> 0;
 		const a = Math.imul(seed.value ^ (seed.value >>> 15), 1 | seed.value);
 		const b = (a + Math.imul(a ^ (a >>> 7), 61 | a)) ^ a;
 		return ((b ^ (b >>> 14)) >>> 0) / 4294967296;

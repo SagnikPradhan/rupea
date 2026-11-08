@@ -1,5 +1,6 @@
 import { scaleLinear, scaleSymlog } from 'd3-scale';
 import { stack, stackOffsetDiverging, type Series } from 'd3-shape';
+import { byCodeUnit } from '#lib/shared/text.ts';
 import type { Scale } from './choices';
 
 /**
@@ -38,7 +39,7 @@ export const coloursOf = (a: string[]) =>
 export const distinctOf = (shown: string[], colours: Record<string, number>) => {
 	const taken: number[] = [];
 	return Object.fromEntries(
-		shown.toSorted().map((a) => {
+		shown.toSorted(byCodeUnit).map((a) => {
 			const free = Array.from(
 				{ length: PARTS - 1 },
 				(_, i) => ((colours[a] ?? 0) + i) % (PARTS - 1),

@@ -198,7 +198,7 @@ const nodeOf = (file: string, form: TransactionForm): RupeaTransactionNode => ({
 	comments: commentsOf(form.comment),
 	date: Temporal.PlainDate.from(form.date),
 	time: form.time === '' ? null : Temporal.PlainTime.from(form.time),
-	description: form.description.split(/\s+/).join(' '),
+	description: form.description.replaceAll(/\s+/g, ' '),
 	metadata: form.metadata.map((m) => [m.key, m.value]),
 	children: form.postings.map(postingOf),
 });
@@ -226,7 +226,12 @@ const postingOf = (p: TransactionForm['postings'][number]): RupeaPostingNode => 
 	children: [],
 });
 
-const commentsOf = (t: string) => (t.trim() === '' ? [] : t.trim().split(/\s*\n/));
+const commentsOf = (t: string) =>
+	t
+		.trim()
+		.split('\n')
+		.map((l) => l.trimEnd())
+		.filter((l) => l !== '');
 
 /** The form's schema has checked every amount by now. */
 const amountOf = (t: string) => parseAmount(t) as Amount;

@@ -70,7 +70,7 @@ const rolledUp = (deltas: Delta[]): Delta[] => {
 			const byDay = Object.groupBy(byAccount[account] ?? [], (s) => textOf(s.bucket));
 
 			return Object.keys(byDay)
-				.toSorted()
+				.toSorted((a, b) => Temporal.PlainDate.compare(a, b))
 				.flatMap((day) => {
 					const g = byDay[day];
 					return g?.[0] ? [{ ...g[0], ...added(g[0], g) }] : [];

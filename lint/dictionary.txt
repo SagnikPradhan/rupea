@@ -87,6 +87,7 @@ MiniLM
 misdated
 misspelt
 model2vec
+monocart
 mtime
 napi
 NAVs

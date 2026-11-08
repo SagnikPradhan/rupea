@@ -30,9 +30,9 @@
 		"test": "vitest run",
 		"test:watch": "vitest",
 		"bench": "vitest bench --run --reporter=verbose --silent=false",
-		"test:coverage": "vitest run --coverage",
+		"test:coverage": "vitest run --coverage && tsx scripts/lcov-blocks.ts coverage/lcov.info",
 		"test:e2e": "playwright test",
-		"test:e2e:coverage": "mcr -c mcr.config.ts -- playwright test"
+		"test:e2e:coverage": "mcr -c mcr.config.ts -- playwright test && tsx scripts/lcov-blocks.ts coverage/e2e/lcov.info"
 	},
 	"devDependencies": {
 		"@cantoo/pdf-lib": "2.11.1",

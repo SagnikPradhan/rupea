@@ -1,4 +1,5 @@
 import { bucketsIn, type Bucket, type Span } from '#lib/shared/dates.ts';
+import { byCodeUnit } from '#lib/shared/text.ts';
 import { sum, type Amount } from './amounts';
 import { byPath, parentsOf } from './taxonomy';
 
@@ -70,7 +71,7 @@ const rolledUp = (deltas: Delta[]): Delta[] => {
 			const byDay = Object.groupBy(byAccount[account] ?? [], (s) => textOf(s.bucket));
 
 			return Object.keys(byDay)
-				.toSorted()
+				.toSorted(byCodeUnit)
 				.flatMap((day) => {
 					const g = byDay[day];
 					return g?.[0] ? [{ ...g[0], ...added(g[0], g) }] : [];

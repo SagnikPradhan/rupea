@@ -1,5 +1,5 @@
 import { sha256 } from '#lib/server/shared/hash.ts';
-import { byCodeUnit } from '#lib/server/shared/text.ts';
+import { byCodeUnit } from '#lib/shared/text.ts';
 import {
 	GroupRole,
 	type LinkEdit,

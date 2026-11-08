@@ -1,6 +1,6 @@
 import { anyOf } from '#lib/server/db/expressions.ts';
 import { type Database } from '#lib/server/db/index.ts';
-import { byCodeUnit } from '#lib/server/shared/text.ts';
+import { byCodeUnit } from '#lib/shared/text.ts';
 import { sql, type SqlBool } from 'kysely';
 import { accountType, parentsOf } from '../domain/taxonomy';
 import { Feed } from '../domain/types';

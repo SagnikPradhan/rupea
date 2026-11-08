@@ -1,4 +1,5 @@
 import { LIABILITIES } from '#lib/shared/accounts.ts';
+import { byCodeUnit } from '#lib/shared/text.ts';
 import { isUnder, nameOf } from './accounts';
 
 const ZERO = /^-?0*(\.0*)?$/;
@@ -52,7 +53,7 @@ export const linesOf = (payments: Payment[], owed: Held[]) => {
 	const byAccount = Object.groupBy(paid, (p) => p.account);
 
 	return Object.keys(byAccount)
-		.toSorted()
+		.toSorted(byCodeUnit)
 		.map((account) => ({
 			key: account,
 			label: nameOf(account),

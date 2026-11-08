@@ -15,11 +15,11 @@ export const ExpenseAccount = v.fallback(
 );
 
 /**
- * The account the income statement reads, Expenses or Income itself unless one
- * under either is given.
+ * The account a period's movement is read for, Expenses itself unless one under
+ * Expenses, Income or Liabilities is given.
  */
 export const FlowAccount = v.fallback(
-	v.pipe(v.string(), v.trim(), v.check(isUnderAny([EXPENSES, INCOME]))),
+	v.pipe(v.string(), v.trim(), v.check(isUnderAny([EXPENSES, INCOME, LIABILITIES]))),
 	EXPENSES,
 );
 

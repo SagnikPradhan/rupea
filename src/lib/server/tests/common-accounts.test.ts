@@ -22,6 +22,11 @@ describe('a flow account', () => {
 		expect(v.parse(FlowAccount, 'Expenses:Food')).toBe('Expenses:Food');
 	});
 
+	it('keeps Liabilities and the accounts under it, which move money too', () => {
+		expect(v.parse(FlowAccount, 'Liabilities')).toBe('Liabilities');
+		expect(v.parse(FlowAccount, ' liabilities:Loans ')).toBe('liabilities:Loans');
+	});
+
 	it('falls back to Expenses for any other account', () => {
 		expect(v.parse(FlowAccount, 'Assets:Bank')).toBe('Expenses');
 		expect(v.parse(FlowAccount, 'IncomeX')).toBe('Expenses');

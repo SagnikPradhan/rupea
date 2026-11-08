@@ -166,7 +166,7 @@ export const rowsOf = ({ ledgerId, fileId, file, failed, lineHashes, matchOf }: 
 		ledgerId,
 		account: a.account,
 		since: a.since?.toString() ?? null,
-		terms: a.terms,
+		terms: a.metadata,
 		fileId,
 		line: a.location.line,
 	}));

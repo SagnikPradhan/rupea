@@ -182,12 +182,14 @@ export const listAccountNames = query(
 		),
 );
 
-/** The terms the A lines of a ledger set for its accounts. */
-export const listTerms = query(Handle, (h) =>
-	replyFrom(inLedger({ handle: h, action: Terms.listTerms })),
+/** What the A lines of a ledger set each account up with on a day. */
+export const listTerms = query(v.object({ handle: Handle, day: Day }), ({ handle, day }) =>
+	replyFrom(
+		inLedger({ handle, action: (l) => Terms.listTerms({ ledger: l, day: day.toString() }) }),
+	),
 );
 
-/** Sets up a liability by writing its terms under an A * line. */
+/** Sets up an account by writing its terms under an A * line. */
 export const saveTerms = command(
 	v.object({ handle: Handle, form: TermsForm }),
 	async ({ handle, form }) => {
@@ -195,7 +197,6 @@ export const saveTerms = command(
 			handle,
 			action: (l) => Terms.saveTerms({ ledger: l, ...form }),
 		});
-		void listTerms(handle).refresh();
 		void listProblems(handle).refresh();
 		return replyFrom(saved);
 	},

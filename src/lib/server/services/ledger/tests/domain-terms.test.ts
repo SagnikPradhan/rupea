@@ -1,6 +1,6 @@
 import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
 import { fault } from '#lib/server/shared/result/error.ts';
-import { setTerms } from '#services/ledger/domain/terms.ts';
+import { setTerms, termsOn } from '#services/ledger/domain/terms.ts';
 import { describe, expect, it } from 'vitest';
 
 const c = defaultConfiguration.ledger;
@@ -69,5 +69,51 @@ describe('setting the terms of an account', () => {
 		expect(set('', [['kind', 'card\n2026-10-01 Sneak']])._unsafeUnwrapErr()).toEqual(
 			fault('CannotWriteTerms', { path: 'main.rupea' }),
 		);
+	});
+});
+
+describe('the terms of accounts on a day', () => {
+	const at = (
+		account: string,
+		since: string | null,
+		terms: Record<string, string[]>,
+		line = 1,
+	) => ({
+		account,
+		since,
+		terms,
+		file: 'main.rupea',
+		line,
+	});
+
+	it('lets a dated line override only the keys it names, from its day on', () => {
+		const lines = [
+			at('Liabilities:Card', null, { kind: ['card'], limit: ['50000'], rate: ['42'] }, 1),
+			at('Liabilities:Card', '2026-06-01', { limit: ['80000'] }, 4),
+		];
+
+		expect(termsOn(lines, '2026-05-31')[0]?.held).toMatchObject({ limit: '50000', rate: 42 });
+		expect(termsOn(lines, '2026-06-01')[0]?.held).toMatchObject({ limit: '80000', rate: 42 });
+		expect(termsOn(lines, '2026-06-01')[0]?.current).toEqual({
+			kind: 'card',
+			limit: '50000',
+			rate: '42',
+		});
+	});
+
+	it('lets the later written line win on one day, and matches accounts by case', () => {
+		const lines = [
+			at('Liabilities:Card', null, { kind: ['card'], limit: ['1'] }, 1),
+			at('liabilities:card', null, { limit: ['2'] }, 5),
+		];
+
+		expect(termsOn(lines, '2026-06-01')).toHaveLength(1);
+		expect(termsOn(lines, '2026-06-01')[0]?.held).toMatchObject({ limit: '2' });
+	});
+
+	it('holds nothing for an account whose terms do not read as a loan or a card', () => {
+		expect(
+			termsOn([at('Assets:Bank', null, { kind: ['house'] })], '2026-06-01')[0]?.held,
+		).toBeNull();
 	});
 });

@@ -3,9 +3,9 @@
 	import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
 	import { paramsOf, periodOf } from '#lib/shared/dates.ts';
 	import { BalanceAccount, LIABILITIES } from '#lib/shared/accounts.ts';
-	import { depthOf, isUnder } from '#lib/web/shared/accounts.ts';
+	import { depthOf, isUnder, nameOf } from '#lib/web/shared/accounts.ts';
 	import { formatIsoDate, formatWhole } from '#lib/web/shared/format.ts';
-	import { linesOf, owedOf, rowsOf, termsOf } from '#lib/web/shared/liabilities.ts';
+	import { linesOf, owedOf, rowsOf } from '#lib/web/shared/liabilities.ts';
 	import { ringsOf } from '#lib/web/shared/rings.ts';
 	import AccountName from '#lib/web/components/app-account-name/app-account-name.svelte';
 	import ListFilter from '#lib/web/components/app-list-filter/app-list-filter.svelte';
@@ -41,21 +41,18 @@
 	const account = $derived(picked !== null && isUnder(picked, LIABILITIES) ? picked : null);
 	const settled = $derived(page.url.searchParams.get('settled') === 'yes');
 
-	const setup = $derived(page.url.searchParams.get('setup'));
-
-	const [response, flowed, first, written] = $derived(
+	const [response, flowed, first, termed] = $derived(
 		await Promise.all([
 			listAccounts({ handle, day, period }),
 			listDeltas({ handle, day, period, account: LIABILITIES }),
 			findFirstDay(handle),
-			listTerms(handle),
+			listTerms({ handle, day }),
 		]),
 	);
 	const moved = $derived(flowed.data?.[0]);
 	const owed = $derived(owedOf(response.data ?? []));
 	const shown = $derived(owed.filter((a) => isUnder(a.account, account)));
-	const terms = $derived(termsOf(written.data ?? []));
-	const rows = $derived(rowsOf(shown, moved?.totals ?? [], settled, terms));
+	const rows = $derived(rowsOf(shown, moved?.totals ?? [], settled, termed.data ?? []));
 	const lines = $derived(
 		linesOf(
 			(moved?.deltas ?? []).filter((d) => isUnder(d.account, account)),
@@ -70,8 +67,12 @@
 			: `${rings.skipped} ${rings.skipped === 1 ? 'account is' : 'accounts are'} in credit, so not drawn`,
 	);
 
+	const setup = $derived.by(() => {
+		const asked = v.parse(BalanceAccount, page.url.searchParams.get('setup'));
+		return asked !== null && isUnder(asked, LIABILITIES) ? asked : null;
+	});
 	const current = $derived(
-		(written.data ?? []).find((t) => t.account === setup && t.since === null)?.terms ?? {},
+		termed.data?.find((t) => t.account.toLowerCase() === setup?.toLowerCase())?.current ?? {},
 	);
 	const setupHref = (a: string | null) => hrefWith(page.url.searchParams, { setup: a ?? '' });
 
@@ -154,7 +155,12 @@
 	{#if setup}
 		<Aside title="Set up {nameOf(setup)}" onclose={() => goto(setupHref(null))}>
 			{#key setup}
-				<TermsForm {handle} account={setup} {current} onsaved={() => {}} />
+				<TermsForm
+					{handle}
+					account={setup}
+					{current}
+					onsaved={() => listTerms({ handle, day }).refresh()}
+				/>
 			{/key}
 		</Aside>
 	{/if}

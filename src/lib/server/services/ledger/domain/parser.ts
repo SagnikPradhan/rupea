@@ -200,7 +200,7 @@ const readNode = (
 	isUnchanged: IsUnchanged,
 ): RupeaEntryNode[] => {
 	if (isPLine(line)) return [readPLine(c, line, commentsUnder(rest))];
-	if (isALine(line)) return [readALine(c, line, rest)];
+	if (isALine(line)) return [readALine(c, line, takeWhile(rest, isMetadata), commentsUnder(rest))];
 	if (isMetadata(line)) return [failed([line], commentsUnder(rest), [detached(line)])];
 
 	const body = bodyOf(rest);
@@ -229,7 +229,11 @@ const unread = (
 		failed(trimBlank([line, ...takeWhile(input, (l) => !isDirective(l))]), [], [error]),
 	];
 	for (const line of drain(input)) {
-		entries.push(isALine(line) ? readALine(c, line, input) : readPLine(c, line, []));
+		entries.push(
+			isALine(line)
+				? readALine(c, line, takeWhile(input, isMetadata), commentsUnder(input))
+				: readPLine(c, line, []),
+		);
 		const between = trimBlank(takeWhile(input, (l) => !isDirective(l)));
 		if (between.length > 0) entries.push(failed(between, [], []));
 	}
@@ -389,24 +393,23 @@ const isDirective = (l: RupeaLine) => isPLine(l) || isALine(l);
 
 const readALine = (
 	c: LedgerConfiguration,
-	line: RupeaLine,
-	rest: Cursor<RupeaLine>,
+	l: RupeaLine,
+	dashes: RupeaLine[],
+	comments: string[],
 ): RupeaEntryNode => {
-	const own = takeWhile(rest, isMetadata);
-	const comments = commentsUnder(rest);
-	const terms = readMetadata(own);
-	const kept = (e: RupeaError[]) => failed([line, ...own], comments, e);
+	const unread = (e: RupeaError[]) => failed([l, ...dashes], comments, e);
+	const metadata = readMetadata(dashes);
 
-	return readAccountLine(c, line).match(
+	return parseAccountLine(c, l).match(
 		(v) =>
-			terms.failed.length > 0
-				? kept(terms.failed)
-				: { kind: NodeKind.Account, comments, ...v, metadata: terms.entries, children: [] },
-		(e) => kept([e, ...terms.failed]),
+			metadata.failed.length > 0
+				? unread(metadata.failed)
+				: { kind: NodeKind.Account, comments, ...v, metadata: metadata.entries, children: [] },
+		(e) => unread([e, ...metadata.failed]),
 	);
 };
 
-const readAccountLine = (
+const parseAccountLine = (
 	{ dateFormats }: LedgerConfiguration,
 	{ location, content }: RupeaLine,
 ): Result<{ location: RupeaParseLocation; since: Temporal.PlainDate | null; account: string }> => {

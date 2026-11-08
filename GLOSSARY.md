@@ -59,7 +59,7 @@ A `P` line naming a feed's symbol in place of a price, so a commodity is priced 
 _Avoid_: Mapping, binding
 
 **Terms**:
-What an account is set up with by an `A` line: a loan's rate and EMI, a card's limit and due day. Kept as written in the ledger's files, and read by the app according to the account's kind.
+What an account is set up with by `A` lines: a loan's rate and EMI, a card's limit and due day. A dated line overrides the keys it names from its day on. Kept as written in the ledger's files, and read by the app according to the account's kind.
 _Avoid_: Settings, configuration, details
 
 **Alias**:

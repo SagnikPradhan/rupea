@@ -21,11 +21,11 @@ describe('saving the terms of an account', () => {
 				account: 'Liabilities:Card',
 				entries: card('50000'),
 			});
-			const held = (await Terms.listTerms(ledger))._unsafeUnwrap();
+			const held = (await Terms.listTerms({ ledger, day: '2026-11-08' }))._unsafeUnwrap();
 
 			expect(saved._unsafeUnwrap()).toEqual({ file: 'main.rupea' });
-			expect(held.map((t) => [t.account, t.file, t.terms])).toEqual([
-				['Liabilities:Card', 'main.rupea', { kind: ['card'], limit: ['50000'] }],
+			expect(held.map((t) => [t.account, t.current, t.held])).toEqual([
+				['Liabilities:Card', { kind: 'card', limit: '50000' }, { kind: 'card', limit: '50000' }],
 			]);
 		}));
 
@@ -44,10 +44,10 @@ describe('saving the terms of an account', () => {
 				account: 'Liabilities:Card',
 				entries: card('80000'),
 			});
-			const held = (await Terms.listTerms(ledger))._unsafeUnwrap();
+			const held = (await Terms.listTerms({ ledger, day: '2026-11-08' }))._unsafeUnwrap();
 
 			expect(saved._unsafeUnwrap()).toEqual({ file: 'cards.rupea' });
-			expect(held.map((t) => [t.file, t.terms['limit']])).toEqual([['cards.rupea', ['80000']]]);
+			expect(held.map((t) => t.current['limit'])).toEqual(['80000']);
 		}));
 
 	it('adds to main.rupea when only a dated line sets the account', ({ context, db }) =>
@@ -66,5 +66,25 @@ describe('saving the terms of an account', () => {
 			});
 
 			expect(saved._unsafeUnwrap()).toEqual({ file: 'main.rupea' });
+		}));
+});
+
+describe('refusing a line that cannot be told apart', () => {
+	it('will not save an account that two A * lines set up', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({
+				ledger,
+				key: 'a.rupea',
+				content: 'A * Liabilities:Card\n\t- kind: card\n\nA * Liabilities:Card\n\t- kind: card\n',
+			});
+
+			const saved = await Terms.saveTerms({
+				ledger,
+				account: 'Liabilities:Card',
+				entries: card('1'),
+			});
+
+			expect(saved._unsafeUnwrapErr().type).toBe('AccountRepeated');
 		}));
 });

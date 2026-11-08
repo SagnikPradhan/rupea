@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { saveTerms } from '#lib/endpoints/accounts.remote.ts';
 	import type { RupeaError } from '#lib/server/shared/result/error.ts';
-	import { Terms, TermsForm } from '#lib/shared/terms.ts';
+	import { TermsForm } from '#lib/shared/terms.ts';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import Field from '#lib/web/components/ui-field/ui-field.svelte';
 	import SegmentedControl from '#lib/web/components/ui-segmented-control/ui-segmented-control.svelte';
@@ -19,7 +19,7 @@
 			{ key: 'limit', label: 'Card limit', hint: 'No currency sign.' },
 			{ key: 'statement', label: 'Statement day', hint: 'Day of the month, like 1.' },
 			{ key: 'due', label: 'Due day', hint: 'Day of the month, like 20.' },
-			{ key: 'apr', label: 'Interest rate', hint: 'A year, like 42.' },
+			{ key: 'rate', label: 'Interest rate', hint: 'A year, like 42.' },
 		],
 	};
 
@@ -32,17 +32,17 @@
 		 * The dash lines the account has now, which the form keeps when it knows
 		 * none of them.
 		 */
-		current: Record<string, string[]>;
+		current: Record<string, string>;
 		onsaved: () => void;
 	};
 
 	const { handle, account, current, onsaved }: Props = $props();
 
-	const first = (key: string) => untrack(() => current[key]?.[0] ?? '');
+	const first = (key: string) => untrack(() => current[key] ?? '');
 
 	const form = $state({
-		kind: untrack(() => (current['kind']?.[0] === 'card' ? 'card' : 'loan')) as 'loan' | 'card',
-		method: untrack(() => (current['method']?.[0] === 'flat' ? 'flat' : 'reducing')) as
+		kind: untrack(() => (current['kind'] === 'card' ? 'card' : 'loan')) as 'loan' | 'card',
+		method: untrack(() => (current['method'] === 'flat' ? 'flat' : 'reducing')) as
 			'reducing' | 'flat',
 		tenure: first('tenure'),
 		values: Object.fromEntries(
@@ -73,9 +73,7 @@
 		...(flat
 			? [['method', 'flat'] as [string, string], ['tenure', form.tenure] as [string, string]]
 			: []),
-		...Object.entries(current)
-			.filter(([key]) => !known.includes(key))
-			.flatMap(([key, values]) => values.map((x): [string, string] => [key, x])),
+		...Object.entries(current).filter(([key]) => !known.includes(key)),
 	]);
 
 	const issuesAt = (key: string) => status.issues[key] ?? [];
@@ -87,14 +85,13 @@
 
 		const written = entries.filter(([, value]) => value.trim() !== '');
 		const checked = v.safeParse(TermsForm, { account, entries: written });
-		const typed = v.safeParse(Terms, Object.fromEntries(written));
 		status.issues = Object.fromEntries(
-			(typed.success ? [] : typed.issues).flatMap((i) => {
-				const key = v.getDotPath(i);
-				return key ? [[key, [{ message: 'Check this against the hint.' }]]] : [];
-			}),
+			(checked.success ? [] : checked.issues).map((i) => [
+				v.getDotPath(i) ?? 'entries',
+				[{ message: i.message }],
+			]),
 		);
-		if (!checked.success || !typed.success) return;
+		if (!checked.success) return;
 
 		const saved = await saveTerms({ handle, form: checked.output });
 		status.errors = saved.errors;
@@ -136,6 +133,9 @@
 		</Field>
 	{/if}
 
+	{#each issuesAt('entries') as issue (issue.message)}
+		<p role="alert">{issue.message}</p>
+	{/each}
 	{#each status.errors as error, index (index)}
 		<p role="alert">{explain(error)}</p>
 	{/each}

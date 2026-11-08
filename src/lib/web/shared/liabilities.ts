@@ -1,35 +1,18 @@
 import { LIABILITIES } from '#lib/shared/accounts.ts';
+import type { Terms } from '#lib/shared/terms.ts';
 import { byCodeUnit } from '#lib/shared/text.ts';
-import { Terms } from '#lib/shared/terms.ts';
-import * as v from 'valibot';
+import type * as v from 'valibot';
 import { isUnder, nameOf } from './accounts';
 
 const ZERO = /^-?0*(\.0*)?$/;
 
 type Held = { account: string; parent: string | null; total: string; unpriced: number };
 
+type Set = { account: string; held: v.InferOutput<typeof Terms> | null };
+
 type Moved = { account: string; amount: string };
 
-type Setup = { account: string; since: string | null; terms: Record<string, string[]> };
-
 type Payment = { account: string; bucket: string; amount: string };
-
-/**
- * What each account's A * line says, read by its kind; an account whose line
- * does not read as a loan or a card has none.
- */
-export const termsOf = (lines: Setup[]) =>
-	Object.fromEntries(
-		lines
-			.filter((s) => s.since === null)
-			.flatMap((s) => {
-				const read = v.safeParse(
-					Terms,
-					Object.fromEntries(Object.entries(s.terms).map(([k, [x]]) => [k, x])),
-				);
-				return read.success ? [[s.account, read.output] as const] : [];
-			}),
-	);
 
 /**
  * The accounts under Liabilities, each total turned from a balance into what is
@@ -48,13 +31,9 @@ const flipped = (t: string) => {
  * over the period; settled accounts that did not move are left out unless asked
  * for.
  */
-export const rowsOf = (
-	owed: Held[],
-	moved: Moved[],
-	settled: boolean,
-	terms: Record<string, v.InferOutput<typeof Terms>> = {},
-) => {
+export const rowsOf = (owed: Held[], moved: Moved[], settled: boolean, set: Set[] = []) => {
 	const paid = Object.fromEntries(moved.map((m) => [m.account, m.amount]));
+	const lines = Object.fromEntries(set.map((s) => [s.account.toLowerCase(), s]));
 	const rows = owed
 		.filter((a) => a.parent !== null)
 		.map((a) => ({
@@ -63,17 +42,17 @@ export const rowsOf = (
 			owed: a.total,
 			paid: paid[a.account] ?? '0',
 			unpriced: a.unpriced,
-			...columnsOf(terms[a.account]),
+			...columnsOf(lines[a.account.toLowerCase()]),
 		}));
 
 	return settled ? rows : rows.filter((r) => !ZERO.test(r.owed) || !ZERO.test(r.paid));
 };
 
-const columnsOf = (t: v.InferOutput<typeof Terms> | undefined) => ({
-	set: t !== undefined,
-	rate: (t?.kind === 'card' ? t.apr : t?.rate) ?? null,
-	monthly: (t?.kind === 'loan' ? t.payment?.replaceAll(',', '') : undefined) ?? null,
-	due: t?.due ?? null,
+const columnsOf = (s: Set | undefined) => ({
+	set: s !== undefined,
+	rate: s?.held?.rate ?? null,
+	monthly: (s?.held?.kind === 'loan' ? s.held.payment?.replaceAll(',', '') : undefined) ?? null,
+	due: s?.held?.due ?? null,
 });
 
 /**

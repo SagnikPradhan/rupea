@@ -73,8 +73,8 @@ const moved = {
 const terms = [
 	{
 		account: 'Liabilities:Loans:Home',
-		since: null,
-		terms: { kind: ['loan'], rate: ['8.5'], payment: ['42,000'], due: ['5'], note: ['keep'] },
+		current: { kind: 'loan', rate: '8.5', payment: '42,000', due: '5', note: 'keep' },
+		held: { kind: 'loan', rate: 8.5, payment: '42,000', due: 5, method: 'reducing' },
 	},
 ];
 
@@ -192,6 +192,13 @@ describe('the liabilities page', () => {
 		expect(screen.queryByText('Card balance')).toBeNull();
 	});
 
+	it('ignores a setup request for an account that is not a liability', async () => {
+		open('/l/h/liabilities?setup=Assets:Bank');
+
+		expect(await screen.findByText('Card balance')).toBeTruthy();
+		expect(screen.queryByRole('complementary')).toBeNull();
+	});
+
 	it('writes the terms as asked, keeping the keys it does not know', async () => {
 		open('/l/h/liabilities?setup=Liabilities:Loans:Home');
 		vi.mocked(saveTerms).mockResolvedValue({ data: { file: 'main.rupea' }, errors: [] } as never);
@@ -228,7 +235,7 @@ describe('the liabilities page', () => {
 		});
 		await fireEvent.click(within(aside).getByRole('button', { name: 'Save' }));
 
-		expect(await within(aside).findByText('Check this against the hint.')).toBeTruthy();
+		expect(await within(aside).findByText('Check the terms against the hints.')).toBeTruthy();
 		expect(vi.mocked(saveTerms)).not.toHaveBeenCalled();
 	});
 });

@@ -568,7 +568,7 @@ describe('account lines', () => {
 		location: { file, line },
 		since: since === null ? null : Temporal.PlainDate.from(since),
 		account,
-		terms: kept,
+		metadata: kept,
 	});
 
 	it('reads A * and the dash lines under it as the terms of an account', () => {

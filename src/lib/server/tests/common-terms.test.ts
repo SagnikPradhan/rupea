@@ -1,4 +1,4 @@
-import { CardTerms, LoanTerms, Terms, TermsForm } from '#lib/shared/terms.ts';
+import { Terms, TermsForm } from '#lib/shared/terms.ts';
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 
@@ -14,7 +14,7 @@ describe('the form for the terms of a liability', () => {
 		).toEqual({ account: 'Liabilities:Loans:Home', entries: [['rate', '8.5%']] });
 	});
 
-	it.each(['Liabilities', 'Assets:Bank', 'Liabilities:Two Words'])('refuses %s', (account) => {
+	it.each(['Equity:Two Words', 'Bank', 'Liabilities:Two Words'])('refuses %s', (account) => {
 		expect(v.safeParse(TermsForm, { account, entries }).success).toBe(false);
 	});
 
@@ -34,7 +34,7 @@ describe('reading terms by kind', () => {
 		expect(
 			v.parse(Terms, { kind: 'loan', rate: '8.5%', payment: '42000', due: '5', extra: 'x' }),
 		).toEqual({ kind: 'loan', rate: 8.5, payment: '42000', due: 5, method: 'reducing' });
-		expect(v.parse(LoanTerms, { kind: 'loan', method: 'flat', tenure: '24' })).toMatchObject({
+		expect(v.parse(Terms, { kind: 'loan', method: 'flat', tenure: '24' })).toMatchObject({
 			method: 'flat',
 			tenure: 24,
 		});
@@ -42,13 +42,13 @@ describe('reading terms by kind', () => {
 
 	it('types a card', () => {
 		expect(
-			v.parse(CardTerms, { kind: 'card', limit: '1,50,000', statement: '1', due: '20', apr: '42' }),
+			v.parse(Terms, { kind: 'card', limit: '1,50,000', statement: '1', due: '20', rate: '42' }),
 		).toEqual({
 			kind: 'card',
 			limit: '1,50,000',
 			statement: 1,
 			due: 20,
-			apr: 42,
+			rate: 42,
 		});
 	});
 

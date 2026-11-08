@@ -121,14 +121,14 @@ export type RupeaLink = {
 };
 
 /**
- * What an account is set up with from a day on, or from the start when since is
- * null: the dash lines under an A line, kept as written.
+ * What an A line sets an account up with from a day on, or from the start when
+ * since is null: the dash lines under it, kept as written.
  */
 export type RupeaAccount = {
 	location: RupeaParseLocation;
 	since: Temporal.PlainDate | null;
 	account: string;
-	terms: RupeaMetadata;
+	metadata: RupeaMetadata;
 };
 
 export type RupeaLedgerFile = {

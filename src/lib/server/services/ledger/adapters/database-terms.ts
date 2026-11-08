@@ -11,7 +11,7 @@ export type TermsRow = {
 	line: number;
 };
 
-/** The terms every A line of a ledger sets, in the order of account and day. */
+/** The terms every A line of a ledger sets, in the order they are written. */
 export const listTerms = (ledgerId: string): ResultAsync<TermsRow[]> =>
 	withContext('db')((db) =>
 		attempt(() =>
@@ -20,13 +20,13 @@ export const listTerms = (ledgerId: string): ResultAsync<TermsRow[]> =>
 				.innerJoin('ledgerFiles as f', 'f.id', 't.fileId')
 				.select(['t.account', 't.since', 't.terms', 'f.key as file', 't.line'])
 				.where('t.ledgerId', '=', ledgerId)
-				.orderBy('t.account')
-				.orderBy('t.since', (o) => o.nullsFirst())
+				.orderBy('f.key')
+				.orderBy('t.line')
 				.execute(),
 		),
 	);
 
-export type RepeatedTerms = { account: string; locations: string[] };
+type RepeatedTerms = { account: string; locations: string[] };
 
 /**
  * Accounts set up more than once from one day, which would leave their terms to

@@ -69,7 +69,7 @@ export const accountOf = (a: RupeaAccountNode): RupeaAccount => ({
 	location: a.location,
 	since: a.since,
 	account: a.account,
-	terms: toMetadata(a.metadata),
+	metadata: toMetadata(a.metadata),
 });
 
 export const toMetadata = (entries: RupeaEntries): RupeaMetadata =>
@@ -139,7 +139,7 @@ const accountNode = (a: RupeaAccount): RupeaEntryNode => ({
 	comments: [],
 	since: a.since,
 	account: a.account,
-	metadata: entriesOf(a.terms),
+	metadata: entriesOf(a.metadata),
 	children: [],
 });
 

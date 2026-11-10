@@ -131,11 +131,20 @@ export const listPostings = (
 		};
 	});
 
+type Balances = { holdings: Holding[]; posted: string[] };
+
 /**
  * What each balance account held at the end of a day, and what its lots still
  * open then cost; history before the day's month is summed by the month.
  */
-export const listHoldings = (ledgerId: string, day: Temporal.PlainDate): ResultAsync<Holding[]> =>
+export const listHoldings = (id: string, d: Temporal.PlainDate) =>
+	listBalances(id, d).map((b) => b.holdings);
+
+/**
+ * The holdings at the end of a day, and every balance account any posting up to
+ * then names, whether it holds anything or is settled.
+ */
+export const listBalances = (ledgerId: string, day: Temporal.PlainDate): ResultAsync<Balances> =>
 	withContext('db')((db) => {
 		const on = day.toString();
 
@@ -161,8 +170,7 @@ export const listHoldings = (ledgerId: string, day: Temporal.PlainDate): ResultA
 							'deltas.commodity',
 							(e) => e.fn.sum<bigint>('deltas.amount').as('units'),
 						])
-						.groupBy(['deltas.accountId', 'deltas.commodity'])
-						.having((e) => e(e.fn.sum('deltas.amount'), '<>', 0n)),
+						.groupBy(['deltas.accountId', 'deltas.commodity']),
 				)
 				.with('open', () => lotsOpenOn(db, ledgerId, on))
 				.with('costs', (q) =>
@@ -203,39 +211,18 @@ export const listHoldings = (ledgerId: string, day: Temporal.PlainDate): ResultA
 				.orderBy('a.name')
 				.orderBy('balances.commodity')
 				.execute(),
-		).map((rows) =>
-			rows.map((row) => ({
-				account: row.account,
-				commodity: row.commodity,
-				units: row.units as Amount,
-				cost: toQuantity({ amount: row.costAmount, commodity: row.costCommodity }),
-			})),
-		);
+		).map((rows) => ({
+			holdings: rows
+				.filter((r) => r.units !== 0n)
+				.map((r) => ({
+					account: r.account,
+					commodity: r.commodity,
+					units: r.units as Amount,
+					cost: toQuantity({ amount: r.costAmount, commodity: r.costCommodity }),
+				})),
+			posted: [...new Set(rows.map((r) => r.account))],
+		}));
 	});
-
-/**
- * Every balance account any posting up to the end of a day names, held or
- * settled.
- */
-export const listPosted = (ledgerId: string, day: Temporal.PlainDate): ResultAsync<string[]> =>
-	withContext('db')((db) =>
-		attempt(() =>
-			db
-				.selectFrom(
-					deltasBetween(db, ledgerId, {
-						from: Temporal.PlainDate.from(BEGINNING),
-						after: day.add({ days: 1 }),
-						grain: 'month',
-					}).as('m'),
-				)
-				.innerJoin('accounts as a', 'a.id', 'm.accountId')
-				.select('a.name')
-				.distinct()
-				.where('m.accountType', 'in', BALANCE_TYPES)
-				.orderBy('a.name')
-				.execute(),
-		).map((a) => a.map((r) => r.name)),
-	);
 
 type BalanceChecksOptions = { from: Temporal.PlainDate; holdings: HoldingKey[] | null };
 

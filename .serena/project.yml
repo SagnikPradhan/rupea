@@ -1,0 +1,16 @@
+project_name: 'rupea'
+
+language_servers:
+  - svelte
+  - typescript
+  - astro
+
+encoding: 'utf-8'
+
+ignore_all_files_in_gitignore: true
+
+ignored_paths:
+  - 'static/**'
+  - '.claude/**'
+
+initial_prompt: 'Read AGENTS.md, GLOSSARY.md and docs/architecture.md first.'

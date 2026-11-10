@@ -4,11 +4,14 @@
 	import { formatAmount, formatBucket, formatMonth } from '#lib/web/shared/format.ts';
 
 	type Props = {
-		/** A line for each account, with a pin for each payment made or still due. */
+		/**
+		 * A line for each account, with a pin for each payment made or still due,
+		 * and about how much of it is interest.
+		 */
 		lines: {
 			key: string;
 			label: string;
-			pins: { at: string; amount: number; past: boolean }[];
+			pins: { at: string; amount: number; past: boolean; interest: number }[];
 		}[];
 		/** The first and last day of the axis, and the day the past ends. */
 		from: string;
@@ -69,6 +72,7 @@
 		{#each lines as line, lane (line.key)}
 			{#each line.pins as p (`${p.at}${p.past}`)}
 				{@const id = `${line.key}${p.at}${p.past}`}
+				{@const split = Math.round(p.interest) > 0}
 				<span
 					class={{ pin: true, past: p.past }}
 					role="listitem"
@@ -79,12 +83,21 @@
 					onpointerenter={() => (hovered.pin = id)}
 					onpointerleave={() => (hovered.pin = null)}
 				>
-					<span class="circle"></span>
+					<span class={{ circle: true, split }}>
+						{#if split}
+							<span class="core" style:--share={Math.sqrt(1 - p.interest / p.amount)}></span>
+						{/if}
+					</span>
 					<span class="stem"></span>
 					{#if hovered.pin === id}
 						<Tooltip left={50} top={0}>
 							{line.label}
 							<data value={p.amount}>{formatAmount(String(p.amount))}</data>
+							{#if split}
+								<small
+									>about <data value={p.interest}>{formatAmount(p.interest.toFixed(0))}</data> interest</small
+								>
+							{/if}
 							<time datetime={p.at}>{formatBucket[bucket](p.at)}</time>
 						</Tooltip>
 					{/if}
@@ -150,6 +163,24 @@
 		opacity: 1;
 	}
 
+	.split {
+		background: transparent;
+	}
+
+	.core {
+		position: absolute;
+		inset: 50% auto auto 50%;
+		width: calc(100% * var(--share));
+		aspect-ratio: 1;
+		background: var(--color-ink-2);
+		border-radius: 50%;
+		transform: translate(-50%, -50%);
+	}
+
+	.pin:hover .core {
+		background: var(--color-ink);
+	}
+
 	.stem {
 		width: var(--size-line-0);
 		height: calc(var(--size-3) * var(--lane) + var(--size-3));
@@ -176,6 +207,10 @@
 		background: var(--color-ink);
 		border-color: var(--color-ink);
 		opacity: 1;
+	}
+
+	.pin:hover .split {
+		background: transparent;
 	}
 
 	.pin:hover .stem,

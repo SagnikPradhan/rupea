@@ -7,14 +7,14 @@ const LINES = [
 		key: 'Liabilities:Loans:Home',
 		label: 'Home',
 		pins: [
-			{ at: '2026-01-01', amount: 30000, past: true },
-			{ at: '2026-07-01', amount: 15000, past: false },
+			{ at: '2026-01-01', amount: 30000, past: true, interest: 2500 },
+			{ at: '2026-07-01', amount: 15000, past: false, interest: 0 },
 		],
 	},
 	{
 		key: 'Liabilities:Loans:Car',
 		label: 'Car',
-		pins: [{ at: '2026-12-31', amount: 7500, past: false }],
+		pins: [{ at: '2026-12-31', amount: 7500, past: false, interest: 0 }],
 	},
 ];
 
@@ -75,5 +75,14 @@ describe('the timeline chart', () => {
 		const ticks = Array.from(drawn('2023-01-01', '2026-12-31').querySelectorAll('.ticks time'));
 
 		expect(ticks.map((t) => t.textContent)).toEqual(['2023', '2024', '2025', '2026']);
+	});
+
+	it('draws an inner circle inside a pin that has interest, and says the interest on hover', async () => {
+		const pins = pinsOf(drawn());
+
+		expect(pins.map((p) => p.querySelector('.core') !== null)).toEqual([true, false, false]);
+
+		await fireEvent.pointerEnter(pins[0]!);
+		expect(screen.getByRole('tooltip').textContent).toMatch(/about.*2,500.*interest/);
 	});
 });

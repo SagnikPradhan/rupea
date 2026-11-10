@@ -1,11 +1,11 @@
 <script lang="ts">
 	import { listAccounts, listDeltas, listTerms } from '#lib/endpoints/accounts.remote.ts';
 	import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
-	import { paramsOf, periodOf } from '#lib/shared/dates.ts';
+	import { Day, paramsOf, periodOf, spansOf } from '#lib/shared/dates.ts';
 	import { BalanceAccount, LIABILITIES } from '#lib/shared/accounts.ts';
 	import { depthOf, isUnder, nameOf } from '#lib/web/shared/accounts.ts';
-	import { formatIsoDate, formatWhole } from '#lib/web/shared/format.ts';
-	import { duesOf, linesOf, owedOf, rowsOf } from '#lib/web/shared/liabilities.ts';
+	import { formatBucket, formatIsoDate, formatWhole } from '#lib/web/shared/format.ts';
+	import { duesOf, estimatesOf, linesOf, owedOf, rowsOf } from '#lib/web/shared/liabilities.ts';
 	import { ringsOf } from '#lib/web/shared/rings.ts';
 	import AccountName from '#lib/web/components/app-account-name/app-account-name.svelte';
 	import ListFilter from '#lib/web/components/app-list-filter/app-list-filter.svelte';
@@ -58,7 +58,9 @@
 	const bucket = $derived(moved?.bucket ?? 'month');
 	const to = $derived(moved?.to ?? `${day.slice(0, 4)}-12-31`);
 	const dues = $derived(duesOf(owed, termed.data ?? [], day, to));
-	const lines = $derived(linesOf(owed, moved?.deltas ?? [], dues, bucket));
+	const lines = $derived(linesOf(owed, moved?.deltas ?? [], dues, bucket, termed.data ?? []));
+	const end = $derived(spansOf(period, v.parse(Day, day)).current.to.toString());
+	const estimates = $derived(estimatesOf(shown, termed.data ?? [], end));
 	const pins = $derived(lines.flatMap((l) => l.pins));
 	const made = $derived(pins.filter((p) => p.past).length);
 	const total = $derived(shown.find((a) => a.account === (account ?? LIABILITIES))?.total ?? '0');
@@ -127,9 +129,17 @@
 	</Panel>
 	<KpiStrip>
 		<Kpi label="Due in 30 days" soon />
-		<Kpi label="Interest a month" soon />
+		<Kpi
+			label="Loan interest a month"
+			figure={estimates.interest === null
+				? '–'
+				: `about ${formatWhole(estimates.interest.toFixed(0))}`}
+		/>
 		<Kpi label="Card limit used" soon />
-		<Kpi label="Debt-free by" soon />
+		<Kpi
+			label="Loans paid off by"
+			figure={estimates.clears === null ? '–' : formatBucket.month(estimates.clears)}
+		/>
 	</KpiStrip>
 </PanelGrid>
 

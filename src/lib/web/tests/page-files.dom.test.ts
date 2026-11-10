@@ -41,7 +41,7 @@ const bank = {
 	content: 'one',
 	version: '1',
 	size: 3,
-	modified: new Date('2026-10-01'),
+	modified: '2026-10-01T00:00:00Z',
 };
 
 const showing = (path: string) => {

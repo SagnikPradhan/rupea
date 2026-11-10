@@ -5,14 +5,13 @@
 		dismissSuggestion,
 		listSuggestions,
 	} from '#lib/endpoints/refinement.remote.ts';
+	import type { SuggestionView as Suggestion } from '#lib/endpoints/views.ts';
 	import type { RupeaError } from '@rupea/shared/error.ts';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import { detail } from '#lib/web/shared/errors.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-
-	type Suggestion = NonNullable<Awaited<ReturnType<typeof listSuggestions>>['data']>[number];
 
 	const KEYS: Record<string, string> = { primary: 'group', evidence: 'same-as' };
 
@@ -43,7 +42,7 @@
 
 	async function accept(s: Suggestion[]) {
 		const accepted = await linkGroups({ handle, edits: edits(s) });
-		failures.list = [...accepted.errors, ...(accepted.data ?? [])];
+		failures.list = accepted.errors;
 	}
 
 	async function dismiss(s: Suggestion) {

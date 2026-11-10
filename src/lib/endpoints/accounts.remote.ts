@@ -1,24 +1,15 @@
-import { replyFrom, replyFromBatch } from '@rupea/server/shared/result/reply.ts';
-import { Day, Period, spansOf } from '@rupea/shared/dates.ts';
+import { replyFromBatchCall, replyFromCall } from './reply';
+import { Day, Period, type Span, spansOf } from '@rupea/shared/dates.ts';
 import { BalanceAccount, FlowAccount } from '@rupea/shared/accounts.ts';
-import * as Accounts from '@rupea/server/services/ledger/application/accounts.ts';
-import * as Terms from '@rupea/server/services/ledger/application/terms.ts';
 import { TermsForm } from '@rupea/shared/terms.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
+import { api } from './api';
 import { listProblems } from './ledger.remote';
-import { Handle, inLedger } from './shared';
-import {
-	viewAccount,
-	viewBridge,
-	viewDaily,
-	viewDrops,
-	viewInvested,
-	viewLot,
-	viewReturns,
-	viewDeltas,
-	viewWorth,
-} from './views';
+import { Handle } from '@rupea/shared/handle.ts';
+import { viewAccount, viewDeltas, viewLot } from './views';
+
+const writtenSpan = ({ from, to }: Span) => ({ from: from.toString(), to: to.toString() });
 
 /**
  * What each balance account held at the end of a period, valued at that day's
@@ -26,30 +17,21 @@ import {
  */
 export const listAccounts = query(
 	v.object({ handle: Handle, day: Day, period: Period }),
-	({ handle, day, period }) => {
-		const end = spansOf(period, day).current.to;
-
-		return replyFromBatch(
-			inLedger({
-				handle,
-				action: (l) => Accounts.listAccounts({ ledger: l, day: end }),
-			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewAccount) })),
-		);
-	},
+	({ handle, day, period }) =>
+		replyFromBatchCall(
+			api()
+				.listAccounts({ handle, day: spansOf(period, day).current.to.toString() })
+				.then((b) => ({ ...b, succeeded: b.succeeded.map(viewAccount) })),
+		),
 );
 
 /** Net worth at the end of each day of a period. */
 export const listWorth = query(
 	v.object({ handle: Handle, day: Day, period: Period, account: BalanceAccount }),
 	({ handle, day, period, account }) => {
-		const { from, to } = spansOf(period, day).current;
+		const { from, to } = writtenSpan(spansOf(period, day).current);
 
-		return replyFromBatch(
-			inLedger({
-				handle,
-				action: (l) => Accounts.listWorth({ ledger: l, from, to, account }),
-			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewWorth) })),
-		);
+		return replyFromBatchCall(api().listWorth({ handle, from, to, account: account ?? undefined }));
 	},
 );
 
@@ -60,14 +42,9 @@ export const listWorth = query(
 export const listInvested = query(
 	v.object({ handle: Handle, day: Day, period: Period, account: BalanceAccount }),
 	({ handle, day, period, account }) => {
-		const { from, to } = spansOf(period, day).current;
+		const { from, to } = writtenSpan(spansOf(period, day).current);
 
-		return replyFromBatch(
-			inLedger({
-				handle,
-				action: (l) => Accounts.listInvested({ ledger: l, from, to, account }),
-			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewInvested) })),
-		);
+		return replyFromBatchCall(api().listInvested({ handle, from, to, account }));
 	},
 );
 
@@ -78,14 +55,9 @@ export const listInvested = query(
 export const findBridge = query(
 	v.object({ handle: Handle, day: Day, period: Period }),
 	({ handle, day, period }) => {
-		const { from, to } = spansOf(period, day).current;
+		const { from, to } = writtenSpan(spansOf(period, day).current);
 
-		return replyFromBatch(
-			inLedger({
-				handle,
-				action: (l) => Accounts.findBridge({ ledger: l, from, to }),
-			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewBridge) })),
-		);
+		return replyFromBatchCall(api().findBridge({ handle, from, to }));
 	},
 );
 
@@ -96,14 +68,9 @@ export const findBridge = query(
 export const listDrops = query(
 	v.object({ handle: Handle, day: Day, period: Period, account: BalanceAccount }),
 	({ handle, day, period, account }) => {
-		const { from, to } = spansOf(period, day).current;
+		const { from, to } = writtenSpan(spansOf(period, day).current);
 
-		return replyFromBatch(
-			inLedger({
-				handle,
-				action: (l) => Accounts.listDrops({ ledger: l, from, to, account }),
-			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewDrops) })),
-		);
+		return replyFromBatchCall(api().listDrops({ handle, from, to, account }));
 	},
 );
 
@@ -114,14 +81,9 @@ export const listDrops = query(
 export const listReturns = query(
 	v.object({ handle: Handle, day: Day, period: Period }),
 	({ handle, day, period }) => {
-		const { from, to } = spansOf(period, day).current;
+		const { from, to } = writtenSpan(spansOf(period, day).current);
 
-		return replyFromBatch(
-			inLedger({
-				handle,
-				action: (l) => Accounts.listReturns({ ledger: l, from, to }),
-			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewReturns) })),
-		);
+		return replyFromBatchCall(api().listReturns({ handle, from, to }));
 	},
 );
 
@@ -133,13 +95,12 @@ export const listDeltas = query(
 	v.object({ handle: Handle, day: Day, period: Period, account: FlowAccount }),
 	({ handle, day, period, account }) => {
 		const { current, previous, bucket } = spansOf(period, day);
-		const spans = previous ? [current, previous] : [current];
+		const spans = (previous ? [current, previous] : [current]).map(writtenSpan);
 
-		return replyFromBatch(
-			inLedger({
-				handle,
-				action: (l) => Accounts.listDeltas({ ledger: l, spans, bucket, account }),
-			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewDeltas) })),
+		return replyFromBatchCall(
+			api()
+				.listDeltas({ handle, spans, bucket, account })
+				.then((b) => ({ ...b, succeeded: b.succeeded.map(viewDeltas) })),
 		);
 	},
 );
@@ -150,54 +111,43 @@ export const listDeltas = query(
  */
 export const listDailyDeltas = query(
 	v.object({ handle: Handle, day: Day, period: Period, account: FlowAccount }),
-	({ handle, day, period, account }) =>
-		replyFromBatch(
-			inLedger({
-				handle,
-				action: (l) =>
-					Accounts.listDailyDeltas({ ledger: l, span: spansOf(period, day).current, account }),
-			}).map((b) => ({ ...b, succeeded: b.succeeded.map(viewDaily) })),
-		),
+	({ handle, day, period, account }) => {
+		const { from, to } = writtenSpan(spansOf(period, day).current);
+
+		return replyFromBatchCall(api().listDailyDeltas({ handle, from, to, account }));
+	},
 );
 
 export const listLots = query(
 	v.object({ handle: Handle, account: v.string(), commodity: v.string() }),
 	({ handle, account, commodity }) =>
-		replyFromBatch(
-			inLedger({ handle, action: (l) => Accounts.listLots({ ledger: l, account, commodity }) }).map(
-				(b) => ({ ...b, succeeded: b.succeeded.map(viewLot) }),
-			),
+		replyFromBatchCall(
+			api()
+				.listLots({ handle, account, commodity })
+				.then((b) => ({ ...b, succeeded: b.succeeded.map(viewLot) })),
 		),
 );
 
 export const listAccountTree = query(Handle, (h) =>
-	replyFrom(inLedger({ handle: h, action: Accounts.listAccountTree })),
+	replyFromCall(api().listAccountTree({ handle: h })),
 );
 
 export const listAccountNames = query(
 	v.object({ handle: Handle, prefix: v.string() }),
-	({ handle, prefix }) =>
-		replyFrom(
-			inLedger({ handle, action: (l) => Accounts.listAccountNames({ ledger: l, prefix }) }),
-		),
+	({ handle, prefix }) => replyFromCall(api().listAccountNames({ handle, prefix })),
 );
 
 /** What the A lines of a ledger set each account up with on a day. */
 export const listTerms = query(v.object({ handle: Handle, day: Day }), ({ handle, day }) =>
-	replyFrom(
-		inLedger({ handle, action: (l) => Terms.listTerms({ ledger: l, day: day.toString() }) }),
-	),
+	replyFromCall(api().listTerms({ handle, day: day.toString() })),
 );
 
 /** Sets up an account by writing its terms under an A * line. */
 export const saveTerms = command(
 	v.object({ handle: Handle, form: TermsForm }),
 	async ({ handle, form }) => {
-		const saved = await inLedger({
-			handle,
-			action: (l) => Terms.saveTerms({ ledger: l, ...form }),
-		});
+		const saved = await replyFromCall(api().saveTerms({ handle, ...form }));
 		void listProblems(handle).refresh();
-		return replyFrom(saved);
+		return saved;
 	},
 );

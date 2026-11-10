@@ -1,14 +1,11 @@
 import { oc } from '@orpc/contract';
 import { RupeaError } from '@rupea/shared/error.ts';
-import { MOST_KEYS, SchemaContent, SchemaKey } from '@rupea/shared/files.ts';
+import { MOST_KEYS, Schema } from '@rupea/shared/files.ts';
 import { MOST_PASSWORD, MOST_UPLOADS, StatementKey, Upload } from '@rupea/shared/statements.ts';
 import { TransactionOut } from '@rupea/shared/transactions.ts';
+import { Handle } from '@rupea/shared/handle.ts';
 import * as v from 'valibot';
 import { batchOf, errors } from './errors.ts';
-
-const Handle = v.string();
-
-const Schema = v.object({ key: SchemaKey, content: SchemaContent });
 
 const Contents = v.object({ key: v.string(), grid: v.array(v.array(v.string())) });
 

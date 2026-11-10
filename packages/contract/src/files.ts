@@ -2,10 +2,9 @@ import { oc } from '@orpc/contract';
 import { Content, Draft, EntryOut, FileOut, Key, Line, MOST_KEYS } from '@rupea/shared/files.ts';
 import { TransactionForm, TransactionFormOut } from '@rupea/shared/transaction-form.ts';
 import { TransactionOut } from '@rupea/shared/transactions.ts';
+import { Handle } from '@rupea/shared/handle.ts';
 import * as v from 'valibot';
 import { batchOf, errors } from './errors.ts';
-
-const Handle = v.string();
 
 const Version = v.string();
 

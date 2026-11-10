@@ -1,5 +1,6 @@
 import { parseDate } from '#lib/server/shared/dates.ts';
-import { batch, type Batch } from '#lib/server/shared/result/batch.ts';
+import { batch } from '#lib/server/shared/result/batch.ts';
+import type { Batch } from '@rupea/shared/reply.ts';
 import { fault } from '@rupea/shared/error.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
 import {

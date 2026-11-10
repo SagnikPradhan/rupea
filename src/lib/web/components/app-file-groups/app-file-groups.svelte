@@ -16,9 +16,9 @@
 	const response = $derived(await listGroups({ handle, file }));
 	const failures = $state({ list: [] as RupeaError[] });
 
-	async function run(change: Promise<Reply<RupeaError[]>>) {
+	async function run(change: Promise<Reply<never[]>>) {
 		const changed = await change;
-		failures.list = [...changed.errors, ...(changed.data ?? [])];
+		failures.list = changed.errors;
 		onchanged();
 	}
 

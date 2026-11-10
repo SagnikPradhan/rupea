@@ -1,6 +1,6 @@
 import { atomically } from '#lib/server/db/atomically.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
-import type { Batch } from '#lib/server/shared/result/batch.ts';
+import type { Batch } from '@rupea/shared/reply.ts';
 import type { RupeaError } from '@rupea/shared/error.ts';
 import { ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import type { Entry, Storage } from '#lib/server/shared/storage/storage.ts';

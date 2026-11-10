@@ -35,8 +35,8 @@
 	const editor = createEditor(
 		{
 			read: (key) => readFile({ handle, key }),
-			check: parseFile,
-			format: (content) => formatFile({ content }),
+			check: (input) => parseFile({ handle, ...input }),
+			format: (content) => formatFile({ handle, content }),
 			save: async (input) => {
 				const saved = await editFile({ handle, ...input });
 				if (saved.ok) void refreshAfterSave(input.key);

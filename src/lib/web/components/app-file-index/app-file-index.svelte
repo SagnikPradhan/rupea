@@ -156,7 +156,7 @@
 								{#if row.depth === 0 && !isCounted(row.path)}<Tag>not counted</Tag>{/if}
 							</span>
 						</th>
-						<td class="date">{row.file ? formatMoment(row.file.modified) : ''}</td>
+						<td class="date">{row.file ? formatMoment(new Date(row.file.modified)) : ''}</td>
 						<td class="amount size">{row.file ? formatSize(row.file.size) : ''}</td>
 					</tr>
 				{/each}

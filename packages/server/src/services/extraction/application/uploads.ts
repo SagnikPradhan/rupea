@@ -1,5 +1,6 @@
 import { atomically } from '#lib/server/db/atomically.ts';
-import { batchInOrder, type Batch } from '#lib/server/shared/result/batch.ts';
+import { batchInOrder } from '#lib/server/shared/result/batch.ts';
+import type { Batch } from '@rupea/shared/reply.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { enqueue, listJobs, type UserJob } from '#services/jobs/application/jobs.ts';
 import { findImported } from '#services/ledger/application/files.ts';

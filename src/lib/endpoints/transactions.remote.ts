@@ -1,10 +1,10 @@
-import { replyFrom } from '@rupea/server/shared/result/reply.ts';
 import { Day, spansOf } from '@rupea/shared/dates.ts';
 import { Filter } from '@rupea/shared/filter.ts';
-import * as Transactions from '@rupea/server/services/ledger/application/transactions.ts';
+import { Handle } from '@rupea/shared/handle.ts';
 import { query } from '$app/server';
 import * as v from 'valibot';
-import { Handle, inLedger } from './shared';
+import { api } from './api';
+import { replyFromCall } from './reply';
 import { viewCounted, viewPosting } from './views';
 
 const Cursor = v.object({
@@ -17,28 +17,30 @@ const PostingCursor = v.object({ ...Cursor.entries, position: v.number() });
 export const listTransactions = query(
 	v.object({ handle: Handle, day: Day, filter: Filter, after: v.nullable(Cursor) }),
 	({ handle, day, filter, after }) =>
-		replyFrom(
-			inLedger({
-				handle,
-				action: (l) =>
-					Transactions.listTransactions({ ledger: l, filter: listed(filter, day), after }),
-			}).map((p) => ({ ...p, rows: p.rows.map(viewCounted) })),
+		replyFromCall(
+			api()
+				.listTransactions({ handle, ...listed(filter, day), after: after ?? undefined })
+				.then((p) => ({ ...p, rows: p.rows.map(viewCounted) })),
 		),
 );
 
 export const listPostings = query(
 	v.object({ handle: Handle, day: Day, filter: Filter, after: v.nullable(PostingCursor) }),
 	({ handle, day, filter, after }) =>
-		replyFrom(
-			inLedger({
-				handle,
-				action: (l) => Transactions.listPostings({ ledger: l, filter: listed(filter, day), after }),
-			}).map((p) => ({ ...p, rows: p.rows.map(viewPosting) })),
+		replyFromCall(
+			api()
+				.listPostings({ handle, ...listed(filter, day), after: after ?? undefined })
+				.then((p) => ({ ...p, rows: p.rows.map(viewPosting) })),
 		),
 );
 
-const listed = (filter: Filter, day: Temporal.PlainDate): Transactions.ListFilter => ({
-	...spansOf(filter.period, day).current,
-	account: filter.account || null,
-	description: filter.description || null,
-});
+const listed = (filter: Filter, day: Temporal.PlainDate) => {
+	const { from, to } = spansOf(filter.period, day).current;
+
+	return {
+		from: from.toString(),
+		to: to.toString(),
+		account: filter.account || undefined,
+		description: filter.description || undefined,
+	};
+};

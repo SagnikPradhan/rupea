@@ -1,3 +1,5 @@
+import { createClient } from '#lib/endpoints/api.ts';
+import { listFiles } from '#lib/endpoints/files.remote.ts';
 import {
 	deleteStatements,
 	importStatement,
@@ -9,97 +11,193 @@ import {
 	unlockStatement,
 	uploadStatements,
 } from '#lib/endpoints/import.remote.ts';
-import {
-	deleteSchema,
-	listSchemas,
-	readSchema,
-	saveSchema,
-} from '#lib/endpoints/schemas.remote.ts';
-import { provide } from '@rupea/server/shared/context/context.ts';
-import { bank, statement } from '@rupea/server/services/extraction/tests/fixtures/bank.ts';
-import { broken } from '@rupea/server/tests/shared/embedding.ts';
-import { signIn, submit } from '#tests/shared/app-server.ts';
-import { createLedger, ownerOf } from '@rupea/server/tests/shared/seed.ts';
-import { it as base } from '@rupea/server/tests/shared/vitest.ts';
-import { describe, expect, vi } from 'vitest';
+import { listSchemas } from '#lib/endpoints/schemas.remote.ts';
+import { refreshed, submit, useApi } from '#tests/shared/app-server.ts';
+import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('$app/server', () => import('#tests/shared/app-server.ts'));
 
-/** A ledger its owner is signed in to. */
-const it = base.extend<{ ledger: string }>({
-	ledger: async ({ db }, use) => {
-		const ledger = await createLedger(db);
-		signIn(ownerOf(ledger));
-		await use(ledger.handle);
-		signIn(null);
-	},
+const schema = { key: 'bank.yml', content: 'columns: []' };
+const statement = 'statements/2026-09-01/aug.csv';
+
+/**
+ * A client of a server that answers every call with this, keeping what it was
+ * sent.
+ */
+const serverAnswering = (answer: unknown) => {
+	const seen: Request[] = [];
+	const fetch = (request: Request) => {
+		seen.push(request);
+		return Promise.resolve(Response.json(answer));
+	};
+	useApi(createClient({ url: 'http://api.test/api', token: 'opaque', fetch }));
+
+	return seen;
+};
+
+describe('uploading statements', () => {
+	it('forwards each file as a multipart part named files[0], files[1] and on, with its name and bytes', async () => {
+		const seen = serverAnswering({ succeeded: [statement], failed: [] });
+		const files = [new File(['a,b'], 'aug.csv'), new File([new Uint8Array([1, 2, 3])], 'sep.pdf')];
+
+		const uploaded = await submit(uploadStatements, { handle: 'home', files });
+
+		expect(uploaded).toEqual({ ok: true, data: [statement], errors: [] });
+		expect(seen[0]?.url).toBe('http://api.test/api/ledgers/home/statements');
+		expect(seen[0]?.headers.get('content-type')).toMatch(/^multipart\/form-data/);
+
+		const form = await seen[0]?.formData();
+		const parts = [form?.get('files[0]'), form?.get('files[1]')] as File[];
+		expect(parts.map((f) => f.name)).toEqual(['aug.csv', 'sep.pdf']);
+		expect(await parts[0]?.text()).toBe('a,b');
+		expect(new Uint8Array(await parts[1]!.arrayBuffer())).toEqual(new Uint8Array([1, 2, 3]));
+	});
+
+	it('lists the statements and imports again, and fails with the files it could not store', async () => {
+		const failed = { type: 'StorageInvalidKey', key: 'x' } as const;
+		serverAnswering({ succeeded: [statement], failed: [failed] });
+
+		const uploaded = await submit(uploadStatements, {
+			handle: 'home',
+			files: [new File(['a'], 'aug.csv')],
+		});
+
+		expect(uploaded).toEqual({ ok: false, data: [statement], errors: [failed] });
+		expect(refreshed()).toEqual([
+			{ remote: listStatements, input: 'home' },
+			{ remote: listImports, input: 'home' },
+		]);
+	});
+
+	it('deletes nothing, and calls nothing, for no statements', async () => {
+		const deleted = vi.fn();
+		useApi({ deleteStatements: deleted });
+
+		expect(await deleteStatements({ handle: 'home', keys: [] })).toEqual({
+			ok: true,
+			data: [],
+			errors: [],
+		});
+		expect(deleted).not.toHaveBeenCalled();
+	});
+
+	it('refuses a name past 255 bytes, and more than 50 files, before the call', async () => {
+		const upload = vi.fn();
+		useApi({ uploadStatements: upload });
+		const long = new File(['a'], `${'a'.repeat(256)}.csv`);
+		const many = Array.from({ length: 51 }, (_, i) => new File(['a'], `${i}.csv`));
+
+		await expect(submit(uploadStatements, { handle: 'home', files: [long] })).rejects.toThrow(
+			'Invalid input',
+		);
+		await expect(submit(uploadStatements, { handle: 'home', files: many })).rejects.toThrow(
+			'Invalid input',
+		);
+		expect(upload).not.toHaveBeenCalled();
+	});
+
+	it('takes at least one file', async () => {
+		useApi({});
+
+		await expect(submit(uploadStatements, { handle: 'home', files: [] })).rejects.toThrow(
+			'Invalid input',
+		);
+	});
 });
 
-const upload = (handle: string) =>
-	submit(uploadStatements, { handle, files: [new File([statement], 'aug.csv')] });
+describe('unlocking a statement', () => {
+	it('sends the password in the body, not the URL', async () => {
+		const seen = serverAnswering({ key: statement, grid: [['Date']] });
+
+		const unlocked = await submit(unlockStatement, {
+			handle: 'home',
+			statement,
+			password: 'hunter2',
+		});
+
+		expect(unlocked).toEqual({ ok: true, data: { key: statement, grid: [['Date']] }, errors: [] });
+		expect(seen[0]?.url).not.toContain('hunter2');
+		expect(await seen[0]?.json()).toMatchObject({ password: 'hunter2' });
+	});
+});
 
 describe('a statement', () => {
-	it('is uploaded, read and recognised by a saved schema', ({ context, ledger: handle }) =>
-		provide(context, async () => {
-			expect(await upload(handle)).toMatchObject({ ok: true });
-			expect((await listImports(handle)).ok).toBe(true);
+	it('is read, recognised and deleted through the server', async () => {
+		const read = vi.fn().mockResolvedValue({ key: statement, grid: [['Account statement']] });
+		const recognised = vi.fn().mockResolvedValue({ ...schema, builtin: false });
+		const deleted = vi.fn().mockResolvedValue({ succeeded: [statement], failed: [] });
+		useApi({ readStatement: read, recogniseStatement: recognised, deleteStatements: deleted });
 
-			const [uploaded] = (await listStatements(handle)).data ?? [];
-			const key = uploaded?.key ?? '';
-			const read = await readStatement({ handle, statement: key });
-			expect(read.data?.grid[0]).toEqual(['Account statement']);
+		expect((await readStatement({ handle: 'home', statement })).data?.grid).toEqual([
+			['Account statement'],
+		]);
+		expect((await recogniseStatement({ handle: 'home', statement })).data?.builtin).toBe(false);
+		expect(await deleteStatements({ handle: 'home', keys: [statement] })).toEqual({
+			ok: true,
+			data: [statement],
+			errors: [],
+		});
 
-			await saveSchema({ handle, ...bank });
-			expect(await recogniseStatement({ handle, statement: key })).toMatchObject({
-				data: { key: bank.key, builtin: false },
-			});
-		}));
+		expect(read).toHaveBeenCalledWith({ handle: 'home', statement });
+		expect(deleted).toHaveBeenCalledWith({ handle: 'home', keys: [statement] });
+		expect(refreshed()).toEqual([{ remote: listStatements, input: 'home' }]);
+	});
 
-	it('is previewed and imported with a schema', ({ context, ledger: handle }) =>
-		provide({ ...context, models: broken(context.models) }, async () => {
-			await upload(handle);
-			const [uploaded] = (await listStatements(handle)).data ?? [];
-			const key = uploaded?.key ?? '';
+	it('is previewed as text for the page', async () => {
+		const draft = {
+			file: '_/aug.rupea',
+			line: 1,
+			date: '2026-08-29',
+			time: '09:30:00',
+			description: 'UPI GROCER',
+			comment: null,
+			postings: [
+				{
+					account: 'Expenses:Food',
+					quantity: { amount: '100.00', commodity: 'INR', price: null, cost: null },
+				},
+			],
+		};
+		const previewed = vi.fn().mockResolvedValue({ succeeded: [draft], failed: [] });
+		useApi({ previewStatement: previewed });
 
-			const preview = await previewStatement({ handle, statement: key, schema: bank });
-			const imported = await importStatement({ handle, statement: key, schema: bank });
-			expect(preview.data?.map((t) => t.description)).toEqual(['UPI GROCER', 'SALARY']);
-			expect(imported).toMatchObject({ ok: true, data: { key: expect.stringMatching(/aug/) } });
-		}));
+		const preview = await previewStatement({ handle: 'home', statement, schema });
 
-	it('is listed and deleted', ({ context, ledger: handle }) =>
-		provide(context, async () => {
-			await upload(handle);
-			const [uploaded] = (await listStatements(handle)).data ?? [];
-			const key = uploaded?.key ?? '';
+		expect(previewed).toHaveBeenCalledWith({ handle: 'home', statement, schema });
+		expect(preview.data).toMatchObject([
+			{ time: '09:30', postings: [{ account: 'Expenses:Food', quantity: '100.00' }] },
+		]);
+	});
 
-			expect(uploaded).toEqual({ key: expect.stringMatching(/aug\.csv$/), file: null });
-			expect(await deleteStatements({ handle, keys: [key] })).toMatchObject({ data: [key] });
-			expect(await listStatements(handle)).toMatchObject({ data: [] });
-		}));
+	it('keeps the failures of a preview beside what it drafted', async () => {
+		const failed = { type: 'ParseInvalidPosting', location: 'a.rupea:3' } as const;
+		useApi({ previewStatement: () => Promise.resolve({ succeeded: [], failed: [failed] }) });
 
-	it('that is not locked cannot be unlocked', ({ context, ledger: handle }) =>
-		provide(context, async () => {
-			await upload(handle);
-			const [uploaded] = (await listStatements(handle)).data ?? [];
-			const statement = uploaded?.key ?? '';
+		const preview = await previewStatement({ handle: 'home', statement, schema });
 
-			const unlocked = await submit(unlockStatement, { handle, statement, password: 'x' });
-			expect(unlocked).toMatchObject({ ok: false });
-		}));
-});
+		expect(preview).toEqual({ ok: false, data: [], errors: [failed] });
+	});
 
-describe('a schema', () => {
-	it('is saved, read, listed and deleted', ({ context, ledger: handle }) =>
-		provide(context, async () => {
-			expect(await saveSchema({ handle, ...bank })).toMatchObject({ ok: true });
-			expect(await readSchema({ handle, key: bank.key })).toMatchObject({
-				data: { content: bank.content },
-			});
-			expect((await listSchemas(handle)).data).toContainEqual(
-				expect.objectContaining({ key: bank.key }),
-			);
+	it('is imported as a draft, then the files, schemas and statements are listed again', async () => {
+		const imported = vi.fn().mockResolvedValue({ key: '_/imports/aug.rupea' });
+		useApi({ importStatement: imported });
 
-			expect(await deleteSchema({ handle, key: bank.key })).toMatchObject({ ok: true });
-		}));
+		const reply = await importStatement({ handle: 'home', statement, schema });
+
+		expect(imported).toHaveBeenCalledWith({ handle: 'home', statement, schema });
+		expect(reply).toEqual({ ok: true, data: { key: '_/imports/aug.rupea' }, errors: [] });
+		expect(refreshed()).toEqual([
+			{ remote: listFiles, input: 'home' },
+			{ remote: listSchemas, input: 'home' },
+			{ remote: listStatements, input: 'home' },
+		]);
+	});
+
+	it('answers a failed import without listing anything again as if it worked', async () => {
+		useApi({ importStatement: () => Promise.reject(new Error('down')) });
+
+		const reply = await importStatement({ handle: 'home', statement, schema });
+
+		expect(reply).toMatchObject({ ok: false, data: null, errors: [{ type: 'UnknownError' }] });
+	});
 });

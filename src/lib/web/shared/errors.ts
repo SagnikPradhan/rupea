@@ -112,6 +112,7 @@ export const explain = (error: RupeaError): string =>
 		.with({ type: 'StorageConflict' }, () => 'This file changed since you opened it.')
 		.with({ type: 'StorageNotFound' }, () => 'This file no longer exists.')
 		.with({ type: 'StorageInvalidKey' }, (e) => `“${e.key}” isn’t a valid file name.`)
+		.with({ type: 'UnknownError' }, (e) => `Something went wrong: ${e.message}`)
 		.otherwise((e) => `Something went wrong (${e.type}).`);
 
 /**

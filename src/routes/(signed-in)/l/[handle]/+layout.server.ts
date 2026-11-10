@@ -1,19 +1,12 @@
-import { ok } from '@rupea/server/shared/result/result.ts';
-import * as Ledger from '@rupea/server/services/ledger/application/ledger.ts';
-import { error, redirect } from '@sveltejs/kit';
+import { error } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 
-export const load: LayoutServerLoad = async ({ locals, params }) => {
-	const user = locals.user;
-	if (!user) redirect(303, '/sign-in');
+export const load: LayoutServerLoad = async ({ params, parent }) => {
+	const { ledgers, failure } = await parent();
+	if (failure) error(500, failure);
 
-	const found = await Ledger.withLedger({
-		user: user.id,
-		handle: params.handle,
-		action: (l) => ok({ handle: l.handle, name: l.name }),
-	});
-	if (found.isErr() && found.error.type === 'LedgerNotFound') error(404, 'No such ledger');
-	if (found.isErr()) error(500, found.error.type);
+	const ledger = ledgers.find((l) => l.handle === params.handle);
+	if (!ledger) error(404, 'No such ledger');
 
-	return { ledger: found.value };
+	return { ledger: { handle: ledger.handle, name: ledger.name } };
 };

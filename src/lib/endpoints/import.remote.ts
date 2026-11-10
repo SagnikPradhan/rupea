@@ -1,30 +1,25 @@
-import { replyFrom, replyFromBatch } from '@rupea/server/shared/result/reply.ts';
-import * as Drafts from '@rupea/server/services/extraction/application/drafts.ts';
-import * as Schemas from '@rupea/server/services/extraction/application/schemas.ts';
-import * as Statements from '@rupea/server/services/extraction/application/statements.ts';
-import * as Uploads from '@rupea/server/services/extraction/application/uploads.ts';
+import { MOST_KEYS, Schema } from '@rupea/shared/files.ts';
+import { Handle } from '@rupea/shared/handle.ts';
+import { MOST_PASSWORD, MOST_UPLOADS, StatementKey, Upload } from '@rupea/shared/statements.ts';
 import { command, form, query } from '$app/server';
 import * as v from 'valibot';
+import { api } from './api';
 import { listFiles } from './files.remote';
+import { NOTHING, replyFromBatchCall, replyFromCall } from './reply';
 import { listSchemas } from './schemas.remote';
-import { Handle, inLedger } from './shared';
 import { viewTransaction } from './views';
 
 /** Statements to review, and ledger files, which import on their own as jobs. */
 export const uploadStatements = form(
-	v.object({ handle: Handle, files: v.pipe(v.array(v.file()), v.minLength(1)) }),
+	v.object({
+		handle: Handle,
+		files: v.pipe(v.array(Upload), v.minLength(1), v.maxLength(MOST_UPLOADS)),
+	}),
 	async ({ handle, files }) => {
-		const uploads = files.map((f) => ({
-			name: f.name,
-			read: () => f.arrayBuffer().then((b) => new Uint8Array(b)),
-		}));
-		const uploaded = await inLedger({
-			handle,
-			action: (l, u) => Uploads.uploadStatements({ ledger: l, user: u.id, uploads }),
-		});
+		const uploaded = await replyFromBatchCall(api().uploadStatements({ handle, files }));
 		void listStatements(handle).refresh();
 		void listImports(handle).refresh();
-		return replyFromBatch(uploaded);
+		return uploaded;
 	},
 );
 
@@ -33,65 +28,46 @@ export const uploadStatements = form(
  * whether a job imports it.
  */
 export const listStatements = query(Handle, (h) =>
-	replyFrom(inLedger({ handle: h, action: Uploads.listStatements })),
+	replyFromCall(api().listStatements({ handle: h })),
 );
 
 /** The ledger files this user uploaded here, as their imports run. */
-export const listImports = query(Handle, (h) =>
-	replyFrom(
-		inLedger({ handle: h, action: (l, u) => Uploads.listImports({ ledger: l, user: u.id }) }),
-	),
-);
+export const listImports = query(Handle, (h) => replyFromCall(api().listImports({ handle: h })));
 
 /** A stored statement, read for the schema editor. */
 export const readStatement = command(
-	v.object({ handle: Handle, statement: v.pipe(v.string(), v.nonEmpty()) }),
-	({ handle, statement }) =>
-		replyFrom(
-			inLedger({
-				handle,
-				action: (l) => Statements.readStatement({ ledger: l, key: statement }),
-			}).map((s) => ({ key: s.key, grid: s.grid })),
-		),
+	v.object({ handle: Handle, statement: StatementKey }),
+	({ handle, statement }) => replyFromCall(api().readStatement({ handle, statement })),
 );
 
 export const deleteStatements = command(
-	v.object({ handle: Handle, keys: v.array(v.pipe(v.string(), v.nonEmpty())) }),
+	v.object({
+		handle: Handle,
+		keys: v.pipe(v.array(StatementKey), v.maxLength(MOST_KEYS)),
+	}),
 	async ({ handle, keys }) => {
-		const deleted = await inLedger({
-			handle,
-			action: (l) => Statements.deleteStatements({ ledger: l, keys }),
-		});
+		if (keys.length === 0) return NOTHING;
+
+		const deleted = await replyFromBatchCall(api().deleteStatements({ handle, keys }));
 		void listStatements(handle).refresh();
-		return replyFromBatch(deleted);
+		return deleted;
 	},
 );
 
 export const unlockStatement = form(
 	v.object({
 		handle: Handle,
-		statement: v.pipe(v.string(), v.nonEmpty()),
-		password: v.pipe(v.string(), v.nonEmpty()),
+		statement: StatementKey,
+		password: v.pipe(v.string(), v.nonEmpty(), v.maxLength(MOST_PASSWORD)),
 	}),
 	({ handle, statement, password }) =>
-		replyFrom(
-			inLedger({
-				handle,
-				action: (l) => Statements.unlockStatement({ ledger: l, statement, password }),
-			}),
-		),
+		replyFromCall(api().unlockStatement({ handle, statement, password })),
 );
 
 /** The schema that reads a statement, for the editor to start from. */
 export const recogniseStatement = command(
-	v.object({ handle: Handle, statement: v.pipe(v.string(), v.nonEmpty()) }),
-	({ handle, statement }) =>
-		replyFrom(
-			inLedger({
-				handle,
-				action: (l) => Schemas.recogniseStatement({ ledger: l, statement }),
-			}),
-		),
+	v.object({ handle: Handle, statement: StatementKey }),
+	({ handle, statement }) => replyFromCall(api().recogniseStatement({ handle, statement })),
 );
 
 /**
@@ -99,38 +75,23 @@ export const recogniseStatement = command(
  * would read it.
  */
 export const previewStatement = command(
-	v.object({
-		handle: Handle,
-		statement: v.pipe(v.string(), v.nonEmpty()),
-		schema: v.object({ key: v.string(), content: v.string() }),
-	}),
+	v.object({ handle: Handle, statement: StatementKey, schema: Schema }),
 	({ handle, statement, schema }) =>
-		replyFromBatch(
-			inLedger({
-				handle,
-				action: (l) => Drafts.previewStatement({ ledger: l, statement, schema }),
-			}).map((b) => ({
-				...b,
-				succeeded: b.succeeded.map(viewTransaction),
-			})),
+		replyFromBatchCall(
+			api()
+				.previewStatement({ handle, statement, schema })
+				.then((b) => ({ ...b, succeeded: b.succeeded.map(viewTransaction) })),
 		),
 );
 
 /** Files the draft for review under the review area's imports. */
 export const importStatement = command(
-	v.object({
-		handle: Handle,
-		statement: v.pipe(v.string(), v.nonEmpty()),
-		schema: v.object({ key: v.string(), content: v.string() }),
-	}),
+	v.object({ handle: Handle, statement: StatementKey, schema: Schema }),
 	async ({ handle, statement, schema }) => {
-		const created = await inLedger({
-			handle,
-			action: (l) => Drafts.importStatement({ ledger: l, statement, schema }),
-		});
+		const created = await replyFromCall(api().importStatement({ handle, statement, schema }));
 		void listFiles(handle).refresh();
 		void listSchemas(handle).refresh();
 		void listStatements(handle).refresh();
-		return replyFrom(created.map((f) => ({ key: f.key })));
+		return created;
 	},
 );

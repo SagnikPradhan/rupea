@@ -1,4 +1,4 @@
-import type { Batch } from '#lib/server/shared/result/batch.ts';
+import type { Batch } from '@rupea/shared/reply.ts';
 import { fault, type RupeaError } from '@rupea/shared/error.ts';
 import { errAsync, okAsync, ResultAsync } from '#lib/server/shared/result/result.ts';
 import { ASSETS, LIABILITIES } from '@rupea/shared/accounts.ts';

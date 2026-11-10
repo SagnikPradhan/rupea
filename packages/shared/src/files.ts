@@ -49,6 +49,9 @@ export const Draft = v.pipe(v.string(), v.maxLength(MOST_DRAFT));
 /** A schema's text, which is bounded as a request carries it. */
 export const SchemaContent = v.pipe(v.string(), v.maxLength(MOST_DRAFT));
 
+/** An extraction schema as a statement is read with it, saved or not. */
+export const Schema = v.object({ key: SchemaKey, content: SchemaContent });
+
 /** A line of a file, counting from 1. */
 export const Line = v.pipe(v.number(), v.integer(), v.minValue(1));
 

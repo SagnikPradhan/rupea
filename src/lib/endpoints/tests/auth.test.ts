@@ -1,89 +1,117 @@
+import { ORPCError } from '@orpc/client';
 import { requestCode, signOut, verifyCode } from '#lib/endpoints/auth.remote.ts';
 import { toggleTheme } from '#lib/endpoints/theme.remote.ts';
-import { provide } from '@rupea/server/shared/context/context.ts';
-import type { Mail } from '@rupea/server/shared/context/mailer.ts';
-import { okAsync } from '@rupea/server/shared/result/result.ts';
-import { request, submit } from '#tests/shared/app-server.ts';
-import { it } from '@rupea/server/tests/shared/vitest.ts';
-import { pino } from 'pino';
-import { afterEach, describe, expect, vi } from 'vitest';
+import { request, submit, useApi } from '#tests/shared/app-server.ts';
+import { afterEach, describe, expect, it, vi } from 'vitest';
 
 vi.mock('$app/server', () => import('#tests/shared/app-server.ts'));
 
 afterEach(() => {
+	vi.restoreAllMocks();
 	request.cookies.clear();
 	request.cookieOptions.clear();
 });
 
-const inbox = () => {
-	const sent: Mail[] = [];
-	const mailer = {
-		send: (mail: Mail) => {
-			sent.push(mail);
-			return okAsync();
-		},
-	};
-	return { sent, mailer };
-};
+const refused = (status: number, data?: object) =>
+	new ORPCError('REFUSED', { status, defined: true, data });
 
-const codeIn = (mail: Mail | undefined) => mail?.subject.match(/(\d{6})$/)?.[1] ?? '';
+const expiresAt = '2026-12-01T10:00:00Z';
 
 describe('signing in', () => {
-	it('mails a code to the normalised address, which then signs in', ({ context }) => {
-		const { sent, mailer } = inbox();
-		return provide({ ...context, mailer }, async () => {
-			const asked = await submit(requestCode, { email: ' Ada@Example.com ' });
-			expect(asked).toEqual({ ok: true, data: { email: 'ada@example.com' }, errors: [] });
+	it('mails a code to the normalised address', async () => {
+		const mailed = vi.fn().mockResolvedValue(undefined);
+		useApi({ requestCode: mailed });
 
-			const code = codeIn(sent[0]);
-			await expect(submit(verifyCode, { email: 'ada@example.com', code })).rejects.toMatchObject({
-				status: 303,
-				location: '/',
-			});
-			expect(request.cookies.has('session')).toBe(true);
-			expect(request.cookieOptions.get('session')).toMatchObject({
-				path: '/',
-				httpOnly: true,
-				sameSite: 'lax',
-				expires: expect.any(Date),
-			});
+		const asked = await submit(requestCode, { email: ' Ada@Example.com ' });
+
+		expect(mailed).toHaveBeenCalledWith({ email: 'ada@example.com' });
+		expect(asked).toEqual({ ok: true, data: { email: 'ada@example.com' }, errors: [] });
+	});
+
+	it('keeps the token in a cookie and goes home', async () => {
+		const signIn = vi.fn().mockResolvedValue({ token: 'opaque', expiresAt });
+		useApi({ signIn });
+
+		await expect(
+			submit(verifyCode, { email: 'ada@example.com', code: ' 123456 ' }),
+		).rejects.toMatchObject({ status: 303, location: '/' });
+
+		expect(signIn).toHaveBeenCalledWith({ email: 'ada@example.com', code: '123456' });
+		expect(request.cookies.get('session')).toBe('opaque');
+		expect(request.cookieOptions.get('session')).toMatchObject({
+			path: '/',
+			httpOnly: true,
+			sameSite: 'lax',
+			expires: new Date(expiresAt),
 		});
 	});
 
-	it('marks a wrong code on its field', ({ context }) => {
-		const { mailer } = inbox();
-		return provide({ ...context, mailer }, async () => {
-			await submit(requestCode, { email: 'ada@example.com' });
-			await expect(
-				submit(verifyCode, { email: 'ada@example.com', code: '000000' }),
-			).rejects.toMatchObject({ issues: [{ message: 'That code is wrong or has expired.' }] });
-		});
+	it('marks a wrong code on its field', async () => {
+		useApi({ signIn: () => Promise.reject(refused(401, { type: 'AuthInvalidCode' })) });
+
+		await expect(
+			submit(verifyCode, { email: 'ada@example.com', code: '000000' }),
+		).rejects.toMatchObject({ issues: [{ message: 'That code is wrong or has expired.' }] });
+		expect(request.cookies.has('session')).toBe(false);
 	});
 
-	it('signs out back to the sign-in page', ({ context }) =>
-		provide(context, async () => {
-			request.cookies.set('session', 'stale');
-			await expect(submit(signOut)).rejects.toMatchObject({ status: 303, location: '/sign-in' });
-			expect(request.cookies.has('session')).toBe(false);
-		}));
+	it('replies with any other failure and sets no cookie', async () => {
+		useApi({ signIn: () => Promise.reject(new TypeError('fetch failed')) });
+
+		const reply = await submit(verifyCode, { email: 'ada@example.com', code: '123456' });
+
+		expect(reply).toEqual({
+			ok: false,
+			data: null,
+			errors: [{ type: 'UnknownError', message: 'fetch failed' }],
+		});
+		expect(request.cookies.has('session')).toBe(false);
+	});
 });
 
-describe('signing out when the session cannot be deleted', () => {
-	it('logs the failure, drops the cookie and redirects', ({ context, db }) => {
-		const lines: string[] = [];
-		const logger = pino({ level: 'error' }, { write: (line: string) => lines.push(line) });
-		return provide({ ...context, logger }, async () => {
-			request.cookies.set('session', 'stuck');
-			const failing = vi.spyOn(db, 'deleteFrom').mockImplementation(() => {
-				throw new Error('database down');
-			});
+describe('signing out', () => {
+	it('ends the session of the cookie and goes to the sign-in page', async () => {
+		const ended = vi.fn().mockResolvedValue(undefined);
+		useApi({ signOut: ended });
+		request.cookies.set('session', 'opaque');
 
-			await expect(submit(signOut)).rejects.toMatchObject({ status: 303, location: '/sign-in' });
-			failing.mockRestore();
+		await expect(submit(signOut)).rejects.toMatchObject({ status: 303, location: '/sign-in' });
 
-			expect(request.cookies.has('session')).toBe(false);
-			expect(lines.join('')).toContain('sign-out failed');
-		});
+		expect(ended).toHaveBeenCalledOnce();
+		expect(request.cookies.has('session')).toBe(false);
+	});
+
+	it('does not call the API without a cookie', async () => {
+		const ended = vi.fn();
+		useApi({ signOut: ended });
+
+		await expect(submit(signOut)).rejects.toMatchObject({ status: 303, location: '/sign-in' });
+
+		expect(ended).not.toHaveBeenCalled();
+	});
+
+	it('logs a failure, drops the cookie and redirects', async () => {
+		const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		useApi({ signOut: () => Promise.reject(new TypeError('connection refused')) });
+		request.cookies.set('session', 'stuck');
+
+		await expect(submit(signOut)).rejects.toMatchObject({ status: 303, location: '/sign-in' });
+
+		expect(request.cookies.has('session')).toBe(false);
+		expect(logged).toHaveBeenCalledWith(
+			'sign-out failed',
+			expect.objectContaining({ type: 'UnknownError' }),
+		);
+	});
+
+	it('stays quiet when the session had already ended', async () => {
+		const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+		useApi({ signOut: () => Promise.reject(refused(401, { type: 'AuthUnauthenticated' })) });
+		request.cookies.set('session', 'old');
+
+		await expect(submit(signOut)).rejects.toMatchObject({ status: 303 });
+
+		expect(logged).not.toHaveBeenCalled();
 	});
 });
 

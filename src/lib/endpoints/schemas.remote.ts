@@ -1,38 +1,30 @@
-import { replyFrom } from '@rupea/server/shared/result/reply.ts';
-import * as Schemas from '@rupea/server/services/extraction/application/schemas.ts';
-import { SchemaKey } from '@rupea/shared/files.ts';
+import { SchemaContent, SchemaKey } from '@rupea/shared/files.ts';
+import { Handle } from '@rupea/shared/handle.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
-import { Handle, inLedger } from './shared';
+import { api } from './api';
+import { replyFromCall } from './reply';
 
-export const listSchemas = query(Handle, (h) =>
-	replyFrom(inLedger({ handle: h, action: Schemas.listSchemas })),
-);
+export const listSchemas = query(Handle, (h) => replyFromCall(api().listSchemas({ handle: h })));
 
 export const readSchema = query(v.object({ handle: Handle, key: SchemaKey }), ({ handle, key }) =>
-	replyFrom(inLedger({ handle, action: (l) => Schemas.readSchema({ ledger: l, key }) })),
+	replyFromCall(api().readSchema({ handle, key })),
 );
 
 export const saveSchema = command(
-	v.object({ handle: Handle, key: SchemaKey, content: v.string() }),
+	v.object({ handle: Handle, key: SchemaKey, content: SchemaContent }),
 	async ({ handle, key, content }) => {
-		const saved = await inLedger({
-			handle,
-			action: (l) => Schemas.saveSchema({ ledger: l, key, content }),
-		});
+		const saved = await replyFromCall(api().saveSchema({ handle, key, content }));
 		void listSchemas(handle).refresh();
-		return replyFrom(saved);
+		return saved;
 	},
 );
 
 export const deleteSchema = command(
 	v.object({ handle: Handle, key: SchemaKey }),
 	async ({ handle, key }) => {
-		const deleted = await inLedger({
-			handle,
-			action: (l) => Schemas.deleteSchema({ ledger: l, key }),
-		});
+		const deleted = await replyFromCall(api().deleteSchema({ handle, key }));
 		void listSchemas(handle).refresh();
-		return replyFrom(deleted);
+		return deleted;
 	},
 );

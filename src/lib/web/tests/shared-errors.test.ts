@@ -128,6 +128,7 @@ describe('explain', () => {
 		[fault('StorageNotFound', { key: 'a.rupea' }), 'This file no longer exists.'],
 		[fault('StorageInvalidKey', { key: 'a.txt' }), '“a.txt” isn’t a valid file name.'],
 		[fault('AuthInvalidCode'), 'Something went wrong (AuthInvalidCode).'],
+		[fault('UnknownError', { message: 'fetch failed' }), 'Something went wrong: fetch failed'],
 	])('explains %o', (error, sentence) => {
 		expect(explain(error)).toBe(sentence);
 	});

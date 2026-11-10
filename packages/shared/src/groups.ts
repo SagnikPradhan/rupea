@@ -23,5 +23,8 @@ export const LinkTarget = v.object({
 	role: Role,
 });
 
+/** The most link lines one call writes. */
+export const MOST_EDITS = 10_000;
+
 /** A link line to write, naming the group it joins. */
 export const LinkEdit = v.object({ ...LinkTarget.entries, group: GroupId });

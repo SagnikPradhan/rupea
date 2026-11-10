@@ -1,16 +1,10 @@
 import { redirect } from '@sveltejs/kit';
-import * as Ledger from '@rupea/server/services/ledger/application/ledger.ts';
+import { replyFromCall } from '#lib/endpoints/reply.ts';
 import type { LayoutServerLoad } from './$types';
 
 export const load: LayoutServerLoad = async ({ locals }) => {
-	const user = locals.user;
-	if (!user) redirect(303, '/sign-in');
+	if (!locals.user) redirect(303, '/sign-in');
 
-	const ledgers = await Ledger.listLedgers({ user: user.id });
-	return {
-		ledgers: ledgers.match(
-			(l) => l.map((x) => ({ handle: x.handle, name: x.name, owned: x.owner === user.id })),
-			() => [],
-		),
-	};
+	const listed = await replyFromCall(locals.api.listLedgers());
+	return { ledgers: listed.data ?? [], failure: listed.errors[0]?.type ?? null };
 };

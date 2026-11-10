@@ -1,5 +1,5 @@
 import { withContext } from '#lib/server/shared/context/context.ts';
-import type { Batch } from '#lib/server/shared/result/batch.ts';
+import type { Batch } from '@rupea/shared/reply.ts';
 import { fault } from '@rupea/shared/error.ts';
 import { err, errAsync, ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { isLedgerFile } from '@rupea/shared/statements.ts';

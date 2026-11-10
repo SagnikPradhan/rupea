@@ -1,9 +1,8 @@
 import { oc } from '@orpc/contract';
 import { DayOut } from '@rupea/shared/dates.ts';
+import { Handle } from '@rupea/shared/handle.ts';
 import * as v from 'valibot';
 import { batchOf, errors } from './errors.ts';
-
-const Handle = v.string();
 
 /** The ledgers the caller may open, and whether they own each. */
 export const listLedgers = oc

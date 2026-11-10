@@ -1,5 +1,6 @@
 import { provide } from '#lib/server/shared/context/context.ts';
-import { isHandle, petName } from '#lib/server/shared/names.ts';
+import { isHandle } from '@rupea/shared/handle.ts';
+import { petName } from '#lib/server/shared/names.ts';
 import { err, ok } from '#lib/server/shared/result/result.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';

@@ -1,3 +1,6 @@
+import { createORPCClient } from '@orpc/client';
+import { OpenAPILink } from '@orpc/openapi-client/fetch';
+import { contract, type Client } from '@rupea/contract/contract.ts';
 import { bearerOf, multipart } from '@rupea/server/tests/shared/api.ts';
 import { broken } from '@rupea/server/tests/shared/embedding.ts';
 import { createLedger } from '@rupea/server/tests/shared/seed.ts';
@@ -6,7 +9,7 @@ import officeCrypto from 'officecrypto-tool';
 import { readFile } from 'node:fs/promises';
 import pino from 'pino';
 import * as XLSX from 'xlsx';
-import { describe, expect } from 'vitest';
+import { describe, expect, onTestFinished } from 'vitest';
 import { fault } from '@rupea/shared/error.ts';
 import { MOST_STATEMENT, MOST_UPLOADS } from '@rupea/shared/statements.ts';
 import { json } from '#lib/server/db/expressions.ts';
@@ -83,6 +86,29 @@ describe('uploading statements', () => {
 			});
 			expect(Buffer.from(stored._unsafeUnwrap().content).equals(bytes)).toBe(true);
 		}));
+
+	it('takes the files a client typed by the contract sends', async ({ context, storage }) => {
+		await provide(context, async () => {
+			const { api, ledger, headers } = await seeded(context);
+			onTestFinished(() => api.close());
+			const url = await api.listen({ port: 0 });
+			const client: Client = createORPCClient(
+				new OpenAPILink(contract, { url: `${url}/api`, headers }),
+			);
+
+			const uploaded = await client.uploadStatements({
+				handle: ledger.handle,
+				files: [new File([statement], 'aug.csv'), new File(['x,y'], 'sep.csv')],
+			});
+			const stored = await storage.read(`${folder(ledger)}/files/_/statements/${day()}/sep.csv`);
+
+			expect(uploaded).toEqual({
+				succeeded: [`${day()}/aug.csv`, `${day()}/sep.csv`],
+				failed: [],
+			});
+			expect(new TextDecoder().decode(stored._unsafeUnwrap().content)).toBe('x,y');
+		});
+	});
 
 	it.for(['files[]', 'files[0]'])('takes one file named %s', async (name, { context }) => {
 		await provide(context, async () => {

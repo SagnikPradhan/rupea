@@ -1,42 +1,34 @@
-import { dev } from '$app/env';
-import { randomUUID } from 'node:crypto';
-import { sequence, type Handle, type ServerInit } from '@sveltejs/kit/hooks';
-import { validateSession } from '@rupea/server/services/auth/application/auth.ts';
+import { sequence, type Handle } from '@sveltejs/kit/hooks';
+import type { RequestEvent } from '@sveltejs/kit';
+import { createClient } from '#lib/endpoints/api.ts';
+import { replyFromCall } from '#lib/endpoints/reply.ts';
 import {
 	deleteSessionCookie,
 	readSessionCookie,
 	setSessionCookie,
-} from '@rupea/server/services/auth/adapters/request.ts';
-import { provide } from '@rupea/server/shared/context/context.ts';
-import { createContext, createDatabase } from '@rupea/server/shared/context/environment.ts';
-import { withLogger } from '@rupea/server/shared/context/logger.ts';
-import { readConfiguration } from '@rupea/server/shared/context/config.ts';
+} from '#lib/endpoints/session.ts';
 import { readTheme } from '#lib/web/shared/theme.ts';
-import { startServer, subscriptions } from '@rupea/server/server.ts';
 
-const config = readConfiguration(process.env);
-const database = await createDatabase(config);
-const context = createContext(config, database.db, dev, subscriptions);
+const API_URL = process.env['RUPEA_API_URL'] ?? 'http://localhost:3000/api';
 
-export const init: ServerInit = () => startServer({ database, context, dev });
+const restore = async (event: RequestEvent, token: string) => {
+	const found = await replyFromCall(event.locals.api.findUser());
+	const error = found.errors[0];
 
-const session: Handle = ({ event, resolve }) =>
-	provide({ ...context, logger: context.logger.child({ request_id: randomUUID() }) }, async () => {
-		const token = readSessionCookie();
-		event.locals.user = null;
-		if (!token) return resolve(event);
+	if (found.data) event.locals.user = found.data.user;
+	if (found.data?.expiresAt) setSessionCookie(token, found.data.expiresAt);
+	if (error?.type === 'AuthUnauthenticated') return deleteSessionCookie();
+	if (error) console.error('session validation failed', error);
+};
 
-		await validateSession(token).match(
-			(session) => {
-				if (!session) return deleteSessionCookie();
-				event.locals.user = session.user;
-				setSessionCookie(token, session.expiresAt);
-			},
-			(err) => withLogger('auth')((l) => l.error({ error: err }, 'session validation failed')),
-		);
+const session: Handle = async ({ event, resolve }) => {
+	const token = readSessionCookie();
+	event.locals.api = createClient({ url: API_URL, token: token ?? null });
+	event.locals.user = null;
+	if (token) await restore(event, token);
 
-		return resolve(event);
-	});
+	return resolve(event);
+};
 
 const theme: Handle = ({ event, resolve }) => {
 	const chosen = readTheme();

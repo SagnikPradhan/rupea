@@ -10,18 +10,32 @@ The index can always be rebuilt from the files. Anything a user would lose by de
 
 Files can change without Rupea knowing, through an editor or a checkout. So reads never touch files or write the index: they read what the last sync left ([ADR 0026](adr/0026-sync-on-triggers-not-reads.md)).
 
+## Two processes
+
+Rupea runs as a server and a web app ([ADR 0037](adr/0037-a-server-process-and-a-web-app-that-calls-it.md)). The server holds the database, the storage, the models and the background work, and answers an HTTP API. The web app serves the pages and calls that API. It has no database and never imports server code.
+
+`pnpm dev` starts both, and `pnpm start` runs the built pair. They can also run apart: `pnpm dev:server` or `pnpm start:server` for the server, `pnpm dev:web` or `pnpm start:web` for the web app.
+
+- **Server.** `RUPEA_SERVER_HOST` and `RUPEA_SERVER_PORT` say where it listens (`127.0.0.1:3001`). It reads the rest of its configuration from `RUPEA_*` variables and `DATABASE_URL`, as `.env.example` shows.
+- **Web app.** It needs only `RUPEA_API_URL`, which defaults to `http://127.0.0.1:3001/api`. Past your own machine, make that URL `https`, since the session token travels in every call.
+
 ## Layout
 
-| Path                              | What it holds                                                |
-| --------------------------------- | ------------------------------------------------------------ |
-| `src/routes`                      | Pages                                                        |
-| `src/lib/endpoints`               | Remote functions, which is all a page can call on the server |
-| `packages/server/src/services`    | The services below                                           |
-| `packages/server/src/shared`      | What belongs to no service: context, results, storage, ONNX  |
-| `packages/server/src/db`          | The connection, migrations and query helpers                 |
-| `packages/server/src/server.ts`   | Everything that runs outside a request                       |
-| `packages/shared`                 | Code the server and the web app both import                  |
-| `packages/theme`, `packages/site` | The theme the app shares with the website, and the website   |
+| Path                              | What it holds                                                        |
+| --------------------------------- | -------------------------------------------------------------------- |
+| `packages/shared`                 | Schemas, types and rules both sides use, like `Day` and `RupeaError` |
+| `packages/contract`               | Every procedure of the API: route, input, output and errors          |
+| `packages/server/src/api`         | The Fastify host, and one handler for each procedure                 |
+| `packages/server/src/services`    | The services below                                                   |
+| `packages/server/src/shared`      | What belongs to no service: context, results, storage, ONNX          |
+| `packages/server/src/db`          | The connection, migrations and query helpers                         |
+| `packages/server/src/server.ts`   | Everything that runs outside a request                               |
+| `src/routes`                      | Pages                                                                |
+| `src/lib/endpoints`               | Remote functions, the web app's backend, which call the API          |
+| `src/lib/web`                     | Components and what only the web app needs                           |
+| `packages/theme`, `packages/site` | The theme the app shares with the website, and the website           |
+
+Imports point one way: `shared <- contract <- {server, web}`. The server and the web app never import each other, and a lint rule enforces it.
 
 ## Services
 
@@ -46,20 +60,34 @@ Each service has the same layers:
 
 Function names say what a function does: `find`, `list`, `read`, `create`, `save`, `delete`, `rename` ([ADR 0016](adr/0016-service-functions-names-and-shapes.md)).
 
+## The API
+
+`packages/contract` declares each procedure with oRPC: a route, valibot schemas for the input and output, and the errors it can answer. The server implements the contract and the web app calls it through a typed client, so the two cannot drift. oRPC is only the transport. Application code never imports it, and a handler in `packages/server/src/api` is the one place that turns an application function into an answer.
+
+Every route is plain REST, and `/api/openapi.json` describes them. A schema that reads a value in, like `Day`, decodes it, and the matching `DayOut` encodes it on the way out.
+
+A signed-in call carries `Authorization: Bearer <token>`. The token is an opaque session id, and the server keeps only its hash. The web app keeps it in an `httpOnly` cookie, and `hooks.server.ts` reads that cookie into a client for the request.
+
+A failure is a `RupeaError`. `STATUS` in `packages/contract/src/errors.ts` gives each variant one HTTP status, and an error that maps to 500 reaches the client as a generic one, with the real one in the log. A call that works through many things answers `{ succeeded, failed }` with a 200.
+
+To add a procedure, declare it in the contract, write its handler in `packages/server/src/api`, and add a test to `packages/server/src/tests`.
+
 ## Context and errors
 
-`createContext()` builds the database, storages, logger and the rest once. `hooks.server.ts` provides that context per request, and a function asks for what it needs with `withContext('db')((db) => ...)`, so nobody passes `db` through parameters.
+On the server, `createContext()` builds the database, storages, logger and the rest once, and the API host provides that context to each request. A function asks for what it needs with `withContext('db')((db) => ...)`, so nobody passes `db` through parameters.
 
-A function that can fail returns a `ResultAsync` rather than throwing. Endpoints turn the result into a reply with `replyFrom`.
+A function that can fail returns a `ResultAsync` rather than throwing. A handler turns the result into an answer with `answer`, and the web app turns an answer back into a `Reply` with `replyFromCall`.
 
 ## A request
 
 Opening a ledger's transactions goes through these steps:
 
 1. The page calls `listTransactions` in `transactions.remote.ts`, which validates its input.
-2. `inLedger` checks that the signed-in user may open this ledger, and passes the `Ledger` on.
-3. `Transactions.listTransactions` in `application/` calls `DB.listTransactions`.
-4. The adapter runs one indexed query for one page. Lists page by keyset, on date, time and id, and filter in the database, so no request loads a whole ledger ([ADR 0015](adr/0015-lists-page-by-keyset-and-filter-in-the-database.md)).
+2. The remote function calls the API through the client of the request, and sends the session token as a bearer.
+3. The handler in `packages/server/src/api/transactions.ts` checks the token, and `inLedger` checks that the signed-in user may open this ledger.
+4. `Transactions.listTransactions` in `application/` calls `DB.listTransactions`.
+5. The adapter runs one indexed query for one page. Lists page by keyset, on date, time and id, and filter in the database, so no request loads a whole ledger ([ADR 0015](adr/0015-lists-page-by-keyset-and-filter-in-the-database.md)).
+6. The answer goes back the same way. The remote function shapes it for the page.
 
 Saving a file is the same up to `application/files.ts`. It writes to storage, then updates the index for that file before answering. If that fails, the next sync picks the file up.
 
@@ -77,7 +105,7 @@ A transaction keeps its id through this while its date, time and description sta
 
 ## Work outside a request
 
-`packages/server/src/server.ts` lists every job, subscription and loop, and `startServer` starts them and the API. `main.ts` is the process that calls it: `pnpm dev` or `pnpm start` runs it beside the web app, which only needs `RUPEA_API_URL`. It must start in the repository root, where it finds `drizzle` and the default `data` folders, or it stops with a message saying so.
+`packages/server/src/server.ts` lists every job, subscription and loop, and `startServer` starts them and the API. `main.ts` is the process that calls it: `pnpm dev` or `pnpm start` runs it beside the web app, which only needs `RUPEA_API_URL`. Past your own machine, make that URL `https`: the session token travels in every call. The server must start in the repository root, where it finds `drizzle` and the default `data` folders, or it stops with a message saying so.
 
 **Event**: something a service announces it did, named in the past tense, with a valibot payload. `files-changed` says keys in a user's storage may have changed. Events are not stored, so one published as the process stops is lost ([ADR 0028](adr/0028-events-in-process.md)).
 

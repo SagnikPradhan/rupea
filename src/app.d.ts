@@ -1,4 +1,4 @@
-import type { User } from '#services/auth/application/auth.ts';
+import type { User } from '@rupea/server/services/auth/application/auth.ts';
 
 declare global {
 	namespace App {

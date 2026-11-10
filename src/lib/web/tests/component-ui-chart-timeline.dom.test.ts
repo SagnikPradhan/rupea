@@ -1,7 +1,7 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 import Timeline from '#lib/web/components/ui-chart-timeline/ui-chart-timeline.svelte';
-import { type Amount, parseAmount } from '#lib/shared/amounts.ts';
+import { type Amount, parseAmount } from '@rupea/shared/amounts.ts';
 
 const on = (d: string) => Temporal.PlainDate.from(d);
 const amount = (t: string) => parseAmount(t) as Amount;

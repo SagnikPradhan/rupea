@@ -7,7 +7,7 @@ import {
 	nestedOf,
 	totalsOf,
 } from '#lib/web/shared/invested.ts';
-import { type Amount, parseAmount } from '#lib/shared/amounts.ts';
+import { type Amount, parseAmount } from '@rupea/shared/amounts.ts';
 const amount = (t: string) => parseAmount(t) as Amount;
 
 const held = (account: string, total: string, cost: string | null, gain: string | null) => ({

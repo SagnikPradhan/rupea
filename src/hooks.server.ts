@@ -1,18 +1,18 @@
 import { dev } from '$app/env';
 import { randomUUID } from 'node:crypto';
 import { sequence, type Handle, type ServerInit } from '@sveltejs/kit/hooks';
-import { validateSession } from '#services/auth/application/auth.ts';
+import { validateSession } from '@rupea/server/services/auth/application/auth.ts';
 import {
 	deleteSessionCookie,
 	readSessionCookie,
 	setSessionCookie,
-} from '#services/auth/adapters/request.ts';
-import { provide } from '#lib/server/shared/context/context.ts';
-import { createContext, createDatabase } from '#lib/server/shared/context/environment.ts';
-import { withLogger } from '#lib/server/shared/context/logger.ts';
-import { readConfiguration } from '#lib/server/shared/context/config.ts';
-import { readTheme } from '#lib/server/shared/theme.ts';
-import { startServer, subscriptions } from '#lib/server/server.ts';
+} from '@rupea/server/services/auth/adapters/request.ts';
+import { provide } from '@rupea/server/shared/context/context.ts';
+import { createContext, createDatabase } from '@rupea/server/shared/context/environment.ts';
+import { withLogger } from '@rupea/server/shared/context/logger.ts';
+import { readConfiguration } from '@rupea/server/shared/context/config.ts';
+import { readTheme } from '#lib/web/shared/theme.ts';
+import { startServer, subscriptions } from '@rupea/server/server.ts';
 
 const config = readConfiguration(process.env);
 const database = await createDatabase(config);

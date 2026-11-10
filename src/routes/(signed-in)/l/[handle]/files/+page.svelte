@@ -15,7 +15,7 @@
 	import FileGroups from '#lib/web/components/app-file-groups/app-file-groups.svelte';
 	import FileIndex from '#lib/web/components/app-file-index/app-file-index.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
-	import type { Reply } from '#lib/server/shared/result/reply.ts';
+	import type { Reply } from '@rupea/shared/reply.ts';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { untrack } from 'svelte';

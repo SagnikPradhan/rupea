@@ -1,4 +1,4 @@
-import type { RupeaError } from '#lib/server/shared/result/error.ts';
+import type { RupeaError } from '@rupea/shared/error.ts';
 
 /**
  * Stands in for a remote query on a page: awaited for its reply, refreshed for

@@ -1,4 +1,4 @@
-import { AMOUNT_UNIT, type Amount, ZERO, divide, min, multiply } from '#lib/shared/amounts.ts';
+import { AMOUNT_UNIT, type Amount, ZERO, divide, min, multiply } from '@rupea/shared/amounts.ts';
 
 /** A yearly percent spread over twelve months. */
 const MONTHS_PERCENT = 1200n;

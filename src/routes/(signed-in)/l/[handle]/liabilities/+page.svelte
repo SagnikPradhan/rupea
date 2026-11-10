@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { listAccounts, listDeltas, listTerms } from '#lib/endpoints/accounts.remote.ts';
 	import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
-	import { printAmount } from '#lib/shared/amounts.ts';
-	import { paramsOf, periodOf, spansOf } from '#lib/shared/dates.ts';
-	import { BalanceAccount, LIABILITIES } from '#lib/shared/accounts.ts';
+	import { printAmount } from '@rupea/shared/amounts.ts';
+	import { paramsOf, periodOf, spansOf } from '@rupea/shared/dates.ts';
+	import { BalanceAccount, LIABILITIES } from '@rupea/shared/accounts.ts';
 	import { depthOf, isUnder, nameOf } from '#lib/web/shared/accounts.ts';
 	import { formatBucket, formatIsoDate, formatWhole } from '#lib/web/shared/format.ts';
 	import * as Liabilities from '#lib/web/shared/liabilities.ts';

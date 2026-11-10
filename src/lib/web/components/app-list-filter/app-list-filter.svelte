@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import type { Period } from '#lib/shared/dates.ts';
+	import type { Period } from '@rupea/shared/dates.ts';
 	import AccountPicker from '#lib/web/components/app-picker-account/app-picker-account.svelte';
 	import FilterModal from '#lib/web/components/ui-filter-modal/ui-filter-modal.svelte';
 	import PeriodPicker from '#lib/web/components/ui-picker-period/ui-picker-period.svelte';

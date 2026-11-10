@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Tooltip from '#lib/web/components/ui-tooltip/ui-tooltip.svelte';
-	import { AMOUNT_UNIT, type Amount, printAmount, toNumber } from '#lib/shared/amounts.ts';
-	import { type Bucket, bucketOf, bucketsIn } from '#lib/shared/dates.ts';
+	import { AMOUNT_UNIT, type Amount, printAmount, toNumber } from '@rupea/shared/amounts.ts';
+	import { type Bucket, bucketOf, bucketsIn } from '@rupea/shared/dates.ts';
 	import { formatAmount, formatBucket, formatMonth } from '#lib/web/shared/format.ts';
 
 	type Datum = {

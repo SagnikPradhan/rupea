@@ -5,4 +5,4 @@ timeout_seconds: 1800
 allowed_tools: [Read, Glob, Grep, Skill, Write, Bash, Agent, SendMessage]
 ---
 
-/arch-review src/lib/server/services/ledger
+/arch-review packages/server/src/services/ledger

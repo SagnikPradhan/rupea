@@ -2,7 +2,8 @@
 	"extends": ["@tsconfig/strictest", "@tsconfig/svelte", "$app/tsconfig"],
 	"include": [
 		"src",
-		"scripts",
+		"packages/shared",
+		"packages/server",
 		"lint",
 		"tests",
 		"vite.config.ts",

@@ -1,5 +1,5 @@
 import { redirect } from '@sveltejs/kit';
-import * as Ledger from '#services/ledger/application/ledger.ts';
+import * as Ledger from '@rupea/server/services/ledger/application/ledger.ts';
 import type { LayoutServerLoad } from './$types';
 
 export const load: LayoutServerLoad = async ({ locals }) => {

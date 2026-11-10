@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { saveTerms } from '#lib/endpoints/accounts.remote.ts';
-	import type { RupeaError } from '#lib/server/shared/result/error.ts';
-	import { TermsForm } from '#lib/shared/terms.ts';
+	import type { RupeaError } from '@rupea/shared/error.ts';
+	import { TermsForm } from '@rupea/shared/terms.ts';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import Field from '#lib/web/components/ui-field/ui-field.svelte';
 	import SegmentedControl from '#lib/web/components/ui-segmented-control/ui-segmented-control.svelte';

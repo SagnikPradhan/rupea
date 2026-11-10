@@ -1,5 +1,5 @@
-import { INCOME } from '#lib/shared/accounts.ts';
-import { type Amount, toNumber } from '#lib/shared/amounts.ts';
+import { INCOME } from '@rupea/shared/accounts.ts';
+import { type Amount, toNumber } from '@rupea/shared/amounts.ts';
 import { nameOf } from './accounts';
 import { OTHER, PARTS } from './chart';
 import { sumOf } from './numbers';

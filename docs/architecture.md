@@ -12,15 +12,16 @@ Files can change without Rupea knowing, through an editor or a checkout. So read
 
 ## Layout
 
-| Path                       | What it holds                                                |
-| -------------------------- | ------------------------------------------------------------ |
-| `src/routes`               | Pages                                                        |
-| `src/lib/endpoints`        | Remote functions, which is all a page can call on the server |
-| `src/lib/server/services`  | The services below                                           |
-| `src/lib/server/shared`    | What belongs to no service: context, results, storage, ONNX  |
-| `src/lib/server/db`        | The connection, migrations and query helpers                 |
-| `src/lib/server/server.ts` | Everything that runs outside a request                       |
-| `packages`                 | The website, and the theme it shares with the app            |
+| Path                              | What it holds                                                |
+| --------------------------------- | ------------------------------------------------------------ |
+| `src/routes`                      | Pages                                                        |
+| `src/lib/endpoints`               | Remote functions, which is all a page can call on the server |
+| `packages/server/src/services`    | The services below                                           |
+| `packages/server/src/shared`      | What belongs to no service: context, results, storage, ONNX  |
+| `packages/server/src/db`          | The connection, migrations and query helpers                 |
+| `packages/server/src/server.ts`   | Everything that runs outside a request                       |
+| `packages/shared`                 | Code the server and the web app both import                  |
+| `packages/theme`, `packages/site` | The theme the app shares with the website, and the website   |
 
 ## Services
 
@@ -76,7 +77,7 @@ A transaction keeps its id through this while its date, time and description sta
 
 ## Work outside a request
 
-`src/lib/server/server.ts` lists every job, subscription and loop, and `startServer` starts them.
+`packages/server/src/server.ts` lists every job, subscription and loop, and `startServer` starts them.
 
 **Event**: something a service announces it did, named in the past tense, with a valibot payload. `files-changed` says keys in a user's storage may have changed. Events are not stored, so one published as the process stops is lost ([ADR 0028](adr/0028-events-in-process.md)).
 

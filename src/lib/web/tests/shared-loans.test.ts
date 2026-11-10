@@ -5,7 +5,7 @@ import {
 	scheduleFor,
 	paidInterestOn,
 } from '#lib/web/shared/loans.ts';
-import { type Amount, parseAmount, toNumber } from '#lib/shared/amounts.ts';
+import { type Amount, parseAmount, toNumber } from '@rupea/shared/amounts.ts';
 
 const amount = (n: number) => parseAmount(String(n)) as Amount;
 

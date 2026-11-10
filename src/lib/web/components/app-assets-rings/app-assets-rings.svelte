@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Donut from '#lib/web/components/ui-chart-donut/ui-chart-donut.svelte';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
-	import { ASSETS } from '#lib/shared/accounts.ts';
+	import { ASSETS } from '@rupea/shared/accounts.ts';
 	import type { Arc } from '#lib/web/shared/rings.ts';
 
 	type Props = {

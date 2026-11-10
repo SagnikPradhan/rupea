@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
-import { type Amount, parseAmount } from '#lib/shared/amounts.ts';
+import { type Amount, parseAmount } from '@rupea/shared/amounts.ts';
 import SpendingBars from '#lib/web/components/app-spending-bars/app-spending-bars.svelte';
 
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));

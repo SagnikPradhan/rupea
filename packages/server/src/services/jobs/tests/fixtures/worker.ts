@@ -1,0 +1,10 @@
+import { fault, type RupeaError } from '@rupea/shared/error.ts';
+
+type Claimed = { payload: { word: string } };
+
+export default (c: Claimed): RupeaError | null => {
+	if (c.payload.word === 'crash') process.exit(1);
+	if (c.payload.word === 'hang') Atomics.wait(new Int32Array(new SharedArrayBuffer(4)), 0, 0);
+	if (c.payload.word === 'locked') return fault('ExtractionLocked', { path: 'a.pdf' });
+	return null;
+};

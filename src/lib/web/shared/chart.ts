@@ -1,6 +1,6 @@
 import { scaleLinear, scaleSymlog } from 'd3-scale';
 import { stack, stackOffsetDiverging, type Series } from 'd3-shape';
-import { byCodeUnit } from '#lib/shared/text.ts';
+import { byCodeUnit } from '@rupea/shared/text.ts';
 import type { Scale } from './choices';
 
 /**

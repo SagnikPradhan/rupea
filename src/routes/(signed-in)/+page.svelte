@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { BalanceAccount } from '#lib/shared/accounts.ts';
+	import { BalanceAccount } from '@rupea/shared/accounts.ts';
 	import ChoiceChips from '#lib/web/components/ui-chip-choices/ui-chip-choices.svelte';
 	import ChoicePicker from '#lib/web/components/ui-picker-choice/ui-picker-choice.svelte';
 	import FilterModal from '#lib/web/components/ui-filter-modal/ui-filter-modal.svelte';

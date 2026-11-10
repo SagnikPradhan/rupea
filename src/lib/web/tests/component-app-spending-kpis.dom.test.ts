@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
-import { type Amount, parseAmount } from '#lib/shared/amounts.ts';
+import { type Amount, parseAmount } from '@rupea/shared/amounts.ts';
 import SpendingKpis from '#lib/web/components/app-spending-kpis/app-spending-kpis.svelte';
 
 const on = (d: string) => Temporal.PlainDate.from(d);

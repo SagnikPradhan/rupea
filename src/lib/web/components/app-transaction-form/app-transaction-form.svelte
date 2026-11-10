@@ -5,9 +5,9 @@
 		deleteTransaction,
 		saveTransaction,
 	} from '#lib/endpoints/files.remote.ts';
-	import type { RupeaError } from '#lib/server/shared/result/error.ts';
-	import { TransactionForm } from '#lib/shared/transaction-form.ts';
-	import { KINDS, simpleOf, type Kind } from '#lib/shared/transaction-simple.ts';
+	import type { RupeaError } from '@rupea/shared/error.ts';
+	import { TransactionForm } from '@rupea/shared/transaction-form.ts';
+	import { KINDS, simpleOf, type Kind } from '#lib/web/shared/transaction-simple.ts';
 	import IconRemove from '@tabler/icons-svelte-runes/icons/trash';
 	import IconButton from '#lib/web/components/ui-button-icon/ui-button-icon.svelte';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';

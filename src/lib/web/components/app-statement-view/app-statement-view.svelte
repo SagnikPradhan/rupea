@@ -19,9 +19,9 @@
 		recogniseStatement,
 		unlockStatement,
 	} from '#lib/endpoints/import.remote.ts';
-	import type { RupeaError } from '#lib/server/shared/result/error.ts';
-	import type { Reply } from '#lib/server/shared/result/reply.ts';
-	import { isCounted } from '#lib/shared/folders.ts';
+	import type { RupeaError } from '@rupea/shared/error.ts';
+	import type { Reply } from '@rupea/shared/reply.ts';
+	import { isCounted } from '@rupea/shared/folders.ts';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import Field from '#lib/web/components/ui-field/ui-field.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';

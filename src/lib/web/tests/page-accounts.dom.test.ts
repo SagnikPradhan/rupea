@@ -10,7 +10,7 @@ import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
 import { openFilter } from '#tests/shared/filter.ts';
 import Page from '#routes/(signed-in)/l/[handle]/accounts/+page.svelte';
-import { type Amount, parseAmount } from '#lib/shared/amounts.ts';
+import { type Amount, parseAmount } from '@rupea/shared/amounts.ts';
 
 const amount = (t: string) => parseAmount(t) as Amount;
 

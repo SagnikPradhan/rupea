@@ -1,5 +1,5 @@
-import { ok } from '#lib/server/shared/result/result.ts';
-import * as Ledger from '#services/ledger/application/ledger.ts';
+import { ok } from '@rupea/server/shared/result/result.ts';
+import * as Ledger from '@rupea/server/services/ledger/application/ledger.ts';
 import { error, redirect } from '@sveltejs/kit';
 import type { LayoutServerLoad } from './$types';
 

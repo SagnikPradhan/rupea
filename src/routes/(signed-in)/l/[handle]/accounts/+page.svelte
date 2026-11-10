@@ -6,7 +6,7 @@
 		listReturns,
 	} from '#lib/endpoints/accounts.remote.ts';
 	import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
-	import { ASSETS } from '#lib/shared/accounts.ts';
+	import { ASSETS } from '@rupea/shared/accounts.ts';
 	import { isUnder } from '#lib/web/shared/accounts.ts';
 	import AccountsTable from '#lib/web/components/app-accounts-table/app-accounts-table.svelte';
 	import ListFilter from '#lib/web/components/app-list-filter/app-list-filter.svelte';

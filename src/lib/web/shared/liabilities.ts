@@ -1,8 +1,8 @@
-import { LIABILITIES } from '#lib/shared/accounts.ts';
-import { type Amount, ZERO, parseAmount, sum } from '#lib/shared/amounts.ts';
-import { type Bucket, type Span, bucketOf, monthlyDaysIn } from '#lib/shared/dates.ts';
-import type { Terms } from '#lib/shared/terms.ts';
-import { byCodeUnit } from '#lib/shared/text.ts';
+import { LIABILITIES } from '@rupea/shared/accounts.ts';
+import { type Amount, ZERO, parseAmount, sum } from '@rupea/shared/amounts.ts';
+import { type Bucket, type Span, bucketOf, monthlyDaysIn } from '@rupea/shared/dates.ts';
+import type { Terms } from '@rupea/shared/terms.ts';
+import { byCodeUnit } from '@rupea/shared/text.ts';
 import type * as v from 'valibot';
 import { isUnder, nameOf } from './accounts';
 import * as Loans from './loans';

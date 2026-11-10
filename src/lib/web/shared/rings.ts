@@ -1,5 +1,5 @@
-import { ASSETS } from '#lib/shared/accounts.ts';
-import { type Amount, toNumber } from '#lib/shared/amounts.ts';
+import { ASSETS } from '@rupea/shared/accounts.ts';
+import { type Amount, toNumber } from '@rupea/shared/amounts.ts';
 import { nameOf } from './accounts';
 
 type Held = { account: string; parent: string | null; total: Amount };

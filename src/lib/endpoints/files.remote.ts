@@ -1,8 +1,8 @@
-import { replyFrom, replyFromBatch } from '#lib/server/shared/result/reply.ts';
-import { ok } from '#lib/server/shared/result/result.ts';
-import { TransactionForm } from '#lib/shared/transaction-form.ts';
-import * as Auth from '#services/auth/application/auth.ts';
-import * as Files from '#services/ledger/application/files.ts';
+import { replyFrom, replyFromBatch } from '@rupea/server/shared/result/reply.ts';
+import { ok } from '@rupea/server/shared/result/result.ts';
+import { TransactionForm } from '@rupea/shared/transaction-form.ts';
+import * as Auth from '@rupea/server/services/auth/application/auth.ts';
+import * as Files from '@rupea/server/services/ledger/application/files.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
 import { Handle, inLedger, Key } from './shared';

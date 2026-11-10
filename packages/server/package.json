@@ -1,0 +1,39 @@
+{
+	"name": "@rupea/server",
+	"private": true,
+	"type": "module",
+	"exports": {
+		"./tests/*": "./tests/*",
+		"./*": "./src/*"
+	},
+	"imports": {
+		"#lib/server/*": "./src/*",
+		"#services/*": "./src/services/*"
+	},
+	"dependencies": {
+		"@rupea/shared": "workspace:*",
+		"@embedpdf/pdfium": "2.15.1",
+		"@huggingface/tokenizers": "0.2.0",
+		"chokidar": "6.0.0",
+		"csv-parse": "7.0.3",
+		"date-fns": "4.4.0",
+		"drizzle-orm": "0.45.4",
+		"kysely": "0.29.7",
+		"neverthrow": "8.2.0",
+		"officecrypto-tool": "0.0.19",
+		"onnxruntime-node": "1.31.1",
+		"pg": "8.23.1",
+		"pino": "10.4.0",
+		"portable-pg": "0.180601.0",
+		"tinypool": "2.2.0",
+		"ts-pattern": "5.9.2",
+		"unique-names-generator": "4.7.1",
+		"uuid": "14.0.3",
+		"valibot": "1.5.0",
+		"xlsx": "https://cdn.sheetjs.com/xlsx-0.20.3/xlsx-0.20.3.tgz",
+		"yaml": "2.9.1"
+	},
+	"devDependencies": {
+		"pino-pretty": "13.2.0"
+	}
+}

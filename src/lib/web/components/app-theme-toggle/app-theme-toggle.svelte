@@ -3,7 +3,7 @@
 	import IconMoon from '@tabler/icons-svelte-runes/icons/moon';
 	import IconSun from '@tabler/icons-svelte-runes/icons/sun';
 	import { toggleTheme } from '#lib/endpoints/theme.remote.ts';
-	import type { Theme } from '#lib/server/shared/theme.ts';
+	import type { Theme } from '#lib/web/shared/theme.ts';
 	import IconButton from '#lib/web/components/ui-button-icon/ui-button-icon.svelte';
 
 	const { theme }: { theme: Theme } = $props();

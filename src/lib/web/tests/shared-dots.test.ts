@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { dotsOf } from '#lib/web/shared/dots.ts';
 import { ringsOf } from '#lib/web/shared/rings.ts';
-import { type Amount, parseAmount } from '#lib/shared/amounts.ts';
+import { type Amount, parseAmount } from '@rupea/shared/amounts.ts';
 const amount = (t: string) => parseAmount(t) as Amount;
 
 const held = (account: string, parent: string | null, total: number) => ({

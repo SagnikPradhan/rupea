@@ -1,7 +1,7 @@
-import { isHandle } from '#lib/server/shared/names.ts';
-import type { ResultAsync } from '#lib/server/shared/result/result.ts';
-import * as Auth from '#services/auth/application/auth.ts';
-import * as Ledger from '#services/ledger/application/ledger.ts';
+import { isHandle } from '@rupea/server/shared/names.ts';
+import type { ResultAsync } from '@rupea/server/shared/result/result.ts';
+import * as Auth from '@rupea/server/services/auth/application/auth.ts';
+import * as Ledger from '@rupea/server/services/ledger/application/ledger.ts';
 import * as v from 'valibot';
 
 export const Handle = v.pipe(v.string(), v.check(isHandle, 'Not a ledger handle.'));

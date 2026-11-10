@@ -2,7 +2,7 @@ import { execFile } from 'node:child_process';
 import { access } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 import { promisify } from 'node:util';
-import { models } from '#lib/server/shared/onnx/models.ts';
+import { models } from '@rupea/server/shared/onnx/models.ts';
 
 export default async function globalSetup() {
 	const missing = await Promise.all(

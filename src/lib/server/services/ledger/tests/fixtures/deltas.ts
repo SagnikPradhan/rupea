@@ -9,16 +9,17 @@ import { AMOUNT_UNIT } from '../../domain/amounts';
 export const drift = async (db: Database, ledgerId: string) => {
 	const rows = await sql<{ key: string; stored: string | null; summed: string | null }>`
 		with m as (
-			select account_id, commodity, month, amount from monthly_deltas where ledger_id = ${ledgerId}
+			select account_id, commodity, month, amount, inflow, outflow from monthly_deltas where ledger_id = ${ledgerId}
 		), d as (
-			select account_id, commodity, date_trunc('month', date)::date as month, sum(amount) as amount
+			select account_id, commodity, date_trunc('month', date)::date as month, sum(amount) as amount,
+				sum(inflow) as inflow, sum(outflow) as outflow
 			from daily_deltas where ledger_id = ${ledgerId}
 			group by 1, 2, 3
 		)
 		select a.name || ' ' || commodity || ' ' || month as key, m.amount as stored, d.amount as summed
 		from m full join d using (account_id, commodity, month)
 		join accounts a on a.id = account_id
-		where m.amount is distinct from d.amount
+		where (m.amount, m.inflow, m.outflow) is distinct from (d.amount, d.inflow, d.outflow)
 		order by key`.execute(db);
 
 	return rows.rows.map((r) => `${r.key}: ${r.stored} ≠ ${r.summed}`);

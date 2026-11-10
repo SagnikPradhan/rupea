@@ -4,13 +4,18 @@ import { byPath, parentsOf } from './taxonomy';
 
 /**
  * What one account gained in the base over one bucket, from the first day it
- * changed, and how many of its amounts had no price.
+ * changed, how much came in and went out to make that, and how many of its
+ * amounts had no price.
  */
 export type Delta = {
 	account: string;
 	bucket: Temporal.PlainDate;
 	first: Temporal.PlainDate;
 	amount: Amount;
+	/** The positive postings summed. */
+	inflow: Amount;
+	/** The negative postings summed, as a positive amount. */
+	outflow: Amount;
 	unpriced: number;
 };
 
@@ -21,6 +26,8 @@ export type Total = {
 	parent: string | null;
 	first: Temporal.PlainDate;
 	amount: Amount;
+	inflow: Amount;
+	outflow: Amount;
 	unpriced: number;
 };
 
@@ -103,6 +110,8 @@ const sharesOf = (r: Delta[]) =>
 const added = (head: Delta, deltas: Delta[]) => ({
 	first: deltas.reduce((a, s) => (textOf(a) <= textOf(s.first) ? a : s.first), head.first),
 	amount: sum(deltas.map((s) => s.amount)),
+	inflow: sum(deltas.map((s) => s.inflow)),
+	outflow: sum(deltas.map((s) => s.outflow)),
 	unpriced: deltas.reduce((n, s) => n + s.unpriced, 0),
 });
 

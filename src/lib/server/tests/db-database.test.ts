@@ -147,6 +147,35 @@ describe('the database', () => {
 		expect(await count(db.selectFrom('metadata').where('transactionId', '=', tx.id))).toBe(1);
 	});
 
+	it('keeps a month amount equal to its inflow less outflow', async ({ db }) => {
+		const ledgerId = (await createLedger(db)).id;
+		const account = await db
+			.insertInto('accounts')
+			.values({ ledgerId, name: 'Assets:A', type: AccountType.Assets })
+			.returning('id')
+			.executeTakeFirstOrThrow();
+		const insert = (amount: bigint, inflow: bigint, outflow: bigint) =>
+			db
+				.insertInto('monthlyDeltas')
+				.values({
+					ledgerId,
+					accountId: account.id,
+					accountType: AccountType.Assets,
+					commodity: 'INR',
+					month: '2026-01-01',
+					amount,
+					inflow,
+					outflow,
+				})
+				.execute();
+
+		await expect(insert(5n, 5n, 1n)).rejects.toMatchObject({
+			message: /monthly_deltas_amount_is_inflow_less_outflow/,
+		});
+		await insert(4n, 5n, 1n);
+		expect(await count(db.selectFrom('monthlyDeltas').where('ledgerId', '=', ledgerId))).toBe(1);
+	});
+
 	it('removes what hangs off a row it deletes', async ({ db }) => {
 		const ledgerId = (await createLedger(db)).id;
 		await createFile(db, ledgerId);

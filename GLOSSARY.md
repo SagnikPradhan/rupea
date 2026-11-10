@@ -252,6 +252,10 @@ _Avoid_: Expenses (an account type), outflow, burn
 What one account gained in one commodity on one day: the sum of its counted postings. Reports add deltas up, valued in the base currency, so spending, income and worth are one read over different accounts. The ledger keeps them by day and by month.
 _Avoid_: Move (a transfer), change, movement
 
+**Inflow** and **Outflow**:
+The two parts of a delta: its positive counted postings summed, and its negative ones summed and made positive. A delta is inflow less outflow, so an account that was drawn on and paid off in a month has a delta of nothing and an inflow and outflow that say what happened. On Liabilities, outflow is what was drawn and inflow is what was paid. Both are gross movement, so Paid includes refunds and reversals and Drawn includes fees and interest charged to the account. This is an account's own movement, not Spending.
+_Avoid_: Debit, credit
+
 **Bucket**:
 The days a chart adds up into one bar: a day, a month or a year, set by the period.
 _Avoid_: Interval, bin, period

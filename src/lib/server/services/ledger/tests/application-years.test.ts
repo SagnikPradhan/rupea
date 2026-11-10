@@ -168,7 +168,9 @@ describe('a full reindex', () => {
 			await sql`update balance_years set balances = ''::bytea where ledger_id = ${ledger.id}`.execute(
 				db,
 			);
-			await sql`update monthly_deltas set amount = 1 where ledger_id = ${ledger.id}`.execute(db);
+			await sql`update monthly_deltas set amount = 1, inflow = 1, outflow = 0 where ledger_id = ${ledger.id}`.execute(
+				db,
+			);
 			await sql`update postings set amount = amount * 2 where ledger_id = ${ledger.id}`.execute(db);
 
 			await Sync.resyncLedger(ledger);

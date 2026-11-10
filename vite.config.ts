@@ -46,6 +46,7 @@ export default defineConfig({
 		},
 	],
 	builder: {},
+	server: { watch: { ignored: ['**/.claude/worktrees/**'] } },
 	// Coverage of the built app, as under mcr, maps back to src through the source map. Minifying
 	// rewrites ternaries and chains into branches the unit run does not have, so they do not merge.
 	build: process.env['NODE_V8_COVERAGE']

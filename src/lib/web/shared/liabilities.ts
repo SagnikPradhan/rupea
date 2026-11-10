@@ -33,7 +33,7 @@ export type Debt = {
 	loan: Loans.Loan | null;
 };
 
-type Paid = { account: string; bucket: Temporal.PlainDate; amount: Amount };
+type Paid = { account: string; bucket: Temporal.PlainDate; inflow: Amount };
 
 type Due = { account: string; on: Temporal.PlainDate; amount: Amount; interest: Amount };
 
@@ -69,20 +69,24 @@ export const debtsFrom = (owed: Balance[], terms: ListedTerms[]): Debt[] => {
 };
 
 /**
- * A row for each debt but the top one, with what it paid down over the period;
- * settled ones that did not move are left out.
+ * A row for each debt but the top one, with what it drew and paid over the
+ * period; settled ones that did not move are left out unless asked for.
  */
 export const rowsFor = (
 	debts: Debt[],
-	paid: { account: string; amount: Amount }[],
+	moved: { account: string; inflow: Amount; outflow: Amount }[],
 	settled: boolean,
 ) => {
-	const paidDown = Object.fromEntries(paid.map((p) => [p.account, p.amount]));
+	const flows = Object.fromEntries(moved.map((m) => [m.account, m]));
 	const rows = debts
 		.filter((d) => d.parent !== null)
-		.map((d) => ({ ...d, paid: paidDown[d.account] ?? ZERO }));
+		.map((d) => ({
+			...d,
+			drawn: flows[d.account]?.outflow ?? ZERO,
+			paid: flows[d.account]?.inflow ?? ZERO,
+		}));
 
-	return settled ? rows : rows.filter((r) => r.owed !== 0n || r.paid !== 0n);
+	return settled ? rows : rows.filter((r) => [r.owed, r.drawn, r.paid].some((x) => x !== 0n));
 };
 
 /**
@@ -111,7 +115,7 @@ export const duesOn = (debt: Debt, span: Span) => {
  */
 export const linesFor = (debts: Debt[], paid: Paid[], dues: Due[], bucket: Bucket) => {
 	const made = Object.groupBy(
-		paid.filter((p) => p.amount > 0n),
+		paid.filter((p) => p.inflow > 0n),
 		(p) => p.account,
 	);
 	const due = Object.groupBy(dues, (d) => d.account);
@@ -202,12 +206,12 @@ const pastPinsFor = (debt: Debt, paid: Paid[], bucket: Bucket) => {
 			: Loans.paidInterestOn(
 					debt.loan,
 					debt.owed,
-					oldestFirst.map((p) => p.amount),
+					oldestFirst.map((p) => p.inflow),
 				);
 
 	return oldestFirst.map((p, i) => ({
 		at: p.bucket,
-		amount: p.amount,
+		amount: p.inflow,
 		past: true,
 		interest: interest[i] ?? ZERO,
 	}));

@@ -40,8 +40,14 @@ type ListAccountsOptions = { ledger: Ledger; day: Temporal.PlainDate };
  */
 export const listAccounts = ({ ledger, day }: ListAccountsOptions): ResultAsync<Batch<Account>> =>
 	DB.listProblems(ledger.id).andThen((failed) =>
-		ResultAsync.combine([DB.listHoldings(ledger.id, day), DB.listAccountTree(ledger.id)])
-			.andThen(([h, tree]) => valuedOn(ledger.id, day, h).map((v) => byAccount(v, parentsIn(tree))))
+		ResultAsync.combine([
+			DB.listHoldings(ledger.id, day),
+			DB.listPosted(ledger.id, day),
+			DB.listAccountTree(ledger.id),
+		])
+			.andThen(([h, posted, tree]) =>
+				valuedOn(ledger.id, day, h).map((v) => byAccount(v, parentsIn(tree), posted)),
+			)
 			.andThen((accounts) =>
 				checkLots(ledger).map((unmatched) => ({
 					succeeded: accounts,

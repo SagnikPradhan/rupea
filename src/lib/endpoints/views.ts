@@ -118,12 +118,16 @@ export const viewDeltas = (spending: Accounts.Deltas) => ({
 		account: t.account,
 		parent: t.parent,
 		amount: t.amount,
+		inflow: t.inflow,
+		outflow: t.outflow,
 		unpriced: t.unpriced,
 	})),
 	deltas: spending.deltas.map((s) => ({
 		account: s.account,
 		bucket: s.bucket,
 		amount: s.amount,
+		inflow: s.inflow,
+		outflow: s.outflow,
 		unpriced: s.unpriced,
 	})),
 });

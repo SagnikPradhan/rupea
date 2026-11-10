@@ -41,10 +41,12 @@ const accounts = [
 	held('Assets', null, '90000'),
 ];
 
-const total = (account: string, value: string) => ({
+const total = (account: string, value: string, outflow = '0') => ({
 	account,
 	parent: null,
 	amount: amount(value),
+	inflow: amount(value),
+	outflow: amount(outflow),
 	unpriced: 0,
 });
 
@@ -52,6 +54,8 @@ const paid = (account: string, bucket: Temporal.PlainDate, value: string) => ({
 	account,
 	bucket,
 	amount: amount(value),
+	inflow: amount(value),
+	outflow: amount('0'),
 	unpriced: 0,
 });
 
@@ -103,24 +107,27 @@ describe('the liabilities page', () => {
 		expect(screen.getByText('What you owe, what is due, and when it ends')).toBeTruthy();
 	});
 
-	it('lists what is owed on each account, leaving out the root, assets and settled accounts', async () => {
+	it('lists what is owed on each account, leaving out the root and assets, and keeping settled accounts', async () => {
 		open('/l/h/liabilities');
 
 		expect(await screen.findByTitle('Liabilities:Loans:Home')).toBeTruthy();
 		expect(screen.getByTitle('Liabilities:Loans')).toBeTruthy();
 		expect(screen.getByTitle('Liabilities:Card')).toBeTruthy();
 		expect(screen.queryByTitle('Liabilities')).toBeNull();
-		expect(screen.queryByTitle('Liabilities:Old')).toBeNull();
+		expect(screen.getByTitle('Liabilities:Old')).toBeTruthy();
 		expect(screen.queryByTitle('Assets')).toBeNull();
 		expect(screen.getByText(/3,25,000 owed/)).toBeTruthy();
+		expect(screen.getByRole('columnheader', { name: 'Drawn' })).toBeTruthy();
+		expect(screen.getByRole('columnheader', { name: 'Paid' })).toBeTruthy();
 	});
 
-	it('brings back settled accounts when the filter asks for them', async () => {
-		open('/l/h/liabilities?settled=yes');
+	it('leaves out settled accounts when the filter asks for open ones only', async () => {
+		open('/l/h/liabilities?settled=no');
 		await openFilter();
 
-		expect(await screen.findByTitle('Liabilities:Old')).toBeTruthy();
-		expect(screen.getByRole('link', { name: 'Including settled' }).classList).toContain('on');
+		expect(await screen.findByTitle('Liabilities:Loans:Home')).toBeTruthy();
+		expect(screen.queryByTitle('Liabilities:Old')).toBeNull();
+		expect(screen.getByRole('link', { name: 'Open only' }).classList).toContain('on');
 	});
 
 	it('reads the liabilities over the period picked from the address', async () => {
@@ -236,6 +243,9 @@ describe('the liabilities page', () => {
 
 		const card = screen.getByTitle('Liabilities:Card').closest('tr')!;
 		expect(within(card).getByRole('link', { name: 'Set up' })).toBeTruthy();
+
+		const loans = screen.getByTitle('Liabilities:Loans').closest('tr')!;
+		expect(within(loans).queryByRole('link', { name: /^(Set up|Edit)$/ })).toBeNull();
 	});
 
 	it('opens the terms of the account asked for beside the table, with what it has now', async () => {

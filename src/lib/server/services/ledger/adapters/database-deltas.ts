@@ -138,14 +138,30 @@ export const deltasBetween = (db: Database, ledgerId: string, o: DeltasOptions) 
 	const days = (since: string, until: string) =>
 		db
 			.selectFrom('dailyDeltas as d')
-			.select(['d.accountId', 'd.accountType', 'd.commodity', 'd.date as day', 'd.amount'])
+			.select([
+				'd.accountId',
+				'd.accountType',
+				'd.commodity',
+				'd.date as day',
+				'd.amount',
+				'd.inflow',
+				'd.outflow',
+			])
 			.where('d.ledgerId', '=', ledgerId)
 			.where('d.date', '>=', since)
 			.where('d.date', '<', until);
 
 	return db
 		.selectFrom('monthlyDeltas as m')
-		.select(['m.accountId', 'm.accountType', 'm.commodity', 'm.month as day', 'm.amount'])
+		.select([
+			'm.accountId',
+			'm.accountType',
+			'm.commodity',
+			'm.month as day',
+			'm.amount',
+			'm.inflow',
+			'm.outflow',
+		])
 		.where('m.ledgerId', '=', ledgerId)
 		.where('m.month', '>=', whole?.from ?? from)
 		.where('m.month', '<', whole ? whole.after : from)
@@ -185,7 +201,16 @@ const rewrite = async (tx: Database, { ledgerId, first, after, holdings }: Rewri
 		.execute();
 	await tx
 		.insertInto('monthlyDeltas')
-		.columns(['ledgerId', 'accountId', 'accountType', 'commodity', 'month', 'amount'])
+		.columns([
+			'ledgerId',
+			'accountId',
+			'accountType',
+			'commodity',
+			'month',
+			'amount',
+			'inflow',
+			'outflow',
+		])
 		.expression(
 			tx
 				.selectFrom('dailyDeltas as d')
@@ -196,6 +221,8 @@ const rewrite = async (tx: Database, { ledgerId, first, after, holdings }: Rewri
 					'd.commodity',
 					month.as('month'),
 					e.fn.sum<bigint>('d.amount').as('amount'),
+					e.fn.sum<bigint>('d.inflow').as('inflow'),
+					e.fn.sum<bigint>('d.outflow').as('outflow'),
 				])
 				.where('d.ledgerId', '=', ledgerId)
 				.where('d.date', '>=', first)

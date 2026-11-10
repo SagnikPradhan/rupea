@@ -67,6 +67,7 @@ describe('byAccount', () => {
 				worth('Assets:Zerodha', '3', 'TCS'),
 			],
 			drawn('Assets', 'Assets:Bank', 'Assets:Bank:Savings', 'Assets:Bank-2', 'Assets:Zerodha'),
+			[],
 		);
 
 		expect(accounts.map((a) => [a.account, a.total, a.unpriced])).toEqual([
@@ -94,25 +95,42 @@ describe('byAccount', () => {
 				worth('Assets:Bank', '500'),
 			],
 			drawn('Assets'),
+			[],
 		);
 
 		expect(assets).toMatchObject({ cost: amount('49000'), gain: amount('11500') });
 	});
 
 	it('has no cost or gain when nothing under it has both', () => {
-		const [bank] = byAccount([worth('Assets', '500')], drawn('Assets'));
+		const [bank] = byAccount([worth('Assets', '500')], drawn('Assets'), []);
 		expect(bank).toMatchObject({ cost: null, gain: null });
 	});
 
 	it('draws each account under the parent it is given, leaving out one not drawn', () => {
-		const accounts = byAccount([worth('Assets:Bank:Savings', '200')], {
-			Assets: null,
-			'Assets:Bank:Savings': 'Assets',
-		});
+		const accounts = byAccount(
+			[worth('Assets:Bank:Savings', '200')],
+			{ Assets: null, 'Assets:Bank:Savings': 'Assets' },
+			[],
+		);
 
 		expect(accounts.map((a) => [a.account, a.parent])).toEqual([
 			['Assets', null],
 			['Assets:Bank:Savings', 'Assets'],
+		]);
+	});
+
+	it('lists a settled account holding nothing, with a total of 0', () => {
+		const accounts = byAccount(
+			[worth('Liabilities:Card:Axis', '700')],
+			drawn('Liabilities', 'Liabilities:Card', 'Liabilities:Card:Axis', 'Liabilities:Card:IDFC'),
+			['Liabilities:Card:IDFC'],
+		);
+
+		expect(accounts.map((a) => [a.account, a.total, a.holdings.length])).toEqual([
+			['Liabilities', amount('700'), 0],
+			['Liabilities:Card', amount('700'), 0],
+			['Liabilities:Card:Axis', amount('700'), 1],
+			['Liabilities:Card:IDFC', amount('0'), 0],
 		]);
 	});
 });

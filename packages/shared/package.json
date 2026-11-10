@@ -1,6 +1,7 @@
 {
 	"name": "@rupea/shared",
 	"private": true,
+	"license": "MIT",
 	"type": "module",
 	"exports": {
 		"./*": "./src/*"

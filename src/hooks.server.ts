@@ -9,7 +9,7 @@ import {
 } from '#lib/endpoints/session.ts';
 import { readTheme } from '#lib/web/shared/theme.ts';
 
-const API_URL = process.env['RUPEA_API_URL'] ?? 'http://localhost:3000/api';
+const API_URL = process.env['RUPEA_API_URL'] ?? 'http://127.0.0.1:3001/api';
 
 const restore = async (event: RequestEvent, token: string) => {
 	const found = await replyFromCall(event.locals.api.findUser());

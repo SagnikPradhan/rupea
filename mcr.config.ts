@@ -13,7 +13,8 @@ export default {
 	name: 'e2e',
 	outputDir: 'coverage/e2e',
 	reports: ['lcovonly'],
-	entryFilter: (e) => /\/build\/server\/|\/_app\/immutable\//.test(e.url),
+	entryFilter: (e) =>
+		/\/build\/server\/|\/packages\/server\/dist\/|\/_app\/immutable\//.test(e.url),
 	sourceFilter: (p) => !p.includes('node_modules') && existsSync(inRepo(p)),
 	sourcePath: inRepo,
 	outputFilter: { 'src/**': true, 'packages/*/src/**': true },

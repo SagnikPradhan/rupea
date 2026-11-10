@@ -8,6 +8,8 @@ describe('the configuration', () => {
 
 	it('reads each variable into the field it names', () => {
 		const env = {
+			RUPEA_SERVER_HOST: '0.0.0.0',
+			RUPEA_SERVER_PORT: '8080',
 			RUPEA_MODELS_THREADS: '3',
 			RUPEA_JOBS_WORKERS: '0',
 			RUPEA_LEDGER_DATE_FORMATS: 'yyyy-MM-dd | d MMM yyyy',
@@ -15,6 +17,7 @@ describe('the configuration', () => {
 		};
 
 		expect(readConfiguration(env)).toMatchObject({
+			server: { host: '0.0.0.0', port: 8080 },
 			models: { threads: 3 },
 			jobs: { workers: 0 },
 			ledger: { dateFormats: ['yyyy-MM-dd', 'd MMM yyyy'] },
@@ -23,8 +26,14 @@ describe('the configuration', () => {
 	});
 
 	it('names every field it refuses', () => {
-		const env = { RUPEA_MODELS_THREADS: 'many', RUPEA_LEDGER_DATE_FORMATS: 'MM/yyyy' };
+		const env = {
+			RUPEA_SERVER_PORT: '70000',
+			RUPEA_MODELS_THREADS: 'many',
+			RUPEA_LEDGER_DATE_FORMATS: 'MM/yyyy',
+		};
 
-		expect(() => readConfiguration(env)).toThrow(/models\.threads[\s\S]*ledger\.dateFormats/);
+		expect(() => readConfiguration(env)).toThrow(
+			/server\.port[\s\S]*models\.threads[\s\S]*ledger\.dateFormats/,
+		);
 	});
 });

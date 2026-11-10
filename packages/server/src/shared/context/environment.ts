@@ -15,21 +15,8 @@ const createStorages = (c: RupeaConfiguration): Storages => ({
 	local: byUser(localStorage(resolve(c.storage.files))),
 });
 
-/**
- * Kept across dev reloads, since a second embedded server on the same directory
- * fails to start.
- */
-export const createDatabase = (c: RupeaConfiguration): Promise<DatabaseHandle> => {
-	const kept: Promise<DatabaseHandle> | undefined = import.meta.hot?.data.database;
-	if (kept) return kept;
-
-	const handle = openDatabase({
-		url: c.storage.database,
-		directory: resolve(c.storage.files, 'postgres'),
-	});
-	if (import.meta.hot) import.meta.hot.data.database = handle;
-	return handle;
-};
+export const createDatabase = (c: RupeaConfiguration): Promise<DatabaseHandle> =>
+	openDatabase({ url: c.storage.database, directory: resolve(c.storage.files, 'postgres') });
 
 export const createContext = (
 	config: RupeaConfiguration,

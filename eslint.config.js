@@ -10,14 +10,7 @@ import { localNameLength } from './lint/local-name-length.ts';
 import { packageBoundaries } from './lint/package-boundaries.ts';
 import { testLocation } from './lint/test-location.ts';
 
-const webMayImportServer = [
-	'src/app.d.ts',
-	'src/hooks.server.ts',
-	'src/lib/endpoints/**/*.ts',
-	'src/routes/**/+layout.server.ts',
-	'tests/e2e/support/*.ts',
-	'tests/shared/app-server.ts',
-];
+const webMayImportServer = ['tests/e2e/support/*.ts'];
 
 const rupea = {
 	rules: {
@@ -37,6 +30,7 @@ export default defineConfig(
 		'coverage/',
 		'.claude/',
 		'packages/site/dist/',
+		'packages/server/dist/',
 		'packages/site/.astro/',
 	]),
 	js.configs.recommended,

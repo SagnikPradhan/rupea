@@ -1,3 +1,4 @@
+import { createApi } from '#lib/server/api/api.ts';
 import type { DatabaseHandle } from '#lib/server/db/index.ts';
 import type { Subscription } from '#services/events/application/events.ts';
 import { handlers as extraction } from '#services/extraction/adapters/jobs.ts';
@@ -6,21 +7,8 @@ import { startWorkers } from '#services/jobs/application/orchestrator.ts';
 import { handlers as ledger } from '#services/ledger/adapters/jobs.ts';
 import { syncChanged } from '#services/ledger/adapters/subscriptions.ts';
 import { publishChanges } from '#services/storage/application/changes.ts';
-import { resolve } from 'node:path';
-import { fileURLToPath } from 'node:url';
-import type { ViteHotContext } from 'vite/types/hot.d.ts';
 import type { RupeaContext } from './shared/context/context';
 import { startLoops, type Loop } from './shared/loops';
-
-/**
- * Worker entries: `vite dev` watches one into .svelte-kit under the project
- * root, where it runs, and the build puts the other beside build/server,
- * relative to this module.
- */
-const WORKER = {
-	dev: resolve('.svelte-kit/worker/worker.js'),
-	built: fileURLToPath(new URL('../../worker/worker.js', import.meta.url)),
-};
 
 /** Every job a server claims and a worker runs. */
 export const handlers: Handler<unknown>[] = [...extraction, ...ledger];
@@ -32,51 +20,72 @@ export const subscriptions: Subscription<unknown>[] = [syncChanged];
 const loops: Loop[] = [publishChanges];
 
 type ServerOptions = {
+	/** The built entry that workers run. */
+	worker: string;
 	database: DatabaseHandle;
 	context: RupeaContext;
 	dev: boolean;
 };
 
+type Step = { name: string; stop: () => Promise<void> };
+
 /**
- * Starts the jobs and loops; a dev reload kills the last reload's, and shutdown
- * stops them gracefully.
+ * Migrates, starts the jobs and loops and listens for requests. The stop it
+ * returns refuses new requests first and closes the database last. When a step
+ * fails, what already started stops in that order before it rejects.
  */
-export const startServer = async (o: ServerOptions) => {
-	await import.meta.hot?.data.kill?.();
+export const startServer = (o: ServerOptions) => {
+	const started: Step[] = [{ name: 'database', stop: () => o.database.close() }];
+
+	return start(o, started).catch(async (error: unknown) => {
+		await stopAll(started, o.context).catch(() => undefined);
+		return Promise.reject(error);
+	});
+};
+
+/** Adds each step to `started` as it comes up, the last to stop first. */
+const start = async (o: ServerOptions, started: Step[]) => {
 	await o.database.migrate();
 
 	const workers = startWorkers({
-		entry: o.dev ? WORKER.dev : WORKER.built,
+		entry: o.worker,
 		execArgv: [],
 		env: workerEnv(o),
 		context: o.context,
 		handlers,
 		ready: modelsReady(o.context),
 	});
-	const halt = startLoops(o.context, loops);
+	started.unshift({ name: 'workers', stop: workers.stop });
 
-	if (import.meta.hot)
-		watchBuilds(import.meta.hot, {
-			kill: () => halt().then(workers.kill),
-			recycle: workers.recycle,
-		});
-	if (!import.meta.hot)
-		process.once('sveltekit:shutdown', () => halt().then(workers.stop).then(o.database.close));
+	const halt = startLoops(o.context, loops);
+	started.unshift({ name: 'loops', stop: halt });
+
+	const api = await createApi(o.context);
+	started.unshift({ name: 'api', stop: () => api.close() });
+
+	const { host, port } = o.context.config.server;
+	await api.listen({ host, port });
+
+	return {
+		/**
+		 * The port it listens on, which differs from the configured one when that
+		 * is 0.
+		 */
+		port: (api.server.address() as { port: number }).port,
+		/** Stops every step, logs those that fail, then rejects if any did. */
+		stop: () => stopAll(started, o.context),
+	};
 };
 
-/**
- * Replaces the last reload's handlers, which would recycle workers it already
- * killed.
- */
-const watchBuilds = (
-	hot: ViteHotContext,
-	workers: { kill: () => Promise<void>; recycle: () => Promise<void> },
-) => {
-	if (hot.data.recycle) hot.off('rupea:worker-built', hot.data.recycle);
+const stopAll = async (steps: Step[], c: RupeaContext) => {
+	const failures: unknown[] = [];
+	for (const step of steps)
+		await step.stop().catch((error: unknown) => {
+			c.logger.error({ error, step: step.name }, 'step failed to stop');
+			failures.push(error);
+		});
 
-	hot.data.kill = workers.kill;
-	hot.data.recycle = () => void workers.recycle();
-	hot.on('rupea:worker-built', hot.data.recycle);
+	if (failures.length > 0) return Promise.reject(new AggregateError(failures, 'stopping failed'));
 };
 
 /**

@@ -10,6 +10,7 @@ export type RupeaConfiguration = v.InferOutput<typeof configuration>;
 export type LedgerConfiguration = RupeaConfiguration['ledger'];
 
 export const defaultConfiguration: RupeaConfiguration = {
+	server: { host: '127.0.0.1', port: 3001 },
 	storage: { database: null, files: 'data' },
 	models: { dir: 'data/models', mode: 'download', threads: QUARTER_OF_CORES },
 	jobs: { workers: 1 },
@@ -31,6 +32,7 @@ const fromEnv = (env: NodeJS.ProcessEnv) => {
 			.map((f) => f.trim());
 
 	return {
+		server: { host: read('RUPEA_SERVER_HOST'), port: number('RUPEA_SERVER_PORT') },
 		storage: { database: read('DATABASE_URL'), files: read('RUPEA_STORAGE_FILES') },
 		models: {
 			dir: read('RUPEA_MODELS_DIR'),
@@ -75,6 +77,10 @@ const formats = (check: (format: string) => boolean, pinned: string) =>
 	);
 
 const configuration = v.object({
+	server: v.object({
+		host: text,
+		port: v.pipe(v.number(), v.integer(), v.minValue(0), v.maxValue(65535)),
+	}),
 	storage: v.object({ database: v.nullable(v.string()), files: text }),
 	models: v.object({ dir: text, mode: v.picklist(['download', 'verify']), threads: count(1) }),
 	jobs: v.object({ workers: count(0) }),

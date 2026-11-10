@@ -18,5 +18,7 @@ export default async function globalSetup() {
 			`Missing models ${missing.flat().join(', ')} in data/models. Run 'pnpm models' to download them.`,
 		);
 
-	await promisify(execFile)('node_modules/.bin/vite', ['build']);
+	const build = (...args: string[]) =>
+		promisify(execFile)('node_modules/.bin/vite', ['build', ...args]);
+	await Promise.all([build(), build('--config', 'packages/server/vite.config.ts')]);
 }

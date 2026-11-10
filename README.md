@@ -94,4 +94,4 @@ Domain terms are in [GLOSSARY.md](GLOSSARY.md), decisions in [docs/adr](docs/adr
 
 ## License
 
-[MIT](LICENSE)
+[AGPL-3.0](LICENSE). If you run a modified Rupea as a service, you share your changes with its users. Contributions are signed off, see [CONTRIBUTING.md](CONTRIBUTING.md).

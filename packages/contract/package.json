@@ -1,0 +1,14 @@
+{
+	"name": "@rupea/contract",
+	"private": true,
+	"license": "MIT",
+	"type": "module",
+	"exports": {
+		"./*": "./src/*"
+	},
+	"dependencies": {
+		"@orpc/contract": "1.16.2",
+		"@rupea/shared": "workspace:*",
+		"valibot": "1.5.0"
+	}
+}

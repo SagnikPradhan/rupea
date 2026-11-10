@@ -1,5 +1,4 @@
 import { withContext } from '#lib/server/shared/context/context.ts';
-import { withLogger } from '#lib/server/shared/context/logger.ts';
 import { sha256 } from '#lib/server/shared/hash.ts';
 import { petName } from '#lib/server/shared/names.ts';
 import { fault } from '@rupea/shared/error.ts';
@@ -13,14 +12,10 @@ import {
 } from '#lib/server/shared/result/result.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import * as DB from '../adapters/database';
-import {
-	deleteSessionCookie,
-	readSessionCookie,
-	requestUser,
-	setSessionCookie,
-} from '../adapters/request';
+import { requestUser } from '../adapters/request';
 import { codeMatches, newCode, newSession, sessionState } from '../domain/credentials';
 
+export { runAs } from '../adapters/request';
 export { normalizeEmail } from '../domain/credentials';
 
 export type User = DB.User;
@@ -47,7 +42,10 @@ export const requestCode = (email: string): ResultAsync<void> =>
 
 type SignInOptions = { email: string; code: string };
 
-export const signIn = ({ email, code }: SignInOptions): ResultAsync<void> =>
+export const signIn = ({
+	email,
+	code,
+}: SignInOptions): ResultAsync<{ token: string; expiresAt: Date }> =>
 	DB.takeEmailCode(email)
 		.andThen((s) => (codeMatches(s, code, Date.now()) ? ok() : err(fault('AuthInvalidCode'))))
 		.andThen(() => findOrCreateUser(email))
@@ -57,12 +55,12 @@ export const signIn = ({ email, code }: SignInOptions): ResultAsync<void> =>
 				tokenHash: session.tokenHash,
 				userId: user.id,
 				expiresAt: session.expiresAt,
-			}).map(() => setSessionCookie(session.token, session.expiresAt));
+			}).map(() => ({ token: session.token, expiresAt: session.expiresAt }));
 		});
 
-export const validateSession = (
-	token: string,
-): ResultAsync<{ user: User; expiresAt: Date } | null> => {
+export type Session = { user: User; expiresAt: Date; extended: boolean };
+
+export const validateSession = (token: string): ResultAsync<Session | null> => {
 	const tokenHash = sha256(token);
 	return DB.findSession(tokenHash).andThen((found) => {
 		if (!found) return okAsync(null);
@@ -71,26 +69,27 @@ export const validateSession = (
 		const state = sessionState(found.session.expiresAt, Date.now());
 
 		if (state.type === 'expired') return DB.deleteSession(tokenHash).map(() => null);
-		if (state.type === 'valid') return okAsync({ user, expiresAt: found.session.expiresAt });
+		if (state.type === 'valid')
+			return okAsync({ user, expiresAt: found.session.expiresAt, extended: false });
 		return DB.extendSession(tokenHash, state.expiresAt).map(() => ({
 			user,
 			expiresAt: state.expiresAt,
+			extended: true,
 		}));
 	});
 };
 
-export const signOut = (): ResultAsync<void> => {
-	const token = readSessionCookie();
-	const deleted = token ? DB.deleteSession(sha256(token)) : okAsync();
-	return deleted
-		.orElse((error) => {
-			withLogger('auth')((l) => l.error({ error }, 'sign-out failed'));
-			return ok();
-		})
-		.map(() => {
-			deleteSessionCookie();
-		});
-};
+export const findSession = (token: string): ResultAsync<Session | null> =>
+	DB.findSession(sha256(token)).map((found) => {
+		if (!found) return null;
+
+		const expiresAt = found.session.expiresAt;
+		return expiresAt.getTime() > Date.now()
+			? { user: found.user, expiresAt, extended: false }
+			: null;
+	});
+
+export const signOut = (t: string): ResultAsync<void> => DB.deleteSession(sha256(t));
 
 export const withCurrentUser = <T>(
 	use: (user: User) => Result<T> | ResultAsync<T>,

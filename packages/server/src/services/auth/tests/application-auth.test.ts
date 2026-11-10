@@ -9,23 +9,12 @@ import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 import * as DB from '#services/auth/adapters/database.ts';
 import * as Auth from '#services/auth/application/auth.ts';
 
-type Cookie = { value: string; options: Record<string, unknown> };
-
 const request = vi.hoisted(() => ({
-	cookies: new Map<string, Cookie>(),
 	locals: { user: null as Auth.User | null },
 }));
 
 vi.mock('$app/server', () => ({
-	getRequestEvent: () => ({
-		cookies: {
-			get: (name: string) => request.cookies.get(name)?.value,
-			set: (name: string, value: string, options: Record<string, unknown>) =>
-				request.cookies.set(name, { value, options }),
-			delete: (name: string) => request.cookies.delete(name),
-		},
-		locals: request.locals,
-	}),
+	getRequestEvent: () => ({ locals: request.locals }),
 }));
 
 const MINUTE = 60 * 1000;
@@ -51,7 +40,7 @@ const signup = (context: RupeaContext, signup: 'open' | 'closed') => ({
 
 const later = (ms: number) => vi.setSystemTime(Date.now() + ms);
 
-// Signs in through a mailed code, leaving the session in the cookie jar.
+// Signs in through a mailed code, giving the session it starts.
 const signIn = (context: RupeaContext, email: string) => {
 	const mail = inbox();
 	return provide({ ...signup(context, 'open'), mailer: mail.mailer }, () =>
@@ -60,7 +49,6 @@ const signIn = (context: RupeaContext, email: string) => {
 };
 
 beforeEach(() => {
-	request.cookies.clear();
 	request.locals.user = null;
 	vi.useFakeTimers({ toFake: ['Date'] });
 	vi.setSystemTime(new Date('2026-10-10T09:00:00Z'));
@@ -120,18 +108,12 @@ describe('requesting a code', () => {
 });
 
 describe('signing in', () => {
-	it('creates the user and starts a session in a secure cookie', ({ context }) =>
+	it('creates the user and starts a session of thirty days', ({ context }) =>
 		provide(context, async () => {
-			expect((await signIn(context, 'new@example.com')).isOk()).toBe(true);
+			const { token, expiresAt } = (await signIn(context, 'new@example.com'))._unsafeUnwrap();
 
-			const cookie = request.cookies.get('session');
-			expect(cookie?.options).toMatchObject({
-				path: '/',
-				httpOnly: true,
-				sameSite: 'lax',
-				expires: new Date(Date.now() + 30 * DAY),
-			});
-			const session = (await Auth.validateSession(cookie!.value)).unwrapOr(null);
+			const session = (await Auth.validateSession(token)).unwrapOr(null);
+			expect(expiresAt).toEqual(new Date(Date.now() + 30 * DAY));
 			expect(session?.user.email).toBe('new@example.com');
 		}));
 
@@ -160,7 +142,6 @@ describe('signing in', () => {
 			});
 
 			expect(signedIn.isOk()).toBe(true);
-			expect(request.cookies.has('session')).toBe(true);
 		}));
 
 	it('uses up a code on a wrong guess', ({ context }) =>
@@ -177,7 +158,6 @@ describe('signing in', () => {
 
 			expect(guessed._unsafeUnwrapErr().type).toBe('AuthInvalidCode');
 			expect(retried._unsafeUnwrapErr().type).toBe('AuthInvalidCode');
-			expect(request.cookies.has('session')).toBe(false);
 		}));
 
 	it('refuses a code after ten minutes', ({ context }) =>
@@ -216,19 +196,18 @@ describe('validating a session', () => {
 
 	it('keeps a fresh session as it is', ({ context }) =>
 		provide(context, async () => {
-			await signIn(context, 'fresh@example.com');
-			const cookie = request.cookies.get('session')!;
+			const started = (await signIn(context, 'fresh@example.com'))._unsafeUnwrap();
 			later(14 * DAY);
 
-			const session = (await Auth.validateSession(cookie.value)).unwrapOr(null);
+			const session = (await Auth.validateSession(started.token)).unwrapOr(null);
 
-			expect(session?.expiresAt).toEqual(cookie.options['expires']);
+			expect(session?.expiresAt).toEqual(started.expiresAt);
+			expect(session?.extended).toBe(false);
 		}));
 
 	it('renews a session past half its life, and remembers the renewal', ({ context }) =>
 		provide(context, async () => {
-			await signIn(context, 'renew@example.com');
-			const token = request.cookies.get('session')!.value;
+			const { token } = (await signIn(context, 'renew@example.com'))._unsafeUnwrap();
 			later(16 * DAY);
 			const renewed = new Date(Date.now() + 30 * DAY);
 
@@ -237,13 +216,13 @@ describe('validating a session', () => {
 			const again = (await Auth.validateSession(token)).unwrapOr(null);
 
 			expect(session?.expiresAt).toEqual(renewed);
+			expect(session?.extended).toBe(true);
 			expect(again?.user.email).toBe('renew@example.com');
 		}));
 
 	it('ends an expired session for good', ({ context }) =>
 		provide(context, async () => {
-			await signIn(context, 'expired@example.com');
-			const token = request.cookies.get('session')!.value;
+			const { token } = (await signIn(context, 'expired@example.com'))._unsafeUnwrap();
 			later(30 * DAY + 1);
 
 			expect((await Auth.validateSession(token)).unwrapOr(undefined)).toBeNull();
@@ -253,36 +232,56 @@ describe('validating a session', () => {
 		}));
 });
 
-describe('signing out', () => {
-	it('ends the session and drops the cookie', ({ context }) =>
+describe('finding a session', () => {
+	it('names the user without renewing a session past half its life', ({ context }) =>
 		provide(context, async () => {
-			await signIn(context, 'leaving@example.com');
-			const token = request.cookies.get('session')!.value;
+			const { token, expiresAt } = (await signIn(context, 'peek@example.com'))._unsafeUnwrap();
+			later(16 * DAY);
 
-			expect((await Auth.signOut()).isOk()).toBe(true);
+			const found = (await Auth.findSession(token)).unwrapOr(null);
+			const again = (await Auth.findSession(token)).unwrapOr(null);
 
-			expect(request.cookies.has('session')).toBe(false);
+			expect(found).toMatchObject({ user: { email: 'peek@example.com' }, expiresAt });
+			expect(found?.extended).toBe(false);
+			expect(again?.expiresAt).toEqual(expiresAt);
+		}));
+
+	it('knows nothing of an unknown or an expired token', ({ context }) =>
+		provide(context, async () => {
+			const { token } = (await signIn(context, 'gone@example.com'))._unsafeUnwrap();
+			later(30 * DAY + 1);
+
+			expect((await Auth.findSession('unknown')).unwrapOr(undefined)).toBeNull();
+			expect((await Auth.findSession(token)).unwrapOr(undefined)).toBeNull();
+		}));
+});
+
+describe('signing out', () => {
+	it('ends the session', ({ context }) =>
+		provide(context, async () => {
+			const { token } = (await signIn(context, 'leaving@example.com'))._unsafeUnwrap();
+
+			expect((await Auth.signOut(token)).isOk()).toBe(true);
+
 			expect((await Auth.validateSession(token)).unwrapOr(undefined)).toBeNull();
 		}));
 
-	it('succeeds without a session', ({ context }) =>
+	it('succeeds for a token with no session', ({ context }) =>
 		provide(context, async () => {
-			expect((await Auth.signOut()).isOk()).toBe(true);
+			expect((await Auth.signOut('unknown')).isOk()).toBe(true);
 		}));
 
-	it('drops the cookie even when the session cannot be deleted', ({ context, db }) =>
+	it('returns the error when the session cannot be deleted', ({ context, db }) =>
 		provide(context, async () => {
-			await signIn(context, 'stuck@example.com');
-			const token = request.cookies.get('session')!.value;
+			const { token } = (await signIn(context, 'stuck@example.com'))._unsafeUnwrap();
 			const failing = vi.spyOn(db, 'deleteFrom').mockImplementation(() => {
 				throw new Error('database down');
 			});
 
-			const signedOut = await Auth.signOut();
+			const signedOut = await Auth.signOut(token);
 			failing.mockRestore();
 
-			expect(signedOut.isOk()).toBe(true);
-			expect(request.cookies.has('session')).toBe(false);
+			expect(signedOut.isErr()).toBe(true);
 			expect((await Auth.validateSession(token)).unwrapOr(null)).not.toBeNull();
 		}));
 });
@@ -306,5 +305,41 @@ describe('acting as the current user', () => {
 			const result = await Auth.withCurrentUser((u) => okAsync(u.email));
 
 			expect(result.unwrapOr(null)).toBe('me@example.com');
+		}));
+
+	it('prefers the user an API call runs as to the request event', ({ context }) =>
+		provide(context, async () => {
+			request.locals.user = { id: 'u1', email: 'web@example.com', username: 'web' };
+			const api = { id: 'u2', email: 'api@example.com', username: 'api' };
+
+			const result = await Auth.runAs(api, () => Auth.withCurrentUser((u) => okAsync(u.email)));
+
+			expect(result.unwrapOr(null)).toBe('api@example.com');
+		}));
+
+	it('keeps the user of an API call from a web call running at the same time', ({ context }) =>
+		provide(context, async () => {
+			request.locals.user = { id: 'u1', email: 'web@example.com', username: 'web' };
+			const api = { id: 'u2', email: 'api@example.com', username: 'api' };
+			const emailNow = () => Auth.withCurrentUser((u) => okAsync(u.email));
+			const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+			const apiCall = Auth.runAs(api, async () => {
+				await tick();
+				const before = await emailNow();
+				await tick();
+				return [before, await emailNow()];
+			});
+			const webCall = (async () => {
+				await tick();
+				const during = await emailNow();
+				await tick();
+				return [during, await emailNow()];
+			})();
+
+			const [fromApi, fromWeb] = await Promise.all([apiCall, webCall]);
+
+			expect(fromApi.map((r) => r.unwrapOr(null))).toEqual(['api@example.com', 'api@example.com']);
+			expect(fromWeb.map((r) => r.unwrapOr(null))).toEqual(['web@example.com', 'web@example.com']);
 		}));
 });

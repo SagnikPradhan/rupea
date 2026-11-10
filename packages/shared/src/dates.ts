@@ -1,13 +1,54 @@
 import * as v from 'valibot';
 
 /**
+ * An ISO date only has the right shape, so 2026-02-30 passes it; a day that
+ * exists comes back the same.
+ */
+const exists = (d: string) =>
+	!Number.isNaN(Date.parse(d)) && new Date(d).toISOString().startsWith(d);
+
+/** An ISO day that exists, kept as text. */
+const IsoDay = v.pipe(v.string(), v.isoDate(), v.check(exists));
+
+const DAY = 'A calendar day as an ISO date, such as 2026-10-21.';
+
+/**
  * A day as the viewer's calendar shows it, sent as an ISO date like
  * `2026-10-21`.
  */
 export const Day = v.pipe(
+	IsoDay,
+	v.transform((d) => Temporal.PlainDate.from(d)),
+	v.description(DAY),
+);
+
+/** A day going out, written the way Day reads it back. */
+export const DayOut = v.pipe(
+	v.custom<Temporal.PlainDate>((d) => d instanceof Temporal.PlainDate),
+	v.transform((d) => d.toString()),
 	v.string(),
 	v.isoDate(),
-	v.transform((d) => Temporal.PlainDate.from(d)),
+	v.description(DAY),
+);
+
+const INSTANT = 'A moment as an ISO timestamp in UTC, such as 2026-10-21T09:30:00Z.';
+
+/** A moment sent as an ISO timestamp like `2026-10-21T09:30:00Z`. */
+export const Instant = v.pipe(
+	v.string(),
+	v.isoTimestamp(),
+	v.check((t) => exists(t.slice(0, 10))),
+	v.transform((t) => Temporal.Instant.from(t)),
+	v.description(INSTANT),
+);
+
+/** A moment going out, written the way Instant reads it back. */
+export const InstantOut = v.pipe(
+	v.custom<Temporal.Instant>((i) => i instanceof Temporal.Instant),
+	v.transform((i) => i.toString()),
+	v.string(),
+	v.isoTimestamp(),
+	v.description(INSTANT),
 );
 
 /** The first day of all of history, which a ledger starts long after. */
@@ -35,16 +76,6 @@ const YEAR_NAME = /^\d{4}$/;
 /** Bars by the day up to a month, and by the month up to three years. */
 const MOST_DAYS = 31;
 const MOST_MONTHS = 36;
-
-/**
- * An ISO date only has the right shape, so 2026-02-30 passes it; a day that
- * exists comes back the same.
- */
-const exists = (d: string) =>
-	!Number.isNaN(Date.parse(d)) && new Date(d).toISOString().startsWith(d);
-
-/** An ISO day that exists, kept as text. */
-const IsoDay = v.pipe(v.string(), v.isoDate(), v.check(exists));
 
 /**
  * What a page of a ledger's history covers: a calendar month or year, all of

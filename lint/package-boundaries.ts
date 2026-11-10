@@ -1,10 +1,11 @@
 import { dirname, relative, resolve, sep } from 'node:path';
 import { ESLintUtils, type TSESTree } from '@typescript-eslint/utils';
 
-type Place = 'shared' | 'server' | 'web';
+type Place = 'shared' | 'contract' | 'server' | 'web';
 
 const SPECIFIERS: Record<string, Place> = {
 	'@rupea/shared/': 'shared',
+	'@rupea/contract/': 'contract',
 	'@rupea/server/': 'server',
 	'#lib/server/': 'server',
 	'#services/': 'server',
@@ -14,7 +15,8 @@ const SPECIFIERS: Record<string, Place> = {
 };
 
 const FORBIDDEN: Record<Place, Place[]> = {
-	shared: ['server', 'web'],
+	shared: ['contract', 'server', 'web'],
+	contract: ['server', 'web'],
 	server: ['web'],
 	web: ['server'],
 };
@@ -71,6 +73,7 @@ export const packageBoundaries = createRule({
 const placeOf = (cwd: string, path: string): Place | null => {
 	const inRepo = relative(cwd, path).split(sep).join('/');
 	if (inRepo.startsWith('packages/shared/')) return 'shared';
+	if (inRepo.startsWith('packages/contract/')) return 'contract';
 	if (inRepo.startsWith('packages/server/')) return 'server';
 	if (inRepo.startsWith('packages/')) return null;
 	return 'web';

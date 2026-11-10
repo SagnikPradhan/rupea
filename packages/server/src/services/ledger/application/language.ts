@@ -16,6 +16,7 @@ export {
 	DisposalKind,
 	LotOrigin,
 	PriceKind,
+	ProblemKind,
 	type RupeaMetadata,
 	type RupeaParseLocation,
 	type RupeaTransaction,

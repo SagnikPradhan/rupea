@@ -1,80 +1,129 @@
-// Parse locations are pre-rendered (`file:line`) to keep this free of domain imports.
-export type RupeaError =
-	| { type: 'CannotReadDirectory'; path: string; cause?: RupeaError[] }
-	| { type: 'CannotReadFile'; path: string; reason: string; cause?: RupeaError[] }
-	| { type: 'CannotMergeFile'; path: string }
-	| { type: 'CannotWriteTransaction'; path: string }
-	| { type: 'CannotWriteTerms'; path: string }
-	| { type: 'TransactionNotFound'; path: string; line: number }
-	| { type: 'StorageInvalidKey'; key: string }
-	| { type: 'StorageNotFound'; key: string }
-	| { type: 'StorageConflict'; key: string; expected: string | null; actual: string | null }
-	| { type: 'AuthInvalidCode' }
-	| { type: 'AuthUnauthenticated' }
-	| { type: 'StorageMissing'; userId: string }
-	| { type: 'LedgerNotFound'; handle: string }
-	| { type: 'NameTaken'; name: string }
-	| { type: 'UniqueViolation'; constraint: string }
-	| { type: 'ParseInvalidTransactionHeader'; location: string }
-	| { type: 'ParseMissingTransactionBody'; location: string }
-	| { type: 'ParseInvalidPosting'; location: string }
-	| { type: 'ParseInvalidAccount'; location: string; account: string }
-	| { type: 'ParseUnbalancedTransaction'; location: string; residual: string }
-	| { type: 'ParseMultipleImplicitPostings'; location: string }
-	| { type: 'ParseInvalidMetadata'; location: string }
-	| { type: 'ParseDetachedMetadata'; location: string }
-	| { type: 'ParseInvalidPrice'; location: string }
-	| { type: 'ParseUnknownFeed'; location: string; feed: string }
-	| { type: 'ParseInvalidAccountLine'; location: string }
-	| { type: 'AccountRepeated'; location: string; account: string }
-	| { type: 'LinkRepeated'; location: string; commodity: string }
-	| { type: 'FeedUnavailable'; feed: string; symbol: string; status?: number }
-	| { type: 'FeedSymbolUnknown'; feed: string; symbol: string }
-	| { type: 'FeedInvalidResponse'; feed: string; symbol: string; reason: string }
-	| { type: 'GroupInvalidMembership'; location: string }
-	| { type: 'GroupStale'; location: string }
-	| { type: 'GroupIdTaken'; group: string }
-	| { type: 'GroupWithoutPrimary'; group: string; location: string }
-	| { type: 'GroupWithManyPrimaries'; group: string; location: string }
+import * as v from 'valibot';
+
+const str = v.string();
+const num = v.number();
+const strs = v.array(v.string());
+const causes = v.optional(v.array(v.lazy(() => RupeaError)));
+
+const Plain = v.variant('type', [
+	v.object({ type: v.literal('CannotMergeFile'), path: str }),
+	v.object({ type: v.literal('CannotWriteTransaction'), path: str }),
+	v.object({ type: v.literal('CannotWriteTerms'), path: str }),
+	v.object({ type: v.literal('TransactionNotFound'), path: str, line: num }),
+	v.object({ type: v.literal('StorageInvalidKey'), key: str }),
+	v.object({ type: v.literal('StorageNotFound'), key: str }),
+	v.object({
+		type: v.literal('StorageConflict'),
+		key: str,
+		expected: v.nullable(str),
+		actual: v.nullable(str),
+	}),
+	v.object({ type: v.literal('AuthInvalidCode') }),
+	v.object({ type: v.literal('AuthUnauthenticated') }),
+	v.object({ type: v.literal('StorageMissing'), userId: str }),
+	v.object({ type: v.literal('LedgerNotFound'), handle: str }),
+	v.object({ type: v.literal('NameTaken'), name: str }),
+	v.object({ type: v.literal('UniqueViolation'), constraint: str }),
+	v.object({ type: v.literal('ParseInvalidTransactionHeader'), location: str }),
+	v.object({ type: v.literal('ParseMissingTransactionBody'), location: str }),
+	v.object({ type: v.literal('ParseInvalidPosting'), location: str }),
+	v.object({ type: v.literal('ParseInvalidAccount'), location: str, account: str }),
+	v.object({ type: v.literal('ParseUnbalancedTransaction'), location: str, residual: str }),
+	v.object({ type: v.literal('ParseMultipleImplicitPostings'), location: str }),
+	v.object({ type: v.literal('ParseInvalidMetadata'), location: str }),
+	v.object({ type: v.literal('ParseDetachedMetadata'), location: str }),
+	v.object({ type: v.literal('ParseInvalidPrice'), location: str }),
+	v.object({ type: v.literal('ParseUnknownFeed'), location: str, feed: str }),
+	v.object({ type: v.literal('ParseInvalidAccountLine'), location: str }),
+	v.object({ type: v.literal('AccountRepeated'), location: str, account: str }),
+	v.object({ type: v.literal('LinkRepeated'), location: str, commodity: str }),
+	v.object({ type: v.literal('FeedUnavailable'), feed: str, symbol: str, status: v.optional(num) }),
+	v.object({ type: v.literal('FeedSymbolUnknown'), feed: str, symbol: str }),
+	v.object({ type: v.literal('FeedInvalidResponse'), feed: str, symbol: str, reason: str }),
+	v.object({ type: v.literal('GroupInvalidMembership'), location: str }),
+	v.object({ type: v.literal('GroupStale'), location: str }),
+	v.object({ type: v.literal('GroupIdTaken'), group: str }),
+	v.object({ type: v.literal('GroupWithoutPrimary'), group: str, location: str }),
+	v.object({ type: v.literal('GroupWithManyPrimaries'), group: str, location: str }),
+	v.object({
+		type: v.literal('GroupDisagreement'),
+		group: str,
+		location: str,
+		account: str,
+		expected: str,
+		actual: str,
+	}),
+	v.object({
+		type: v.literal('BalanceAssertionFailed'),
+		location: str,
+		account: str,
+		expected: str,
+		actual: str,
+	}),
+	v.object({
+		type: v.literal('BalanceAssertionAmbiguous'),
+		location: str,
+		account: str,
+		unordered: str,
+	}),
+	v.object({ type: v.literal('LotCostMissing'), location: str, account: str }),
+	v.object({ type: v.literal('LotNotOpen'), location: str, account: str, units: str }),
+	v.object({ type: v.literal('ReturnUnpriced'), account: str, unpriced: num }),
+	v.object({ type: v.literal('ReturnUnsolved'), account: str }),
+	v.object({ type: v.literal('CostUnpriced'), commodity: str }),
+	v.object({ type: v.literal('ExtractionInvalidSchema'), path: str, reason: str }),
+	v.object({ type: v.literal('ExtractionUnsupportedFile'), path: str }),
+	v.object({ type: v.literal('ModelHashMismatch'), path: str, expected: str, actual: str }),
+	v.object({ type: v.literal('ExtractionLocked'), path: str }),
+	v.object({ type: v.literal('ExtractionUnrecognised'), path: str }),
+	v.object({ type: v.literal('ExtractionAmbiguous'), path: str, schemas: strs }),
+	v.object({ type: v.literal('ExtractionWithoutAccount'), path: str }),
+	v.object({ type: v.literal('ExtractionMissingHeader'), path: str }),
+	v.object({ type: v.literal('ExtractionMissingColumns'), path: str, columns: strs }),
+	v.object({ type: v.literal('ExtractionInvalidField'), location: str, field: str, reason: str }),
+	v.object({ type: v.literal('SpanReversed'), from: str, to: str }),
+	v.object({ type: v.literal('SpanTooLong'), days: num, most: num }),
+	v.object({ type: v.literal('JobUnknown'), name: str }),
+	v.object({ type: v.literal('JobOutdated'), name: str, version: num }),
+	v.object({ type: v.literal('JobInvalidPayload'), name: str, reason: str }),
+	v.object({ type: v.literal('JobTimedOut'), name: str, timeout: num }),
+	v.object({ type: v.literal('EventInvalidPayload'), name: str, reason: str }),
+	v.object({ type: v.literal('UnknownError'), message: str }),
+]);
+
+type Caused =
+	| { type: 'CannotReadDirectory'; path: string; cause?: RupeaError[] | undefined }
+	| { type: 'CannotReadFile'; path: string; reason: string; cause?: RupeaError[] | undefined }
+	| { type: 'ExtractionMissingModel'; path: string; cause?: RupeaError[] | undefined }
 	| {
-			type: 'GroupDisagreement';
-			group: string;
-			location: string;
-			account: string;
-			expected: string;
-			actual: string;
-	  }
-	| {
-			type: 'BalanceAssertionFailed';
-			location: string;
-			account: string;
-			expected: string;
-			actual: string;
-	  }
-	| { type: 'BalanceAssertionAmbiguous'; location: string; account: string; unordered: string }
-	| { type: 'LotCostMissing'; location: string; account: string }
-	| { type: 'LotNotOpen'; location: string; account: string; units: string }
-	| { type: 'ReturnUnpriced'; account: string; unpriced: number }
-	| { type: 'ReturnUnsolved'; account: string }
-	| { type: 'CostUnpriced'; commodity: string }
-	| { type: 'ExtractionInvalidSchema'; path: string; reason: string }
-	| { type: 'ExtractionUnsupportedFile'; path: string }
-	| { type: 'ExtractionMissingModel'; path: string; cause?: RupeaError[] }
-	| { type: 'ModelDownloadFailed'; url: string; status?: number; cause?: RupeaError[] }
-	| { type: 'ModelHashMismatch'; path: string; expected: string; actual: string }
-	| { type: 'ExtractionLocked'; path: string }
-	| { type: 'ExtractionUnrecognised'; path: string }
-	| { type: 'ExtractionAmbiguous'; path: string; schemas: string[] }
-	| { type: 'ExtractionWithoutAccount'; path: string }
-	| { type: 'ExtractionMissingHeader'; path: string }
-	| { type: 'ExtractionMissingColumns'; path: string; columns: string[] }
-	| { type: 'ExtractionInvalidField'; location: string; field: string; reason: string }
-	| { type: 'JobUnknown'; name: string }
-	| { type: 'JobOutdated'; name: string; version: number }
-	| { type: 'JobInvalidPayload'; name: string; reason: string }
-	| { type: 'JobTimedOut'; name: string; timeout: number }
-	| { type: 'EventInvalidPayload'; name: string; reason: string }
-	| { type: 'UnknownError'; message: string };
+			type: 'ModelDownloadFailed';
+			url: string;
+			status?: number | undefined;
+			cause?: RupeaError[] | undefined;
+	  };
+
+/**
+ * Why something failed, as the type that names it and the fields that say what
+ * went wrong.
+ */
+export type RupeaError = v.InferOutput<typeof Plain> | Caused;
+
+/**
+ * Valibot cannot infer a schema that refers to itself, so the four variants
+ * that carry a cause are typed above and the rest are inferred.
+ */
+export const RupeaError: v.GenericSchema<RupeaError> = v.variant('type', [
+	...Plain.options,
+	v.object({ type: v.literal('CannotReadDirectory'), path: str, cause: causes }),
+	v.object({ type: v.literal('CannotReadFile'), path: str, reason: str, cause: causes }),
+	v.object({ type: v.literal('ExtractionMissingModel'), path: str, cause: causes }),
+	v.object({
+		type: v.literal('ModelDownloadFailed'),
+		url: str,
+		status: v.optional(num),
+		cause: causes,
+	}),
+]);
 
 type Variant<T extends RupeaError['type']> = Extract<RupeaError, { type: T }>;
 type Fields<T extends RupeaError['type']> = Omit<Variant<T>, 'type'>;

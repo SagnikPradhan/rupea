@@ -291,3 +291,13 @@ _Avoid_: Scheduler, supervisor, dispatcher
 **Worker**:
 A child process of the server that runs the jobs the server claims, one at a time. Every replica runs up to `RUPEA_JOBS_WORKERS` of them, and one left idle for a while exits.
 _Avoid_: Consumer, runner
+
+## Server and web app
+
+**Contract**:
+The list of what the server answers: for each procedure its route, input, output and the errors it can fail with. The server implements it and the web app calls it, so both agree.
+_Avoid_: API schema, spec (that is the OpenAPI document made from it)
+
+**BFF**:
+The backend of the web app, its remote functions. It takes what a page sends, calls the server by the contract, keeps the session token in a cookie, and shapes the answer for the page. Short for backend for frontend.
+_Avoid_: Proxy, gateway

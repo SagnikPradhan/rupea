@@ -1,88 +1,68 @@
-import { replyFrom } from '@rupea/server/shared/result/reply.ts';
-import * as Groups from '@rupea/server/services/ledger/application/groups.ts';
-import { GroupRole } from '@rupea/server/services/ledger/application/language.ts';
-import * as Refinement from '@rupea/server/services/refinement/application/refinement.ts';
-import { Key } from '@rupea/shared/files.ts';
+import { Key, Line } from '@rupea/shared/files.ts';
+import { Fingerprint, GroupId, LinkEdit, MOST_EDITS } from '@rupea/shared/groups.ts';
+import { Handle } from '@rupea/shared/handle.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
+import { api } from './api';
 import { listFiles } from './files.remote';
-import { Handle, inLedger } from './shared';
 import { listProblems } from './ledger.remote';
+import { replyFromBatchCall, replyFromCall } from './reply';
 import { viewGroup, viewSuggestion } from './views';
 
-const Line = v.pipe(v.number(), v.integer(), v.minValue(1));
-const GroupId = v.pipe(v.string(), v.regex(/^\S+$/, 'A group id is one word.'));
-const Fingerprint = v.pipe(v.string(), v.regex(/^[0-9a-f]{64}$/));
-
 export const listSuggestions = query(v.object({ handle: Handle, file: Key }), ({ handle, file }) =>
-	replyFrom(
-		inLedger({ handle, action: (l) => Refinement.listSuggestions({ ledger: l, file }) }).map((s) =>
-			s.map(viewSuggestion),
-		),
+	replyFromCall(
+		api()
+			.listSuggestions({ handle, file })
+			.then((s) => s.map(viewSuggestion)),
 	),
 );
 
 export const linkGroups = command(
 	v.object({
 		handle: Handle,
-		edits: v.array(
-			v.object({
-				file: Key,
-				line: Line,
-				date: v.string(),
-				description: v.string(),
-				role: v.enum(GroupRole),
-				group: GroupId,
-			}),
-		),
+		edits: v.pipe(v.array(LinkEdit), v.minLength(1), v.maxLength(MOST_EDITS)),
 	}),
 	async ({ handle, edits }) => {
-		const linked = await inLedger({
-			handle,
-			action: (l) => Groups.linkGroups({ ledger: l, edits }),
-		});
+		const linked = await replyFromBatchCall(api().linkGroups({ handle, edits }));
 		void listFiles(handle).refresh();
 		void listProblems(handle).refresh();
 		for (const file of new Set(edits.map((e) => e.file)))
 			void listSuggestions({ handle, file }).refresh();
-		return replyFrom(linked);
+		return linked;
 	},
 );
 
+/** Takes the file only to know which list of suggestions to refresh. */
 export const dismissSuggestion = command(
 	v.object({ handle: Handle, file: Key, fingerprint: Fingerprint }),
 	async ({ handle, file, fingerprint }) => {
-		const dismissed = await inLedger({
-			handle,
-			action: (l) => Refinement.dismissSuggestion({ ledger: l, fingerprint }),
-		});
+		const dismissed = await replyFromCall(api().dismissSuggestion({ handle, fingerprint }));
 		void listSuggestions({ handle, file }).refresh();
-		return replyFrom(dismissed);
+		return dismissed;
 	},
 );
 
 export const listGroups = query(v.object({ handle: Handle, file: Key }), ({ handle, file }) =>
-	replyFrom(
-		inLedger({ handle, action: (l) => Groups.listGroups({ ledger: l, file }) }).map((e) =>
-			e.map(viewGroup),
-		),
+	replyFromCall(
+		api()
+			.listGroups({ handle, file })
+			.then((g) => g.map(viewGroup)),
 	),
 );
 
+/** Takes the file only to know which list of groups to refresh. */
 export const renameGroup = command(
 	v.object({ handle: Handle, file: Key, group: GroupId, to: GroupId }),
 	async ({ handle, file, group, to }) => {
-		const renamed = await inLedger({
-			handle,
-			action: (l) => Groups.renameGroup({ ledger: l, group, to }),
-		});
+		const renamed = await replyFromBatchCall(api().renameGroup({ handle, group, to }));
 		void listFiles(handle).refresh();
 		void listProblems(handle).refresh();
 		void listGroups({ handle, file }).refresh();
-		return replyFrom(renamed);
+		return renamed;
 	},
 );
 
+/** Takes the file of the page only to know which list of groups to refresh. */
 export const makePrimary = command(
 	v.object({
 		handle: Handle,
@@ -91,13 +71,10 @@ export const makePrimary = command(
 		member: v.object({ file: Key, line: Line }),
 	}),
 	async ({ handle, file, group, member }) => {
-		const made = await inLedger({
-			handle,
-			action: (l) => Groups.makePrimary({ ledger: l, group, ...member }),
-		});
+		const made = await replyFromBatchCall(api().makePrimary({ handle, group, ...member }));
 		void listFiles(handle).refresh();
 		void listProblems(handle).refresh();
 		void listGroups({ handle, file }).refresh();
-		return replyFrom(made);
+		return made;
 	},
 );

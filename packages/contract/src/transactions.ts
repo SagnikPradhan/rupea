@@ -1,11 +1,10 @@
 import { oc } from '@orpc/contract';
-import { Day, DayOut } from '@rupea/shared/dates.ts';
-import { PostedOut } from '@rupea/shared/quantities.ts';
+import { Day } from '@rupea/shared/dates.ts';
 import { TransactionOut } from '@rupea/shared/transactions.ts';
+import { Handle } from '@rupea/shared/handle.ts';
 import * as v from 'valibot';
 import { errors } from './errors.ts';
-
-const Handle = v.string();
+import { Posting } from './outputs.ts';
 
 const Filter = {
 	handle: Handle,
@@ -30,17 +29,6 @@ const PostingCursor = v.object({
 const PostedCursor = v.object({ ...Cursor.entries, position: v.number() });
 
 const Transaction = v.object({ id: v.string(), counted: v.boolean(), ...TransactionOut.entries });
-
-const Posting = v.object({
-	transaction: v.string(),
-	position: v.number(),
-	file: v.string(),
-	line: v.number(),
-	date: DayOut,
-	description: v.string(),
-	account: v.string(),
-	quantity: PostedOut,
-});
 
 /**
  * A page of transactions in a span, newest first; evidence of a group is listed

@@ -1,7 +1,5 @@
-import type { RupeaError } from '@rupea/shared/error.ts';
+import type { Batch } from '@rupea/shared/reply.ts';
 import { ResultAsync, type Result } from './result';
-
-export type Batch<T> = { succeeded: T[]; failed: RupeaError[] };
 
 export const batch = <T>(results: Result<T>[]): Batch<T> => ({
 	succeeded: results.flatMap((r) => (r.isOk() ? [r.value] : [])),

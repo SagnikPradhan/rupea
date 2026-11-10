@@ -1,5 +1,4 @@
-import type { Reply } from '@rupea/shared/reply.ts';
-import type { Batch } from './batch';
+import type { Batch, Reply } from '@rupea/shared/reply.ts';
 import type { Result } from './result';
 
 /**

@@ -1,4 +1,5 @@
-import type { User } from '@rupea/server/services/auth/application/auth.ts';
+import type { Client } from '@rupea/contract/contract.ts';
+import type { User } from '@rupea/contract/auth.ts';
 
 type Validated = { value?: unknown; issues?: readonly unknown[] };
 type Schema = { '~standard': { validate: (input: unknown) => Validated | Promise<Validated> } };
@@ -9,9 +10,10 @@ type Handler = (input: unknown) => unknown;
  * import('#tests/shared/app-server.ts'))`.
  */
 export const request = {
-	locals: { user: null as User | null },
+	locals: { user: null as User | null, api: {} as Client },
 	cookies: new Map<string, string>(),
 	cookieOptions: new Map<string, object>(),
+	refreshed: [] as { remote: object; input: unknown }[],
 };
 
 const forms = new WeakMap<object, Handler>();
@@ -29,12 +31,18 @@ export const getRequestEvent = () => ({
 });
 
 /** Runs lazily, as SvelteKit's does, so a refresh nobody awaits reads nothing. */
-export const query = (schema: Schema | Handler, handler?: Handler) =>
-	marked('query', (input: unknown) => ({
+export const query = (schema: Schema | Handler, handler?: Handler) => {
+	const remote: object = marked('query', (input: unknown) => ({
 		then: (done: (v: unknown) => unknown, failed?: (e: unknown) => unknown) =>
 			run(schema, handler, input).then(done, failed),
-		refresh: () => Promise.resolve(),
+		refresh: () => {
+			request.refreshed.push({ remote, input });
+			return Promise.resolve();
+		},
 	}));
+
+	return remote;
+};
 
 export const command = (schema: Schema | Handler, handler?: Handler) =>
 	marked('command', (input: unknown) => run(schema, handler, input));
@@ -52,6 +60,18 @@ export const submit = (remote: object, input?: unknown) =>
 export const signIn = (user: User | null) => {
 	request.locals.user = user;
 };
+
+/** Answers the calls of the remote functions under test with these procedures. */
+export const useApi = (api: Partial<Client>) => {
+	request.locals.api = api as Client;
+	request.refreshed.length = 0;
+};
+
+/**
+ * The queries refreshed since the stand-in was last set, each with the input it
+ * was called with.
+ */
+export const refreshed = () => request.refreshed;
 
 const run = async (schema: Schema | Handler, handler: Handler | undefined, input: unknown) => {
 	if (typeof schema === 'function') return schema(input);

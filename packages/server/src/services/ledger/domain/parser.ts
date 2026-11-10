@@ -1,7 +1,8 @@
 import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
 import { parseDate, parseTime, type ReadOptions } from '#lib/server/shared/dates.ts';
 import { sha256 } from '#lib/server/shared/hash.ts';
-import { batch, type Batch } from '#lib/server/shared/result/batch.ts';
+import { batch } from '#lib/server/shared/result/batch.ts';
+import type { Batch } from '@rupea/shared/reply.ts';
 import { fault, type RupeaError } from '@rupea/shared/error.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
 import { cursorOf, drain, putBack, takeWhile, type Cursor } from '#lib/server/shared/cursor.ts';

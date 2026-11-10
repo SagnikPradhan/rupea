@@ -1,6 +1,6 @@
 import { provide, type RupeaContext } from '#lib/server/shared/context/context.ts';
 import type { Mail, Mailer } from '#lib/server/shared/context/mailer.ts';
-import { isHandle } from '#lib/server/shared/names.ts';
+import { isHandle } from '@rupea/shared/handle.ts';
 import { ok, okAsync } from '#lib/server/shared/result/result.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import { createTemporaryDatabase } from '@rupea/server/tests/shared/database.ts';
@@ -8,14 +8,6 @@ import { it } from '@rupea/server/tests/shared/vitest.ts';
 import { afterEach, beforeEach, describe, expect, vi } from 'vitest';
 import * as DB from '#services/auth/adapters/database.ts';
 import * as Auth from '#services/auth/application/auth.ts';
-
-const request = vi.hoisted(() => ({
-	locals: { user: null as Auth.User | null },
-}));
-
-vi.mock('$app/server', () => ({
-	getRequestEvent: () => ({ locals: request.locals }),
-}));
 
 const MINUTE = 60 * 1000;
 const DAY = 24 * 60 * MINUTE;
@@ -49,7 +41,6 @@ const signIn = (context: RupeaContext, email: string) => {
 };
 
 beforeEach(() => {
-	request.locals.user = null;
 	vi.useFakeTimers({ toFake: ['Date'] });
 	vi.setSystemTime(new Date('2026-10-10T09:00:00Z'));
 });
@@ -297,49 +288,37 @@ describe('acting as the current user', () => {
 			expect(used).not.toHaveBeenCalled();
 		}));
 
-	it('hands over the signed-in user', ({ context }) =>
+	it('hands over the user a call runs as', ({ context }) =>
 		provide(context, async () => {
 			const user = { id: 'u1', email: 'me@example.com', username: 'me' };
-			request.locals.user = user;
 
-			const result = await Auth.withCurrentUser((u) => okAsync(u.email));
+			const result = await Auth.runAs(user, () => Auth.withCurrentUser((u) => okAsync(u.email)));
 
 			expect(result.unwrapOr(null)).toBe('me@example.com');
 		}));
 
-	it('prefers the user an API call runs as to the request event', ({ context }) =>
+	it('keeps the users of two calls running at the same time apart', ({ context }) =>
 		provide(context, async () => {
-			request.locals.user = { id: 'u1', email: 'web@example.com', username: 'web' };
-			const api = { id: 'u2', email: 'api@example.com', username: 'api' };
-
-			const result = await Auth.runAs(api, () => Auth.withCurrentUser((u) => okAsync(u.email)));
-
-			expect(result.unwrapOr(null)).toBe('api@example.com');
-		}));
-
-	it('keeps the user of an API call from a web call running at the same time', ({ context }) =>
-		provide(context, async () => {
-			request.locals.user = { id: 'u1', email: 'web@example.com', username: 'web' };
-			const api = { id: 'u2', email: 'api@example.com', username: 'api' };
+			const ada = { id: 'u1', email: 'ada@example.com', username: 'ada' };
+			const grace = { id: 'u2', email: 'grace@example.com', username: 'grace' };
 			const emailNow = () => Auth.withCurrentUser((u) => okAsync(u.email));
 			const tick = () => new Promise((resolve) => setTimeout(resolve, 0));
-
-			const apiCall = Auth.runAs(api, async () => {
+			const emails = async () => {
 				await tick();
 				const before = await emailNow();
 				await tick();
 				return [before, await emailNow()];
-			});
-			const webCall = (async () => {
-				await tick();
-				const during = await emailNow();
-				await tick();
-				return [during, await emailNow()];
-			})();
+			};
 
-			const [fromApi, fromWeb] = await Promise.all([apiCall, webCall]);
+			const [fromAda, fromGrace] = await Promise.all([
+				Auth.runAs(ada, emails),
+				Auth.runAs(grace, emails),
+			]);
 
-			expect(fromApi.map((r) => r.unwrapOr(null))).toEqual(['api@example.com', 'api@example.com']);
-			expect(fromWeb.map((r) => r.unwrapOr(null))).toEqual(['web@example.com', 'web@example.com']);
+			expect(fromAda.map((r) => r.unwrapOr(null))).toEqual(['ada@example.com', 'ada@example.com']);
+			expect(fromGrace.map((r) => r.unwrapOr(null))).toEqual([
+				'grace@example.com',
+				'grace@example.com',
+			]);
 		}));
 });

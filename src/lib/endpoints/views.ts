@@ -1,164 +1,150 @@
-import { PostedOut, printPosted } from '@rupea/shared/quantities.ts';
+import { Account, Deltas, Group, Lot, Posting, Suggestion } from '@rupea/contract/outputs.ts';
+import { Amount } from '@rupea/shared/amounts.ts';
+import { Day } from '@rupea/shared/dates.ts';
+import { LinkTarget } from '@rupea/shared/groups.ts';
+import { DEFAULT_COMMODITY, printPosted, printQuantity } from '@rupea/shared/quantities.ts';
+import { TransactionOut } from '@rupea/shared/transactions.ts';
 import * as v from 'valibot';
-import type * as Accounts from '@rupea/server/services/ledger/application/accounts.ts';
-import type * as Groups from '@rupea/server/services/ledger/application/groups.ts';
-import {
-	DEFAULT_COMMODITY,
-	type RupeaTransaction,
-	printAmount,
-	formatQuantity,
-	postedOf,
-} from '@rupea/server/services/ledger/application/language.ts';
-import type * as Transactions from '@rupea/server/services/ledger/application/transactions.ts';
-import type * as Refinement from '@rupea/server/services/refinement/application/refinement.ts';
+
+type Transaction = v.InferOutput<typeof TransactionOut>;
+
+export type TransactionView = {
+	file: string;
+	line: number;
+	date: string;
+	time: string | null;
+	description: string;
+	comment: string | null;
+	postings: { account: string; quantity: string }[];
+};
+
+export type SuggestionView = {
+	fingerprint: string;
+	confidence: 'duplicate' | 'possible';
+	group: string | null;
+	links: v.InferOutput<typeof LinkTarget>[];
+	ours: TransactionView;
+	theirs: TransactionView;
+};
 
 /** For reading, not for writing back: amounts as text, the time to the minute. */
-export const viewTransaction = (transaction: RupeaTransaction) => ({
-	file: transaction.location.file,
-	line: transaction.location.line,
-	date: transaction.date.toString(),
-	time: transaction.time?.toString({ smallestUnit: 'minute' }) ?? null,
+export const viewTransaction = (transaction: Transaction): TransactionView => ({
+	file: transaction.file,
+	line: transaction.line,
+	date: transaction.date,
+	time: transaction.time?.slice(0, 5) ?? null,
 	description: transaction.description,
 	comment: transaction.comment,
 	postings: transaction.postings.map((p) => ({
 		account: p.account,
-		quantity: printPosted(v.parse(PostedOut, postedOf(p))),
+		quantity: printPosted(p.quantity),
 	})),
 });
 
-export const viewCounted = ({ id, counted, ...transaction }: Transactions.CountedTransaction) => ({
+export const viewCounted = ({
+	id,
+	counted,
+	...transaction
+}: Transaction & { id: string; counted: boolean }) => ({
 	id,
 	counted,
 	...viewTransaction(transaction),
 });
 
-export const viewPosting = (listed: Transactions.ListedPosting) => ({
-	key: `${listed.transaction}:${listed.position}`,
-	transaction: listed.transaction,
-	file: listed.location.file,
-	line: listed.location.line,
-	date: listed.date.toString(),
-	description: listed.description,
-	account: listed.posting.account,
-	quantity: printPosted(v.parse(PostedOut, postedOf(listed.posting))),
+type PostingOut = v.InferOutput<typeof Posting>;
+
+export const viewPosting = (posting: PostingOut) => ({
+	key: `${posting.transaction}:${posting.position}`,
+	transaction: posting.transaction,
+	file: posting.file,
+	line: posting.line,
+	date: posting.date,
+	description: posting.description,
+	account: posting.account,
+	quantity: printPosted(posting.quantity),
 });
 
-export const viewSuggestion = ({ ours, theirs, ...suggestion }: Refinement.Suggestion) => ({
+type SuggestionOut = v.InferOutput<typeof Suggestion>;
+
+export const viewSuggestion = ({ ours, theirs, ...suggestion }: SuggestionOut): SuggestionView => ({
 	...suggestion,
 	ours: viewTransaction(ours),
 	theirs: viewTransaction(theirs),
 });
 
-export const viewGroup = ({ group, members }: Groups.FileGroup) => ({
+type GroupOut = v.InferOutput<typeof Group>;
+
+export const viewGroup = ({ group, members }: GroupOut) => ({
 	group,
 	members: members.map(({ role, counted, ...t }) => ({ role, counted, ...viewTransaction(t) })),
 });
 
-export const viewAccount = (account: Accounts.Account) => ({
-	account: account.account,
-	parent: account.parent,
-	total: account.total,
-	cost: account.cost,
-	gain: account.gain,
-	unpriced: account.unpriced,
-	holdings: account.holdings.map((holding) => ({
-		commodity: holding.commodity,
-		hasLots: holding.hasLots,
-		units:
-			holding.commodity === DEFAULT_COMMODITY
-				? null
-				: formatQuantity({ amount: holding.units, commodity: holding.commodity }),
-		cost: printAmount(holding.paid),
-		price: holding.price && formatQuantity(holding.price),
-		value: printAmount(holding.value),
-		gain: printAmount(holding.gain),
-	})),
+type AccountOut = v.InferOutput<typeof Account>;
+
+export const viewAccount = (account: AccountOut) => ({
+	...account,
+	total: v.parse(Amount, account.total),
+	cost: v.parse(v.nullable(Amount), account.cost),
+	gain: v.parse(v.nullable(Amount), account.gain),
+	holdings: account.holdings.map(viewHolding),
 });
 
-export const viewWorth = (worth: Accounts.Worth) => ({
-	day: worth.day.toString(),
-	assets: printAmount(worth.assets),
-	liabilities: printAmount(worth.liabilities),
-	worth: printAmount(worth.worth),
-	parts: worth.parts.map((p) => ({ ...p, amount: printAmount(p.amount) })),
-	unpriced: worth.unpriced,
-});
+type DeltasOut = v.InferOutput<typeof Deltas>;
 
-export const viewInvested = (invested: Accounts.Invested) => ({
-	day: invested.day.toString(),
-	value: printAmount(invested.value),
-	cost: printAmount(invested.cost),
-});
-
-export const viewDrops = (drops: Accounts.Drops) => ({
-	underwater: drops.underwater.map((u) => ({ day: u.day.toString(), depth: u.depth })),
-	lows: drops.lows.map((l) => ({ account: l.account, depth: l.depth, day: l.day.toString() })),
-	swings: drops.swings,
-});
-
-export const viewBridge = (bridge: Accounts.Bridge) => ({
-	from: bridge.from.toString(),
-	to: bridge.to.toString(),
-	start: printAmount(bridge.start),
-	income: printAmount(bridge.income),
-	expenses: printAmount(bridge.expenses),
-	shifts: bridge.shifts.map((s) => ({ account: s.account, amount: printAmount(s.amount) })),
-	other: printAmount(bridge.other),
-	end: printAmount(bridge.end),
-});
-
-export const viewReturns = (returns: Accounts.Returns) => ({
-	account: returns.account,
-	netIn: printAmount(returns.netIn),
-	xirr: returns.xirr,
-	yearly: returns.yearly,
-});
-
-export const viewDeltas = (spending: Accounts.Deltas) => ({
-	from: spending.from,
-	to: spending.to,
-	bucket: spending.bucket,
-	buckets: spending.buckets,
-	totals: spending.totals.map((t) => ({
+export const viewDeltas = (deltas: DeltasOut) => ({
+	from: v.parse(Day, deltas.from),
+	to: v.parse(Day, deltas.to),
+	bucket: deltas.bucket,
+	buckets: deltas.buckets.map((b) => v.parse(Day, b)),
+	totals: deltas.totals.map((t) => ({
 		account: t.account,
 		parent: t.parent,
-		amount: t.amount,
-		inflow: t.inflow,
-		outflow: t.outflow,
+		amount: v.parse(Amount, t.amount),
+		inflow: v.parse(Amount, t.inflow),
+		outflow: v.parse(Amount, t.outflow),
 		unpriced: t.unpriced,
 	})),
-	deltas: spending.deltas.map((s) => ({
-		account: s.account,
-		bucket: s.bucket,
-		amount: s.amount,
-		inflow: s.inflow,
-		outflow: s.outflow,
-		unpriced: s.unpriced,
+	deltas: deltas.deltas.map((d) => ({
+		account: d.account,
+		bucket: v.parse(Day, d.bucket),
+		amount: v.parse(Amount, d.amount),
+		inflow: v.parse(Amount, d.inflow),
+		outflow: v.parse(Amount, d.outflow),
+		unpriced: d.unpriced,
 	})),
 });
 
-export const viewDaily = (daily: Accounts.Daily) => ({
-	day: daily.day,
-	amount: printAmount(daily.amount),
-	unpriced: daily.unpriced,
-});
+type LotOut = v.InferOutput<typeof Lot>;
 
-export const viewLot = (lot: Accounts.LotHistory) => ({
+export const viewLot = (lot: LotOut) => ({
 	file: lot.location.file,
 	line: lot.location.line,
-	date: lot.date.toString(),
+	date: lot.date,
 	origin: lot.origin,
 	from: lot.from,
-	units: printAmount(lot.units),
-	remaining: printAmount(lot.remaining),
-	cost: formatQuantity(lot.cost),
+	units: lot.units,
+	remaining: lot.remaining,
+	cost: printQuantity(lot.cost),
 	disposals: lot.disposals.map((disposal) => ({
 		file: disposal.location.file,
 		line: disposal.location.line,
-		date: disposal.date.toString(),
+		date: disposal.date,
 		kind: disposal.kind,
-		units: printAmount(disposal.units),
-		price: disposal.price && formatQuantity(disposal.price),
-		gain: disposal.gain && formatQuantity(disposal.gain),
+		units: disposal.units,
+		price: disposal.price && printQuantity(disposal.price),
+		gain: disposal.gain && printQuantity(disposal.gain),
 	})),
+});
+
+const viewHolding = (holding: AccountOut['holdings'][number]) => ({
+	commodity: holding.commodity,
+	hasLots: holding.hasLots,
+	units:
+		holding.commodity === DEFAULT_COMMODITY
+			? null
+			: printQuantity({ amount: holding.units, commodity: holding.commodity }),
+	cost: holding.paid,
+	price: holding.price && printQuantity(holding.price),
+	value: holding.value,
+	gain: holding.gain,
 });

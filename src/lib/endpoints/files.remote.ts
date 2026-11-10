@@ -1,71 +1,68 @@
-import { replyFrom, replyFromBatch } from '@rupea/server/shared/result/reply.ts';
-import { ok } from '@rupea/server/shared/result/result.ts';
-import { Key, Line } from '@rupea/shared/files.ts';
+import { fault } from '@rupea/shared/error.ts';
+import { Content, Draft, Key, Line, MOST_KEYS } from '@rupea/shared/files.ts';
+import { Handle } from '@rupea/shared/handle.ts';
 import { TransactionForm } from '@rupea/shared/transaction-form.ts';
-import * as Auth from '@rupea/server/services/auth/application/auth.ts';
-import * as Files from '@rupea/server/services/ledger/application/files.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
-import { Handle, inLedger } from './shared';
+import { api } from './api';
 import { listProblems } from './ledger.remote';
+import { NOTHING, replyFromBatchCall, replyFromCall } from './reply';
 import { viewTransaction } from './views';
 
-export const listFiles = query(Handle, (h) =>
-	replyFrom(inLedger({ handle: h, action: Files.listFiles })),
-);
+export const listFiles = query(Handle, (h) => replyFromCall(api().listFiles({ handle: h })));
 
 export const findLatestFile = query(
 	v.object({ handle: Handle, account: v.string() }),
-	({ handle, account }) =>
-		replyFrom(inLedger({ handle, action: (l) => Files.findLatestFile({ ledger: l, account }) })),
+	({ handle, account }) => replyFromCall(api().findLatestFile({ handle, account })),
 );
 
 export const findTransactionFiles = query(Handle, (h) =>
-	replyFrom(inLedger({ handle: h, action: Files.findTransactionFiles })),
+	replyFromCall(api().findTransactionFiles({ handle: h })),
 );
 
 export const createTransaction = command(
 	v.object({ handle: Handle, form: TransactionForm }),
 	async ({ handle, form }) => {
-		const created = await inLedger({
-			handle,
-			action: (l) => Files.createTransaction({ ledger: l, form }),
-		});
+		const created = await replyFromCall(api().createTransaction({ handle, form }));
 		void listFiles(handle).refresh();
 		void listProblems(handle).refresh();
-		return replyFrom(created);
+		return created;
 	},
 );
 
+/**
+ * Answers an id that is no id as a transaction that is not there, as a stale
+ * link has one.
+ */
 export const findTransaction = query(
 	v.object({ handle: Handle, id: v.string() }),
 	({ handle, id }) =>
-		replyFrom(inLedger({ handle, action: (l) => Files.findTransaction({ ledger: l, id }) })),
+		v.is(v.pipe(v.string(), v.uuid()), id)
+			? replyFromCall(api().findTransaction({ handle, id }))
+			: Promise.resolve({
+					ok: false,
+					data: null,
+					errors: [fault('TransactionNotFound', { path: id, line: 0 })],
+				}),
 );
 
 export const saveTransaction = command(
 	v.object({ handle: Handle, file: Key, line: Line, version: v.string(), form: TransactionForm }),
 	async ({ handle, file, line, version, form }) => {
-		const saved = await inLedger({
-			handle,
-			action: (l) => Files.saveTransaction({ ledger: l, file, line, version, form }),
-		});
+		const saved = await replyFromCall(api().saveTransaction({ handle, file, line, version, form }));
 		void listFiles(handle).refresh();
 		void listProblems(handle).refresh();
-		return replyFrom(saved);
+		return saved;
 	},
 );
 
 export const deleteTransaction = command(
 	v.object({ handle: Handle, file: Key, line: Line, version: v.string() }),
 	async ({ handle, file, line, version }) => {
-		const deleted = await inLedger({
-			handle,
-			action: (l) => Files.deleteTransaction({ ledger: l, file, line, version }),
-		});
+		const deleted = await replyFromCall(api().deleteTransaction({ handle, file, line, version }));
 		void listFiles(handle).refresh();
 		void listProblems(handle).refresh();
-		return replyFrom(deleted);
+		return deleted;
 	},
 );
 
@@ -74,84 +71,81 @@ export const deleteTransaction = command(
  * back.
  */
 export const readFile = command(v.object({ handle: Handle, key: Key }), ({ handle, key }) =>
-	replyFrom(inLedger({ handle, action: (l) => Files.readFile({ ledger: l, key }) })),
+	replyFromCall(api().readFile({ handle, key })),
 );
 
 /** Tidies a draft's whitespace without saving it. */
-export const formatFile = command(v.object({ content: v.string() }), ({ content }) =>
-	replyFrom(Auth.withCurrentUser(() => ok(Files.formatFile({ content })))),
+export const formatFile = command(
+	v.object({ handle: Handle, content: Draft }),
+	({ handle, content }) => replyFromCall(api().formatFile({ handle, content })),
 );
 
-export const parseFile = command(v.object({ key: Key, content: v.string() }), ({ key, content }) =>
-	replyFromBatch(
-		Auth.withCurrentUser(() => ok(Files.parseFile({ key, content }))).map((b) => ({
-			...b,
-			succeeded: b.succeeded.map(viewTransaction),
-		})),
-	),
+export const parseFile = command(
+	v.object({ handle: Handle, key: Key, content: Draft }),
+	({ handle, key, content }) =>
+		replyFromBatchCall(
+			api()
+				.parseFile({ handle, key, content })
+				.then((b) => ({ ...b, succeeded: b.succeeded.map(viewTransaction) })),
+		),
 );
 
 export const createFile = command(
-	v.object({ handle: Handle, key: Key, content: v.string() }),
+	v.object({ handle: Handle, key: Key, content: Content }),
 	async ({ handle, key, content }) => {
-		const created = await inLedger({
-			handle,
-			action: (l) => Files.createFile({ ledger: l, key, content }),
-		});
+		const created = await replyFromCall(api().createFile({ handle, key, content }));
 		void listFiles(handle).refresh();
 		void listProblems(handle).refresh();
-		return replyFrom(created);
+		return created;
 	},
 );
 
 export const editFile = command(
-	v.object({ handle: Handle, key: Key, content: v.string(), version: v.string() }),
+	v.object({ handle: Handle, key: Key, content: Content, version: v.string() }),
 	async ({ handle, key, content, version }) => {
-		const edited = await inLedger({
-			handle,
-			action: (l) => Files.editFile({ ledger: l, key, content, version }),
-		});
+		const edited = await replyFromCall(api().editFile({ handle, key, content, version }));
 		void listFiles(handle).refresh();
 		void listProblems(handle).refresh();
-		return replyFrom(edited);
+		return edited;
 	},
 );
 
 export const renameFiles = command(
-	v.object({ handle: Handle, moves: v.array(v.object({ from: Key, to: Key })) }),
+	v.object({
+		handle: Handle,
+		moves: v.pipe(v.array(v.object({ from: Key, to: Key })), v.maxLength(MOST_KEYS)),
+	}),
 	async ({ handle, moves }) => {
-		const renamed = await inLedger({
-			handle,
-			action: (l) => Files.renameFiles({ ledger: l, moves }),
-		});
+		if (moves.length === 0) return NOTHING;
+
+		const renamed = await replyFromBatchCall(api().renameFiles({ handle, moves }));
 		void listFiles(handle).refresh();
 		void listProblems(handle).refresh();
-		return replyFromBatch(renamed);
+		return renamed;
 	},
 );
 
 export const addFile = command(
 	v.object({ handle: Handle, from: Key, to: Key }),
 	async ({ handle, from, to }) => {
-		const added = await inLedger({
-			handle,
-			action: (l) => Files.addFile({ ledger: l, from, to }),
-		});
+		const added = await replyFromCall(api().addFile({ handle, from, to }));
 		void listFiles(handle).refresh();
 		void listProblems(handle).refresh();
-		return replyFrom(added);
+		return added;
 	},
 );
 
 export const deleteFiles = command(
-	v.object({ handle: Handle, keys: v.array(Key) }),
+	v.object({
+		handle: Handle,
+		keys: v.pipe(v.array(Key), v.maxLength(MOST_KEYS)),
+	}),
 	async ({ handle, keys }) => {
-		const deleted = await inLedger({
-			handle,
-			action: (l) => Files.deleteFiles({ ledger: l, keys }),
-		});
+		if (keys.length === 0) return NOTHING;
+
+		const deleted = await replyFromBatchCall(api().deleteFiles({ handle, keys }));
 		void listFiles(handle).refresh();
 		void listProblems(handle).refresh();
-		return replyFromBatch(deleted);
+		return deleted;
 	},
 );

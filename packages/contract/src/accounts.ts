@@ -1,36 +1,14 @@
 import { oc } from '@orpc/contract';
 import { BalanceAccount, EXPENSES, FlowAccount } from '@rupea/shared/accounts.ts';
-import { AmountOut, QuantityOut } from '@rupea/shared/amounts.ts';
+import { AmountOut } from '@rupea/shared/amounts.ts';
 import { Bucket, Day, DayOut, Span } from '@rupea/shared/dates.ts';
 import { TermsForm, TermsOut } from '@rupea/shared/terms.ts';
+import { Handle } from '@rupea/shared/handle.ts';
 import * as v from 'valibot';
 import { batchOf, errors } from './errors.ts';
-
-const Handle = v.string();
+import { Account, Deltas, Lot } from './outputs.ts';
 
 const Spanned = v.object({ handle: Handle, from: Day, to: Day });
-
-const Location = v.object({ file: v.string(), line: v.number() });
-
-const Holding = v.object({
-	commodity: v.string(),
-	hasLots: v.boolean(),
-	units: AmountOut,
-	price: v.nullable(QuantityOut),
-	value: v.nullable(AmountOut),
-	paid: v.nullable(AmountOut),
-	gain: v.nullable(AmountOut),
-});
-
-const Account = v.object({
-	account: v.string(),
-	parent: v.nullable(v.string()),
-	holdings: v.array(Holding),
-	total: AmountOut,
-	cost: v.nullable(AmountOut),
-	gain: v.nullable(AmountOut),
-	unpriced: v.number(),
-});
 
 const Worth = v.object({
 	day: DayOut,
@@ -69,43 +47,7 @@ const Returns = v.object({
 	yearly: v.boolean(),
 });
 
-const Flow = {
-	amount: AmountOut,
-	inflow: AmountOut,
-	outflow: AmountOut,
-	unpriced: v.number(),
-};
-
-const Deltas = v.object({
-	from: DayOut,
-	to: DayOut,
-	bucket: Bucket,
-	buckets: v.array(DayOut),
-	totals: v.array(v.object({ account: v.string(), parent: v.nullable(v.string()), ...Flow })),
-	deltas: v.array(v.object({ account: v.string(), bucket: DayOut, ...Flow })),
-});
-
 const Daily = v.object({ day: v.number(), amount: AmountOut, unpriced: v.number() });
-
-const Lot = v.object({
-	location: Location,
-	date: DayOut,
-	origin: v.picklist(['buy', 'transfer', 'short', 'unpriced']),
-	from: v.nullable(v.string()),
-	units: AmountOut,
-	remaining: AmountOut,
-	cost: QuantityOut,
-	disposals: v.array(
-		v.object({
-			location: Location,
-			date: DayOut,
-			kind: v.picklist(['sale', 'transfer', 'gift', 'cover']),
-			units: AmountOut,
-			price: v.nullable(QuantityOut),
-			gain: v.nullable(QuantityOut),
-		}),
-	),
-});
 
 const Held = v.object({
 	account: v.string(),

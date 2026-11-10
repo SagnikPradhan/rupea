@@ -1,27 +1,10 @@
 import { oc } from '@orpc/contract';
 import { Key, Line } from '@rupea/shared/files.ts';
-import { Fingerprint, GroupId, LinkEdit, LinkTarget, Role } from '@rupea/shared/groups.ts';
-import { TransactionOut } from '@rupea/shared/transactions.ts';
+import { Fingerprint, GroupId, LinkEdit, MOST_EDITS } from '@rupea/shared/groups.ts';
+import { Handle } from '@rupea/shared/handle.ts';
 import * as v from 'valibot';
 import { batchOf, errors } from './errors.ts';
-
-const Handle = v.string();
-
-const MOST_EDITS = 10_000;
-
-const Suggestion = v.object({
-	fingerprint: v.string(),
-	confidence: v.picklist(['duplicate', 'possible']),
-	group: v.nullable(v.string()),
-	ours: TransactionOut,
-	theirs: TransactionOut,
-	links: v.array(LinkTarget),
-});
-
-const Group = v.object({
-	group: v.string(),
-	members: v.array(v.object({ role: Role, counted: v.boolean(), ...TransactionOut.entries })),
-});
+import { Group, Suggestion } from './outputs.ts';
 
 /**
  * The transactions of a file that likely match one elsewhere, strongest first,

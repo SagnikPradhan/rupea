@@ -1,11 +1,12 @@
 import { oc } from '@orpc/contract';
 import { InstantOut } from '@rupea/shared/dates.ts';
+import { Email } from '@rupea/shared/email.ts';
 import * as v from 'valibot';
 import { errors } from './errors.ts';
 
-const Email = v.pipe(v.string(), v.trim(), v.toLowerCase(), v.email());
-
 const User = v.object({ id: v.string(), email: v.string(), username: v.string() });
+
+export type User = v.InferOutput<typeof User>;
 
 /**
  * Mails a sign-in code, and answers the same whether or not the address has an

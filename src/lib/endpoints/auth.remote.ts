@@ -1,24 +1,18 @@
+import { Email } from '@rupea/shared/email.ts';
 import * as v from 'valibot';
 import { invalid, redirect } from '@sveltejs/kit';
 import { form } from '$app/server';
-import {
-	deleteSessionCookie,
-	readSessionCookie,
-	setSessionCookie,
-} from '@rupea/server/services/auth/adapters/request.ts';
-import * as Auth from '@rupea/server/services/auth/application/auth.ts';
-import { withLogger } from '@rupea/server/shared/context/logger.ts';
-import { replyFrom } from '@rupea/server/shared/result/reply.ts';
-
-const Email = v.pipe(
-	v.string(),
-	v.transform(Auth.normalizeEmail),
-	v.email('Enter a valid email address.'),
-);
+import { api } from './api';
+import { replyFromCall } from './reply';
+import { deleteSessionCookie, readSessionCookie, setSessionCookie } from './session';
 
 /** Returns the normalised email so the code step can carry it. */
 export const requestCode = form(v.object({ email: Email }), ({ email }) =>
-	replyFrom(Auth.requestCode(email).map(() => ({ email }))),
+	replyFromCall(
+		api()
+			.requestCode({ email })
+			.then(() => ({ email })),
+	),
 );
 
 export const verifyCode = form(
@@ -27,25 +21,25 @@ export const verifyCode = form(
 		code: v.pipe(v.string(), v.trim(), v.regex(/^\d{6}$/, 'The code is 6 digits.')),
 	}),
 	async ({ email, code }) => {
-		const signedIn = await Auth.signIn({ email, code });
-		if (signedIn.isErr() && signedIn.error.type === 'AuthInvalidCode')
+		const signedIn = await replyFromCall(api().signIn({ email, code }));
+		if (signedIn.errors[0]?.type === 'AuthInvalidCode')
 			invalid({
 				message: 'That code is wrong or has expired.',
 				path: ['code'],
 			});
 
-		if (signedIn.isErr()) return replyFrom(signedIn);
+		if (!signedIn.data) return signedIn;
 
-		setSessionCookie(signedIn.value.token, signedIn.value.expiresAt);
+		setSessionCookie(signedIn.data.token, signedIn.data.expiresAt);
 		redirect(303, '/');
 	},
 );
 
 export const signOut = form(async () => {
 	const token = readSessionCookie();
-	const signedOut = token ? await Auth.signOut(token) : null;
-	if (signedOut?.isErr())
-		withLogger('auth')((l) => l.error({ error: signedOut.error }, 'sign-out failed'));
+	const signedOut = token ? await replyFromCall(api().signOut()) : null;
+	const error = signedOut?.errors.find((e) => e.type !== 'AuthUnauthenticated');
+	if (error) console.error('sign-out failed', error);
 
 	deleteSessionCookie();
 	redirect(303, '/sign-in');

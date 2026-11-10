@@ -29,13 +29,12 @@
 	import Amount from '#lib/web/components/app-ledger-table/amount.svelte';
 	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
 	import StatementFormat from '#lib/web/components/app-statement-format/app-statement-format.svelte';
+	import type { TransactionView } from '#lib/endpoints/views.ts';
 	import { formatDate } from '#lib/web/shared/format.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';
 	import { accountOf, statusOf, suggestedFile } from '#lib/web/shared/statements.ts';
 	import { goto } from '$app/navigation';
 	import { untrack } from 'svelte';
-
-	type Found = Awaited<ReturnType<typeof previewStatement>>;
 
 	type Schema = { key: string; content: string };
 
@@ -64,7 +63,7 @@
 		grid: [] as string[][],
 		schema: null as Schema | null,
 		setup: false,
-		found: null as Found | null,
+		found: null as Reply<TransactionView[]> | null,
 		errors: [] as RupeaError[],
 	});
 	const action = $state({ step: 'reading' as 'reading' | 'adding' | 'restarting', to: '' });
@@ -106,7 +105,7 @@
 
 	async function showDraft(ticket: number, key: string) {
 		const read = await readFile({ handle, key });
-		const parsed = read.data ? await parseFile({ key, content: read.data.content }) : null;
+		const parsed = read.data ? await parseFile({ handle, key, content: read.data.content }) : null;
 		if (ticket !== view.ticket) return;
 
 		Object.assign(view, { found: parsed, errors: read.errors });

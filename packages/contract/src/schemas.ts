@@ -1,9 +1,8 @@
 import { oc } from '@orpc/contract';
 import { EntryOut, FileOut, SchemaContent, SchemaKey } from '@rupea/shared/files.ts';
+import { Handle } from '@rupea/shared/handle.ts';
 import * as v from 'valibot';
 import { errors } from './errors.ts';
-
-const Handle = v.string();
 
 /** The extraction schemas of the ledger, without their text. */
 export const listSchemas = oc

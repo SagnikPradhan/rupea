@@ -13,7 +13,7 @@ vi.mock('#lib/endpoints/files.remote.ts', () => ({
 
 afterEach(() => vi.clearAllMocks());
 
-const file = (key: string) => ({ key, modified: new Date('2026-10-01T10:00:00Z'), size: 2048 });
+const file = (key: string) => ({ key, modified: '2026-10-01T10:00:00Z', size: 2048 });
 
 const rendered = (keys: string[]) => {
 	vi.mocked(listFiles).mockReturnValue(answer(keys.map(file)));

@@ -34,9 +34,9 @@ const rendered = (locked = false) => {
 	vi.mocked(listGroups).mockReturnValue(answer([transfer]));
 	vi.mocked(renameGroup).mockResolvedValue({ ok: true, data: [], errors: [] });
 	vi.mocked(makePrimary).mockResolvedValue({
-		ok: true,
-		data: [fault('GroupStale', { location: 'hdfc.rupea:1' })],
-		errors: [],
+		ok: false,
+		data: [],
+		errors: [fault('GroupStale', { location: 'hdfc.rupea:1' })],
 	});
 	const onchanged = vi.fn();
 	render(FileGroups, { handle: 'h', file: 'ibkr.rupea', locked, onchanged });

@@ -1,6 +1,7 @@
 import { byCodeUnit } from '@rupea/shared/text.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
-import { batchInOrder, type Batch } from '#lib/server/shared/result/batch.ts';
+import { batchInOrder } from '#lib/server/shared/result/batch.ts';
+import type { Batch } from '@rupea/shared/reply.ts';
 import { fault, type RupeaError } from '@rupea/shared/error.ts';
 import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
 import {

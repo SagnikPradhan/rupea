@@ -15,7 +15,5 @@ export const answer = async <T>(result: Result<T> | PromiseLike<Result<T>>): Pro
 	const error = settled.error;
 	const status = STATUS[error.type];
 
-	return Promise.reject(
-		new ORPCError(CODE[status], { defined: true, status, data: sanitise(error), cause: error }),
-	);
+	throw new ORPCError(CODE[status], { defined: true, status, data: sanitise(error), cause: error });
 };

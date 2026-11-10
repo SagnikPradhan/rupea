@@ -183,8 +183,7 @@ await provide(context, async () => {
 	);
 	const existing = await must(Files.listFiles(ledger));
 
-	if (existing.succeeded.length > 0)
-		return console.log(`${email} already has files, so left alone`);
+	if (existing.length > 0) return console.log(`${email} already has files, so left alone`);
 
 	faker.seed(SEED);
 	const prices = { ...PRICES };

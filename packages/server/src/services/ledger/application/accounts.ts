@@ -103,13 +103,16 @@ type WorthParts = {
 const worthOver = (id: string, s: Span, p: WorthParts): ResultAsync<Worth[]> =>
 	walked(id, s, p).map((w) => (w === null ? [] : worthOf(w)));
 
+const reversedSpan = ({ from, to }: Span): RupeaError | null =>
+	Temporal.PlainDate.compare(from, to) > 0
+		? fault('SpanReversed', { from: from.toString(), to: to.toString() })
+		: null;
+
 /**
- * Why a span is refused: it runs backwards, or covers more than SPAN_MOST_DAYS
- * from the later of its start and the first day with data, when there is one.
+ * Why a span is refused for covering more than SPAN_MOST_DAYS from the later of
+ * its start and the first day with data, when there is one.
  */
-const refusedSpan = ({ from, to }: Span, first: Temporal.PlainDate | null): RupeaError | null => {
-	if (Temporal.PlainDate.compare(from, to) > 0)
-		return fault('SpanReversed', { from: from.toString(), to: to.toString() });
+const longSpan = ({ from, to }: Span, first: Temporal.PlainDate | null): RupeaError | null => {
 	if (first === null || Temporal.PlainDate.compare(first, to) > 0) return null;
 
 	const start = Temporal.PlainDate.compare(first, from) > 0 ? first : from;
@@ -126,10 +129,13 @@ const walked = (
 	id: string,
 	{ from, to }: Span,
 	{ parts, byCommodity, held }: WorthParts,
-): ResultAsync<WorthOfOptions | null> =>
-	DB.findFirstDelta(id, { accounts: parts.map((p) => p.accountId), to }).andThen((first) => {
-		const refused = refusedSpan({ from, to }, first);
-		if (refused) return errAsync(refused);
+): ResultAsync<WorthOfOptions | null> => {
+	const reversed = reversedSpan({ from, to });
+	if (reversed) return errAsync(reversed);
+
+	return DB.findFirstDelta(id, { accounts: parts.map((p) => p.accountId), to }).andThen((first) => {
+		const long = longSpan({ from, to }, first);
+		if (long) return errAsync(long);
 		if (first === null || Temporal.PlainDate.compare(first, to) > 0) return okAsync(null);
 
 		const start = Temporal.PlainDate.compare(first, from) > 0 ? first : from;
@@ -158,6 +164,7 @@ const walked = (
 			);
 		});
 	});
+};
 
 export type Invested = { day: Temporal.PlainDate; value: Amount; cost: Amount };
 
@@ -388,7 +395,7 @@ export const listReturns = ({
 			ledger.id,
 			{ from, to },
 			tree.map((n) => n.id),
-		).andThen(() => returnsOver(ledger, { from, to }, tree)),
+		).andThen((s) => returnsOver(ledger, s, tree)),
 	);
 
 const returnsOver = (ledger: Ledger, { from, to }: Span, tree: AccountNode[]) => {
@@ -410,15 +417,20 @@ const returnsOver = (ledger: Ledger, { from, to }: Span, tree: AccountNode[]) =>
  * day these accounts moved. Fails for a span that runs backwards or covers more
  * than SPAN_MOST_DAYS.
  */
-const startedBy = (id: string, span: Span, accounts: string[]): ResultAsync<Span> =>
-	DB.findFirstDelta(id, { accounts, to: span.to }).andThen((first) => {
-		const refused = refusedSpan(span, first);
-		if (refused) return errAsync(refused);
+const startedBy = (id: string, span: Span, accounts: string[]): ResultAsync<Span> => {
+	const reversed = reversedSpan(span);
+	if (reversed) return errAsync(reversed);
 
-		return okAsync(
-			span.from.toString() === BEGINNING ? { from: first ?? span.to, to: span.to } : span,
-		);
+	return DB.findFirstDelta(id, { accounts, to: span.to }).andThen((first) => {
+		const long = longSpan(span, first);
+		if (long) return errAsync(long);
+		if (span.from.toString() !== BEGINNING) return okAsync(span);
+
+		const none = first === null || Temporal.PlainDate.compare(first, span.to) > 0;
+
+		return okAsync({ from: none ? span.to : first, to: span.to });
 	});
+};
 
 type ListDeltasOptions = { ledger: Ledger; spans: Span[]; bucket: Bucket; account: string };
 

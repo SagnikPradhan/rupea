@@ -799,6 +799,42 @@ describe('returns', () => {
 			});
 		}));
 
+	it('gives all of history the same returns as a span from the first day with data', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+			const returnsFrom = async (from: string) =>
+				(
+					await Accounts.listReturns({ ledger, from: Temporal.PlainDate.from(from), to: year.to })
+				)._unsafeUnwrap();
+
+			const ever = await returnsFrom(BEGINNING);
+			const first = await returnsFrom('2024-12-01');
+
+			expect(ever.succeeded).toEqual(first.succeeded);
+			expect(ever.failed).toEqual(first.failed);
+		}));
+
+	it('gives no returns for all of history ending before the first day with data', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const returns = await Accounts.listReturns({
+				ledger,
+				from: Temporal.PlainDate.from(BEGINNING),
+				to: Temporal.PlainDate.from('2024-11-30'),
+			});
+
+			expect(returns._unsafeUnwrap().succeeded).toEqual([]);
+		}));
+
 	it('leaves out what has no price, naming only the deepest account it reaches', ({
 		context,
 		db,

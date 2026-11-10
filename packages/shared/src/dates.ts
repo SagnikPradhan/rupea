@@ -31,6 +31,17 @@ export const DayOut = v.pipe(
 	v.description(DAY),
 );
 
+const TIME = 'A time of day as an ISO time, such as 09:30:00.';
+
+/** A time of day going out, to the second. */
+export const TimeOut = v.pipe(
+	v.custom<Temporal.PlainTime>((t) => t instanceof Temporal.PlainTime),
+	v.transform((t) => t.toString({ smallestUnit: 'second' })),
+	v.string(),
+	v.isoTimeSecond(),
+	v.description(TIME),
+);
+
 const INSTANT = 'A moment as an ISO timestamp in UTC, such as 2026-10-21T09:30:00Z.';
 
 /** A moment sent as an ISO timestamp like `2026-10-21T09:30:00Z`. */
@@ -55,7 +66,9 @@ export const InstantOut = v.pipe(
 export const BEGINNING = '0001-01-01';
 
 /** The first and last day of a span, both included. */
-export type Span = { from: Temporal.PlainDate; to: Temporal.PlainDate };
+export const Span = v.object({ from: Day, to: Day });
+
+export type Span = v.InferOutput<typeof Span>;
 
 /**
  * The first day of the earliest span to the last day of the latest, or none
@@ -68,7 +81,9 @@ export const coverOf = (spans: Span[]): Span | null => {
 };
 
 /** The days a chart adds up into one bar. */
-export type Bucket = 'day' | 'month' | 'year';
+export const Bucket = v.picklist(['day', 'month', 'year']);
+
+export type Bucket = v.InferOutput<typeof Bucket>;
 
 const MONTH_NAME = /^\d{4}-(0[1-9]|1[0-2])$/;
 const YEAR_NAME = /^\d{4}$/;

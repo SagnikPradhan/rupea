@@ -27,7 +27,7 @@ const uploads = (l: Ledger, files: Record<string, string>) =>
 	Uploads.uploadStatements({
 		ledger: l,
 		user: l.owner,
-		uploads: Object.entries(files).map(([name, t]) => ({ name, content: encode(t) })),
+		uploads: Object.entries(files).map(([name, t]) => ({ name, read: async () => encode(t) })),
 	});
 
 /**
@@ -110,7 +110,7 @@ describe('importing a ledger file', () => {
 			await uploads(ledger, { 'again.ledger': books });
 			await runImports(ledger);
 
-			const listed = (await Files.listFiles(ledger))._unsafeUnwrap().succeeded;
+			const listed = (await Files.listFiles(ledger))._unsafeUnwrap();
 			expect(listed.map((f) => f.key)).toEqual([`_/imports/${day()}/books.rupea`]);
 		}));
 
@@ -123,7 +123,7 @@ describe('importing a ledger file', () => {
 			await db.updateTable('jobs').set({ status: JobStatus.Queued }).execute();
 			await runImports(ledger);
 
-			const listed = (await Files.listFiles(ledger))._unsafeUnwrap().succeeded;
+			const listed = (await Files.listFiles(ledger))._unsafeUnwrap();
 			expect(listed.map((f) => f.key)).toEqual([`_/imports/${day()}/books.rupea`]);
 		}));
 });
@@ -159,7 +159,7 @@ describe('drafting a statement', () => {
 			await Uploads.uploadStatements({
 				ledger,
 				user: ledger.owner,
-				uploads: [{ name: 'locked.xls', content }],
+				uploads: [{ name: 'locked.xls', read: async () => content }],
 			});
 
 			expect(await runImports(ledger)).toEqual([ok(undefined)]);

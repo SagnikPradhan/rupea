@@ -262,6 +262,53 @@ describe('scoped storage', () => {
 		expect(await one.read('b.rupea')).toMatchObject({ error: { type: 'StorageNotFound' } });
 	});
 
+	it('names a key in its errors without the prefix, however deep it is scoped', async ({
+		storage,
+	}) => {
+		const one = scoped(scoped(storage, 'users/u1'), 'ledgers/one');
+		await one.write({ key: 'a.rupea', content: text('1') });
+		await one.write({ key: 'b.rupea', content: text('2') });
+
+		expect(await one.read('missing.rupea')).toMatchObject({
+			error: { type: 'StorageNotFound', key: 'missing.rupea' },
+		});
+		expect(await one.write({ key: 'a.rupea', content: text('3'), ifVersion: null })).toMatchObject({
+			error: { type: 'StorageConflict', key: 'a.rupea' },
+		});
+		expect(await one.rename('a.rupea', 'b.rupea')).toMatchObject({
+			error: { type: 'StorageConflict', key: 'b.rupea' },
+		});
+	});
+
+	it('renames within its prefix, and names a missing source without it', async ({ storage }) => {
+		const one = scoped(storage, 'ledgers/one');
+		await one.write({ key: 'a.rupea', content: text('1') });
+
+		expect(await one.rename('a.rupea', 'c.rupea')).toMatchObject({ value: { key: 'c.rupea' } });
+		expect(await keys(storage)).toEqual(['ledgers/one/c.rupea']);
+		expect(await one.rename('a.rupea', 'd.rupea')).toMatchObject({
+			error: { type: 'StorageNotFound', key: 'a.rupea' },
+		});
+		expect(await one.rename('c.rupea', '../d.rupea')).toMatchObject({
+			error: { type: 'StorageInvalidKey', key: '../d.rupea' },
+		});
+	});
+
+	it('strips its prefix once from a key that starts with the prefix text', async ({ storage }) => {
+		const one = scoped(storage, 'ledgers/one');
+		await one.write({ key: 'ledgers/one/a.rupea', content: text('1') });
+
+		expect(await one.read('ledgers/one/missing.rupea')).toMatchObject({
+			error: { type: 'StorageNotFound', key: 'ledgers/one/missing.rupea' },
+		});
+		expect(await one.rename('ledgers/one/missing.rupea', 'b.rupea')).toMatchObject({
+			error: { type: 'StorageNotFound', key: 'ledgers/one/missing.rupea' },
+		});
+		expect(await one.rename('ledgers/one/a.rupea', 'ledgers/one/b.rupea')).toMatchObject({
+			value: { key: 'ledgers/one/b.rupea' },
+		});
+	});
+
 	it('cannot be escaped with ..', async ({ storage }) => {
 		const one = scoped(storage, 'ledgers/one');
 		expect(await one.read('../two/b.rupea')).toMatchObject({
@@ -324,13 +371,9 @@ describe('text files', () => {
 	});
 
 	it('cannot be read when missing', async ({ storage }) => {
-		expect(await readText(storage, 'missing.rupea')).toMatchObject({
-			error: {
-				type: 'CannotReadFile',
-				path: 'missing.rupea',
-				cause: [{ type: 'StorageNotFound' }],
-			},
-		});
+		expect(await readText(storage, 'missing.rupea')).toEqual(
+			err({ type: 'StorageNotFound', key: 'missing.rupea' }),
+		);
 	});
 
 	it('are found as nothing when missing, but still fail when unreadable', async ({ storage }) => {

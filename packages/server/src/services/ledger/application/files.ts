@@ -1,6 +1,6 @@
 import { byCodeUnit } from '@rupea/shared/text.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
-import { batchAsync, batchInOrder, type Batch } from '#lib/server/shared/result/batch.ts';
+import { batchInOrder, type Batch } from '#lib/server/shared/result/batch.ts';
 import { fault, type RupeaError } from '@rupea/shared/error.ts';
 import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
 import {
@@ -15,6 +15,7 @@ import {
 	readText,
 	writeNumberedText,
 	writeText,
+	type Entry,
 	type Storage,
 } from '#lib/server/shared/storage/storage.ts';
 import { isCounted } from '@rupea/shared/folders.ts';
@@ -29,10 +30,9 @@ import { openFolder } from './ledger';
 import { reindex } from './sync';
 import { listLedgerFiles, type Move } from './sync-index';
 
-export const listFiles = (l: Ledger): ResultAsync<Batch<RupeaFile>> =>
-	openFolder({ ledger: l, folder: 'files' }).andThen((s) =>
-		listLedgerFiles(s).andThen((l) => batchAsync(l.map((e) => readText(s, e.key)))),
-	);
+/** The ledger files, without their text. */
+export const listFiles = (l: Ledger): ResultAsync<Entry[]> =>
+	openFolder({ ledger: l, folder: 'files' }).andThen(listLedgerFiles);
 
 type ReadFileOptions = { ledger: Ledger; key: string };
 
@@ -176,7 +176,7 @@ type SaveTransactionOptions = TransactionAt & { version: string; form: Transacti
 
 /**
  * Rewrites the transaction at a line, if its file is still the version it was
- * read as.
+ * read as. The form names the same file; a transaction does not move here.
  */
 export const saveTransaction = ({
 	ledger,
@@ -185,9 +185,11 @@ export const saveTransaction = ({
 	version,
 	form,
 }: SaveTransactionOptions): ResultAsync<{ file: string; line: number }> =>
-	changeTransaction({ ledger, file, version }, (c, f) => replace(c, { file: f, line, form })).map(
-		({ line: moved }) => ({ file, line: moved }),
-	);
+	form.file !== file
+		? errAsync(fault('StorageInvalidKey', { key: form.file }))
+		: changeTransaction({ ledger, file, version }, (c, f) =>
+				replace(c, { file: f, line, form }),
+			).map(({ line: moved }) => ({ file, line: moved }));
 
 type DeleteTransactionOptions = TransactionAt & { version: string };
 
@@ -234,13 +236,15 @@ export type Addition = {
 
 /** Moves a draft to a new file, or merges it into the file there and deletes it. */
 export const addFile = ({ ledger, from, to }: AddFileOptions): ResultAsync<Addition> =>
-	openFolder({ ledger, folder: 'files' }).andThen((s) =>
-		readText(s, from).andThen((d) =>
-			findText(s, to).andThen((f) =>
-				f ? mergeFile(s, ledger.id, d, f) : moveDraft(s, ledger.id, d, to),
-			),
-		),
-	);
+	from === to
+		? errAsync(fault('StorageInvalidKey', { key: to }))
+		: openFolder({ ledger, folder: 'files' }).andThen((s) =>
+				readText(s, from).andThen((d) =>
+					findText(s, to).andThen((f) =>
+						f ? mergeFile(s, ledger.id, d, f) : moveDraft(s, ledger.id, d, to),
+					),
+				),
+			);
 
 type DeleteFilesOptions = { ledger: Ledger; keys: string[] };
 

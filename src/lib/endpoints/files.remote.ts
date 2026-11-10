@@ -1,16 +1,17 @@
 import { replyFrom, replyFromBatch } from '@rupea/server/shared/result/reply.ts';
 import { ok } from '@rupea/server/shared/result/result.ts';
+import { Key, Line } from '@rupea/shared/files.ts';
 import { TransactionForm } from '@rupea/shared/transaction-form.ts';
 import * as Auth from '@rupea/server/services/auth/application/auth.ts';
 import * as Files from '@rupea/server/services/ledger/application/files.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
-import { Handle, inLedger, Key } from './shared';
+import { Handle, inLedger } from './shared';
 import { listProblems } from './ledger.remote';
 import { viewTransaction } from './views';
 
 export const listFiles = query(Handle, (h) =>
-	replyFromBatch(inLedger({ handle: h, action: Files.listFiles })),
+	replyFrom(inLedger({ handle: h, action: Files.listFiles })),
 );
 
 export const findLatestFile = query(
@@ -35,8 +36,6 @@ export const createTransaction = command(
 		return replyFrom(created);
 	},
 );
-
-const Line = v.pipe(v.number(), v.integer(), v.minValue(1));
 
 export const findTransaction = query(
 	v.object({ handle: Handle, id: v.string() }),

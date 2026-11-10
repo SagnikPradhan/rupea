@@ -14,9 +14,10 @@ import { viewTransaction } from './views';
 export const uploadStatements = form(
 	v.object({ handle: Handle, files: v.pipe(v.array(v.file()), v.minLength(1)) }),
 	async ({ handle, files }) => {
-		const uploads = await Promise.all(
-			files.map((f) => f.arrayBuffer().then((b) => ({ name: f.name, content: new Uint8Array(b) }))),
-		);
+		const uploads = files.map((f) => ({
+			name: f.name,
+			read: () => f.arrayBuffer().then((b) => new Uint8Array(b)),
+		}));
 		const uploaded = await inLedger({
 			handle,
 			action: (l, u) => Uploads.uploadStatements({ ledger: l, user: u.id, uploads }),

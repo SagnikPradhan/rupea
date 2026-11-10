@@ -131,7 +131,7 @@ describe('refining a saved file', () => {
 				await Groups.linkGroups({ ledger, edits: edits(suggestions) })
 			)._unsafeUnwrap();
 
-			expect(failed).toMatchObject([{ type: 'CannotReadFile', path: 'hdfc.rupea' }]);
+			expect(failed).toMatchObject([{ type: 'StorageNotFound', key: 'hdfc.rupea' }]);
 			expect((await Files.readFile({ ledger, key: 'ibkr.rupea' }))._unsafeUnwrap().content).toBe(
 				ibkr,
 			);

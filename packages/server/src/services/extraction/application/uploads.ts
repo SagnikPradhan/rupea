@@ -1,13 +1,12 @@
 import { atomically } from '#lib/server/db/atomically.ts';
 import { batchInOrder, type Batch } from '#lib/server/shared/result/batch.ts';
-import type { ResultAsync } from '#lib/server/shared/result/result.ts';
+import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { enqueue, listJobs, type UserJob } from '#services/jobs/application/jobs.ts';
 import { findImported } from '#services/ledger/application/files.ts';
 import { isCounted } from '@rupea/shared/folders.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
 import * as DB from '../adapters/database';
 import { importStatement } from './jobs';
-import type { Upload } from '../domain/types';
 import * as v from 'valibot';
 import { dropMissing, storeStatement } from './statements';
 
@@ -15,15 +14,19 @@ import { dropMissing, storeStatement } from './statements';
 const RECENT = 200;
 const JOBS_SHOWN = 50;
 
+/** A file named as the user named it, whose bytes are read when its turn comes. */
+type Incoming = { name: string; read: () => Promise<Uint8Array> };
+
 type UploadOptions = {
 	ledger: Ledger;
 	user: string;
-	uploads: Upload[];
+	uploads: Incoming[];
 };
 
 /**
  * Stores each upload, and queues a job that drafts it; one failing does not
- * stop the rest.
+ * stop the rest. Each is read just before it is stored, so one is held at a
+ * time.
  */
 export const uploadStatements = ({
 	ledger,
@@ -69,16 +72,18 @@ const viewImport = (j: UserJob) => {
 	return [{ id: j.id, status: j.status, statement: payload.output.name, error: j.error }];
 };
 
-type UploadOneOptions = { ledger: Ledger; user: string; upload: Upload };
+type UploadOneOptions = { ledger: Ledger; user: string; upload: Incoming };
 
 const uploadOne = ({ ledger, user, upload }: UploadOneOptions): ResultAsync<string> =>
-	atomically(() =>
-		storeStatement({ ledger, upload }).andThen((s) =>
-			enqueue({
-				job: importStatement,
-				user,
-				payload: { ledger: ledger.handle, checksum: s.checksum, name: s.key },
-			}).map(() => s.key),
+	attempt(upload.read).andThen((content) =>
+		atomically(() =>
+			storeStatement({ ledger, upload: { name: upload.name, content } }).andThen((s) =>
+				enqueue({
+					job: importStatement,
+					user,
+					payload: { ledger: ledger.handle, checksum: s.checksum, name: s.key },
+				}).map(() => s.key),
+			),
 		),
 	);
 

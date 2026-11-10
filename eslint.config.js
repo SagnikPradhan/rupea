@@ -77,6 +77,10 @@ export default defineConfig(
 		ignores: ['**/*.test.ts', 'tests/**', 'packages/*/tests/**'],
 	},
 	{
+		files: ['packages/server/src/api/**/*.ts'],
+		rules: { 'functional/no-throw-statements': 'off' },
+	},
+	{
 		files: ['**/*.ts'],
 		plugins: { rupea },
 		rules: {

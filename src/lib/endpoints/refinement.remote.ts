@@ -2,10 +2,11 @@ import { replyFrom } from '@rupea/server/shared/result/reply.ts';
 import * as Groups from '@rupea/server/services/ledger/application/groups.ts';
 import { GroupRole } from '@rupea/server/services/ledger/application/language.ts';
 import * as Refinement from '@rupea/server/services/refinement/application/refinement.ts';
+import { Key } from '@rupea/shared/files.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
 import { listFiles } from './files.remote';
-import { Handle, inLedger, Key } from './shared';
+import { Handle, inLedger } from './shared';
 import { listProblems } from './ledger.remote';
 import { viewGroup, viewSuggestion } from './views';
 

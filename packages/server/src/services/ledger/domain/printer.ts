@@ -14,7 +14,6 @@ import {
 	type RupeaFileNode,
 	type RupeaLink,
 	type RupeaMarketPrice,
-	type RupeaPosting,
 	type RupeaPostingNode,
 	type RupeaTransactionNode,
 } from './types';
@@ -149,7 +148,3 @@ const printTime = (formats: string[], t: Temporal.PlainTime) => {
 
 	return written?.text ?? t.toString();
 };
-
-/** A posting's amount with its cost and price, as the page shows it. */
-export const printQuantity = (p: RupeaPosting): string =>
-	[formatQuantity(p), ...printTerms(undefined, p)].join(' ');

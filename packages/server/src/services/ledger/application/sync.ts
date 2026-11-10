@@ -4,7 +4,7 @@ import type { Batch } from '#lib/server/shared/result/batch.ts';
 import type { RupeaError } from '@rupea/shared/error.ts';
 import { ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import type { Entry, Storage } from '#lib/server/shared/storage/storage.ts';
-import { enqueue, listJobs, type JobStatus } from '#services/jobs/application/jobs.ts';
+import { enqueue, JobStatus, listJobs } from '#services/jobs/application/jobs.ts';
 import * as DB from '../adapters/database';
 import { plan } from '../domain/sync';
 import type { Ledger } from '../domain/types';
@@ -29,10 +29,15 @@ export const sync = (l: Ledger): ResultAsync<void> =>
 
 /**
  * Queues a sync that reads every file again and rebuilds all that is worked out
- * from them, for when the index itself is in doubt.
+ * from them, for when the index itself is in doubt. Queues nothing while a sync
+ * is queued or running, so a caller cannot pile up rebuilds.
  */
 export const resync = (l: Ledger): ResultAsync<void> =>
-	enqueue({ job: syncJob, user: l.owner, payload: { ledger: l.handle, full: true } });
+	findSync(l).andThen((s) =>
+		s === JobStatus.Queued || s === JobStatus.Running
+			? okAsync(undefined)
+			: enqueue({ job: syncJob, user: l.owner, payload: { ledger: l.handle, full: true } }),
+	);
 
 /** How the ledger's latest sync went, or null before its first. */
 export const findSync = (l: Ledger): ResultAsync<JobStatus | null> =>

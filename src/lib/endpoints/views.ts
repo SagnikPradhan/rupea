@@ -1,3 +1,5 @@
+import { PostedOut, printPosted } from '@rupea/shared/quantities.ts';
+import * as v from 'valibot';
 import type * as Accounts from '@rupea/server/services/ledger/application/accounts.ts';
 import type * as Groups from '@rupea/server/services/ledger/application/groups.ts';
 import {
@@ -5,7 +7,7 @@ import {
 	type RupeaTransaction,
 	printAmount,
 	formatQuantity,
-	printQuantity,
+	postedOf,
 } from '@rupea/server/services/ledger/application/language.ts';
 import type * as Transactions from '@rupea/server/services/ledger/application/transactions.ts';
 import type * as Refinement from '@rupea/server/services/refinement/application/refinement.ts';
@@ -18,7 +20,10 @@ export const viewTransaction = (transaction: RupeaTransaction) => ({
 	time: transaction.time?.toString({ smallestUnit: 'minute' }) ?? null,
 	description: transaction.description,
 	comment: transaction.comment,
-	postings: transaction.postings.map((p) => ({ account: p.account, quantity: printQuantity(p) })),
+	postings: transaction.postings.map((p) => ({
+		account: p.account,
+		quantity: printPosted(v.parse(PostedOut, postedOf(p))),
+	})),
 });
 
 export const viewCounted = ({ id, counted, ...transaction }: Transactions.CountedTransaction) => ({
@@ -35,7 +40,7 @@ export const viewPosting = (listed: Transactions.ListedPosting) => ({
 	date: listed.date.toString(),
 	description: listed.description,
 	account: listed.posting.account,
-	quantity: printQuantity(listed.posting),
+	quantity: printPosted(v.parse(PostedOut, postedOf(listed.posting))),
 });
 
 export const viewSuggestion = ({ ours, theirs, ...suggestion }: Refinement.Suggestion) => ({

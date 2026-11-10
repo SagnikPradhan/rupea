@@ -92,3 +92,6 @@ export const AmountOut = v.pipe(
 	v.regex(DECIMAL),
 	v.description(DESCRIPTION),
 );
+
+/** An amount of a commodity going out. */
+export const QuantityOut = v.object({ amount: AmountOut, commodity: v.string() });

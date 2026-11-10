@@ -71,6 +71,38 @@ describe('accounts', () => {
 			]);
 		}));
 
+	it('lists an account paid off to nothing once something was posted to it', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = [
+				'2026-01-02 Spend',
+				'\tExpenses:Food 500',
+				'\tLiabilities:Card:IDFC',
+				'',
+				'2026-02-02 Pay',
+				'\tLiabilities:Card:IDFC 500',
+				'\tAssets:Bank',
+				'',
+			].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const on = async (at: string) =>
+				(await Accounts.listAccounts({ ledger, day: Temporal.PlainDate.from(at) }))
+					._unsafeUnwrap()
+					.succeeded.filter((a) => a.account.startsWith('Liabilities'))
+					.map((a) => [a.account, a.total]);
+
+			expect(await on('2026-02-10')).toEqual([
+				['Liabilities', 0n],
+				['Liabilities:Card:IDFC', 0n],
+			]);
+			expect(await on('2026-01-10')).toEqual([
+				['Liabilities', -500_0000000000n],
+				['Liabilities:Card:IDFC', -500_0000000000n],
+			]);
+			expect(await on('2025-12-31')).toEqual([]);
+		}));
+
 	it('holds what was there at the end of an earlier day, at the cost of the lots open then', ({
 		context,
 		db,
@@ -868,6 +900,56 @@ describe('spending', () => {
 			expect(year?.totals.map((t) => [t.account, t.amount])).toEqual([
 				['Income', -5000_0000000000n],
 				['Income:Salary', -5000_0000000000n],
+			]);
+		}));
+
+	it('adds up what came in and what went out of an account, which the net hides', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const flows = [
+				'P 2026-01-01 USD 83',
+				'',
+				'2026-01-02 Spend',
+				'\tExpenses:Food 500',
+				'\tLiabilities:Card',
+				'',
+				'2026-01-20 Pay',
+				'\tLiabilities:Card 500',
+				'\tAssets:Bank',
+				'',
+				'2026-02-03 Spend in dollars',
+				'\tExpenses:Food 10 USD',
+				'\tLiabilities:Card',
+				'',
+			].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content: flows });
+
+			const card = async (from: string, to: string) => {
+				const [spending] = (
+					await Accounts.listDeltas({
+						ledger,
+						spans: [span(from, to)],
+						bucket: 'month',
+						account: 'Liabilities',
+					})
+				)._unsafeUnwrap().succeeded;
+
+				return spending?.totals
+					.filter((t) => t.account === 'Liabilities:Card')
+					.map((t) => [t.amount, t.inflow, t.outflow]);
+			};
+
+			expect(await card('2026-01-01', '2026-01-31')).toEqual([
+				[0n, 500_0000000000n, 500_0000000000n],
+			]);
+			expect(await card('2026-01-01', '2026-02-28')).toEqual([
+				[-830_0000000000n, 500_0000000000n, 1330_0000000000n],
+			]);
+			expect(await card('2026-01-10', '2026-01-25')).toEqual([
+				[500_0000000000n, 500_0000000000n, 0n],
 			]);
 		}));
 

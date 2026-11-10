@@ -213,6 +213,30 @@ export const listHoldings = (ledgerId: string, day: Temporal.PlainDate): ResultA
 		);
 	});
 
+/**
+ * Every balance account any posting up to the end of a day names, held or
+ * settled.
+ */
+export const listPosted = (ledgerId: string, day: Temporal.PlainDate): ResultAsync<string[]> =>
+	withContext('db')((db) =>
+		attempt(() =>
+			db
+				.selectFrom(
+					deltasBetween(db, ledgerId, {
+						from: Temporal.PlainDate.from(BEGINNING),
+						after: day.add({ days: 1 }),
+						grain: 'month',
+					}).as('m'),
+				)
+				.innerJoin('accounts as a', 'a.id', 'm.accountId')
+				.select('a.name')
+				.distinct()
+				.where('m.accountType', 'in', BALANCE_TYPES)
+				.orderBy('a.name')
+				.execute(),
+		).map((a) => a.map((r) => r.name)),
+	);
+
 type BalanceChecksOptions = { from: Temporal.PlainDate; holdings: HoldingKey[] | null };
 
 /**

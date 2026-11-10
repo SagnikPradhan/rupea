@@ -31,7 +31,7 @@
 	import { page } from '$app/state';
 	import * as v from 'valibot';
 
-	const SETTLED = { '': 'Open only', yes: 'Including settled' };
+	const SETTLED = { '': 'Including settled', no: 'Open only' };
 
 	const { data } = $props();
 
@@ -42,7 +42,7 @@
 	const period = $derived(periodOf(page.url.searchParams, thisYear));
 	const picked = $derived(v.parse(BalanceAccount, page.url.searchParams.get('account')));
 	const account = $derived(picked !== null && isUnder(picked, LIABILITIES) ? picked : null);
-	const settled = $derived(page.url.searchParams.get('settled') === 'yes');
+	const settled = $derived(page.url.searchParams.get('settled') !== 'no');
 
 	const [response, flowed, first, termed] = $derived(
 		await Promise.all([
@@ -105,7 +105,7 @@
 						param="settled"
 						label="Settled accounts"
 						choices={SETTLED}
-						current={settled ? 'yes' : ''}
+						current={settled ? '' : 'no'}
 					/>
 				</FilterSection>
 			{/snippet}
@@ -183,7 +183,8 @@
 				columns={[
 					{ label: 'Account' },
 					{ label: 'Owed', kind: 'amount' },
-					{ label: 'Paid down', kind: 'amount' },
+					{ label: 'Drawn', kind: 'amount' },
+					{ label: 'Paid', kind: 'amount' },
 					{ label: 'Rate', kind: 'amount' },
 					{ label: 'Monthly', kind: 'amount' },
 					{ label: 'Due', kind: 'amount' },
@@ -200,13 +201,15 @@
 								{#if row.unpriced > 0}<Tag>{row.unpriced} unpriced</Tag>{/if}
 							</th>
 							<Amount value={printAmount(row.owed)} />
-							<Amount value={printAmount(row.paid)} signed />
+							<Amount value={printAmount(row.drawn)} />
+							<Amount value={printAmount(row.paid)} />
 							<td class="amount">{row.rate === null ? '' : `${row.rate}%`}</td>
 							<Amount value={printAmount(row.payment)} />
 							<td class="amount">{row.due ?? ''}</td>
-							<td class="nowrap"
-								><a href={setupHref(row.account)}>{row.setUp ? 'Edit' : 'Set up'}</a></td
-							>
+							<td class="nowrap">
+								{#if row.leaf}<a href={setupHref(row.account)}>{row.setUp ? 'Edit' : 'Set up'}</a
+									>{/if}
+							</td>
 						</tr>
 					{/each}
 				</tbody>
@@ -214,6 +217,7 @@
 					<tr>
 						<th scope="row">Total</th>
 						<Amount value={printAmount(total)} />
+						<Amount value={null} />
 						<Amount value={null} />
 					</tr>
 				</tfoot>

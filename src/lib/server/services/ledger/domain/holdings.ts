@@ -64,14 +64,15 @@ export type Account = {
 };
 
 /**
- * Each account holding something and every parent of one that is drawn, a
- * parent first, totalling all held under it.
+ * Each account holding something or posted to, and every parent of one that is
+ * drawn, a parent first, totalling all held under it.
  */
 export const byAccount = (
 	holdings: ValuedHolding[],
 	parents: Record<string, string | null>,
+	posted: string[],
 ): Account[] =>
-	[...new Set(holdings.flatMap((h) => parentsOf(h.account)))]
+	[...new Set([...holdings.map((h) => h.account), ...posted].flatMap(parentsOf))]
 		.filter((a) => Object.hasOwn(parents, a))
 		.toSorted(byPath)
 		.map((account) => {

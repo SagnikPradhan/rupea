@@ -46,12 +46,16 @@ const card = (account: string, due: number) => ({
 	held: { kind: 'card' as const, due },
 });
 
-const paid = (account: string, n: string) => ({ account, amount: amount(n) });
+const paid = (account: string, inflow: string, outflow = '0') => ({
+	account,
+	inflow: amount(inflow),
+	outflow: amount(outflow),
+});
 
 const made = (account: string, bucket: string, n: string) => ({
 	account,
 	bucket: on(bucket),
-	amount: amount(n),
+	inflow: amount(n),
 });
 
 describe('what is owed', () => {
@@ -170,15 +174,29 @@ describe('the rows of the table', () => {
 		paid('Liabilities:Loans:Car', '10000'),
 	];
 
-	it('leaves out the root and settled accounts that did not move, and gives each row what it paid down', () => {
+	it('leaves out the root and settled accounts that did not move, and gives each row what it drew and paid', () => {
 		const rows = Liabilities.rowsFor(debts(), totals, false);
 
-		expect(rows.map((r) => [r.account, r.owed, r.paid])).toEqual([
-			['Liabilities:Loans', amount('300000'), amount('40000')],
-			['Liabilities:Loans:Home', amount('250000'), amount('30000')],
-			['Liabilities:Loans:Car', amount('50000'), amount('10000')],
-			['Liabilities:Card', amount('25000'), amount('0')],
+		expect(rows.map((r) => [r.account, r.owed, r.drawn, r.paid])).toEqual([
+			['Liabilities:Loans', amount('300000'), amount('0'), amount('40000')],
+			['Liabilities:Loans:Home', amount('250000'), amount('0'), amount('30000')],
+			['Liabilities:Loans:Car', amount('50000'), amount('0'), amount('10000')],
+			['Liabilities:Card', amount('25000'), amount('0'), amount('0')],
 		]);
+	});
+
+	it('keeps a settled account that only drew, which a net of nothing would hide', () => {
+		const rows = Liabilities.rowsFor(
+			debts(),
+			[paid('Liabilities:Loans:Old', '8000', '8000')],
+			false,
+		);
+
+		expect(rows.find((r) => r.account === 'Liabilities:Loans:Old')).toMatchObject({
+			owed: amount('0'),
+			drawn: amount('8000'),
+			paid: amount('8000'),
+		});
 	});
 
 	it('keeps a settled account that moved in the period, as one paid off in it', () => {
@@ -296,6 +314,19 @@ describe('the lines of the timeline', () => {
 					['2026-12-01', false],
 				],
 			],
+		]);
+	});
+
+	it('pins what was paid in a bucket, not its net change, and nothing when no payment was made', () => {
+		const lines = Liabilities.linesFor(
+			debts(),
+			[made('Liabilities:Card', '2026-01-01', '8000'), made('Liabilities:Card', '2026-02-01', '0')],
+			[],
+			'month',
+		);
+
+		expect(lines.map((l) => l.pins.map((p) => [p.at.toString(), p.amount]))).toEqual([
+			[['2026-01-01', amount('8000')]],
 		]);
 	});
 

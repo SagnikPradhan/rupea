@@ -42,6 +42,8 @@ export type Tables = {
 		commodity: string;
 		date: string;
 		amount: bigint;
+		inflow: bigint;
+		outflow: bigint;
 	};
 	dismissedMatches: Kyselify<typeof dismissedMatches>;
 	disposals: Kyselify<typeof disposals>;

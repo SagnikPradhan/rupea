@@ -212,7 +212,7 @@ describe('a full reindex, of what reading alone cannot repair', () => {
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({ ledger, key: 'a.rupea', content: asserted });
-			await sql`update monthly_deltas set amount = 1 where ledger_id = ${ledger.id} and month = '2020-03-01'`.execute(
+			await sql`update monthly_deltas set amount = 1, inflow = 1, outflow = 0 where ledger_id = ${ledger.id} and month = '2020-03-01'`.execute(
 				db,
 			);
 			await DB.saveBalanceChecks(ledger.id, {

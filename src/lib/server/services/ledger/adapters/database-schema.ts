@@ -397,6 +397,16 @@ export const monthlyDeltas = PG.pgTable(
 		commodity: t.text().notNull(),
 		month: t.date().notNull(), // its first day
 		amount: amount().notNull(),
+		/**
+		 * The positive postings summed, and the negative ones summed and made
+		 * positive.
+		 */
+		inflow: amount()
+			.notNull()
+			.default(sql`0`),
+		outflow: amount()
+			.notNull()
+			.default(sql`0`),
 	}),
 	(t) => [
 		PG.unique('monthly_deltas_ledger_id_account_id_commodity_month').on(
@@ -404,6 +414,10 @@ export const monthlyDeltas = PG.pgTable(
 			t.accountId,
 			t.commodity,
 			t.month,
+		),
+		PG.check(
+			'monthly_deltas_amount_is_inflow_less_outflow',
+			sql`${t.amount} = ${t.inflow} - ${t.outflow}`,
 		),
 	],
 );

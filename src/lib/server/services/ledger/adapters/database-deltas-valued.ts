@@ -50,6 +50,8 @@ export const listDeltas = (
 							'm.commodity',
 							sql<string | null>`null::uuid`.as('symbolId'),
 							e.fn.sum<bigint>('m.amount').as('amount'),
+							e.fn.sum<bigint>('m.inflow').as('inflow'),
+							e.fn.sum<bigint>('m.outflow').as('outflow'),
 							sql<bigint>`0::bigint`.as('postings'),
 						])
 						.where('m.commodity', '=', base)
@@ -66,6 +68,8 @@ export const listDeltas = (
 									'p.commodity',
 									'o.id as symbolId',
 									e.fn.sum<bigint>('p.amount').as('amount'),
+									sql<bigint>`sum(greatest(${e.ref('p.amount')}, 0))`.as('inflow'),
+									sql<bigint>`sum(greatest(-${e.ref('p.amount')}, 0))`.as('outflow'),
 									e.fn.countAll<bigint>().as('postings'),
 								])
 								.where('p.ledgerId', '=', ledgerId)
@@ -107,6 +111,18 @@ export const listDeltas = (
 								rate: e.ref('r.rate'),
 								base,
 							}).as('value'),
+							inBase({
+								amount: e.ref('s.inflow'),
+								commodity: e.ref('s.commodity'),
+								rate: e.ref('r.rate'),
+								base,
+							}).as('inflow'),
+							inBase({
+								amount: e.ref('s.outflow'),
+								commodity: e.ref('s.commodity'),
+								rate: e.ref('r.rate'),
+								base,
+							}).as('outflow'),
 						]),
 				)
 				.selectFrom('valued as v')
@@ -115,6 +131,8 @@ export const listDeltas = (
 					'v.bucket',
 					e.fn.min('v.date').as('first'),
 					total(e.ref('v.value')).as('amount'),
+					total(e.ref('v.inflow')).as('inflow'),
+					total(e.ref('v.outflow')).as('outflow'),
 					sql<number>`${total(e.ref('v.postings'), e('v.value', 'is', null))}::integer`.as(
 						'unpriced',
 					),
@@ -132,6 +150,8 @@ export const listDeltas = (
 				bucket: dateOf(s.bucket),
 				first: dateOf(s.first),
 				amount: s.amount as Amount,
+				inflow: s.inflow as Amount,
+				outflow: s.outflow as Amount,
 				unpriced: s.unpriced,
 			}));
 		}),

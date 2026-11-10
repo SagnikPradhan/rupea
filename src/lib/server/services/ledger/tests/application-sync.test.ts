@@ -2116,7 +2116,7 @@ describe('monthly deltas that drift', () => {
 		{
 			name: 'a wrong amount',
 			introduce: (id: string) =>
-				sql`update monthly_deltas set amount = amount + 1 where ledger_id = ${id} and month = '2026-07-01'`,
+				sql`update monthly_deltas set amount = amount + 1, inflow = inflow + 1 where ledger_id = ${id} and month = '2026-07-01'`,
 		},
 		{
 			name: 'a missing month',
@@ -2126,8 +2126,8 @@ describe('monthly deltas that drift', () => {
 		{
 			name: 'stray months before and after the ledger',
 			introduce: (id: string) =>
-				sql`insert into monthly_deltas (ledger_id, account_id, account_type, commodity, month, amount)
-					select ${id}, a.id, 'Assets', 'INR', m, 1
+				sql`insert into monthly_deltas (ledger_id, account_id, account_type, commodity, month, amount, inflow)
+					select ${id}, a.id, 'Assets', 'INR', m, 1, 1
 					from accounts a, unnest('{2001-01-01,2030-01-01}'::date[]) m
 					where a.ledger_id = ${id} and a.name = 'Assets:Bank'`,
 		},
@@ -2163,7 +2163,9 @@ describe('monthly deltas that drift', () => {
 			const lunch = '2024-06-10 Lunch\n\tExpenses:Food 10\n\tAssets:Bank\n';
 			await Files.createFile({ ledger, key: 'a.rupea', content: `${rent}\n${august}` });
 			await sql`update ledgers set checked_through = null`.execute(db);
-			await sql`update monthly_deltas set amount = 0 where month = '2026-08-01'`.execute(db);
+			await sql`update monthly_deltas set amount = 0, inflow = 0, outflow = 0 where month = '2026-08-01'`.execute(
+				db,
+			);
 
 			const checked: (string | null)[] = [];
 			const drifted: number[] = [];

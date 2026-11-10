@@ -101,7 +101,7 @@ describe('adding a draft', () => {
 			expect(added).toMatchObject(ok({ added: 1, skipped: 1, before: salary }));
 			expect(await summary(ledger.id)).toEqual(['hdfc.rupea:1 Salary', 'hdfc.rupea:5 Groceries']);
 			expect(await Files.readFile({ ledger, key: '_/a.rupea' })).toMatchObject({
-				error: { type: 'CannotReadFile' },
+				error: { type: 'StorageNotFound' },
 			});
 		}));
 
@@ -216,7 +216,27 @@ describe('deleting files', () => {
 			const deleted = await Files.deleteFiles({ ledger, keys: ['a.rupea', 'b.rupea'] });
 			expect(deleted).toEqual(ok({ succeeded: ['a.rupea', 'b.rupea'], failed: [] }));
 			expect(await summary(ledger.id)).toEqual([]);
-			expect(await Files.listFiles(ledger)).toEqual(ok({ succeeded: [], failed: [] }));
+			expect(await Files.listFiles(ledger)).toEqual(ok([]));
+		}));
+});
+
+describe('listing files', () => {
+	it('lists each file with its size and version, and no text', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content: groceries });
+			await Files.createFile({ ledger, key: '_/statement.csv', content: 'x' });
+
+			const listed = (await Files.listFiles(ledger))._unsafeUnwrap();
+
+			expect(listed).toEqual([
+				{
+					key: 'a.rupea',
+					size: groceries.length,
+					modified: expect.any(Date),
+					version: expect.any(String),
+				},
+			]);
 		}));
 });
 
@@ -235,7 +255,7 @@ describe('reading a file', () => {
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			expect(await Files.readFile({ ledger, key: 'a.rupea' })).toMatchObject({
-				error: { type: 'CannotReadFile', path: 'a.rupea' },
+				error: { type: 'StorageNotFound', key: 'a.rupea' },
 			});
 		}));
 });

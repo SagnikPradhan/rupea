@@ -4,13 +4,32 @@ import { ORPCError } from '@orpc/server';
 import { contract } from '@rupea/contract/contract.ts';
 import { RupeaError } from '@rupea/shared/error.ts';
 import Fastify, { type FastifyBaseLogger, type FastifyError, type FastifyRequest } from 'fastify';
+import * as Auth from '#services/auth/application/auth.ts';
 import { provide, type RupeaContext } from '#lib/server/shared/context/context.ts';
 import { converter } from './converter.ts';
-import { listWorth } from './accounts.ts';
+import * as accounts from './accounts.ts';
 import { findUser, requestCode, signIn, signOut } from './auth.ts';
+import * as files from './files.ts';
+import * as ledger from './ledger.ts';
+import * as refinement from './refinement.ts';
+import * as schemas from './schemas.ts';
+import * as statements from './statements.ts';
+import * as transactions from './transactions.ts';
 import { os } from './session.ts';
 
-const router = os.router({ listWorth, requestCode, signIn, signOut, findUser });
+const router = os.router({
+	...accounts,
+	requestCode,
+	signIn,
+	signOut,
+	findUser,
+	...files,
+	...ledger,
+	...refinement,
+	...schemas,
+	...statements,
+	...transactions,
+});
 
 /**
  * The largest body a request may carry, as many statements may arrive at once.
@@ -19,14 +38,22 @@ const router = os.router({ listWorth, requestCode, signIn, signOut, findUser });
  */
 const BODY_LIMIT = 64 * 1024 * 1024;
 
+/**
+ * The largest body a request may carry without a session, so a stranger cannot
+ * make the host buffer more than a sign-in needs.
+ */
+const SIGNED_OUT_BODY_LIMIT = 1024 * 1024;
+
 type Issue = { expected: string | null; path?: { key: unknown }[] | undefined };
 
+const CLIENT_FAULT = { code: 'BAD_REQUEST', message: 'Invalid request' };
+const SERVER_FAULT = { code: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' };
+
 const REFUSALS: Record<number, { code: string; message: string }> = {
-	400: { code: 'BAD_REQUEST', message: 'Invalid request' },
+	401: { code: 'UNAUTHORIZED', message: 'Unauthorized' },
 	404: { code: 'NOT_FOUND', message: 'Not found' },
 	413: { code: 'PAYLOAD_TOO_LARGE', message: 'Body too large' },
 	415: { code: 'UNSUPPORTED_MEDIA_TYPE', message: 'Send application/json' },
-	500: { code: 'INTERNAL_SERVER_ERROR', message: 'Internal server error' },
 };
 
 const REDACTED = [
@@ -40,21 +67,34 @@ const REDACTED = [
 
 const info = { title: 'Rupea', version: '0' };
 
-const describe = ({ expected, path }: Issue) => ({
+type Operation = { requestBody?: { content?: Record<string, unknown> } };
+
+const uploadsAsForms = (document: { paths?: Record<string, unknown> | undefined }) => {
+	const forms = structuredClone(document);
+	const operations = Object.values(forms.paths ?? {}).flatMap((p): Operation[] =>
+		Object.values(p as Record<string, Operation>),
+	);
+
+	for (const content of operations.map((o) => o.requestBody?.content))
+		if (content && 'multipart/form-data' in content) delete content['application/json'];
+
+	return forms;
+};
+
+const issueOf = ({ expected, path }: Issue) => ({
 	path: (path ?? []).map((p) => String(p.key)),
 	message: expected ? `Expected ${expected}` : 'Invalid value',
 });
 
 const refusal = (status: number) => {
-	const known = REFUSALS[status] ?? (status >= 500 ? REFUSALS[500] : REFUSALS[400]);
-	const { code, message } = known ?? { code: 'BAD_REQUEST', message: 'Invalid request' };
+	const { code, message } = REFUSALS[status] ?? (status >= 500 ? SERVER_FAULT : CLIENT_FAULT);
 
 	return new ORPCError(code, { status, message }).toJSON();
 };
 
 const refuseInput = (e: ORPCError<string, unknown>) => {
 	const issues = (e.data as { issues?: Issue[] } | undefined)?.issues;
-	const data = Array.isArray(issues) ? { issues: issues.map(describe) } : undefined;
+	const data = Array.isArray(issues) ? { issues: issues.map(issueOf) } : undefined;
 
 	return new ORPCError('BAD_REQUEST', { message: 'Invalid input', data });
 };
@@ -72,13 +112,41 @@ const guard = ({
 	context: { log: FastifyBaseLogger };
 }) =>
 	next().catch((e: unknown) => {
-		if (isBadInput(e)) return Promise.reject(refuseInput(e));
+		if (isBadInput(e)) throw refuseInput(e);
 		if (isServerFault(e)) context.log.error({ err: e }, 'request failed');
-		return Promise.reject(e);
+		throw e;
 	});
+
+const formOf = (req: FastifyRequest, body: Buffer) =>
+	new Response(new Uint8Array(body.buffer as ArrayBuffer, body.byteOffset, body.length), {
+		headers: { 'content-type': req.headers['content-type'] ?? '' },
+	})
+		.formData()
+		.catch(() => {
+			throw Object.assign(new Error('Invalid form'), { statusCode: 400 });
+		});
 
 const bearerOf = (req: FastifyRequest) =>
 	/^Bearer (\S+)$/i.exec(req.headers.authorization ?? '')?.[1] ?? null;
+
+const hasSession = async (context: RupeaContext, req: FastifyRequest) => {
+	const token = bearerOf(req);
+	if (!token) return false;
+
+	const found = await provide(context, () => Auth.findSession(token));
+	if (found.isErr()) throw new Error('session lookup failed', { cause: found.error });
+
+	return found.value !== null;
+};
+
+const hasBody = (req: FastifyRequest) =>
+	req.headers['content-length'] !== undefined || req.headers['transfer-encoding'] !== undefined;
+
+const isLargeBody = (req: FastifyRequest) =>
+	Number(req.headers['content-length'] ?? Infinity) > SIGNED_OUT_BODY_LIMIT;
+
+const isTooLargeBody = (req: FastifyRequest) =>
+	Number(req.headers['content-length'] ?? 0) > BODY_LIMIT;
 
 /**
  * The HTTP host: each route of the contract, with a document that describes
@@ -86,7 +154,7 @@ const bearerOf = (req: FastifyRequest) =>
  */
 export const createApi = async (context: RupeaContext) => {
 	const handler = new OpenAPIHandler(router, { clientInterceptors: [guard] });
-	const document = await new OpenAPIGenerator({
+	const generated = await new OpenAPIGenerator({
 		schemaConverters: [converter],
 	}).generate(contract, {
 		info,
@@ -94,10 +162,12 @@ export const createApi = async (context: RupeaContext) => {
 		commonSchemas: { RupeaError: { schema: RupeaError } },
 	});
 
+	const document = uploadsAsForms(generated);
+
 	const logger = context.logger.child({}, { redact: REDACTED });
 	const api = Fastify({ loggerInstance: logger, bodyLimit: BODY_LIMIT });
 	api.removeAllContentTypeParsers();
-	api.addContentTypeParser('multipart/form-data', { parseAs: 'buffer' }, (_, b, d) => d(null, b));
+	api.addContentTypeParser('multipart/form-data', { parseAs: 'buffer' }, formOf);
 	api.addContentTypeParser('*', { parseAs: 'buffer' }, (_, body, done) =>
 		done(
 			body.length === 0 ? null : Object.assign(new Error('Unsupported'), { statusCode: 415 }),
@@ -122,6 +192,10 @@ export const createApi = async (context: RupeaContext) => {
 	api.addHook('onRequest', async (req, res) => {
 		const length = req.headers['content-length'];
 		if (length !== undefined && !/^\d+$/.test(length)) return res.code(400).send(refusal(400));
+		if (isTooLargeBody(req)) return res.code(413).send(refusal(413));
+		if (!hasBody(req) || !isLargeBody(req)) return;
+
+		if (!(await hasSession(context, req))) return res.code(401).send(refusal(401));
 	});
 
 	api.addHook('onSend', async (req, res) => {

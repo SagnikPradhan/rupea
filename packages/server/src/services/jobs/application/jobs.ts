@@ -8,11 +8,11 @@ import {
 	readPayload,
 	type Handler,
 	type Job,
-	type JobStatus,
 } from '../domain/jobs';
 
 export type { ClaimedJob, UserJob } from '../adapters/database';
-export type { Handler, Job, JobStatus };
+export type { Handler, Job };
+export { JobStatus } from '../domain/jobs';
 
 type EnqueueOptions<P> = {
 	job: Job<P>;

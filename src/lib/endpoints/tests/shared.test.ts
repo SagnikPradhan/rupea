@@ -1,15 +1,18 @@
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
-import { Key, SchemaKey } from '#lib/endpoints/shared.ts';
+import { Key, SchemaKey } from '@rupea/shared/files.ts';
 
 describe('ledger file keys', () => {
 	it.each(['a.rupea', 'bank/2026/hdfc.rupea'])('accepts %j', (key) => {
 		expect(v.parse(Key, key)).toBe(key);
 	});
 
-	it.each(['', 'notes.txt', 'a.rupea.bak'])('rejects %j', (key) => {
-		expect(v.safeParse(Key, key).success).toBe(false);
-	});
+	it.each(['', 'notes.txt', 'a.rupea.bak', '../a.rupea', '/a.rupea', 'a//b.rupea'])(
+		'rejects %j',
+		(key) => {
+			expect(v.safeParse(Key, key).success).toBe(false);
+		},
+	);
 });
 
 describe('schema keys', () => {

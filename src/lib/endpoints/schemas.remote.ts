@@ -1,8 +1,9 @@
 import { replyFrom } from '@rupea/server/shared/result/reply.ts';
 import * as Schemas from '@rupea/server/services/extraction/application/schemas.ts';
+import { SchemaKey } from '@rupea/shared/files.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
-import { Handle, inLedger, SchemaKey } from './shared';
+import { Handle, inLedger } from './shared';
 
 export const listSchemas = query(Handle, (h) =>
 	replyFrom(inLedger({ handle: h, action: Schemas.listSchemas })),

@@ -81,6 +81,19 @@ describe('viewing a transaction', () => {
 		expect(viewTransaction(priced).postings[0]?.quantity).toBe('10.00 INFY @@ 5.00 USD');
 	});
 
+	it('shows a lot cost with its date before the price', () => {
+		const [first] = transaction.postings;
+		const lot = {
+			...first!,
+			amount: amount('-5'),
+			cost: { amount: amount('1400'), commodity: 'INR', date: day },
+		};
+		const sold = { ...transaction, postings: [lot] };
+		expect(viewTransaction(sold).postings[0]?.quantity).toBe(
+			'-5.00 INFY {1400.00, 2026-08-29} @ 1500.125',
+		);
+	});
+
 	it('leaves an untimed transaction without a time', () => {
 		expect(viewTransaction({ ...transaction, time: null }).time).toBeNull();
 	});

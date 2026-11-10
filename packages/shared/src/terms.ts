@@ -53,3 +53,22 @@ export const TermsForm = v.object({
 		v.check((e) => v.is(Terms, Object.fromEntries(e)), 'Check the terms against the hints.'),
 	),
 });
+
+/** What Terms reads, as it comes out: the numbers read, the amounts as written. */
+export const TermsOut = v.variant('kind', [
+	v.object({
+		kind: v.literal('loan'),
+		rate: v.optional(v.number()),
+		payment: v.optional(v.string()),
+		due: v.optional(v.number()),
+		method: v.picklist(['reducing', 'flat']),
+		tenure: v.optional(v.number()),
+	}),
+	v.object({
+		kind: v.literal('card'),
+		limit: v.optional(v.string()),
+		statement: v.optional(v.number()),
+		due: v.optional(v.number()),
+		rate: v.optional(v.number()),
+	}),
+]);

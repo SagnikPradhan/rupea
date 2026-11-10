@@ -12,7 +12,7 @@ describe('files', () => {
 		const { ledger, context } = await cloneFixture(name, models);
 
 		const listed = await provide(context, () => Files.listFiles(ledger));
-		const keys = listed._unsafeUnwrap().succeeded.map((f) => f.key);
+		const keys = listed._unsafeUnwrap().map((f) => f.key);
 		const dated = keys.filter((k) => k !== 'opening.rupea');
 		const oldest = dated.at(0) ?? '';
 		const newest = dated.at(-1) ?? '';

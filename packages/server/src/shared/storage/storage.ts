@@ -1,6 +1,6 @@
 import { extname } from 'node:path';
 import { safely } from '../control';
-import { fault } from '@rupea/shared/error.ts';
+import { fault, type RupeaError } from '@rupea/shared/error.ts';
 import { err, ok, type Result, type ResultAsync } from '../result/result';
 
 const decoder = new TextDecoder('utf-8', { fatal: true });
@@ -81,15 +81,26 @@ export const scoped = (storage: Storage, prefix: string): Storage => {
 		...entry,
 		key: entry.key.slice(prefix.length + 1),
 	});
+	const relative = (e: RupeaError): RupeaError =>
+		'key' in e && e.key.startsWith(`${prefix}/`)
+			? { ...e, key: e.key.slice(prefix.length + 1) }
+			: e;
 	const checked = <T>(k: string, r: (key: string) => ResultAsync<T>): ResultAsync<T> =>
-		validateKey(k).asyncAndThen((v) => r(inner(v)));
+		validateKey(k).asyncAndThen((v) => r(inner(v)).mapErr(relative));
 
 	return {
-		list: (path = '') => storage.list(inner(path)).map((l) => l.map(outer)),
+		list: (path = '') =>
+			storage
+				.list(inner(path))
+				.map((l) => l.map(outer))
+				.mapErr(relative),
 		read: (p) => checked(p, (k) => storage.read(k).map((r) => ({ ...r, entry: outer(r.entry) }))),
 		write: (o) => checked(o.key, (k) => storage.write({ ...o, key: k }).map(outer)),
 		delete: (e) => checked(e, (k) => storage.delete(k)),
-		rename: (r, o) => checked(r, (f) => checked(o, (t) => storage.rename(f, t).map(outer))),
+		rename: (r, o) =>
+			validateKey(r)
+				.andThen(() => validateKey(o))
+				.asyncAndThen(() => storage.rename(inner(r), inner(o)).map(outer).mapErr(relative)),
 		watch: (s, p) => within(storage.watch(s, p ? inner(p) : prefix), `${prefix}/`),
 	};
 };
@@ -100,11 +111,17 @@ export const byUser = (storage: Storage): UserStorages => ({
 	watch: (s) => usersOf(storage.watch(s, 'users')),
 });
 
+/**
+ * Reads a stored file as text; a key with nothing stored fails as not found,
+ * named by the key asked for, not the storage's own path.
+ */
 export const readText = (storage: Storage, key: string): ResultAsync<TextFile> =>
 	storage
 		.read(key)
 		.mapErr((e) =>
-			fault('CannotReadFile', { path: key, reason: 'failed to read file', cause: [e] }),
+			e.type === 'StorageNotFound'
+				? fault('StorageNotFound', { key })
+				: fault('CannotReadFile', { path: key, reason: 'failed to read file', cause: [e] }),
 		)
 		.andThen(({ entry, content }) => {
 			const text = safely(() => decoder.decode(content));
@@ -114,12 +131,10 @@ export const readText = (storage: Storage, key: string): ResultAsync<TextFile> =
 		});
 
 /** Reads text as readText does, or null when nothing is stored at the key. */
-export const findText = (storage: Storage, key: string): ResultAsync<TextFile | null> =>
-	readText(storage, key)
+export const findText = (s: Storage, k: string): ResultAsync<TextFile | null> =>
+	readText(s, k)
 		.map((f): TextFile | null => f)
-		.orElse((e) =>
-			e.type === 'CannotReadFile' && e.cause?.[0]?.type === 'StorageNotFound' ? ok(null) : err(e),
-		);
+		.orElse((e) => (e.type === 'StorageNotFound' ? ok(null) : err(e)));
 
 export const writeText = (s: Storage, o: WriteTextOptions): ResultAsync<TextFile> =>
 	s.write({ ...o, content: encoder.encode(o.content) }).map((e) => ({ ...e, content: o.content }));

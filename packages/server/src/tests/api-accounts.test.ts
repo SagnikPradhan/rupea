@@ -6,6 +6,7 @@ import { contract, type Client } from '@rupea/contract/contract.ts';
 import { Amount } from '@rupea/shared/amounts.ts';
 import { Day } from '@rupea/shared/dates.ts';
 import { fault } from '@rupea/shared/error.ts';
+import { bearerOf } from '@rupea/server/tests/shared/api.ts';
 import { createLedger } from '@rupea/server/tests/shared/seed.ts';
 import { it } from '@rupea/server/tests/shared/vitest.ts';
 import { Readable } from 'node:stream';
@@ -13,8 +14,6 @@ import { pino } from 'pino';
 import * as v from 'valibot';
 import { describe, expect, onTestFinished, vi } from 'vitest';
 import { provide } from '#lib/server/shared/context/context.ts';
-import * as Auth from '#services/auth/adapters/database.ts';
-import { newSession } from '#services/auth/domain/credentials.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import { ProblemKind } from '#services/ledger/application/language.ts';
@@ -31,21 +30,15 @@ const content = [
 	'',
 ].join('\n');
 
-const bearerOf = async (user: string) => {
-	const session = newSession(Date.now());
-	await Auth.createSession({
-		tokenHash: session.tokenHash,
-		userId: user,
-		expiresAt: session.expiresAt,
-	});
-	return { authorization: `Bearer ${session.token}` };
-};
-
 const worth = {
 	day: '2026-10-01',
 	assets: '100000.00',
 	liabilities: '-2000.50',
 	worth: '97999.50',
+	parts: [
+		{ account: 'Assets:Bank', commodity: null, amount: '100000.00' },
+		{ account: 'Liabilities:Card', commodity: null, amount: '-2000.50' },
+	],
 	unpriced: 0,
 };
 

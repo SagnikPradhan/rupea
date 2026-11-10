@@ -79,3 +79,33 @@ export const TransactionForm = v.object({
 });
 
 export type TransactionForm = v.InferOutput<typeof TransactionForm>;
+
+const MetadataOut = v.object({ key: v.string(), value: v.string() });
+
+/**
+ * A transaction going out as a form holds it. It carries what a file has,
+ * including links to groups and files in the review area, which the form
+ * refuses to take back.
+ */
+export const TransactionFormOut = v.object({
+	file: v.string(),
+	date: v.string(),
+	time: v.string(),
+	description: v.string(),
+	comment: v.string(),
+	metadata: v.array(MetadataOut),
+	postings: v.array(
+		v.object({
+			account: v.string(),
+			amount: v.string(),
+			commodity: v.string(),
+			price: v.string(),
+			total: v.boolean(),
+			cost: v.string(),
+			costDate: v.string(),
+			balance: v.string(),
+			comment: v.string(),
+			metadata: v.array(MetadataOut),
+		}),
+	),
+});

@@ -6,19 +6,6 @@ import * as v from 'valibot';
 
 export const Handle = v.pipe(v.string(), v.check(isHandle, 'Not a ledger handle.'));
 
-export const Key = v.pipe(
-	v.string(),
-	v.nonEmpty(),
-	v.endsWith('.rupea', 'Ledger files end in .rupea.'),
-);
-
-export const SchemaKey = v.pipe(
-	v.string(),
-	v.trim(),
-	v.nonEmpty(),
-	v.endsWith('.yml', 'Schemas end in .yml.'),
-);
-
 type InLedgerOptions<T> = {
 	handle: string;
 	action: (ledger: Ledger.Ledger, user: Auth.User) => ResultAsync<T>;

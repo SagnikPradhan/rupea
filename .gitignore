@@ -39,3 +39,4 @@ vite.config.ts.timestamp-*
 
 # Generated fixtures
 /tests/fixtures/ledgers/
+.playwright-mcp/

@@ -78,10 +78,15 @@ const terms = [
 	},
 ];
 
-const open = (path: string, shown: unknown = [moved], written: unknown = terms) => {
+const open = (
+	path: string,
+	shown: unknown = [moved],
+	written: unknown = terms,
+	owing = accounts,
+) => {
 	visit(path);
 	vi.mocked(listTerms).mockReturnValue(answer(written as never));
-	vi.mocked(listAccounts).mockReturnValue(answer(accounts));
+	vi.mocked(listAccounts).mockReturnValue(answer(owing));
 	vi.mocked(listDeltas).mockReturnValue(answer(shown as never));
 	render(Page, { data });
 };
@@ -164,12 +169,46 @@ describe('the liabilities page', () => {
 		expect(await screen.findByText('1 account is in credit, so not drawn')).toBeTruthy();
 	});
 
-	it('marks what needs loan terms as coming soon', async () => {
+	it('estimates the interest a month and when the loans end when every debt is a loan or a card', async () => {
+		const card = {
+			account: 'Liabilities:Card',
+			current: { kind: 'card' },
+			held: { kind: 'card', limit: '90,000' },
+		};
+		open(
+			'/l/h/liabilities',
+			[moved],
+			[...terms, card],
+			accounts.filter((a) => a.account !== 'Liabilities:Loans:Car'),
+		);
+
+		await screen.findByTitle('Liabilities:Loans:Home');
+		expect(screen.getByText('about 1,771')).toBeTruthy();
+		expect(screen.getByText('Loan interest a month')).toBeTruthy();
+		expect(screen.getByText('Loans paid off by').previousElementSibling?.textContent).not.toBe('–');
+		expect(screen.getAllByText('Coming soon').length).toBeGreaterThanOrEqual(2);
+	});
+
+	it('shows a dash for the estimates while a debt has no terms', async () => {
 		open('/l/h/liabilities');
 
 		await screen.findByTitle('Liabilities:Loans:Home');
-		expect(screen.getAllByText('Coming soon').length).toBeGreaterThanOrEqual(4);
-		expect(screen.getByText('Debt-free by')).toBeTruthy();
+		expect(screen.getByText('Loan interest a month').previousElementSibling?.textContent).toBe('–');
+		expect(screen.getByText('Loans paid off by').previousElementSibling?.textContent).toBe('–');
+	});
+
+	it('follows the account picked for the estimates', async () => {
+		open('/l/h/liabilities?account=Liabilities:Loans:Home');
+
+		await screen.findByTitle('Liabilities:Loans:Home');
+		expect(screen.getByText('about 1,771')).toBeTruthy();
+	});
+
+	it('shows a dash for the estimates when no loan has terms', async () => {
+		open('/l/h/liabilities', [moved], []);
+
+		await screen.findByTitle('Liabilities:Loans:Home');
+		expect(screen.getByText('Loans paid off by').previousElementSibling?.textContent).toBe('–');
 	});
 
 	it('shows the rate, monthly payment and due day an A line sets, and offers to set up the rest', async () => {

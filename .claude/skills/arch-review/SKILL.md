@@ -1,7 +1,7 @@
 ---
 name: arch-review
-description: Staff-level design review of a directory, a branch or a diff. Three reviewer agents cover six lenses (shape, reading, concepts, edges, failure, cost). A verifier checks the concrete claims. The report gives findings by lens and a ranked fix list.
-argument-hint: '[directory | branch | nothing for the current diff]'
+description: Staff-level design review of a directory, a branch or a diff. Three reviewer agents cover six lenses (shape, reading, concepts, edges, failure, cost). A verifier checks the concrete claims. With --lite, one agent covers all six lenses and nothing is verified. The report gives findings by lens and a ranked fix list.
+argument-hint: '[--lite] [directory | branch | nothing for the current diff]'
 disable-model-invocation: true
 ---
 
@@ -21,6 +21,7 @@ The agents are in `agents/` and load as the `arch-review` plugin. Spawn each age
 | `comparer` | Concepts (`designer.md`), Edges (`systems.md`) | sonnet | default |
 | `tracer` | Failure (`adversary.md`), Cost (`operator.md`) | inherit | default |
 | `verifier` | none. It checks claims. | inherit | high |
+| `lite` | All six. Used only by lite mode. | inherit | default |
 
 Choose the model by what the lens does:
 
@@ -30,11 +31,21 @@ Choose the model by what the lens does:
 
 Use high effort only for the verifier. A wrong verdict there passes the filter. Apply this rule when you add a lens. Give a new lens to the agent that does its kind of work.
 
-If the `arch-review:*` types are not available, spawn `general-purpose` agents. Give each agent the body of its file as the prompt, and the model and effort from its frontmatter. Tell each agent that it must not edit files.
+If the `arch-review:*` types are not available, spawn `general-purpose` agents. Give each agent the body of its file as the prompt, and the model and effort from its front matter. Tell each agent that it must not edit files.
+
+## Lite mode
+
+With `--lite`, one `lite` agent runs all six lenses. There is no verifier and no dispute step. It costs about a quarter of the full review, and the findings are less checked.
+
+1. Do steps 1 and 2 of the process.
+2. Spawn one `arch-review:lite` agent. Give it the map path, the six persona paths and the target.
+3. Tag every concrete finding `unverified`. Do steps 6 and 7 of the process.
+
+If the `arch-review:*` types are not available, spawn one `general-purpose` agent with the body of `agents/lite.md` as the prompt.
 
 ## Process
 
-1. **Resolve the target.** Use the argument.
+1. **Resolve the target.** Use the argument, without `--lite`.
    - A directory: the target is every source file under it.
    - A branch: run `git diff <main>...<branch>`. The target is every file the diff touches, the whole file.
    - No argument: use the uncommitted diff. If there is none, use the current branch against the main branch.
@@ -103,7 +114,7 @@ Severity:
 <Two or three sentences. Say what is good and where the main problem is.>
 
 ## Shape
-<findings, each with one tag: confirmed, judgement or contested>
+<findings, each with one tag: confirmed, judgement or contested (unverified in lite mode)>
 
 ## Concepts
 ...

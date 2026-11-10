@@ -1,5 +1,5 @@
 {
 	"name": "arch-review",
-	"description": "Reviewer agents for the arch-review skill: three agents that run two design lenses each, and a verifier.",
+	"description": "Reviewer agents for the arch-review skill: three agents that run two design lenses each, a verifier, and a lite agent that runs all six lenses.",
 	"version": "0.1.0"
 }

@@ -1,3 +1,5 @@
+import * as v from 'valibot';
+
 export const AMOUNT_SCALE = 10;
 export const AMOUNT_UNIT = 10n ** BigInt(AMOUNT_SCALE);
 
@@ -9,13 +11,27 @@ export type Amount = bigint & { readonly brand: unique symbol };
 
 export const ZERO = 0n as Amount;
 
+/**
+ * The most whole digits an amount holds: the database column keeps 38 digits,
+ * ten of them the fraction.
+ */
+const WHOLE_DIGITS = 28;
+
+/** An optional sign, up to 28 whole digits and up to 10 decimals. */
+const DECIMAL = new RegExp(
+	String.raw`^([+-]?)(\d{1,${WHOLE_DIGITS}})(?:\.(\d{1,${AMOUNT_SCALE}}))?$`,
+);
+
+/**
+ * Reads a decimal, ignoring commas and the rupee sign; null when it has more
+ * digits than an Amount holds. The wire Amount accepts the same decimals.
+ */
 export const parseAmount = (text: string): Amount | null => {
 	const cleaned = text.replaceAll(',', '').replaceAll('₹', '').trim();
-	const match = /^([+-]?)(\d+)(?:\.(\d+))?$/.exec(cleaned);
-	if (!match?.[2]) return null;
+	const match = DECIMAL.exec(cleaned);
+	if (!match) return null;
 
 	const [, sign, whole, fraction = ''] = match;
-	if (fraction.length > AMOUNT_SCALE) return null;
 
 	const units = BigInt(whole + fraction.padEnd(AMOUNT_SCALE, '0'));
 	return (sign === '-' ? -units : units) as Amount;
@@ -54,3 +70,25 @@ export const toNumber = (a: Amount) => Number(printAmount(a));
 
 /** Orders amounts smallest first, for sorting. */
 export const byAmount = (a: Amount, b: Amount) => Number(a - b);
+
+const DESCRIPTION = 'An amount in rupees or units, as a decimal string with up to 10 decimals.';
+
+/**
+ * An amount as a decimal string like `-1250.50`, which loses nothing and which
+ * JSON carries where a bigint cannot go.
+ */
+export const Amount = v.pipe(
+	v.string(),
+	v.regex(DECIMAL),
+	v.transform((t) => parseAmount(t) as Amount),
+	v.description(DESCRIPTION),
+);
+
+/** An Amount going out, written the way Amount reads it back. */
+export const AmountOut = v.pipe(
+	v.custom<Amount>((a) => typeof a === 'bigint'),
+	v.transform((a) => printAmount(a)),
+	v.string(),
+	v.regex(DECIMAL),
+	v.description(DESCRIPTION),
+);

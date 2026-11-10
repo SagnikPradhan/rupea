@@ -381,6 +381,77 @@ describe('net worth', () => {
 			expect(worth.map((w) => w.day.toString())).toEqual(['2026-10-02', '2026-10-03']);
 		}));
 
+	it('refuses a span that runs backwards', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+
+			const worth = await Accounts.listWorth({ ledger, from: to, to: from, account: null });
+
+			expect(worth._unsafeUnwrapErr()).toEqual({
+				type: 'SpanReversed',
+				from: '2026-10-03',
+				to: '2026-10-01',
+			});
+		}));
+
+	it('counts the span from the first day with data, and refuses one over a hundred years', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const old = ['1900-01-01 Salary', '\tAssets:Bank 500', '\tIncome:Salary', ''].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content: old });
+			const start = Temporal.PlainDate.from('1900-01-01');
+
+			const worth = await Accounts.listWorth({ ledger, from: start, to, account: null });
+
+			expect(worth._unsafeUnwrapErr()).toEqual({
+				type: 'SpanTooLong',
+				days: start.until(to, { largestUnit: 'days' }).days + 1,
+				most: 36_600,
+			});
+		}));
+
+	it('walks all of history up to today from the first day with data', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = ['2026-10-02 Salary', '\tAssets:Bank 500', '\tIncome:Salary', ''].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+			const beginning = Temporal.PlainDate.from(BEGINNING);
+
+			const worth = await Accounts.listWorth({ ledger, from: beginning, to, account: null });
+
+			expect(worth._unsafeUnwrap().succeeded.map((w) => w.day.toString())).toEqual([
+				'2026-10-02',
+				'2026-10-03',
+			]);
+		}));
+
+	it.for([
+		['listInvested', Accounts.listInvested],
+		['listDrops', Accounts.listDrops],
+		['findBridge', Accounts.findBridge],
+		['listReturns', Accounts.listReturns],
+	] as const)(
+		'refuses a span %s walks backwards or over a hundred years',
+		async ([, list], { context, db }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				const old = ['1900-01-01 Buy', '\tAssets:Zerodha 1 INFY @ 1500', '\tAssets:Bank', ''].join(
+					'\n',
+				);
+				await Files.createFile({ ledger, key: 'a.rupea', content: old });
+				const start = Temporal.PlainDate.from('1900-01-01');
+
+				const reversed = await list({ ledger, from: to, to: from, account: null });
+				const long = await list({ ledger, from: start, to, account: null });
+
+				expect(reversed._unsafeUnwrapErr()).toMatchObject({ type: 'SpanReversed' });
+				expect(long._unsafeUnwrapErr()).toMatchObject({ type: 'SpanTooLong', most: 36_600 });
+			}),
+	);
+
 	it('narrows to an account and those under it, by the month and by the day', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);

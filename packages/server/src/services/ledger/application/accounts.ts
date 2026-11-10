@@ -1,6 +1,6 @@
 import type { Batch } from '#lib/server/shared/result/batch.ts';
 import { fault, type RupeaError } from '@rupea/shared/error.ts';
-import { okAsync, ResultAsync } from '#lib/server/shared/result/result.ts';
+import { errAsync, okAsync, ResultAsync } from '#lib/server/shared/result/result.ts';
 import { ASSETS, LIABILITIES } from '@rupea/shared/accounts.ts';
 import { BEGINNING, type Bucket, type Span } from '@rupea/shared/dates.ts';
 import * as DB from '../adapters/database';
@@ -31,6 +31,12 @@ export type { Account };
 export type { LotHistory } from '../domain/lots';
 export type { Worth } from '../domain/worth';
 export type { Bridge, Daily, Drops, Returns, Deltas };
+
+/**
+ * The most days a span may cover, counted from the later of its start and the
+ * first day with data, which is a hundred years.
+ */
+const SPAN_MOST_DAYS = 36_600;
 
 type ListAccountsOptions = { ledger: Ledger; day: Temporal.PlainDate };
 
@@ -66,6 +72,7 @@ type ListWorthOptions = {
 /**
  * What balance accounts were worth in rupees at the end of each day, from the
  * ledger's first day at the earliest, divided into the parts partsIn picks.
+ * Fails for a span that runs backwards or covers more than SPAN_MOST_DAYS.
  */
 export const listWorth = ({
 	ledger,
@@ -97,6 +104,21 @@ const worthOver = (id: string, s: Span, p: WorthParts): ResultAsync<Worth[]> =>
 	walked(id, s, p).map((w) => (w === null ? [] : worthOf(w)));
 
 /**
+ * Why a span is refused: it runs backwards, or covers more than SPAN_MOST_DAYS
+ * from the later of its start and the first day with data, when there is one.
+ */
+const refusedSpan = ({ from, to }: Span, first: Temporal.PlainDate | null): RupeaError | null => {
+	if (Temporal.PlainDate.compare(from, to) > 0)
+		return fault('SpanReversed', { from: from.toString(), to: to.toString() });
+	if (first === null || Temporal.PlainDate.compare(first, to) > 0) return null;
+
+	const start = Temporal.PlainDate.compare(first, from) > 0 ? first : from;
+	const days = start.until(to, { largestUnit: 'days' }).days + 1;
+
+	return days > SPAN_MOST_DAYS ? fault('SpanTooLong', { days, most: SPAN_MOST_DAYS }) : null;
+};
+
+/**
  * What worth is made of for these parts over a span, or null when they held
  * nothing in it.
  */
@@ -106,6 +128,8 @@ const walked = (
 	{ parts, byCommodity, held }: WorthParts,
 ): ResultAsync<WorthOfOptions | null> =>
 	DB.findFirstDelta(id, { accounts: parts.map((p) => p.accountId), to }).andThen((first) => {
+		const refused = refusedSpan({ from, to }, first);
+		if (refused) return errAsync(refused);
 		if (first === null || Temporal.PlainDate.compare(first, to) > 0) return okAsync(null);
 
 		const start = Temporal.PlainDate.compare(first, from) > 0 ? first : from;
@@ -351,38 +375,50 @@ type ListReturnsOptions = { ledger: Ledger; from: Temporal.PlainDate; to: Tempor
 
 /**
  * What flowed into each Assets account over a span less what flowed out, and
- * its XIRR; failures are only those of XIRR, as accounts report the rest.
+ * its XIRR; failures are only those of XIRR, as accounts report the rest. Fails
+ * for a span that runs backwards or covers more than SPAN_MOST_DAYS.
  */
 export const listReturns = ({
 	ledger,
 	from,
 	to,
 }: ListReturnsOptions): ResultAsync<Batch<Returns>> =>
-	DB.listAccountTree(ledger.id).andThen((tree) => {
-		const earning = INVESTMENT_INCOME.flatMap((n) => idsUnder(tree, n));
-		const flows = DB.listFlows(ledger.id, { earning, from, to, base: DEFAULT_COMMODITY });
+	DB.listAccountTree(ledger.id).andThen((tree) =>
+		startedBy(
+			ledger.id,
+			{ from, to },
+			tree.map((n) => n.id),
+		).andThen(() => returnsOver(ledger, { from, to }, tree)),
+	);
 
-		return ResultAsync.combine([heldBefore(ledger.id, from), heldOn(ledger.id, to), flows]).map(
-			([s, end, f]) => {
-				const accounts = Object.keys(parentsIn(tree));
-				const returns = returnsOf({ accounts, start: s, end, flows: f, span: { from, to } });
+const returnsOver = (ledger: Ledger, { from, to }: Span, tree: AccountNode[]) => {
+	const earning = INVESTMENT_INCOME.flatMap((n) => idsUnder(tree, n));
+	const flows = DB.listFlows(ledger.id, { earning, from, to, base: DEFAULT_COMMODITY });
 
-				return { succeeded: returns, failed: unsolvedIn(returns) };
-			},
-		);
-	});
+	return ResultAsync.combine([heldBefore(ledger.id, from), heldOn(ledger.id, to), flows]).map(
+		([s, end, f]) => {
+			const accounts = Object.keys(parentsIn(tree));
+			const returns = returnsOf({ accounts, start: s, end, flows: f, span: { from, to } });
+
+			return { succeeded: returns, failed: unsolvedIn(returns) };
+		},
+	);
+};
 
 /**
  * All of history starts long before a ledger does, so it starts on the first
- * day these accounts moved.
+ * day these accounts moved. Fails for a span that runs backwards or covers more
+ * than SPAN_MOST_DAYS.
  */
 const startedBy = (id: string, span: Span, accounts: string[]): ResultAsync<Span> =>
-	span.from.toString() === BEGINNING
-		? DB.findFirstDelta(id, { accounts, to: span.to }).map((d) => ({
-				from: d ?? span.to,
-				to: span.to,
-			}))
-		: okAsync(span);
+	DB.findFirstDelta(id, { accounts, to: span.to }).andThen((first) => {
+		const refused = refusedSpan(span, first);
+		if (refused) return errAsync(refused);
+
+		return okAsync(
+			span.from.toString() === BEGINNING ? { from: first ?? span.to, to: span.to } : span,
+		);
+	});
 
 type ListDeltasOptions = { ledger: Ledger; spans: Span[]; bucket: Bucket; account: string };
 

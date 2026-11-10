@@ -5,6 +5,9 @@ import {
 	coverOf,
 	Day,
 	monthlyDaysIn,
+	DayOut,
+	Instant,
+	InstantOut,
 	Period,
 	paramsOf,
 	periodIn,
@@ -19,6 +22,25 @@ describe('a day', () => {
 	it('reads an ISO date, and refuses anything else', () => {
 		expect(v.parse(Day, '2026-10-21').equals(day('2026-10-21'))).toBe(true);
 		expect(v.safeParse(Day, '21/10/2026').success).toBe(false);
+	});
+
+	it('refuses a date the calendar does not have', () => {
+		expect(v.safeParse(Day, '2026-02-30').success).toBe(false);
+	});
+
+	it('refuses a year outside 0000 to 9999, so every day it reads can go out', () => {
+		const outside = ['+010000-01-01', '-000001-12-31', '10000-01-01'];
+		expect(outside.filter((text) => v.safeParse(Day, text).success)).toEqual([]);
+
+		const edges = ['0000-01-01', '9999-12-31'];
+		expect(edges.map((text) => v.parse(DayOut, v.parse(Day, text)))).toEqual(edges);
+	});
+
+	it('goes out as the ISO date it reads back', () => {
+		const text = v.parse(DayOut, day('2026-10-21'));
+		expect(text).toBe('2026-10-21');
+		expect(v.parse(Day, text).equals(day('2026-10-21'))).toBe(true);
+		expect(v.safeParse(DayOut, '2026-10-21').success).toBe(false);
 	});
 });
 
@@ -183,5 +205,21 @@ describe('the period of parsed query fields', () => {
 
 	it('names the four parameters', () => {
 		expect(PERIOD_PARAMS).toEqual(['at', 'range', 'from', 'to']);
+	});
+});
+
+describe('an instant', () => {
+	it('reads an ISO timestamp, and refuses anything else', () => {
+		const read = v.parse(Instant, '2026-10-21T09:30:00Z');
+		expect(read.equals(Temporal.Instant.from('2026-10-21T09:30:00Z'))).toBe(true);
+		expect(v.safeParse(Instant, '2026-10-21').success).toBe(false);
+		expect(v.safeParse(Instant, '2026-02-30T09:30:00Z').success).toBe(false);
+	});
+
+	it('goes out as the timestamp it reads back', () => {
+		const instant = Temporal.Instant.from('2026-10-21T09:30:00.5Z');
+		const text = v.parse(InstantOut, instant);
+		expect(v.parse(Instant, text).equals(instant)).toBe(true);
+		expect(v.safeParse(InstantOut, '2026-10-21T09:30:00Z').success).toBe(false);
 	});
 });

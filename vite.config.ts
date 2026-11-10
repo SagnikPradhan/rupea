@@ -56,7 +56,7 @@ export default defineConfig({
 		// Reading a PDF runs the models on several threads; a worker per core leaves them none.
 		maxWorkers: '50%',
 		coverage: {
-			include: ['src/**/*.{ts,svelte}', 'packages/{shared,server}/src/**/*.ts'],
+			include: ['src/**/*.{ts,svelte}', 'packages/{shared,contract,server}/src/**/*.ts'],
 			exclude: [
 				'src/**/tests/**',
 				'packages/*/src/**/tests/**',
@@ -85,6 +85,14 @@ export default defineConfig({
 			{
 				extends: true,
 				test: { name: 'shared', include: ['packages/shared/tests/*.test.ts'], environment: 'node' },
+			},
+			{
+				extends: true,
+				test: {
+					name: 'contract',
+					include: ['packages/contract/tests/*.test.ts'],
+					environment: 'node',
+				},
 			},
 			{
 				extends: true,

@@ -1,7 +1,13 @@
 import * as v from 'valibot';
 import { invalid, redirect } from '@sveltejs/kit';
 import { form } from '$app/server';
+import {
+	deleteSessionCookie,
+	readSessionCookie,
+	setSessionCookie,
+} from '@rupea/server/services/auth/adapters/request.ts';
 import * as Auth from '@rupea/server/services/auth/application/auth.ts';
+import { withLogger } from '@rupea/server/shared/context/logger.ts';
 import { replyFrom } from '@rupea/server/shared/result/reply.ts';
 
 const Email = v.pipe(
@@ -29,11 +35,18 @@ export const verifyCode = form(
 			});
 
 		if (signedIn.isErr()) return replyFrom(signedIn);
+
+		setSessionCookie(signedIn.value.token, signedIn.value.expiresAt);
 		redirect(303, '/');
 	},
 );
 
 export const signOut = form(async () => {
-	await Auth.signOut();
+	const token = readSessionCookie();
+	const signedOut = token ? await Auth.signOut(token) : null;
+	if (signedOut?.isErr())
+		withLogger('auth')((l) => l.error({ error: signedOut.error }, 'sign-out failed'));
+
+	deleteSessionCookie();
 	redirect(303, '/sign-in');
 });

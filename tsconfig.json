@@ -3,6 +3,7 @@
 	"include": [
 		"src",
 		"packages/shared",
+		"packages/contract",
 		"packages/server",
 		"lint",
 		"tests",

@@ -11,6 +11,7 @@ type Handler = (input: unknown) => unknown;
 export const request = {
 	locals: { user: null as User | null },
 	cookies: new Map<string, string>(),
+	cookieOptions: new Map<string, object>(),
 };
 
 const forms = new WeakMap<object, Handler>();
@@ -19,7 +20,10 @@ export const getRequestEvent = () => ({
 	locals: request.locals,
 	cookies: {
 		get: (name: string) => request.cookies.get(name),
-		set: (name: string, value: string) => request.cookies.set(name, value),
+		set: (name: string, value: string, options: object) => {
+			request.cookies.set(name, value);
+			request.cookieOptions.set(name, options);
+		},
 		delete: (name: string) => request.cookies.delete(name),
 	},
 });

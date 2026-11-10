@@ -64,9 +64,9 @@ describe('package boundaries', () => {
 			messages('packages/site/src/pages/index.ts', "import a from '@rupea/server/db/index.ts';"),
 		).toEqual([]));
 
-	it('lets the web app import the server where allowed', () =>
+	it('lets the end-to-end support import the server where allowed', () =>
 		expect(
-			messages('src/hooks.server.ts', "import a from '@rupea/server/server.ts';", {
+			messages('tests/e2e/support/server.ts', "import a from '@rupea/server/server.ts';", {
 				allowServer: true,
 			}),
 		).toEqual([]));

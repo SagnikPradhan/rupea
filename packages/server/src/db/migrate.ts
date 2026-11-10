@@ -1,3 +1,4 @@
+import { existsSync } from 'node:fs';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate as migrateNodePostgres } from 'drizzle-orm/node-postgres/migrator';
 import type { Pool } from 'pg';
@@ -6,6 +7,18 @@ import type { Pool } from 'pg';
 const MIGRATION_LOCK = 7_265_783;
 
 const MIGRATIONS = 'drizzle';
+
+/**
+ * Migrations are read from `drizzle` in the working directory, the repository
+ * root.
+ */
+export const requireMigrations = (folder = MIGRATIONS) => {
+	if (existsSync(folder)) return;
+	// eslint-disable-next-line functional/no-throw-statements -- the server cannot start without it
+	throw new Error(
+		`No ${folder} folder in ${process.cwd()}. Start the server from the repository root.`,
+	);
+};
 
 export const migrate = async (p: Pool) => {
 	await using lock = await withLock(p, MIGRATION_LOCK);

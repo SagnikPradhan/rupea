@@ -1,10 +1,7 @@
 import adapter from '@sveltejs/adapter-node';
 import { svelteTesting } from '@testing-library/svelte/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
-import { build } from 'vite';
 import { defineConfig } from 'vitest/config';
-
-const WORKER = 'vite.worker.config.ts';
 
 export default defineConfig({
 	plugins: [
@@ -18,32 +15,6 @@ export default defineConfig({
 			experimental: { remoteFunctions: true },
 			adapter: adapter(),
 		}),
-		{
-			// Workers run a build in dev too, as they are processes of their own that Vite does not serve.
-			name: 'rupea:worker',
-			buildApp: {
-				order: 'post',
-				handler: () => build({ configFile: WORKER }).then(() => undefined),
-			},
-			configureServer: async (server) => {
-				if (process.env['VITEST']) return;
-
-				const watcher = await build({
-					configFile: WORKER,
-					mode: 'development',
-					build: { outDir: '.svelte-kit/worker', sourcemap: true, watch: {} },
-				});
-				if (!('on' in watcher)) return;
-
-				watcher.on('event', async (e) => {
-					if (e.code === 'BUNDLE_END' || e.code === 'ERROR') await e.result.close();
-					if (e.code === 'BUNDLE_END')
-						server.environments.ssr.hot.send({ type: 'custom', event: 'rupea:worker-built' });
-					if (e.code === 'ERROR') server.config.logger.error(`worker build: ${e.error.message}`);
-				});
-				server.httpServer?.once('close', () => void watcher.close());
-			},
-		},
 	],
 	builder: {},
 	server: { watch: { ignored: ['**/.claude/worktrees/**'] } },

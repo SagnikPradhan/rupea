@@ -76,6 +76,8 @@ cp .env.example .env
 pnpm dev
 ```
 
+`pnpm dev` starts two processes: the server, which listens on `127.0.0.1:3001`, and the web app, which calls it at `RUPEA_API_URL` (by default `http://127.0.0.1:3001/api`). Change where the server listens with `RUPEA_SERVER_HOST` and `RUPEA_SERVER_PORT`. In production, `pnpm build` then `pnpm start` runs both, and the API URL should be `https`. `pnpm preview` serves only the web app, so start the server beside it with `pnpm start:server`.
+
 The first run downloads the ML models for statement import into `data/models`. How to use Rupea is in the [manual](packages/site/src/content/manual/index.md).
 
 ## Development

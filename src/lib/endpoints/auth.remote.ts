@@ -1,8 +1,8 @@
 import * as v from 'valibot';
 import { invalid, redirect } from '@sveltejs/kit';
 import { form } from '$app/server';
-import * as Auth from '#services/auth/application/auth.ts';
-import { replyFrom } from '#lib/server/shared/result/reply.ts';
+import * as Auth from '@rupea/server/services/auth/application/auth.ts';
+import { replyFrom } from '@rupea/server/shared/result/reply.ts';
 
 const Email = v.pipe(
 	v.string(),

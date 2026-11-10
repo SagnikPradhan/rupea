@@ -33,7 +33,7 @@ jobs:
       - uses: actions/cache@v6
         with:
           path: data/models
-          key: models-${{ hashFiles('src/lib/server/shared/onnx/models.ts') }}
+          key: models-${{ hashFiles('packages/server/src/shared/onnx/models.ts') }}
       - run: pnpm models
       - run: pnpm test:coverage
       - uses: coverallsapp/github-action@v2
@@ -54,7 +54,7 @@ jobs:
       - uses: actions/cache@v6
         with:
           path: data/models
-          key: models-${{ hashFiles('src/lib/server/shared/onnx/models.ts') }}
+          key: models-${{ hashFiles('packages/server/src/shared/onnx/models.ts') }}
       - run: pnpm models
       # The runner image already has the libraries Chrome needs, and installing
       # them again through apt has taken up to 14 minutes on a slow mirror.

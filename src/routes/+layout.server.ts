@@ -1,4 +1,4 @@
-import { readTheme } from '#lib/server/shared/theme.ts';
+import { readTheme } from '#lib/web/shared/theme.ts';
 import type { LayoutServerLoad } from './$types';
 
 export const load: LayoutServerLoad = ({ locals }) => ({

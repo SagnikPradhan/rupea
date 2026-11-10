@@ -1,4 +1,4 @@
-import type { Bucket } from '#lib/shared/dates.ts';
+import type { Bucket } from '@rupea/shared/dates.ts';
 
 const LOCALE = 'en-IN';
 

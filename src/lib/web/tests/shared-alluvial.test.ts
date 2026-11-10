@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { flowsOf, SAVED } from '#lib/web/shared/alluvial.ts';
 import { OTHER } from '#lib/web/shared/chart.ts';
-import { type Amount, parseAmount } from '#lib/shared/amounts.ts';
+import { type Amount, parseAmount } from '@rupea/shared/amounts.ts';
 
 const amount = (t: string) => parseAmount(t) as Amount;
 

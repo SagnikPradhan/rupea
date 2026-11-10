@@ -1,6 +1,6 @@
-import { replyFrom, replyFromBatch } from '#lib/server/shared/result/reply.ts';
-import * as Ledger from '#services/ledger/application/ledger.ts';
-import * as Sync from '#services/ledger/application/sync.ts';
+import { replyFrom, replyFromBatch } from '@rupea/server/shared/result/reply.ts';
+import * as Ledger from '@rupea/server/services/ledger/application/ledger.ts';
+import * as Sync from '@rupea/server/services/ledger/application/sync.ts';
 import { command, query } from '$app/server';
 import { Handle, inLedger } from './shared';
 

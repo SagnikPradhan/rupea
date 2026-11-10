@@ -24,4 +24,4 @@ A fixed value set is a TypeScript `enum` in the domain that uses it, and `databa
 - Prediction is part of the ledger, as its own orchestrator, since it searches the ledger's transactions and postings in one indexed query ([ADR 0007](0007-service-boundaries.md)).
 - A ledger records its owner in `ledgers.owner_id`, instead of reaching it through its storage. The ledger opens its files with the storage of its owner.
 - `storages`, `memberships`, `ledgers` and `jobs` import `users` for their foreign keys.
-- Test fixtures in `tests/shared/` sit outside every service and may write any table.
+- Test fixtures in `packages/server/tests/shared/` sit outside every service and may write any table.

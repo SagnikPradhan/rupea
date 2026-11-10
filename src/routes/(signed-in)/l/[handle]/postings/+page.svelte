@@ -2,7 +2,7 @@
 	import { listAccountTree } from '#lib/endpoints/accounts.remote.ts';
 	import { findFirstDay, listProblems } from '#lib/endpoints/ledger.remote.ts';
 	import { listPostings } from '#lib/endpoints/transactions.remote.ts';
-	import { filterOf } from '#lib/shared/filter.ts';
+	import { filterOf } from '@rupea/shared/filter.ts';
 	import TransactionAside from '#lib/web/components/app-transaction-aside/app-transaction-aside.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import Account from '#lib/web/components/app-ledger-table/account.svelte';

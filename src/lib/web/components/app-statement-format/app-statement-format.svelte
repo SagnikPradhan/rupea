@@ -5,7 +5,7 @@
 		readSchema,
 		saveSchema,
 	} from '#lib/endpoints/schemas.remote.ts';
-	import type { RupeaError } from '#lib/server/shared/result/error.ts';
+	import type { RupeaError } from '@rupea/shared/error.ts';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import Field from '#lib/web/components/ui-field/ui-field.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';

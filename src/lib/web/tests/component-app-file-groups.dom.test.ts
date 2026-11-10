@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { listGroups, makePrimary, renameGroup } from '#lib/endpoints/refinement.remote.ts';
-import { fault } from '#lib/server/shared/result/error.ts';
+import { fault } from '@rupea/shared/error.ts';
 import FileGroups from '#lib/web/components/app-file-groups/app-file-groups.svelte';
 import { answer } from '#tests/shared/queries.ts';
 

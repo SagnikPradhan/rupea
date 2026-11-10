@@ -1,0 +1,123 @@
+import { atomically } from '#lib/server/db/atomically.ts';
+import { attemptWrite } from '#lib/server/db/errors.ts';
+import { JobStatus } from '#services/jobs/domain/jobs.ts';
+import { provide, withContext } from '#lib/server/shared/context/context.ts';
+import { fault } from '@rupea/shared/error.ts';
+import { ResultAsync } from '#lib/server/shared/result/result.ts';
+import { createUser } from '@rupea/server/tests/shared/seed.ts';
+import { it } from '@rupea/server/tests/shared/vitest.ts';
+import { sql } from 'kysely';
+import { count } from '@rupea/server/tests/shared/count.ts';
+import { describe, expect } from 'vitest';
+import * as Jobs from '#services/jobs/adapters/database.ts';
+
+const queued = (user: string, name: string) => ({
+	userId: user,
+	name,
+	version: 1,
+	payload: {},
+	partition: user,
+	dedupe: name,
+});
+
+describe('the jobs store', () => {
+	it('fails jobs queued for long under a name no server knows', ({ context, db }) =>
+		provide(context, async () => {
+			const user = (await createUser(db)).userId;
+			await Jobs.createJob(queued(user, 'gone'));
+			await Jobs.createJob(queued(user, 'known'));
+			await db
+				.updateTable('jobs')
+				.set({ runAt: sql<Date>`now() - interval '2 days'` })
+				.where('userId', '=', user)
+				.execute();
+
+			await Jobs.sweep(['known']);
+
+			const rows = await db
+				.selectFrom('jobs')
+				.selectAll()
+				.where('userId', '=', user)
+				.orderBy('name')
+				.execute();
+			expect(rows).toMatchObject([
+				{ name: 'gone', status: JobStatus.Failed, error: fault('JobUnknown', { name: 'gone' }) },
+				{ name: 'known', status: JobStatus.Queued },
+			]);
+		}));
+
+	it('claims past a partition whose job runs', ({ context, db }) =>
+		provide(context, async () => {
+			const user = (await createUser(db)).userId;
+			const known = [{ name: 'busy', version: 1 }];
+			await Jobs.createJob({ ...queued(user, 'busy'), dedupe: 'first' });
+			await Jobs.createJob({ ...queued(user, 'busy'), dedupe: 'second' });
+			await Jobs.createJob({ ...queued(user, 'busy'), dedupe: 'other', partition: 'other' });
+
+			const first = await Jobs.claimJob(known, 60_000);
+			const next = await Jobs.claimJob(known, 60_000);
+			const none = await Jobs.claimJob(known, 60_000);
+
+			expect(first._unsafeUnwrap()).toMatchObject({ name: 'busy' });
+			expect(await partitionOf(next._unsafeUnwrap()!.id)).toBe('other');
+			expect(none._unsafeUnwrap()).toBeNull();
+		}));
+
+	it('refuses to run two jobs of a partition at once', ({ context, db }) =>
+		provide(context, async () => {
+			const user = (await createUser(db)).userId;
+			await Jobs.createJob({ ...queued(user, 'single'), dedupe: 'first' });
+			await Jobs.createJob({ ...queued(user, 'single'), dedupe: 'second' });
+
+			const running = attemptWrite(() =>
+				db
+					.updateTable('jobs')
+					.set({ status: JobStatus.Running })
+					.where('name', '=', 'single')
+					.execute(),
+			);
+
+			expect((await running)._unsafeUnwrapErr()).toEqual(
+				fault('UniqueViolation', { constraint: 'jobs_name_partition_running' }),
+			);
+		}));
+
+	it('claims past a partition another claim took first, once that commits', ({ context, db }) =>
+		provide(context, async () => {
+			const user = (await createUser(db)).userId;
+			const known = [{ name: 'raced', version: 1 }];
+			await Jobs.createJob({ ...queued(user, 'raced'), dedupe: 'first' });
+			await Jobs.createJob({ ...queued(user, 'raced'), dedupe: 'second' });
+			await Jobs.createJob({ ...queued(user, 'raced'), dedupe: 'other', partition: 'other' });
+			const [claimed, commit] = [Promise.withResolvers<void>(), Promise.withResolvers<void>()];
+
+			const first = atomically(() =>
+				Jobs.claimJob(known, 60_000)
+					.andTee(() => claimed.resolve())
+					.andThen((c) => ResultAsync.fromSafePromise(commit.promise).map(() => c)),
+			);
+			await claimed.promise;
+			const second = Jobs.claimJob(known, 60_000);
+			await expect
+				.poll(() =>
+					count(
+						db.selectFrom(sql<{ granted: boolean }>`pg_locks`.as('l')).where('granted', '=', false),
+					),
+				)
+				.toBe(1);
+			commit.resolve();
+
+			expect(await first.then((c) => partitionOf(c._unsafeUnwrap()!.id))).toBe(user);
+			expect(await second.then((c) => partitionOf(c._unsafeUnwrap()!.id))).toBe('other');
+		}));
+});
+
+const partitionOf = (id: string) =>
+	withContext('db')((db) =>
+		db
+			.selectFrom('jobs')
+			.select('partition')
+			.where('id', '=', id)
+			.executeTakeFirst()
+			.then((j) => j?.partition),
+	);

@@ -4,7 +4,7 @@
 	import IconClose from '@tabler/icons-svelte-runes/icons/x';
 	import IconLogout from '@tabler/icons-svelte-runes/icons/logout';
 	import IconMenu from '@tabler/icons-svelte-runes/icons/menu-2';
-	import type { Theme } from '#lib/server/shared/theme.ts';
+	import type { Theme } from '#lib/web/shared/theme.ts';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import IconButton from '#lib/web/components/ui-button-icon/ui-button-icon.svelte';
 	import Avatar from '#lib/web/components/ui-avatar/ui-avatar.svelte';

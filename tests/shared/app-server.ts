@@ -1,4 +1,4 @@
-import type { User } from '#services/auth/application/auth.ts';
+import type { User } from '@rupea/server/services/auth/application/auth.ts';
 
 type Validated = { value?: unknown; issues?: readonly unknown[] };
 type Schema = { '~standard': { validate: (input: unknown) => Validated | Promise<Validated> } };

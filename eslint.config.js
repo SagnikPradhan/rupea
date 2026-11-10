@@ -7,12 +7,23 @@ import globals from 'globals';
 import ts from 'typescript-eslint';
 import { functionNames } from './lint/function-names.ts';
 import { localNameLength } from './lint/local-name-length.ts';
+import { packageBoundaries } from './lint/package-boundaries.ts';
 import { testLocation } from './lint/test-location.ts';
+
+const webMayImportServer = [
+	'src/app.d.ts',
+	'src/hooks.server.ts',
+	'src/lib/endpoints/**/*.ts',
+	'src/routes/**/+layout.server.ts',
+	'tests/e2e/support/*.ts',
+	'tests/shared/app-server.ts',
+];
 
 const rupea = {
 	rules: {
 		'function-names': functionNames,
 		'local-name-length': localNameLength,
+		'package-boundaries': packageBoundaries,
 		'test-location': testLocation,
 	},
 };
@@ -63,7 +74,7 @@ export default defineConfig(
 	{
 		...functional.configs.noExceptions,
 		files: ['**/*.ts'],
-		ignores: ['**/*.test.ts', 'tests/**'],
+		ignores: ['**/*.test.ts', 'tests/**', 'packages/*/tests/**'],
 	},
 	{
 		files: ['**/*.ts'],
@@ -75,17 +86,18 @@ export default defineConfig(
 				{ allow: ['sum', 'min', 'max', 'multiply', 'divide', 'negate', 'round'] },
 			],
 		},
-		ignores: ['**/*.test.ts', 'tests/**'],
+		ignores: ['**/*.test.ts', 'tests/**', 'packages/*/tests/**'],
 	},
 	{
 		files: ['**/*.ts'],
-		ignores: ['src/lib/server/shared/result/result.ts'],
+		ignores: ['packages/server/src/shared/result/result.ts'],
 		rules: {
 			'no-restricted-imports': [
 				'error',
 				{
 					name: 'neverthrow',
-					message: 'Import from #lib/server/shared/result/result.ts; fault builds errors.',
+					message:
+						'Import from @rupea/server/shared/result/result.ts, or #lib/server/shared/result/result.ts in the server; fault builds errors.',
 				},
 			],
 		},
@@ -93,12 +105,12 @@ export default defineConfig(
 	{
 		files: ['**/*.ts', '**/*.svelte'],
 		ignores: [
-			'src/lib/server/services/ledger/**',
-			'src/lib/server/shared/result/result.ts',
-			'src/lib/server/server.ts',
-			'src/lib/server/db/tables.ts',
-			'src/lib/server/services/*/adapters/database-schema.ts',
-			'scripts/**',
+			'packages/server/src/services/ledger/**',
+			'packages/server/src/shared/result/result.ts',
+			'packages/server/src/server.ts',
+			'packages/server/src/db/tables.ts',
+			'packages/server/src/services/*/adapters/database-schema.ts',
+			'packages/server/scripts/**',
 		],
 		rules: {
 			'no-restricted-imports': [
@@ -107,12 +119,18 @@ export default defineConfig(
 					paths: [
 						{
 							name: 'neverthrow',
-							message: 'Import from #lib/server/shared/result/result.ts; fault builds errors.',
+							message:
+								'Import from @rupea/server/shared/result/result.ts, or #lib/server/shared/result/result.ts in the server; fault builds errors.',
 						},
 					],
 					patterns: [
 						{
-							group: ['\\#services/ledger/domain/*', '\\#services/ledger/adapters/*'],
+							group: [
+								'\\#services/ledger/domain/*',
+								'\\#services/ledger/adapters/*',
+								'@rupea/server/services/ledger/domain/*',
+								'@rupea/server/services/ledger/adapters/*',
+							],
 							message:
 								'Import from #services/ledger/application/language.ts, or an application module; the ledger keeps its domain and adapters to itself.',
 						},
@@ -122,7 +140,16 @@ export default defineConfig(
 		},
 	},
 	{
-		files: ['src/**/*.test.ts'],
+		files: ['**/*.ts', '**/*.svelte'],
+		plugins: { rupea },
+		rules: { 'rupea/package-boundaries': 'error' },
+	},
+	{
+		files: webMayImportServer,
+		rules: { 'rupea/package-boundaries': ['error', { allowServer: true }] },
+	},
+	{
+		files: ['src/**/*.test.ts', 'packages/*/src/**/*.test.ts'],
 		plugins: { rupea },
 		rules: { 'rupea/test-location': 'error' },
 	},

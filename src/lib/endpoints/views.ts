@@ -1,14 +1,14 @@
-import type * as Accounts from '#services/ledger/application/accounts.ts';
-import type * as Groups from '#services/ledger/application/groups.ts';
+import type * as Accounts from '@rupea/server/services/ledger/application/accounts.ts';
+import type * as Groups from '@rupea/server/services/ledger/application/groups.ts';
 import {
 	DEFAULT_COMMODITY,
 	type RupeaTransaction,
 	printAmount,
 	formatQuantity,
 	printQuantity,
-} from '#services/ledger/application/language.ts';
-import type * as Transactions from '#services/ledger/application/transactions.ts';
-import type * as Refinement from '#services/refinement/application/refinement.ts';
+} from '@rupea/server/services/ledger/application/language.ts';
+import type * as Transactions from '@rupea/server/services/ledger/application/transactions.ts';
+import type * as Refinement from '@rupea/server/services/refinement/application/refinement.ts';
 
 /** For reading, not for writing back: amounts as text, the time to the minute. */
 export const viewTransaction = (transaction: RupeaTransaction) => ({

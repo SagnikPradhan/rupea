@@ -5,9 +5,9 @@
 		listDeltas,
 		listWorth,
 	} from '#lib/endpoints/accounts.remote.ts';
-	import { ASSETS, INCOME, LIABILITIES } from '#lib/shared/accounts.ts';
-	import { printAmount } from '#lib/shared/amounts.ts';
-	import type { Period } from '#lib/shared/dates.ts';
+	import { ASSETS, INCOME, LIABILITIES } from '@rupea/shared/accounts.ts';
+	import { printAmount } from '@rupea/shared/amounts.ts';
+	import type { Period } from '@rupea/shared/dates.ts';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import Waterfall from '#lib/web/components/ui-chart-waterfall/ui-chart-waterfall.svelte';
 	import Kpi from '#lib/web/components/ui-kpi/ui-kpi.svelte';

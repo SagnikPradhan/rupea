@@ -1,5 +1,5 @@
-import { replyFrom } from '#lib/server/shared/result/reply.ts';
-import * as Schemas from '#services/extraction/application/schemas.ts';
+import { replyFrom } from '@rupea/server/shared/result/reply.ts';
+import * as Schemas from '@rupea/server/services/extraction/application/schemas.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
 import { Handle, inLedger, SchemaKey } from './shared';

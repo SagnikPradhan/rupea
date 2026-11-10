@@ -19,7 +19,7 @@ import {
 	wholeOf,
 	type Spent,
 } from '#lib/web/shared/spending.ts';
-import { type Amount, parseAmount } from '#lib/shared/amounts.ts';
+import { type Amount, parseAmount } from '@rupea/shared/amounts.ts';
 
 const amount = (t: string) => parseAmount(t) as Amount;
 

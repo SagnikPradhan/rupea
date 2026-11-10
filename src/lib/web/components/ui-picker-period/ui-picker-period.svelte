@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Period } from '#lib/shared/dates.ts';
+	import type { Period } from '@rupea/shared/dates.ts';
 	import Chip from '#lib/web/components/ui-chip/ui-chip.svelte';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import FilterSection from '#lib/web/components/ui-filter-section/ui-filter-section.svelte';

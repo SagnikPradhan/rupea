@@ -20,7 +20,7 @@
 	import { scaleUtc } from 'd3-scale';
 	import { area, line, type SeriesPoint } from 'd3-shape';
 	import type { Snippet } from 'svelte';
-	import type { Bucket } from '#lib/shared/dates.ts';
+	import type { Bucket } from '@rupea/shared/dates.ts';
 
 	type Series = {
 		key: keyof Row & string;

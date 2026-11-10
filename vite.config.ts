@@ -56,8 +56,13 @@ export default defineConfig({
 		// Reading a PDF runs the models on several threads; a worker per core leaves them none.
 		maxWorkers: '50%',
 		coverage: {
-			include: ['src/**/*.{ts,svelte}'],
-			exclude: ['src/**/tests/**', 'src/**/*.d.ts', 'src/**/database-schema.ts'],
+			include: ['src/**/*.{ts,svelte}', 'packages/{shared,server}/src/**/*.ts'],
+			exclude: [
+				'src/**/tests/**',
+				'packages/*/src/**/tests/**',
+				'**/*.d.ts',
+				'**/database-schema.ts',
+			],
 			reporter: ['text', 'html', 'lcov'],
 			thresholds: { lines: 90, branches: 80, functions: 90 },
 		},
@@ -67,14 +72,23 @@ export default defineConfig({
 				test: {
 					name: 'backend',
 					include: [
-						'src/lib/server/services/*/tests/*.test.ts',
-						'src/lib/server/tests/*.test.ts',
+						'packages/server/src/services/*/tests/*.test.ts',
+						'packages/server/src/tests/*.test.ts',
 						'tests/shared/**/*.test.ts',
+						'src/lib/endpoints/tests/*.test.ts',
 					],
-					benchmark: { include: ['src/lib/server/**/tests/*.bench.ts'] },
+					benchmark: { include: ['packages/server/src/**/tests/*.bench.ts'] },
 					environment: 'node',
-					globalSetup: ['tests/shared/postgres.ts'],
+					globalSetup: ['packages/server/tests/shared/postgres.ts'],
 				},
+			},
+			{
+				extends: true,
+				test: { name: 'shared', include: ['packages/shared/tests/*.test.ts'], environment: 'node' },
+			},
+			{
+				extends: true,
+				test: { name: 'lint', include: ['lint/tests/*.test.ts'], environment: 'node' },
 			},
 			{
 				// Components render in a DOM; `svelteTesting` resolves Svelte's browser build.

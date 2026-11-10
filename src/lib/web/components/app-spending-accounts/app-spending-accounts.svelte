@@ -1,6 +1,6 @@
 <script lang="ts">
-	import { ZERO, printAmount } from '#lib/shared/amounts.ts';
-	import { type Bucket, type Period, paramsOf } from '#lib/shared/dates.ts';
+	import { ZERO, printAmount } from '@rupea/shared/amounts.ts';
+	import { type Bucket, type Period, paramsOf } from '@rupea/shared/dates.ts';
 	import { depthOf, nameOf } from '#lib/web/shared/accounts.ts';
 	import { seriesOf, tintOf } from '#lib/web/shared/chart.ts';
 	import AccountName from '#lib/web/components/app-account-name/app-account-name.svelte';

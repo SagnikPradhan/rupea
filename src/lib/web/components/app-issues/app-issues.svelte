@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { RupeaError } from '#lib/server/shared/result/error.ts';
+	import type { RupeaError } from '@rupea/shared/error.ts';
 	import { detail, explain, isWarning, placesOf } from '#lib/web/shared/errors.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';
 

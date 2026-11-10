@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ZERO, printAmount } from '#lib/shared/amounts.ts';
+	import { ZERO, printAmount } from '@rupea/shared/amounts.ts';
 	import { nameOf } from '#lib/web/shared/accounts.ts';
 	import Kpi from '#lib/web/components/ui-kpi/ui-kpi.svelte';
 	import KpiStrip from '#lib/web/components/ui-kpi-strip/ui-kpi-strip.svelte';

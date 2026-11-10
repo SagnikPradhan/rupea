@@ -1,7 +1,7 @@
 import * as v from 'valibot';
-import { ASSETS, BalanceAccount } from '#lib/shared/accounts.ts';
-import { type Amount, ZERO, toNumber } from '#lib/shared/amounts.ts';
-import { periodIn } from '#lib/shared/dates.ts';
+import { ASSETS, BalanceAccount } from '@rupea/shared/accounts.ts';
+import { type Amount, ZERO, toNumber } from '@rupea/shared/amounts.ts';
+import { periodIn } from '@rupea/shared/dates.ts';
 import { depthOf, isDirectlyUnder, isUnder, nameOf } from './accounts';
 
 type Held = { account: string; cost: Amount | null; gain: Amount | null };

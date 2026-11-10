@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { listAccountTree } from '#lib/endpoints/accounts.remote.ts';
 import { listProblems } from '#lib/endpoints/ledger.remote.ts';
 import { listTransactions } from '#lib/endpoints/transactions.remote.ts';
-import { fault } from '#lib/server/shared/result/error.ts';
+import { fault } from '@rupea/shared/error.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
 import Page from '#routes/(signed-in)/l/[handle]/transactions/+page.svelte';

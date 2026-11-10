@@ -2,7 +2,7 @@
 	import Axes from '#lib/web/components/ui-chart-axes/ui-chart-axes.svelte';
 	import Key from '#lib/web/components/ui-chart-key/ui-chart-key.svelte';
 	import Tooltip from '#lib/web/components/ui-tooltip/ui-tooltip.svelte';
-	import type { Bucket } from '#lib/shared/dates.ts';
+	import type { Bucket } from '@rupea/shared/dates.ts';
 	import {
 		EDGE,
 		edgeOf,

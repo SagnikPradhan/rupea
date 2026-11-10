@@ -1,9 +1,9 @@
-import { replyFrom, replyFromBatch } from '#lib/server/shared/result/reply.ts';
-import { Day, Period, spansOf } from '#lib/shared/dates.ts';
-import { BalanceAccount, FlowAccount } from '#lib/shared/accounts.ts';
-import * as Accounts from '#services/ledger/application/accounts.ts';
-import * as Terms from '#services/ledger/application/terms.ts';
-import { TermsForm } from '#lib/shared/terms.ts';
+import { replyFrom, replyFromBatch } from '@rupea/server/shared/result/reply.ts';
+import { Day, Period, spansOf } from '@rupea/shared/dates.ts';
+import { BalanceAccount, FlowAccount } from '@rupea/shared/accounts.ts';
+import * as Accounts from '@rupea/server/services/ledger/application/accounts.ts';
+import * as Terms from '@rupea/server/services/ledger/application/terms.ts';
+import { TermsForm } from '@rupea/shared/terms.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
 import { listProblems } from './ledger.remote';

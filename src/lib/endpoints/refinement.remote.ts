@@ -1,7 +1,7 @@
-import { replyFrom } from '#lib/server/shared/result/reply.ts';
-import * as Groups from '#services/ledger/application/groups.ts';
-import { GroupRole } from '#services/ledger/application/language.ts';
-import * as Refinement from '#services/refinement/application/refinement.ts';
+import { replyFrom } from '@rupea/server/shared/result/reply.ts';
+import * as Groups from '@rupea/server/services/ledger/application/groups.ts';
+import { GroupRole } from '@rupea/server/services/ledger/application/language.ts';
+import * as Refinement from '@rupea/server/services/refinement/application/refinement.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
 import { listFiles } from './files.remote';

@@ -1,8 +1,8 @@
-import { replyFrom, replyFromBatch } from '#lib/server/shared/result/reply.ts';
-import * as Drafts from '#services/extraction/application/drafts.ts';
-import * as Schemas from '#services/extraction/application/schemas.ts';
-import * as Statements from '#services/extraction/application/statements.ts';
-import * as Uploads from '#services/extraction/application/uploads.ts';
+import { replyFrom, replyFromBatch } from '@rupea/server/shared/result/reply.ts';
+import * as Drafts from '@rupea/server/services/extraction/application/drafts.ts';
+import * as Schemas from '@rupea/server/services/extraction/application/schemas.ts';
+import * as Statements from '@rupea/server/services/extraction/application/statements.ts';
+import * as Uploads from '@rupea/server/services/extraction/application/uploads.ts';
 import { command, form, query } from '$app/server';
 import * as v from 'valibot';
 import { listFiles } from './files.remote';

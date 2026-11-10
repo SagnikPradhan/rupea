@@ -1,5 +1,5 @@
 import { match } from 'ts-pattern';
-import type { RupeaError } from '#lib/server/shared/result/error.ts';
+import type { RupeaError } from '@rupea/shared/error.ts';
 
 export type Place = { file: string; line: string | null };
 

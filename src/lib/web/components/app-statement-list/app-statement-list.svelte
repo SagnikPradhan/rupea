@@ -1,6 +1,6 @@
 <script lang="ts">
 	import { deleteStatements, listImports, listStatements } from '#lib/endpoints/import.remote.ts';
-	import type { RupeaError } from '#lib/server/shared/result/error.ts';
+	import type { RupeaError } from '@rupea/shared/error.ts';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import FilePath from '#lib/web/components/ui-file-path/ui-file-path.svelte';
 	import IconButton from '#lib/web/components/ui-button-icon/ui-button-icon.svelte';

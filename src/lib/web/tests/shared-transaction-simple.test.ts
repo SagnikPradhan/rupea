@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { simpleOf } from '#lib/shared/transaction-simple.ts';
+import { simpleOf } from '#lib/web/shared/transaction-simple.ts';
 
 const line = (account: string, amount = '', extra = {}) => ({
 	account,

@@ -12,6 +12,6 @@ export default defineConfig({
 		copyPublicDir: false,
 		// Coverage of the built app, as under mcr, maps back to src through these.
 		sourcemap: process.env['NODE_V8_COVERAGE'] ? 'inline' : false,
-		rolldownOptions: { input: { worker: 'src/worker.ts' } },
+		rolldownOptions: { input: { worker: 'packages/server/src/worker.ts' } },
 	},
 });

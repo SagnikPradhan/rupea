@@ -5,7 +5,7 @@
 		dismissSuggestion,
 		listSuggestions,
 	} from '#lib/endpoints/refinement.remote.ts';
-	import type { RupeaError } from '#lib/server/shared/result/error.ts';
+	import type { RupeaError } from '@rupea/shared/error.ts';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import { detail } from '#lib/web/shared/errors.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';

@@ -1,8 +1,8 @@
 <script lang="ts">
 	import { listDailyDeltas, listDeltas } from '#lib/endpoints/accounts.remote.ts';
-	import { ZERO, printAmount } from '#lib/shared/amounts.ts';
-	import { PERIOD_PARAMS } from '#lib/shared/dates.ts';
-	import { EXPENSES, INCOME } from '#lib/shared/accounts.ts';
+	import { ZERO, printAmount } from '@rupea/shared/amounts.ts';
+	import { PERIOD_PARAMS } from '@rupea/shared/dates.ts';
+	import { EXPENSES, INCOME } from '@rupea/shared/accounts.ts';
 	import { coloursOf, distinctOf } from '#lib/web/shared/chart.ts';
 	import ChoiceChips from '#lib/web/components/ui-chip-choices/ui-chip-choices.svelte';
 	import ChoicePicker from '#lib/web/components/ui-picker-choice/ui-picker-choice.svelte';

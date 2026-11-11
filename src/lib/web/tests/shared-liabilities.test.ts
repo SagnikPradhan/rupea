@@ -418,3 +418,21 @@ describe('the estimates of the loans', () => {
 		);
 	});
 });
+
+describe('the figures of the page', () => {
+	it('reads what an account owes, and nothing for one that is not a debt', () => {
+		expect(num(Liabilities.owedOn(debts(), 'Liabilities:Loans'))).toBe(300000);
+		expect(num(Liabilities.owedOn(debts(), 'Liabilities'))).toBe(325000);
+		expect(num(Liabilities.owedOn(debts(), 'Liabilities:Gone'))).toBe(0);
+	});
+
+	it('counts the payments made and the ones still to fall due', () => {
+		const lines = [
+			{ pins: [{ past: true }, { past: true }, { past: false }] },
+			{ pins: [{ past: false }] },
+		];
+
+		expect(Liabilities.paymentsOn(lines)).toEqual({ made: 2, due: 2 });
+		expect(Liabilities.paymentsOn([])).toEqual({ made: 0, due: 0 });
+	});
+});

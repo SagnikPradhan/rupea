@@ -155,6 +155,16 @@ describe('the liabilities page', () => {
 		vi.useRealTimers();
 	});
 
+	it('draws the payments of the account picked only', async () => {
+		vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-08') });
+		open('/l/h/liabilities?account=Liabilities:Loans:Car');
+
+		const chart = await screen.findByRole('list', { name: /^The payments made and due/ });
+		expect(within(chart).getAllByRole('listitem')).toHaveLength(1);
+		expect(screen.getByText(/1 made · 0 still to fall due/)).toBeTruthy();
+		vi.useRealTimers();
+	});
+
 	it('says so when no payment was made or is due in the period', async () => {
 		open('/l/h/liabilities', [{ ...moved, deltas: [], totals: [] }], []);
 

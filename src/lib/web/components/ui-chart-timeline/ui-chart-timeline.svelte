@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Tooltip from '#lib/web/components/ui-tooltip/ui-tooltip.svelte';
 	import { AMOUNT_UNIT, type Amount, printAmount, toNumber } from '#lib/shared/amounts.ts';
-	import type { Bucket } from '#lib/shared/dates.ts';
+	import { type Bucket, bucketOf, bucketsIn } from '#lib/shared/dates.ts';
 	import { formatAmount, formatBucket, formatMonth } from '#lib/web/shared/format.ts';
 
 	type Datum = {
@@ -29,10 +29,10 @@
 	const { lines, from, to, today, bucket, label }: Props = $props();
 
 	const LEAST = 3;
-	const ENDS: Record<Bucket, (d: Temporal.PlainDate) => Temporal.PlainDate> = {
-		day: (d) => d.add({ days: 1 }),
-		month: (d) => d.with({ day: 1 }).add({ months: 1 }),
-		year: (d) => d.with({ month: 1, day: 1 }).add({ years: 1 }),
+	const LENGTHS: Record<Bucket, Temporal.DurationLike> = {
+		day: { days: 1 },
+		month: { months: 1 },
+		year: { years: 1 },
 	};
 
 	const hovered = $state({ pin: null as string | null });
@@ -47,17 +47,13 @@
 	const span = $derived(daysFrom(to) + 1);
 
 	const ticks = $derived(
-		Array.from({ length: yearly ? Math.ceil(months / 12) + 1 : months + 2 }, (_, k) =>
-			yearly
-				? from.with({ month: 1, day: 1 }).add({ years: k })
-				: from.with({ day: 1 }).add({ months: k }),
-		).filter(
-			(d) => Temporal.PlainDate.compare(d, from) >= 0 && Temporal.PlainDate.compare(d, to) <= 0,
-		),
+		bucketsIn({ from, to }, unit).filter((d) => Temporal.PlainDate.compare(d, from) >= 0),
 	);
 
-	const leftOf = (d: Temporal.PlainDate, by: Bucket) =>
-		Math.min(Math.max((daysFrom(d) + daysFrom(ENDS[by](d))) / 2 / span, 0), 1) * 100;
+	const leftOf = (d: Temporal.PlainDate, by: Bucket) => {
+		const end = bucketOf[by](d).add(LENGTHS[by]);
+		return Math.min(Math.max((daysFrom(d) + daysFrom(end)) / 2 / span, 0), 1) * 100;
+	};
 </script>
 
 <div class="chart" style:--lanes={Math.max(lines.length, LEAST)}>

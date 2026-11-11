@@ -1,7 +1,7 @@
 <script lang="ts">
 	import { listAccounts, listDeltas, listTerms } from '#lib/endpoints/accounts.remote.ts';
 	import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
-	import { ZERO, printAmount } from '#lib/shared/amounts.ts';
+	import { printAmount } from '#lib/shared/amounts.ts';
 	import { paramsOf, periodOf, spansOf } from '#lib/shared/dates.ts';
 	import { BalanceAccount, LIABILITIES } from '#lib/shared/accounts.ts';
 	import { depthOf, isUnder, nameOf } from '#lib/web/shared/accounts.ts';
@@ -60,14 +60,13 @@
 	const from = $derived(moved?.from ?? today.with({ month: 1, day: 1 }));
 	const bucket = $derived(moved?.bucket ?? 'month');
 	const to = $derived(moved?.to ?? today.with({ month: 12, day: 31 }));
-	const dues = $derived(debts.flatMap((d) => Liabilities.duesOn(d, { from: today, to })));
-	const lines = $derived(Liabilities.linesFor(debts, moved?.deltas ?? [], dues, bucket));
+	const dues = $derived(shown.flatMap((d) => Liabilities.duesOn(d, { from: today, to })));
+	const lines = $derived(Liabilities.linesFor(shown, moved?.deltas ?? [], dues, bucket));
 	const end = $derived(spansOf(period, today).current.to);
 	const interest = $derived(Liabilities.monthlyInterestOn(shown));
 	const payoff = $derived(Liabilities.payoffOf(shown, end));
-	const pins = $derived(lines.flatMap((l) => l.pins));
-	const made = $derived(pins.filter((p) => p.past).length);
-	const total = $derived(shown.find((a) => a.account === (account ?? LIABILITIES))?.owed ?? ZERO);
+	const payments = $derived(Liabilities.paymentsOn(lines));
+	const total = $derived(Liabilities.owedOn(shown, account ?? LIABILITIES));
 	const rings = $derived(ringsOf(owed, account ?? LIABILITIES));
 	const credit = $derived(
 		rings.skipped === 0
@@ -117,7 +116,7 @@
 <Issues {handle} errors={[...(response.errors ?? []), ...(flowed.errors ?? [])]} />
 
 <PanelGrid narrow>
-	<Panel title="Payments" subtitle="{made} made · {pins.length - made} still to fall due">
+	<Panel title="Payments" subtitle="{payments.made} made · {payments.due} still to fall due">
 		{#if lines.length > 0}
 			<Timeline
 				{lines}

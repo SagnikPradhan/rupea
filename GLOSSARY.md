@@ -256,6 +256,20 @@ _Avoid_: Move (a transfer), change, movement
 The days a chart adds up into one bar: a day, a month or a year, set by the period.
 _Avoid_: Interval, bin, period
 
+## Liabilities
+
+**Debt**:
+A Liabilities account read together with its terms: what it owes, and how and when it is paid.
+_Avoid_: Liability (the account type), loan (one kind of debt)
+
+**Due**:
+A payment still to come on a debt, on its due day: a loan's payment, or what a card owes.
+_Avoid_: Instalment, bill
+
+**Schedule**:
+The payments left on a loan until it clears, each with the interest in it, worked out from its rate and payment.
+_Avoid_: Plan, amortisation table
+
 ## Background work
 
 **Job**:

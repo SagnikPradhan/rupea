@@ -4,6 +4,7 @@ import { findBridge, listAccounts, listDeltas, listWorth } from '#lib/endpoints/
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
 import Page from '#routes/(signed-in)/+page.svelte';
+import { type Amount, parseAmount } from '#lib/shared/amounts.ts';
 
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
@@ -12,10 +13,13 @@ vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
 	listDeltas: vi.fn(),
 	listWorth: vi.fn(),
 }));
+
+const amount = (t: string) => parseAmount(t) as Amount;
+
 const account = (name: string, parent: string | null, total: string) => ({
 	account: name,
 	parent,
-	total,
+	total: amount(total),
 	cost: null,
 	gain: null,
 	unpriced: 0,
@@ -49,16 +53,16 @@ const worth = [
 	},
 ];
 
-const spend = (from: string, amounts: Record<string, string>, top = 'Expenses') => ({
-	from,
-	to: from,
+const spend = (day: string, amounts: Record<string, string>, top = 'Expenses') => ({
+	from: Temporal.PlainDate.from(day),
+	to: Temporal.PlainDate.from(day),
 	bucket: 'month',
-	buckets: [from],
+	buckets: [Temporal.PlainDate.from(day)],
 	deltas: [],
-	totals: Object.entries(amounts).map(([a, amount]) => ({
+	totals: Object.entries(amounts).map(([a, value]) => ({
 		account: a,
 		parent: a === top ? null : top,
-		amount,
+		amount: amount(value),
 		unpriced: 0,
 	})),
 });

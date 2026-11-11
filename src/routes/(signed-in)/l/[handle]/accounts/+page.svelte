@@ -6,6 +6,7 @@
 		listReturns,
 	} from '#lib/endpoints/accounts.remote.ts';
 	import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
+	import { printAmount, printOptional, sum, toNumber } from '#lib/shared/amounts.ts';
 	import { periodOf } from '#lib/shared/dates.ts';
 	import { ASSETS, BalanceAccount } from '#lib/shared/accounts.ts';
 	import { depthOf, isUnder, prefixOf } from '#lib/web/shared/accounts.ts';
@@ -84,9 +85,9 @@
 	);
 	const bestGrew = $derived(Math.max(...byReturn.map((a) => a.grew), BASE_GROWTH));
 	const assets = $derived(
-		accounts
-			.filter((a) => a.parent === null && isUnder(a.account, ASSETS))
-			.reduce((t, a) => t + Number(a.total), 0),
+		sum(
+			accounts.filter((a) => a.parent === null && isUnder(a.account, ASSETS)).map((a) => a.total),
+		),
 	);
 
 	const rings = $derived(
@@ -248,7 +249,7 @@
 
 {#snippet shareOf(value: string | null)}
 	<td class="share optional"
-		><Bar share={value === null || assets === 0 ? 0 : Number(value) / assets} /></td
+		><Bar share={value === null || assets === 0n ? 0 : Number(value) / toNumber(assets)} /></td
 	>
 {/snippet}
 
@@ -283,7 +284,7 @@
 <Panel
 	title="All accounts"
 	subtitle="{trees.length} {trees.length === 1 ? 'group' : 'groups'} · {formatWhole(
-		String(assets),
+		printAmount(assets),
 	)} in all"
 >
 	<LedgerTable
@@ -309,12 +310,12 @@
 								{#if account.unpriced > 0}<Tag>{account.unpriced} unpriced</Tag>{/if}
 							</th>
 							<Amount value={null} optional />
-							<Amount value={account.cost} optional />
-							<Amount value={account.total} />
-							<Amount value={account.gain} signed />
-							{@render returnOf(account.gain, account.cost)}
+							<Amount value={printOptional(account.cost)} optional />
+							<Amount value={printAmount(account.total)} />
+							<Amount value={printOptional(account.gain)} signed />
+							{@render returnOf(printOptional(account.gain), printOptional(account.cost))}
 							{@render flowed(account.account)}
-							{@render shareOf(account.total)}
+							{@render shareOf(printAmount(account.total))}
 						</tr>
 						{#each account.holdings as holding (holding.commodity)}
 							{@render held(account.account, holding, true)}

@@ -1,69 +1,63 @@
 <script lang="ts">
 	import Tooltip from '#lib/web/components/ui-tooltip/ui-tooltip.svelte';
+	import { AMOUNT_UNIT, type Amount, printAmount, toNumber } from '#lib/shared/amounts.ts';
 	import type { Bucket } from '#lib/shared/dates.ts';
 	import { formatAmount, formatBucket, formatMonth } from '#lib/web/shared/format.ts';
 
+	type Datum = {
+		at: Temporal.PlainDate;
+		amount: Amount;
+		past: boolean;
+		interest: Amount;
+	};
+
+	type Series = {
+		key: string;
+		label: string;
+		pins: Datum[];
+	};
+
 	type Props = {
-		/**
-		 * A line for each account, with a pin for each payment made or still due,
-		 * and about how much of it is interest.
-		 */
-		lines: {
-			key: string;
-			label: string;
-			pins: { at: string; amount: number; past: boolean; interest: number }[];
-		}[];
-		/** The first and last day of the axis, and the day the past ends. */
-		from: string;
-		to: string;
-		today: string;
-		/** What a pin's day stands for, a day, month or year. */
+		lines: Series[];
+		from: Temporal.PlainDate;
+		to: Temporal.PlainDate;
+		today: Temporal.PlainDate;
 		bucket: Bucket;
 		label: string;
 	};
 
 	const { lines, from, to, today, bucket, label }: Props = $props();
 
-	/** The lanes the plot has room for, so a few accounts do not squash it. */
 	const LEAST = 3;
-
-	const DAY = 86_400_000;
-
-	/** When the bucket a day starts ends, so a pin can stand in the middle of it. */
-	const ENDS: Record<Bucket, (d: string) => number> = {
-		day: (d) => Date.parse(d) + DAY,
-		month: (d) => Date.UTC(Number(d.slice(0, 4)), Number(d.slice(5, 7)), 1),
-		year: (d) => Date.UTC(Number(d.slice(0, 4)) + 1, 0, 1),
+	const ENDS: Record<Bucket, (d: Temporal.PlainDate) => Temporal.PlainDate> = {
+		day: (d) => d.add({ days: 1 }),
+		month: (d) => d.with({ day: 1 }).add({ months: 1 }),
+		year: (d) => d.with({ month: 1, day: 1 }).add({ years: 1 }),
 	};
 
 	const hovered = $state({ pin: null as string | null });
 
-	const widest = $derived(Math.max(...lines.flatMap((l) => l.pins.map((p) => p.amount)), 0));
-	const months = $derived(
-		(Number(to.slice(0, 4)) - Number(from.slice(0, 4))) * 12 +
-			Number(to.slice(5, 7)) -
-			Number(from.slice(5, 7)),
+	const widest = $derived(
+		Math.max(...lines.flatMap((l) => l.pins.map((p) => toNumber(p.amount))), 0),
 	);
+	const months = $derived((to.year - from.year) * 12 + to.month - from.month);
 	const yearly = $derived(months > 14);
+	const unit = $derived(yearly ? 'year' : 'month');
+	const daysFrom = (d: Temporal.PlainDate) => from.until(d).days;
+	const span = $derived(daysFrom(to) + 1);
+
 	const ticks = $derived(
 		Array.from({ length: yearly ? Math.ceil(months / 12) + 1 : months + 2 }, (_, k) =>
-			new Date(
-				Date.UTC(
-					Number(from.slice(0, 4)),
-					(yearly ? 0 : Number(from.slice(5, 7)) - 1) + k * (yearly ? 12 : 1),
-					1,
-				),
-			)
-				.toISOString()
-				.slice(0, 10),
-		).filter((d) => d >= from && d <= to),
+			yearly
+				? from.with({ month: 1, day: 1 }).add({ years: k })
+				: from.with({ day: 1 }).add({ months: k }),
+		).filter(
+			(d) => Temporal.PlainDate.compare(d, from) >= 0 && Temporal.PlainDate.compare(d, to) <= 0,
+		),
 	);
 
-	const unit = $derived(yearly ? 'year' : 'month');
-	const span = $derived(Date.parse(to) + DAY - Date.parse(from));
-
-	const leftOf = (d: string, by: Bucket) =>
-		Math.min(Math.max(((Date.parse(d) + ENDS[by](d)) / 2 - Date.parse(from)) / span, 0), 1) * 100;
+	const leftOf = (d: Temporal.PlainDate, by: Bucket) =>
+		Math.min(Math.max((daysFrom(d) + daysFrom(ENDS[by](d))) / 2 / span, 0), 1) * 100;
 </script>
 
 <div class="chart" style:--lanes={Math.max(lines.length, LEAST)}>
@@ -72,33 +66,40 @@
 		{#each lines as line, lane (line.key)}
 			{#each line.pins as p (`${p.at}${p.past}`)}
 				{@const id = `${line.key}${p.at}${p.past}`}
-				{@const split = Math.round(p.interest) > 0}
+				{@const split = p.interest * 2n >= AMOUNT_UNIT}
 				<span
 					class={{ pin: true, past: p.past }}
 					role="listitem"
-					aria-label="{line.label}, {formatAmount(String(p.amount))}, {formatBucket[bucket](p.at)}"
+					aria-label="{line.label}, {formatAmount(printAmount(p.amount))}, {formatBucket[bucket](
+						p.at.toString(),
+					)}"
 					style:left="{leftOf(p.at, bucket)}%"
 					style:--lane={lane}
-					style:--spread={Math.sqrt(p.amount / widest)}
+					style:--spread={Math.sqrt(toNumber(p.amount) / widest)}
 					onpointerenter={() => (hovered.pin = id)}
 					onpointerleave={() => (hovered.pin = null)}
 				>
 					<span class={{ circle: true, split }}>
 						{#if split}
-							<span class="core" style:--share={Math.sqrt(1 - p.interest / p.amount)}></span>
+							<span
+								class="core"
+								style:--share={Math.sqrt(1 - toNumber(p.interest) / toNumber(p.amount))}
+							></span>
 						{/if}
 					</span>
 					<span class="stem"></span>
 					{#if hovered.pin === id}
 						<Tooltip left={50} top={0}>
 							{line.label}
-							<data value={p.amount}>{formatAmount(String(p.amount))}</data>
+							<data value={printAmount(p.amount)}>{formatAmount(printAmount(p.amount))}</data>
 							{#if split}
 								<small
-									>about <data value={p.interest}>{formatAmount(p.interest.toFixed(0))}</data> interest</small
+									>about <data value={printAmount(p.interest)}
+										>{formatAmount(printAmount(p.interest))}</data
+									> interest</small
 								>
 							{/if}
-							<time datetime={p.at}>{formatBucket[bucket](p.at)}</time>
+							<time datetime={p.at.toString()}>{formatBucket[bucket](p.at.toString())}</time>
 						</Tooltip>
 					{/if}
 				</span>
@@ -106,9 +107,9 @@
 		{/each}
 	</div>
 	<div class="ticks" aria-hidden="true">
-		{#each ticks as t (t)}
-			<time datetime={t} style:left="{leftOf(t, unit)}%"
-				>{yearly ? formatBucket.year(t) : formatMonth(t)}</time
+		{#each ticks as t (t.toString())}
+			<time datetime={t.toString()} style:left="{leftOf(t, unit)}%"
+				>{yearly ? formatBucket.year(t.toString()) : formatMonth(t.toString())}</time
 			>
 		{/each}
 	</div>

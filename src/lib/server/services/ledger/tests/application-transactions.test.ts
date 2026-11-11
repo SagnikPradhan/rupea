@@ -1,7 +1,7 @@
 import { provide } from '#lib/server/shared/context/context.ts';
 import * as DB from '#services/ledger/adapters/database.ts';
 import * as Files from '#services/ledger/application/files.ts';
-import { formatAmount } from '#services/ledger/domain/amounts.ts';
+import { printAmount } from '#services/ledger/domain/amounts.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
@@ -23,10 +23,7 @@ describe('listing transactions', () => {
 				counted: true,
 			});
 			expect(
-				groceriesTransaction?.postings.map(({ account, amount }) => [
-					account,
-					formatAmount(amount),
-				]),
+				groceriesTransaction?.postings.map(({ account, amount }) => [account, printAmount(amount)]),
 			).toEqual([
 				['Expenses:Food', '100.50'],
 				['Assets:Bank', '-100.50'],

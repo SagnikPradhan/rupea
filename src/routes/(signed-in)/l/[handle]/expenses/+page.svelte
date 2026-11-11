@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { listDailyDeltas, listDeltas } from '#lib/endpoints/accounts.remote.ts';
+	import { ZERO, printAmount } from '#lib/shared/amounts.ts';
 	import { paramsOf, periodOf } from '#lib/shared/dates.ts';
 	import { ExpenseAccount, EXPENSES, INCOME } from '#lib/shared/accounts.ts';
 	import { depthOf, nameOf } from '#lib/web/shared/accounts.ts';
@@ -38,9 +39,10 @@
 	import { MONTHS, MONTHS_BRIEF, spanOf } from '#lib/web/shared/home.ts';
 	import {
 		barsOf,
+		dailyOf,
 		daysIn,
 		largestFirst,
-		monthsIn,
+		monthlyOf,
 		partsOf,
 		PREVIOUS,
 		rowsOf,
@@ -60,6 +62,7 @@
 
 	const handle = $derived(data.ledger.handle);
 	const day = formatIsoDate(new Date());
+	const today = Temporal.PlainDate.from(day);
 	const span = $derived(
 		v.parse(v.fallback(v.picklist(Object.keys(MONTHS)), ''), page.url.searchParams.get('span')),
 	);
@@ -100,12 +103,11 @@
 	const whole = $derived(wholeOf({ spending, previous, account, parts }));
 	const other = $derived([whole, ...bars].some((b) => b[OTHER] !== '0'));
 
-	const first = $derived(spending?.from ?? day);
-	const last = $derived(spending?.to ?? day);
+	const first = $derived(spending?.from ?? today);
+	const last = $derived(spending?.to ?? today);
 	const label = $derived(
-		`Spending from ${formatDate(first)} to ${formatDate(last)}, ${formatAmount(total?.amount ?? '0')} in all`,
+		`Spending from ${formatDate(first.toString())} to ${formatDate(last.toString())}, ${formatAmount(printAmount(total?.amount ?? ZERO))} in all`,
 	);
-	const months = $derived(monthsIn(first, last));
 	const days = $derived(daysIn(first, last));
 	const groups = $derived(
 		Object.fromEntries(
@@ -127,7 +129,12 @@
 	);
 	const largest = $derived(ordered.find((r) => r.parent === account));
 	const moved = $derived(
-		previous ? formatChange(totalOf(previous, account) ?? '0', total?.amount ?? '0') : null,
+		previous
+			? formatChange(
+					printAmount(totalOf(previous, account) ?? ZERO),
+					printAmount(total?.amount ?? ZERO),
+				)
+			: null,
 	);
 
 	const parents = $derived(Object.fromEntries(rows.map((r) => [r.account, r.parent])));
@@ -140,7 +147,6 @@
 		`/l/${handle}/postings?${new URLSearchParams({ account: a, ...paramsOf(period) })}`;
 	const postingsOn = (day: string) =>
 		`/l/${handle}/postings?${new URLSearchParams({ account, from: day, to: day })}`;
-	const perMonth = (amount: string) => (Number(amount) / months).toFixed(2);
 	const fold = (a: string) => (opened.has(a) ? opened.delete(a) : opened.add(a));
 </script>
 
@@ -215,19 +221,19 @@
 	<KpiStrip>
 		<Kpi
 			label="Spent"
-			figure={formatWhole(total?.amount ?? '0')}
+			figure={formatWhole(printAmount(total?.amount ?? ZERO))}
 			detail={moved?.percent ? `${moved.percent} on the period before` : undefined}
 		/>
 		<Kpi
 			label="A day"
-			figure={formatWhole(String(Number(total?.amount ?? '0') / days))}
+			figure={formatWhole(printAmount(dailyOf(total?.amount ?? ZERO, days)))}
 			detail="{days} {days === 1 ? 'day' : 'days'}"
 		/>
 		<Kpi
 			label="Largest"
 			figure={largest ? nameOf(largest.account) : '–'}
 			detail={largest
-				? `${formatWhole(largest.amount)} · ${formatShare(largest.amount, total?.amount ?? '0') ?? '0%'} of spending`
+				? `${formatWhole(printAmount(largest.amount))} · ${formatShare(printAmount(largest.amount), printAmount(total?.amount ?? ZERO)) ?? '0%'} of spending`
 				: undefined}
 		/>
 		<Kpi label="Budgets over" soon />
@@ -260,8 +266,9 @@
 
 {#snippet summary(index: number | null)}
 	{@const bar = index === null ? undefined : bars[index]}
-	{@const shown = bar?.total ?? total?.amount ?? '0'}
-	{@const compared = bar ? bar[PREVIOUS] : totalOf(previous, account)}
+	{@const shown = bar?.total ?? printAmount(total?.amount ?? ZERO)}
+	{@const before = totalOf(previous, account)}
+	{@const compared = bar ? bar[PREVIOUS] : before === null ? null : printAmount(before)}
 	{@const change = compared ? formatChange(compared, shown) : null}
 	<ChartSummary
 		id="spending"
@@ -274,7 +281,9 @@
 				{change.amount}{#if change.percent !== null}&nbsp;({change.percent}){/if} vs previous ·
 			</span>
 		{/if}
-		{bar ? formatBucket[bucket](bar.bucket) : `${formatDate(first)} – ${formatDate(last)}`}
+		{bar
+			? formatBucket[bucket](bar.bucket)
+			: `${formatDate(first.toString())} – ${formatDate(last.toString())}`}
 		{#if total && total.unpriced > 0}
 			<span class="nowrap">· excludes {total.unpriced} unpriced</span>
 		{/if}
@@ -328,12 +337,15 @@
 								{/if}
 								{#if row.unpriced > 0}<Tag>{row.unpriced} unpriced</Tag>{/if}
 							</th>
-							<Amount value={row.amount} />
+							<Amount value={printAmount(row.amount)} />
 							<td class="amount share optional">
-								{#if row.account !== account}{formatShare(row.amount, total?.amount ?? '0')}{/if}
+								{#if row.account !== account}{formatShare(
+										printAmount(row.amount),
+										printAmount(total?.amount ?? ZERO),
+									)}{/if}
 							</td>
 							{#if bucket !== 'day'}
-								<Amount value={perMonth(row.amount)} optional />
+								<Amount value={printAmount(monthlyOf(row.amount, days))} optional />
 							{/if}
 						</tr>
 					{/each}

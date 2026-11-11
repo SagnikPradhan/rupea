@@ -1,7 +1,8 @@
 import { ASSETS } from '#lib/shared/accounts.ts';
+import { type Amount, toNumber } from '#lib/shared/amounts.ts';
 import { nameOf } from './accounts';
 
-type Held = { account: string; parent: string | null; total: string };
+type Held = { account: string; parent: string | null; total: Amount };
 
 /**
  * An arc of one ring, from and to as fractions of the circle; own is false for
@@ -38,7 +39,7 @@ export const ringsOf = (accounts: Held[], root: string = ASSETS) => {
 
 	const byParent = Object.groupBy(accounts, (a) => a.parent ?? '');
 	const kids = (a: Held) => byParent[a.account] ?? [];
-	const totalOf = (a: Held) => Number(a.total);
+	const totalOf = (a: Held) => toNumber(a.total);
 	const restOf = (a: Held) => Math.max(0, totalOf(a) - sum(kids(a).map(totalOf)));
 	const drawn = (a: Held): number => sum(kids(a).map(drawn)) + restOf(a);
 	const levelsUnder = (a: Held): number => {

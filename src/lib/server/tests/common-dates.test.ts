@@ -1,6 +1,15 @@
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
-import { bucketsIn, coverOf, Day, Period, paramsOf, periodOf, spansOf } from '#lib/shared/dates.ts';
+import {
+	bucketsIn,
+	coverOf,
+	Day,
+	monthlyDaysIn,
+	Period,
+	paramsOf,
+	periodOf,
+	spansOf,
+} from '#lib/shared/dates.ts';
 
 const day = (iso: string) => Temporal.PlainDate.from(iso);
 
@@ -21,6 +30,18 @@ describe('buckets', () => {
 		]);
 		expect(bucketsIn(span, 'year').map(String)).toEqual(['2025-01-01', '2026-01-01']);
 		expect(bucketsIn({ from: span.to, to: span.to }, 'day').map(String)).toEqual(['2026-01-02']);
+	});
+});
+
+describe('a day of each month', () => {
+	it('falls in every month of a span, none before or after it', () => {
+		const span = { from: day('2026-01-20'), to: day('2026-04-10') };
+		expect(monthlyDaysIn(span, 15).map(String)).toEqual(['2026-02-15', '2026-03-15']);
+	});
+
+	it('moves to the last day of a month too short for it', () => {
+		const span = { from: day('2026-01-01'), to: day('2026-03-31') };
+		expect(monthlyDaysIn(span, 31).map(String)).toEqual(['2026-01-31', '2026-02-28', '2026-03-31']);
 	});
 });
 

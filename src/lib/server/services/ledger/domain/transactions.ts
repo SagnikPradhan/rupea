@@ -4,7 +4,7 @@ import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
 import type { TransactionForm } from '#lib/shared/transaction-form.ts';
 import {
 	DEFAULT_COMMODITY,
-	formatAmount,
+	printAmount,
 	formatQuantity,
 	parseAmount,
 	type Amount,
@@ -79,13 +79,13 @@ export const formOf = (file: string, t: RupeaTransactionNode): TransactionForm =
 	metadata: t.metadata.map(([key, value]) => ({ key, value })),
 	postings: t.children.map((p) => ({
 		account: p.account,
-		amount: p.elided ? '' : formatAmount(p.amount),
+		amount: p.elided ? '' : printAmount(p.amount),
 		commodity: p.elided || p.commodity === DEFAULT_COMMODITY ? '' : p.commodity,
 		price: p.price === null ? '' : formatQuantity(p.price),
 		total: p.price?.kind === PriceKind.Total,
 		cost: p.cost === null ? '' : formatQuantity(p.cost),
 		costDate: p.cost?.date?.toString() ?? '',
-		balance: p.balance === null ? '' : formatAmount(p.balance),
+		balance: p.balance === null ? '' : printAmount(p.balance),
 		comment: p.comments.join('\n'),
 		metadata: p.metadata.map(([key, value]) => ({ key, value })),
 	})),

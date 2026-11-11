@@ -1,29 +1,33 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 import Timeline from '#lib/web/components/ui-chart-timeline/ui-chart-timeline.svelte';
+import { type Amount, parseAmount } from '#lib/shared/amounts.ts';
+
+const on = (d: string) => Temporal.PlainDate.from(d);
+const amount = (t: string) => parseAmount(t) as Amount;
 
 const LINES = [
 	{
 		key: 'Liabilities:Loans:Home',
 		label: 'Home',
 		pins: [
-			{ at: '2026-01-01', amount: 30000, past: true, interest: 2500 },
-			{ at: '2026-07-01', amount: 15000, past: false, interest: 0 },
+			{ at: on('2026-01-01'), amount: amount('30000'), past: true, interest: amount('2500') },
+			{ at: on('2026-07-01'), amount: amount('15000'), past: false, interest: amount('0') },
 		],
 	},
 	{
 		key: 'Liabilities:Loans:Car',
 		label: 'Car',
-		pins: [{ at: '2026-12-31', amount: 7500, past: false, interest: 0 }],
+		pins: [{ at: on('2026-12-31'), amount: amount('7500'), past: false, interest: amount('0') }],
 	},
 ];
 
-const drawn = (from = '2026-01-01', to = '2026-12-31') => {
+const drawn = (from = on('2026-01-01'), to = on('2026-12-31')) => {
 	const { container } = render(Timeline, {
 		lines: LINES,
 		from,
 		to,
-		today: '2026-06-01',
+		today: on('2026-06-01'),
 		bucket: 'month',
 		label: 'Payments',
 	});
@@ -72,7 +76,9 @@ describe('the timeline chart', () => {
 	});
 
 	it('labels the axis by year over a long span', () => {
-		const ticks = Array.from(drawn('2023-01-01', '2026-12-31').querySelectorAll('.ticks time'));
+		const ticks = Array.from(
+			drawn(on('2023-01-01'), on('2026-12-31')).querySelectorAll('.ticks time'),
+		);
 
 		expect(ticks.map((t) => t.textContent)).toEqual(['2023', '2024', '2025', '2026']);
 	});

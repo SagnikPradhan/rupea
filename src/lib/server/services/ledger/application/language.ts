@@ -1,6 +1,6 @@
 export {
 	DEFAULT_COMMODITY,
-	formatAmount,
+	printAmount,
 	formatQuantity,
 	parseAmount,
 	type Amount,

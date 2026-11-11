@@ -8,6 +8,9 @@ import {
 	spanOf,
 	monthsBefore,
 } from '#lib/web/shared/home.ts';
+import { type Amount, parseAmount } from '#lib/shared/amounts.ts';
+
+const amount = (t: string) => parseAmount(t) as Amount;
 
 describe('the days the home page reads', () => {
 	it('goes 24 months back from a day', () => {
@@ -31,32 +34,32 @@ describe('the days the home page reads', () => {
 
 describe('the balance sheet', () => {
 	const accounts = [
-		{ account: 'Assets', total: '300' },
-		{ account: 'Assets:Bank', total: '100' },
-		{ account: 'Assets:Bank:HDFC', total: '100' },
-		{ account: 'Assets:Gold', total: '200' },
-		{ account: 'Liabilities', total: '-90' },
-		{ account: 'Liabilities:Home loan', total: '-90' },
+		{ account: 'Assets', total: amount('300') },
+		{ account: 'Assets:Bank', total: amount('100') },
+		{ account: 'Assets:Bank:HDFC', total: amount('100') },
+		{ account: 'Assets:Gold', total: amount('200') },
+		{ account: 'Liabilities', total: amount('-90') },
+		{ account: 'Liabilities:Home loan', total: amount('-90') },
 	];
 
 	it('lists the groups under a top account, the largest first', () => {
 		expect(groupsOf(accounts, 'Assets')).toEqual([
-			{ name: 'Gold', total: '200' },
-			{ name: 'Bank', total: '100' },
+			{ name: 'Gold', total: '200.00' },
+			{ name: 'Bank', total: '100.00' },
 		]);
 	});
 
 	it('shows what is owed as a size', () => {
-		expect(groupsOf(accounts, 'Liabilities')).toEqual([{ name: 'Home loan', total: '90' }]);
+		expect(groupsOf(accounts, 'Liabilities')).toEqual([{ name: 'Home loan', total: '90.00' }]);
 		expect(owedOf('-3543489')).toBe('3543489');
 	});
 });
 
 describe('the income statement', () => {
-	const total = (account: string, amount: string) => ({
+	const total = (account: string, n: string) => ({
 		account,
 		parent: account === 'Expenses' ? null : 'Expenses',
-		amount,
+		amount: amount(n),
 	});
 	const month = (amounts: Record<string, string>) => ({
 		buckets: [],
@@ -71,10 +74,10 @@ describe('the income statement', () => {
 		const { rows, total: spent } = statementOf('Expenses', now, then);
 
 		expect(rows.map((r) => [r.name, r.amount, r.before, r.change.amount])).toEqual([
-			['Rent', '200', '200', '0'],
-			['Food', '100', '50', '+50'],
+			['Rent', amount('200'), amount('200'), '0'],
+			['Food', amount('100'), amount('50'), '+50'],
 		]);
-		expect(spent.amount).toBe('300');
+		expect(spent.amount).toBe(amount('300'));
 		expect(spent.change.amount).toBe('+50');
 	});
 
@@ -85,10 +88,10 @@ describe('the income statement', () => {
 		const { rows, total: spent } = statementOf('Expenses', now, then);
 
 		expect(rows.map((r) => [r.name, r.amount, r.before])).toEqual([
-			['Food', '100', '100'],
-			['Travel', '0', '200'],
+			['Food', amount('100'), amount('100')],
+			['Travel', amount('0'), amount('200')],
 		]);
-		expect(spent.before).toBe('300');
+		expect(spent.before).toBe(amount('300'));
 	});
 
 	it('names the five largest groups and sums the rest', () => {
@@ -98,8 +101,8 @@ describe('the income statement', () => {
 		const { rows } = statementOf('Expenses', month({ Expenses: '280', ...groups }), undefined);
 
 		expect(rows.map((r) => r.name)).toEqual(['A', 'B', 'C', 'D', 'E', 'Everything else']);
-		expect(rows.at(-1)?.amount).toBe('30');
-		expect(rows.at(-1)?.before).toBe('0');
+		expect(rows.at(-1)?.amount).toBe(amount('30'));
+		expect(rows.at(-1)?.before).toBe(amount('0'));
 	});
 
 	it('reads Income as sizes, though it is credited as negative amounts', () => {
@@ -107,31 +110,40 @@ describe('the income statement', () => {
 			buckets: [],
 			deltas: [],
 			totals: [
-				{ account: 'Income', parent: null, amount: n },
-				{ account: 'Income:Salary', parent: 'Income', amount: m },
+				{ account: 'Income', parent: null, amount: amount(n) },
+				{ account: 'Income:Salary', parent: 'Income', amount: amount(m) },
 			],
 		});
 
 		const { rows, total } = statementOf('Income', pay('-500', '-500'), pay('-400', '-400'));
 
-		expect(rows.map((r) => [r.name, r.amount, r.before])).toEqual([['Salary', '500', '400']]);
-		expect(total.amount).toBe('500');
+		expect(rows.map((r) => [r.name, r.amount, r.before])).toEqual([
+			['Salary', amount('500'), amount('400')],
+		]);
+		expect(total.amount).toBe(amount('500'));
 	});
 
 	it('keeps the sign of an expense group refunds outweigh', () => {
 		const now = month({ Expenses: '-50', 'Expenses:Food': '-50' });
-		expect(statementOf('Expenses', now, undefined).rows[0]?.amount).toBe('-50');
+		expect(statementOf('Expenses', now, undefined).rows[0]?.amount).toBe(amount('-50'));
 	});
 
 	it('saves what income leaves after spending', () => {
-		const saved = savedOf({ amount: '500', before: '400' }, { amount: '300', before: '350' });
-		expect([saved.amount, saved.before, saved.change.amount]).toEqual(['200', '50', '+150']);
+		const saved = savedOf(
+			{ amount: amount('500'), before: amount('400') },
+			{ amount: amount('300'), before: amount('350') },
+		);
+		expect([saved.amount, saved.before, saved.change.amount]).toEqual([
+			amount('200'),
+			amount('50'),
+			'+150',
+		]);
 	});
 
 	it('is empty without spending', () => {
 		const { rows, total: spent } = statementOf('Expenses', undefined, undefined);
 		expect(rows).toEqual([]);
-		expect(spent.amount).toBe('0');
+		expect(spent.amount).toBe(amount('0'));
 	});
 });
 

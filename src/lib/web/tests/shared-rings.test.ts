@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { ringsOf } from '#lib/web/shared/rings.ts';
+import { type Amount, parseAmount } from '#lib/shared/amounts.ts';
+const amount = (t: string) => parseAmount(t) as Amount;
 
 const held = (account: string, parent: string | null, total: number) => ({
 	account,
 	parent,
-	total: String(total),
+	total: amount(String(total)),
 });
 
 const ACCOUNTS = [
@@ -53,7 +55,7 @@ describe('the rings an account divides into', () => {
 
 	it('keeps what an account holds beyond its sub-accounts as an arc of its own name', () => {
 		const rings = ringsOf(
-			ACCOUNTS.map((a) => (a.account === 'Assets:Bank' ? { ...a, total: '35' } : a)),
+			ACCOUNTS.map((a) => (a.account === 'Assets:Bank' ? { ...a, total: amount('35') } : a)),
 		);
 
 		expect(at(rings, 2).filter((a) => a[0] === 'Assets:Bank')).toEqual([

@@ -1,5 +1,5 @@
 import { err } from '#lib/server/shared/result/result.ts';
-import { formatAmount } from '#services/ledger/application/language.ts';
+import { printAmount } from '#services/ledger/application/language.ts';
 import { describe, expect, it } from 'vitest';
 import { readRecords } from '#services/extraction/domain/runtime.ts';
 import { parseSchema, type RupeaSchema } from '#services/extraction/domain/schema.ts';
@@ -45,7 +45,7 @@ const summary = (grid: Grid, using = hdfc) => {
 			[
 				location.line,
 				date.toString(),
-				formatAmount(amount),
+				printAmount(amount),
 				description,
 				...(category === null ? [] : [category]),
 			].join(' '),
@@ -247,10 +247,7 @@ fields:
 			],
 		})._unsafeUnwrap();
 		expect(
-			result.succeeded.map((r) => [
-				r.category,
-				r.balance === null ? null : formatAmount(r.balance),
-			]),
+			result.succeeded.map((r) => [r.category, r.balance === null ? null : printAmount(r.balance)]),
 		).toEqual([
 			['Food', '995.00'],
 			[null, null],

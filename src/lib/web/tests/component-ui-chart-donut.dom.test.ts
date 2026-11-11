@@ -2,11 +2,13 @@ import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 import Donut from '#lib/web/components/ui-chart-donut/ui-chart-donut.svelte';
 import { ringsOf } from '#lib/web/shared/rings.ts';
+import { type Amount, parseAmount } from '#lib/shared/amounts.ts';
+const amount = (t: string) => parseAmount(t) as Amount;
 
 const held = (account: string, parent: string | null, total: number) => ({
 	account,
 	parent,
-	total: String(total),
+	total: amount(String(total)),
 });
 
 const RINGS = ringsOf([

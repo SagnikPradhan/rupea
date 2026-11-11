@@ -1,4 +1,5 @@
 import { INCOME } from '#lib/shared/accounts.ts';
+import { type Amount, toNumber } from '#lib/shared/amounts.ts';
 import { nameOf } from './accounts';
 import { OTHER, PARTS } from './chart';
 import { sumOf } from './numbers';
@@ -32,7 +33,7 @@ export type Flow = {
 };
 
 /** An account's total, and the account the server draws it under. */
-type Row = { account: string; parent: string | null; amount: string };
+type Row = { account: string; parent: string | null; amount: Amount };
 
 type FlowsOptions = {
 	rows: Row[];
@@ -62,7 +63,7 @@ export const flowsOf = ({
 	colours = {},
 	income = [],
 }: FlowsOptions): Flow[] =>
-	income.some((r) => r.parent === INCOME && Number(r.amount) < 0)
+	income.some((r) => r.parent === INCOME && r.amount < 0n)
 		? flowsKept({ rows, account, parts, colours, income })
 		: flowsSpent({ rows, account, parts, colours });
 
@@ -89,9 +90,9 @@ const flowsSpent = ({ rows, account, parts, colours }: FlowsOptions): Flow[] => 
  */
 const flowsKept = ({ rows, account, parts, colours, income = [] }: FlowsOptions): Flow[] => {
 	const sources = income
-		.filter((r) => r.parent === INCOME && Number(r.amount) < 0)
+		.filter((r) => r.parent === INCOME && r.amount < 0n)
 		.map((r) =>
-			flow(r.account, -Number(r.amount), { column: 0, part: null, from: null, into: INCOME }),
+			flow(r.account, -toNumber(r.amount), { column: 0, part: null, from: null, into: INCOME }),
 		)
 		.toSorted((a, b) => b.amount - a.amount);
 	const earned = amountOf(sources);
@@ -114,7 +115,7 @@ const sharesOf = (
 	{ rows, account, parts, colours = {} }: FlowsOptions,
 	at: { column: number; from: string },
 ) => {
-	const amounts = Object.fromEntries(rows.map((r) => [r.account, Number(r.amount)]));
+	const amounts = Object.fromEntries(rows.map((r) => [r.account, toNumber(r.amount)]));
 	const shares = parts.map((p, k) => flow(p, amounts[p] ?? 0, { ...at, part: colours[p] ?? k }));
 	const rest = (amounts[account] ?? 0) - amountOf(shares);
 	const other = flow(OTHER, rest, { ...at, part: PARTS - 1 });
@@ -146,7 +147,7 @@ const flowsUnder = (rows: Row[], parent: Flow) =>
 	rows
 		.filter((r) => r.parent === parent.key)
 		.map((r) =>
-			flow(r.account, Number(r.amount), {
+			flow(r.account, toNumber(r.amount), {
 				column: 2,
 				part: parent.part,
 				from: parent.key,

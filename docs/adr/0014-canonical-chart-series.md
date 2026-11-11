@@ -20,3 +20,4 @@ A chart has one `unit`, `amount` or `percent`, which formats its axis and captio
 
 - A new chart kind, such as bars for spending, takes the same rows, `x` and `series`.
 - A fourth role needs a reason a primary, context or reference cannot give.
+- Accounts and deltas arrive as bigint amounts, which pages add exactly. A page prints them as exact decimals only when it builds a chart's rows, and a chart turns those into numbers only to draw.

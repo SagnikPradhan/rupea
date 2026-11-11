@@ -109,7 +109,7 @@ export const spansOf = (period: Period, day: Temporal.PlainDate): Spans => {
 const UNITS = { day: 'days', month: 'months', year: 'years' } as const;
 
 /** The first day of the bucket a day falls in. */
-const bucketOf: Record<Bucket, (d: Temporal.PlainDate) => Temporal.PlainDate> = {
+export const bucketOf: Record<Bucket, (d: Temporal.PlainDate) => Temporal.PlainDate> = {
 	day: (d) => d,
 	month: (d) => d.with({ day: 1 }),
 	year: (d) => d.with({ month: 1, day: 1 }),
@@ -123,6 +123,15 @@ export const bucketsIn = (span: Span, bucket: Bucket) => {
 
 	return Array.from({ length: count }, (_, i) => first.add({ [unit]: i }));
 };
+
+/**
+ * One day of the month in each month of a span, oldest first; a month too short
+ * for it gives its last day.
+ */
+export const monthlyDaysIn = (s: Span, d: number) =>
+	bucketsIn(s, 'month')
+		.map((m) => m.with({ day: d }))
+		.filter((x) => isWithin(x, s));
 
 const CALENDARS = {
 	month: { unit: 'months', bucket: 'day', first: (a: string) => `${a}-01` },
@@ -186,3 +195,6 @@ const calendarSpan = (
 
 const earlier = (a: Temporal.PlainDate, b: Temporal.PlainDate) =>
 	Temporal.PlainDate.compare(a, b) > 0 ? b : a;
+
+const isWithin = (d: Temporal.PlainDate, s: Span) =>
+	Temporal.PlainDate.compare(d, s.from) >= 0 && Temporal.PlainDate.compare(d, s.to) <= 0;

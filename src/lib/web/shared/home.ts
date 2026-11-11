@@ -1,3 +1,4 @@
+import { type Amount, ZERO, byAmount, printAmount, sum } from '#lib/shared/amounts.ts';
 import { depthOf, isUnder, nameOf } from './accounts';
 import type { Period } from '#lib/shared/dates.ts';
 import { formatChange } from './format';
@@ -79,11 +80,12 @@ export const lastMonthOf = (day: string) => {
  * The accounts directly under a top account, the largest first; what is owed
  * counts as a size, not a sign.
  */
-export const groupsOf = (accounts: { account: string; total: string }[], top: string) =>
+export const groupsOf = (accounts: { account: string; total: Amount }[], top: string) =>
 	accounts
 		.filter((a) => depthOf(a.account) === 1 && isUnder(a.account, top))
-		.map((a) => ({ name: nameOf(a.account), total: String(Math.abs(Number(a.total))) }))
-		.toSorted((a, b) => Number(b.total) - Number(a.total));
+		.map((a) => ({ name: nameOf(a.account), size: (a.total < 0n ? -a.total : a.total) as Amount }))
+		.toSorted((a, b) => byAmount(b.size, a.size))
+		.map((a) => ({ name: a.name, total: printAmount(a.size) }));
 
 /** An amount of what is owed as a size, without the sign of a liability. */
 export const owedOf = (l: string) => String(Math.abs(Number(l)));
@@ -98,8 +100,8 @@ export const statementOf = (
 	spending: Spent | undefined,
 	previous: Spent | undefined,
 ) => {
-	const sign = top === 'Income' ? -1 : 1;
-	const sizeOf = (n: string | undefined) => String(sign * Number(n ?? '0'));
+	const sign = top === 'Income' ? -1n : 1n;
+	const sizeOf = (n: Amount) => (sign * n) as Amount;
 	const now = Object.fromEntries(
 		(spending?.totals ?? []).map((t) => [t.account, sizeOf(t.amount)]),
 	);
@@ -111,32 +113,36 @@ export const statementOf = (
 		.filter((t) => t.parent === top)
 		.map((t) => t.account);
 	const groups = [...new Set(accounts)]
-		.map((a) => ({ name: nameOf(a), amount: now[a] ?? '0', before: before[a] ?? '0' }))
-		.toSorted((a, b) => Number(b.amount) - Number(a.amount));
+		.map((a) => ({ name: nameOf(a), amount: now[a] ?? ZERO, before: before[a] ?? ZERO }))
+		.toSorted((a, b) => byAmount(b.amount, a.amount));
 
 	const named = groups.slice(0, NAMED);
 	const rest = groups.slice(NAMED);
-	const sum = (k: 'amount' | 'before') => String(rest.reduce((t, g) => t + Number(g[k]), 0));
+	const restOf = (k: 'amount' | 'before') => sum(rest.map((g) => g[k]));
 
 	const rows =
 		rest.length > 0
-			? [...named, { name: 'Everything else', amount: sum('amount'), before: sum('before') }]
+			? [...named, { name: 'Everything else', amount: restOf('amount'), before: restOf('before') }]
 			: named;
 	const total = {
-		amount: now[top] ?? '0',
-		before: before[top] ?? '0',
+		amount: now[top] ?? ZERO,
+		before: before[top] ?? ZERO,
 	};
 
 	return {
-		rows: rows.map((r) => ({ ...r, change: formatChange(r.before, r.amount) })),
-		total: { ...total, change: formatChange(total.before, total.amount) },
+		rows: rows.map(changed),
+		total: changed(total),
 	};
 };
 
-/** What income left after spending over a month and the one before. */
-export const savedOf = (income: { amount: string; before: string }, spent: typeof income) => {
-	const amount = String(Number(income.amount) - Number(spent.amount));
-	const before = String(Number(income.before) - Number(spent.before));
+const changed = <Row extends { amount: Amount; before: Amount }>(r: Row) => ({
+	...r,
+	change: formatChange(printAmount(r.before), printAmount(r.amount)),
+});
 
-	return { amount, before, change: formatChange(before, amount) };
-};
+/** What income left after spending over a month and the one before. */
+export const savedOf = (income: { amount: Amount; before: Amount }, spent: typeof income) =>
+	changed({
+		amount: (income.amount - spent.amount) as Amount,
+		before: (income.before - spent.before) as Amount,
+	});

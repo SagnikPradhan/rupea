@@ -5,7 +5,8 @@ import {
 	barsOf,
 	daysIn,
 	largestFirst,
-	monthsIn,
+	dailyOf,
+	monthlyOf,
 	partsOf,
 	PREVIOUS,
 	rowsOf,
@@ -14,27 +15,32 @@ import {
 	wholeOf,
 	type Spent,
 } from '#lib/web/shared/spending.ts';
+import { type Amount, parseAmount } from '#lib/shared/amounts.ts';
+
+const amount = (t: string) => parseAmount(t) as Amount;
+
+const on = (d: string) => Temporal.PlainDate.from(d);
 
 const spending: Spent = {
-	buckets: ['2026-01-01', '2026-02-01'],
+	buckets: [on('2026-01-01'), on('2026-02-01')],
 	totals: [
-		{ account: 'Expenses', parent: null, amount: '1000' },
-		{ account: 'Expenses:Food', parent: 'Expenses', amount: '600' },
-		{ account: 'Expenses:Food:Groceries', parent: 'Expenses:Food', amount: '400' },
-		{ account: 'Expenses:Rent', parent: 'Expenses', amount: '300.25' },
+		{ account: 'Expenses', parent: null, amount: amount('1000') },
+		{ account: 'Expenses:Food', parent: 'Expenses', amount: amount('600') },
+		{ account: 'Expenses:Food:Groceries', parent: 'Expenses:Food', amount: amount('400') },
+		{ account: 'Expenses:Rent', parent: 'Expenses', amount: amount('300.25') },
 	],
 	deltas: [
-		{ account: 'Expenses', bucket: '2026-01-01', amount: '700' },
-		{ account: 'Expenses:Food', bucket: '2026-01-01', amount: '600' },
-		{ account: 'Expenses', bucket: '2026-02-01', amount: '300.25' },
-		{ account: 'Expenses:Rent', bucket: '2026-02-01', amount: '300.25' },
+		{ account: 'Expenses', bucket: on('2026-01-01'), amount: amount('700') },
+		{ account: 'Expenses:Food', bucket: on('2026-01-01'), amount: amount('600') },
+		{ account: 'Expenses', bucket: on('2026-02-01'), amount: amount('300.25') },
+		{ account: 'Expenses:Rent', bucket: on('2026-02-01'), amount: amount('300.25') },
 	],
 };
 
 const previous: Spent = {
-	buckets: ['2025-01-01'],
-	totals: [{ account: 'Expenses', parent: null, amount: '800' }],
-	deltas: [{ account: 'Expenses', bucket: '2025-01-01', amount: '800' }],
+	buckets: [on('2025-01-01')],
+	totals: [{ account: 'Expenses', parent: null, amount: amount('800') }],
+	deltas: [{ account: 'Expenses', bucket: on('2025-01-01'), amount: amount('800') }],
 };
 
 describe('account names', () => {
@@ -65,7 +71,7 @@ describe('the parts of a bar', () => {
 		const many = Array.from({ length: PARTS + 2 }, (_, i) => ({
 			account: `Expenses:${i}`,
 			parent: 'Expenses',
-			amount: String(i),
+			amount: amount(String(i)),
 		}));
 		expect(partsOf({ ...spending, totals: many }, 'Expenses')).toHaveLength(PARTS - 1);
 	});
@@ -79,18 +85,18 @@ describe('the bars', () => {
 		expect(barsOf({ spending, previous: undefined, account, parts })).toEqual([
 			{
 				bucket: '2026-01-01',
-				total: '700',
-				'Expenses:Food': '600',
-				'Expenses:Rent': '0',
-				[OTHER]: '100',
+				total: '700.00',
+				'Expenses:Food': '600.00',
+				'Expenses:Rent': '0.00',
+				[OTHER]: '100.00',
 				[PREVIOUS]: null,
 			},
 			{
 				bucket: '2026-02-01',
 				total: '300.25',
-				'Expenses:Food': '0',
+				'Expenses:Food': '0.00',
 				'Expenses:Rent': '300.25',
-				[OTHER]: '0',
+				[OTHER]: '0.00',
 				[PREVIOUS]: null,
 			},
 		]);
@@ -98,14 +104,14 @@ describe('the bars', () => {
 
 	it('set each bucket against the one as far into the range before', () => {
 		const bars = barsOf({ spending, previous, account, parts });
-		expect(bars.map((b) => b[PREVIOUS])).toEqual(['800', null]);
+		expect(bars.map((b) => b[PREVIOUS])).toEqual(['800.00', null]);
 	});
 
 	it('add up to the whole range, set against the whole range before', () => {
 		expect(wholeOf({ spending, previous, account, parts })).toMatchObject({
-			total: '1000',
+			total: '1000.00',
 			[OTHER]: '99.75',
-			[PREVIOUS]: '800',
+			[PREVIOUS]: '800.00',
 		});
 		expect(wholeOf({ spending, previous: undefined, account, parts })[PREVIOUS]).toBeNull();
 	});
@@ -113,20 +119,24 @@ describe('the bars', () => {
 
 describe('totals', () => {
 	it('read what a range spent in all, and nothing without a range', () => {
-		expect(totalOf(spending, 'Expenses')).toBe('1000');
-		expect(totalOf(spending, 'Expenses:Food')).toBe('600');
-		expect(totalOf({ ...spending, totals: [] }, 'Expenses')).toBe('0');
+		expect(totalOf(spending, 'Expenses')).toBe(amount('1000'));
+		expect(totalOf(spending, 'Expenses:Food')).toBe(amount('600'));
+		expect(totalOf({ ...spending, totals: [] }, 'Expenses')).toBe(amount('0'));
 		expect(totalOf(undefined, 'Expenses')).toBeNull();
 	});
 
 	it('count days in a span, both of its ends included', () => {
-		expect(daysIn('2026-01-01', '2026-01-31')).toBe(31);
-		expect(daysIn('2026-01-01', '2026-01-01')).toBe(1);
+		expect(daysIn(on('2026-01-01'), on('2026-01-31'))).toBe(31);
+		expect(daysIn(on('2026-01-01'), on('2026-01-01'))).toBe(1);
 	});
 
-	it('count months in a span, both of its days included', () => {
-		expect(monthsIn('2026-01-01', '2026-12-31')).toBeCloseTo(12, 1);
-		expect(monthsIn('2026-01-01', '2026-01-01')).toBeCloseTo(12 / 365.25);
+	it('spread an amount over the days of a span', () => {
+		expect(dailyOf(amount('3100'), 31)).toBe(amount('100'));
+	});
+
+	it('spread an amount over the average months a span of days covers', () => {
+		expect(monthlyOf(amount('4800'), 1461)).toBe(amount('100'));
+		expect(monthlyOf(amount('-4800'), 1461)).toBe(amount('-100'));
 	});
 });
 
@@ -158,11 +168,11 @@ describe('the rows shown', () => {
 describe('the largest first', () => {
 	it('order each level by amount, keeping every account above those under it', () => {
 		const rows = [
-			{ account: 'Expenses', parent: null, amount: '100' },
-			{ account: 'Expenses:Food', parent: 'Expenses', amount: '30' },
-			{ account: 'Expenses:Food:Cafe', parent: 'Expenses:Food', amount: '5' },
-			{ account: 'Expenses:Food:Grocer', parent: 'Expenses:Food', amount: '25' },
-			{ account: 'Expenses:Rent', parent: 'Expenses', amount: '70' },
+			{ account: 'Expenses', parent: null, amount: amount('100') },
+			{ account: 'Expenses:Food', parent: 'Expenses', amount: amount('30') },
+			{ account: 'Expenses:Food:Cafe', parent: 'Expenses:Food', amount: amount('5') },
+			{ account: 'Expenses:Food:Grocer', parent: 'Expenses:Food', amount: amount('25') },
+			{ account: 'Expenses:Rent', parent: 'Expenses', amount: amount('70') },
 		];
 		expect(largestFirst(rows, 'Expenses').map((r) => r.account)).toEqual([
 			'Expenses',

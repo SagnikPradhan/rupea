@@ -1,11 +1,20 @@
 <script lang="ts">
 	import { listAccounts, listDeltas, listTerms } from '#lib/endpoints/accounts.remote.ts';
 	import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
-	import { Day, paramsOf, periodOf, spansOf } from '#lib/shared/dates.ts';
+	import { ZERO, printAmount } from '#lib/shared/amounts.ts';
+	import { paramsOf, periodOf, spansOf } from '#lib/shared/dates.ts';
 	import { BalanceAccount, LIABILITIES } from '#lib/shared/accounts.ts';
 	import { depthOf, isUnder, nameOf } from '#lib/web/shared/accounts.ts';
 	import { formatBucket, formatIsoDate, formatWhole } from '#lib/web/shared/format.ts';
-	import { duesOf, estimatesOf, linesOf, owedOf, rowsOf } from '#lib/web/shared/liabilities.ts';
+	import {
+		debtsOf,
+		duesOf,
+		linesOf,
+		loanInterestOf,
+		owedOf,
+		paidOffOf,
+		rowsOf,
+	} from '#lib/web/shared/liabilities.ts';
 	import { ringsOf } from '#lib/web/shared/rings.ts';
 	import AccountName from '#lib/web/components/app-account-name/app-account-name.svelte';
 	import ListFilter from '#lib/web/components/app-list-filter/app-list-filter.svelte';
@@ -36,6 +45,7 @@
 
 	const handle = $derived(data.ledger.handle);
 	const day = formatIsoDate(new Date());
+	const today = Temporal.PlainDate.from(day);
 	const thisYear = { kind: 'year', at: day.slice(0, 4) } as const;
 	const period = $derived(periodOf(page.url.searchParams, thisYear));
 	const picked = $derived(v.parse(BalanceAccount, page.url.searchParams.get('account')));
@@ -52,18 +62,20 @@
 	);
 	const moved = $derived(flowed.data?.[0]);
 	const owed = $derived(owedOf(response.data ?? []));
-	const shown = $derived(owed.filter((a) => isUnder(a.account, account)));
-	const rows = $derived(rowsOf(shown, moved?.totals ?? [], settled, termed.data ?? []));
-	const from = $derived(moved?.from ?? `${day.slice(0, 4)}-01-01`);
+	const debts = $derived(debtsOf(owed, termed.data ?? []));
+	const shown = $derived(debts.filter((d) => isUnder(d.account, account)));
+	const rows = $derived(rowsOf(shown, moved?.totals ?? [], settled));
+	const from = $derived(moved?.from ?? today.with({ month: 1, day: 1 }));
 	const bucket = $derived(moved?.bucket ?? 'month');
-	const to = $derived(moved?.to ?? `${day.slice(0, 4)}-12-31`);
-	const dues = $derived(duesOf(owed, termed.data ?? [], day, to));
-	const lines = $derived(linesOf(owed, moved?.deltas ?? [], dues, bucket, termed.data ?? []));
-	const end = $derived(spansOf(period, v.parse(Day, day)).current.to.toString());
-	const estimates = $derived(estimatesOf(shown, termed.data ?? [], end));
+	const to = $derived(moved?.to ?? today.with({ month: 12, day: 31 }));
+	const dues = $derived(duesOf(debts, { from: today, to }));
+	const lines = $derived(linesOf(debts, moved?.deltas ?? [], dues, bucket));
+	const end = $derived(spansOf(period, today).current.to);
+	const interest = $derived(loanInterestOf(shown));
+	const paidOff = $derived(paidOffOf(shown, end));
 	const pins = $derived(lines.flatMap((l) => l.pins));
 	const made = $derived(pins.filter((p) => p.past).length);
-	const total = $derived(shown.find((a) => a.account === (account ?? LIABILITIES))?.total ?? '0');
+	const total = $derived(shown.find((a) => a.account === (account ?? LIABILITIES))?.owed ?? ZERO);
 	const rings = $derived(ringsOf(owed, account ?? LIABILITIES));
 	const credit = $derived(
 		rings.skipped === 0
@@ -120,7 +132,7 @@
 				{from}
 				{to}
 				{bucket}
-				today={day}
+				{today}
 				label="The payments made and due on each account"
 			/>
 		{:else}
@@ -131,14 +143,12 @@
 		<Kpi label="Due in 30 days" soon />
 		<Kpi
 			label="Loan interest a month"
-			figure={estimates.interest === null
-				? '–'
-				: `about ${formatWhole(estimates.interest.toFixed(0))}`}
+			figure={interest === null ? '–' : `about ${formatWhole(printAmount(interest))}`}
 		/>
 		<Kpi label="Card limit used" soon />
 		<Kpi
 			label="Loans paid off by"
-			figure={estimates.clears === null ? '–' : formatBucket.month(estimates.clears)}
+			figure={paidOff === null ? '–' : formatBucket.month(paidOff.toString())}
 		/>
 	</KpiStrip>
 </PanelGrid>
@@ -174,7 +184,7 @@
 	<Panel
 		title="All liabilities"
 		subtitle="{rows.length} {rows.length === 1 ? 'account' : 'accounts'} · {formatWhole(
-			total,
+			printAmount(total),
 		)} owed"
 	>
 		{#if rows.length > 0}
@@ -198,13 +208,13 @@
 								>
 								{#if row.unpriced > 0}<Tag>{row.unpriced} unpriced</Tag>{/if}
 							</th>
-							<Amount value={row.owed} />
-							<Amount value={row.paid} signed />
+							<Amount value={printAmount(row.owed)} />
+							<Amount value={printAmount(row.paid)} signed />
 							<td class="amount">{row.rate === null ? '' : `${row.rate}%`}</td>
-							<Amount value={row.monthly} />
+							<Amount value={row.payment === null ? null : printAmount(row.payment)} />
 							<td class="amount">{row.due ?? ''}</td>
 							<td class="nowrap"
-								><a href={setupHref(row.account)}>{row.set ? 'Edit' : 'Set up'}</a></td
+								><a href={setupHref(row.account)}>{row.setUp ? 'Edit' : 'Set up'}</a></td
 							>
 						</tr>
 					{/each}
@@ -212,7 +222,7 @@
 				<tfoot>
 					<tr>
 						<th scope="row">Total</th>
-						<Amount value={total} />
+						<Amount value={printAmount(total)} />
 						<Amount value={null} />
 					</tr>
 				</tfoot>

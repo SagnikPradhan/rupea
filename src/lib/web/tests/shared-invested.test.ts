@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { groupsInvested, investedOf, nestedOf, totalsOf } from '#lib/web/shared/invested.ts';
+import { type Amount, parseAmount } from '#lib/shared/amounts.ts';
+const amount = (t: string) => parseAmount(t) as Amount;
 
 const held = (account: string, total: string, cost: string | null, gain: string | null) => ({
 	account,
-	total,
-	cost,
-	gain,
+	total: amount(total),
+	cost: cost === null ? null : amount(cost),
+	gain: gain === null ? null : amount(gain),
 });
 
 const accounts = [

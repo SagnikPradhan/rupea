@@ -1,10 +1,10 @@
+import { printOptional } from '#lib/shared/amounts.ts';
 import type * as Accounts from '#services/ledger/application/accounts.ts';
 import type * as Groups from '#services/ledger/application/groups.ts';
 import {
-	type Amount,
 	DEFAULT_COMMODITY,
 	type RupeaTransaction,
-	formatAmount,
+	printAmount,
 	formatQuantity,
 	printQuantity,
 } from '#services/ledger/application/language.ts';
@@ -53,9 +53,9 @@ export const viewGroup = ({ group, members }: Groups.FileGroup) => ({
 export const viewAccount = (account: Accounts.Account) => ({
 	account: account.account,
 	parent: account.parent,
-	total: formatAmount(account.total),
-	cost: formatOptional(account.cost),
-	gain: formatOptional(account.gain),
+	total: account.total,
+	cost: account.cost,
+	gain: account.gain,
 	unpriced: account.unpriced,
 	holdings: account.holdings.map((holding) => ({
 		commodity: holding.commodity,
@@ -64,26 +64,26 @@ export const viewAccount = (account: Accounts.Account) => ({
 			holding.commodity === DEFAULT_COMMODITY
 				? null
 				: formatQuantity({ amount: holding.units, commodity: holding.commodity }),
-		cost: formatOptional(holding.paid),
+		cost: printOptional(holding.paid),
 		price: holding.price && formatQuantity(holding.price),
-		value: formatOptional(holding.value),
-		gain: formatOptional(holding.gain),
+		value: printOptional(holding.value),
+		gain: printOptional(holding.gain),
 	})),
 });
 
 export const viewWorth = (worth: Accounts.Worth) => ({
 	day: worth.day.toString(),
-	assets: formatAmount(worth.assets),
-	liabilities: formatAmount(worth.liabilities),
-	worth: formatAmount(worth.worth),
-	parts: worth.parts.map((p) => ({ ...p, amount: formatAmount(p.amount) })),
+	assets: printAmount(worth.assets),
+	liabilities: printAmount(worth.liabilities),
+	worth: printAmount(worth.worth),
+	parts: worth.parts.map((p) => ({ ...p, amount: printAmount(p.amount) })),
 	unpriced: worth.unpriced,
 });
 
 export const viewInvested = (invested: Accounts.Invested) => ({
 	day: invested.day.toString(),
-	value: formatAmount(invested.value),
-	cost: formatAmount(invested.cost),
+	value: printAmount(invested.value),
+	cost: printAmount(invested.cost),
 });
 
 export const viewDrops = (drops: Accounts.Drops) => ({
@@ -95,43 +95,43 @@ export const viewDrops = (drops: Accounts.Drops) => ({
 export const viewBridge = (bridge: Accounts.Bridge) => ({
 	from: bridge.from.toString(),
 	to: bridge.to.toString(),
-	start: formatAmount(bridge.start),
-	income: formatAmount(bridge.income),
-	expenses: formatAmount(bridge.expenses),
-	shifts: bridge.shifts.map((s) => ({ account: s.account, amount: formatAmount(s.amount) })),
-	other: formatAmount(bridge.other),
-	end: formatAmount(bridge.end),
+	start: printAmount(bridge.start),
+	income: printAmount(bridge.income),
+	expenses: printAmount(bridge.expenses),
+	shifts: bridge.shifts.map((s) => ({ account: s.account, amount: printAmount(s.amount) })),
+	other: printAmount(bridge.other),
+	end: printAmount(bridge.end),
 });
 
 export const viewReturns = (returns: Accounts.Returns) => ({
 	account: returns.account,
-	netIn: formatAmount(returns.netIn),
+	netIn: printAmount(returns.netIn),
 	xirr: returns.xirr,
 	yearly: returns.yearly,
 });
 
 export const viewDeltas = (spending: Accounts.Deltas) => ({
-	from: spending.from.toString(),
-	to: spending.to.toString(),
+	from: spending.from,
+	to: spending.to,
 	bucket: spending.bucket,
-	buckets: spending.buckets.map((b) => b.toString()),
+	buckets: spending.buckets,
 	totals: spending.totals.map((t) => ({
 		account: t.account,
 		parent: t.parent,
-		amount: formatAmount(t.amount),
+		amount: t.amount,
 		unpriced: t.unpriced,
 	})),
 	deltas: spending.deltas.map((s) => ({
 		account: s.account,
-		bucket: s.bucket.toString(),
-		amount: formatAmount(s.amount),
+		bucket: s.bucket,
+		amount: s.amount,
 		unpriced: s.unpriced,
 	})),
 });
 
 export const viewDaily = (daily: Accounts.Daily) => ({
 	day: daily.day,
-	amount: formatAmount(daily.amount),
+	amount: printAmount(daily.amount),
 	unpriced: daily.unpriced,
 });
 
@@ -141,18 +141,16 @@ export const viewLot = (lot: Accounts.LotHistory) => ({
 	date: lot.date.toString(),
 	origin: lot.origin,
 	from: lot.from,
-	units: formatAmount(lot.units),
-	remaining: formatAmount(lot.remaining),
+	units: printAmount(lot.units),
+	remaining: printAmount(lot.remaining),
 	cost: formatQuantity(lot.cost),
 	disposals: lot.disposals.map((disposal) => ({
 		file: disposal.location.file,
 		line: disposal.location.line,
 		date: disposal.date.toString(),
 		kind: disposal.kind,
-		units: formatAmount(disposal.units),
+		units: printAmount(disposal.units),
 		price: disposal.price && formatQuantity(disposal.price),
 		gain: disposal.gain && formatQuantity(disposal.gain),
 	})),
 });
-
-const formatOptional = (a: Amount | null) => (a === null ? null : formatAmount(a));

@@ -5,6 +5,10 @@ import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
 import { openFilter } from '#tests/shared/filter.ts';
 import Page from '#routes/(signed-in)/l/[handle]/expenses/+page.svelte';
+import { type Amount, parseAmount } from '#lib/shared/amounts.ts';
+
+const on = (d: string) => Temporal.PlainDate.from(d);
+const amount = (t: string) => parseAmount(t) as Amount;
 
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
@@ -15,33 +19,45 @@ vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
 	findFirstDay: vi.fn(() => answer('2025-03-14')),
 }));
 const spending = {
-	from: '2026-01-01',
-	to: '2026-02-28',
+	from: on('2026-01-01'),
+	to: on('2026-02-28'),
 	bucket: 'month',
-	buckets: ['2026-01-01', '2026-02-01'],
+	buckets: [on('2026-01-01'), on('2026-02-01')],
 	totals: [
-		{ account: 'Expenses', parent: null, first: '2026-01-03', amount: '1000', unpriced: 1 },
+		{ account: 'Expenses', parent: null, first: '2026-01-03', amount: amount('1000'), unpriced: 1 },
 		{
 			account: 'Expenses:Food',
 			parent: 'Expenses',
 			first: '2026-01-03',
-			amount: '600',
+			amount: amount('600'),
 			unpriced: 1,
 		},
 		{
 			account: 'Expenses:Rent',
 			parent: 'Expenses',
 			first: '2026-02-01',
-			amount: '400',
+			amount: amount('400'),
 			unpriced: 0,
 		},
 	],
 	deltas: [
-		{ account: 'Expenses', bucket: '2026-01-01', first: '2026-01-03', amount: '600', unpriced: 1 },
-		{ account: 'Expenses', bucket: '2026-02-01', first: '2026-02-01', amount: '400', unpriced: 0 },
+		{
+			account: 'Expenses',
+			bucket: on('2026-01-01'),
+			first: '2026-01-03',
+			amount: amount('600'),
+			unpriced: 1,
+		},
+		{
+			account: 'Expenses',
+			bucket: on('2026-02-01'),
+			first: '2026-02-01',
+			amount: amount('400'),
+			unpriced: 0,
+		},
 	],
 };
-const previous = { ...spending, from: '2025-01-01', buckets: ['2025-01-01'] };
+const previous = { ...spending, from: on('2025-01-01'), buckets: [on('2025-01-01')] };
 
 describe('the expenses page', () => {
 	it('draws a calendar of what was averaged on each day of the month', async () => {
@@ -74,12 +90,18 @@ describe('the expenses page', () => {
 		const income = {
 			...spending,
 			totals: [
-				{ account: 'Income', parent: null, first: '2026-01-03', amount: '-3000', unpriced: 0 },
+				{
+					account: 'Income',
+					parent: null,
+					first: '2026-01-03',
+					amount: amount('-3000'),
+					unpriced: 0,
+				},
 				{
 					account: 'Income:Salary',
 					parent: 'Income',
 					first: '2026-01-03',
-					amount: '-3000',
+					amount: amount('-3000'),
 					unpriced: 0,
 				},
 			],
@@ -105,7 +127,7 @@ describe('the expenses page', () => {
 			account: 'Expenses:Food:Dining',
 			parent: 'Expenses:Food',
 			first: '2026-01-03',
-			amount: '200',
+			amount: amount('200'),
 			unpriced: 0,
 		};
 		const nested = { ...spending, totals: [...spending.totals, dining] };
@@ -223,11 +245,11 @@ describe('the expenses page', () => {
 
 	it('names the account under it that took the most as the largest', async () => {
 		visit('/l/h/expenses');
-		const total = (account: string, amount: string) => ({
+		const total = (account: string, value: string) => ({
 			account,
 			parent: account === 'Expenses' ? null : 'Expenses',
 			first: '2026-01-03',
-			amount,
+			amount: amount(value),
 			unpriced: 0,
 		});
 		const totals = [

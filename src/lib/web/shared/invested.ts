@@ -1,7 +1,8 @@
 import { ASSETS } from '#lib/shared/accounts.ts';
+import { type Amount, ZERO, toNumber } from '#lib/shared/amounts.ts';
 import { depthOf, isUnder, nameOf } from './accounts';
 
-type Held = { account: string; cost: string | null; gain: string | null };
+type Held = { account: string; cost: Amount | null; gain: Amount | null };
 
 type Returned = { netIn: string; xirr: number | null };
 
@@ -17,9 +18,9 @@ export const investedOf = (accounts: Held[], returns: Record<string, Returned | 
 		.map((a) => ({
 			account: a.account,
 			name: nameOf(a.account),
-			value: Number(a.cost) + Number(a.gain ?? 0),
-			cost: Number(a.cost),
-			gain: Number(a.gain ?? 0),
+			value: toNumber(((a.cost ?? ZERO) + (a.gain ?? ZERO)) as Amount),
+			cost: toNumber(a.cost ?? ZERO),
+			gain: toNumber(a.gain ?? ZERO),
 			netIn: Number(returns[a.account]?.netIn ?? 0),
 			xirr: returns[a.account]?.xirr ?? null,
 		}))

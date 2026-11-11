@@ -6,6 +6,7 @@
 		listWorth,
 	} from '#lib/endpoints/accounts.remote.ts';
 	import { ASSETS, INCOME, LIABILITIES } from '#lib/shared/accounts.ts';
+	import { printAmount } from '#lib/shared/amounts.ts';
 	import type { Period } from '#lib/shared/dates.ts';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import Waterfall from '#lib/web/components/ui-chart-waterfall/ui-chart-waterfall.svelte';
@@ -54,9 +55,13 @@
 	const spent = $derived(statementOf('Expenses', spending.data?.[0], spending.data?.[1]));
 	const income = $derived(statementOf('Income', earning.data?.[0], earning.data?.[1]));
 	const saved = $derived(savedOf(income.total, spent.total));
-	const month = $derived(formatMonthName(spending.data?.[0]?.from ?? lastMonth.at + '-01'));
+	const month = $derived(
+		formatMonthName(spending.data?.[0]?.from.toString() ?? lastMonth.at + '-01'),
+	);
 	const before = $derived(
-		formatMonthName(spending.data?.[1]?.from ?? lastMonthOf(lastMonth.at + '-01') + '-01'),
+		formatMonthName(
+			spending.data?.[1]?.from.toString() ?? lastMonthOf(lastMonth.at + '-01') + '-01',
+		),
 	);
 </script>
 
@@ -87,9 +92,10 @@
 		/>
 		<Kpi
 			label="Saved in {month}"
-			figure={formatWhole(saved.amount)}
-			detail="{formatShare(saved.amount, income.total.amount) ?? '0%'} of income"
-			tone={Number(saved.amount) > 0 ? 'positive' : undefined}
+			figure={formatWhole(printAmount(saved.amount))}
+			detail="{formatShare(printAmount(saved.amount), printAmount(income.total.amount)) ??
+				'0%'} of income"
+			tone={saved.amount > 0n ? 'positive' : undefined}
 		/>
 		<Kpi label="Cash cushion" soon />
 	</KpiStrip>
@@ -144,33 +150,33 @@
 			{#each income.rows as row (row.name)}
 				<StatementRow
 					name={row.name}
-					values={[row.amount, row.before]}
+					values={[printAmount(row.amount), printAmount(row.before)]}
 					change={row.change.amount}
 				/>
 			{/each}
 			<StatementRow
 				total
 				name="Income"
-				values={[income.total.amount, income.total.before]}
+				values={[printAmount(income.total.amount), printAmount(income.total.before)]}
 				change={income.total.change.amount}
 			/>
 			{#each spent.rows as row (row.name)}
 				<StatementRow
 					name={row.name}
-					values={[row.amount, row.before]}
+					values={[printAmount(row.amount), printAmount(row.before)]}
 					change={row.change.amount}
 				/>
 			{/each}
 			<StatementRow
 				total
 				name="Spent"
-				values={[spent.total.amount, spent.total.before]}
+				values={[printAmount(spent.total.amount), printAmount(spent.total.before)]}
 				change={spent.total.change.amount}
 			/>
 			<StatementRow
 				total
 				name="Saved"
-				values={[saved.amount, saved.before]}
+				values={[printAmount(saved.amount), printAmount(saved.before)]}
 				change={saved.change.amount}
 			/>
 		</Statement>

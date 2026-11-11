@@ -3,7 +3,7 @@ import { ok } from '#lib/server/shared/result/result.ts';
 import * as Schemas from '#services/extraction/application/schemas.ts';
 import { readRecords } from '#services/extraction/domain/runtime.ts';
 import { parseSchema } from '#services/extraction/domain/schema.ts';
-import { formatAmount } from '#services/ledger/application/language.ts';
+import { printAmount } from '#services/ledger/application/language.ts';
 import { createLedger } from '#tests/shared/seed.ts';
 import { it } from '#tests/shared/vitest.ts';
 import { describe, expect } from 'vitest';
@@ -47,7 +47,7 @@ const amounts = (content: string) =>
 		],
 	})
 		._unsafeUnwrap()
-		.succeeded.map((r) => formatAmount(r.amount));
+		.succeeded.map((r) => printAmount(r.amount));
 
 describe('built-in schemas', () => {
 	const builtin = (key: string) => ({

@@ -1,0 +1,55 @@
+export const AMOUNT_SCALE = 10;
+export const AMOUNT_UNIT = 10n ** BigInt(AMOUNT_SCALE);
+
+/**
+ * Ten-billionths of a unit, so 1250.5 is 12_505_000_000_000n; only parseAmount
+ * makes one.
+ */
+export type Amount = bigint & { readonly brand: unique symbol };
+
+export const ZERO = 0n as Amount;
+
+export const parseAmount = (text: string): Amount | null => {
+	const cleaned = text.replaceAll(',', '').replaceAll('₹', '').trim();
+	const match = /^([+-]?)(\d+)(?:\.(\d+))?$/.exec(cleaned);
+	if (!match?.[2]) return null;
+
+	const [, sign, whole, fraction = ''] = match;
+	if (fraction.length > AMOUNT_SCALE) return null;
+
+	const units = BigInt(whole + fraction.padEnd(AMOUNT_SCALE, '0'));
+	return (sign === '-' ? -units : units) as Amount;
+};
+
+/** Writes an amount as an exact decimal, like -1250.50. */
+export const printAmount = (amount: Amount): string => {
+	const digits = (amount < 0n ? -amount : amount).toString().padStart(AMOUNT_SCALE + 1, '0');
+	const whole = digits.slice(0, -AMOUNT_SCALE);
+	const fraction = digits.slice(-AMOUNT_SCALE);
+	const shown = fraction.slice(0, [...fraction].findLastIndex((d) => d !== '0') + 1);
+	return `${amount < 0n ? '-' : ''}${whole}.${shown.padEnd(2, '0')}`;
+};
+
+/** Writes an amount that may be missing, keeping null. */
+export const printOptional = (a: Amount | null) => (a === null ? null : printAmount(a));
+
+/** Rounds half away from zero, back to the amount scale. */
+export const multiply = (a: Amount, b: Amount): Amount => {
+	const product = a * b;
+	const half = (product < 0n ? -AMOUNT_UNIT : AMOUNT_UNIT) / 2n;
+	return ((product + half) / AMOUNT_UNIT) as Amount;
+};
+
+/** Both are non-negative here; rounds half up, back to the amount scale. */
+export const divide = (a: Amount, b: Amount): Amount =>
+	((a * AMOUNT_UNIT * 2n + b) / (2n * b)) as Amount;
+
+export const sum = (a: Amount[]): Amount => a.reduce((t, x) => t + x, 0n) as Amount;
+
+export const min = (a: Amount, b: Amount): Amount => (a < b ? a : b);
+
+/** An amount as a float, for drawing; digits past about fifteen are lost. */
+export const toNumber = (a: Amount) => Number(printAmount(a));
+
+/** Orders amounts smallest first, for sorting. */
+export const byAmount = (a: Amount, b: Amount) => Number(a - b);

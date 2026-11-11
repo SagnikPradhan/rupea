@@ -1,7 +1,7 @@
 import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
 import {
 	parseAmount,
-	formatAmount,
+	printAmount,
 	formatQuantity,
 	type Amount,
 	type Quantity,
@@ -40,11 +40,11 @@ const booked = (lines: string[], commodity = 'INFY') => {
 	return {
 		lots: lots.map(
 			(l, i) =>
-				`${i} ${l.accountId} ${formatAmount(l.units)} {${formatQuantity(l.cost)}, ${l.date.toString()}} ${l.origin} left ${formatAmount(l.remaining)}${l.source === null ? '' : ` from ${position(l.source)}`}`,
+				`${i} ${l.accountId} ${printAmount(l.units)} {${formatQuantity(l.cost)}, ${l.date.toString()}} ${l.origin} left ${printAmount(l.remaining)}${l.source === null ? '' : ` from ${position(l.source)}`}`,
 		),
 		disposals: disposals.map(
 			(d) =>
-				`${d.posting} ${d.kind} ${formatAmount(d.units)} from ${position(d.lot) ?? 'nothing'}${d.price ? ` @ ${formatQuantity(d.price)}` : ''}`,
+				`${d.posting} ${d.kind} ${printAmount(d.units)} from ${position(d.lot) ?? 'nothing'}${d.price ? ` @ ${formatQuantity(d.price)}` : ''}`,
 		),
 	};
 };

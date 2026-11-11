@@ -10,6 +10,9 @@ import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
 import { openFilter } from '#tests/shared/filter.ts';
 import Page from '#routes/(signed-in)/l/[handle]/accounts/+page.svelte';
+import { type Amount, parseAmount } from '#lib/shared/amounts.ts';
+
+const amount = (t: string) => parseAmount(t) as Amount;
 
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
@@ -35,16 +38,16 @@ const accounts = [
 	{
 		account: 'Assets',
 		parent: null,
-		total: '51500',
-		cost: '1500',
-		gain: '500',
+		total: amount('51500'),
+		cost: amount('1500'),
+		gain: amount('500'),
 		unpriced: 1,
 		holdings: [rupees('50000')],
 	},
 	{
 		account: 'Assets:Bank',
 		parent: 'Assets',
-		total: '50000',
+		total: amount('50000'),
 		cost: null,
 		gain: null,
 		unpriced: 0,
@@ -53,9 +56,9 @@ const accounts = [
 	{
 		account: 'Assets:Broker',
 		parent: 'Assets',
-		total: '2000',
-		cost: '1500',
-		gain: '500',
+		total: amount('2000'),
+		cost: amount('1500'),
+		gain: amount('500'),
 		unpriced: 0,
 		holdings: [
 			rupees('0'),
@@ -187,7 +190,7 @@ describe('the accounts page', () => {
 				{
 					account: 'Assets:Card',
 					parent: 'Assets',
-					total: '-300',
+					total: amount('-300'),
 					cost: null,
 					gain: null,
 					unpriced: 0,

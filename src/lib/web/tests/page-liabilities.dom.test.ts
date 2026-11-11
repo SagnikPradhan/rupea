@@ -5,6 +5,10 @@ import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
 import { openFilter } from '#tests/shared/filter.ts';
 import Page from '#routes/(signed-in)/l/[handle]/liabilities/+page.svelte';
+import { type Amount, parseAmount } from '#lib/shared/amounts.ts';
+
+const on = (d: string) => Temporal.PlainDate.from(d);
+const amount = (t: string) => parseAmount(t) as Amount;
 
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
@@ -20,7 +24,7 @@ vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
 const held = (account: string, parent: string | null, total: string) => ({
 	account,
 	parent,
-	total,
+	total: amount(total),
 	cost: null,
 	gain: null,
 	unpriced: 0,
@@ -37,25 +41,25 @@ const accounts = [
 	held('Assets', null, '90000'),
 ];
 
-const total = (account: string, amount: string) => ({
+const total = (account: string, value: string) => ({
 	account,
 	parent: null,
-	amount,
+	amount: amount(value),
 	unpriced: 0,
 });
 
-const paid = (account: string, bucket: string, amount: string) => ({
+const paid = (account: string, bucket: Temporal.PlainDate, value: string) => ({
 	account,
 	bucket,
-	amount,
+	amount: amount(value),
 	unpriced: 0,
 });
 
 const moved = {
-	from: '2026-01-01',
-	to: '2026-12-31',
+	from: on('2026-01-01'),
+	to: on('2026-12-31'),
 	bucket: 'month',
-	buckets: ['2026-01-01', '2026-02-01', '2026-03-01'],
+	buckets: [on('2026-01-01'), on('2026-02-01'), on('2026-03-01')],
 	totals: [
 		total('Liabilities', '40000'),
 		total('Liabilities:Loans', '40000'),
@@ -63,10 +67,10 @@ const moved = {
 		total('Liabilities:Loans:Car', '10000'),
 	],
 	deltas: [
-		paid('Liabilities:Loans', '2026-01-01', '20000'),
-		paid('Liabilities:Loans:Home', '2026-01-01', '15000'),
-		paid('Liabilities:Loans:Home', '2026-02-01', '15000'),
-		paid('Liabilities:Loans:Car', '2026-01-01', '5000'),
+		paid('Liabilities:Loans', on('2026-01-01'), '20000'),
+		paid('Liabilities:Loans:Home', on('2026-01-01'), '15000'),
+		paid('Liabilities:Loans:Home', on('2026-02-01'), '15000'),
+		paid('Liabilities:Loans:Car', on('2026-01-01'), '5000'),
 	],
 };
 

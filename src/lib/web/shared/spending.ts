@@ -1,18 +1,18 @@
+import { type Amount, ZERO, byAmount, printAmount, sum } from '#lib/shared/amounts.ts';
 import { isUnder } from './accounts';
 import { OTHER, PARTS } from './chart';
 
 export const PREVIOUS = 'Previous';
 
-/** An average month, so a year's spending divides into twelve of them. */
-const MONTH_DAYS = 365.25 / 12;
-const DAY_MS = 24 * 60 * 60 * 1000;
+/** An average month, 365.25 / 12 days, as a fraction so amounts divide exactly. */
+const MONTH_DAYS = { days: 1461n, months: 48n };
 
 /** Spending over one range, as the expenses page receives it. */
 export type Spent = {
-	buckets: string[];
+	buckets: Temporal.PlainDate[];
 	/** Each account's total, and the account the server draws it under. */
-	totals: { account: string; parent: string | null; amount: string }[];
-	deltas: { account: string; bucket: string; amount: string }[];
+	totals: { account: string; parent: string | null; amount: Amount }[];
+	deltas: { account: string; bucket: Temporal.PlainDate; amount: Amount }[];
 };
 
 type ChartOptions = {
@@ -31,7 +31,7 @@ export const rowsOf = <Total extends { account: string }>(t: Total[], a: string)
  * first at every level.
  */
 export const largestFirst = <
-	Total extends { account: string; parent: string | null; amount: string },
+	Total extends { account: string; parent: string | null; amount: Amount },
 >(
 	t: Total[],
 	a: string,
@@ -39,7 +39,7 @@ export const largestFirst = <
 	const children = Object.groupBy(t, (r) => r.parent ?? '');
 	const under = (p: string): Total[] =>
 		(children[p] ?? [])
-			.toSorted((x, y) => Number(y.amount) - Number(x.amount))
+			.toSorted((x, y) => byAmount(y.amount, x.amount))
 			.flatMap((r) => [r, ...under(r.account)]);
 
 	return [...t.filter((r) => r.account === a), ...under(a)];
@@ -64,7 +64,7 @@ export const shownOf = <Total extends { account: string; parent: string | null }
 export const partsOf = (spending: Spent | undefined, account: string) =>
 	(spending?.totals ?? [])
 		.filter((t) => t.parent === account)
-		.toSorted((a, b) => Number(b.amount) - Number(a.amount))
+		.toSorted((a, b) => byAmount(b.amount, a.amount))
 		.slice(0, PARTS - 1)
 		.map((t) => t.account);
 
@@ -74,58 +74,64 @@ export const partsOf = (spending: Spent | undefined, account: string) =>
  */
 export const barsOf = ({ spending, previous, account, parts }: ChartOptions) => {
 	const spent = Object.fromEntries(
-		(spending?.deltas ?? []).map((s) => [`${s.account} ${s.bucket}`, Number(s.amount)]),
+		(spending?.deltas ?? []).map((s) => [`${s.account} ${s.bucket}`, s.amount]),
 	);
 	const earlier = Object.fromEntries(
-		(previous?.deltas ?? []).filter((s) => s.account === account).map((s) => [s.bucket, s.amount]),
+		(previous?.deltas ?? [])
+			.filter((s) => s.account === account)
+			.map((s) => [s.bucket.toString(), s.amount]),
 	);
 
 	return (spending?.buckets ?? []).map((b, i) => {
 		const before = previous?.buckets[i];
 		return {
-			...piled({ account, parts }, b, (a) => spent[`${a} ${b}`] ?? 0),
-			[PREVIOUS]: before === undefined ? null : (earlier[before] ?? '0'),
+			...piled({ account, parts }, b.toString(), (a) => spent[`${a} ${b}`] ?? ZERO),
+			[PREVIOUS]: before === undefined ? null : printAmount(earlier[before.toString()] ?? ZERO),
 		};
 	});
 };
 
 /** The whole range as one bar, against the whole range before it. */
 export const wholeOf = ({ spending, previous, account, parts }: ChartOptions) => {
-	const spent = Object.fromEntries(
-		(spending?.totals ?? []).map((t) => [t.account, Number(t.amount)]),
-	);
+	const spent = Object.fromEntries((spending?.totals ?? []).map((t) => [t.account, t.amount]));
+	const before = totalOf(previous, account);
+
 	return {
-		...piled({ account, parts }, '', (a) => spent[a] ?? 0),
-		[PREVIOUS]: totalOf(previous, account),
+		...piled({ account, parts }, '', (a) => spent[a] ?? ZERO),
+		[PREVIOUS]: before === null ? null : printAmount(before),
 	};
 };
 
 /** What the range spent in all, or null when there is no such range. */
 export const totalOf = (s: Spent | undefined, a: string) =>
-	s ? (s.totals.find((t) => t.account === a)?.amount ?? '0') : null;
+	s ? (s.totals.find((t) => t.account === a)?.amount ?? ZERO) : null;
 
 /** How many days a span covers, counting both of its ends. */
-export const daysIn = (f: string, t: string) =>
-	Math.round((Date.parse(t) - Date.parse(f)) / DAY_MS) + 1;
+export const daysIn = (f: Temporal.PlainDate, t: Temporal.PlainDate) => f.until(t).days + 1;
 
-/** How many average months a span covers, counting both of its days. */
-export const monthsIn = (f: string, t: string) => daysIn(f, t) / MONTH_DAYS;
+/** What an amount comes to on each day of a span of days. */
+export const dailyOf = (a: Amount, d: number) => (a / BigInt(d)) as Amount;
+
+/** What an amount comes to in an average month of a span of days. */
+export const monthlyOf = (a: Amount, d: number) =>
+	((a * MONTH_DAYS.days) / (BigInt(d) * MONTH_DAYS.months)) as Amount;
 
 /**
- * What a bar holds, by part; whatever the parts leave, to the paisa, is the
+ * What a bar holds, by part, as chart text; whatever the parts leave is the
  * other spending.
  */
 const piled = (
 	{ account, parts }: { account: string; parts: string[] },
 	bucket: string,
-	spentIn: (account: string) => number,
+	spentIn: (account: string) => Amount,
 ) => {
 	const amounts = parts.map((p) => spentIn(p));
-	const rest = Math.round((spentIn(account) - amounts.reduce((t, a) => t + a, 0)) * 100) / 100;
+	const rest = (spentIn(account) - sum(amounts)) as Amount;
+
 	return {
 		bucket,
-		total: String(spentIn(account)),
-		...Object.fromEntries(parts.map((p, i) => [p, String(amounts[i] ?? 0)])),
-		[OTHER]: String(rest),
+		total: printAmount(spentIn(account)),
+		...Object.fromEntries(parts.map((p, i) => [p, printAmount(amounts[i] ?? ZERO)])),
+		[OTHER]: printAmount(rest),
 	};
 };

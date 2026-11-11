@@ -1,5 +1,5 @@
 import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
-import { parseAmount, formatAmount, type Amount } from '#services/ledger/domain/amounts.ts';
+import { parseAmount, printAmount, type Amount } from '#services/ledger/domain/amounts.ts';
 import { displayLocation, parse, parseChanged } from '#services/ledger/domain/parser.ts';
 import { Feed, PriceKind, type RupeaPosting } from '#services/ledger/domain/types.ts';
 import { describe, expect, it } from 'vitest';
@@ -835,7 +835,7 @@ describe('writing an amount', () => {
 		[0n, '0.00'],
 		[10_0500000000n, '10.05'],
 	])('writes %s ten-billionths as %j', (am, tx) => {
-		expect(formatAmount(am as Amount)).toBe(tx);
+		expect(printAmount(am as Amount)).toBe(tx);
 	});
 });
 

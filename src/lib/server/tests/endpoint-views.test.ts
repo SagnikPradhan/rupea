@@ -166,13 +166,13 @@ describe('viewing an account', () => {
 		unpriced: 0,
 	};
 
-	it('shows amounts as text', () => {
+	it('sends the account amounts exact, and its holdings as text', () => {
 		expect(viewAccount(account)).toEqual({
 			account: 'Assets:Broker',
 			parent: 'Assets',
-			total: '12600.00',
-			cost: '10900.00',
-			gain: '1700.00',
+			total: amount('12600'),
+			cost: amount('10900'),
+			gain: amount('1700'),
 			unpriced: 0,
 			holdings: [
 				{

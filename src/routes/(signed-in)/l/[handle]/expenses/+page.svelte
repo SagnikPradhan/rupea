@@ -37,19 +37,7 @@
 		formatWhole,
 	} from '#lib/web/shared/format.ts';
 	import { MONTHS, MONTHS_BRIEF, spanOf } from '#lib/web/shared/home.ts';
-	import {
-		barsOf,
-		dailyOf,
-		daysIn,
-		largestFirst,
-		monthlyOf,
-		partsOf,
-		PREVIOUS,
-		rowsOf,
-		shownOf,
-		totalOf,
-		wholeOf,
-	} from '#lib/web/shared/spending.ts';
+	import * as Spending from '#lib/web/shared/spending.ts';
 	import { page } from '$app/state';
 	import IconCollapsed from '@tabler/icons-svelte-runes/icons/chevron-right';
 	import IconExpanded from '@tabler/icons-svelte-runes/icons/chevron-down';
@@ -87,20 +75,20 @@
 	const previous = $derived(response.data?.[1]);
 	const bucket = $derived(spending?.bucket ?? 'month');
 
-	const rows = $derived(rowsOf(spending?.totals ?? [], account));
-	const ordered = $derived(largestFirst(rows, account));
+	const rows = $derived(Spending.rowsOf(spending?.totals ?? [], account));
+	const ordered = $derived(Spending.largestFirst(rows, account));
 	const opened = new SvelteSet<string>();
-	const shown = $derived(shownOf(ordered, account, [...opened]));
+	const shown = $derived(Spending.shownOf(ordered, account, [...opened]));
 	const total = $derived(rows.find((t) => t.account === account));
-	const parts = $derived(partsOf(spending, account));
+	const parts = $derived(Spending.partsOf(spending, account));
 	const colours = $derived(distinctOf(parts, coloursOf(parts)));
 	const divides = $derived(rows.length > 1);
 	const flows = $derived(
 		flowsOf({ rows, account, parts, colours, income: earned?.data?.[0]?.totals ?? [] }),
 	);
 	const kept = $derived(flows.some((f) => f.into !== null));
-	const bars = $derived(barsOf({ spending, previous, account, parts }));
-	const whole = $derived(wholeOf({ spending, previous, account, parts }));
+	const bars = $derived(Spending.barsOf({ spending, previous, account, parts }));
+	const whole = $derived(Spending.wholeOf({ spending, previous, account, parts }));
 	const other = $derived([whole, ...bars].some((b) => b[OTHER] !== '0'));
 
 	const first = $derived(spending?.from ?? today);
@@ -108,7 +96,7 @@
 	const label = $derived(
 		`Spending from ${formatDate(first.toString())} to ${formatDate(last.toString())}, ${formatAmount(printAmount(total?.amount ?? ZERO))} in all`,
 	);
-	const days = $derived(daysIn(first, last));
+	const days = $derived(Spending.daysIn(first, last));
 	const groups = $derived(
 		Object.fromEntries(
 			(spending?.totals ?? [])
@@ -131,7 +119,7 @@
 	const moved = $derived(
 		previous
 			? formatChange(
-					printAmount(totalOf(previous, account) ?? ZERO),
+					printAmount(Spending.totalOf(previous, account) ?? ZERO),
 					printAmount(total?.amount ?? ZERO),
 				)
 			: null,
@@ -196,7 +184,7 @@
 						? [{ key: OTHER, label: OTHER, role: 'part' as const, colour: PARTS - 1 }]
 						: []),
 					...(previous && compare === 'with'
-						? [{ key: PREVIOUS, label: PREVIOUS, role: 'reference' as const }]
+						? [{ key: Spending.PREVIOUS, label: Spending.PREVIOUS, role: 'reference' as const }]
 						: []),
 				]}
 				{whole}
@@ -226,7 +214,7 @@
 		/>
 		<Kpi
 			label="A day"
-			figure={formatWhole(printAmount(dailyOf(total?.amount ?? ZERO, days)))}
+			figure={formatWhole(printAmount(Spending.dailyAverageOver(total?.amount ?? ZERO, days)))}
 			detail="{days} {days === 1 ? 'day' : 'days'}"
 		/>
 		<Kpi
@@ -267,8 +255,8 @@
 {#snippet summary(index: number | null)}
 	{@const bar = index === null ? undefined : bars[index]}
 	{@const shown = bar?.total ?? printAmount(total?.amount ?? ZERO)}
-	{@const before = totalOf(previous, account)}
-	{@const compared = bar ? bar[PREVIOUS] : before === null ? null : printAmount(before)}
+	{@const before = Spending.totalOf(previous, account)}
+	{@const compared = bar ? bar[Spending.PREVIOUS] : before === null ? null : printAmount(before)}
 	{@const change = compared ? formatChange(compared, shown) : null}
 	<ChartSummary
 		id="spending"
@@ -345,7 +333,10 @@
 									)}{/if}
 							</td>
 							{#if bucket !== 'day'}
-								<Amount value={printAmount(monthlyOf(row.amount, days))} optional />
+								<Amount
+									value={printAmount(Spending.monthlyAverageOver(row.amount, days))}
+									optional
+								/>
 							{/if}
 						</tr>
 					{/each}

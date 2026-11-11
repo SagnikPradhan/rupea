@@ -6,15 +6,7 @@
 	import { BalanceAccount, LIABILITIES } from '#lib/shared/accounts.ts';
 	import { depthOf, isUnder, nameOf } from '#lib/web/shared/accounts.ts';
 	import { formatBucket, formatIsoDate, formatWhole } from '#lib/web/shared/format.ts';
-	import {
-		debtsOf,
-		duesOf,
-		linesOf,
-		loanInterestOf,
-		owedOf,
-		paidOffOf,
-		rowsOf,
-	} from '#lib/web/shared/liabilities.ts';
+	import * as Liabilities from '#lib/web/shared/liabilities.ts';
 	import { ringsOf } from '#lib/web/shared/rings.ts';
 	import AccountName from '#lib/web/components/app-account-name/app-account-name.svelte';
 	import ListFilter from '#lib/web/components/app-list-filter/app-list-filter.svelte';
@@ -61,18 +53,18 @@
 		]),
 	);
 	const moved = $derived(flowed.data?.[0]);
-	const owed = $derived(owedOf(response.data ?? []));
-	const debts = $derived(debtsOf(owed, termed.data ?? []));
+	const owed = $derived(Liabilities.accountsIn(response.data ?? []));
+	const debts = $derived(Liabilities.debtsFrom(owed, termed.data ?? []));
 	const shown = $derived(debts.filter((d) => isUnder(d.account, account)));
-	const rows = $derived(rowsOf(shown, moved?.totals ?? [], settled));
+	const rows = $derived(Liabilities.rowsFor(shown, moved?.totals ?? [], settled));
 	const from = $derived(moved?.from ?? today.with({ month: 1, day: 1 }));
 	const bucket = $derived(moved?.bucket ?? 'month');
 	const to = $derived(moved?.to ?? today.with({ month: 12, day: 31 }));
-	const dues = $derived(duesOf(debts, { from: today, to }));
-	const lines = $derived(linesOf(debts, moved?.deltas ?? [], dues, bucket));
+	const dues = $derived(debts.flatMap((d) => Liabilities.duesOn(d, { from: today, to })));
+	const lines = $derived(Liabilities.linesFor(debts, moved?.deltas ?? [], dues, bucket));
 	const end = $derived(spansOf(period, today).current.to);
-	const interest = $derived(loanInterestOf(shown));
-	const paidOff = $derived(paidOffOf(shown, end));
+	const interest = $derived(Liabilities.monthlyInterestOn(shown));
+	const payoff = $derived(Liabilities.payoffOf(shown, end));
 	const pins = $derived(lines.flatMap((l) => l.pins));
 	const made = $derived(pins.filter((p) => p.past).length);
 	const total = $derived(shown.find((a) => a.account === (account ?? LIABILITIES))?.owed ?? ZERO);
@@ -148,7 +140,7 @@
 		<Kpi label="Card limit used" soon />
 		<Kpi
 			label="Loans paid off by"
-			figure={paidOff === null ? '–' : formatBucket.month(paidOff.toString())}
+			figure={payoff === null ? '–' : formatBucket.month(payoff.toString())}
 		/>
 	</KpiStrip>
 </PanelGrid>

@@ -21,17 +21,18 @@ export const parseAmount = (text: string): Amount | null => {
 	return (sign === '-' ? -units : units) as Amount;
 };
 
-/** Writes an amount as an exact decimal, like -1250.50. */
-export const printAmount = (amount: Amount): string => {
+/** Writes an amount as an exact decimal, like -1250.50, keeping null. */
+export function printAmount(amount: Amount): string;
+export function printAmount(amount: Amount | null): string | null;
+export function printAmount(amount: Amount | null) {
+	if (amount === null) return null;
+
 	const digits = (amount < 0n ? -amount : amount).toString().padStart(AMOUNT_SCALE + 1, '0');
 	const whole = digits.slice(0, -AMOUNT_SCALE);
 	const fraction = digits.slice(-AMOUNT_SCALE);
 	const shown = fraction.slice(0, [...fraction].findLastIndex((d) => d !== '0') + 1);
 	return `${amount < 0n ? '-' : ''}${whole}.${shown.padEnd(2, '0')}`;
-};
-
-/** Writes an amount that may be missing, keeping null. */
-export const printOptional = (a: Amount | null) => (a === null ? null : printAmount(a));
+}
 
 /** Rounds half away from zero, back to the amount scale. */
 export const multiply = (a: Amount, b: Amount): Amount => {

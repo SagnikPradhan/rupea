@@ -203,7 +203,7 @@
 							<Amount value={printAmount(row.owed)} />
 							<Amount value={printAmount(row.paid)} signed />
 							<td class="amount">{row.rate === null ? '' : `${row.rate}%`}</td>
-							<Amount value={row.payment === null ? null : printAmount(row.payment)} />
+							<Amount value={printAmount(row.payment)} />
 							<td class="amount">{row.due ?? ''}</td>
 							<td class="nowrap"
 								><a href={setupHref(row.account)}>{row.setUp ? 'Edit' : 'Set up'}</a></td

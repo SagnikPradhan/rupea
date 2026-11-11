@@ -246,9 +246,7 @@ fields:
 				['2026-08-30', '-5', 'Tea', ''],
 			],
 		})._unsafeUnwrap();
-		expect(
-			result.succeeded.map((r) => [r.category, r.balance === null ? null : printAmount(r.balance)]),
-		).toEqual([
+		expect(result.succeeded.map((r) => [r.category, printAmount(r.balance)])).toEqual([
 			['Food', '995.00'],
 			[null, null],
 		]);

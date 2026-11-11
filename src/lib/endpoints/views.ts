@@ -1,4 +1,3 @@
-import { printOptional } from '#lib/shared/amounts.ts';
 import type * as Accounts from '#services/ledger/application/accounts.ts';
 import type * as Groups from '#services/ledger/application/groups.ts';
 import {
@@ -64,10 +63,10 @@ export const viewAccount = (account: Accounts.Account) => ({
 			holding.commodity === DEFAULT_COMMODITY
 				? null
 				: formatQuantity({ amount: holding.units, commodity: holding.commodity }),
-		cost: printOptional(holding.paid),
+		cost: printAmount(holding.paid),
 		price: holding.price && formatQuantity(holding.price),
-		value: printOptional(holding.value),
-		gain: printOptional(holding.gain),
+		value: printAmount(holding.value),
+		gain: printAmount(holding.gain),
 	})),
 });
 

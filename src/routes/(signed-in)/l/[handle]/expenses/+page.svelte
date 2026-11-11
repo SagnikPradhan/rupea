@@ -256,7 +256,7 @@
 	{@const bar = index === null ? undefined : bars[index]}
 	{@const shown = bar?.total ?? printAmount(total?.amount ?? ZERO)}
 	{@const before = Spending.totalOf(previous, account)}
-	{@const compared = bar ? bar[Spending.PREVIOUS] : before === null ? null : printAmount(before)}
+	{@const compared = bar ? bar[Spending.PREVIOUS] : printAmount(before)}
 	{@const change = compared ? formatChange(compared, shown) : null}
 	<ChartSummary
 		id="spending"

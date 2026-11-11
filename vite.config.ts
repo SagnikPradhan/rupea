@@ -84,6 +84,8 @@ export default defineConfig({
 					include: ['src/lib/web/tests/*.test.ts'],
 					benchmark: { include: ['src/lib/web/tests/*.bench.ts'] },
 					environment: 'happy-dom',
+					// Creates the DOM once per worker, not per file. Sharing it with isolate: false lets one file's URL leak into the next.
+					pool: 'vmThreads',
 				},
 			},
 		],

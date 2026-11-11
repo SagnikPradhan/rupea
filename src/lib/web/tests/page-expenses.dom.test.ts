@@ -275,6 +275,30 @@ describe('the expenses page', () => {
 		expect(spans.getAllByRole('link').some((l) => l.hasAttribute('aria-current'))).toBe(false);
 	});
 
+	it('shows what went wrong reading the days of the month', async () => {
+		visit('/l/h/expenses?at=2026');
+		vi.mocked(listDeltas).mockReturnValue(answer([spending, previous]));
+		vi.mocked(listDailyDeltas).mockReturnValue(
+			answer(undefined, [{ type: 'ParseInvalidPosting', location: 'main.ledger:3' }]),
+		);
+		render(Page, { data });
+
+		expect(await screen.findByText(/This posting can’t be read\./)).toBeTruthy();
+	});
+
+	it('shows what went wrong reading what came in', async () => {
+		visit('/l/h/expenses?at=2026');
+		vi.mocked(listDailyDeltas).mockReturnValue(answer([]));
+		vi.mocked(listDeltas).mockImplementation(({ account }) =>
+			account === 'Income'
+				? answer(undefined, [{ type: 'ParseMissingTransactionBody', location: 'main.ledger:5' }])
+				: answer([spending, previous]),
+		);
+		render(Page, { data });
+
+		expect(await screen.findByText(/This transaction has no postings\./)).toBeTruthy();
+	});
+
 	it('says so when nothing lies under the account', async () => {
 		visit('/l/h/expenses?account=Expenses:Rent');
 		vi.mocked(listDeltas).mockReturnValue(answer([spending]));

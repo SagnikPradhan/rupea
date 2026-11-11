@@ -40,4 +40,48 @@ describe('issues', () => {
 		expect(lists[0]?.querySelector('[role="alert"]')).toBeTruthy();
 		expect(lists[1]?.querySelector('[role="status"]')).toBeTruthy();
 	});
+
+	it('shows an error once however many queries returned it', () => {
+		const invalid = fault('ParseInvalidPosting', { location: 'a.rupea:4' });
+		render(Issues, { handle: 'h', errors: [invalid, invalid, { ...invalid }] });
+
+		expect(screen.getAllByRole('alert')).toHaveLength(1);
+	});
+
+	it('shows errors at different locations apart', () => {
+		const first = fault('ParseInvalidPosting', { location: 'a.rupea:4' });
+		const second = fault('ParseInvalidPosting', { location: 'a.rupea:5' });
+		render(Issues, { handle: 'h', errors: [first, second] });
+
+		expect(screen.getAllByRole('alert')).toHaveLength(2);
+	});
+
+	it('shows errors of one type and location apart when another field differs', () => {
+		const bank = fault('BalanceAssertionFailed', {
+			location: 'a.rupea:9',
+			account: 'Assets:Bank',
+			expected: '10',
+			actual: '20',
+		});
+		const cash = fault('BalanceAssertionFailed', {
+			location: 'a.rupea:9',
+			account: 'Assets:Cash',
+			expected: '10',
+			actual: '20',
+		});
+		render(Issues, { handle: 'h', errors: [bank, cash] });
+
+		expect(screen.getAllByRole('status')).toHaveLength(2);
+	});
+
+	it('shows errors of different types at one location apart', () => {
+		const invalid = fault('ParseInvalidPosting', { location: 'a.rupea:4' });
+		const unbalancedHere = fault('ParseUnbalancedTransaction', {
+			location: 'a.rupea:4',
+			residual: '20',
+		});
+		render(Issues, { handle: 'h', errors: [invalid, unbalancedHere] });
+
+		expect(screen.getAllByRole('alert')).toHaveLength(2);
+	});
 });

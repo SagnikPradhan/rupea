@@ -162,7 +162,10 @@
 	{/snippet}
 </PageHeader>
 
-<Issues {handle} errors={response.errors} />
+<Issues
+	{handle}
+	errors={[...(response.errors ?? []), ...(earned?.errors ?? []), ...(daily.errors ?? [])]}
+/>
 
 <PanelGrid narrow>
 	<div>

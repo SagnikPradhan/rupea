@@ -5,11 +5,13 @@ import svelte from 'eslint-plugin-svelte';
 import { defineConfig, globalIgnores } from 'eslint/config';
 import globals from 'globals';
 import ts from 'typescript-eslint';
+import { functionNames } from './lint/function-names.ts';
 import { localNameLength } from './lint/local-name-length.ts';
 import { testLocation } from './lint/test-location.ts';
 
 const rupea = {
 	rules: {
+		'function-names': functionNames,
 		'local-name-length': localNameLength,
 		'test-location': testLocation,
 	},
@@ -66,7 +68,13 @@ export default defineConfig(
 	{
 		files: ['**/*.ts'],
 		plugins: { rupea },
-		rules: { 'rupea/local-name-length': 'error' },
+		rules: {
+			'rupea/local-name-length': 'error',
+			'rupea/function-names': [
+				'warn',
+				{ allow: ['sum', 'min', 'max', 'multiply', 'divide', 'negate', 'round'] },
+			],
+		},
 		ignores: ['**/*.test.ts', 'tests/**'],
 	},
 	{

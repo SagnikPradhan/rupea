@@ -130,6 +130,17 @@ export const linesFor = (debts: Debt[], paid: Paid[], dues: Due[], bucket: Bucke
 		.toSorted((x, y) => byCodeUnit(x.label, y.label));
 };
 
+/** What an account owes, or nothing when it is not one of the debts. */
+export const owedOn = (d: Debt[], a: string) => d.find((x) => x.account === a)?.owed ?? ZERO;
+
+/** How many payments on the lines were made, and how many are still to fall due. */
+export const paymentsOn = (lines: { pins: { past: boolean }[] }[]) => {
+	const pins = lines.flatMap((l) => l.pins);
+	const made = pins.filter((p) => p.past).length;
+
+	return { made, due: pins.length - made };
+};
+
 /**
  * About a month's interest on the loans, or null while a debt other than a card
  * owes with no loan to estimate it by.

@@ -5,7 +5,7 @@ import type { Terms } from '#lib/shared/terms.ts';
 import { byCodeUnit } from '#lib/shared/text.ts';
 import type * as v from 'valibot';
 import { isUnder, nameOf } from './accounts';
-import { type Loan, monthlyInterest, interestAhead, interestBehind } from './loans';
+import * as Loans from './loans';
 
 type Balance = { account: string; parent: string | null; total: Amount; unpriced: number };
 
@@ -30,7 +30,7 @@ export type Debt = {
 	payment: Amount | null;
 	/** The day of the month a payment falls due. */
 	due: number | null;
-	loan: Loan | null;
+	loan: Loans.Loan | null;
 };
 
 type Paid = { account: string; bucket: Temporal.PlainDate; amount: Amount };
@@ -41,7 +41,7 @@ type Due = { account: string; on: Temporal.PlainDate; amount: Amount; interest: 
  * The accounts under Liabilities, each total turned from a balance into what is
  * owed.
  */
-export const owedOf = (b: Balance[]) =>
+export const accountsIn = (b: Balance[]) =>
 	b
 		.filter((a) => isUnder(a.account, LIABILITIES))
 		.map((a) => ({ ...a, total: -a.total as Amount }));
@@ -50,7 +50,7 @@ export const owedOf = (b: Balance[]) =>
  * Each liability with its terms read; accounts match their terms whatever the
  * case.
  */
-export const debtsOf = (owed: Balance[], terms: ListedTerms[]): Debt[] => {
+export const debtsFrom = (owed: Balance[], terms: ListedTerms[]): Debt[] => {
 	const parents = new Set(owed.map((a) => a.parent));
 	const listed = Object.fromEntries(terms.map((t) => [t.account.toLowerCase(), t]));
 
@@ -63,7 +63,7 @@ export const debtsOf = (owed: Balance[], terms: ListedTerms[]): Debt[] => {
 			owed: a.total,
 			unpriced: a.unpriced,
 			setUp: own !== undefined,
-			...readTerms(own?.held ?? null),
+			...termsFrom(own?.held ?? null),
 		};
 	});
 };
@@ -72,7 +72,7 @@ export const debtsOf = (owed: Balance[], terms: ListedTerms[]): Debt[] => {
  * A row for each debt but the top one, with what it paid down over the period;
  * settled ones that did not move are left out.
  */
-export const rowsOf = (
+export const rowsFor = (
 	debts: Debt[],
 	paid: { account: string; amount: Amount }[],
 	settled: boolean,
@@ -86,16 +86,30 @@ export const rowsOf = (
 };
 
 /**
- * The payments falling due in a span, each with the interest in it: a card pays
- * what it owes, and a loan its payment until it clears.
+ * The payments falling due on a debt in a span, each with the interest in it: a
+ * card pays what it owes, and a loan its payment until it clears.
  */
-export const duesOf = (d: Debt[], s: Span) => d.flatMap((x) => paymentsDue(x, s));
+export const duesOn = (debt: Debt, span: Span) => {
+	const amount = debt.kind === 'loan' ? (debt.payment ?? ZERO) : debt.owed;
+	if (!debt.leaf || debt.due === null || amount <= 0n) return [];
+
+	const ahead = debt.loan === null ? null : Loans.scheduleFor(debt.loan, debt.owed);
+	const days = monthlyDaysIn(span, debt.due);
+	const payments = ahead?.clears ? ahead.interest.length : days.length;
+
+	return days.slice(0, payments).map((on, i) => ({
+		account: debt.account,
+		on,
+		amount,
+		interest: ahead?.interest[i] ?? ZERO,
+	}));
+};
 
 /**
  * A line for each debt with a pin for each payment made or due. A loan's pins
  * say how much is interest, unless a pin spans a whole year.
  */
-export const linesOf = (debts: Debt[], paid: Paid[], dues: Due[], bucket: Bucket) => {
+export const linesFor = (debts: Debt[], paid: Paid[], dues: Due[], bucket: Bucket) => {
 	const made = Object.groupBy(
 		paid.filter((p) => p.amount > 0n),
 		(p) => p.account,
@@ -108,8 +122,8 @@ export const linesOf = (debts: Debt[], paid: Paid[], dues: Due[], bucket: Bucket
 			key: d.account,
 			label: nameOf(d.account),
 			pins: [
-				...pinsMade(d, made[d.account] ?? [], bucket),
-				...pinsDue(due[d.account] ?? [], bucket),
+				...pastPinsFor(d, made[d.account] ?? [], bucket),
+				...futurePinsFor(due[d.account] ?? [], bucket),
 			],
 		}))
 		.filter((l) => l.pins.length > 0)
@@ -120,27 +134,27 @@ export const linesOf = (debts: Debt[], paid: Paid[], dues: Due[], bucket: Bucket
  * About a month's interest on the loans, or null while a debt other than a card
  * owes with no loan to estimate it by.
  */
-export const loanInterestOf = (debts: Debt[]) => {
-	const loans = loansOf(debts);
-	return loans === null ? null : sum(loans.map((l) => monthlyInterest(l.loan, l.owed)));
+export const monthlyInterestOn = (debts: Debt[]) => {
+	const loans = loansIn(debts);
+	return loans === null ? null : sum(loans.map((l) => Loans.monthlyInterestOn(l.loan, l.owed)));
 };
 
 /**
  * The month the last loan is paid off, or null when one never is or a debt
  * other than a card owes with no loan to estimate it by.
  */
-export const paidOffOf = (debts: Debt[], on: Temporal.PlainDate) => {
-	const loans = loansOf(debts);
+export const payoffOf = (debts: Debt[], on: Temporal.PlainDate) => {
+	const loans = loansIn(debts);
 	if (loans === null) return null;
 
-	const months = loans.map((l) => monthsToPayOff(l, on));
+	const months = loans.map((l) => remainingMonthsOf(l, on));
 	if (months.includes(null)) return null;
 
 	return on.with({ day: 1 }).add({ months: Math.max(...months.map(Number)) });
 };
 
 /** What terms say about paying, with the payment and the loan read as amounts. */
-const readTerms = (terms: v.InferOutput<typeof Terms> | null) => {
+const termsFrom = (terms: v.InferOutput<typeof Terms> | null) => {
 	const payment =
 		terms?.kind === 'loan' && terms.payment !== undefined ? parseAmount(terms.payment) : null;
 
@@ -149,7 +163,7 @@ const readTerms = (terms: v.InferOutput<typeof Terms> | null) => {
 		rate: terms?.rate ?? null,
 		payment,
 		due: terms?.due ?? null,
-		loan: loanOf(terms, payment),
+		loan: loanFrom(terms, payment),
 	};
 };
 
@@ -157,7 +171,10 @@ const readTerms = (terms: v.InferOutput<typeof Terms> | null) => {
  * The loan some terms describe, or null when a rate, payment or flat loan's
  * months are missing.
  */
-const loanOf = (terms: v.InferOutput<typeof Terms> | null, payment: Amount | null): Loan | null => {
+const loanFrom = (
+	terms: v.InferOutput<typeof Terms> | null,
+	payment: Amount | null,
+): Loans.Loan | null => {
 	const rate =
 		terms?.kind === 'loan' && terms.rate !== undefined ? parseAmount(String(terms.rate)) : null;
 	if (terms?.kind !== 'loan' || rate === null || payment === null) return null;
@@ -166,28 +183,12 @@ const loanOf = (terms: v.InferOutput<typeof Terms> | null, payment: Amount | nul
 	return { rate, method: terms.method, payment, months: terms.tenure };
 };
 
-const paymentsDue = (debt: Debt, span: Span) => {
-	const amount = debt.kind === 'loan' ? (debt.payment ?? ZERO) : debt.owed;
-	if (!debt.leaf || debt.due === null || amount <= 0n) return [];
-
-	const ahead = debt.loan === null ? null : interestAhead(debt.loan, debt.owed);
-	const days = monthlyDaysIn(span, debt.due);
-	const payments = ahead?.clears ? ahead.interest.length : days.length;
-
-	return days.slice(0, payments).map((on, i) => ({
-		account: debt.account,
-		on,
-		amount,
-		interest: ahead?.interest[i] ?? ZERO,
-	}));
-};
-
-const pinsMade = (debt: Debt, paid: Paid[], bucket: Bucket) => {
+const pastPinsFor = (debt: Debt, paid: Paid[], bucket: Bucket) => {
 	const oldestFirst = paid.toSorted((x, y) => Temporal.PlainDate.compare(x.bucket, y.bucket));
 	const interest =
 		debt.loan === null || bucket === 'year'
 			? []
-			: interestBehind(
+			: Loans.paidInterestOn(
 					debt.loan,
 					debt.owed,
 					oldestFirst.map((p) => p.amount),
@@ -201,7 +202,7 @@ const pinsMade = (debt: Debt, paid: Paid[], bucket: Bucket) => {
 	}));
 };
 
-const pinsDue = (dues: Due[], bucket: Bucket) =>
+const futurePinsFor = (dues: Due[], bucket: Bucket) =>
 	dues.map((d) => ({
 		at: bucketOf[bucket](d.on),
 		amount: d.amount,
@@ -213,7 +214,7 @@ const pinsDue = (dues: Due[], bucket: Bucket) =>
  * The loans of the debts that owe, or null when none owes or one other than a
  * card owes with no loan to estimate it by.
  */
-const loansOf = (debts: Debt[]) => {
+const loansIn = (debts: Debt[]) => {
 	const owing = debts.filter((d) => d.leaf && d.kind !== 'card' && d.owed > 0n);
 	const loans = owing.flatMap((d) =>
 		d.loan === null ? [] : [{ loan: d.loan, owed: d.owed, due: d.due }],
@@ -223,11 +224,11 @@ const loansOf = (debts: Debt[]) => {
 };
 
 /** The months after this one that the last payment falls in. */
-const monthsToPayOff = (
-	l: { loan: Loan; owed: Amount; due: number | null },
+const remainingMonthsOf = (
+	l: { loan: Loans.Loan; owed: Amount; due: number | null },
 	on: Temporal.PlainDate,
 ) => {
-	const ahead = interestAhead(l.loan, l.owed);
+	const ahead = Loans.scheduleFor(l.loan, l.owed);
 	const dueThisMonth = l.due !== null && Math.min(l.due, on.daysInMonth) >= on.day;
 
 	const payments = ahead.interest.length;

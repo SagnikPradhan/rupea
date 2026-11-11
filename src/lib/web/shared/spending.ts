@@ -110,10 +110,10 @@ export const totalOf = (s: Spent | undefined, a: string) =>
 export const daysIn = (f: Temporal.PlainDate, t: Temporal.PlainDate) => f.until(t).days + 1;
 
 /** What an amount comes to on each day of a span of days. */
-export const dailyOf = (a: Amount, d: number) => (a / BigInt(d)) as Amount;
+export const dailyAverageOver = (a: Amount, d: number) => (a / BigInt(d)) as Amount;
 
 /** What an amount comes to in an average month of a span of days. */
-export const monthlyOf = (a: Amount, d: number) =>
+export const monthlyAverageOver = (a: Amount, d: number) =>
 	((a * MONTH_DAYS.days) / (BigInt(d) * MONTH_DAYS.months)) as Amount;
 
 /**

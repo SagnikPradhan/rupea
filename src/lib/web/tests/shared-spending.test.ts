@@ -5,8 +5,8 @@ import {
 	barsOf,
 	daysIn,
 	largestFirst,
-	dailyOf,
-	monthlyOf,
+	dailyAverageOver,
+	monthlyAverageOver,
 	partsOf,
 	PREVIOUS,
 	rowsOf,
@@ -131,12 +131,12 @@ describe('totals', () => {
 	});
 
 	it('spread an amount over the days of a span', () => {
-		expect(dailyOf(amount('3100'), 31)).toBe(amount('100'));
+		expect(dailyAverageOver(amount('3100'), 31)).toBe(amount('100'));
 	});
 
 	it('spread an amount over the average months a span of days covers', () => {
-		expect(monthlyOf(amount('4800'), 1461)).toBe(amount('100'));
-		expect(monthlyOf(amount('-4800'), 1461)).toBe(amount('-100'));
+		expect(monthlyAverageOver(amount('4800'), 1461)).toBe(amount('100'));
+		expect(monthlyAverageOver(amount('-4800'), 1461)).toBe(amount('-100'));
 	});
 });
 

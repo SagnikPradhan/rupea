@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 import {
 	type Loan,
-	monthlyInterest,
-	interestAhead,
-	interestBehind,
+	monthlyInterestOn,
+	scheduleFor,
+	paidInterestOn,
 } from '#lib/web/shared/loans.ts';
 import { type Amount, parseAmount, toNumber } from '#lib/shared/amounts.ts';
 
@@ -14,28 +14,28 @@ const flat = { rate: amount(12), method: 'flat', payment: amount(1000), months: 
 
 /** How many payments clear the loan, or null when they never do. */
 const left = (l: Loan, o: number) => {
-	const a = interestAhead(l, amount(o));
+	const a = scheduleFor(l, amount(o));
 	return a.clears ? a.interest.length : null;
 };
 
 describe('the interest a loan adds in a month', () => {
 	it('charges a reducing loan on what it still owes', () => {
-		expect(toNumber(monthlyInterest(reducing, amount(10000)))).toBeCloseTo(100);
+		expect(toNumber(monthlyInterestOn(reducing, amount(10000)))).toBeCloseTo(100);
 	});
 
 	it('is not capped by the payment', () => {
-		expect(toNumber(monthlyInterest(reducing, amount(1_000_000)))).toBeCloseTo(10_000);
+		expect(toNumber(monthlyInterestOn(reducing, amount(1_000_000)))).toBeCloseTo(10_000);
 	});
 
 	it('counts none for a loan that owes nothing or less', () => {
-		expect(monthlyInterest(reducing, amount(0))).toBe(0n);
-		expect(monthlyInterest(reducing, amount(-500))).toBe(0n);
-		expect(monthlyInterest(flat, amount(0))).toBe(0n);
-		expect(monthlyInterest(flat, amount(-500))).toBe(0n);
+		expect(monthlyInterestOn(reducing, amount(0))).toBe(0n);
+		expect(monthlyInterestOn(reducing, amount(-500))).toBe(0n);
+		expect(monthlyInterestOn(flat, amount(0))).toBe(0n);
+		expect(monthlyInterestOn(flat, amount(-500))).toBe(0n);
 	});
 
 	it('takes the same share of every payment of a flat loan', () => {
-		expect(toNumber(monthlyInterest(flat, amount(500)))).toBeCloseTo(1000 * (0.12 / 1.12));
+		expect(toNumber(monthlyInterestOn(flat, amount(500)))).toBeCloseTo(1000 * (0.12 / 1.12));
 	});
 });
 
@@ -45,7 +45,7 @@ describe('the interest ahead', () => {
 	});
 
 	it('charges each payment on what is still owed', () => {
-		const [first, second] = interestAhead(reducing, amount(10000)).interest;
+		const [first, second] = scheduleFor(reducing, amount(10000)).interest;
 
 		expect(toNumber(first ?? amount(0))).toBeCloseTo(100);
 		expect(toNumber(second ?? amount(0))).toBeCloseTo(91);
@@ -79,21 +79,21 @@ describe('the interest ahead', () => {
 
 describe('the interest behind', () => {
 	it('works back from what is owed after the last payment, oldest first', () => {
-		const interest = interestBehind(reducing, amount(8191), [amount(1000), amount(1000)]);
+		const interest = paidInterestOn(reducing, amount(8191), [amount(1000), amount(1000)]);
 
 		expect(interest.map(toNumber)).toEqual([expect.closeTo(100, 1), expect.closeTo(91, 1)]);
 	});
 
 	it('never counts more interest than the loan payment', () => {
-		expect(interestBehind(reducing, amount(1_000_000), [amount(5000)])).toEqual([amount(1000)]);
+		expect(paidInterestOn(reducing, amount(1_000_000), [amount(5000)])).toEqual([amount(1000)]);
 	});
 
 	it('never counts more interest than the amount paid', () => {
-		expect(interestBehind(flat, amount(500), [amount(50)])).toEqual([amount(50)]);
+		expect(paidInterestOn(flat, amount(500), [amount(50)])).toEqual([amount(50)]);
 	});
 
 	it('takes the same share of each flat payment, the last one too', () => {
-		const interest = interestBehind(flat, amount(0), [amount(1000), amount(1000)]);
+		const interest = paidInterestOn(flat, amount(0), [amount(1000), amount(1000)]);
 
 		expect(interest.map(toNumber)).toEqual([
 			expect.closeTo(1000 * (0.12 / 1.12)),
@@ -102,7 +102,7 @@ describe('the interest behind', () => {
 	});
 
 	it('leaves the balance alone across payments that were all interest', () => {
-		expect(interestBehind(reducing, amount(1_000_000), [amount(1000), amount(1000)])).toEqual([
+		expect(paidInterestOn(reducing, amount(1_000_000), [amount(1000), amount(1000)])).toEqual([
 			amount(1000),
 			amount(1000),
 		]);

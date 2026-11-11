@@ -1,14 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import {
-	debtsOf,
-	duesOf,
-	linesOf,
-	loanInterestOf,
-	owedOf,
-	paidOffOf,
-	rowsOf,
-} from '#lib/web/shared/liabilities.ts';
+import * as Liabilities from '#lib/web/shared/liabilities.ts';
 import { type Amount, parseAmount, toNumber } from '#lib/shared/amounts.ts';
+import type { Span } from '#lib/shared/dates.ts';
 import type { Terms } from '#lib/shared/terms.ts';
 import type * as v from 'valibot';
 
@@ -38,7 +31,10 @@ type Held = v.InferOutput<typeof Terms> | null;
 
 type Listed = { account: string; held: Held }[];
 
-const debts = (terms: Listed = [], accounts = ACCOUNTS) => debtsOf(owedOf(accounts), terms);
+const debts = (terms: Listed = [], accounts = ACCOUNTS) =>
+	Liabilities.debtsFrom(Liabilities.accountsIn(accounts), terms);
+
+const duesIn = (d: Liabilities.Debt[], s: Span) => d.flatMap((x) => Liabilities.duesOn(x, s));
 
 const loan = (account: string, terms: { payment?: string; due?: number; rate?: number }) => ({
 	account,
@@ -60,7 +56,7 @@ const made = (account: string, bucket: string, n: string) => ({
 
 describe('what is owed', () => {
 	it('keeps the accounts under Liabilities and counts what they hold as owed, not as a balance', () => {
-		const owed = owedOf(ACCOUNTS);
+		const owed = Liabilities.accountsIn(ACCOUNTS);
 
 		expect(owed.map((a) => [a.account, a.total])).toEqual([
 			['Liabilities', amount('325000')],
@@ -73,7 +69,7 @@ describe('what is owed', () => {
 	});
 
 	it('keeps every digit of a large amount with decimals', () => {
-		const owed = owedOf([
+		const owed = Liabilities.accountsIn([
 			balance('Liabilities:Loan', 'Liabilities', '-12345678901234567890.1234567891'),
 		]);
 
@@ -81,7 +77,7 @@ describe('what is owed', () => {
 	});
 
 	it('shows an account in credit as owing less than nothing', () => {
-		const owed = owedOf([
+		const owed = Liabilities.accountsIn([
 			balance('Liabilities', null, '500'),
 			balance('Liabilities:Card', 'Liabilities', '500'),
 		]);
@@ -175,7 +171,7 @@ describe('the rows of the table', () => {
 	];
 
 	it('leaves out the root and settled accounts that did not move, and gives each row what it paid down', () => {
-		const rows = rowsOf(debts(), totals, false);
+		const rows = Liabilities.rowsFor(debts(), totals, false);
 
 		expect(rows.map((r) => [r.account, r.owed, r.paid])).toEqual([
 			['Liabilities:Loans', amount('300000'), amount('40000')],
@@ -186,7 +182,11 @@ describe('the rows of the table', () => {
 	});
 
 	it('keeps a settled account that moved in the period, as one paid off in it', () => {
-		const rows = rowsOf(debts(), [...totals, paid('Liabilities:Loans:Old', '8000')], false);
+		const rows = Liabilities.rowsFor(
+			debts(),
+			[...totals, paid('Liabilities:Loans:Old', '8000')],
+			false,
+		);
 
 		expect(rows.map((r) => r.account)).toContain('Liabilities:Loans:Old');
 	});
@@ -194,11 +194,13 @@ describe('the rows of the table', () => {
 	it('treats a balance of 0.00 as settled', () => {
 		const old = [balance('Liabilities:Old', 'Liabilities', '0.00')];
 
-		expect(rowsOf(debts([], old), [], false)).toEqual([]);
+		expect(Liabilities.rowsFor(debts([], old), [], false)).toEqual([]);
 	});
 
 	it('brings back every settled account when asked', () => {
-		expect(rowsOf(debts(), totals, true).map((r) => r.account)).toContain('Liabilities:Loans:Old');
+		expect(Liabilities.rowsFor(debts(), totals, true).map((r) => r.account)).toContain(
+			'Liabilities:Loans:Old',
+		);
 	});
 });
 
@@ -210,7 +212,7 @@ describe('the payments due in a span', () => {
 	];
 
 	it('puts a payment on its due day of each month, a card paying what it owes and a loan its payment', () => {
-		const dues = duesOf(debts(terms), { from: on('2026-11-08'), to: on('2026-12-31') });
+		const dues = duesIn(debts(terms), { from: on('2026-11-08'), to: on('2026-12-31') });
 
 		expect(dues.map((d) => [d.account, num(d.amount), d.on.toString()])).toEqual([
 			['Liabilities:Loans:Home', 34500, '2026-12-05'],
@@ -222,7 +224,7 @@ describe('the payments due in a span', () => {
 	});
 
 	it('counts a payment due on the first day and none after the last', () => {
-		const dues = duesOf(debts(terms), { from: on('2026-11-05'), to: on('2026-11-09') });
+		const dues = duesIn(debts(terms), { from: on('2026-11-05'), to: on('2026-11-09') });
 
 		expect(dues.map((d) => d.on.toString())).toEqual(['2026-11-05']);
 	});
@@ -230,7 +232,7 @@ describe('the payments due in a span', () => {
 	it('stops a loan at the payment that clears it, and says the interest in it', () => {
 		const small = [balance('Liabilities:Loans:Home', 'Liabilities', '-1000')];
 		const home = loan('Liabilities:Loans:Home', { payment: '30,000', due: 20, rate: 12 });
-		const dues = duesOf(debts([home], small), { from: on('2026-11-08'), to: on('2027-12-31') });
+		const dues = duesIn(debts([home], small), { from: on('2026-11-08'), to: on('2027-12-31') });
 
 		expect(dues.map((d) => [d.on.toString(), num(d.interest)])).toEqual([['2026-11-20', 10]]);
 	});
@@ -239,13 +241,13 @@ describe('the payments due in a span', () => {
 		const credit = [balance('Liabilities:Loans:Home', 'Liabilities', '30000')];
 		const home = loan('Liabilities:Loans:Home', { payment: '30,000', due: 20, rate: 12 });
 
-		expect(duesOf(debts([home], credit), { from: on('2026-11-08'), to: on('2027-12-31') })).toEqual(
+		expect(duesIn(debts([home], credit), { from: on('2026-11-08'), to: on('2027-12-31') })).toEqual(
 			[],
 		);
 	});
 
 	it('moves a due day of 31 to the last day of a short month', () => {
-		const dues = duesOf(debts([card('Liabilities:Card', 31)]), {
+		const dues = duesIn(debts([card('Liabilities:Card', 31)]), {
 			from: on('2026-11-30'),
 			to: on('2026-12-31'),
 		});
@@ -262,7 +264,7 @@ describe('the payments due in a span', () => {
 			{ account: 'Liabilities:Card', held: null },
 		]);
 
-		expect(duesOf(left, { from: on('2026-11-08'), to: on('2026-12-31') })).toEqual([]);
+		expect(duesIn(left, { from: on('2026-11-08'), to: on('2026-12-31') })).toEqual([]);
 	});
 });
 
@@ -272,7 +274,7 @@ describe('the lines of the timeline', () => {
 
 	it('gives each account its payments made and still due, in order of day, and leaves out the rest', () => {
 		const owing = debts([home, loan('Liabilities:Loans:Car', { payment: '10,000', due: 10 })]);
-		const lines = linesOf(
+		const lines = Liabilities.linesFor(
 			owing,
 			[
 				made('Liabilities:Loans:Home', '2026-02-01', '30000'),
@@ -280,7 +282,7 @@ describe('the lines of the timeline', () => {
 				made('Liabilities:Loans:Car', '2026-01-01', '0'),
 				made('Liabilities:Loans', '2026-01-01', '60000'),
 			],
-			duesOf(owing, span),
+			duesIn(owing, span),
 			'month',
 		);
 
@@ -299,10 +301,10 @@ describe('the lines of the timeline', () => {
 
 	it('splits each pin into principal and interest, from the balance before it', () => {
 		const owing = debts([home]);
-		const lines = linesOf(
+		const lines = Liabilities.linesFor(
 			owing,
 			[made('Liabilities:Loans:Home', '2026-01-01', '30000')],
-			duesOf(owing, span),
+			duesIn(owing, span),
 			'month',
 		);
 		const [paidPin, duePin] = lines[0]?.pins ?? [];
@@ -326,7 +328,7 @@ describe('the lines of the timeline', () => {
 			balance('Liabilities', null, '0'),
 			balance('Liabilities:Loans:Home', 'Liabilities', '0'),
 		];
-		const lines = linesOf(
+		const lines = Liabilities.linesFor(
 			debts([flat], cleared),
 			[made('Liabilities:Loans:Home', '2026-01-01', '1000')],
 			[],
@@ -338,10 +340,15 @@ describe('the lines of the timeline', () => {
 
 	it('leaves interest out for a year of payments and for a loan that cannot tell', () => {
 		const payments = [made('Liabilities:Loans:Home', '2026-01-01', '30000')];
-		const yearly = linesOf(debts([home]), payments, duesOf(debts([home]), span), 'year');
+		const yearly = Liabilities.linesFor(
+			debts([home]),
+			payments,
+			duesIn(debts([home]), span),
+			'year',
+		);
 
 		expect(yearly[0]?.pins.map((p) => p.interest)).toEqual([0n, 0n]);
-		expect(linesOf(debts(), payments, [], 'month')[0]?.pins[0]?.interest).toBe(0n);
+		expect(Liabilities.linesFor(debts(), payments, [], 'month')[0]?.pins[0]?.interest).toBe(0n);
 	});
 });
 
@@ -357,8 +364,8 @@ describe('the estimates of the loans', () => {
 	it('adds up the interest a month and finds the month the last loan is paid off', () => {
 		const loans = without('Liabilities:Card', [home, car]);
 
-		expect(num(loanInterestOf(loans))).toBeCloseTo(3000);
-		expect(paidOffOf(loans, day)?.toString()).toBe('2027-08-01');
+		expect(num(Liabilities.monthlyInterestOn(loans))).toBeCloseTo(3000);
+		expect(Liabilities.payoffOf(loans, day)?.toString()).toBe('2027-08-01');
 	});
 
 	it('says nothing about when a loan ends that never clears', () => {
@@ -366,8 +373,8 @@ describe('the estimates of the loans', () => {
 			loan('Liabilities:Loans:Home', { rate: 12, payment: '100' }),
 		]);
 
-		expect(paidOffOf(never, day)).toBeNull();
-		expect(num(loanInterestOf(never))).toBeCloseTo(2500);
+		expect(Liabilities.payoffOf(never, day)).toBeNull();
+		expect(num(Liabilities.monthlyInterestOn(never))).toBeCloseTo(2500);
 	});
 
 	it('leaves out a card', () => {
@@ -376,14 +383,14 @@ describe('the estimates of the loans', () => {
 			{ account: 'Liabilities:Card', held: { kind: 'card', limit: '90,000' } },
 		]);
 
-		expect(num(loanInterestOf(loans))).toBeCloseTo(2500);
-		expect(paidOffOf(loans, day)?.toString()).toBe('2027-08-01');
+		expect(num(Liabilities.monthlyInterestOn(loans))).toBeCloseTo(2500);
+		expect(Liabilities.payoffOf(loans, day)?.toString()).toBe('2027-08-01');
 	});
 
 	it('says nothing at all while a debt has no terms', () => {
-		expect(loanInterestOf(debts([home]))).toBeNull();
-		expect(paidOffOf(debts([home]), day)).toBeNull();
-		expect(loanInterestOf(debts())).toBeNull();
+		expect(Liabilities.monthlyInterestOn(debts([home]))).toBeNull();
+		expect(Liabilities.payoffOf(debts([home]), day)).toBeNull();
+		expect(Liabilities.monthlyInterestOn(debts())).toBeNull();
 	});
 
 	it('says nothing at all when a loan that owes has no rate', () => {
@@ -392,8 +399,8 @@ describe('the estimates of the loans', () => {
 			loan('Liabilities:Loans:Car', { payment: '10,000' }),
 		]);
 
-		expect(loanInterestOf(loans)).toBeNull();
-		expect(paidOffOf(loans, day)).toBeNull();
+		expect(Liabilities.monthlyInterestOn(loans)).toBeNull();
+		expect(Liabilities.payoffOf(loans, day)).toBeNull();
 	});
 
 	it('ends a month sooner when this month’s payment is still to come', () => {
@@ -402,10 +409,12 @@ describe('the estimates of the loans', () => {
 				loan('Liabilities:Loans:Home', { rate: 12, payment: '30,000', due: d }),
 			]);
 
-		expect(paidOffOf(due(20), day)?.toString()).toBe('2027-07-01');
-		expect(paidOffOf(due(5), day)?.toString()).toBe('2027-08-01');
-		expect(paidOffOf(due(8), day)?.toString()).toBe('2027-07-01');
-		expect(paidOffOf(due(31), on('2026-11-30'))?.toString()).toBe('2027-07-01');
-		expect(paidOffOf(only('Liabilities:Loans:Home', [home]), day)?.toString()).toBe('2027-08-01');
+		expect(Liabilities.payoffOf(due(20), day)?.toString()).toBe('2027-07-01');
+		expect(Liabilities.payoffOf(due(5), day)?.toString()).toBe('2027-08-01');
+		expect(Liabilities.payoffOf(due(8), day)?.toString()).toBe('2027-07-01');
+		expect(Liabilities.payoffOf(due(31), on('2026-11-30'))?.toString()).toBe('2027-07-01');
+		expect(Liabilities.payoffOf(only('Liabilities:Loans:Home', [home]), day)?.toString()).toBe(
+			'2027-08-01',
+		);
 	});
 });

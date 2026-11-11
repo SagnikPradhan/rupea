@@ -6,7 +6,7 @@
 		listReturns,
 	} from '#lib/endpoints/accounts.remote.ts';
 	import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
-	import { printAmount, printOptional, sum, toNumber } from '#lib/shared/amounts.ts';
+	import { printAmount, sum, toNumber } from '#lib/shared/amounts.ts';
 	import { periodOf } from '#lib/shared/dates.ts';
 	import { ASSETS, BalanceAccount } from '#lib/shared/accounts.ts';
 	import { depthOf, isUnder, prefixOf } from '#lib/web/shared/accounts.ts';
@@ -310,10 +310,10 @@
 								{#if account.unpriced > 0}<Tag>{account.unpriced} unpriced</Tag>{/if}
 							</th>
 							<Amount value={null} optional />
-							<Amount value={printOptional(account.cost)} optional />
+							<Amount value={printAmount(account.cost)} optional />
 							<Amount value={printAmount(account.total)} />
-							<Amount value={printOptional(account.gain)} signed />
-							{@render returnOf(printOptional(account.gain), printOptional(account.cost))}
+							<Amount value={printAmount(account.gain)} signed />
+							{@render returnOf(printAmount(account.gain), printAmount(account.cost))}
 							{@render flowed(account.account)}
 							{@render shareOf(printAmount(account.total))}
 						</tr>

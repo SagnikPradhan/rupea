@@ -837,6 +837,10 @@ describe('writing an amount', () => {
 	])('writes %s ten-billionths as %j', (am, tx) => {
 		expect(printAmount(am as Amount)).toBe(tx);
 	});
+
+	it('keeps a missing amount missing', () => {
+		expect(printAmount(null)).toBeNull();
+	});
 });
 
 describe('reading a transaction header', () => {

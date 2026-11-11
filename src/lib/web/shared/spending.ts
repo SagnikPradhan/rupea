@@ -98,7 +98,7 @@ export const wholeOf = ({ spending, previous, account, parts }: ChartOptions) =>
 
 	return {
 		...piled({ account, parts }, '', (a) => spent[a] ?? ZERO),
-		[PREVIOUS]: before === null ? null : printAmount(before),
+		[PREVIOUS]: printAmount(before),
 	};
 };
 

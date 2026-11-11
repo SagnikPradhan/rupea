@@ -11,8 +11,10 @@
 
 	const { handle, errors, detailed = false }: Props = $props();
 
-	const problems = $derived(errors.filter((e) => !isWarning(e)));
-	const warnings = $derived(errors.filter(isWarning));
+	const distinct = $derived([...new Map(errors.map((e) => [JSON.stringify(e), e])).values()]);
+
+	const problems = $derived(distinct.filter((e) => !isWarning(e)));
+	const warnings = $derived(distinct.filter(isWarning));
 </script>
 
 {#snippet list(shown: RupeaError[], warning: boolean)}

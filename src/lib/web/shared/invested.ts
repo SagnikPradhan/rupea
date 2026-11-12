@@ -2,7 +2,7 @@ import * as v from 'valibot';
 import { ASSETS, BalanceAccount } from '#lib/shared/accounts.ts';
 import { type Amount, ZERO, toNumber } from '#lib/shared/amounts.ts';
 import { periodIn } from '#lib/shared/dates.ts';
-import { depthOf, isUnder, nameOf } from './accounts';
+import { depthOf, isDirectlyUnder, isUnder, nameOf } from './accounts';
 
 type Held = { account: string; cost: Amount | null; gain: Amount | null };
 
@@ -49,7 +49,7 @@ export const investedOf = (accounts: Held[], returns: Record<string, Returned | 
  * not counted twice.
  */
 export const groupsInvested = <Invested extends { account: string }>(i: Invested[]) =>
-	i.filter((a) => depthOf(a.account) === 1);
+	i.filter((a) => isDirectlyUnder(a.account, ASSETS));
 
 /**
  * What the groups are worth together, what went into them, what they gained,

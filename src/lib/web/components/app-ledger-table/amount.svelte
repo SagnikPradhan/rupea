@@ -1,6 +1,6 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { formatAmount, formatExact } from '#lib/web/shared/format.ts';
+	import { formatAmount, formatExact, toneOf } from '#lib/web/shared/format.ts';
 
 	type Props = {
 		value: string | null;
@@ -20,8 +20,9 @@
 		children,
 	}: Props = $props();
 
-	const negative = $derived(value?.startsWith('-') ?? false);
-	const positive = $derived(signed && value !== null && !negative);
+	const tone = $derived(value === null ? undefined : toneOf(Number(value.split(' ')[0])));
+	const negative = $derived(tone === 'negative');
+	const positive = $derived(signed && tone === 'positive');
 	const shown = $derived(value === null ? null : formatAmount(value, units));
 	const exact = $derived(value === null || shown === null ? null : formatExact(value, shown));
 	const title = $derived([exact, note].filter(Boolean).join(' '));

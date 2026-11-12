@@ -20,6 +20,23 @@ describe('an amount', () => {
 		expect(cell().classList.contains('positive')).toBe(true);
 	});
 
+	it.each(['0', '0.00', '-0', '-0.00'])('is neither positive nor negative at %s', (value) => {
+		render(Amount, { value, signed: true });
+		expect(cell().classList.contains('positive')).toBe(false);
+		expect(cell().classList.contains('negative')).toBe(false);
+	});
+
+	it('is negative when signed and below zero', () => {
+		render(Amount, { value: '-10', signed: true });
+		expect(cell().classList.contains('negative')).toBe(true);
+		expect(cell().classList.contains('positive')).toBe(false);
+	});
+
+	it('tones a commodity amount by its number', () => {
+		render(Amount, { value: '10 INFY', signed: true });
+		expect(cell().classList.contains('positive')).toBe(true);
+	});
+
 	it('is plain when it is not signed', () => {
 		render(Amount, { value: '10' });
 		expect(cell().classList.contains('positive')).toBe(false);

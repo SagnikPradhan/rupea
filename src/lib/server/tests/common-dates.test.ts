@@ -7,7 +7,9 @@ import {
 	monthlyDaysIn,
 	Period,
 	paramsOf,
+	periodIn,
 	periodOf,
+	PERIOD_PARAMS,
 	spansOf,
 } from '#lib/shared/dates.ts';
 
@@ -162,5 +164,24 @@ describe('a period’s spans', () => {
 		expect(bucket('2026-01-01', '2026-02-01')).toBe('month');
 		expect(bucket('2023-01-01', '2025-12-31')).toBe('month');
 		expect(bucket('2023-01-01', '2026-01-01')).toBe('year');
+	});
+});
+
+describe('the period of parsed query fields', () => {
+	it('reads the same period as the URL would', () => {
+		expect(periodIn({ range: 'all' }, { kind: 'year', at: '2026' })).toEqual({ kind: 'all' });
+		expect(periodIn({ from: '2026-01-01', to: '2026-02-01' }, { kind: 'all' })).toEqual({
+			kind: 'custom',
+			from: '2026-01-01',
+			to: '2026-02-01',
+		});
+	});
+
+	it('falls back when no field picks one', () => {
+		expect(periodIn({ at: undefined }, { kind: 'all' })).toEqual({ kind: 'all' });
+	});
+
+	it('names the four parameters', () => {
+		expect(PERIOD_PARAMS).toEqual(['at', 'range', 'from', 'to']);
 	});
 });

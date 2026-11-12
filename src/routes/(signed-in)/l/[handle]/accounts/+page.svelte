@@ -7,8 +7,7 @@
 	} from '#lib/endpoints/accounts.remote.ts';
 	import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
 	import { printAmount, sum, toNumber } from '#lib/shared/amounts.ts';
-	import { periodOf } from '#lib/shared/dates.ts';
-	import { ASSETS, BalanceAccount } from '#lib/shared/accounts.ts';
+	import { ASSETS } from '#lib/shared/accounts.ts';
 	import { depthOf, isUnder, prefixOf } from '#lib/web/shared/accounts.ts';
 	import AccountName from '#lib/web/components/app-account-name/app-account-name.svelte';
 	import Bar from '#lib/web/components/ui-bar/ui-bar.svelte';
@@ -36,10 +35,16 @@
 		formatCompact,
 	} from '#lib/web/shared/format.ts';
 	import { dotsOf } from '#lib/web/shared/dots.ts';
-	import { groupsInvested, investedOf, nestedOf, totalsOf } from '#lib/web/shared/invested.ts';
+	import {
+		BalanceQuery,
+		groupsInvested,
+		investedOf,
+		nestedOf,
+		totalsOf,
+	} from '#lib/web/shared/invested.ts';
+	import { lotsHref } from '#lib/web/shared/links.ts';
 	import { ringsOf } from '#lib/web/shared/rings.ts';
-	import { page } from '$app/state';
-	import * as v from 'valibot';
+	import { readQuery } from '#lib/web/shared/query.svelte.ts';
 
 	const BASE_GROWTH = 0.12;
 
@@ -57,22 +62,20 @@
 
 	const handle = $derived(data.ledger.handle);
 	const day = formatIsoDate(new Date());
-	const thisYear = { kind: 'year', at: day.slice(0, 4) } as const;
-	const period = $derived(periodOf(page.url.searchParams, thisYear));
-	const account = $derived(v.parse(BalanceAccount, page.url.searchParams.get('account')));
+	const url = readQuery(BalanceQuery(day));
 	const [response, earned, first, grown, fallen] = $derived(
 		await Promise.all([
-			listAccounts({ handle, day, period }),
-			listReturns({ handle, day, period }),
+			listAccounts({ handle, day, period: url.query.period }),
+			listReturns({ handle, day, period: url.query.period }),
 			findFirstDay(handle),
-			listInvested({ handle, day, period, account }),
-			listDrops({ handle, day, period, account }),
+			listInvested({ handle, day, period: url.query.period, account: url.query.account }),
+			listDrops({ handle, day, period: url.query.period, account: url.query.account }),
 		]),
 	);
 	const earliest = $derived(first.data ?? null);
 	const accounts = $derived(response.data ?? []);
 	const returns = $derived(Object.fromEntries((earned.data ?? []).map((r) => [r.account, r])));
-	const shown = $derived(accounts.filter((a) => isUnder(a.account, account)));
+	const shown = $derived(accounts.filter((a) => isUnder(a.account, url.query.account)));
 	const trees = $derived(
 		Object.values(Object.groupBy(shown, (a) => a.account.split(':')[0] ?? '')),
 	);
@@ -91,7 +94,10 @@
 	);
 
 	const rings = $derived(
-		ringsOf(accounts, account !== null && isUnder(account, ASSETS) ? account : ASSETS),
+		ringsOf(
+			accounts,
+			url.query.account !== null && isUnder(url.query.account, ASSETS) ? url.query.account : ASSETS,
+		),
 	);
 	const owing = $derived(
 		rings.skipped === 0
@@ -100,9 +106,6 @@
 	);
 
 	const dots = $derived(dotsOf(invested, fallen.data?.[0]?.swings ?? [], rings.arcs));
-
-	const lotsOf = (account: string, commodity: string) =>
-		`/l/${handle}/accounts/lots?${new URLSearchParams({ account, commodity })}`;
 
 	/** A commodity's row is named by it, so its units need no code after them. */
 	const numberOf = (quantity: string | null) => quantity?.split(' ')[0] ?? null;
@@ -118,7 +121,13 @@
 <PageHeader subtitle="What you own, and how it has grown">
 	Accounts
 	{#snippet actions()}
-		<ListFilter {period} {account} {accounts} today={day} first={earliest} />
+		<ListFilter
+			period={url.query.period}
+			account={url.query.account}
+			{accounts}
+			today={day}
+			first={earliest}
+		/>
 	{/snippet}
 </PageHeader>
 
@@ -206,7 +215,7 @@
 				<Donut
 					arcs={rings.arcs}
 					levels={rings.levels}
-					label="How {account ?? ASSETS} divides across its accounts"
+					label="How {url.query.account ?? ASSETS} divides across its accounts"
 					note={owing}
 				/>
 			{:else}
@@ -264,7 +273,7 @@
 	<tr class={{ held: child }}>
 		<td title={child ? undefined : account}>
 			{#if holding.hasLots}
-				<a href={lotsOf(account, holding.commodity)}>{@render label()}</a>
+				<a href={lotsHref(handle, { account, commodity: holding.commodity })}>{@render label()}</a>
 			{:else}
 				{@render label()}
 			{/if}

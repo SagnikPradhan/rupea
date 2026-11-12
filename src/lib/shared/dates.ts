@@ -81,6 +81,13 @@ export const periodOf = (
 	return picked ?? fallback;
 };
 
+/** The names of the URL parameters that pick a period. */
+export const PERIOD_PARAMS = ['at', 'range', 'from', 'to'] as const;
+
+/** The period picked by parsed query fields, as periodOf reads a URL. */
+export const periodIn = (f: Record<string, string | undefined>, p: Period): Period =>
+	periodOf({ get: (k) => f[k] ?? null }, p);
+
 /** The URL parameters that pick a period, as periodOf reads them. */
 export const paramsOf = (period: Period): Record<string, string> => {
 	if (period.kind === 'all') return { range: 'all' };

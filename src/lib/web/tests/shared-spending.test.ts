@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import * as v from 'valibot';
 import { depthOf, nameOf, prefixOf } from '#lib/web/shared/accounts.ts';
 import { OTHER, PARTS } from '#lib/web/shared/chart.ts';
 import {
@@ -11,6 +12,7 @@ import {
 	PREVIOUS,
 	rowsOf,
 	shownOf,
+	SpendingQuery,
 	totalOf,
 	wholeOf,
 	type Spent,
@@ -181,5 +183,49 @@ describe('the largest first', () => {
 			'Expenses:Food:Grocer',
 			'Expenses:Food:Cafe',
 		]);
+	});
+});
+
+describe('SpendingQuery', () => {
+	const read = (query: Record<string, string>) => v.parse(SpendingQuery('2026-11-11'), query);
+
+	it('is the last 12 months of Expenses by default', () => {
+		expect(read({})).toEqual({
+			account: 'Expenses',
+			compare: 'with',
+			scale: 'linear',
+			span: '',
+			dated: false,
+			period: { kind: 'custom', from: '2025-11-11', to: '2026-11-11' },
+		});
+	});
+
+	it('reads a span as the months back from the day', () => {
+		const query = read({ span: '3' });
+		expect(query.span).toBe('3');
+		expect(query.period).toEqual({ kind: 'custom', from: '2026-08-11', to: '2026-11-11' });
+		expect(query.dated).toBe(false);
+	});
+
+	it('reads a period from the URL when it names no span', () => {
+		const query = read({ at: '2026-03', compare: 'without', scale: 'log' });
+		expect(query).toMatchObject({ compare: 'without', scale: 'log', dated: true });
+		expect(query.period).toEqual({ kind: 'month', at: '2026-03' });
+	});
+
+	it('is dated by a period key even when it is empty', () => {
+		expect(read({ at: '' }).dated).toBe(true);
+	});
+
+	it('falls back to Expenses for an account outside it', () => {
+		expect(read({ account: 'Assets:Bank' }).account).toBe('Expenses');
+		expect(read({ account: 'Expenses:Food' }).account).toBe('Expenses:Food');
+	});
+
+	it('is a schema readQuery accepts', () => {
+		const schema: v.GenericSchema<Record<string, string | undefined>, unknown> = SpendingQuery(
+			'2026-11-11',
+		);
+		expect(v.is(schema, {})).toBe(true);
 	});
 });

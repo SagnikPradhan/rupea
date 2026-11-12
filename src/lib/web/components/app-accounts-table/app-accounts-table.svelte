@@ -13,6 +13,7 @@
 		formatPercent,
 		formatReturn,
 		formatWhole,
+		toneOf,
 	} from '#lib/web/shared/format.ts';
 	import { lotsHref } from '#lib/web/shared/links.ts';
 
@@ -73,17 +74,17 @@
 </script>
 
 {#snippet returnOf(gain: string | null, cost: string | null)}
-	{@const negative = gain?.startsWith('-') ?? false}
 	{@const percent = formatReturn(gain, cost)}
-	<td class={['amount', { negative, positive: percent !== null && !negative }]}>{percent}</td>
+	{@const tone = percent === null ? undefined : toneOf(Number(gain))}
+	<td class={['amount', tone]}>{percent}</td>
 {/snippet}
 
 {#snippet flowed(account: string | null)}
 	{@const r = account === null ? undefined : returns[account]}
-	{@const negative = (r?.xirr ?? 0) < 0}
+	{@const tone = toneOf(r?.xirr ?? 0)}
 	<Amount value={r?.netIn ?? null} signed optional />
 	<td
-		class={['amount', { negative, positive: r?.xirr != null && !negative }]}
+		class={['amount', tone]}
 		title={r?.xirr == null ? undefined : r.yearly ? 'XIRR, per year' : 'Return over the period'}
 	>
 		{#if r?.xirr != null}{formatPercent(r.xirr)}{#if r.yearly}&nbsp;<span class="unit">p.a.</span

@@ -104,4 +104,21 @@ describe('the accounts table', () => {
 
 		expect(screen.getByText(/^2 groups ·/)).toBeTruthy();
 	});
+
+	it('tones a zero gain and a zero xirr neither way', () => {
+		const flat = { ...broker, gain: amount('0'), holdings: [{ ...infosys, gain: '0' }] };
+
+		render(AccountsTable, {
+			...props,
+			accounts: [flat],
+			returns: { 'Assets:Broker': { netIn: '1500', xirr: 0, yearly: true } },
+		});
+
+		const cells = [...document.querySelectorAll('td.amount')].filter((c) =>
+			c.textContent?.includes('%'),
+		);
+
+		expect(cells).toHaveLength(2);
+		expect(cells.filter((c) => c.matches('.positive, .negative'))).toHaveLength(0);
+	});
 });

@@ -122,6 +122,13 @@ export const formatDayMonth = (d: string) => longDays.format(new Date(d));
 /** Formats a number in a few characters, like `12L`, for chart axes. */
 export const formatCompact = (n: number) => compacts.format(n);
 
+/** The tone of a number: positive above zero, negative below, none at zero. */
+export const toneOf = (n: number) => {
+	if (n > 0) return 'positive';
+	if (n < 0) return 'negative';
+	return undefined;
+};
+
 /** Formats a ratio like `0.251` as a signed percent, `+25.1%`. */
 export const formatPercent = (r: number) => percents.format(r);
 

@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { listDailyDeltas, listDeltas } from '#lib/endpoints/accounts.remote.ts';
 	import { ZERO, printAmount } from '#lib/shared/amounts.ts';
-	import { paramsOf, periodOf } from '#lib/shared/dates.ts';
-	import { ExpenseAccount, EXPENSES, INCOME } from '#lib/shared/accounts.ts';
+	import { PERIOD_PARAMS, paramsOf } from '#lib/shared/dates.ts';
+	import { EXPENSES, INCOME } from '#lib/shared/accounts.ts';
 	import { depthOf, nameOf } from '#lib/web/shared/accounts.ts';
 	import { flowsOf } from '#lib/web/shared/alluvial.ts';
 	import { coloursOf, distinctOf, OTHER, PARTS, seriesOf, tintOf } from '#lib/web/shared/chart.ts';
-	import { COMPARE_LABELS, Compare, Scale, SCALE_LABELS } from '#lib/web/shared/choices.ts';
+	import { COMPARE_LABELS, SCALE_LABELS } from '#lib/web/shared/choices.ts';
 	import AccountName from '#lib/web/components/app-account-name/app-account-name.svelte';
 	import AlluvialChart from '#lib/web/components/ui-chart-alluvial/ui-chart-alluvial.svelte';
 	import BarChart from '#lib/web/components/ui-chart-bar/ui-chart-bar.svelte';
@@ -36,59 +36,56 @@
 		formatShare,
 		formatWhole,
 	} from '#lib/web/shared/format.ts';
-	import { MONTHS, MONTHS_BRIEF, spanOf } from '#lib/web/shared/home.ts';
+	import { postingsHref } from '#lib/web/shared/links.ts';
+	import { MONTHS_BRIEF } from '#lib/web/shared/home.ts';
+	import { readQuery } from '#lib/web/shared/query.svelte.ts';
 	import * as Spending from '#lib/web/shared/spending.ts';
-	import { page } from '$app/state';
 	import IconCollapsed from '@tabler/icons-svelte-runes/icons/chevron-right';
 	import IconExpanded from '@tabler/icons-svelte-runes/icons/chevron-down';
 	import { SvelteSet } from 'svelte/reactivity';
-	import * as v from 'valibot';
-
-	const PERIOD_PARAMS = ['at', 'range', 'from', 'to'];
 
 	const { data } = $props();
 
 	const handle = $derived(data.ledger.handle);
 	const day = formatIsoDate(new Date());
 	const today = Temporal.PlainDate.from(day);
-	const span = $derived(
-		v.parse(v.fallback(v.picklist(Object.keys(MONTHS)), ''), page.url.searchParams.get('span')),
-	);
-	const dated = $derived(PERIOD_PARAMS.some((p) => page.url.searchParams.has(p)));
-	const period = $derived(
-		span ? spanOf(span, day) : periodOf(page.url.searchParams, spanOf('12', day)),
-	);
-	const account = $derived(v.parse(ExpenseAccount, page.url.searchParams.get('account')));
-	const compare = $derived(
-		v.parse(v.fallback(Compare, 'with'), page.url.searchParams.get('compare')),
-	);
-	const scale = $derived(v.parse(v.fallback(Scale, 'linear'), page.url.searchParams.get('scale')));
+	const url = readQuery(Spending.SpendingQuery(day));
 
 	const [response, earned, daily] = $derived(
 		await Promise.all([
-			listDeltas({ handle, day, period, account }),
-			account === EXPENSES ? listDeltas({ handle, day, period, account: INCOME }) : undefined,
-			listDailyDeltas({ handle, day, period, account }),
+			listDeltas({ handle, day, period: url.query.period, account: url.query.account }),
+			url.query.account === EXPENSES
+				? listDeltas({ handle, day, period: url.query.period, account: INCOME })
+				: undefined,
+			listDailyDeltas({ handle, day, period: url.query.period, account: url.query.account }),
 		]),
 	);
 	const spending = $derived(response.data?.[0]);
 	const previous = $derived(response.data?.[1]);
 	const bucket = $derived(spending?.bucket ?? 'month');
 
-	const rows = $derived(Spending.rowsOf(spending?.totals ?? [], account));
-	const ordered = $derived(Spending.largestFirst(rows, account));
+	const rows = $derived(Spending.rowsOf(spending?.totals ?? [], url.query.account));
+	const ordered = $derived(Spending.largestFirst(rows, url.query.account));
 	const opened = new SvelteSet<string>();
-	const shown = $derived(Spending.shownOf(ordered, account, [...opened]));
-	const total = $derived(rows.find((t) => t.account === account));
-	const parts = $derived(Spending.partsOf(spending, account));
+	const shown = $derived(Spending.shownOf(ordered, url.query.account, [...opened]));
+	const total = $derived(rows.find((t) => t.account === url.query.account));
+	const parts = $derived(Spending.partsOf(spending, url.query.account));
 	const colours = $derived(distinctOf(parts, coloursOf(parts)));
 	const divides = $derived(rows.length > 1);
 	const flows = $derived(
-		flowsOf({ rows, account, parts, colours, income: earned?.data?.[0]?.totals ?? [] }),
+		flowsOf({
+			rows,
+			account: url.query.account,
+			parts,
+			colours,
+			income: earned?.data?.[0]?.totals ?? [],
+		}),
 	);
 	const kept = $derived(flows.some((f) => f.into !== null));
-	const bars = $derived(Spending.barsOf({ spending, previous, account, parts }));
-	const whole = $derived(Spending.wholeOf({ spending, previous, account, parts }));
+	const bars = $derived(Spending.barsOf({ spending, previous, account: url.query.account, parts }));
+	const whole = $derived(
+		Spending.wholeOf({ spending, previous, account: url.query.account, parts }),
+	);
 	const other = $derived([whole, ...bars].some((b) => b[OTHER] !== '0'));
 
 	const first = $derived(spending?.from ?? today);
@@ -107,7 +104,9 @@
 	const accounts = $derived({
 		'': 'All accounts',
 		...groups,
-		...(account === EXPENSES || account in groups ? {} : { [account]: nameOf(account) }),
+		...(url.query.account === EXPENSES || url.query.account in groups
+			? {}
+			: { [url.query.account]: nameOf(url.query.account) }),
 	});
 	const averages = $derived(
 		(daily.data ?? []).map((d) => ({
@@ -115,11 +114,11 @@
 			total: d.amount,
 		})),
 	);
-	const largest = $derived(ordered.find((r) => r.parent === account));
+	const largest = $derived(ordered.find((r) => r.parent === url.query.account));
 	const moved = $derived(
 		previous
 			? formatChange(
-					printAmount(Spending.totalOf(previous, account) ?? ZERO),
+					printAmount(Spending.totalOf(previous, url.query.account) ?? ZERO),
 					printAmount(total?.amount ?? ZERO),
 				)
 			: null,
@@ -132,9 +131,9 @@
 		return parent ? partOf(parent, depth + 1) : null;
 	};
 	const postingsOf = (a: string) =>
-		`/l/${handle}/postings?${new URLSearchParams({ account: a, ...paramsOf(period) })}`;
+		postingsHref(handle, { account: a, ...paramsOf(url.query.period) });
 	const postingsOn = (day: string) =>
-		`/l/${handle}/postings?${new URLSearchParams({ account, from: day, to: day })}`;
+		postingsHref(handle, { account: url.query.account, from: day, to: day });
 	const fold = (a: string) => (opened.has(a) ? opened.delete(a) : opened.add(a));
 </script>
 
@@ -147,7 +146,7 @@
 					param="span"
 					label="Period"
 					choices={MONTHS_BRIEF}
-					current={span || (dated ? '' : '12')}
+					current={url.query.span || (url.query.dated ? '' : '12')}
 				/>
 			</FilterSection>
 			<FilterSection label="Accounts">
@@ -155,7 +154,7 @@
 					param="account"
 					label="Accounts"
 					choices={accounts}
-					current={account === EXPENSES ? '' : account}
+					current={url.query.account === EXPENSES ? '' : url.query.account}
 				/>
 			</FilterSection>
 		</FilterModal>
@@ -186,13 +185,13 @@
 					...(other
 						? [{ key: OTHER, label: OTHER, role: 'part' as const, colour: PARTS - 1 }]
 						: []),
-					...(previous && compare === 'with'
+					...(previous && url.query.compare === 'with'
 						? [{ key: Spending.PREVIOUS, label: Spending.PREVIOUS, role: 'reference' as const }]
 						: []),
 				]}
 				{whole}
 				{label}
-				{scale}
+				scale={url.query.scale}
 				{summary}
 			>
 				{#snippet controls()}
@@ -201,10 +200,15 @@
 							param="compare"
 							label="Comparison"
 							choices={COMPARE_LABELS}
-							current={compare}
+							current={url.query.compare}
 						/>
 					{/if}
-					<ChoicePicker param="scale" label="Scale" choices={SCALE_LABELS} current={scale} />
+					<ChoicePicker
+						param="scale"
+						label="Scale"
+						choices={SCALE_LABELS}
+						current={url.query.scale}
+					/>
 				{/snippet}
 			</BarChart>
 		{/if}
@@ -236,17 +240,17 @@
 		title="Where the money went"
 		subtitle={kept
 			? 'what came in, then what was spent and what was kept'
-			: `what ${nameOf(account)} divides into, two levels deep`}
+			: `what ${nameOf(url.query.account)} divides into, two levels deep`}
 	>
 		{#if divides}
 			<AlluvialChart
 				{flows}
 				label={kept
 					? 'How what came in divides into what was spent and what was kept'
-					: `How ${nameOf(account)} divides into the accounts under it, two levels deep`}
+					: `How ${nameOf(url.query.account)} divides into the accounts under it, two levels deep`}
 			/>
 		{:else}
-			<p>Nothing under {nameOf(account)} to divide.</p>
+			<p>Nothing under {nameOf(url.query.account)} to divide.</p>
 		{/if}
 	</Panel>
 	<div class="column">
@@ -258,7 +262,7 @@
 {#snippet summary(index: number | null)}
 	{@const bar = index === null ? undefined : bars[index]}
 	{@const shown = bar?.total ?? printAmount(total?.amount ?? ZERO)}
-	{@const before = Spending.totalOf(previous, account)}
+	{@const before = Spending.totalOf(previous, url.query.account)}
 	{@const compared = bar ? bar[Spending.PREVIOUS] : printAmount(before)}
 	{@const change = compared ? formatChange(compared, shown) : null}
 	<ChartSummary
@@ -282,7 +286,7 @@
 {/snippet}
 
 <PanelGrid>
-	<Panel title="Day of the month" subtitle="what {nameOf(account)} averaged on each day">
+	<Panel title="Day of the month" subtitle="what {nameOf(url.query.account)} averaged on each day">
 		<Calendar
 			rows={averages}
 			x="day"
@@ -306,8 +310,9 @@
 			>
 				<tbody>
 					{#each shown as row (row.account)}
-						{@const depth = depthOf(row.account) - depthOf(account)}
-						{@const folds = row.account !== account && rows.some((r) => r.parent === row.account)}
+						{@const depth = depthOf(row.account) - depthOf(url.query.account)}
+						{@const folds =
+							row.account !== url.query.account && rows.some((r) => r.parent === row.account)}
 						{@const Chevron = opened.has(row.account) ? IconExpanded : IconCollapsed}
 						<tr>
 							<th scope="row">
@@ -330,7 +335,7 @@
 							</th>
 							<Amount value={printAmount(row.amount)} />
 							<td class="amount share optional">
-								{#if row.account !== account}{formatShare(
+								{#if row.account !== url.query.account}{formatShare(
 										printAmount(row.amount),
 										printAmount(total?.amount ?? ZERO),
 									)}{/if}

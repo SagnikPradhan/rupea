@@ -1,5 +1,12 @@
+import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
-import { groupsInvested, investedOf, nestedOf, totalsOf } from '#lib/web/shared/invested.ts';
+import {
+	BalanceQuery,
+	groupsInvested,
+	investedOf,
+	nestedOf,
+	totalsOf,
+} from '#lib/web/shared/invested.ts';
 import { type Amount, parseAmount } from '#lib/shared/amounts.ts';
 const amount = (t: string) => parseAmount(t) as Amount;
 
@@ -85,5 +92,32 @@ describe('nesting accounts', () => {
 
 	it('keeps an account whose parent is not listed', () => {
 		expect(nestedOf([{ account: 'Assets:Gold:Coins' }]).length).toBe(1);
+	});
+});
+
+describe('BalanceQuery', () => {
+	const read = (query: Record<string, string>) => v.parse(BalanceQuery('2026-11-11'), query);
+
+	it('is this year with no account by default', () => {
+		expect(read({})).toEqual({ account: null, period: { kind: 'year', at: '2026' } });
+	});
+
+	it('reads a period from the URL', () => {
+		expect(read({ at: '2026-03' }).period).toEqual({ kind: 'month', at: '2026-03' });
+	});
+
+	it('reads an account under Assets', () => {
+		expect(read({ account: ' Assets:Bank ' }).account).toBe('Assets:Bank');
+	});
+
+	it('falls back to no account outside Assets and Liabilities', () => {
+		expect(read({ account: 'Expenses:Food' }).account).toBeNull();
+	});
+
+	it('is a schema readQuery accepts', () => {
+		const schema: v.GenericSchema<Record<string, string | undefined>, unknown> = BalanceQuery(
+			'2026-11-11',
+		);
+		expect(v.is(schema, {})).toBe(true);
 	});
 });

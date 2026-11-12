@@ -1,5 +1,7 @@
-import { ASSETS } from '#lib/shared/accounts.ts';
+import * as v from 'valibot';
+import { ASSETS, BalanceAccount } from '#lib/shared/accounts.ts';
 import { type Amount, ZERO, toNumber } from '#lib/shared/amounts.ts';
+import { periodIn } from '#lib/shared/dates.ts';
 import { depthOf, isUnder, nameOf } from './accounts';
 
 type Held = { account: string; cost: Amount | null; gain: Amount | null };
@@ -7,6 +9,22 @@ type Held = { account: string; cost: Amount | null; gain: Amount | null };
 type Returned = { netIn: string; xirr: number | null };
 
 type Grown = { value: number; cost: number; gain: number; netIn: number; xirr: number | null };
+
+/** The accounts page's URL query, whose period is the year of the day. */
+export const BalanceQuery = (day: string) =>
+	v.pipe(
+		v.object({
+			account: v.optional(v.string()),
+			at: v.optional(v.string()),
+			range: v.optional(v.string()),
+			from: v.optional(v.string()),
+			to: v.optional(v.string()),
+		}),
+		v.transform((fields) => ({
+			account: v.parse(BalanceAccount, fields.account ?? null),
+			period: periodIn(fields, { kind: 'year', at: day.slice(0, 4) }),
+		})),
+	);
 
 /**
  * The accounts under Assets that have a cost, the largest first, with what

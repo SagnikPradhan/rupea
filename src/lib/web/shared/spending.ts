@@ -1,4 +1,9 @@
+import * as v from 'valibot';
+import { ExpenseAccount } from '#lib/shared/accounts.ts';
 import { type Amount, ZERO, byAmount, printAmount, sum } from '#lib/shared/amounts.ts';
+import { PERIOD_PARAMS, periodIn } from '#lib/shared/dates.ts';
+import { Compare, Scale } from './choices';
+import { MONTHS, spanOf } from './home';
 import { isUnder } from './accounts';
 import { OTHER, PARTS } from './chart';
 
@@ -21,6 +26,29 @@ type ChartOptions = {
 	account: string;
 	parts: string[];
 };
+
+/** The expenses page's URL query, whose period runs up to the day. */
+export const SpendingQuery = (day: string) =>
+	v.pipe(
+		v.object({
+			span: v.fallback(v.picklist(Object.keys(MONTHS)), ''),
+			account: ExpenseAccount,
+			compare: v.fallback(Compare, 'with'),
+			scale: v.fallback(Scale, 'linear'),
+			at: v.optional(v.string()),
+			range: v.optional(v.string()),
+			from: v.optional(v.string()),
+			to: v.optional(v.string()),
+		}),
+		v.transform((fields) => ({
+			account: fields.account,
+			compare: fields.compare,
+			scale: fields.scale,
+			span: fields.span,
+			dated: PERIOD_PARAMS.some((k) => fields[k] !== undefined),
+			period: fields.span ? spanOf(fields.span, day) : periodIn(fields, spanOf('12', day)),
+		})),
+	);
 
 /** An account and those under it, as the table lists them. */
 export const rowsOf = <Total extends { account: string }>(t: Total[], a: string) =>

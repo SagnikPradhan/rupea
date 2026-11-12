@@ -47,4 +47,9 @@ describe('a balance account', () => {
 		expect(v.parse(BalanceAccount, null)).toBeNull();
 		expect(v.parse(BalanceAccount, 4)).toBeNull();
 	});
+
+	it('falls back inside an object whose key is missing', () => {
+		expect(v.parse(v.object({ account: BalanceAccount }), {})).toEqual({ account: null });
+		expect(v.parse(v.object({ account: ExpenseAccount }), {})).toEqual({ account: 'Expenses' });
+	});
 });

@@ -8,6 +8,13 @@ export const depthOf = (a: string) => a.split(':').length - 1;
 export const isUnder = (a: string, b: string | null) =>
 	b === null || same(a, b) || a.toLowerCase().startsWith(`${b.toLowerCase()}:`);
 
+/**
+ * Whether an account is one level below another, so Expenses:Food is directly
+ * under Expenses.
+ */
+export const isDirectlyUnder = (a: string, t: string) =>
+	isUnder(a, t) && depthOf(a) === depthOf(t) + 1;
+
 export const nameOf = (a: string) => a.split(':').at(-1) ?? a;
 
 /**

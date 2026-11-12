@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import * as v from 'valibot';
 import { depthOf, nameOf, prefixOf } from '#lib/web/shared/accounts.ts';
 import { OTHER, PARTS } from '#lib/web/shared/chart.ts';
+import { ALL_ACCOUNTS } from '#lib/web/shared/choices.ts';
 import {
 	barsOf,
+	choicesOf,
 	daysIn,
 	largestFirst,
 	dailyAverageOver,
@@ -26,10 +28,15 @@ const on = (d: string) => Temporal.PlainDate.from(d);
 const spending: Spent = {
 	buckets: [on('2026-01-01'), on('2026-02-01')],
 	totals: [
-		{ account: 'Expenses', parent: null, amount: amount('1000') },
-		{ account: 'Expenses:Food', parent: 'Expenses', amount: amount('600') },
-		{ account: 'Expenses:Food:Groceries', parent: 'Expenses:Food', amount: amount('400') },
-		{ account: 'Expenses:Rent', parent: 'Expenses', amount: amount('300.25') },
+		{ account: 'Expenses', parent: null, amount: amount('1000'), unpriced: 0 },
+		{ account: 'Expenses:Food', parent: 'Expenses', amount: amount('600'), unpriced: 0 },
+		{
+			account: 'Expenses:Food:Groceries',
+			parent: 'Expenses:Food',
+			amount: amount('400'),
+			unpriced: 0,
+		},
+		{ account: 'Expenses:Rent', parent: 'Expenses', amount: amount('300.25'), unpriced: 0 },
 	],
 	deltas: [
 		{ account: 'Expenses', bucket: on('2026-01-01'), amount: amount('700') },
@@ -41,7 +48,7 @@ const spending: Spent = {
 
 const previous: Spent = {
 	buckets: [on('2025-01-01')],
-	totals: [{ account: 'Expenses', parent: null, amount: amount('800') }],
+	totals: [{ account: 'Expenses', parent: null, amount: amount('800'), unpriced: 0 }],
 	deltas: [{ account: 'Expenses', bucket: on('2025-01-01'), amount: amount('800') }],
 };
 
@@ -55,6 +62,26 @@ describe('account names', () => {
 	});
 });
 
+describe('the account choices', () => {
+	const groups = { 'Expenses:Food': 'Food', 'Expenses:Rent': 'Rent' };
+
+	it('are all accounts and the groups under Expenses by default', () => {
+		expect(choicesOf(spending, 'Expenses')).toEqual({ '': ALL_ACCOUNTS, ...groups });
+	});
+
+	it('add nothing for a group', () => {
+		expect(choicesOf(spending, 'Expenses:Food')).toEqual({ '': ALL_ACCOUNTS, ...groups });
+	});
+
+	it('add a deeper account as its own choice', () => {
+		expect(choicesOf(spending, 'Expenses:Food:Dining')).toEqual({
+			'': ALL_ACCOUNTS,
+			...groups,
+			'Expenses:Food:Dining': 'Dining',
+		});
+	});
+});
+
 describe('the parts of a bar', () => {
 	it('are the largest accounts right under Expenses, largest first', () => {
 		expect(partsOf(spending, 'Expenses')).toEqual(['Expenses:Food', 'Expenses:Rent']);
@@ -63,10 +90,14 @@ describe('the parts of a bar', () => {
 
 	it('are the accounts right under the one narrowed to', () => {
 		expect(partsOf(spending, 'Expenses:Food')).toEqual(['Expenses:Food:Groceries']);
-		expect(rowsOf(spending.totals, 'Expenses:Food').map((t) => t.account)).toEqual([
+		expect(rowsOf(spending, 'Expenses:Food').map((t) => t.account)).toEqual([
 			'Expenses:Food',
 			'Expenses:Food:Groceries',
 		]);
+	});
+
+	it('are no rows without spending', () => {
+		expect(rowsOf(undefined, 'Expenses')).toEqual([]);
 	});
 
 	it('leave room for the other spending', () => {
@@ -74,6 +105,7 @@ describe('the parts of a bar', () => {
 			account: `Expenses:${i}`,
 			parent: 'Expenses',
 			amount: amount(String(i)),
+			unpriced: 0,
 		}));
 		expect(partsOf({ ...spending, totals: many }, 'Expenses')).toHaveLength(PARTS - 1);
 	});
@@ -170,11 +202,16 @@ describe('the rows shown', () => {
 describe('the largest first', () => {
 	it('order each level by amount, keeping every account above those under it', () => {
 		const rows = [
-			{ account: 'Expenses', parent: null, amount: amount('100') },
-			{ account: 'Expenses:Food', parent: 'Expenses', amount: amount('30') },
-			{ account: 'Expenses:Food:Cafe', parent: 'Expenses:Food', amount: amount('5') },
-			{ account: 'Expenses:Food:Grocer', parent: 'Expenses:Food', amount: amount('25') },
-			{ account: 'Expenses:Rent', parent: 'Expenses', amount: amount('70') },
+			{ account: 'Expenses', parent: null, amount: amount('100'), unpriced: 0 },
+			{ account: 'Expenses:Food', parent: 'Expenses', amount: amount('30'), unpriced: 0 },
+			{ account: 'Expenses:Food:Cafe', parent: 'Expenses:Food', amount: amount('5'), unpriced: 0 },
+			{
+				account: 'Expenses:Food:Grocer',
+				parent: 'Expenses:Food',
+				amount: amount('25'),
+				unpriced: 0,
+			},
+			{ account: 'Expenses:Rent', parent: 'Expenses', amount: amount('70'), unpriced: 0 },
 		];
 		expect(largestFirst(rows, 'Expenses').map((r) => r.account)).toEqual([
 			'Expenses',

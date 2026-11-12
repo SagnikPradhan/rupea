@@ -60,6 +60,7 @@ describe('the income statement', () => {
 		account,
 		parent: account === 'Expenses' ? null : 'Expenses',
 		amount: amount(n),
+		unpriced: 0,
 	});
 	const month = (amounts: Record<string, string>) => ({
 		buckets: [],
@@ -110,8 +111,8 @@ describe('the income statement', () => {
 			buckets: [],
 			deltas: [],
 			totals: [
-				{ account: 'Income', parent: null, amount: amount(n) },
-				{ account: 'Income:Salary', parent: 'Income', amount: amount(m) },
+				{ account: 'Income', parent: null, amount: amount(n), unpriced: 0 },
+				{ account: 'Income:Salary', parent: 'Income', amount: amount(m), unpriced: 0 },
 			],
 		});
 

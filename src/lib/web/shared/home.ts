@@ -1,6 +1,7 @@
 import { type Amount, ZERO, byAmount, printAmount, sum } from '#lib/shared/amounts.ts';
 import { depthOf, isUnder, nameOf } from './accounts';
 import type { Period } from '#lib/shared/dates.ts';
+import { ALL_ACCOUNTS } from './choices';
 import { formatChange } from './format';
 import type { Spent } from './spending';
 
@@ -50,7 +51,7 @@ export const MONTHS_BRIEF: Record<string, string> = {
  * key is the account.
  */
 export const SIDES: Record<string, string> = {
-	'': 'All accounts',
+	'': ALL_ACCOUNTS,
 	Assets: 'Assets',
 	Liabilities: 'Liabilities',
 };

@@ -136,8 +136,14 @@ export const formatShare = (p: string, w: string) =>
 export const formatReturn = (g: string | null, c: string | null) =>
 	g === null || c === null || Number(c) <= 0 ? null : formatPercent(Number(g) / Number(c));
 
+/**
+ * How far an amount moved: signed amount, percent of the start, and its
+ * direction.
+ */
+export type Change = { amount: string; percent: string | null; negative: boolean };
+
 /** How far an amount moved from a start; no percent without a positive start. */
-export const formatChange = (start: string, end: string) => {
+export const formatChange = (start: string, end: string): Change => {
 	const from = Number(start);
 	const change = Number(end) - from;
 

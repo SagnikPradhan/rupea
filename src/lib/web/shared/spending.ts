@@ -1,10 +1,10 @@
 import * as v from 'valibot';
-import { ExpenseAccount } from '#lib/shared/accounts.ts';
+import { EXPENSES, ExpenseAccount } from '#lib/shared/accounts.ts';
 import { type Amount, ZERO, byAmount, printAmount, sum } from '#lib/shared/amounts.ts';
 import { PERIOD_PARAMS, periodIn } from '#lib/shared/dates.ts';
-import { Compare, Scale } from './choices';
+import { ALL_ACCOUNTS, Compare, Scale } from './choices';
 import { MONTHS, spanOf } from './home';
-import { isUnder } from './accounts';
+import { isDirectlyUnder, isUnder, nameOf } from './accounts';
 import { OTHER, PARTS } from './chart';
 
 export const PREVIOUS = 'Previous';
@@ -16,7 +16,7 @@ const MONTH_DAYS = { days: 1461n, months: 48n };
 export type Spent = {
 	buckets: Temporal.PlainDate[];
 	/** Each account's total, and the account the server draws it under. */
-	totals: { account: string; parent: string | null; amount: Amount }[];
+	totals: { account: string; parent: string | null; amount: Amount; unpriced: number }[];
 	deltas: { account: string; bucket: Temporal.PlainDate; amount: Amount }[];
 };
 
@@ -51,8 +51,26 @@ export const SpendingQuery = (day: string) =>
 	);
 
 /** An account and those under it, as the table lists them. */
-export const rowsOf = <Total extends { account: string }>(t: Total[], a: string) =>
-	t.filter((r) => isUnder(r.account, a));
+export const rowsOf = (s: Spent | undefined, a: string) =>
+	(s?.totals ?? []).filter((t) => isUnder(t.account, a));
+
+/**
+ * What the account chips offer: all accounts, the groups under Expenses, and
+ * the account picked.
+ */
+export const choicesOf = (spending: Spent | undefined, account: string) => {
+	const groups = Object.fromEntries(
+		(spending?.totals ?? [])
+			.filter((t) => isDirectlyUnder(t.account, EXPENSES))
+			.map((t) => [t.account, nameOf(t.account)]),
+	);
+
+	return {
+		'': ALL_ACCOUNTS,
+		...groups,
+		...(account === EXPENSES || account in groups ? {} : { [account]: nameOf(account) }),
+	};
+};
 
 /**
  * The top account, then each account under it followed by its own, the largest

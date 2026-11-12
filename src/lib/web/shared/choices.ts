@@ -1,5 +1,8 @@
 import * as v from 'valibot';
 
+/** What the choice of no account in particular is called. */
+export const ALL_ACCOUNTS = 'All accounts';
+
 /** How a chart spaces its values: evenly, or by order of magnitude. */
 export const Scale = v.picklist(['linear', 'log']);
 

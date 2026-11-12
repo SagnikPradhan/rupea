@@ -63,4 +63,11 @@ describe('the invested returns', () => {
 		expect(document.querySelectorAll('.figure.positive')).toHaveLength(1);
 		expect(document.querySelectorAll('.figure.negative')).toHaveLength(1);
 	});
+
+	it('tones a zero gain neither way', () => {
+		render(InvestedReturns, { invested: [row('Assets:Stocks', 0, null)] });
+
+		expect(document.querySelectorAll('.figure')).toHaveLength(1);
+		expect(document.querySelectorAll('.figure.positive, .figure.negative')).toHaveLength(0);
+	});
 });

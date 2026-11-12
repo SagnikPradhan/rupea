@@ -41,4 +41,13 @@ describe('the invested KPIs', () => {
 		render(InvestedKpis, PROPS);
 		expect(screen.getByText(/on cost$/, { selector: '.positive' })).toBeTruthy();
 	});
+
+	it('tones a zero gain neither way', () => {
+		render(InvestedKpis, { invested: [group('Assets:Stocks', 0, 0.1)] });
+
+		const detail = screen.getByText(/on cost$/);
+
+		expect(detail.classList.contains('positive')).toBe(false);
+		expect(detail.classList.contains('negative')).toBe(false);
+	});
 });

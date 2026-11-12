@@ -12,6 +12,7 @@ import {
 	formatMoment,
 	formatReturn,
 	formatSize,
+	toneOf,
 } from '#lib/web/shared/format.ts';
 
 describe('formatAmount', () => {
@@ -136,5 +137,15 @@ describe('formatColumn', () => {
 		[702, 'AAA'],
 	])('names column %i %s', (index, name) => {
 		expect(formatColumn(index)).toBe(name);
+	});
+});
+
+describe('toneOf', () => {
+	it.each([
+		[5, 'positive'],
+		[-5, 'negative'],
+		[0, undefined],
+	])('tones %i as %s', (n, tone) => {
+		expect(toneOf(n)).toBe(tone);
 	});
 });

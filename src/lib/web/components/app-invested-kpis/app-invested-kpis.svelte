@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Kpi from '#lib/web/components/ui-kpi/ui-kpi.svelte';
 	import KpiStrip from '#lib/web/components/ui-kpi-strip/ui-kpi-strip.svelte';
-	import { formatPercent, formatReturn, formatWhole } from '#lib/web/shared/format.ts';
+	import { formatPercent, formatReturn, formatWhole, toneOf } from '#lib/web/shared/format.ts';
 	import { type Invested, groupsInvested, totalsOf } from '#lib/web/shared/invested.ts';
 
 	type Props = { invested: Invested[] };
@@ -23,7 +23,7 @@
 		label="Gain"
 		figure={formatWhole(String(totals.gain))}
 		detail="{formatReturn(String(totals.gain), String(totals.cost)) ?? '0%'} on cost"
-		tone={totals.gain > 0 ? 'positive' : totals.gain < 0 ? 'negative' : undefined}
+		tone={toneOf(totals.gain)}
 	/>
 	<Kpi
 		label="Return a year"

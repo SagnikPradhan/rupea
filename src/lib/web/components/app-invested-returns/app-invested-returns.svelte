@@ -2,7 +2,7 @@
 	import BarRow from '#lib/web/components/ui-bar-row/ui-bar-row.svelte';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import { prefixOf } from '#lib/web/shared/accounts.ts';
-	import { formatCompact, formatPercent, formatReturn } from '#lib/web/shared/format.ts';
+	import { formatCompact, formatPercent, formatReturn, toneOf } from '#lib/web/shared/format.ts';
 	import { type Invested, nestedOf } from '#lib/web/shared/invested.ts';
 
 	const BASE_GROWTH = 0.12;
@@ -26,7 +26,7 @@
 					a.xirr === null ? '' : `${formatPercent(a.xirr)} a year`,
 				].join(' · ')}
 				figure={formatReturn(String(a.gain), String(a.cost)) ?? '0%'}
-				tone={a.gain >= 0 ? 'positive' : 'negative'}
+				tone={toneOf(a.gain)}
 				share={a.gainRate / bestRate}
 			/>
 		{/each}

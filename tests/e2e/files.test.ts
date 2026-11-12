@@ -94,12 +94,12 @@ test('asks before leaving unsaved changes, and stays when told to', async ({
 
 	const files = page.getByRole('link', { name: 'All files' });
 
-	page.once('dialog', (dialog) => void dialog.dismiss());
-	await files.click();
+	const [stay] = await Promise.all([page.waitForEvent('dialog'), files.click()]);
+	await stay.dismiss();
 	await expect(page.getByText('Unsaved')).toBeVisible();
 
-	page.once('dialog', (dialog) => void dialog.accept());
-	await files.click();
+	const [leave] = await Promise.all([page.waitForEvent('dialog'), files.click()]);
+	await leave.accept();
 	await expect(page.getByRole('link', { name: 'draft.rupea' })).toBeVisible();
 });
 

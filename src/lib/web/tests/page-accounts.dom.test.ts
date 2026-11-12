@@ -206,6 +206,34 @@ describe('the accounts page', () => {
 		expect(screen.getByText('1 account is below zero, so not drawn')).toBeTruthy();
 	});
 
+	it('counts every account below zero in the note', async () => {
+		visit('/l/h/accounts');
+		const owing = (account: string) => ({
+			account,
+			parent: 'Assets',
+			total: amount('-300'),
+			cost: null,
+			gain: null,
+			unpriced: 0,
+			holdings: [rupees('-300')],
+		});
+		vi.mocked(listAccounts).mockReturnValue(
+			answer([...accounts, owing('Assets:Card'), owing('Assets:Loan')]),
+		);
+		render(Page, { data });
+
+		expect(await screen.findByText('2 accounts are below zero, so not drawn')).toBeTruthy();
+	});
+
+	it('shows no note when nothing is below zero', async () => {
+		visit('/l/h/accounts');
+		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
+		render(Page, { data });
+
+		await screen.findByRole('img', { name: 'How Assets divides across its accounts' });
+		expect(screen.queryByText(/below zero/)).toBeNull();
+	});
+
 	it('says there is nothing to divide on a ledger with no accounts under Assets', async () => {
 		visit('/l/h/accounts');
 		vi.mocked(listAccounts).mockReturnValue(answer([]));

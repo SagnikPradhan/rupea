@@ -26,29 +26,51 @@ export const BalanceQuery = (day: string) =>
 		})),
 	);
 
+/** One account under Assets with what it holds, what it gained and how it grew. */
+export type Invested = {
+	account: string;
+	name: string;
+	value: number;
+	cost: number;
+	gain: number;
+	gainRate: number;
+	netIn: number;
+	xirr: number | null;
+};
+
 /**
  * The accounts under Assets that have a cost, the largest first, with what
- * their costed holdings are worth, what went into them and how fast they grew.
+ * their costed holdings are worth, what went into them, what they gained on
+ * their cost and how fast they grew.
  */
-export const investedOf = (accounts: Held[], returns: Record<string, Returned | undefined>) =>
+export const investedOf = (
+	accounts: Held[],
+	returns: Record<string, Returned | undefined>,
+): Invested[] =>
 	accounts
 		.filter((a) => a.cost !== null && depthOf(a.account) >= 1 && isUnder(a.account, ASSETS))
-		.map((a) => ({
-			account: a.account,
-			name: nameOf(a.account),
-			value: toNumber(((a.cost ?? ZERO) + (a.gain ?? ZERO)) as Amount),
-			cost: toNumber(a.cost ?? ZERO),
-			gain: toNumber(a.gain ?? ZERO),
-			netIn: Number(returns[a.account]?.netIn ?? 0),
-			xirr: returns[a.account]?.xirr ?? null,
-		}))
+		.map((a) => {
+			const cost = toNumber(a.cost ?? ZERO);
+			const gain = toNumber(a.gain ?? ZERO);
+
+			return {
+				account: a.account,
+				name: nameOf(a.account),
+				value: toNumber(((a.cost ?? ZERO) + (a.gain ?? ZERO)) as Amount),
+				cost,
+				gain,
+				gainRate: cost > 0 ? gain / cost : 0,
+				netIn: Number(returns[a.account]?.netIn ?? 0),
+				xirr: returns[a.account]?.xirr ?? null,
+			};
+		})
 		.toSorted((a, b) => b.value - a.value);
 
 /**
  * The groups directly under Assets among them, so a group and its accounts are
  * not counted twice.
  */
-export const groupsInvested = <Invested extends { account: string }>(i: Invested[]) =>
+export const groupsInvested = <T extends { account: string }>(i: T[]) =>
 	i.filter((a) => isDirectlyUnder(a.account, ASSETS));
 
 /**
@@ -72,9 +94,9 @@ export const totalsOf = (groups: Grown[]) => {
  * Each account followed by the accounts under it, siblings keeping the order
  * they came in.
  */
-export const nestedOf = <Invested extends { account: string }>(i: Invested[]) => {
+export const nestedOf = <T extends { account: string }>(i: T[]) => {
 	const accounts = new Set(i.map((a) => a.account));
-	const under = (p: string): Invested[] =>
+	const under = (p: string): T[] =>
 		i.filter((a) => parentOf(a.account) === p).flatMap((a) => [a, ...under(a.account)]);
 
 	return i

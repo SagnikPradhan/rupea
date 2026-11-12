@@ -6,64 +6,31 @@
 		listReturns,
 	} from '#lib/endpoints/accounts.remote.ts';
 	import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
-	import { printAmount, sum, toNumber } from '#lib/shared/amounts.ts';
 	import { ASSETS } from '#lib/shared/accounts.ts';
-	import { depthOf, isUnder, prefixOf } from '#lib/web/shared/accounts.ts';
-	import AccountName from '#lib/web/components/app-account-name/app-account-name.svelte';
-	import Bar from '#lib/web/components/ui-bar/ui-bar.svelte';
-	import BarRow from '#lib/web/components/ui-bar-row/ui-bar-row.svelte';
+	import { isUnder } from '#lib/web/shared/accounts.ts';
+	import AccountsTable from '#lib/web/components/app-accounts-table/app-accounts-table.svelte';
 	import ListFilter from '#lib/web/components/app-list-filter/app-list-filter.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import Drops from '#lib/web/components/app-drops/app-drops.svelte';
-	import Scatter from '#lib/web/components/ui-chart-scatter/ui-chart-scatter.svelte';
-	import Donut from '#lib/web/components/ui-chart-donut/ui-chart-donut.svelte';
+	import AssetsRings from '#lib/web/components/app-assets-rings/app-assets-rings.svelte';
+	import InvestedKpis from '#lib/web/components/app-invested-kpis/app-invested-kpis.svelte';
+	import InvestedReturns from '#lib/web/components/app-invested-returns/app-invested-returns.svelte';
+	import InvestedRisk from '#lib/web/components/app-invested-risk/app-invested-risk.svelte';
 	import Invested from '#lib/web/components/app-invested/app-invested.svelte';
-	import Amount from '#lib/web/components/app-ledger-table/amount.svelte';
-	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
-	import Kpi from '#lib/web/components/ui-kpi/ui-kpi.svelte';
-	import KpiStrip from '#lib/web/components/ui-kpi-strip/ui-kpi-strip.svelte';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
-	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
-	import {
-		formatAmount,
-		formatIsoDate,
-		formatPercent,
-		formatReturn,
-		formatWhole,
-		formatCompact,
-	} from '#lib/web/shared/format.ts';
-	import { dotsOf } from '#lib/web/shared/dots.ts';
-	import {
-		BalanceQuery,
-		groupsInvested,
-		investedOf,
-		nestedOf,
-		totalsOf,
-	} from '#lib/web/shared/invested.ts';
-	import { lotsHref } from '#lib/web/shared/links.ts';
+	import { formatIsoDate } from '#lib/web/shared/format.ts';
+	import { BalanceQuery, investedOf } from '#lib/web/shared/invested.ts';
 	import { ringsOf } from '#lib/web/shared/rings.ts';
 	import { readQuery } from '#lib/web/shared/query.svelte.ts';
-
-	const BASE_GROWTH = 0.12;
-
-	type Holding = {
-		commodity: string;
-		hasLots: boolean;
-		units: string | null;
-		cost: string | null;
-		price: string | null;
-		value: string | null;
-		gain: string | null;
-	};
 
 	const { data } = $props();
 
 	const handle = $derived(data.ledger.handle);
 	const day = formatIsoDate(new Date());
 	const url = readQuery(BalanceQuery(day));
-	const [response, earned, first, grown, fallen] = $derived(
+	const [response, earned, first, owned, fallen] = $derived(
 		await Promise.all([
 			listAccounts({ handle, day, period: url.query.period }),
 			listReturns({ handle, day, period: url.query.period }),
@@ -72,50 +39,16 @@
 			listDrops({ handle, day, period: url.query.period, account: url.query.account }),
 		]),
 	);
-	const earliest = $derived(first.data ?? null);
 	const accounts = $derived(response.data ?? []);
 	const returns = $derived(Object.fromEntries((earned.data ?? []).map((r) => [r.account, r])));
-	const shown = $derived(accounts.filter((a) => isUnder(a.account, url.query.account)));
-	const trees = $derived(
-		Object.values(Object.groupBy(shown, (a) => a.account.split(':')[0] ?? '')),
-	);
 
 	const invested = $derived(investedOf(accounts, returns));
-	const groups = $derived(groupsInvested(invested));
-	const totals = $derived(totalsOf(groups));
-	const byReturn = $derived(
-		nestedOf(invested.map((a) => ({ ...a, grew: a.cost > 0 ? a.gain / a.cost : 0 }))),
-	);
-	const bestGrew = $derived(Math.max(...byReturn.map((a) => a.grew), BASE_GROWTH));
-	const assets = $derived(
-		sum(
-			accounts.filter((a) => a.parent === null && isUnder(a.account, ASSETS)).map((a) => a.total),
-		),
-	);
-
 	const rings = $derived(
 		ringsOf(
 			accounts,
 			url.query.account !== null && isUnder(url.query.account, ASSETS) ? url.query.account : ASSETS,
 		),
 	);
-	const owing = $derived(
-		rings.skipped === 0
-			? undefined
-			: `${rings.skipped} ${rings.skipped === 1 ? 'account is' : 'accounts are'} below zero, so not drawn`,
-	);
-
-	const dots = $derived(dotsOf(invested, fallen.data?.[0]?.swings ?? [], rings.arcs));
-
-	/** A commodity's row is named by it, so its units need no code after them. */
-	const numberOf = (quantity: string | null) => quantity?.split(' ')[0] ?? null;
-
-	/**
-	 * A group adds up sub-accounts or several holdings; any other account reads
-	 * as its one holding.
-	 */
-	const isGroup = (account: { account: string; holdings: Holding[] }, next?: { account: string }) =>
-		account.holdings.length > 1 || (next?.account.startsWith(`${account.account}:`) ?? false);
 </script>
 
 <PageHeader subtitle="What you own, and how it has grown">
@@ -126,7 +59,7 @@
 			account={url.query.account}
 			{accounts}
 			today={day}
-			first={earliest}
+			first={first.data ?? null}
 		/>
 	{/snippet}
 </PageHeader>
@@ -136,66 +69,26 @@
 	errors={[
 		...(response.errors ?? []),
 		...(earned.errors ?? []),
-		...(grown.errors ?? []),
+		...(owned.errors ?? []),
 		...(fallen.errors ?? []),
 	]}
 />
 
 <PanelGrid narrow>
 	<div>
-		{#if (grown.data ?? []).length > 0}
-			<Invested invested={grown.data ?? []} />
+		{#if (owned.data ?? []).length > 0}
+			<Invested invested={owned.data ?? []} />
 		{:else}
 			<p>No investments with a cost in this period.</p>
 		{/if}
 	</div>
 
-	<KpiStrip>
-		<Kpi
-			label="Invested value"
-			figure={formatWhole(String(totals.value))}
-			detail="on {formatWhole(String(totals.cost))} cost"
-		/>
-		<Kpi
-			label="Gain"
-			figure={formatWhole(String(totals.gain))}
-			detail="{formatReturn(String(totals.gain), String(totals.cost)) ?? '0%'} on cost"
-			tone={totals.gain > 0 ? 'positive' : totals.gain < 0 ? 'negative' : undefined}
-		/>
-		<Kpi
-			label="Return a year"
-			figure={totals.xirr === null ? '0%' : formatPercent(totals.xirr)}
-			detail="weighted by value across {groups.length} {groups.length === 1
-				? 'account'
-				: 'accounts'}"
-		/>
-		<Kpi
-			label="Put in"
-			figure={formatWhole(String(totals.netIn))}
-			detail="across {groups.length} {groups.length === 1 ? 'account' : 'accounts'}"
-		/>
-	</KpiStrip>
+	<InvestedKpis {invested} />
 </PanelGrid>
 
 <PanelGrid>
 	<div class="column">
-		<Panel title="Returns" subtitle="how much each account has grown on what went in">
-			<ul role="list">
-				{#each byReturn as a (a.account)}
-					<BarRow
-						name={a.name}
-						prefix={prefixOf(a.account)}
-						detail={[
-							`gained ${formatCompact(a.gain)}`,
-							a.xirr === null ? '' : `${formatPercent(a.xirr)} a year`,
-						].join(' · ')}
-						figure={formatReturn(String(a.gain), String(a.cost)) ?? '0%'}
-						tone={a.gain >= 0 ? 'positive' : 'negative'}
-						share={a.grew / bestGrew}
-					/>
-				{/each}
-			</ul>
-		</Panel>
+		<InvestedReturns {invested} />
 
 		<Panel title="Biggest drops" subtitle="how far investments fell from their high">
 			{#if fallen.data?.[0]}
@@ -207,185 +100,18 @@
 	</div>
 
 	<div class="column">
-		<Panel
-			title="Where it sits"
-			subtitle="each ring is a level of accounts, the inner ring the groups"
-		>
-			{#if rings.arcs.length > 0}
-				<Donut
-					arcs={rings.arcs}
-					levels={rings.levels}
-					label="How {url.query.account ?? ASSETS} divides across its accounts"
-					note={owing}
-				/>
-			{:else}
-				<p>Nothing to divide.</p>
-			{/if}
-		</Panel>
+		<AssetsRings {rings} account={url.query.account} />
 
-		<Panel title="Return and risk" subtitle="each dot is an account, bigger dot, more money in it">
-			{#if dots.length > 0}
-				<Scatter
-					{dots}
-					across="how much it swings in a year"
-					label="Return a year against how much each account swings"
-				/>
-			{:else}
-				<p>Needs price history.</p>
-			{/if}
-		</Panel>
+		<InvestedRisk {invested} swings={fallen.data?.[0]?.swings ?? []} arcs={rings.arcs} />
 	</div>
 </PanelGrid>
 
-{#snippet returnOf(gain: string | null, cost: string | null)}
-	{@const negative = gain?.startsWith('-') ?? false}
-	{@const percent = formatReturn(gain, cost)}
-	<td class={['amount', { negative, positive: percent !== null && !negative }]}>{percent}</td>
-{/snippet}
-
-{#snippet flowed(account: string | null)}
-	{@const r = account === null ? undefined : returns[account]}
-	{@const negative = (r?.xirr ?? 0) < 0}
-	<Amount value={r?.netIn ?? null} signed optional />
-	<td
-		class={['amount', { negative, positive: r?.xirr != null && !negative }]}
-		title={r?.xirr == null ? undefined : r.yearly ? 'XIRR, per year' : 'Return over the period'}
-	>
-		{#if r?.xirr != null}{formatPercent(r.xirr)}{#if r.yearly}&nbsp;<span class="unit">p.a.</span
-				>{/if}{/if}
-	</td>
-{/snippet}
-
-{#snippet shareOf(value: string | null)}
-	<td class="share optional"
-		><Bar share={value === null || assets === 0n ? 0 : Number(value) / toNumber(assets)} /></td
-	>
-{/snippet}
-
-{#snippet held(account: string, holding: Holding, child: boolean)}
-	{#snippet label()}
-		{#if child}
-			<span class="name" style:--depth={depthOf(account) + 1}>{holding.commodity}</span>
-		{:else}
-			<AccountName {account} depth={depthOf(account)} full />
-		{/if}
-	{/snippet}
-	<tr class={{ held: child }}>
-		<td title={child ? undefined : account}>
-			{#if holding.hasLots}
-				<a href={lotsHref(handle, { account, commodity: holding.commodity })}>{@render label()}</a>
-			{:else}
-				{@render label()}
-			{/if}
-		</td>
-		<Amount value={child ? numberOf(holding.units) : holding.units} units optional />
-		<Amount value={holding.cost} optional />
-		<Amount value={holding.value} note={holding.price && `@ ${formatAmount(holding.price, true)}`}
-			><span class="unpriced">unpriced</span></Amount
-		>
-		<Amount value={holding.gain} signed />
-		{@render returnOf(holding.gain, holding.cost)}
-		{@render flowed(child ? null : account)}
-		{@render shareOf(holding.value)}
-	</tr>
-{/snippet}
-
-<Panel
-	title="All accounts"
-	subtitle="{trees.length} {trees.length === 1 ? 'group' : 'groups'} · {formatWhole(
-		printAmount(assets),
-	)} in all"
->
-	<LedgerTable
-		columns={[
-			{ label: 'Account' },
-			{ label: 'Units', kind: 'amount', optional: true },
-			{ label: 'Cost', kind: 'amount', optional: true },
-			{ label: 'Value', kind: 'amount' },
-			{ label: 'Gain', kind: 'amount' },
-			{ label: 'Return', kind: 'amount' },
-			{ label: 'Net in', kind: 'amount', optional: true },
-			{ label: 'XIRR', kind: 'amount' },
-			{ label: 'Share', optional: true },
-		]}
-	>
-		{#each trees as tree (tree?.[0]?.account)}
-			<tbody>
-				{#each tree ?? [] as account, i (account.account)}
-					{#if isGroup(account, tree?.[i + 1])}
-						<tr class="group">
-							<th scope="row" title={account.account}>
-								<AccountName account={account.account} depth={depthOf(account.account)} full />
-								{#if account.unpriced > 0}<Tag>{account.unpriced} unpriced</Tag>{/if}
-							</th>
-							<Amount value={null} optional />
-							<Amount value={printAmount(account.cost)} optional />
-							<Amount value={printAmount(account.total)} />
-							<Amount value={printAmount(account.gain)} signed />
-							{@render returnOf(printAmount(account.gain), printAmount(account.cost))}
-							{@render flowed(account.account)}
-							{@render shareOf(printAmount(account.total))}
-						</tr>
-						{#each account.holdings as holding (holding.commodity)}
-							{@render held(account.account, holding, true)}
-						{/each}
-					{:else}
-						{#each account.holdings as holding (holding.commodity)}
-							{@render held(account.account, holding, false)}
-						{/each}
-					{/if}
-				{/each}
-			</tbody>
-		{/each}
-	</LedgerTable>
-</Panel>
+<AccountsTable {accounts} {returns} under={url.query.account} {handle} />
 
 <style>
 	.column {
 		display: flex;
 		flex-direction: column;
 		gap: var(--size-3);
-	}
-
-	ul {
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-2);
-		padding: 0;
-	}
-
-	tr.held > :global(:not(.amount)) {
-		color: var(--color-muted);
-	}
-
-	.share {
-		width: calc(var(--size-5) * 1.5);
-	}
-
-	.name {
-		display: inline-block;
-		padding-left: calc(var(--depth) * var(--size-2));
-	}
-
-	.unpriced,
-	.unit {
-		color: var(--color-muted);
-	}
-
-	.positive {
-		color: var(--color-positive);
-	}
-
-	.negative {
-		color: var(--color-negative);
-	}
-
-	a {
-		color: inherit;
-		text-decoration: none;
-	}
-
-	a:hover {
-		text-decoration: underline;
 	}
 </style>

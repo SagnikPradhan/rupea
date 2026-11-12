@@ -44,6 +44,24 @@ describe('the invested accounts', () => {
 		expect(fresh).toMatchObject({ value: 100, gain: 0, netIn: 0, xirr: null });
 	});
 
+	it('has no gain rate when the cost is zero', () => {
+		const [free] = investedOf([held('Assets:Gift', '10', '0', '10')], {});
+
+		expect(free?.gainRate).toBe(0);
+	});
+
+	it('has a negative gain rate when it lost', () => {
+		const [lost] = investedOf([held('Assets:Stocks', '80', '100', '-20')], {});
+
+		expect(lost?.gainRate).toBeCloseTo(-0.2);
+	});
+
+	it('gain their gain over their cost', () => {
+		const [first] = investedOf(accounts, {});
+
+		expect(first?.gainRate).toBeCloseTo(50 / 150);
+	});
+
 	it('count a group once, not again through its accounts', () => {
 		const groups = groupsInvested(investedOf(accounts, {}));
 

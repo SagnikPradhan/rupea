@@ -10,7 +10,7 @@ import { deleteSessionCookie, readSessionCookie, setSessionCookie } from './sess
 export const requestCode = form(v.object({ email: Email }), ({ email }) =>
 	replyFromCall(
 		api()
-			.requestCode({ email })
+			.auth.requestCode({ email })
 			.then(() => ({ email })),
 	),
 );
@@ -21,7 +21,7 @@ export const verifyCode = form(
 		code: v.pipe(v.string(), v.trim(), v.regex(/^\d{6}$/, 'The code is 6 digits.')),
 	}),
 	async ({ email, code }) => {
-		const signedIn = await replyFromCall(api().signIn({ email, code }));
+		const signedIn = await replyFromCall(api().auth.signIn({ email, code }));
 		if (signedIn.errors[0]?.type === 'AuthInvalidCode')
 			invalid({
 				message: 'That code is wrong or has expired.',
@@ -37,7 +37,7 @@ export const verifyCode = form(
 
 export const signOut = form(async () => {
 	const token = readSessionCookie();
-	const signedOut = token ? await replyFromCall(api().signOut()) : null;
+	const signedOut = token ? await replyFromCall(api().auth.signOut()) : null;
 	const error = signedOut?.errors.find((e) => e.type !== 'AuthUnauthenticated');
 	if (error) console.error('sign-out failed', error);
 

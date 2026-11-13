@@ -7,28 +7,25 @@ import Fastify, { type FastifyBaseLogger, type FastifyError, type FastifyRequest
 import * as Auth from '#services/auth/application/auth.ts';
 import { provide, type RupeaContext } from '#lib/server/shared/context/context.ts';
 import { converter } from './converter.ts';
-import * as accounts from './accounts.ts';
-import { findUser, requestCode, signIn, signOut } from './auth.ts';
-import * as files from './files.ts';
-import * as ledger from './ledger.ts';
-import * as refinement from './refinement.ts';
-import * as schemas from './schemas.ts';
-import * as statements from './statements.ts';
-import * as transactions from './transactions.ts';
+import { accounts } from './handler-accounts.ts';
+import { auth } from './handler-auth.ts';
+import { files } from './handler-files.ts';
+import { ledger } from './handler-ledger.ts';
+import { refinement } from './handler-refinement.ts';
+import { schemas } from './handler-schemas.ts';
+import { statements } from './handler-statements.ts';
+import { transactions } from './handler-transactions.ts';
 import { os } from './session.ts';
 
 const router = os.router({
-	...accounts,
-	requestCode,
-	signIn,
-	signOut,
-	findUser,
-	...files,
-	...ledger,
-	...refinement,
-	...schemas,
-	...statements,
-	...transactions,
+	accounts,
+	auth,
+	files,
+	ledger,
+	refinement,
+	schemas,
+	statements,
+	transactions,
 });
 
 /**

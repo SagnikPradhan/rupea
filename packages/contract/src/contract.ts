@@ -1,25 +1,22 @@
 import type { ContractRouterClient } from '@orpc/contract';
-import * as accounts from './accounts.ts';
-import * as files from './files.ts';
-import { findUser, requestCode, signIn, signOut } from './auth.ts';
-import * as ledger from './ledger.ts';
-import * as refinement from './refinement.ts';
-import * as schemas from './schemas.ts';
-import * as statements from './statements.ts';
-import * as transactions from './transactions.ts';
+import { accounts } from './route-accounts.ts';
+import { auth } from './route-auth.ts';
+import { files } from './route-files.ts';
+import { ledger } from './route-ledger.ts';
+import { refinement } from './route-refinement.ts';
+import { schemas } from './route-schemas.ts';
+import { statements } from './route-statements.ts';
+import { transactions } from './route-transactions.ts';
 
 export const contract = {
-	...accounts,
-	requestCode,
-	signIn,
-	signOut,
-	findUser,
-	...files,
-	...ledger,
-	...refinement,
-	...schemas,
-	...statements,
-	...transactions,
+	accounts,
+	auth,
+	files,
+	ledger,
+	refinement,
+	schemas,
+	statements,
+	transactions,
 };
 
 /** What a client of the contract calls. */

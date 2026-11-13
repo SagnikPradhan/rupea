@@ -14,7 +14,7 @@ A newcomer should guess what a service function does, and how to call it, from i
 | `open`                       | acquires a handle to work through, such as a folder or a PDF   |
 | `sync`, `recount`, `rebook`… | domain work with its own name                                  |
 
-`get` is not used: it says nothing about where the data comes from. An endpoint is named after the application function it calls, so `listFiles` in `files.remote.ts` calls `Files.listFiles`, and the page imports `listFiles` too.
+`get` is not used: it says nothing about where the data comes from. An endpoint is named after the application function it calls, so `listFiles` in `files.remote.ts` calls `Files.listFiles`, and the page imports `listFiles` too. The contract nests its procedures by subject, so a client calls `files.list`: the handler keeps the name of the application function, and the name in the contract drops the noun its namespace already says.
 
 **Application functions take the ledger, or one options object.** A function that needs only the ledger takes it alone: `listFiles(ledger)`. Anything more goes in one object, destructured in the parameter list: `readFile({ ledger, key })`. No positional pairs, which read the same at the call site whichever way round they are.
 

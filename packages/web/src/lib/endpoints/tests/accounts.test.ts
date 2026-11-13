@@ -49,7 +49,7 @@ describe('accounts', () => {
 			],
 			failed: [],
 		});
-		useApi({ listAccounts: listed });
+		useApi({ accounts: { list: listed } });
 
 		const accounts = await listAccounts({ handle: 'home', day, period: month });
 
@@ -60,7 +60,7 @@ describe('accounts', () => {
 
 	it('lists worth over the period, narrowed to an account only when one is given', async () => {
 		const listed = vi.fn().mockResolvedValue(empty);
-		useApi({ listWorth: listed });
+		useApi({ accounts: { listWorth: listed } });
 
 		await listWorth({ handle: 'home', day, period: month, account: null });
 		await listWorth({ handle: 'home', day, period: month, account: 'Assets:Bank' });
@@ -72,7 +72,7 @@ describe('accounts', () => {
 
 	it('lists spending against the period before it, when there is one', async () => {
 		const listed = vi.fn().mockResolvedValue(empty);
-		useApi({ listDeltas: listed });
+		useApi({ accounts: { listDeltas: listed } });
 
 		await listDeltas({ handle: 'home', day, period: month, account: 'Expenses' });
 		await listDeltas({ handle: 'home', day, period: { kind: 'all' }, account: 'Expenses' });
@@ -88,11 +88,13 @@ describe('accounts', () => {
 	it('asks the other reads over the days of the period, written out', async () => {
 		const listed = vi.fn().mockResolvedValue(empty);
 		useApi({
-			listInvested: listed,
-			findBridge: listed,
-			listDrops: listed,
-			listReturns: listed,
-			listDailyDeltas: listed,
+			accounts: {
+				listInvested: listed,
+				findBridge: listed,
+				listDrops: listed,
+				listReturns: listed,
+				listDailyDeltas: listed,
+			},
 		});
 		const asked = { handle: 'home', day, period: month };
 
@@ -116,7 +118,7 @@ describe('accounts', () => {
 		const tree = vi.fn().mockResolvedValue([]);
 		const names = vi.fn().mockResolvedValue([]);
 		const terms = vi.fn().mockResolvedValue({});
-		useApi({ listAccountTree: tree, listAccountNames: names, listTerms: terms });
+		useApi({ accounts: { listTree: tree, listNames: names, listTerms: terms } });
 
 		await listAccountTree('home');
 		await listAccountNames({ handle: 'home', prefix: 'Ex' });
@@ -129,7 +131,7 @@ describe('accounts', () => {
 
 	it('keeps what succeeded beside the failures of a batch', async () => {
 		const failed = { type: 'ReturnUnsolved', account: 'Assets:Broker' } as const;
-		useApi({ listLots: () => Promise.resolve({ succeeded: [], failed: [failed] }) });
+		useApi({ accounts: { listLots: () => Promise.resolve({ succeeded: [], failed: [failed] }) } });
 
 		const lots = await listLots({ handle: 'home', account: 'Assets:Broker', commodity: 'INFY' });
 
@@ -139,7 +141,7 @@ describe('accounts', () => {
 	it('answers a ledger that is not found as the failure it was refused with', async () => {
 		const missing = { type: 'LedgerNotFound', handle: 'gone' } as const;
 		const refused = new ORPCError('MISSING', { status: 404, defined: true, data: missing });
-		useApi({ listAccounts: () => Promise.reject(refused) });
+		useApi({ accounts: { list: () => Promise.reject(refused) } });
 
 		const accounts = await listAccounts({ handle: 'gone', day, period: month });
 
@@ -148,7 +150,7 @@ describe('accounts', () => {
 
 	it('saves terms under the ledger, sending the account and its lines', async () => {
 		const saved = vi.fn().mockResolvedValue({ file: 'a.rupea' });
-		useApi({ saveTerms: saved });
+		useApi({ accounts: { saveTerms: saved } });
 		const form = {
 			account: 'Liabilities:Card',
 			entries: [

@@ -96,7 +96,7 @@ describe('uploading statements', () => {
 				new OpenAPILink(contract, { url: `${url}/api`, headers }),
 			);
 
-			const uploaded = await client.uploadStatements({
+			const uploaded = await client.statements.upload({
 				handle: ledger.handle,
 				files: [new File([statement], 'aug.csv'), new File(['x,y'], 'sep.csv')],
 			});

@@ -1,5 +1,5 @@
 import { Day, spansOf } from '@rupea/shared/dates.ts';
-import { Filter } from '@rupea/shared/filter.ts';
+import { Filter } from '#lib/web/shared/filter.ts';
 import { Handle } from '@rupea/shared/handle.ts';
 import { query } from '$app/server';
 import * as v from 'valibot';
@@ -19,7 +19,7 @@ export const listTransactions = query(
 	({ handle, day, filter, after }) =>
 		replyFromCall(
 			api()
-				.listTransactions({ handle, ...listed(filter, day), after: after ?? undefined })
+				.transactions.list({ handle, ...listed(filter, day), after: after ?? undefined })
 				.then((p) => ({ ...p, rows: p.rows.map(viewCounted) })),
 		),
 );
@@ -29,7 +29,7 @@ export const listPostings = query(
 	({ handle, day, filter, after }) =>
 		replyFromCall(
 			api()
-				.listPostings({ handle, ...listed(filter, day), after: after ?? undefined })
+				.transactions.listPostings({ handle, ...listed(filter, day), after: after ?? undefined })
 				.then((p) => ({ ...p, rows: p.rows.map(viewPosting) })),
 		),
 );

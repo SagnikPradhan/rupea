@@ -1,6 +1,6 @@
 import { load as loadLedger } from '#routes/(signed-in)/l/[handle]/+layout.server.ts';
 import { load as loadLedgers } from '#routes/(signed-in)/+layout.server.ts';
-import type { User } from '@rupea/contract/auth.ts';
+import type { User } from '@rupea/contract/route-auth.ts';
 import { describe, expect, it, vi } from 'vitest';
 
 const user: User = { id: 'u1', email: 'ada@example.com', username: 'ada' };
@@ -10,7 +10,10 @@ const ledgers = [
 ];
 
 const event = (listLedgers: () => Promise<unknown>, signedIn: User | null = user) =>
-	({ locals: { user: signedIn, api: { listLedgers } }, params: { handle: 'home' } }) as never;
+	({
+		locals: { user: signedIn, api: { ledger: { list: listLedgers } } },
+		params: { handle: 'home' },
+	}) as never;
 
 describe('the signed-in layout', () => {
 	it('lists the ledgers the server says the user may open', async () => {

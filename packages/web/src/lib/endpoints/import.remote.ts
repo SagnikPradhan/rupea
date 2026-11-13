@@ -16,7 +16,7 @@ export const uploadStatements = form(
 		files: v.pipe(v.array(Upload), v.minLength(1), v.maxLength(MOST_UPLOADS)),
 	}),
 	async ({ handle, files }) => {
-		const uploaded = await replyFromBatchCall(api().uploadStatements({ handle, files }));
+		const uploaded = await replyFromBatchCall(api().statements.upload({ handle, files }));
 		void listStatements(handle).refresh();
 		void listImports(handle).refresh();
 		return uploaded;
@@ -28,16 +28,18 @@ export const uploadStatements = form(
  * whether a job imports it.
  */
 export const listStatements = query(Handle, (h) =>
-	replyFromCall(api().listStatements({ handle: h })),
+	replyFromCall(api().statements.list({ handle: h })),
 );
 
 /** The ledger files this user uploaded here, as their imports run. */
-export const listImports = query(Handle, (h) => replyFromCall(api().listImports({ handle: h })));
+export const listImports = query(Handle, (h) =>
+	replyFromCall(api().statements.listImports({ handle: h })),
+);
 
 /** A stored statement, read for the schema editor. */
 export const readStatement = command(
 	v.object({ handle: Handle, statement: StatementKey }),
-	({ handle, statement }) => replyFromCall(api().readStatement({ handle, statement })),
+	({ handle, statement }) => replyFromCall(api().statements.read({ handle, statement })),
 );
 
 export const deleteStatements = command(
@@ -48,7 +50,7 @@ export const deleteStatements = command(
 	async ({ handle, keys }) => {
 		if (keys.length === 0) return NOTHING;
 
-		const deleted = await replyFromBatchCall(api().deleteStatements({ handle, keys }));
+		const deleted = await replyFromBatchCall(api().statements.delete({ handle, keys }));
 		void listStatements(handle).refresh();
 		return deleted;
 	},
@@ -61,13 +63,13 @@ export const unlockStatement = form(
 		password: v.pipe(v.string(), v.nonEmpty(), v.maxLength(MOST_PASSWORD)),
 	}),
 	({ handle, statement, password }) =>
-		replyFromCall(api().unlockStatement({ handle, statement, password })),
+		replyFromCall(api().statements.unlock({ handle, statement, password })),
 );
 
 /** The schema that reads a statement, for the editor to start from. */
 export const recogniseStatement = command(
 	v.object({ handle: Handle, statement: StatementKey }),
-	({ handle, statement }) => replyFromCall(api().recogniseStatement({ handle, statement })),
+	({ handle, statement }) => replyFromCall(api().statements.recognise({ handle, statement })),
 );
 
 /**
@@ -79,7 +81,7 @@ export const previewStatement = command(
 	({ handle, statement, schema }) =>
 		replyFromBatchCall(
 			api()
-				.previewStatement({ handle, statement, schema })
+				.statements.preview({ handle, statement, schema })
 				.then((b) => ({ ...b, succeeded: b.succeeded.map(viewTransaction) })),
 		),
 );
@@ -88,7 +90,7 @@ export const previewStatement = command(
 export const importStatement = command(
 	v.object({ handle: Handle, statement: StatementKey, schema: Schema }),
 	async ({ handle, statement, schema }) => {
-		const created = await replyFromCall(api().importStatement({ handle, statement, schema }));
+		const created = await replyFromCall(api().statements.import({ handle, statement, schema }));
 		void listFiles(handle).refresh();
 		void listSchemas(handle).refresh();
 		void listStatements(handle).refresh();

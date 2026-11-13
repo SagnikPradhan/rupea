@@ -1,8 +1,8 @@
 import * as v from 'valibot';
 import { EXPENSES, ExpenseAccount } from '@rupea/shared/accounts.ts';
 import { type Amount, ZERO, byAmount, printAmount, sum } from '@rupea/shared/amounts.ts';
-import { PERIOD_PARAMS, periodIn } from '@rupea/shared/dates.ts';
 import { ALL_ACCOUNTS, Compare, Scale } from './choices';
+import { PERIOD_PARAMS, periodIn } from './filter';
 import { MONTHS, spanOf } from './home';
 import { isDirectlyUnder, isUnder, nameOf } from './accounts';
 import { OTHER, PARTS } from './chart';

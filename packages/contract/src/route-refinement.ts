@@ -1,17 +1,16 @@
 import { oc } from '@orpc/contract';
 import dedent from 'dedent';
 import { Key, Line } from '@rupea/shared/files.ts';
-import { Fingerprint, GroupId, LinkEdit, MOST_EDITS } from '@rupea/shared/groups.ts';
 import { Handle } from '@rupea/shared/handle.ts';
 import * as v from 'valibot';
 import { batchOf, errors } from './errors.ts';
-import { Group, Suggestion } from './outputs.ts';
+import { Fingerprint, Group, GroupId, LinkEdit, MOST_EDITS, Suggestion } from './shape-ledger.ts';
 
-export const listSuggestions = oc
+const listSuggestions = oc
 	.route({
 		method: 'GET',
 		path: '/ledgers/{handle}/suggestions',
-		operationId: 'listSuggestions',
+		operationId: 'refinement.listSuggestions',
 		description: dedent`
 			Lists the transactions of a file that likely match one elsewhere,
 			strongest first, with the links that would group them.
@@ -23,11 +22,11 @@ export const listSuggestions = oc
 	.errors(errors)
 	.output(v.array(Suggestion));
 
-export const linkGroups = oc
+const linkGroups = oc
 	.route({
 		method: 'POST',
 		path: '/ledgers/{handle}/links',
-		operationId: 'linkGroups',
+		operationId: 'refinement.linkGroups',
 		description: dedent`
 			Writes the links of the edits into their files and answers what stopped
 			it, beside no successes.
@@ -44,11 +43,11 @@ export const linkGroups = oc
 	.errors(errors)
 	.output(batchOf(v.never()));
 
-export const dismissSuggestion = oc
+const dismissSuggestion = oc
 	.route({
 		method: 'PUT',
 		path: '/ledgers/{handle}/dismissals/{fingerprint}',
-		operationId: 'dismissSuggestion',
+		operationId: 'refinement.dismissSuggestion',
 		description: dedent`
 			Stops a suggestion from being offered again, by its fingerprint.
 
@@ -58,11 +57,11 @@ export const dismissSuggestion = oc
 	.input(v.object({ handle: Handle, fingerprint: Fingerprint }))
 	.errors(errors);
 
-export const listGroups = oc
+const listGroups = oc
 	.route({
 		method: 'GET',
 		path: '/ledgers/{handle}/groups',
-		operationId: 'listGroups',
+		operationId: 'refinement.listGroups',
 		description: dedent`
 			Lists the groups with a member in a file, each with every member wherever
 			it is written and whether it counts.
@@ -74,11 +73,11 @@ export const listGroups = oc
 	.errors(errors)
 	.output(v.array(Group));
 
-export const renameGroup = oc
+const renameGroup = oc
 	.route({
 		method: 'PATCH',
 		path: '/ledgers/{handle}/groups/{group}',
-		operationId: 'renameGroup',
+		operationId: 'refinement.renameGroup',
 		description: dedent`
 			Gives a group a new name in every file that names it, and answers what
 			stopped it beside no successes.
@@ -90,11 +89,11 @@ export const renameGroup = oc
 	.errors(errors)
 	.output(batchOf(v.never()));
 
-export const makePrimary = oc
+const makePrimary = oc
 	.route({
 		method: 'PUT',
 		path: '/ledgers/{handle}/groups/{group}/primary',
-		operationId: 'makePrimary',
+		operationId: 'refinement.makePrimary',
 		description: dedent`
 			Makes a member the one of its group that counts, and the old primary
 			evidence, and answers what stopped it beside no successes.
@@ -105,3 +104,12 @@ export const makePrimary = oc
 	.input(v.object({ handle: Handle, group: GroupId, file: Key, line: Line }))
 	.errors(errors)
 	.output(batchOf(v.never()));
+
+export const refinement = {
+	listSuggestions,
+	linkGroups,
+	dismissSuggestion,
+	listGroups,
+	renameGroup,
+	makePrimary,
+};

@@ -1,5 +1,5 @@
 import type { Client } from '@rupea/contract/contract.ts';
-import type { User } from '@rupea/contract/auth.ts';
+import type { User } from '@rupea/contract/route-auth.ts';
 
 declare global {
 	namespace App {

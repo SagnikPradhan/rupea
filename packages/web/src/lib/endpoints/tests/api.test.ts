@@ -19,7 +19,7 @@ describe('the API client', () => {
 		const { seen, fetch } = fetchSeen();
 		const client = createClient({ url: 'http://api.test/api', token: 'opaque', fetch });
 
-		expect(await client.findUser()).toEqual(answer);
+		expect(await client.auth.findUser()).toEqual(answer);
 
 		expect(seen[0]?.url).toBe('http://api.test/api/auth/user');
 		expect(seen[0]?.method).toBe('GET');
@@ -30,7 +30,7 @@ describe('the API client', () => {
 		const { seen, fetch } = fetchSeen();
 		const client = createClient({ url: 'http://api.test/api', token: null, fetch });
 
-		await client.findUser();
+		await client.auth.findUser();
 
 		expect(seen[0]?.headers.has('authorization')).toBe(false);
 	});

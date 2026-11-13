@@ -501,7 +501,7 @@ describe('the files api', () => {
 			const document = (await api.inject({ url: '/api/openapi.json' })).json();
 			const operation = document.paths['/ledgers/{handle}/files'].delete;
 
-			expect(operation.operationId).toBe('deleteFiles');
+			expect(operation.operationId).toBe('files.delete');
 			expect(
 				operation.requestBody.content['application/json'].schema.properties.keys,
 			).toMatchObject({

@@ -21,7 +21,7 @@ const file = {
 describe('a schema', () => {
 	it('is read and listed without anything being listed again', async () => {
 		const read = vi.fn().mockResolvedValue(file);
-		useApi({ readSchema: read, listSchemas: () => Promise.resolve([file]) });
+		useApi({ schemas: { read, list: () => Promise.resolve([file]) } });
 
 		await readSchema({ handle: 'home', key: 'bank.yml' });
 		await listSchemas('home');
@@ -33,7 +33,7 @@ describe('a schema', () => {
 	it('is saved and deleted, and the schemas are listed again each time', async () => {
 		const saved = vi.fn().mockResolvedValue(file);
 		const deleted = vi.fn().mockResolvedValue(undefined);
-		useApi({ saveSchema: saved, deleteSchema: deleted });
+		useApi({ schemas: { save: saved, delete: deleted } });
 
 		const reply = await saveSchema({ handle: 'home', key: 'bank.yml', content: file.content });
 		await deleteSchema({ handle: 'home', key: 'bank.yml' });
@@ -49,7 +49,7 @@ describe('a schema', () => {
 
 	it('is saved under the key as it was typed, trimmed', async () => {
 		const saved = vi.fn().mockResolvedValue(file);
-		useApi({ saveSchema: saved });
+		useApi({ schemas: { save: saved } });
 
 		await saveSchema({ handle: 'home', key: '  bank.yml ', content: '' });
 
@@ -65,7 +65,7 @@ describe('a schema', () => {
 	it('answers a save the server refused as the reply', async () => {
 		const invalid = { type: 'ExtractionInvalidSchema', path: 'bank.yml', reason: 'bad' } as const;
 		const refused = new ORPCError('UNPROCESSABLE', { status: 422, defined: true, data: invalid });
-		useApi({ saveSchema: () => Promise.reject(refused) });
+		useApi({ schemas: { save: () => Promise.reject(refused) } });
 
 		const reply = await saveSchema({ handle: 'home', key: 'bank.yml', content: 'x' });
 

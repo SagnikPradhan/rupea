@@ -46,7 +46,7 @@ describe('a ledger file', () => {
 		const edited = vi.fn().mockResolvedValue(file);
 		const moved = vi.fn().mockResolvedValue({ succeeded: [file], failed: [] });
 		const deleted = vi.fn().mockResolvedValue({ succeeded: ['b.rupea'], failed: [] });
-		useApi({ createFile: created, editFile: edited, renameFiles: moved, deleteFiles: deleted });
+		useApi({ files: { create: created, edit: edited, rename: moved, delete: deleted } });
 		const moves = [{ from: 'a.rupea', to: 'b.rupea' }];
 
 		expect(await createFile({ handle, key: 'a.rupea', content })).toMatchObject({ ok: true });
@@ -74,7 +74,7 @@ describe('a ledger file', () => {
 
 	it('keeps the files that moved beside the one whose name was taken', async () => {
 		const taken = { type: 'NameTaken', name: 'b.rupea' } as const;
-		useApi({ renameFiles: () => Promise.resolve({ succeeded: [file], failed: [taken] }) });
+		useApi({ files: { rename: () => Promise.resolve({ succeeded: [file], failed: [taken] }) } });
 		const moves = [
 			{ from: 'a.rupea', to: 'c.rupea' },
 			{ from: 'd.rupea', to: 'b.rupea' },
@@ -89,7 +89,7 @@ describe('a ledger file', () => {
 
 	it('is read without the lists being touched', async () => {
 		const read = vi.fn().mockResolvedValue(file);
-		useApi({ readFile: read });
+		useApi({ files: { read } });
 
 		expect((await readFile({ handle, key: 'a.rupea' })).data).toEqual(file);
 		expect(read).toHaveBeenCalledWith({ handle, key: 'a.rupea' });
@@ -104,7 +104,7 @@ describe('a ledger file', () => {
 			actual: 'v2',
 		} as const;
 		const refused = new ORPCError('CONFLICT', { status: 409, defined: true, data: conflict });
-		useApi({ editFile: () => Promise.reject(refused) });
+		useApi({ files: { edit: () => Promise.reject(refused) } });
 
 		const edited = await editFile({ handle, key: 'a.rupea', content, version: 'v1' });
 
@@ -115,7 +115,7 @@ describe('a ledger file', () => {
 	it('is added to the file its account was last added to', async () => {
 		const addition = { file, added: 1, skipped: 0, before: null, draft: content };
 		const added = vi.fn().mockResolvedValue(addition);
-		useApi({ addFile: added, findLatestFile: () => Promise.resolve('hdfc.rupea') });
+		useApi({ files: { add: added, findLatest: () => Promise.resolve('hdfc.rupea') } });
 
 		const latest = await findLatestFile({ handle, account: 'Assets:Bank' });
 		const reply = await addFile({ handle, from: '_/sep.rupea', to: latest.data ?? '' });
@@ -135,7 +135,7 @@ describe('a ledger file', () => {
 
 	it('does nothing, and calls nothing, for no names at all', async () => {
 		const called = vi.fn();
-		useApi({ deleteFiles: called, renameFiles: called });
+		useApi({ files: { delete: called, rename: called } });
 		const nothing = { ok: true, data: [], errors: [] };
 
 		expect(await deleteFiles({ handle, keys: [] })).toEqual(nothing);
@@ -157,7 +157,7 @@ describe('a draft', () => {
 			postings: [],
 		};
 		const parsed = vi.fn().mockResolvedValue({ succeeded: [draft], failed: [] });
-		useApi({ formatFile: formatted, parseFile: parsed });
+		useApi({ files: { format: formatted, parse: parsed } });
 
 		expect(await formatFile({ handle, content })).toEqual({ ok: true, data: 'tidy', errors: [] });
 		const reply = await parseFile({ handle, key: 'a.rupea', content });
@@ -170,7 +170,7 @@ describe('a draft', () => {
 
 	it('is parsed with the errors that were found beside what could be read', async () => {
 		const bad = { type: 'ParseInvalidPosting', location: 'a.rupea:3' } as const;
-		useApi({ parseFile: () => Promise.resolve({ succeeded: [], failed: [bad] }) });
+		useApi({ files: { parse: () => Promise.resolve({ succeeded: [], failed: [bad] }) } });
 
 		const reply = await parseFile({ handle, key: 'a.rupea', content });
 
@@ -192,7 +192,7 @@ describe('a transaction', () => {
 		const created = vi.fn().mockResolvedValue(position);
 		const saved = vi.fn().mockResolvedValue(position);
 		const deleted = vi.fn().mockResolvedValue(undefined);
-		useApi({ createTransaction: created, saveTransaction: saved, deleteTransaction: deleted });
+		useApi({ transactions: { create: created, save: saved, delete: deleted } });
 
 		expect(await createTransaction({ handle, form })).toEqual({
 			ok: true,
@@ -211,7 +211,7 @@ describe('a transaction', () => {
 	it('is found as the form it was written from', async () => {
 		const found = { file: 'a.rupea', line: 1, version: 'v1', form };
 		const finder = vi.fn().mockResolvedValue(found);
-		useApi({ findTransaction: finder });
+		useApi({ transactions: { find: finder } });
 		const id = '0196f4a2-7c1e-7000-8000-000000000001';
 
 		expect(await findTransaction({ handle, id })).toEqual({ ok: true, data: found, errors: [] });
@@ -220,7 +220,7 @@ describe('a transaction', () => {
 
 	it('is not found with an id that is not one, without asking the API', async () => {
 		const finder = vi.fn();
-		useApi({ findTransaction: finder });
+		useApi({ transactions: { find: finder } });
 
 		expect(await findTransaction({ handle, id: 'new' })).toEqual({
 			ok: false,

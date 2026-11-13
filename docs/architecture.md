@@ -62,7 +62,7 @@ Function names say what a function does: `find`, `list`, `read`, `create`, `save
 
 ## The API
 
-`packages/contract` declares each procedure with oRPC: a route, valibot schemas for the input and output, and the errors it can answer. The server implements the contract and the web app calls it through a typed client, so the two cannot drift. oRPC is only the transport. Application code never imports it, and a handler in `packages/server/src/api` is the one place that turns an application function into an answer.
+`packages/contract` declares each procedure with oRPC: a route, valibot schemas for the input and output, and the errors it can answer. Procedures are nested by subject (`accounts`, `auth`, `files`, `ledger`, `refinement`, `schemas`, `statements`, `transactions`), so a client calls `client.schemas.list()`, and the router in `packages/server/src/api` is nested the same way. The server implements the contract and the web app calls it through a typed client, so the two cannot drift. oRPC is only the transport. Application code never imports it, and a handler in `packages/server/src/api` is the one place that turns an application function into an answer.
 
 Every route is plain REST, and `/api/openapi.json` describes them. A schema that reads a value in, like `Day`, decodes it, and the matching `DayOut` encodes it on the way out.
 
@@ -84,7 +84,7 @@ Opening a ledger's transactions goes through these steps:
 
 1. The page calls `listTransactions` in `transactions.remote.ts`, which validates its input.
 2. The remote function calls the API through the client of the request, and sends the session token as a bearer.
-3. The handler in `packages/server/src/api/transactions.ts` checks the token, and `inLedger` checks that the signed-in user may open this ledger.
+3. The handler in `packages/server/src/api/handler-transactions.ts` checks the token, and `inLedger` checks that the signed-in user may open this ledger.
 4. `Transactions.listTransactions` in `application/` calls `DB.listTransactions`.
 5. The adapter runs one indexed query for one page. Lists page by keyset, on date, time and id, and filter in the database, so no request loads a whole ledger ([ADR 0015](adr/0015-lists-page-by-keyset-and-filter-in-the-database.md)).
 6. The answer goes back the same way. The remote function shapes it for the page.

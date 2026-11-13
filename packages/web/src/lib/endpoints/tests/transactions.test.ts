@@ -12,7 +12,7 @@ const page = { rows: [], next: null };
 describe('transactions', () => {
 	it('list the span of the period, leaving out an account or description left empty', async () => {
 		const listed = vi.fn().mockResolvedValue(page);
-		useApi({ listTransactions: listed });
+		useApi({ transactions: { list: listed } });
 
 		await listTransactions({
 			handle: 'home',
@@ -35,7 +35,7 @@ describe('transactions', () => {
 
 	it('continue after the cursor of the page before', async () => {
 		const listed = vi.fn().mockResolvedValue(page);
-		useApi({ listTransactions: listed, listPostings: listed });
+		useApi({ transactions: { list: listed, listPostings: listed } });
 		const cursor = {
 			date: '2026-08-29',
 			time: '09:30:00',
@@ -68,7 +68,7 @@ describe('transactions', () => {
 				},
 			],
 		};
-		useApi({ listTransactions: () => Promise.resolve({ rows: [row], next: null }) });
+		useApi({ transactions: { list: () => Promise.resolve({ rows: [row], next: null }) } });
 
 		const listed = await listTransactions({ handle: 'home', day, filter, after: null });
 
@@ -89,7 +89,9 @@ describe('transactions', () => {
 			account: 'Expenses:Food',
 			quantity: { amount: '100.00', commodity: 'INR', price: null, cost: null },
 		};
-		useApi({ listPostings: () => Promise.resolve({ rows: [posting], next: null }) });
+		useApi({
+			transactions: { listPostings: () => Promise.resolve({ rows: [posting], next: null }) },
+		});
 
 		const listed = await listPostings({ handle: 'home', day, filter, after: null });
 
@@ -97,7 +99,7 @@ describe('transactions', () => {
 	});
 
 	it('answer a failure of the server as the reply', async () => {
-		useApi({ listTransactions: () => Promise.reject(new Error('down')) });
+		useApi({ transactions: { list: () => Promise.reject(new Error('down')) } });
 
 		const listed = await listTransactions({ handle: 'home', day, filter, after: null });
 

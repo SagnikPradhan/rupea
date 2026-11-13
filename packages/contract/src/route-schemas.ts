@@ -5,11 +5,11 @@ import { Handle } from '@rupea/shared/handle.ts';
 import * as v from 'valibot';
 import { errors } from './errors.ts';
 
-export const listSchemas = oc
+const listSchemas = oc
 	.route({
 		method: 'GET',
 		path: '/ledgers/{handle}/schemas',
-		operationId: 'listSchemas',
+		operationId: 'schemas.list',
 		description: dedent`
 			Lists the extraction schemas of the ledger by key, without their text.
 
@@ -20,11 +20,11 @@ export const listSchemas = oc
 	.errors(errors)
 	.output(v.array(EntryOut));
 
-export const readSchema = oc
+const readSchema = oc
 	.route({
 		method: 'GET',
 		path: '/ledgers/{handle}/schemas/{key}',
-		operationId: 'readSchema',
+		operationId: 'schemas.read',
 		description: dedent`
 			Answers an extraction schema with its text and version.
 
@@ -36,11 +36,11 @@ export const readSchema = oc
 	.errors(errors)
 	.output(FileOut);
 
-export const saveSchema = oc
+const saveSchema = oc
 	.route({
 		method: 'PUT',
 		path: '/ledgers/{handle}/schemas/{key}',
-		operationId: 'saveSchema',
+		operationId: 'schemas.save',
 		description: dedent`
 			Writes an extraction schema that reads, replacing the one by that key, and
 			answers it.
@@ -52,11 +52,11 @@ export const saveSchema = oc
 	.errors(errors)
 	.output(FileOut);
 
-export const deleteSchema = oc
+const deleteSchema = oc
 	.route({
 		method: 'DELETE',
 		path: '/ledgers/{handle}/schemas/{key}',
-		operationId: 'deleteSchema',
+		operationId: 'schemas.delete',
 		description: dedent`
 			Deletes an extraction schema.
 
@@ -66,3 +66,10 @@ export const deleteSchema = oc
 	})
 	.input(v.object({ handle: Handle, key: SchemaKey }))
 	.errors(errors);
+
+export const schemas = {
+	list: listSchemas,
+	read: readSchema,
+	save: saveSchema,
+	delete: deleteSchema,
+};

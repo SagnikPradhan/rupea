@@ -1,4 +1,5 @@
-import { dirname, relative, resolve, sep } from 'node:path';
+import { existsSync } from 'node:fs';
+import { dirname, join, relative, resolve, sep } from 'node:path';
 import { ESLintUtils, type TSESTree } from '@typescript-eslint/utils';
 
 type Place = 'shared' | 'contract' | 'server' | 'web';
@@ -45,14 +46,15 @@ export const packageBoundaries = createRule({
 
 	create(context, [options]) {
 		const file = resolve(context.cwd, context.filename);
-		const from = placeOf(context.cwd, file);
+		const root = rootOf(dirname(file));
+		const from = placeOf(root, file);
 		if (!from) return {};
 
 		const check = (node: TSESTree.Node, source: string) => {
 			if (from === 'shared' && FRAMEWORK.test(source))
 				return context.report({ node, messageId: 'framework', data: { source } });
 
-			const to = targetOf(context.cwd, file, source);
+			const to = targetOf(root, file, source);
 			if (!to || !FORBIDDEN[from].includes(to)) return;
 			if (from === 'web' && options.allowServer) return;
 			context.report({ node, messageId: 'crossing', data: { from, to, source } });
@@ -70,8 +72,11 @@ export const packageBoundaries = createRule({
 	},
 });
 
-const placeOf = (cwd: string, path: string): Place | null => {
-	const inRepo = relative(cwd, path).split(sep).join('/');
+const rootOf = (d: string): string =>
+	existsSync(join(d, 'pnpm-workspace.yaml')) || dirname(d) === d ? d : rootOf(dirname(d));
+
+const placeOf = (root: string, path: string): Place | null => {
+	const inRepo = relative(root, path).split(sep).join('/');
 	if (inRepo.startsWith('packages/shared/')) return 'shared';
 	if (inRepo.startsWith('packages/contract/')) return 'contract';
 	if (inRepo.startsWith('packages/server/')) return 'server';
@@ -79,8 +84,8 @@ const placeOf = (cwd: string, path: string): Place | null => {
 	return 'web';
 };
 
-const targetOf = (cwd: string, file: string, source: string): Place | null => {
-	if (source.startsWith('.')) return placeOf(cwd, resolve(dirname(file), source));
+const targetOf = (root: string, file: string, source: string): Place | null => {
+	if (source.startsWith('.')) return placeOf(root, resolve(dirname(file), source));
 	const prefix = Object.keys(SPECIFIERS).find((p) => source.startsWith(p));
 	return prefix ? (SPECIFIERS[prefix] ?? null) : null;
 };

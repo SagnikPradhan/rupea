@@ -19,6 +19,17 @@ const messages = (path: string, code: string, options = {}) =>
 	linter.verify(code, config(options), join(process.cwd(), path)).map((m) => m.message);
 
 describe('package boundaries', () => {
+	it('finds the packages from the file, not from where eslint started', () =>
+		expect(
+			new Linter({ cwd: join(process.cwd(), 'packages') })
+				.verify(
+					"import a from '#services/auth/application/auth.ts';",
+					config({}),
+					join(process.cwd(), 'packages/server/src/server.ts'),
+				)
+				.map((m) => m.message),
+		).toEqual([]));
+
 	it('lets shared import its own files', () =>
 		expect(messages('packages/shared/src/dates.ts', "import a from './text';")).toEqual([]));
 

@@ -1,6 +1,6 @@
 # Design
 
-Read this before any change to the app or to rupea.app. The Penpot file is the design. This document says its rules in words, and the tokens in `packages/theme/tokens.css` are its token sets, name for name. The reasons are in [ADR 0012](adr/0012-design-from-penpot.md).
+Read this before any change to the app or to rupea.app. The Penpot file is the design. This document says its rules in words, and the tokens in `packages/theme/src/tokens.css` are its token sets, name for name. The reasons are in [ADR 0012](adr/0012-design-from-penpot.md).
 
 > Rupea is paper-like: a plain surface, ink, and nothing that is not in the file. Numbers come first, in a monospace face. Panels and controls share one soft corner, and colour appears only where money moves.
 

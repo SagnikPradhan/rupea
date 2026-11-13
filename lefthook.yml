@@ -8,7 +8,7 @@ pre-commit:
   commands:
     prettier:
       glob: '*.{js,ts,svelte,astro,json,md,yml,yaml,css,html}'
-      exclude: ['packages/site/src/content/manual/glossary.md']
+      exclude: ['docs/manual/glossary.md', 'docs/manual/roadmap.md']
       run: pnpm exec prettier --write {staged_files}
       stage_fixed: true
     eslint:
@@ -19,6 +19,5 @@ pre-commit:
       run: pnpm exec stylelint {staged_files}
     harper:
       glob: '*.{ts,js,md}'
-      exclude:
-        ['packages/server/drizzle/**', '.agents/**', 'packages/site/src/content/manual/glossary.md']
+      exclude: ['packages/server/drizzle/**', '.agents/**', 'docs/manual/glossary.md']
       run: pnpm lint:prose {staged_files}

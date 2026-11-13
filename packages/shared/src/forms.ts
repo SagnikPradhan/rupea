@@ -12,7 +12,7 @@ const PERCENT = /^\d+(\.\d+)?%?$/;
 const WHOLE = /^\d+$/;
 
 /** Groups are made on the refine page, which keeps both sides of a link in step. */
-const GROUP_KEYS = ['group', 'same-as'];
+const GROUP_KEYS = new Set(['group', 'same-as']);
 
 const Line = v.pipe(v.string(), v.trim());
 
@@ -27,7 +27,7 @@ const Entry = v.object({
 	key: v.pipe(
 		Line,
 		v.regex(KEY, 'A key is one word.'),
-		v.check((k) => !GROUP_KEYS.includes(k), 'Groups are made on the refine page.'),
+		v.check((k) => !GROUP_KEYS.has(k), 'Groups are made on the refine page.'),
 	),
 	value: v.pipe(Line, v.nonEmpty('Write a value.')),
 });

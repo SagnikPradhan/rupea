@@ -1,17 +1,17 @@
+import { errAsync, okAsync, ResultAsync } from '#lib/server/shared/result/result.ts';
+import { BEGINNING, type Bucket, type Span } from '@rupea/shared/dates.ts';
 import type { Batch } from '@rupea/shared/errors.ts';
 import { fault, type RupeaError } from '@rupea/shared/errors.ts';
-import { errAsync, okAsync, ResultAsync } from '#lib/server/shared/result/result.ts';
 import { ASSETS, LIABILITIES } from '@rupea/shared/money.ts';
-import { BEGINNING, type Bucket, type Span } from '@rupea/shared/dates.ts';
 import * as DB from '../adapters/database';
 import { DEFAULT_COMMODITY, type Amount, type Quantity } from '../domain/amounts';
-import { costOn, unpricedIn } from '../domain/cost';
 import { bridgeOf, type Bridge } from '../domain/bridge';
+import { costOn, unpricedIn } from '../domain/cost';
+import { dailyOf, deltasOf, type Daily, type Deltas } from '../domain/deltas';
 import { dropsOf, type Drops } from '../domain/drawdown';
 import { byAccount, HOPS, pricedIn, valued, type Account, type Holding } from '../domain/holdings';
 import { type LotHistory } from '../domain/lots';
 import { returnsOf, type Returns } from '../domain/returns';
-import { dailyOf, deltasOf, type Daily, type Deltas } from '../domain/deltas';
 import { INVESTMENT_INCOME } from '../domain/taxonomy';
 import { idsUnder, parentsIn, partsIn, type AccountNode } from '../domain/tree';
 import type { Ledger } from '../domain/types';
@@ -27,10 +27,9 @@ import {
 } from '../domain/worth';
 import { checkLots } from './sync-after';
 
-export type { Account };
 export type { LotHistory } from '../domain/lots';
 export type { Worth } from '../domain/worth';
-export type { Bridge, Daily, Drops, Returns, Deltas };
+export type { Account, Bridge, Daily, Deltas, Drops, Returns };
 
 /**
  * The most days a span may cover, counted from the later of its start and the

@@ -6,6 +6,7 @@ on:
     paths:
       - packages/site/**
       - packages/theme/**
+      - docs/manual/**
       - GLOSSARY.md
       - ROADMAP.md
       - .github/workflows/pages.yml

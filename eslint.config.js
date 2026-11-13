@@ -26,7 +26,7 @@ export default defineConfig(
 		'data/',
 		'packages/web/build/',
 		'packages/web/.svelte-kit/',
-		'drizzle/',
+		'packages/server/drizzle/',
 		'coverage/',
 		'.claude/',
 		'packages/site/dist/',

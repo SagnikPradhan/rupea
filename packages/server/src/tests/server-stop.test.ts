@@ -59,10 +59,8 @@ describe('stopping the server', () => {
 });
 
 describe('requiring the migrations', () => {
-	it('names the folder and the directory when it is missing', () => {
-		expect(() => requireMigrations('no-such-folder')).toThrow(
-			/No no-such-folder folder in .*repository root/,
-		);
-		expect(() => requireMigrations('.')).not.toThrow();
+	it('finds the server migrations from any working directory', () => {
+		expect(requireMigrations()).toMatch(/packages\/server\/drizzle$/);
+		expect(() => requireMigrations('/')).toThrow(/No drizzle folder above/);
 	});
 });

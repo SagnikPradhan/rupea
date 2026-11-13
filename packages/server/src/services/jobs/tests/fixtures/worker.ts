@@ -1,4 +1,4 @@
-import { fault, type RupeaError } from '@rupea/shared/error.ts';
+import { fault, type RupeaError } from '@rupea/shared/errors.ts';
 
 type Claimed = { payload: { word: string } };
 

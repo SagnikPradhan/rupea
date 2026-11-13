@@ -1,6 +1,6 @@
 import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
-import type { RupeaError } from '@rupea/shared/error.ts';
-import { IMPORTS } from '@rupea/shared/folders.ts';
+import type { RupeaError } from '@rupea/shared/errors.ts';
+import { IMPORTS } from '@rupea/shared/files.ts';
 import {
 	type Amount,
 	DEFAULT_COMMODITY,

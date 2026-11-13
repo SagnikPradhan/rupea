@@ -1,5 +1,5 @@
 import { withContext } from '#lib/server/shared/context/context.ts';
-import { fault, type RupeaError } from '@rupea/shared/error.ts';
+import { fault, type RupeaError } from '@rupea/shared/errors.ts';
 import { inOrder, ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { enqueue } from '#services/jobs/application/jobs.ts';
 import * as DB from '../adapters/database';

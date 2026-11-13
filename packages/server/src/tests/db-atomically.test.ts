@@ -1,6 +1,6 @@
 import { atomically } from '#lib/server/db/atomically.ts';
 import { provide, withContext } from '#lib/server/shared/context/context.ts';
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { attempt, errAsync, okAsync } from '#lib/server/shared/result/result.ts';
 import { count } from '@rupea/server/tests/shared/count.ts';
 import { it } from '@rupea/server/tests/shared/vitest.ts';

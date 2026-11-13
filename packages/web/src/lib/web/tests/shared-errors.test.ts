@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fault, type RupeaError } from '@rupea/shared/error.ts';
+import { fault, type RupeaError } from '@rupea/shared/errors.ts';
 import { detail, explain, isWarning, placesOf } from '#lib/web/shared/errors.ts';
 
 const at = 'a.rupea:4';

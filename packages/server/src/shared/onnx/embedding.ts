@@ -1,7 +1,7 @@
 import type { Tokenizer } from '@huggingface/tokenizers';
 import * as v from 'valibot';
 import { safely } from '../control';
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { err, ok, type Result } from '../result/result';
 import type { ModelFile } from './download';
 

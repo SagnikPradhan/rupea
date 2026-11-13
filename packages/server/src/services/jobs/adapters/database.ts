@@ -3,7 +3,7 @@ import { atomically } from '#lib/server/db/atomically.ts';
 import { json, noneOf } from '#lib/server/db/expressions.ts';
 import type { Tables } from '#lib/server/db/tables.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
-import type { RupeaError } from '@rupea/shared/error.ts';
+import type { RupeaError } from '@rupea/shared/errors.ts';
 import { attempt, errAsync, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { sql, type Expression, type ExpressionBuilder } from 'kysely';
 import { JobStatus } from '../domain/jobs';

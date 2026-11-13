@@ -35,7 +35,7 @@ describe('package boundaries', () => {
 
 	it('lets the server import shared and its own aliases', () => {
 		expect(
-			messages('packages/server/src/db/index.ts', "import a from '@rupea/shared/error.ts';"),
+			messages('packages/server/src/db/index.ts', "import a from '@rupea/shared/errors.ts';"),
 		).toEqual([]);
 		expect(
 			messages(

@@ -1,4 +1,4 @@
-import { fault, type RupeaError } from '@rupea/shared/error.ts';
+import { fault, type RupeaError } from '@rupea/shared/errors.ts';
 import { formatQuantity, sum } from './amounts';
 import { displayLocation } from './parser';
 import { accountType, BALANCE_TYPES } from './taxonomy';

@@ -1,7 +1,7 @@
 import { sql } from 'kysely';
 import type { Database } from './index';
 import { provide, withContext } from '../shared/context/context';
-import { unknownError, type RupeaError } from '@rupea/shared/error.ts';
+import { unknownError, type RupeaError } from '@rupea/shared/errors.ts';
 import { attempt, type ResultAsync } from '../shared/result/result';
 
 const ROLLBACK = 'rolled back';

@@ -8,7 +8,7 @@ import {
 	viewSuggestion,
 	viewTransaction,
 } from '#lib/endpoints/views.ts';
-import { parseAmount } from '@rupea/shared/amounts.ts';
+import { parseAmount } from '@rupea/shared/money.ts';
 import { describe, expect, it } from 'vitest';
 
 const location = { file: 'bank.rupea', line: 12 };

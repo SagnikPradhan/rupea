@@ -10,7 +10,7 @@
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
 	import { placesOf } from '#lib/web/shared/errors.ts';
 	import { ledger } from '#lib/web/shared/ledger-syntax.ts';
-	import { isCounted } from '@rupea/shared/folders.ts';
+	import { isCounted } from '@rupea/shared/files.ts';
 
 	type Props = {
 		handle: string;

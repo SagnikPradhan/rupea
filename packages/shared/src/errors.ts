@@ -136,3 +136,19 @@ export const fault = <T extends RupeaError['type']>(
 
 export const unknownError = (t: unknown) =>
 	fault('UnknownError', { message: t instanceof Error ? t.message : String(t) });
+
+/**
+ * What a call that works through many things answers: those it did, and why the
+ * rest did not.
+ */
+export type Batch<T> = { succeeded: T[]; failed: RupeaError[] };
+
+/**
+ * The answer to a call; its flag is false whenever errors rode along, even with
+ * data.
+ */
+export type Reply<T> = {
+	ok: boolean;
+	data: T | null;
+	errors: RupeaError[];
+};

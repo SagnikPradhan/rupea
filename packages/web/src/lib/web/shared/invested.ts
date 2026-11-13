@@ -1,6 +1,5 @@
 import * as v from 'valibot';
-import { ASSETS, BalanceAccount } from '@rupea/shared/accounts.ts';
-import { type Amount, ZERO, toNumber } from '@rupea/shared/amounts.ts';
+import { ASSETS, BalanceAccount, type Amount, ZERO, toNumber } from '@rupea/shared/money.ts';
 import { periodIn } from './filter';
 import { depthOf, isDirectlyUnder, isUnder, nameOf } from './accounts';
 

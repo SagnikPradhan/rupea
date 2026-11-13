@@ -1,5 +1,5 @@
 import { withContext } from '#lib/server/shared/context/context.ts';
-import type { RupeaError } from '@rupea/shared/error.ts';
+import type { RupeaError } from '@rupea/shared/errors.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 
 /** A ledger's problems, by file and then in the order they were found. */

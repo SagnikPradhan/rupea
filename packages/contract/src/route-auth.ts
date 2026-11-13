@@ -1,7 +1,7 @@
 import { oc } from '@orpc/contract';
 import dedent from 'dedent';
 import { InstantOut } from '@rupea/shared/dates.ts';
-import { Email } from '@rupea/shared/email.ts';
+import { Email } from '@rupea/shared/text.ts';
 import * as v from 'valibot';
 import { errors } from './errors.ts';
 

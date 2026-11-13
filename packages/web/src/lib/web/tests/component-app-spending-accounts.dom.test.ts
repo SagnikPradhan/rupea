@@ -1,6 +1,6 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
-import { type Amount, parseAmount } from '@rupea/shared/amounts.ts';
+import { type Amount, parseAmount } from '@rupea/shared/money.ts';
 import SpendingAccounts from '#lib/web/components/app-spending-accounts/app-spending-accounts.svelte';
 
 const on = (d: string) => Temporal.PlainDate.from(d);

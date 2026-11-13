@@ -1,7 +1,7 @@
 import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
-import { Terms } from '@rupea/shared/terms.ts';
+import { Terms } from '@rupea/shared/forms.ts';
 import * as v from 'valibot';
 import { parseTree } from './parser';
 import { print } from './printer';

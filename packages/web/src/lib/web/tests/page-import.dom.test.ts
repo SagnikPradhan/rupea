@@ -29,7 +29,7 @@ import {
 	readSchema,
 	saveSchema,
 } from '#lib/endpoints/schemas.remote.ts';
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { goto } from '#tests/shared/app-navigation.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer, respond } from '#tests/shared/queries.ts';

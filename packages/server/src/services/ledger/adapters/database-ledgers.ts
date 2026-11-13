@@ -1,7 +1,7 @@
 import { attemptWrite, violates } from '#lib/server/db/errors.ts';
 import type { Database } from '#lib/server/db/index.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { attempt, err, ok, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { sql } from 'kysely';
 import type { Ledger } from '../domain/types';

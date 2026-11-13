@@ -1,6 +1,6 @@
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { errAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { TEXT_EXTENSIONS } from '@rupea/shared/statements.ts';
+import { TEXT_EXTENSIONS } from '@rupea/shared/files.ts';
 import { extname } from 'node:path';
 import type { Contents, LockedUpload, Upload } from '../domain/types';
 import { readPdf, unlockPdf } from './reader-pdf';

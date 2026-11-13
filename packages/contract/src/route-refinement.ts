@@ -1,7 +1,7 @@
 import { oc } from '@orpc/contract';
 import dedent from 'dedent';
 import { Key, Line } from '@rupea/shared/files.ts';
-import { Handle } from '@rupea/shared/handle.ts';
+import { Handle } from '@rupea/shared/text.ts';
 import * as v from 'valibot';
 import { batchOf, errors } from './errors.ts';
 import { Fingerprint, Group, GroupId, LinkEdit, MOST_EDITS, Suggestion } from './shape-ledger.ts';

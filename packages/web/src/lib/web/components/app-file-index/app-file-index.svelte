@@ -1,12 +1,12 @@
 <script lang="ts">
 	import { deleteFiles, listFiles, renameFiles } from '#lib/endpoints/files.remote.ts';
-	import type { RupeaError } from '@rupea/shared/error.ts';
+	import type { RupeaError } from '@rupea/shared/errors.ts';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
 	import { formatMoment, formatSize } from '#lib/web/shared/format.ts';
-	import { isCounted } from '@rupea/shared/folders.ts';
+	import { isCounted } from '@rupea/shared/files.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';
 	import IconCollapsed from '@tabler/icons-svelte-runes/icons/chevron-right';
 	import IconExpanded from '@tabler/icons-svelte-runes/icons/chevron-down';

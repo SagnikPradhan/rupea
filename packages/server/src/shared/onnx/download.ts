@@ -5,7 +5,7 @@ import { join } from 'node:path';
 import { Readable } from 'node:stream';
 import { pipeline } from 'node:stream/promises';
 import type { ReadableStream as NodeReadableStream } from 'node:stream/web';
-import { fault, unknownError } from '@rupea/shared/error.ts';
+import { fault, unknownError } from '@rupea/shared/errors.ts';
 import { attempt, errAsync, okAsync, type ResultAsync } from '../result/result';
 import type { Logger } from '../context/logger';
 

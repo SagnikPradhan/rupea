@@ -1,5 +1,5 @@
 import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
 import { GROUP_KEY, GROUP_KEYS, linksOf, type GroupLink, type GroupRole } from './groups';
 import { parse, readEntry } from './parser';

@@ -1,12 +1,12 @@
 import { replyFromBatchCall, replyFromCall } from './reply';
 import { Day, Period, type Span, spansOf } from '@rupea/shared/dates.ts';
-import { BalanceAccount, FlowAccount } from '@rupea/shared/accounts.ts';
-import { TermsForm } from '@rupea/shared/terms.ts';
+import { BalanceAccount, FlowAccount } from '@rupea/shared/money.ts';
+import { TermsForm } from '@rupea/shared/forms.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
 import { api } from './api';
 import { listProblems } from './ledger.remote';
-import { Handle } from '@rupea/shared/handle.ts';
+import { Handle } from '@rupea/shared/text.ts';
 import { viewAccount, viewDeltas, viewLot } from './views';
 
 const writtenSpan = ({ from, to }: Span) => ({ from: from.toString(), to: to.toString() });

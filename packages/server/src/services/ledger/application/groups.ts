@@ -1,7 +1,7 @@
 import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { batchInOrder } from '#lib/server/shared/result/batch.ts';
-import { fault, type RupeaError } from '@rupea/shared/error.ts';
+import { fault, type RupeaError } from '@rupea/shared/errors.ts';
 import {
 	errAsync,
 	inOrder,

@@ -1,5 +1,4 @@
-import { EntryOut, Key, MOST_KEYS } from '@rupea/shared/files.ts';
-import { StatementKey } from '@rupea/shared/statements.ts';
+import { EntryOut, Key, MOST_KEYS, StatementKey } from '@rupea/shared/files.ts';
 import * as v from 'valibot';
 
 export const Version = v.string();

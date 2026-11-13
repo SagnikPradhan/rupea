@@ -1,4 +1,4 @@
-import type { RupeaError } from '@rupea/shared/error.ts';
+import type { RupeaError } from '@rupea/shared/errors.ts';
 import { okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { BEGINNING, coverOf } from '@rupea/shared/dates.ts';
 import * as DB from '../adapters/database';

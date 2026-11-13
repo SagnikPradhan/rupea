@@ -1,6 +1,6 @@
 import { StorageKind } from '#lib/server/shared/storage/storage.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import {
 	err,
 	ok,

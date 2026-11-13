@@ -1,6 +1,6 @@
 import { Day, spansOf } from '@rupea/shared/dates.ts';
 import { Filter } from '#lib/web/shared/filter.ts';
-import { Handle } from '@rupea/shared/handle.ts';
+import { Handle } from '@rupea/shared/text.ts';
 import { query } from '$app/server';
 import * as v from 'valibot';
 import { api } from './api';

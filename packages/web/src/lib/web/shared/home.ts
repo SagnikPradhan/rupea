@@ -1,4 +1,4 @@
-import { type Amount, ZERO, byAmount, printAmount, sum } from '@rupea/shared/amounts.ts';
+import { type Amount, ZERO, byAmount, printAmount, sum } from '@rupea/shared/money.ts';
 import { depthOf, isUnder, nameOf } from './accounts';
 import type { Period } from '@rupea/shared/dates.ts';
 import { ALL_ACCOUNTS } from './choices';

@@ -1,6 +1,6 @@
 import type { Database } from '#lib/server/db/index.ts';
 import { provide, type RupeaContext } from '#lib/server/shared/context/context.ts';
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { err, ok } from '#lib/server/shared/result/result.ts';
 import { listJobs, runJob } from '#services/jobs/application/jobs.ts';
 import { handlers } from '#services/ledger/adapters/jobs.ts';

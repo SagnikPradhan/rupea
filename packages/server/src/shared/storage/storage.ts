@@ -1,6 +1,6 @@
 import { extname } from 'node:path';
 import { safely } from '../control';
-import { fault, type RupeaError } from '@rupea/shared/error.ts';
+import { fault, type RupeaError } from '@rupea/shared/errors.ts';
 import { err, ok, type Result, type ResultAsync } from '../result/result';
 
 const decoder = new TextDecoder('utf-8', { fatal: true });

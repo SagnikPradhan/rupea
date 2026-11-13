@@ -1,9 +1,9 @@
 import { oc } from '@orpc/contract';
 import dedent from 'dedent';
-import { BalanceAccount, EXPENSES, FlowAccount } from '@rupea/shared/accounts.ts';
+import { BalanceAccount, EXPENSES, FlowAccount } from '@rupea/shared/money.ts';
 import { Bucket, Day, Span } from '@rupea/shared/dates.ts';
-import { TermsForm } from '@rupea/shared/terms.ts';
-import { Handle } from '@rupea/shared/handle.ts';
+import { TermsForm } from '@rupea/shared/forms.ts';
+import { Handle } from '@rupea/shared/text.ts';
 import * as v from 'valibot';
 import { batchOf, errors } from './errors.ts';
 import {

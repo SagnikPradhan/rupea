@@ -1,4 +1,4 @@
-import type { RupeaError } from '@rupea/shared/error.ts';
+import type { RupeaError } from '@rupea/shared/errors.ts';
 import type { Amount, Quantity } from './amounts';
 
 export enum AccountType {

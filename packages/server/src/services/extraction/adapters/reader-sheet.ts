@@ -1,5 +1,5 @@
 import { safely } from '#lib/server/shared/control.ts';
-import { fault, unknownError } from '@rupea/shared/error.ts';
+import { fault, unknownError } from '@rupea/shared/errors.ts';
 import { attempt, errAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import officeCrypto from 'officecrypto-tool';
 import { parse } from 'csv-parse/sync';

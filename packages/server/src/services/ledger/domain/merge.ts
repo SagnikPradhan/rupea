@@ -1,5 +1,5 @@
 import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { err, ok } from '#lib/server/shared/result/result.ts';
 import { isBlank, isComment, isMetadata, isPosting, lines, parse, type RupeaLine } from './parser';
 import type { RupeaMetadata, RupeaTransaction } from './types';

@@ -1,8 +1,8 @@
 import { oc } from '@orpc/contract';
 import dedent from 'dedent';
 import { Key, Line } from '@rupea/shared/files.ts';
-import { TransactionForm, TransactionFormOut } from '@rupea/shared/transaction-form.ts';
-import { Handle } from '@rupea/shared/handle.ts';
+import { TransactionForm, TransactionFormOut } from '@rupea/shared/forms.ts';
+import { Handle } from '@rupea/shared/text.ts';
 import * as v from 'valibot';
 import { errors } from './errors.ts';
 import { Version } from './shape-files.ts';

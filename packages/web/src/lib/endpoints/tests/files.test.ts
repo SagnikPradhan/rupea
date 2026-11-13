@@ -17,7 +17,7 @@ import {
 } from '#lib/endpoints/files.remote.ts';
 import { listProblems } from '#lib/endpoints/ledger.remote.ts';
 import { refreshed, useApi } from '#tests/shared/app-server.ts';
-import type { TransactionForm } from '@rupea/shared/transaction-form.ts';
+import type { TransactionForm } from '@rupea/shared/forms.ts';
 import { describe, expect, it, vi } from 'vitest';
 
 vi.mock('$app/server', () => import('#tests/shared/app-server.ts'));

@@ -2,7 +2,7 @@ import { OpenAPIGenerator } from '@orpc/openapi';
 import { OpenAPIHandler } from '@orpc/openapi/fastify';
 import { ORPCError } from '@orpc/server';
 import { contract } from '@rupea/contract/contract.ts';
-import { RupeaError } from '@rupea/shared/error.ts';
+import { RupeaError } from '@rupea/shared/errors.ts';
 import Fastify, { type FastifyBaseLogger, type FastifyError, type FastifyRequest } from 'fastify';
 import * as Auth from '#services/auth/application/auth.ts';
 import { provide, type RupeaContext } from '#lib/server/shared/context/context.ts';

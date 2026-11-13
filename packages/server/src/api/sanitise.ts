@@ -1,6 +1,6 @@
 import { STATUS } from '@rupea/contract/errors.ts';
-import { fault, type RupeaError } from '@rupea/shared/error.ts';
-import type { Batch } from '@rupea/shared/reply.ts';
+import { fault, type RupeaError } from '@rupea/shared/errors.ts';
+import type { Batch } from '@rupea/shared/errors.ts';
 
 /**
  * The error as the client may see it. A 500 becomes a generic error, as the

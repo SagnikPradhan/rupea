@@ -4,7 +4,7 @@ import { randomUUID } from 'node:crypto';
 import { EventEmitter, on } from 'node:events';
 import { glob, mkdir, readFile, rename, rm, stat, writeFile } from 'node:fs/promises';
 import { dirname, join, relative, sep } from 'node:path';
-import { fault, type RupeaError, unknownError } from '@rupea/shared/error.ts';
+import { fault, type RupeaError, unknownError } from '@rupea/shared/errors.ts';
 import { attempt, err, ok, okAsync, type Result, ResultAsync, inOrder } from '../result/result';
 import { validateKey, type Entry, type Storage } from './storage';
 

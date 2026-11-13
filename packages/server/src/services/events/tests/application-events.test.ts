@@ -1,5 +1,5 @@
 import { provide } from '#lib/server/shared/context/context.ts';
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { errAsync, okAsync } from '#lib/server/shared/result/result.ts';
 import { publish, type Event, type Subscription } from '#services/events/application/events.ts';
 import { it } from '@rupea/server/tests/shared/vitest.ts';

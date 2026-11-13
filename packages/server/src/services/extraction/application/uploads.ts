@@ -1,10 +1,10 @@
 import { atomically } from '#lib/server/db/atomically.ts';
 import { batchInOrder } from '#lib/server/shared/result/batch.ts';
-import type { Batch } from '@rupea/shared/reply.ts';
+import type { Batch } from '@rupea/shared/errors.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { enqueue, listJobs, type UserJob } from '#services/jobs/application/jobs.ts';
 import { findImported } from '#services/ledger/application/files.ts';
-import { isCounted } from '@rupea/shared/folders.ts';
+import { isCounted } from '@rupea/shared/files.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
 import * as DB from '../adapters/database';
 import { importStatement } from './jobs';

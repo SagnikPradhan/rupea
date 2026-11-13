@@ -1,4 +1,4 @@
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
 import { safely } from '#lib/server/shared/control.ts';
 import { isDateFormat } from '#lib/server/shared/dates.ts';

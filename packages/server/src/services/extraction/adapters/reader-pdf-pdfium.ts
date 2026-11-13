@@ -1,6 +1,6 @@
 import type { Box, Image } from '#lib/server/shared/onnx/runtime.ts';
 import { safely } from '#lib/server/shared/control.ts';
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import {
 	attempt,
 	err,

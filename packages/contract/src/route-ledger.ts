@@ -1,7 +1,7 @@
 import { oc } from '@orpc/contract';
 import dedent from 'dedent';
 import { DayOut } from '@rupea/shared/dates.ts';
-import { Handle } from '@rupea/shared/handle.ts';
+import { Handle } from '@rupea/shared/text.ts';
 import * as v from 'valibot';
 import { batchOf, errors } from './errors.ts';
 

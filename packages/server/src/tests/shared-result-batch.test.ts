@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { batch, batchAsync, batchInOrder } from '#lib/server/shared/result/batch.ts';
-import type { RupeaError } from '@rupea/shared/error.ts';
+import type { RupeaError } from '@rupea/shared/errors.ts';
 import { err, errAsync, ok, okAsync } from '#lib/server/shared/result/result.ts';
 
 const error: RupeaError = { type: 'UnknownError', message: 'boom' };

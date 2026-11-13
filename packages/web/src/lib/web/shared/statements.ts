@@ -1,5 +1,4 @@
-import { isCounted } from '@rupea/shared/folders.ts';
-import { isLedgerFile } from '@rupea/shared/statements.ts';
+import { isCounted, isLedgerFile } from '@rupea/shared/files.ts';
 
 export type Status = 'added' | 'ready' | 'reading' | 'setup' | 'failed' | 'new';
 

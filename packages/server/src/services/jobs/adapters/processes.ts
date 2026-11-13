@@ -1,4 +1,4 @@
-import { fault, type RupeaError } from '@rupea/shared/error.ts';
+import { fault, type RupeaError } from '@rupea/shared/errors.ts';
 import { attempt, errAsync, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { Tinypool } from 'tinypool';
 import type { ClaimedJob } from './database';

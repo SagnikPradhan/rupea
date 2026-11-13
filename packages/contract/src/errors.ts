@@ -1,4 +1,4 @@
-import { RupeaError } from '@rupea/shared/error.ts';
+import { RupeaError } from '@rupea/shared/errors.ts';
 import * as v from 'valibot';
 
 /** The HTTP status each failure is answered with. */

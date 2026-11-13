@@ -1,7 +1,7 @@
 import { provide, withContext, type RupeaContext } from '#lib/server/shared/context/context.ts';
 import { withLogger } from '#lib/server/shared/context/logger.ts';
 import { batchAsync } from '#lib/server/shared/result/batch.ts';
-import { unknownError, type RupeaError } from '@rupea/shared/error.ts';
+import { unknownError, type RupeaError } from '@rupea/shared/errors.ts';
 import { okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { once } from 'node:events';
 import { setTimeout } from 'node:timers/promises';

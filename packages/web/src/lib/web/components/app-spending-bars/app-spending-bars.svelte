@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { ZERO, printAmount } from '@rupea/shared/amounts.ts';
+	import { ZERO, printAmount } from '@rupea/shared/money.ts';
 	import type { Bucket } from '@rupea/shared/dates.ts';
 	import { nameOf } from '#lib/web/shared/accounts.ts';
 	import { OTHER, PARTS } from '#lib/web/shared/chart.ts';

@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { dirname, join } from 'node:path';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { migrate as migrateNodePostgres } from 'drizzle-orm/node-postgres/migrator';
 import type { Pool } from 'pg';
@@ -6,24 +7,23 @@ import type { Pool } from 'pg';
 // Any number, as long as every instance uses the same one.
 const MIGRATION_LOCK = 7_265_783;
 
-const MIGRATIONS = 'drizzle';
-
 /**
- * Migrations are read from `drizzle` in the working directory, the repository
- * root.
+ * Finds the `drizzle` folder of the server package by walking up from the
+ * running file, which sits in `src` or in `dist`.
  */
-export const requireMigrations = (folder = MIGRATIONS) => {
-	if (existsSync(folder)) return;
+export const requireMigrations = (from = import.meta.dirname): string => {
+	const folder = join(from, 'drizzle');
+	if (existsSync(folder)) return folder;
+	const parent = dirname(from);
+	if (parent !== from) return requireMigrations(parent);
 	// eslint-disable-next-line functional/no-throw-statements -- the server cannot start without it
-	throw new Error(
-		`No ${folder} folder in ${process.cwd()}. Start the server from the repository root.`,
-	);
+	throw new Error(`No drizzle folder above ${import.meta.dirname}.`);
 };
 
 export const migrate = async (p: Pool) => {
 	await using lock = await withLock(p, MIGRATION_LOCK);
 	await migrateNodePostgres(drizzle({ client: lock.client, casing: 'snake_case' }), {
-		migrationsFolder: MIGRATIONS,
+		migrationsFolder: requireMigrations(),
 	});
 };
 

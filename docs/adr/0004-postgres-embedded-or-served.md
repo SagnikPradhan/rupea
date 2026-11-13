@@ -20,4 +20,4 @@ SQLite was dropped because it had no vector search on the ORM connection, weaker
 - A data directory belongs to one Postgres major version. portable-pg ships `pg_upgrade`, but moving off 18 is not built yet.
 - Data directories PGlite created cannot be opened: it is a 32-bit build and stores data in a different layout. Moving one needs a dump and restore.
 - Tests run on portable-pg, the same driver path the service uses. Each test file gets a copy of a template database migrated once per run.
-- Migrations are read from `drizzle/` relative to the working directory, so a packaged app must ship that directory beside the server.
+- Migrations are read from `packages/server/drizzle`, found by walking up from the server code, so a packaged app must ship that directory above the built server.

@@ -10,5 +10,5 @@
 		"allowImportingTsExtensions": true,
 		"noEmit": true
 	},
-	"include": ["lint", "drizzle.config.ts", "vitest.config.ts"]
+	"include": ["lint", "vitest.config.ts"]
 }

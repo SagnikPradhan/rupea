@@ -105,7 +105,7 @@ A transaction keeps its id through this while its date, time and description sta
 
 ## Work outside a request
 
-`packages/server/src/server.ts` lists every job, subscription and loop, and `startServer` starts them and the API. `main.ts` is the process that calls it: `pnpm dev` or `pnpm start` runs it beside the web app, which only needs `RUPEA_API_URL`. Past your own machine, make that URL `https`: the session token travels in every call. The server must start in the repository root, where it finds `drizzle` and the default `data` folders, or it stops with a message saying so.
+`packages/server/src/server.ts` lists every job, subscription and loop, and `startServer` starts them and the API. `main.ts` is the process that calls it: `pnpm dev` or `pnpm start` runs it beside the web app, which only needs `RUPEA_API_URL`. Past your own machine, make that URL `https`: the session token travels in every call. The server finds its `drizzle` migrations from its own location, so it starts from any directory, but the default `data` folder is relative to where it starts.
 
 **Event**: something a service announces it did, named in the past tense, with a valibot payload. `files-changed` says keys in a user's storage may have changed. Events are not stored, so one published as the process stops is lost ([ADR 0028](adr/0028-events-in-process.md)).
 

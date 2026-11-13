@@ -7,6 +7,6 @@ bun.lockb
 
 # Miscellaneous
 /packages/web/static/
-/drizzle/
+/packages/server/drizzle/
 /.claude/
 /packages/site/src/content/manual/glossary.md

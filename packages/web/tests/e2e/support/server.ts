@@ -80,14 +80,14 @@ export const withServer = async (use: (server: Server) => Promise<void>) => {
 	const api = `http://127.0.0.1:${apiPort}`;
 	const url = `http://127.0.0.1:${webPort}`;
 
-	const server = spawn('node', ['packages/server/dist/main.js'], {
+	const server = spawn('node', ['../server/dist/main.js'], {
 		env: {
 			...baseEnv(),
 			RUPEA_SERVER_HOST: '127.0.0.1',
 			RUPEA_SERVER_PORT: String(apiPort),
 			RUPEA_STORAGE_FILES: directory,
 			RUPEA_MODELS_MODE: 'verify',
-			RUPEA_MODELS_DIR: resolve('data/models'),
+			RUPEA_MODELS_DIR: resolve('../../data/models'),
 			RUPEA_LOG_LEVEL: 'info',
 			RUPEA_ACCOUNTS_SIGNUP: 'open',
 		},

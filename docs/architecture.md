@@ -30,9 +30,9 @@ Rupea runs as a server and a web app ([ADR 0037](adr/0037-a-server-process-and-a
 | `packages/server/src/shared`      | What belongs to no service: context, results, storage, ONNX          |
 | `packages/server/src/db`          | The connection, migrations and query helpers                         |
 | `packages/server/src/server.ts`   | Everything that runs outside a request                               |
-| `src/routes`                      | Pages                                                                |
-| `src/lib/endpoints`               | Remote functions, the web app's backend, which call the API          |
-| `src/lib/web`                     | Components and what only the web app needs                           |
+| `packages/web/src/routes`         | Pages                                                                |
+| `packages/web/src/lib/endpoints`  | Remote functions, the web app's backend, which call the API          |
+| `packages/web/src/lib/web`        | Components and what only the web app needs                           |
 | `packages/theme`, `packages/site` | The theme the app shares with the website, and the website           |
 
 Imports point one way: `shared <- contract <- {server, web}`. The server and the web app never import each other, and a lint rule enforces it.

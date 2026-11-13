@@ -10,7 +10,7 @@ import { localNameLength } from './lint/local-name-length.ts';
 import { packageBoundaries } from './lint/package-boundaries.ts';
 import { testLocation } from './lint/test-location.ts';
 
-const webMayImportServer = ['tests/e2e/support/*.ts'];
+const webMayImportServer = ['packages/web/tests/e2e/support/*.ts'];
 
 const rupea = {
 	rules: {
@@ -23,9 +23,9 @@ const rupea = {
 
 export default defineConfig(
 	globalIgnores([
-		'build/',
 		'data/',
-		'.svelte-kit/',
+		'packages/web/build/',
+		'packages/web/.svelte-kit/',
 		'drizzle/',
 		'coverage/',
 		'.claude/',
@@ -68,7 +68,7 @@ export default defineConfig(
 	{
 		...functional.configs.noExceptions,
 		files: ['**/*.ts'],
-		ignores: ['**/*.test.ts', 'tests/**', 'packages/*/tests/**'],
+		ignores: ['**/*.test.ts', 'packages/*/tests/**'],
 	},
 	{
 		files: ['packages/server/src/api/**/*.ts'],
@@ -84,7 +84,7 @@ export default defineConfig(
 				{ allow: ['sum', 'min', 'max', 'multiply', 'divide', 'negate', 'round'] },
 			],
 		},
-		ignores: ['**/*.test.ts', 'tests/**', 'packages/*/tests/**'],
+		ignores: ['**/*.test.ts', 'packages/*/tests/**'],
 	},
 	{
 		files: ['**/*.ts'],
@@ -147,7 +147,7 @@ export default defineConfig(
 		rules: { 'rupea/package-boundaries': ['error', { allowServer: true }] },
 	},
 	{
-		files: ['src/**/*.test.ts', 'packages/*/src/**/*.test.ts'],
+		files: ['packages/*/src/**/*.test.ts'],
 		plugins: { rupea },
 		rules: { 'rupea/test-location': 'error' },
 	},

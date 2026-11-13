@@ -1,12 +1,14 @@
 {
-	"extends": ["@tsconfig/strictest", "@tsconfig/svelte", "$app/tsconfig"],
-	"include": [
-		"src",
-		"lint",
-		"tests",
-		"vite.config.ts",
-		"playwright.config.ts",
-		"drizzle.config.ts",
-		"mcr.config.ts"
-	]
+	"extends": "@tsconfig/strictest",
+	"compilerOptions": {
+		"module": "esnext",
+		"moduleResolution": "bundler",
+		"target": "esnext",
+		"lib": ["esnext"],
+		"types": ["node"],
+		"verbatimModuleSyntax": true,
+		"allowImportingTsExtensions": true,
+		"noEmit": true
+	},
+	"include": ["lint", "drizzle.config.ts", "vitest.config.ts"]
 }

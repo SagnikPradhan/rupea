@@ -1,0 +1,4 @@
+{
+	"extends": ["@tsconfig/strictest", "@tsconfig/svelte", "$app/tsconfig"],
+	"include": ["src", "tests", "vite.config.ts", "playwright.config.ts", "mcr.config.ts"]
+}

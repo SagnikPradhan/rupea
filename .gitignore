@@ -1,8 +1,8 @@
 node_modules
 
 # Output
-/.svelte-kit
-/build
+/packages/web/.svelte-kit
+/packages/web/build
 /packages/server/dist/
 
 # Env

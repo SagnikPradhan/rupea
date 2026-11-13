@@ -36,15 +36,19 @@ jobs:
           key: models-${{ hashFiles('packages/server/src/shared/onnx/models.ts') }}
       - run: pnpm models
       - run: pnpm test:coverage
+      # The web app's run is rooted in its package; the reports name files from the repository.
+      - run: sed -i 's|^SF:|SF:packages/web/|' coverage/web/lcov.info
       - uses: coverallsapp/github-action@v2
         with:
-          file: coverage/lcov.info
+          files: coverage/lcov.info coverage/web/lcov.info
           flag-name: unit
           parallel: true
       - uses: actions/upload-artifact@v7
         with:
           name: coverage-unit
-          path: coverage/lcov.info
+          path: |
+            coverage/lcov.info
+            coverage/web/lcov.info
 
   e2e:
     runs-on: ubuntu-latest
@@ -58,7 +62,7 @@ jobs:
       - run: pnpm models
       # The runner image already has the libraries Chrome needs, and installing
       # them again through apt has taken up to 14 minutes on a slow mirror.
-      - run: pnpm playwright install --only-shell chromium
+      - run: pnpm --filter @rupea/web exec playwright install --only-shell chromium
       - run: pnpm test:e2e:coverage
       - if: ${{ !cancelled() }}
         uses: coverallsapp/github-action@v2

@@ -1,4 +1,5 @@
 import { oc } from '@orpc/contract';
+import dedent from 'dedent';
 import { Day } from '@rupea/shared/dates.ts';
 import { TransactionOut } from '@rupea/shared/transactions.ts';
 import { Handle } from '@rupea/shared/handle.ts';
@@ -30,23 +31,36 @@ const PostedCursor = v.object({ ...Cursor.entries, position: v.number() });
 
 const Transaction = v.object({ id: v.string(), counted: v.boolean(), ...TransactionOut.entries });
 
-/**
- * A page of transactions in a span, newest first; evidence of a group is listed
- * but not counted.
- */
 export const listTransactions = oc
 	.route({
 		method: 'GET',
 		path: '/ledgers/{handle}/transactions',
 		operationId: 'listTransactions',
+		description: dedent`
+			Lists a page of transactions between from and to, newest first, optionally
+			narrowed to an account or a description. Evidence of a group is listed but
+			not counted. Pass the next cursor as after to read the following page.
+
+			Fails with LedgerNotFound when the caller cannot open the ledger.
+		`,
 	})
 	.input(v.object({ ...Filter, after: v.optional(Cursor) }))
 	.errors(errors)
 	.output(v.object({ rows: v.array(Transaction), next: v.nullable(Cursor) }));
 
-/** A page of counted postings in a span, newest first. */
 export const listPostings = oc
-	.route({ method: 'GET', path: '/ledgers/{handle}/postings', operationId: 'listPostings' })
+	.route({
+		method: 'GET',
+		path: '/ledgers/{handle}/postings',
+		operationId: 'listPostings',
+		description: dedent`
+			Lists a page of counted postings between from and to, newest first,
+			optionally narrowed to an account or a description. Pass the next cursor
+			as after to read the following page.
+
+			Fails with LedgerNotFound when the caller cannot open the ledger.
+		`,
+	})
 	.input(v.object({ ...Filter, after: v.optional(PostingCursor) }))
 	.errors(errors)
 	.output(v.object({ rows: v.array(Posting), next: v.nullable(PostedCursor) }));

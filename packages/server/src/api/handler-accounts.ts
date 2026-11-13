@@ -3,7 +3,7 @@ import * as Terms from '#services/ledger/application/terms.ts';
 import { sanitiseBatch } from './sanitise.ts';
 import { inLedger, os, signedIn } from './session.ts';
 
-export const listAccounts = os.listAccounts
+const listAccounts = os.accounts.list
 	.use(signedIn)
 	.handler(async ({ input: { handle, day } }) =>
 		sanitiseBatch(
@@ -11,7 +11,7 @@ export const listAccounts = os.listAccounts
 		),
 	);
 
-export const listWorth = os.listWorth
+const listWorth = os.accounts.listWorth
 	.use(signedIn)
 	.handler(async ({ input: { handle, from, to, account } }) =>
 		sanitiseBatch(
@@ -22,7 +22,7 @@ export const listWorth = os.listWorth
 		),
 	);
 
-export const listInvested = os.listInvested
+const listInvested = os.accounts.listInvested
 	.use(signedIn)
 	.handler(async ({ input: { handle, from, to, account } }) =>
 		sanitiseBatch(
@@ -33,7 +33,7 @@ export const listInvested = os.listInvested
 		),
 	);
 
-export const findBridge = os.findBridge
+const findBridge = os.accounts.findBridge
 	.use(signedIn)
 	.handler(async ({ input: { handle, from, to } }) =>
 		sanitiseBatch(
@@ -41,7 +41,7 @@ export const findBridge = os.findBridge
 		),
 	);
 
-export const listDrops = os.listDrops
+const listDrops = os.accounts.listDrops
 	.use(signedIn)
 	.handler(async ({ input: { handle, from, to, account } }) =>
 		sanitiseBatch(
@@ -52,7 +52,7 @@ export const listDrops = os.listDrops
 		),
 	);
 
-export const listReturns = os.listReturns
+const listReturns = os.accounts.listReturns
 	.use(signedIn)
 	.handler(async ({ input: { handle, from, to } }) =>
 		sanitiseBatch(
@@ -60,7 +60,7 @@ export const listReturns = os.listReturns
 		),
 	);
 
-export const listDeltas = os.listDeltas
+const listDeltas = os.accounts.listDeltas
 	.use(signedIn)
 	.handler(async ({ input: { handle, spans, bucket, account } }) =>
 		sanitiseBatch(
@@ -71,7 +71,7 @@ export const listDeltas = os.listDeltas
 		),
 	);
 
-export const listDailyDeltas = os.listDailyDeltas
+const listDailyDeltas = os.accounts.listDailyDeltas
 	.use(signedIn)
 	.handler(async ({ input: { handle, from, to, account } }) =>
 		sanitiseBatch(
@@ -82,7 +82,7 @@ export const listDailyDeltas = os.listDailyDeltas
 		),
 	);
 
-export const listLots = os.listLots
+const listLots = os.accounts.listLots
 	.use(signedIn)
 	.handler(async ({ input: { handle, account, commodity } }) =>
 		sanitiseBatch(
@@ -93,24 +93,40 @@ export const listLots = os.listLots
 		),
 	);
 
-export const listAccountTree = os.listAccountTree
+const listAccountTree = os.accounts.listTree
 	.use(signedIn)
 	.handler(({ input }) => inLedger({ handle: input.handle, action: Accounts.listAccountTree }));
 
-export const listAccountNames = os.listAccountNames
+const listAccountNames = os.accounts.listNames
 	.use(signedIn)
 	.handler(({ input: { handle, prefix } }) =>
 		inLedger({ handle, action: (l) => Accounts.listAccountNames({ ledger: l, prefix }) }),
 	);
 
-export const listTerms = os.listTerms
+const listTerms = os.accounts.listTerms
 	.use(signedIn)
 	.handler(({ input: { handle, day } }) =>
 		inLedger({ handle, action: (l) => Terms.listTerms({ ledger: l, day: day.toString() }) }),
 	);
 
-export const saveTerms = os.saveTerms
+const saveTerms = os.accounts.saveTerms
 	.use(signedIn)
 	.handler(({ input: { handle, account, entries } }) =>
 		inLedger({ handle, action: (l) => Terms.saveTerms({ ledger: l, account, entries }) }),
 	);
+
+export const accounts = {
+	list: listAccounts,
+	listWorth,
+	listInvested,
+	findBridge,
+	listDrops,
+	listReturns,
+	listDeltas,
+	listDailyDeltas,
+	listLots,
+	listTree: listAccountTree,
+	listNames: listAccountNames,
+	listTerms,
+	saveTerms,
+};

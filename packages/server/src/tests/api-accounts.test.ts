@@ -443,7 +443,11 @@ describe('the api', () => {
 			const client: Client = createORPCClient(link);
 
 			const first = (
-				await client.listWorth({ handle: ledger.handle, from: '2026-10-01', to: '2026-10-01' })
+				await client.accounts.listWorth({
+					handle: ledger.handle,
+					from: '2026-10-01',
+					to: '2026-10-01',
+				})
 			).succeeded[0];
 
 			expect(first).toEqual(worth);

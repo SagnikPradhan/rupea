@@ -71,7 +71,7 @@ describe('uploading statements', () => {
 
 	it('deletes nothing, and calls nothing, for no statements', async () => {
 		const deleted = vi.fn();
-		useApi({ deleteStatements: deleted });
+		useApi({ statements: { delete: deleted } });
 
 		expect(await deleteStatements({ handle: 'home', keys: [] })).toEqual({
 			ok: true,
@@ -83,7 +83,7 @@ describe('uploading statements', () => {
 
 	it('refuses a name past 255 bytes, and more than 50 files, before the call', async () => {
 		const upload = vi.fn();
-		useApi({ uploadStatements: upload });
+		useApi({ statements: { upload } });
 		const long = new File(['a'], `${'a'.repeat(256)}.csv`);
 		const many = Array.from({ length: 51 }, (_, i) => new File(['a'], `${i}.csv`));
 
@@ -126,7 +126,7 @@ describe('a statement', () => {
 		const read = vi.fn().mockResolvedValue({ key: statement, grid: [['Account statement']] });
 		const recognised = vi.fn().mockResolvedValue({ ...schema, builtin: false });
 		const deleted = vi.fn().mockResolvedValue({ succeeded: [statement], failed: [] });
-		useApi({ readStatement: read, recogniseStatement: recognised, deleteStatements: deleted });
+		useApi({ statements: { read, recognise: recognised, delete: deleted } });
 
 		expect((await readStatement({ handle: 'home', statement })).data?.grid).toEqual([
 			['Account statement'],
@@ -159,7 +159,7 @@ describe('a statement', () => {
 			],
 		};
 		const previewed = vi.fn().mockResolvedValue({ succeeded: [draft], failed: [] });
-		useApi({ previewStatement: previewed });
+		useApi({ statements: { preview: previewed } });
 
 		const preview = await previewStatement({ handle: 'home', statement, schema });
 
@@ -171,7 +171,7 @@ describe('a statement', () => {
 
 	it('keeps the failures of a preview beside what it drafted', async () => {
 		const failed = { type: 'ParseInvalidPosting', location: 'a.rupea:3' } as const;
-		useApi({ previewStatement: () => Promise.resolve({ succeeded: [], failed: [failed] }) });
+		useApi({ statements: { preview: () => Promise.resolve({ succeeded: [], failed: [failed] }) } });
 
 		const preview = await previewStatement({ handle: 'home', statement, schema });
 
@@ -180,7 +180,7 @@ describe('a statement', () => {
 
 	it('is imported as a draft, then the files, schemas and statements are listed again', async () => {
 		const imported = vi.fn().mockResolvedValue({ key: '_/imports/aug.rupea' });
-		useApi({ importStatement: imported });
+		useApi({ statements: { import: imported } });
 
 		const reply = await importStatement({ handle: 'home', statement, schema });
 
@@ -194,7 +194,7 @@ describe('a statement', () => {
 	});
 
 	it('answers a failed import without listing anything again as if it worked', async () => {
-		useApi({ importStatement: () => Promise.reject(new Error('down')) });
+		useApi({ statements: { import: () => Promise.reject(new Error('down')) } });
 
 		const reply = await importStatement({ handle: 'home', statement, schema });
 

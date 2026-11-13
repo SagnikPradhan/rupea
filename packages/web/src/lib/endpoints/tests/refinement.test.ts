@@ -20,7 +20,7 @@ const none = { succeeded: [], failed: [] };
 describe('suggested groups', () => {
 	it('link the files of every edit, then refresh what the links change', async () => {
 		const linked = vi.fn().mockResolvedValue(none);
-		useApi({ linkGroups: linked });
+		useApi({ refinement: { linkGroups: linked } });
 		const edit = (file: string, line: number) => ({
 			file,
 			line,
@@ -43,7 +43,9 @@ describe('suggested groups', () => {
 	});
 
 	it('answer what stopped a link as a failure', async () => {
-		useApi({ linkGroups: () => Promise.resolve({ succeeded: [], failed: [stale] }) });
+		useApi({
+			refinement: { linkGroups: () => Promise.resolve({ succeeded: [], failed: [stale] }) },
+		});
 		const edit = {
 			file: 'a.rupea',
 			line: 1,
@@ -76,7 +78,7 @@ describe('suggested groups', () => {
 			theirs: side(null),
 			links: [],
 		};
-		useApi({ listSuggestions: () => Promise.resolve([suggestion]) });
+		useApi({ refinement: { listSuggestions: () => Promise.resolve([suggestion]) } });
 
 		const listed = await listSuggestions({ handle: 'home', file: 'a.rupea' });
 
@@ -85,7 +87,7 @@ describe('suggested groups', () => {
 
 	it('are dismissed by fingerprint alone, then listed again for the file', async () => {
 		const dismissed = vi.fn().mockResolvedValue(undefined);
-		useApi({ dismissSuggestion: dismissed });
+		useApi({ refinement: { dismissSuggestion: dismissed } });
 		const fingerprint = 'a'.repeat(64);
 
 		const reply = await dismissSuggestion({ handle: 'home', file: 'hdfc.rupea', fingerprint });
@@ -109,7 +111,7 @@ describe('suggested groups', () => {
 describe('a group', () => {
 	it('is renamed without the file, then the file lists it again', async () => {
 		const renamed = vi.fn().mockResolvedValue(none);
-		useApi({ renameGroup: renamed });
+		useApi({ refinement: { renameGroup: renamed } });
 
 		const reply = await renameGroup({ handle: 'home', file: 'a.rupea', group: 'old', to: 'new' });
 
@@ -123,7 +125,9 @@ describe('a group', () => {
 	});
 
 	it('is refused as a failure when the rename leaves it stale', async () => {
-		useApi({ renameGroup: () => Promise.resolve({ succeeded: [], failed: [stale] }) });
+		useApi({
+			refinement: { renameGroup: () => Promise.resolve({ succeeded: [], failed: [stale] }) },
+		});
 
 		const reply = await renameGroup({ handle: 'home', file: 'a.rupea', group: 'old', to: 'new' });
 
@@ -132,7 +136,7 @@ describe('a group', () => {
 
 	it('is given a new primary by its member, without the file of the page', async () => {
 		const made = vi.fn().mockResolvedValue(none);
-		useApi({ makePrimary: made });
+		useApi({ refinement: { makePrimary: made } });
 		const member = { file: 'hdfc.rupea', line: 1 };
 
 		await makePrimary({ handle: 'home', file: 'ibkr.rupea', group: 'transfer', member });
@@ -156,7 +160,9 @@ describe('a group', () => {
 			comment: null,
 			postings: [],
 		};
-		useApi({ listGroups: () => Promise.resolve([{ group: 'transfer', members: [member] }]) });
+		useApi({
+			refinement: { listGroups: () => Promise.resolve([{ group: 'transfer', members: [member] }]) },
+		});
 
 		const listed = await listGroups({ handle: 'home', file: 'a.rupea' });
 
@@ -166,7 +172,7 @@ describe('a group', () => {
 	it('answers a ledger that is not found as the failure it was refused with', async () => {
 		const missing = { type: 'LedgerNotFound', handle: 'gone' } as const;
 		const refused = new ORPCError('MISSING', { status: 404, defined: true, data: missing });
-		useApi({ listGroups: () => Promise.reject(refused) });
+		useApi({ refinement: { listGroups: () => Promise.reject(refused) } });
 
 		const listed = await listGroups({ handle: 'gone', file: 'a.rupea' });
 

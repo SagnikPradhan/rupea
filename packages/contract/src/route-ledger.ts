@@ -5,11 +5,11 @@ import { Handle } from '@rupea/shared/handle.ts';
 import * as v from 'valibot';
 import { batchOf, errors } from './errors.ts';
 
-export const listLedgers = oc
+const listLedgers = oc
 	.route({
 		method: 'GET',
 		path: '/ledgers',
-		operationId: 'listLedgers',
+		operationId: 'ledger.list',
 		description: dedent`
 			Lists the ledgers the caller may open, each with its handle and name, and
 			whether the caller owns it.
@@ -18,11 +18,11 @@ export const listLedgers = oc
 	.errors(errors)
 	.output(v.array(v.object({ handle: v.string(), name: v.string(), owned: v.boolean() })));
 
-export const findFirstDay = oc
+const findFirstDay = oc
 	.route({
 		method: 'GET',
 		path: '/ledgers/{handle}/first-day',
-		operationId: 'findFirstDay',
+		operationId: 'ledger.findFirstDay',
 		description: dedent`
 			Answers the day of the ledger's first transaction, or null before it has
 			one.
@@ -34,11 +34,11 @@ export const findFirstDay = oc
 	.errors(errors)
 	.output(v.nullable(DayOut));
 
-export const listProblems = oc
+const listProblems = oc
 	.route({
 		method: 'GET',
 		path: '/ledgers/{handle}/problems',
-		operationId: 'listProblems',
+		operationId: 'ledger.listProblems',
 		description: dedent`
 			Lists what is wrong across the ledger, as its last sync left it, such as a
 			line that does not parse.
@@ -50,11 +50,11 @@ export const listProblems = oc
 	.errors(errors)
 	.output(batchOf(v.never()));
 
-export const findSync = oc
+const findSync = oc
 	.route({
 		method: 'GET',
 		path: '/ledgers/{handle}/sync',
-		operationId: 'findSync',
+		operationId: 'ledger.findSync',
 		description: dedent`
 			Answers how the ledger's latest sync went (queued, running, succeeded or
 			failed), or null before its first.
@@ -66,11 +66,11 @@ export const findSync = oc
 	.errors(errors)
 	.output(v.nullable(v.picklist(['queued', 'running', 'succeeded', 'failed'])));
 
-export const resync = oc
+const resync = oc
 	.route({
 		method: 'POST',
 		path: '/ledgers/{handle}/sync',
-		operationId: 'resync',
+		operationId: 'ledger.resync',
 		description: dedent`
 			Queues a sync that reads every file again and rebuilds what is worked out
 			from them.
@@ -80,3 +80,11 @@ export const resync = oc
 	})
 	.input(v.object({ handle: Handle }))
 	.errors(errors);
+
+export const ledger = {
+	list: listLedgers,
+	findFirstDay,
+	listProblems,
+	findSync,
+	resync,
+};

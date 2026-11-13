@@ -20,7 +20,7 @@ const expiresAt = '2026-12-01T10:00:00Z';
 describe('signing in', () => {
 	it('mails a code to the normalised address', async () => {
 		const mailed = vi.fn().mockResolvedValue(undefined);
-		useApi({ requestCode: mailed });
+		useApi({ auth: { requestCode: mailed } });
 
 		const asked = await submit(requestCode, { email: ' Ada@Example.com ' });
 
@@ -30,7 +30,7 @@ describe('signing in', () => {
 
 	it('keeps the token in a cookie and goes home', async () => {
 		const signIn = vi.fn().mockResolvedValue({ token: 'opaque', expiresAt });
-		useApi({ signIn });
+		useApi({ auth: { signIn } });
 
 		await expect(
 			submit(verifyCode, { email: 'ada@example.com', code: ' 123456 ' }),
@@ -47,7 +47,7 @@ describe('signing in', () => {
 	});
 
 	it('marks a wrong code on its field', async () => {
-		useApi({ signIn: () => Promise.reject(refused(401, { type: 'AuthInvalidCode' })) });
+		useApi({ auth: { signIn: () => Promise.reject(refused(401, { type: 'AuthInvalidCode' })) } });
 
 		await expect(
 			submit(verifyCode, { email: 'ada@example.com', code: '000000' }),
@@ -56,7 +56,7 @@ describe('signing in', () => {
 	});
 
 	it('replies with any other failure and sets no cookie', async () => {
-		useApi({ signIn: () => Promise.reject(new TypeError('fetch failed')) });
+		useApi({ auth: { signIn: () => Promise.reject(new TypeError('fetch failed')) } });
 
 		const reply = await submit(verifyCode, { email: 'ada@example.com', code: '123456' });
 
@@ -72,7 +72,7 @@ describe('signing in', () => {
 describe('signing out', () => {
 	it('ends the session of the cookie and goes to the sign-in page', async () => {
 		const ended = vi.fn().mockResolvedValue(undefined);
-		useApi({ signOut: ended });
+		useApi({ auth: { signOut: ended } });
 		request.cookies.set('session', 'opaque');
 
 		await expect(submit(signOut)).rejects.toMatchObject({ status: 303, location: '/sign-in' });
@@ -83,7 +83,7 @@ describe('signing out', () => {
 
 	it('does not call the API without a cookie', async () => {
 		const ended = vi.fn();
-		useApi({ signOut: ended });
+		useApi({ auth: { signOut: ended } });
 
 		await expect(submit(signOut)).rejects.toMatchObject({ status: 303, location: '/sign-in' });
 
@@ -92,7 +92,7 @@ describe('signing out', () => {
 
 	it('logs a failure, drops the cookie and redirects', async () => {
 		const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-		useApi({ signOut: () => Promise.reject(new TypeError('connection refused')) });
+		useApi({ auth: { signOut: () => Promise.reject(new TypeError('connection refused')) } });
 		request.cookies.set('session', 'stuck');
 
 		await expect(submit(signOut)).rejects.toMatchObject({ status: 303, location: '/sign-in' });
@@ -106,7 +106,9 @@ describe('signing out', () => {
 
 	it('stays quiet when the session had already ended', async () => {
 		const logged = vi.spyOn(console, 'error').mockImplementation(() => undefined);
-		useApi({ signOut: () => Promise.reject(refused(401, { type: 'AuthUnauthenticated' })) });
+		useApi({
+			auth: { signOut: () => Promise.reject(refused(401, { type: 'AuthUnauthenticated' })) },
+		});
 		request.cookies.set('session', 'old');
 
 		await expect(submit(signOut)).rejects.toMatchObject({ status: 303 });

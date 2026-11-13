@@ -12,7 +12,7 @@ import { readTheme } from '#lib/web/shared/theme.ts';
 const API_URL = process.env['RUPEA_API_URL'] ?? 'http://127.0.0.1:3001/api';
 
 const restore = async (event: RequestEvent, token: string) => {
-	const found = await replyFromCall(event.locals.api.findUser());
+	const found = await replyFromCall(event.locals.api.auth.findUser());
 	const error = found.errors[0];
 
 	if (found.data) event.locals.user = found.data.user;

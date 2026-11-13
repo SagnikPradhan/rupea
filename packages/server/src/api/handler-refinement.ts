@@ -10,7 +10,7 @@ const ROLE = { primary: GroupRole.Primary, evidence: GroupRole.Evidence };
 
 const failedOf = (e: RupeaError[]) => sanitiseBatch({ succeeded: [], failed: e });
 
-export const listSuggestions = os.listSuggestions
+const listSuggestions = os.refinement.listSuggestions
 	.use(signedIn)
 	.handler(async ({ input: { handle, file } }) => {
 		const suggestions = await inLedger({
@@ -25,7 +25,7 @@ export const listSuggestions = os.listSuggestions
 		}));
 	});
 
-export const linkGroups = os.linkGroups
+const linkGroups = os.refinement.linkGroups
 	.use(signedIn)
 	.handler(async ({ input: { handle, edits } }) => {
 		const linked = await inLedger({
@@ -37,7 +37,7 @@ export const linkGroups = os.linkGroups
 		return failedOf(linked);
 	});
 
-export const dismissSuggestion = os.dismissSuggestion
+const dismissSuggestion = os.refinement.dismissSuggestion
 	.use(signedIn)
 	.handler(async ({ input: { handle, fingerprint } }) => {
 		await inLedger({
@@ -46,7 +46,7 @@ export const dismissSuggestion = os.dismissSuggestion
 		});
 	});
 
-export const listGroups = os.listGroups
+const listGroups = os.refinement.listGroups
 	.use(signedIn)
 	.handler(async ({ input: { handle, file } }) => {
 		const groups = await inLedger({
@@ -60,7 +60,7 @@ export const listGroups = os.listGroups
 		}));
 	});
 
-export const renameGroup = os.renameGroup
+const renameGroup = os.refinement.renameGroup
 	.use(signedIn)
 	.handler(async ({ input: { handle, group, to } }) =>
 		failedOf(
@@ -68,7 +68,7 @@ export const renameGroup = os.renameGroup
 		),
 	);
 
-export const makePrimary = os.makePrimary
+const makePrimary = os.refinement.makePrimary
 	.use(signedIn)
 	.handler(async ({ input: { handle, group, file, line } }) =>
 		failedOf(
@@ -78,3 +78,12 @@ export const makePrimary = os.makePrimary
 			}),
 		),
 	);
+
+export const refinement = {
+	listSuggestions,
+	linkGroups,
+	dismissSuggestion,
+	listGroups,
+	renameGroup,
+	makePrimary,
+};

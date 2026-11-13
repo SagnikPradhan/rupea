@@ -1,5 +1,5 @@
 import { Key, Line } from '@rupea/shared/files.ts';
-import { Fingerprint, GroupId, LinkEdit, MOST_EDITS } from '@rupea/shared/groups.ts';
+import { Fingerprint, GroupId, LinkEdit, MOST_EDITS } from '@rupea/contract/shape-ledger.ts';
 import { Handle } from '@rupea/shared/handle.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
@@ -12,7 +12,7 @@ import { viewGroup, viewSuggestion } from './views';
 export const listSuggestions = query(v.object({ handle: Handle, file: Key }), ({ handle, file }) =>
 	replyFromCall(
 		api()
-			.listSuggestions({ handle, file })
+			.refinement.listSuggestions({ handle, file })
 			.then((s) => s.map(viewSuggestion)),
 	),
 );
@@ -23,7 +23,7 @@ export const linkGroups = command(
 		edits: v.pipe(v.array(LinkEdit), v.minLength(1), v.maxLength(MOST_EDITS)),
 	}),
 	async ({ handle, edits }) => {
-		const linked = await replyFromBatchCall(api().linkGroups({ handle, edits }));
+		const linked = await replyFromBatchCall(api().refinement.linkGroups({ handle, edits }));
 		void listFiles(handle).refresh();
 		void listProblems(handle).refresh();
 		for (const file of new Set(edits.map((e) => e.file)))
@@ -36,7 +36,9 @@ export const linkGroups = command(
 export const dismissSuggestion = command(
 	v.object({ handle: Handle, file: Key, fingerprint: Fingerprint }),
 	async ({ handle, file, fingerprint }) => {
-		const dismissed = await replyFromCall(api().dismissSuggestion({ handle, fingerprint }));
+		const dismissed = await replyFromCall(
+			api().refinement.dismissSuggestion({ handle, fingerprint }),
+		);
 		void listSuggestions({ handle, file }).refresh();
 		return dismissed;
 	},
@@ -45,7 +47,7 @@ export const dismissSuggestion = command(
 export const listGroups = query(v.object({ handle: Handle, file: Key }), ({ handle, file }) =>
 	replyFromCall(
 		api()
-			.listGroups({ handle, file })
+			.refinement.listGroups({ handle, file })
 			.then((g) => g.map(viewGroup)),
 	),
 );
@@ -54,7 +56,7 @@ export const listGroups = query(v.object({ handle: Handle, file: Key }), ({ hand
 export const renameGroup = command(
 	v.object({ handle: Handle, file: Key, group: GroupId, to: GroupId }),
 	async ({ handle, file, group, to }) => {
-		const renamed = await replyFromBatchCall(api().renameGroup({ handle, group, to }));
+		const renamed = await replyFromBatchCall(api().refinement.renameGroup({ handle, group, to }));
 		void listFiles(handle).refresh();
 		void listProblems(handle).refresh();
 		void listGroups({ handle, file }).refresh();
@@ -71,7 +73,9 @@ export const makePrimary = command(
 		member: v.object({ file: Key, line: Line }),
 	}),
 	async ({ handle, file, group, member }) => {
-		const made = await replyFromBatchCall(api().makePrimary({ handle, group, ...member }));
+		const made = await replyFromBatchCall(
+			api().refinement.makePrimary({ handle, group, ...member }),
+		);
 		void listFiles(handle).refresh();
 		void listProblems(handle).refresh();
 		void listGroups({ handle, file }).refresh();

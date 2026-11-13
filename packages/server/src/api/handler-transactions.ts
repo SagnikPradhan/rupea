@@ -1,3 +1,4 @@
+import * as Files from '#services/ledger/application/files.ts';
 import * as Transactions from '#services/ledger/application/transactions.ts';
 import { postedOf } from '#services/ledger/application/language.ts';
 import { inLedger, os, signedIn } from './session.ts';
@@ -17,7 +18,7 @@ const listed = ({ from, to, account, description }: Filter): Transactions.ListFi
 	description: description || null,
 });
 
-export const listTransactions = os.listTransactions
+const listTransactions = os.transactions.list
 	.use(signedIn)
 	.handler(async ({ input: { handle, after, ...filter } }) => {
 		const page = await inLedger({
@@ -32,7 +33,7 @@ export const listTransactions = os.listTransactions
 		};
 	});
 
-export const listPostings = os.listPostings
+const listPostings = os.transactions.listPostings
 	.use(signedIn)
 	.handler(async ({ input: { handle, after, ...filter } }) => {
 		const page = await inLedger({
@@ -55,3 +56,47 @@ export const listPostings = os.listPostings
 			})),
 		};
 	});
+
+const findTransactionFiles = os.transactions.findFiles
+	.use(signedIn)
+	.handler(({ input }) => inLedger({ handle: input.handle, action: Files.findTransactionFiles }));
+
+const createTransaction = os.transactions.create
+	.use(signedIn)
+	.handler(({ input: { handle, form } }) =>
+		inLedger({ handle, action: (l) => Files.createTransaction({ ledger: l, form }) }),
+	);
+
+const findTransaction = os.transactions.find
+	.use(signedIn)
+	.handler(({ input: { handle, id } }) =>
+		inLedger({ handle, action: (l) => Files.findTransaction({ ledger: l, id }) }),
+	);
+
+const saveTransaction = os.transactions.save
+	.use(signedIn)
+	.handler(({ input: { handle, file, line, version, form } }) =>
+		inLedger({
+			handle,
+			action: (l) => Files.saveTransaction({ ledger: l, file, line, version, form }),
+		}),
+	);
+
+const deleteTransaction = os.transactions.delete
+	.use(signedIn)
+	.handler(async ({ input: { handle, file, line, version } }) => {
+		await inLedger({
+			handle,
+			action: (l) => Files.deleteTransaction({ ledger: l, file, line, version }),
+		});
+	});
+
+export const transactions = {
+	list: listTransactions,
+	listPostings,
+	create: createTransaction,
+	find: findTransaction,
+	save: saveTransaction,
+	delete: deleteTransaction,
+	findFiles: findTransactionFiles,
+};

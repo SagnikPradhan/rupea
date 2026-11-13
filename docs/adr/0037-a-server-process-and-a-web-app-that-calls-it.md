@@ -2,13 +2,13 @@
 
 Rupea has to run as a hosted service and as an app people install, and the web app should not be the only way in. So the server is a process of its own, a Fastify host in `packages/server`, and the SvelteKit app is a client of it. The app's remote functions are its backend for frontend (BFF): they take what a page sends, call the API, and shape the answer for the page. They no longer import any server code.
 
-**The contract is a package.** `packages/contract` (`@rupea/contract`) declares every procedure once: its route, its input, its output and the errors it answers. The server implements it and the web app calls it, so neither can drift from the other. The packages depend on each other in one direction, `shared <- contract <- {server, web}`, and a lint rule (`lint/package-boundaries.ts`) refuses an import that points the other way.
+**The contract is a package.** `packages/contract` (`@rupea/contract`) declares every procedure once, nested by subject (`client.schemas.list()`, `client.auth.signIn()`): its route, its input, its output and the errors it answers. The server implements it and the web app calls it, so neither can drift from the other. The packages depend on each other in one direction, `shared <- contract <- {server, web}`, and a lint rule (`lint/package-boundaries.ts`) refuses an import that points the other way.
 
 **oRPC carries the contract and nothing else.** It builds the routes, the client and the OpenAPI document. Application code never imports it. A handler in `packages/server/src/api` calls an application function and turns its `ResultAsync` into an answer. The services do not know there is a wire.
 
 **One wire: REST with an OpenAPI document.** A call is a plain HTTP request, such as `GET /api/auth/user`, and `/api/openapi.json` describes all of them. The web app uses the typed client. Anything else can use the document.
 
-**Sessions are opaque bearer tokens.** `signIn` trades a mailed code for a token and an expiry, and later calls send the token as `Authorization: Bearer`. The server stores only its hash. The API sets no cookie. The web app keeps the token in an `httpOnly` cookie of its own, which is the job of the BFF, and `findUser` answers a new expiry when a call extended the session, so the BFF can set the cookie again.
+**Sessions are opaque bearer tokens.** `auth.signIn` trades a mailed code for a token and an expiry, and later calls send the token as `Authorization: Bearer`. The server stores only its hash. The API sets no cookie. The web app keeps the token in an `httpOnly` cookie of its own, which is the job of the BFF, and `auth.findUser` answers a new expiry when a call extended the session, so the BFF can set the cookie again.
 
 **Wire schemas decode on the way in and encode on the way out.** A `Day` comes in as `2026-10-21` and is a `Temporal.PlainDate` inside; `DayOut` writes it back as text. The same schemas describe the OpenAPI document, so a client sees strings with a format, not the transform.
 

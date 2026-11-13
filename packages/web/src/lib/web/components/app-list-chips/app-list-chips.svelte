@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Filter } from '@rupea/shared/filter.ts';
+	import type { Filter } from '#lib/web/shared/filter.ts';
 	import Chip from '#lib/web/components/ui-chip/ui-chip.svelte';
 	import { formatBucket, formatDate } from '#lib/web/shared/format.ts';
 	import { hrefWith } from '#lib/web/shared/links.ts';

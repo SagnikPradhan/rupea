@@ -2,19 +2,19 @@ import * as Schemas from '#services/extraction/application/schemas.ts';
 import { inLedger, os, signedIn } from './session.ts';
 import { entryOf, fileOf } from './shapes.ts';
 
-export const listSchemas = os.listSchemas.use(signedIn).handler(async ({ input }) => {
+const listSchemas = os.schemas.list.use(signedIn).handler(async ({ input }) => {
 	const listed = await inLedger({ handle: input.handle, action: Schemas.listSchemas });
 
 	return listed.map(entryOf);
 });
 
-export const readSchema = os.readSchema
+const readSchema = os.schemas.read
 	.use(signedIn)
 	.handler(async ({ input: { handle, key } }) =>
 		fileOf(await inLedger({ handle, action: (l) => Schemas.readSchema({ ledger: l, key }) })),
 	);
 
-export const saveSchema = os.saveSchema
+const saveSchema = os.schemas.save
 	.use(signedIn)
 	.handler(async ({ input: { handle, key, content } }) =>
 		fileOf(
@@ -22,8 +22,13 @@ export const saveSchema = os.saveSchema
 		),
 	);
 
-export const deleteSchema = os.deleteSchema
-	.use(signedIn)
-	.handler(async ({ input: { handle, key } }) => {
-		await inLedger({ handle, action: (l) => Schemas.deleteSchema({ ledger: l, key }) });
-	});
+const deleteSchema = os.schemas.delete.use(signedIn).handler(async ({ input: { handle, key } }) => {
+	await inLedger({ handle, action: (l) => Schemas.deleteSchema({ ledger: l, key }) });
+});
+
+export const schemas = {
+	list: listSchemas,
+	read: readSchema,
+	save: saveSchema,
+	delete: deleteSchema,
+};

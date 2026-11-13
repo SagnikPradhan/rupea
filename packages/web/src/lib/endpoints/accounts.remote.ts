@@ -20,7 +20,7 @@ export const listAccounts = query(
 	({ handle, day, period }) =>
 		replyFromBatchCall(
 			api()
-				.listAccounts({ handle, day: spansOf(period, day).current.to.toString() })
+				.accounts.list({ handle, day: spansOf(period, day).current.to.toString() })
 				.then((b) => ({ ...b, succeeded: b.succeeded.map(viewAccount) })),
 		),
 );
@@ -31,7 +31,9 @@ export const listWorth = query(
 	({ handle, day, period, account }) => {
 		const { from, to } = writtenSpan(spansOf(period, day).current);
 
-		return replyFromBatchCall(api().listWorth({ handle, from, to, account: account ?? undefined }));
+		return replyFromBatchCall(
+			api().accounts.listWorth({ handle, from, to, account: account ?? undefined }),
+		);
 	},
 );
 
@@ -44,7 +46,7 @@ export const listInvested = query(
 	({ handle, day, period, account }) => {
 		const { from, to } = writtenSpan(spansOf(period, day).current);
 
-		return replyFromBatchCall(api().listInvested({ handle, from, to, account }));
+		return replyFromBatchCall(api().accounts.listInvested({ handle, from, to, account }));
 	},
 );
 
@@ -57,7 +59,7 @@ export const findBridge = query(
 	({ handle, day, period }) => {
 		const { from, to } = writtenSpan(spansOf(period, day).current);
 
-		return replyFromBatchCall(api().findBridge({ handle, from, to }));
+		return replyFromBatchCall(api().accounts.findBridge({ handle, from, to }));
 	},
 );
 
@@ -70,7 +72,7 @@ export const listDrops = query(
 	({ handle, day, period, account }) => {
 		const { from, to } = writtenSpan(spansOf(period, day).current);
 
-		return replyFromBatchCall(api().listDrops({ handle, from, to, account }));
+		return replyFromBatchCall(api().accounts.listDrops({ handle, from, to, account }));
 	},
 );
 
@@ -83,7 +85,7 @@ export const listReturns = query(
 	({ handle, day, period }) => {
 		const { from, to } = writtenSpan(spansOf(period, day).current);
 
-		return replyFromBatchCall(api().listReturns({ handle, from, to }));
+		return replyFromBatchCall(api().accounts.listReturns({ handle, from, to }));
 	},
 );
 
@@ -99,7 +101,7 @@ export const listDeltas = query(
 
 		return replyFromBatchCall(
 			api()
-				.listDeltas({ handle, spans, bucket, account })
+				.accounts.listDeltas({ handle, spans, bucket, account })
 				.then((b) => ({ ...b, succeeded: b.succeeded.map(viewDeltas) })),
 		);
 	},
@@ -114,7 +116,7 @@ export const listDailyDeltas = query(
 	({ handle, day, period, account }) => {
 		const { from, to } = writtenSpan(spansOf(period, day).current);
 
-		return replyFromBatchCall(api().listDailyDeltas({ handle, from, to, account }));
+		return replyFromBatchCall(api().accounts.listDailyDeltas({ handle, from, to, account }));
 	},
 );
 
@@ -123,30 +125,30 @@ export const listLots = query(
 	({ handle, account, commodity }) =>
 		replyFromBatchCall(
 			api()
-				.listLots({ handle, account, commodity })
+				.accounts.listLots({ handle, account, commodity })
 				.then((b) => ({ ...b, succeeded: b.succeeded.map(viewLot) })),
 		),
 );
 
 export const listAccountTree = query(Handle, (h) =>
-	replyFromCall(api().listAccountTree({ handle: h })),
+	replyFromCall(api().accounts.listTree({ handle: h })),
 );
 
 export const listAccountNames = query(
 	v.object({ handle: Handle, prefix: v.string() }),
-	({ handle, prefix }) => replyFromCall(api().listAccountNames({ handle, prefix })),
+	({ handle, prefix }) => replyFromCall(api().accounts.listNames({ handle, prefix })),
 );
 
 /** What the A lines of a ledger set each account up with on a day. */
 export const listTerms = query(v.object({ handle: Handle, day: Day }), ({ handle, day }) =>
-	replyFromCall(api().listTerms({ handle, day: day.toString() })),
+	replyFromCall(api().accounts.listTerms({ handle, day: day.toString() })),
 );
 
 /** Sets up an account by writing its terms under an A * line. */
 export const saveTerms = command(
 	v.object({ handle: Handle, form: TermsForm }),
 	async ({ handle, form }) => {
-		const saved = await replyFromCall(api().saveTerms({ handle, ...form }));
+		const saved = await replyFromCall(api().accounts.saveTerms({ handle, ...form }));
 		void listProblems(handle).refresh();
 		return saved;
 	},

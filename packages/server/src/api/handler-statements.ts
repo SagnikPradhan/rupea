@@ -6,7 +6,7 @@ import { sanitise, sanitiseBatch } from './sanitise.ts';
 import { inLedger, os, signedIn } from './session.ts';
 import { transactionOf } from './shapes.ts';
 
-export const uploadStatements = os.uploadStatements
+const uploadStatements = os.statements.upload
 	.use(signedIn)
 	.handler(async ({ input: { handle, files }, context }) => {
 		const user = context.session.user.id;
@@ -23,11 +23,11 @@ export const uploadStatements = os.uploadStatements
 		);
 	});
 
-export const listStatements = os.listStatements
+const listStatements = os.statements.list
 	.use(signedIn)
 	.handler(({ input }) => inLedger({ handle: input.handle, action: Uploads.listStatements }));
 
-export const listImports = os.listImports.use(signedIn).handler(async ({ input, context }) => {
+const listImports = os.statements.listImports.use(signedIn).handler(async ({ input, context }) => {
 	const user = context.session.user.id;
 	const listed = await inLedger({
 		handle: input.handle,
@@ -37,7 +37,7 @@ export const listImports = os.listImports.use(signedIn).handler(async ({ input, 
 	return listed.map((j) => ({ ...j, error: j.error && sanitise(j.error) }));
 });
 
-export const readStatement = os.readStatement
+const readStatement = os.statements.read
 	.use(signedIn)
 	.handler(async ({ input: { handle, statement } }) => {
 		const read = await inLedger({
@@ -48,7 +48,7 @@ export const readStatement = os.readStatement
 		return { key: read.key, grid: read.grid };
 	});
 
-export const deleteStatements = os.deleteStatements
+const deleteStatements = os.statements.delete
 	.use(signedIn)
 	.handler(async ({ input: { handle, keys } }) =>
 		sanitiseBatch(
@@ -56,7 +56,7 @@ export const deleteStatements = os.deleteStatements
 		),
 	);
 
-export const unlockStatement = os.unlockStatement
+const unlockStatement = os.statements.unlock
 	.use(signedIn)
 	.handler(async ({ input: { handle, statement, password } }) => {
 		const unlocked = await inLedger({
@@ -67,7 +67,7 @@ export const unlockStatement = os.unlockStatement
 		return { key: unlocked.key, grid: unlocked.grid };
 	});
 
-export const recogniseStatement = os.recogniseStatement
+const recogniseStatement = os.statements.recognise
 	.use(signedIn)
 	.handler(({ input: { handle, statement } }) =>
 		inLedger({
@@ -76,7 +76,7 @@ export const recogniseStatement = os.recogniseStatement
 		}),
 	);
 
-export const previewStatement = os.previewStatement
+const previewStatement = os.statements.preview
 	.use(signedIn)
 	.handler(async ({ input: { handle, statement, schema } }) => {
 		const previewed = sanitiseBatch(
@@ -89,7 +89,7 @@ export const previewStatement = os.previewStatement
 		return { ...previewed, succeeded: previewed.succeeded.map(transactionOf) };
 	});
 
-export const importStatement = os.importStatement
+const importStatement = os.statements.import
 	.use(signedIn)
 	.handler(async ({ input: { handle, statement, schema } }) => {
 		const created = await inLedger({
@@ -99,3 +99,15 @@ export const importStatement = os.importStatement
 
 		return { key: created.key };
 	});
+
+export const statements = {
+	upload: uploadStatements,
+	list: listStatements,
+	listImports,
+	read: readStatement,
+	delete: deleteStatements,
+	unlock: unlockStatement,
+	recognise: recogniseStatement,
+	preview: previewStatement,
+	import: importStatement,
+};

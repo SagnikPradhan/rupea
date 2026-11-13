@@ -1,5 +1,5 @@
 import type { Client } from '@rupea/contract/contract.ts';
-import type { User } from '@rupea/contract/auth.ts';
+import type { User } from '@rupea/contract/route-auth.ts';
 
 type Validated = { value?: unknown; issues?: readonly unknown[] };
 type Schema = { '~standard': { validate: (input: unknown) => Validated | Promise<Validated> } };
@@ -62,8 +62,8 @@ export const signIn = (user: User | null) => {
 };
 
 /** Answers the calls of the remote functions under test with these procedures. */
-export const useApi = (api: Partial<Client>) => {
-	request.locals.api = api as Client;
+export const useApi = (api: Record<string, Record<string, unknown>>) => {
+	request.locals.api = api as unknown as Client;
 	request.refreshed.length = 0;
 };
 

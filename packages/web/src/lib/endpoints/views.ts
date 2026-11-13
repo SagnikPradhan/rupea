@@ -1,9 +1,16 @@
-import { Account, Deltas, Group, Lot, Posting, Suggestion } from '@rupea/contract/outputs.ts';
+import {
+	Account,
+	Deltas,
+	Group,
+	LinkTarget,
+	Lot,
+	Posting,
+	Suggestion,
+	TransactionOut,
+} from '@rupea/contract/shape-ledger.ts';
 import { Amount } from '@rupea/shared/amounts.ts';
 import { Day } from '@rupea/shared/dates.ts';
-import { LinkTarget } from '@rupea/shared/groups.ts';
 import { DEFAULT_COMMODITY, printPosted, printQuantity } from '@rupea/shared/quantities.ts';
-import { TransactionOut } from '@rupea/shared/transactions.ts';
 import * as v from 'valibot';
 
 type Transaction = v.InferOutput<typeof TransactionOut>;

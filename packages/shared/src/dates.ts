@@ -109,40 +109,6 @@ export const Period = v.variant('kind', [
 export type Period = v.InferOutput<typeof Period>;
 
 /**
- * The period a URL picks with at, range=all, or from and to; the fallback when
- * it picks none.
- */
-export const periodOf = (
-	params: { get: (key: string) => string | null },
-	fallback: Period,
-): Period => {
-	const at = params.get('at');
-	const picked = [
-		{ kind: 'month', at },
-		{ kind: 'year', at },
-		{ kind: params.get('range') },
-		{ kind: 'custom', from: params.get('from'), to: params.get('to') },
-	].find((p) => v.is(Period, p));
-
-	return picked ?? fallback;
-};
-
-/** The names of the URL parameters that pick a period. */
-export const PERIOD_PARAMS = ['at', 'range', 'from', 'to'] as const;
-
-/** The period picked by parsed query fields, as periodOf reads a URL. */
-export const periodIn = (f: Record<string, string | undefined>, p: Period): Period =>
-	periodOf({ get: (k) => f[k] ?? null }, p);
-
-/** The URL parameters that pick a period, as periodOf reads them. */
-export const paramsOf = (period: Period): Record<string, string> => {
-	if (period.kind === 'all') return { range: 'all' };
-	if (period.kind === 'custom') return { from: period.from, to: period.to };
-
-	return { at: period.at };
-};
-
-/**
  * What a chart of spending covers: its span, the one before to weigh it
  * against, and its buckets.
  */

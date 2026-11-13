@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Filter } from '@rupea/shared/filter.ts';
+	import type { Filter } from '#lib/web/shared/filter.ts';
 	import { page } from '$app/state';
 
 	const PAUSE = 300;

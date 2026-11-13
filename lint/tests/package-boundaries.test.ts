@@ -47,11 +47,14 @@ describe('package boundaries', () => {
 
 	it('lets the contract import shared, and the server and the web app import the contract', () => {
 		expect(
-			messages('packages/contract/src/accounts.ts', "import a from '@rupea/shared/dates.ts';"),
+			messages(
+				'packages/contract/src/route-accounts.ts',
+				"import a from '@rupea/shared/dates.ts';",
+			),
 		).toEqual([]);
 		expect(
 			messages(
-				'packages/server/src/api/accounts.ts',
+				'packages/server/src/api/handler-accounts.ts',
 				"import a from '@rupea/contract/contract.ts';",
 			),
 		).toEqual([]);
@@ -116,10 +119,16 @@ describe('package boundaries', () => {
 
 	it('stops the contract importing the server or the web app', () => {
 		expect(
-			messages('packages/contract/src/accounts.ts', "import a from '@rupea/server/db/index.ts';"),
+			messages(
+				'packages/contract/src/route-accounts.ts',
+				"import a from '@rupea/server/db/index.ts';",
+			),
 		).toEqual(['The contract code must not import server code (@rupea/server/db/index.ts)']);
 		expect(
-			messages('packages/contract/src/accounts.ts', "import a from '#lib/web/shared/format.ts';"),
+			messages(
+				'packages/contract/src/route-accounts.ts',
+				"import a from '#lib/web/shared/format.ts';",
+			),
 		).toHaveLength(1);
 	});
 

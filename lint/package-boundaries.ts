@@ -80,8 +80,8 @@ const placeOf = (root: string, path: string): Place | null => {
 	if (inRepo.startsWith('packages/shared/')) return 'shared';
 	if (inRepo.startsWith('packages/contract/')) return 'contract';
 	if (inRepo.startsWith('packages/server/')) return 'server';
-	if (inRepo.startsWith('packages/')) return null;
-	return 'web';
+	if (inRepo.startsWith('packages/web/')) return 'web';
+	return null;
 };
 
 const targetOf = (root: string, file: string, source: string): Place | null => {

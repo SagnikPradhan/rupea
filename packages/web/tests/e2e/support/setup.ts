@@ -7,7 +7,7 @@ import { models } from '@rupea/server/shared/onnx/models.ts';
 export default async function globalSetup() {
 	const missing = await Promise.all(
 		models.map((m) =>
-			access(join(resolve('data/models'), m.file)).then(
+			access(join(resolve('../../data/models'), m.file)).then(
 				() => [],
 				() => [m.file],
 			),
@@ -20,5 +20,5 @@ export default async function globalSetup() {
 
 	const build = (...args: string[]) =>
 		promisify(execFile)('node_modules/.bin/vite', ['build', ...args]);
-	await Promise.all([build(), build('--config', 'packages/server/vite.config.ts')]);
+	await Promise.all([build(), build('--config', '../server/vite.config.ts')]);
 }

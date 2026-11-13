@@ -56,18 +56,29 @@ describe('package boundaries', () => {
 			),
 		).toEqual([]);
 		expect(
-			messages('src/lib/web/shared/format.ts', "import a from '@rupea/contract/contract.ts';"),
+			messages(
+				'packages/web/src/lib/web/shared/format.ts',
+				"import a from '@rupea/contract/contract.ts';",
+			),
 		).toEqual([]);
 	});
 
 	it('lets the web app import shared, itself and framework modules', () => {
 		expect(
-			messages('src/lib/web/shared/format.ts', "import a from '@rupea/shared/dates.ts';"),
+			messages(
+				'packages/web/src/lib/web/shared/format.ts',
+				"import a from '@rupea/shared/dates.ts';",
+			),
 		).toEqual([]);
 		expect(
-			messages('src/lib/web/shared/format.ts', "import a from '#lib/web/shared/chart.ts';"),
+			messages(
+				'packages/web/src/lib/web/shared/format.ts',
+				"import a from '#lib/web/shared/chart.ts';",
+			),
 		).toEqual([]);
-		expect(messages('src/lib/web/shared/format.ts', "import a from '$app/state';")).toEqual([]);
+		expect(
+			messages('packages/web/src/lib/web/shared/format.ts', "import a from '$app/state';"),
+		).toEqual([]);
 	});
 
 	it('leaves the site and the theme alone', () =>
@@ -77,9 +88,13 @@ describe('package boundaries', () => {
 
 	it('lets the end-to-end support import the server where allowed', () =>
 		expect(
-			messages('tests/e2e/support/server.ts', "import a from '@rupea/server/server.ts';", {
-				allowServer: true,
-			}),
+			messages(
+				'packages/web/tests/e2e/support/server.ts',
+				"import a from '@rupea/server/server.ts';",
+				{
+					allowServer: true,
+				},
+			),
 		).toEqual([]));
 
 	it('stops shared importing the server or the web app', () => {
@@ -89,7 +104,7 @@ describe('package boundaries', () => {
 		expect(
 			messages(
 				'packages/shared/src/dates.ts',
-				"import a from '../../../src/lib/web/shared/format.ts';",
+				"import a from '../../web/src/lib/web/shared/format.ts';",
 			),
 		).toHaveLength(1);
 	});
@@ -128,11 +143,14 @@ describe('package boundaries', () => {
 
 	it('stops the web app importing the server unless allowed', () => {
 		expect(
-			messages('src/lib/web/shared/format.ts', "import a from '@rupea/server/db/index.ts';"),
+			messages(
+				'packages/web/src/lib/web/shared/format.ts',
+				"import a from '@rupea/server/db/index.ts';",
+			),
 		).toHaveLength(1);
 		expect(
 			messages(
-				'src/lib/web/shared/format.ts',
+				'packages/web/src/lib/web/shared/format.ts',
 				"import a from '#services/auth/application/auth.ts';",
 			),
 		).toHaveLength(1);
@@ -157,6 +175,8 @@ describe('package boundaries', () => {
 
 	it('lets the server and the web app import the framework', () => {
 		expect(messages('packages/server/src/db/index.ts', "import a from '$app/server';")).toEqual([]);
-		expect(messages('src/lib/web/shared/format.ts', "import a from 'svelte';")).toEqual([]);
+		expect(
+			messages('packages/web/src/lib/web/shared/format.ts', "import a from 'svelte';"),
+		).toEqual([]);
 	});
 });

@@ -15,7 +15,7 @@ pre-commit:
       glob: '*.{js,ts,svelte}'
       run: pnpm exec eslint {staged_files}
     stylelint:
-      glob: 'src/**/*.svelte'
+      glob: 'packages/web/src/**/*.svelte'
       run: pnpm exec stylelint {staged_files}
     harper:
       glob: '*.{ts,js,md}'

@@ -6,7 +6,7 @@ bun.lock
 bun.lockb
 
 # Miscellaneous
-/static/
+/packages/web/static/
 /drizzle/
 /.claude/
 /packages/site/src/content/manual/glossary.md

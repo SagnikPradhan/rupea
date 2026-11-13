@@ -1,0 +1,14 @@
+{
+	"extends": "@tsconfig/strictest",
+	"compilerOptions": {
+		"module": "esnext",
+		"moduleResolution": "bundler",
+		"target": "esnext",
+		"lib": ["esnext"],
+		"types": ["node"],
+		"verbatimModuleSyntax": true,
+		"allowImportingTsExtensions": true,
+		"noEmit": true
+	},
+	"include": ["src", "tests"]
+}

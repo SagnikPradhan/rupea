@@ -1,11 +1,7 @@
 {
 	"extends": ["@tsconfig/strictest", "@tsconfig/svelte", "$app/tsconfig"],
-	"exclude": ["packages/server/dist"],
 	"include": [
 		"src",
-		"packages/shared",
-		"packages/contract",
-		"packages/server",
 		"lint",
 		"tests",
 		"vite.config.ts",

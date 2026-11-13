@@ -1,0 +1,14 @@
+{
+	"extends": "@tsconfig/strictest",
+	"compilerOptions": {
+		"module": "esnext",
+		"moduleResolution": "bundler",
+		"target": "esnext",
+		"lib": ["esnext"],
+		"types": ["node", "vite/client"],
+		"verbatimModuleSyntax": true,
+		"allowImportingTsExtensions": true,
+		"noEmit": true
+	},
+	"include": ["src", "tests", "scripts", "vite.config.ts"]
+}

@@ -1,7 +1,7 @@
 import type { Database } from '#lib/server/db/index.ts';
 import { provide } from '#lib/server/shared/context/context.ts';
 import { EMBEDDING_DIMENSIONS } from '#lib/server/shared/onnx/models.ts';
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { errAsync, ok, ResultAsync } from '#lib/server/shared/result/result.ts';
 import { byUser } from '#lib/server/shared/storage/storage.ts';
 import { listJobs, runJob } from '#services/jobs/application/jobs.ts';

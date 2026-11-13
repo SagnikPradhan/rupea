@@ -1,9 +1,8 @@
 import { oc } from '@orpc/contract';
 import dedent from 'dedent';
-import { RupeaError } from '@rupea/shared/error.ts';
-import { Schema } from '@rupea/shared/files.ts';
-import { MOST_PASSWORD, MOST_UPLOADS, StatementKey, Upload } from '@rupea/shared/statements.ts';
-import { Handle } from '@rupea/shared/handle.ts';
+import { RupeaError } from '@rupea/shared/errors.ts';
+import { Schema, MOST_PASSWORD, MOST_UPLOADS, StatementKey, Upload } from '@rupea/shared/files.ts';
+import { Handle } from '@rupea/shared/text.ts';
 import * as v from 'valibot';
 import { batchOf, errors } from './errors.ts';
 import { Contents, StatementKeys } from './shape-files.ts';

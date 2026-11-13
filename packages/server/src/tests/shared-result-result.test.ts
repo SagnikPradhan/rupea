@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fault, type RupeaError, unknownError } from '@rupea/shared/error.ts';
+import { fault, type RupeaError, unknownError } from '@rupea/shared/errors.ts';
 import { attempt, err, errAsync, inOrder, ok, okAsync } from '#lib/server/shared/result/result.ts';
 
 const error: RupeaError = { type: 'UnknownError', message: 'boom' };

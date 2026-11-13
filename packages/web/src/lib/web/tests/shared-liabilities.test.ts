@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import * as Liabilities from '#lib/web/shared/liabilities.ts';
-import { type Amount, parseAmount, toNumber } from '@rupea/shared/amounts.ts';
+import { type Amount, parseAmount, toNumber } from '@rupea/shared/money.ts';
 import type { Span } from '@rupea/shared/dates.ts';
-import type { Terms } from '@rupea/shared/terms.ts';
+import type { Terms } from '@rupea/shared/forms.ts';
 import type * as v from 'valibot';
 
 const amount = (t: string) => parseAmount(t) as Amount;

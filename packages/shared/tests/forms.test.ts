@@ -1,4 +1,4 @@
-import { Terms, TermsForm } from '@rupea/shared/terms.ts';
+import { Terms, TermsForm } from '@rupea/shared/forms.ts';
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 

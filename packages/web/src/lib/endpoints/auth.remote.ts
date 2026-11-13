@@ -1,4 +1,4 @@
-import { Email } from '@rupea/shared/email.ts';
+import { Email } from '@rupea/shared/text.ts';
 import * as v from 'valibot';
 import { invalid, redirect } from '@sveltejs/kit';
 import { form } from '$app/server';

@@ -1,4 +1,4 @@
-import type { TransactionForm } from '@rupea/shared/transaction-form.ts';
+import type { TransactionForm } from '@rupea/shared/forms.ts';
 
 const HELD = ['Assets', 'Liabilities'];
 

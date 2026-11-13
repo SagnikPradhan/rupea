@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 
 const unbalanced = fault('ParseUnbalancedTransaction', {

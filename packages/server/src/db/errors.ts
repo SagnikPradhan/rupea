@@ -1,5 +1,5 @@
 import { DatabaseError } from 'pg';
-import { fault, unknownError, type RupeaError } from '@rupea/shared/error.ts';
+import { fault, unknownError, type RupeaError } from '@rupea/shared/errors.ts';
 import { attempt, type ResultAsync } from '../shared/result/result';
 
 const UNIQUE_VIOLATION = '23505';

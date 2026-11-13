@@ -1,4 +1,4 @@
-import { fault, RupeaError, unknownError } from '@rupea/shared/error.ts';
+import { fault, RupeaError, unknownError } from '@rupea/shared/errors.ts';
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 

@@ -1,6 +1,6 @@
 import { ORPCError } from '@orpc/client';
-import { fault, RupeaError, unknownError } from '@rupea/shared/error.ts';
-import type { Batch, Reply } from '@rupea/shared/reply.ts';
+import { fault, RupeaError, unknownError } from '@rupea/shared/errors.ts';
+import type { Batch, Reply } from '@rupea/shared/errors.ts';
 import * as v from 'valibot';
 
 /** The reply to a batch call with nothing to work through, which makes no call. */

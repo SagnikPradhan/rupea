@@ -1,5 +1,5 @@
 import { SchemaContent, SchemaKey } from '@rupea/shared/files.ts';
-import { Handle } from '@rupea/shared/handle.ts';
+import { Handle } from '@rupea/shared/text.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
 import { api } from './api';

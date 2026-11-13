@@ -1,6 +1,6 @@
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { findText, writeText } from '#lib/server/shared/storage/storage.ts';
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { errAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import * as DB from '../adapters/database';
 import { setTerms, termsOn } from '../domain/terms';

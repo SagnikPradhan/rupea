@@ -1,6 +1,6 @@
 import { base } from '#lib/server/db/columns.ts';
 import { EMBEDDING_DIMENSIONS } from '#lib/server/shared/onnx/models.ts';
-import type { RupeaError } from '@rupea/shared/error.ts';
+import type { RupeaError } from '@rupea/shared/errors.ts';
 import { users } from '#services/auth/adapters/database-schema.ts';
 import { sql } from 'drizzle-orm';
 import * as PG from 'drizzle-orm/pg-core';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import type { RupeaError } from '@rupea/shared/error.ts';
+import type { RupeaError } from '@rupea/shared/errors.ts';
 import { replyFrom, replyFromBatch } from '#lib/server/shared/result/reply.ts';
 import { err, ok } from '#lib/server/shared/result/result.ts';
 

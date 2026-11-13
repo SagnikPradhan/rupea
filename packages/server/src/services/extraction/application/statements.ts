@@ -1,7 +1,7 @@
 import { sha256 } from '#lib/server/shared/hash.ts';
 import { batchInOrder } from '#lib/server/shared/result/batch.ts';
-import type { Batch } from '@rupea/shared/reply.ts';
-import { fault } from '@rupea/shared/error.ts';
+import type { Batch } from '@rupea/shared/errors.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { errAsync, inOrder, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { writeNumbered, type Storage } from '#lib/server/shared/storage/storage.ts';
 import { openFolder, type Ledger } from '#services/ledger/application/ledger.ts';

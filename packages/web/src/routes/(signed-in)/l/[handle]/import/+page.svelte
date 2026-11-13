@@ -7,7 +7,7 @@
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import StatementList from '#lib/web/components/app-statement-list/app-statement-list.svelte';
 	import StatementView from '#lib/web/components/app-statement-view/app-statement-view.svelte';
-	import { UPLOAD_EXTENSIONS } from '@rupea/shared/statements.ts';
+	import { UPLOAD_EXTENSIONS } from '@rupea/shared/files.ts';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 

@@ -1,6 +1,12 @@
-import { MOST_KEYS, Schema } from '@rupea/shared/files.ts';
-import { Handle } from '@rupea/shared/handle.ts';
-import { MOST_PASSWORD, MOST_UPLOADS, StatementKey, Upload } from '@rupea/shared/statements.ts';
+import {
+	MOST_KEYS,
+	Schema,
+	MOST_PASSWORD,
+	MOST_UPLOADS,
+	StatementKey,
+	Upload,
+} from '@rupea/shared/files.ts';
+import { Handle } from '@rupea/shared/text.ts';
 import { command, form, query } from '$app/server';
 import * as v from 'valibot';
 import { api } from './api';

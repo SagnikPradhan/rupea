@@ -8,9 +8,8 @@ import {
 	Suggestion,
 	TransactionOut,
 } from '@rupea/contract/shape-ledger.ts';
-import { Amount } from '@rupea/shared/amounts.ts';
+import { Amount, DEFAULT_COMMODITY, printPosted, printQuantity } from '@rupea/shared/money.ts';
 import { Day } from '@rupea/shared/dates.ts';
-import { DEFAULT_COMMODITY, printPosted, printQuantity } from '@rupea/shared/quantities.ts';
 import * as v from 'valibot';
 
 type Transaction = v.InferOutput<typeof TransactionOut>;

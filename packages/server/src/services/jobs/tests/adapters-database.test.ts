@@ -2,7 +2,7 @@ import { atomically } from '#lib/server/db/atomically.ts';
 import { attemptWrite } from '#lib/server/db/errors.ts';
 import { JobStatus } from '#services/jobs/domain/jobs.ts';
 import { provide, withContext } from '#lib/server/shared/context/context.ts';
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { ResultAsync } from '#lib/server/shared/result/result.ts';
 import { createUser } from '@rupea/server/tests/shared/seed.ts';
 import { it } from '@rupea/server/tests/shared/vitest.ts';

@@ -6,7 +6,7 @@
 		listSuggestions,
 	} from '#lib/endpoints/refinement.remote.ts';
 	import type { SuggestionView as Suggestion } from '#lib/endpoints/views.ts';
-	import type { RupeaError } from '@rupea/shared/error.ts';
+	import type { RupeaError } from '@rupea/shared/errors.ts';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import { detail } from '#lib/web/shared/errors.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';

@@ -1,4 +1,4 @@
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
 import { matchesGlob } from 'node:path';
 import { match, P } from 'ts-pattern';

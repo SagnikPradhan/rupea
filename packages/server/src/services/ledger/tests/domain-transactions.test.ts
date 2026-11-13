@@ -1,5 +1,5 @@
 import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
-import { TransactionForm } from '@rupea/shared/transaction-form.ts';
+import { TransactionForm } from '@rupea/shared/forms.ts';
 import { find, insert, remove, replace } from '#services/ledger/domain/transactions.ts';
 import { parse } from '#services/ledger/domain/parser.ts';
 import * as v from 'valibot';

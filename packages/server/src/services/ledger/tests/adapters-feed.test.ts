@@ -1,4 +1,4 @@
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { err, ok } from '#lib/server/shared/result/result.ts';
 import { parseAmount, type Amount } from '#services/ledger/domain/amounts.ts';
 import * as Mfapi from '#services/ledger/adapters/feed-mfapi.ts';

@@ -1,4 +1,4 @@
-import { Handle } from '@rupea/shared/handle.ts';
+import { Handle } from '@rupea/shared/text.ts';
 import { command, query } from '$app/server';
 import { api } from './api';
 import { replyFromBatchCall, replyFromCall } from './reply';

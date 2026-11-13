@@ -1,5 +1,5 @@
 import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { setTerms, termsOn } from '#services/ledger/domain/terms.ts';
 import { describe, expect, it } from 'vitest';
 

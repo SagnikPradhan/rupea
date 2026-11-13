@@ -6,7 +6,7 @@ import {
 	linkGroups,
 	listSuggestions,
 } from '#lib/endpoints/refinement.remote.ts';
-import { fault, type RupeaError } from '@rupea/shared/error.ts';
+import { fault, type RupeaError } from '@rupea/shared/errors.ts';
 import { goto } from '#tests/shared/app-navigation.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';

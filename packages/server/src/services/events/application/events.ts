@@ -1,6 +1,6 @@
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { batchAsync } from '#lib/server/shared/result/batch.ts';
-import { fault, type RupeaError } from '@rupea/shared/error.ts';
+import { fault, type RupeaError } from '@rupea/shared/errors.ts';
 import {
 	attempt,
 	err,

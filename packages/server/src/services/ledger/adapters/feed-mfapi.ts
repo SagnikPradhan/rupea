@@ -1,4 +1,4 @@
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { errAsync, okAsync } from '#lib/server/shared/result/result.ts';
 import * as v from 'valibot';
 import { DEFAULT_COMMODITY, parseAmount } from '../domain/amounts';

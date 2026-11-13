@@ -1,5 +1,5 @@
 import { safely } from '#lib/server/shared/control.ts';
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { errAsync, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import type { Contents, Upload } from '../domain/types';
 

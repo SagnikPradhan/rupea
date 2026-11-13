@@ -1,6 +1,5 @@
 <script lang="ts">
-	import { type Amount as Money, printAmount, sum, toNumber } from '@rupea/shared/amounts.ts';
-	import { ASSETS } from '@rupea/shared/accounts.ts';
+	import { type Amount as Money, printAmount, sum, toNumber, ASSETS } from '@rupea/shared/money.ts';
 	import AccountName from '#lib/web/components/app-account-name/app-account-name.svelte';
 	import Amount from '#lib/web/components/app-ledger-table/amount.svelte';
 	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';

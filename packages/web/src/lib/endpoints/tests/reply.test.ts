@@ -1,6 +1,6 @@
 import { ORPCError } from '@orpc/client';
 import { replyFromBatchCall, replyFromCall } from '#lib/endpoints/reply.ts';
-import type { RupeaError } from '@rupea/shared/error.ts';
+import type { RupeaError } from '@rupea/shared/errors.ts';
 import { describe, expect, it } from 'vitest';
 
 const notFound: RupeaError = { type: 'LedgerNotFound', handle: 'home' };

@@ -1,6 +1,6 @@
 import { attemptWrite, violates } from '#lib/server/db/errors.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 
 export type User = { id: string; email: string; username: string };

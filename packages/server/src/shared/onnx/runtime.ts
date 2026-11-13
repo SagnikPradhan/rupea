@@ -2,7 +2,7 @@ import { Tokenizer } from '@huggingface/tokenizers';
 import { readFile } from 'node:fs/promises';
 import { InferenceSession, Tensor } from 'onnxruntime-node';
 import type { Logger, Namespace } from '../context/logger';
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { attempt, err, ok, okAsync, type Result, ResultAsync } from '../result/result';
 import {
 	detections,

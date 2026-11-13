@@ -1,7 +1,7 @@
 import { GroupRole } from '#services/ledger/application/language.ts';
 import * as Groups from '#services/ledger/application/groups.ts';
 import * as Refinement from '#services/refinement/application/refinement.ts';
-import type { RupeaError } from '@rupea/shared/error.ts';
+import type { RupeaError } from '@rupea/shared/errors.ts';
 import { sanitiseBatch } from './sanitise.ts';
 import { inLedger, os, signedIn } from './session.ts';
 import { transactionOf } from './shapes.ts';

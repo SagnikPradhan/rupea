@@ -1,5 +1,5 @@
 import * as neverthrow from 'neverthrow';
-import { type RupeaError, unknownError } from '@rupea/shared/error.ts';
+import { type RupeaError, unknownError } from '@rupea/shared/errors.ts';
 
 export type Result<T> = neverthrow.Result<T, RupeaError>;
 export type ResultAsync<T> = neverthrow.ResultAsync<T, RupeaError>;

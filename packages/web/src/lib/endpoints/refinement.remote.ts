@@ -1,6 +1,6 @@
 import { Key, Line } from '@rupea/shared/files.ts';
 import { Fingerprint, GroupId, LinkEdit, MOST_EDITS } from '@rupea/contract/shape-ledger.ts';
-import { Handle } from '@rupea/shared/handle.ts';
+import { Handle } from '@rupea/shared/text.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
 import { api } from './api';

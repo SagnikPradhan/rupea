@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { isHandle } from '@rupea/shared/handle.ts';
+import { isHandle } from '@rupea/shared/text.ts';
 import { petName } from '#lib/server/shared/names.ts';
 
 describe('names', () => {

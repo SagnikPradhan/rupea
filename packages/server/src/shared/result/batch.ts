@@ -1,4 +1,4 @@
-import type { Batch } from '@rupea/shared/reply.ts';
+import type { Batch } from '@rupea/shared/errors.ts';
 import { ResultAsync, type Result } from './result';
 
 export const batch = <T>(results: Result<T>[]): Batch<T> => ({

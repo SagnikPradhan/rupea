@@ -1,5 +1,4 @@
-import type { RupeaError } from '@rupea/shared/error.ts';
-import type { Reply } from '@rupea/shared/reply.ts';
+import type { RupeaError, Reply } from '@rupea/shared/errors.ts';
 
 type Page<T, C> = { rows: T[]; next: C | null };
 

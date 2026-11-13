@@ -1,4 +1,4 @@
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { attempt, errAsync, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import * as v from 'valibot';
 import type { Quantity } from '../domain/amounts';

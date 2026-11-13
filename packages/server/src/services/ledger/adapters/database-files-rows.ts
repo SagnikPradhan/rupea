@@ -1,6 +1,6 @@
 import { anyOf, noneOf } from '#lib/server/db/expressions.ts';
 import { ROWS_PER_STATEMENT, type Database } from '#lib/server/db/index.ts';
-import { fault, type RupeaError } from '@rupea/shared/error.ts';
+import { fault, type RupeaError } from '@rupea/shared/errors.ts';
 import { chunks } from '#lib/server/shared/arrays.ts';
 import { v7 as uuidv7 } from 'uuid';
 import { displayLocation } from '../domain/parser';

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { Handle, isHandle } from '@rupea/shared/handle.ts';
+import { Handle, isHandle } from '@rupea/shared/text.ts';
 import * as v from 'valibot';
 
 describe('a ledger handle', () => {

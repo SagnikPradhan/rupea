@@ -1,10 +1,10 @@
 import { atomically } from '#lib/server/db/atomically.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
-import { fault, type RupeaError } from '@rupea/shared/error.ts';
+import { fault, type RupeaError } from '@rupea/shared/errors.ts';
 import { inOrder, ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { readText, type Entry, type Storage } from '#lib/server/shared/storage/storage.ts';
 import type { Span } from '@rupea/shared/dates.ts';
-import { isCounted, STATEMENTS } from '@rupea/shared/folders.ts';
+import { isCounted, STATEMENTS } from '@rupea/shared/files.ts';
 import * as DB from '../adapters/database';
 import { parseChanged } from '../domain/parser';
 import type { RupeaFile } from '../domain/types';

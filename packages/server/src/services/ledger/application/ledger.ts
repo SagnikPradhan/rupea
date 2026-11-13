@@ -2,7 +2,7 @@ import { petName } from '#lib/server/shared/names.ts';
 import { errAsync, ok, type Result, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { scoped, type Storage } from '#lib/server/shared/storage/storage.ts';
 import { withStorage } from '#services/storage/application/storage.ts';
-import { STATEMENTS } from '@rupea/shared/folders.ts';
+import { STATEMENTS } from '@rupea/shared/files.ts';
 import * as DB from '../adapters/database';
 import type { Ledger } from '../domain/types';
 

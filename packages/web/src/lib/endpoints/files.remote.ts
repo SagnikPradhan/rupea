@@ -1,7 +1,7 @@
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { Content, Draft, Key, Line, MOST_KEYS } from '@rupea/shared/files.ts';
-import { Handle } from '@rupea/shared/handle.ts';
-import { TransactionForm } from '@rupea/shared/transaction-form.ts';
+import { Handle } from '@rupea/shared/text.ts';
+import { TransactionForm } from '@rupea/shared/forms.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
 import { api } from './api';

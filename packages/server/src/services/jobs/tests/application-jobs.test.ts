@@ -1,7 +1,7 @@
 import { JobStatus } from '#services/jobs/domain/jobs.ts';
 import { atomically } from '#lib/server/db/atomically.ts';
 import { provide, withContext, type RupeaContext } from '#lib/server/shared/context/context.ts';
-import { fault, type RupeaError } from '@rupea/shared/error.ts';
+import { fault, type RupeaError } from '@rupea/shared/errors.ts';
 import { attempt, errAsync, okAsync } from '#lib/server/shared/result/result.ts';
 import { createTemporaryDatabase } from '@rupea/server/tests/shared/database.ts';
 import { createUser } from '@rupea/server/tests/shared/seed.ts';

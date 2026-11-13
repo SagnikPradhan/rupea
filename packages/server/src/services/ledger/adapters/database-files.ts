@@ -3,7 +3,7 @@ import { type Database } from '#lib/server/db/index.ts';
 import { insertAll } from '#lib/server/db/insert.ts';
 import { atomically } from '#lib/server/db/atomically.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
-import { type RupeaError } from '@rupea/shared/error.ts';
+import { type RupeaError } from '@rupea/shared/errors.ts';
 import { attempt, errAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import type { Span } from '@rupea/shared/dates.ts';
 import { sql, type SqlBool } from 'kysely';

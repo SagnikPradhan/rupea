@@ -1,5 +1,5 @@
 import { ORPCError } from '@orpc/server';
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { describe, expect, it } from 'vitest';
 import { err, ok } from '#lib/server/shared/result/result.ts';
 import { answer } from '../api/answer.ts';

@@ -1,5 +1,5 @@
 import { batchOf, CODE, errors, STATUS } from '@rupea/contract/errors.ts';
-import { RupeaError } from '@rupea/shared/error.ts';
+import { RupeaError } from '@rupea/shared/errors.ts';
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 

@@ -1,5 +1,5 @@
 import { provide } from '#lib/server/shared/context/context.ts';
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { err, errAsync, ok } from '#lib/server/shared/result/result.ts';
 import * as Groups from '#services/ledger/application/groups.ts';
 import * as Files from '#services/ledger/application/files.ts';

@@ -1,7 +1,7 @@
 import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
-import type { TransactionForm } from '@rupea/shared/transaction-form.ts';
+import type { TransactionForm } from '@rupea/shared/forms.ts';
 import {
 	DEFAULT_COMMODITY,
 	printAmount,

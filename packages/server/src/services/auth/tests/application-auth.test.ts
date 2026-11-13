@@ -1,6 +1,6 @@
 import { provide, type RupeaContext } from '#lib/server/shared/context/context.ts';
 import type { Mail, Mailer } from '#lib/server/shared/context/mailer.ts';
-import { isHandle } from '@rupea/shared/handle.ts';
+import { isHandle } from '@rupea/shared/text.ts';
 import { ok, okAsync } from '#lib/server/shared/result/result.ts';
 import * as Ledger from '#services/ledger/application/ledger.ts';
 import { createTemporaryDatabase } from '@rupea/server/tests/shared/database.ts';

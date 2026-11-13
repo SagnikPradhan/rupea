@@ -1,5 +1,5 @@
 import { batchAsync } from '#lib/server/shared/result/batch.ts';
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import {
 	readText,

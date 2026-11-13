@@ -1,5 +1,9 @@
-import { printAmount, type Amount } from '@rupea/shared/amounts.ts';
-import { DEFAULT_COMMODITY, type PostedOut } from '@rupea/shared/quantities.ts';
+import {
+	printAmount,
+	type Amount,
+	DEFAULT_COMMODITY,
+	type PostedOut,
+} from '@rupea/shared/money.ts';
 import type * as v from 'valibot';
 import { PriceKind, type RupeaPosting } from './types';
 
@@ -13,7 +17,7 @@ export {
 	printAmount,
 	sum,
 	type Amount,
-} from '@rupea/shared/amounts.ts';
+} from '@rupea/shared/money.ts';
 
 export { DEFAULT_COMMODITY };
 

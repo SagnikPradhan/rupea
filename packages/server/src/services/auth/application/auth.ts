@@ -1,7 +1,7 @@
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { sha256 } from '#lib/server/shared/hash.ts';
 import { petName } from '#lib/server/shared/names.ts';
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import {
 	err,
 	errAsync,

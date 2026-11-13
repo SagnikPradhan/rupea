@@ -9,7 +9,7 @@ import {
 } from '#lib/endpoints/files.remote.ts';
 import { listAccountNames } from '#lib/endpoints/accounts.remote.ts';
 import { goto } from '$app/navigation';
-import { fault } from '@rupea/shared/error.ts';
+import { fault } from '@rupea/shared/errors.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
 import Page from '#routes/(signed-in)/l/[handle]/transactions/+page.svelte';

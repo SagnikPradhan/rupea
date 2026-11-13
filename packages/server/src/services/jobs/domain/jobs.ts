@@ -1,4 +1,4 @@
-import { fault, type RupeaError } from '@rupea/shared/error.ts';
+import { fault, type RupeaError } from '@rupea/shared/errors.ts';
 import { err, ok, type Result, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { sha256 } from '#lib/server/shared/hash.ts';
 import * as v from 'valibot';

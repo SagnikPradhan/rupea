@@ -204,3 +204,7 @@ oRPC
 Fastify
 OpenAPI
 tRPC
+beancount
+BQL
+listBalances
+listCostMoves

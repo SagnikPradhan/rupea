@@ -5,33 +5,7 @@ import { inLedger, os, signedIn } from './session.ts';
 
 const listAccounts = os.accounts.list
 	.use(signedIn)
-	.handler(async ({ input: { handle, day } }) =>
-		sanitiseBatch(
-			await inLedger({ handle, action: (l) => Accounts.listAccounts({ ledger: l, day }) }),
-		),
-	);
-
-const listWorth = os.accounts.listWorth
-	.use(signedIn)
-	.handler(async ({ input: { handle, from, to, account } }) =>
-		sanitiseBatch(
-			await inLedger({
-				handle,
-				action: (l) => Accounts.listWorth({ ledger: l, from, to, account: account ?? null }),
-			}),
-		),
-	);
-
-const listInvested = os.accounts.listInvested
-	.use(signedIn)
-	.handler(async ({ input: { handle, from, to, account } }) =>
-		sanitiseBatch(
-			await inLedger({
-				handle,
-				action: (l) => Accounts.listInvested({ ledger: l, from, to, account: account ?? null }),
-			}),
-		),
-	);
+	.handler(({ input }) => inLedger({ handle: input.handle, action: Accounts.listAccounts }));
 
 const findBridge = os.accounts.findBridge
 	.use(signedIn)
@@ -60,25 +34,11 @@ const listReturns = os.accounts.listReturns
 		),
 	);
 
-const listDeltas = os.accounts.listDeltas
+const listBalances = os.accounts.listBalances
 	.use(signedIn)
-	.handler(async ({ input: { handle, spans, bucket, account } }) =>
+	.handler(async ({ input: { handle, ...options } }) =>
 		sanitiseBatch(
-			await inLedger({
-				handle,
-				action: (l) => Accounts.listDeltas({ ledger: l, spans, bucket, account }),
-			}),
-		),
-	);
-
-const listDailyDeltas = os.accounts.listDailyDeltas
-	.use(signedIn)
-	.handler(async ({ input: { handle, from, to, account } }) =>
-		sanitiseBatch(
-			await inLedger({
-				handle,
-				action: (l) => Accounts.listDailyDeltas({ ledger: l, span: { from, to }, account }),
-			}),
+			await inLedger({ handle, action: (l) => Accounts.listBalances({ ledger: l, ...options }) }),
 		),
 	);
 
@@ -91,16 +51,6 @@ const listLots = os.accounts.listLots
 				action: (l) => Accounts.listLots({ ledger: l, account, commodity }),
 			}),
 		),
-	);
-
-const listAccountTree = os.accounts.listTree
-	.use(signedIn)
-	.handler(({ input }) => inLedger({ handle: input.handle, action: Accounts.listAccountTree }));
-
-const listAccountNames = os.accounts.listNames
-	.use(signedIn)
-	.handler(({ input: { handle, prefix } }) =>
-		inLedger({ handle, action: (l) => Accounts.listAccountNames({ ledger: l, prefix }) }),
 	);
 
 const listTerms = os.accounts.listTerms
@@ -117,16 +67,11 @@ const saveTerms = os.accounts.saveTerms
 
 export const accounts = {
 	list: listAccounts,
-	listWorth,
-	listInvested,
+	listBalances,
 	findBridge,
 	listDrops,
 	listReturns,
-	listDeltas,
-	listDailyDeltas,
 	listLots,
-	listTree: listAccountTree,
-	listNames: listAccountNames,
 	listTerms,
 	saveTerms,
 };

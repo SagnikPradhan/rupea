@@ -106,13 +106,13 @@ describe('the auth routes', () => {
 			const { token } = (await signIn(api, mail.sent)).json();
 			vi.setSystemTime(Date.now() + 16 * DAY);
 
-			const worth = await api.inject({
-				url: '/api/ledgers/any/worth?from=2026-10-01&to=2026-10-02',
+			const balances = await api.inject({
+				url: '/api/ledgers/any/balances?from=2026-10-01&to=2026-10-02&bucket=date&accumulate=historical',
 				headers: bearer(token),
 			});
 			const user = await api.inject({ url: '/api/auth/user', headers: bearer(token) });
 
-			expect(worth.statusCode).not.toBe(401);
+			expect(balances.statusCode).not.toBe(401);
 			expect(user.json().expiresAt).toBe('2026-11-25T09:00:00Z');
 		});
 	});

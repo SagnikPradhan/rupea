@@ -1,7 +1,7 @@
+import { heldOn, worthDaysOf, worthHeldOf } from './fixtures/held';
 import type { Database } from '#lib/server/db/index.ts';
 import { provide } from '#lib/server/shared/context/context.ts';
 import * as DB from '#services/ledger/adapters/database.ts';
-import * as Accounts from '#services/ledger/application/accounts.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
 import * as Sync from '#services/ledger/application/sync.ts';
@@ -19,9 +19,9 @@ const UNIT = 10_000_000_000n;
 
 const worthOn = async (ledger: Ledger, d: string) => {
 	const day = Temporal.PlainDate.from(d);
-	const found = await Accounts.listWorth({ ledger, from: day, to: day, account: null });
+	const found = await worthDaysOf(ledger, { from: day, to: day });
 
-	return found._unsafeUnwrap().succeeded[0]?.worth;
+	return found[0]?.worth;
 };
 
 const priceYearsOf = (db: Database, year: number) =>
@@ -152,8 +152,10 @@ describe('price years', () => {
 
 			const on = '2024-03-01';
 			const day = Temporal.PlainDate.from(on);
-			const accounts = (await Accounts.listAccounts({ ledger, day }))._unsafeUnwrap().succeeded;
-			const held = accounts.find((a) => a.account === 'Assets:Broker')?.total;
+			const rows = await heldOn(ledger, day);
+			const held = rows.some((r) => r.account === 'Assets:Broker')
+				? worthHeldOf(rows, 'Assets:Broker')
+				: undefined;
 
 			expect(held).toBeDefined();
 			expect(await worthOn(ledger, on)).toBe(held);

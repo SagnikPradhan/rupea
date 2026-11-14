@@ -1,4 +1,4 @@
-import { idsUnder, parentsIn, partsIn, type AccountNode } from '#services/ledger/domain/tree.ts';
+import { idsIn, parentsIn, partsIn, type AccountNode } from '#services/ledger/domain/tree.ts';
 import { AccountType } from '#services/ledger/domain/types.ts';
 import { describe, expect, it } from 'vitest';
 
@@ -38,12 +38,12 @@ const partsOf = (account: string | null) => {
 	return { parts: parts.map((p) => `${p.accountId} ${p.part}`), byCommodity };
 };
 
-describe('idsUnder', () => {
+describe('idsIn', () => {
 	it('is the account and every account under it, whatever the case, and not one that only starts with its name', () => {
 		const names = treeOf('Assets', 'Assets:Bank', 'Assets:Banking', 'Expenses');
-		expect(idsUnder(names, 'assets:bank')).toEqual(['Assets:Bank']);
-		expect(idsUnder(names, 'ASSETS')).toEqual(['Assets', 'Assets:Bank', 'Assets:Banking']);
-		expect(idsUnder(names, 'Income')).toEqual([]);
+		expect(idsIn(names, 'assets:bank')).toEqual(['Assets:Bank']);
+		expect(idsIn(names, 'ASSETS')).toEqual(['Assets', 'Assets:Bank', 'Assets:Banking']);
+		expect(idsIn(names, 'Income')).toEqual([]);
 	});
 });
 

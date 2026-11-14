@@ -8,6 +8,7 @@ import * as Sync from '#services/ledger/application/sync.ts';
 import type { Amount } from '#services/ledger/domain/amounts.ts';
 import { readSeries } from '#services/ledger/domain/series.ts';
 import { Feed, PriceSource } from '#services/ledger/domain/types.ts';
+import { worthDaysOf } from './fixtures/held';
 import { createLedger } from '@rupea/server/tests/shared/seed.ts';
 import { it } from '@rupea/server/tests/shared/vitest.ts';
 import { sql } from 'kysely';
@@ -16,11 +17,11 @@ import { describe, expect } from 'vitest';
 const UNIT = 10_000_000_000n;
 const OLD = '2020-03-01 Salary\n\tAssets:Bank 1000\n\tIncome:Salary\n';
 
-const worthOn = async (ledger: Ledger, d: string, account: string | null = null) => {
+const worthOn = async (ledger: Ledger, d: string, account?: string) => {
 	const day = Temporal.PlainDate.from(d);
-	const found = await Accounts.listWorth({ ledger, from: day, to: day, account });
+	const found = await worthDaysOf(ledger, { from: day, to: day, account });
 
-	return found._unsafeUnwrap().succeeded[0]?.worth;
+	return found[0]?.worth;
 };
 
 const blank = (db: Database, id: string) =>

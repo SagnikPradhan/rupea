@@ -63,8 +63,14 @@ export const checkLedger = (l: Ledger): ResultAsync<RupeaError[]> =>
 		.andThen((f) => checkTerms(l).map((k) => [...f, ...k]))
 		.orElse((e) => ok([e]));
 
-export const checkLots = (l: Ledger): ResultAsync<RupeaError[]> =>
-	DB.listUnmatched(l.id).map((u) => u.map(toLotError));
+type LotsScope = { accounts: string[]; to: Temporal.PlainDate };
+
+/**
+ * Disposals no lot covers, in the scope's accounts up to its day, or in the
+ * whole ledger.
+ */
+export const checkLots = (l: Ledger, s?: LotsScope): ResultAsync<RupeaError[]> =>
+	DB.listUnmatched(l.id, s).map((u) => u.map(toLotError));
 
 const queueSync = (l: Ledger): ResultAsync<void> =>
 	enqueue({ job: syncLedger, user: l.owner, payload: { ledger: l.handle } });

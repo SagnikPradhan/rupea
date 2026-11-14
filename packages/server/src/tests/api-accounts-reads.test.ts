@@ -53,12 +53,10 @@ const old = [
 ].join('\n');
 
 const span = (from: string, to: string) => ({
-	invested: `invested?from=${from}&to=${to}`,
 	bridge: `bridge?from=${from}&to=${to}`,
 	drops: `drops?from=${from}&to=${to}`,
 	returns: `returns?from=${from}&to=${to}`,
-	deltas: `deltas?spans[0][from]=${from}&spans[0][to]=${to}&bucket=month`,
-	'daily-deltas': `daily-deltas?from=${from}&to=${to}`,
+	balances: `balances?from=${from}&to=${to}&bucket=month`,
 });
 
 const spanned = Object.keys(span('', ''));
@@ -77,31 +75,27 @@ const inject = async (context: Parameters<typeof createApi>[0], text: string, ur
 describe('the accounts api', () => {
 	it.for([
 		[
-			'accounts?day=2026-10-02',
+			'balances?from=2026-10-02&to=2026-10-02&bucket=date&accumulate=historical&account=Assets:Zerodha&measures=units&measures=price&measures=value&measures=cost&measures=paid',
 			{
 				succeeded: [
-					{ account: 'Assets', total: '599.50', cost: '9000.00', gain: '1800.00' },
-					{ account: 'Assets:Bank', parent: 'Assets', total: '-10200.50' },
 					{
-						account: 'Assets:Zerodha',
-						holdings: [
+						base: 'INR',
+						rows: expect.arrayContaining([
 							{
+								account: 'Assets:Zerodha',
 								commodity: 'INFY',
-								hasLots: true,
+								bucket: '2026-10-02',
+								unpriced: 0,
 								units: '6.00',
 								price: { amount: '1800.00', commodity: 'INR' },
 								value: '10800.00',
+								cost: '9000.00',
 								paid: '9000.00',
-								gain: '1800.00',
 							},
-						],
+						]),
 					},
 				],
 			},
-		],
-		[
-			'invested?from=2026-10-01&to=2026-10-01',
-			{ succeeded: [{ day: '2026-10-01', value: '10800.00', cost: '9000.00' }] },
 		],
 		[
 			'bridge?from=2026-01-01&to=2026-10-01',
@@ -132,24 +126,36 @@ describe('the accounts api', () => {
 			},
 		],
 		[
-			'deltas?spans[0][from]=2026-03-01&spans[0][to]=2026-03-31&bucket=month',
+			'balances?from=2026-03-01&to=2026-03-31&account=Expenses&bucket=month&measures=value&measures=inflow',
 			{
 				succeeded: [
 					{
 						from: '2026-03-01',
-						bucket: 'month',
-						buckets: ['2026-03-01'],
-						totals: [
-							{ account: 'Expenses', parent: null, amount: '2000.50', inflow: '2000.50' },
-							{ account: 'Expenses:Food', parent: 'Expenses' },
-						],
+						to: '2026-03-31',
+						base: 'INR',
+						rows: expect.arrayContaining([
+							expect.objectContaining({
+								account: 'Expenses',
+								bucket: '2026-03',
+								value: '2000.50',
+								inflow: '2000.50',
+							}),
+						]),
 					},
 				],
 			},
 		],
 		[
-			'daily-deltas?from=2026-03-01&to=2026-03-31',
-			{ succeeded: expect.arrayContaining([{ day: 5, amount: '2000.50', unpriced: 0 }]) },
+			'balances?from=2026-03-01&to=2026-03-31&account=Expenses&bucket=day&aggregate=average',
+			{
+				succeeded: [
+					{
+						rows: expect.arrayContaining([
+							expect.objectContaining({ account: 'Expenses', bucket: '5', value: '2000.50' }),
+						]),
+					},
+				],
+			},
 		],
 		[
 			'lots?account=Assets:Zerodha&commodity=INFY',
@@ -174,18 +180,17 @@ describe('the accounts api', () => {
 			},
 		],
 		[
-			'account-tree',
+			'accounts',
 			[
-				{ account: 'Assets', parent: null },
-				{ account: 'Assets:Bank', parent: 'Assets' },
-				{ account: 'Assets:Zerodha', parent: 'Assets' },
-				{ account: 'Expenses', parent: null },
-				{ account: 'Expenses:Food', parent: 'Expenses' },
-				{ account: 'Income', parent: null },
-				{ account: 'Income:Gains', parent: 'Income' },
+				{ account: 'Assets', parent: null, posted: false },
+				{ account: 'Assets:Bank', parent: 'Assets', posted: true },
+				{ account: 'Assets:Zerodha', parent: 'Assets', posted: true },
+				{ account: 'Expenses', parent: null, posted: false },
+				{ account: 'Expenses:Food', parent: 'Expenses', posted: true },
+				{ account: 'Income', parent: null, posted: false },
+				{ account: 'Income:Gains', parent: 'Income', posted: true },
 			],
 		],
-		['account-names?prefix=Assets:Z', ['Assets:Zerodha']],
 	] as const)('answers %s', async ([url, expected], { context }) =>
 		provide(context, async () => {
 			const reply = await inject(context, content, url);
@@ -194,6 +199,18 @@ describe('the accounts api', () => {
 			expect(reply.json()).toMatchObject(expected);
 		}),
 	);
+
+	it('refuses a historical balance by day of the month, or with inflow', ({ context }) =>
+		provide(context, async () => {
+			const base = 'balances?from=2026-03-01&to=2026-03-31&accumulate=historical';
+			const replies = await Promise.all(
+				[`${base}&bucket=day`, `${base}&bucket=month&measures=inflow`].map((url) =>
+					inject(context, content, url),
+				),
+			);
+
+			expect(replies.map((r) => r.statusCode)).toEqual([400, 400]);
+		}));
 
 	it('answers a span that runs backwards with a 422 on every route that walks days', ({
 		context,
@@ -229,27 +246,27 @@ describe('the accounts api', () => {
 			expect(replies.map((r) => r.json().succeeded.length > 0)).toEqual(spanned.map(() => true));
 		}));
 
-	it('asks for at most two spans of deltas', ({ context }) =>
+	it('answers an account nothing matches with a 404', ({ context }) =>
 		provide(context, async () => {
-			const spans = [0, 1, 2].map((i) => `spans[${i}][from]=2026-03-01&spans[${i}][to]=2026-03-31`);
+			const reply = await inject(
+				context,
+				old,
+				'balances?from=1900-01-01&to=1900-01-02&bucket=date&account=Assets:Nope',
+			);
 
-			const reply = await inject(context, content, `deltas?${spans.join('&')}&bucket=day`);
-
-			expect(reply.statusCode).toBe(400);
+			expect(reply.statusCode).toBe(404);
+			expect(reply.json()).toMatchObject({
+				data: { type: 'AccountNotFound', account: 'Assets:Nope' },
+			});
 		}));
 
 	it.for<['GET' | 'PUT' | 'POST' | 'PATCH' | 'DELETE', string, object?, Record<string, string>?]>([
-		['GET', 'accounts?day=2026-10-02'],
-		['GET', 'worth?from=2026-10-01&to=2026-10-02'],
-		['GET', 'invested?from=2026-10-01&to=2026-10-02'],
 		['GET', 'bridge?from=2026-10-01&to=2026-10-02'],
 		['GET', 'drops?from=2026-10-01&to=2026-10-02'],
 		['GET', 'returns?from=2026-10-01&to=2026-10-02'],
-		['GET', 'deltas?spans[0][from]=2026-10-01&spans[0][to]=2026-10-02&bucket=day'],
-		['GET', 'daily-deltas?from=2026-10-01&to=2026-10-02'],
+		['GET', 'balances?from=2026-10-01&to=2026-10-02&bucket=date'],
 		['GET', 'lots?account=Assets:Zerodha&commodity=INFY'],
-		['GET', 'account-tree'],
-		['GET', 'account-names?prefix=Assets'],
+		['GET', 'accounts'],
 		['GET', 'terms?day=2026-10-02'],
 		['PUT', 'terms', { account: 'Liabilities:Car', entries: [['kind', 'loan']] }],
 		['GET', 'transactions?from=2026-10-01&to=2026-10-02'],

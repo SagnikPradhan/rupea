@@ -1,6 +1,6 @@
 <script lang="ts">
 	import {
-		listAccounts,
+		listHoldings,
 		listDrops,
 		listInvested,
 		listReturns,
@@ -32,7 +32,7 @@
 	const url = readQuery(BalanceQuery(day));
 	const [response, earned, first, owned, fallen] = $derived(
 		await Promise.all([
-			listAccounts({ handle, day, period: url.query.period }),
+			listHoldings({ handle, day, period: url.query.period }),
 			listReturns({ handle, day, period: url.query.period }),
 			findFirstDay(handle),
 			listInvested({ handle, day, period: url.query.period, account: url.query.account }),

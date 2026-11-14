@@ -81,9 +81,9 @@ export const coverOf = (spans: Span[]): Span | null => {
 };
 
 /** The days a chart adds up into one bar. */
-export const Bucket = v.picklist(['day', 'month', 'year']);
+export const Grain = v.picklist(['day', 'month', 'year']);
 
-export type Bucket = v.InferOutput<typeof Bucket>;
+export type Grain = v.InferOutput<typeof Grain>;
 
 const MONTH_NAME = /^\d{4}-(0[1-9]|1[0-2])$/;
 const YEAR_NAME = /^\d{4}$/;
@@ -112,7 +112,7 @@ export type Period = v.InferOutput<typeof Period>;
  * What a chart of spending covers: its span, the one before to weigh it
  * against, and its buckets.
  */
-type Spans = { current: Span; previous: Span | null; bucket: Bucket };
+type Spans = { current: Span; previous: Span | null; bucket: Grain };
 
 /**
  * A period's spans, each cut short at the day; a month or year is weighed
@@ -128,14 +128,14 @@ export const spansOf = (period: Period, day: Temporal.PlainDate): Spans => {
 const UNITS = { day: 'days', month: 'months', year: 'years' } as const;
 
 /** The first day of the bucket a day falls in. */
-export const bucketOf: Record<Bucket, (d: Temporal.PlainDate) => Temporal.PlainDate> = {
+export const bucketOf: Record<Grain, (d: Temporal.PlainDate) => Temporal.PlainDate> = {
 	day: (d) => d,
 	month: (d) => d.with({ day: 1 }),
 	year: (d) => d.with({ month: 1, day: 1 }),
 };
 
 /** The first day of every bucket a span touches, oldest first. */
-export const bucketsIn = (span: Span, bucket: Bucket) => {
+export const bucketsIn = (span: Span, bucket: Grain) => {
 	const unit = UNITS[bucket];
 	const first = bucketOf[bucket](span.from);
 	const count = first.until(span.to, { largestUnit: unit })[unit] + 1;
@@ -193,7 +193,7 @@ const spansEver = (day: Temporal.PlainDate): Spans => ({
 	bucket: 'year',
 });
 
-const bucketBetween = (from: Temporal.PlainDate, to: Temporal.PlainDate): Bucket => {
+const bucketBetween = (from: Temporal.PlainDate, to: Temporal.PlainDate): Grain => {
 	if (from.until(to).days < MOST_DAYS) return 'day';
 	if (from.until(to, { largestUnit: 'months' }).months < MOST_MONTHS) return 'month';
 	return 'year';

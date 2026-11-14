@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
-import { listAccountTree } from '#lib/endpoints/accounts.remote.ts';
+import { listAccounts } from '#lib/endpoints/accounts.remote.ts';
 import { listProblems } from '#lib/endpoints/ledger.remote.ts';
 import { listPostings } from '#lib/endpoints/transactions.remote.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
@@ -10,8 +10,7 @@ import Page from '#routes/(signed-in)/l/[handle]/postings/+page.svelte';
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
-	listAccountTree: vi.fn(),
-	listAccountNames: vi.fn(),
+	listAccounts: vi.fn(),
 }));
 vi.mock('#lib/endpoints/files.remote.ts', () => ({
 	findTransactionFiles: vi.fn(() => answer({ keys: [], newest: null })),
@@ -30,7 +29,9 @@ vi.mock('#lib/endpoints/transactions.remote.ts', () => ({
 
 const answering = (rows: unknown[]) => {
 	vi.mocked(listProblems).mockReturnValue(answer([]));
-	vi.mocked(listAccountTree).mockReturnValue(answer([{ account: 'Expenses', parent: null }]));
+	vi.mocked(listAccounts).mockReturnValue(
+		answer([{ account: 'Expenses', parent: null, posted: true }]),
+	);
 	vi.mocked(listPostings).mockReturnValue(answer({ rows, next: null }));
 };
 

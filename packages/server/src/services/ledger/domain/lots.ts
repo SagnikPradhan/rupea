@@ -38,11 +38,6 @@ export type LotHistory = {
 
 const FREE: Quantity = { amount: 0n as Amount, commodity: DEFAULT_COMMODITY };
 
-/** ISO 4217 codes, which are held as money rather than in lots. */
-export const CURRENCIES = Intl.supportedValuesOf('currency');
-
-export const hasLots = (c: string) => !CURRENCIES.includes(c);
-
 /**
  * A commodity moves in kind when its units in a transaction net to zero, so lot
  * costs only pick lots.

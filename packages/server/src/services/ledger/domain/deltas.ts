@@ -1,103 +1,106 @@
-import { bucketsIn, type Bucket, type Span } from '@rupea/shared/dates.ts';
-import { sum, type Amount } from './amounts';
+import {
+	isByCommodity,
+	type Aggregate,
+	type Bucket,
+	type Measure,
+} from '@rupea/shared/balances.ts';
+import { bucketsIn, type Span } from '@rupea/shared/dates.ts';
+import { sum, type Amount, type Quantity } from './amounts';
 import { byPath, parentsOf } from './taxonomy';
 
 /**
- * What one account gained in the base over one bucket, from the first day it
- * changed, how much came in and went out to make that, and how many of its
- * amounts had no price.
+ * What one account gained in the base over one bucket, how much came in and
+ * went out to make that, and how many of its amounts had no price. A bucket is
+ * a date as 2026-10-05, a day of the month, a month as 2026-10, or a year as
+ * 2026. A historical balance also has the units held and what the lots held
+ * cost, converted at the end of the bucket and, as paid, at the prices of the
+ * days they were bought. The commodity is null when every commodity is added.
  */
 export type Delta = {
 	account: string;
-	bucket: Temporal.PlainDate;
-	first: Temporal.PlainDate;
-	amount: Amount;
-	/** The positive postings summed. */
+	commodity: string | null;
+	bucket: string;
+	value: Amount;
 	inflow: Amount;
-	/** The negative postings summed, as a positive amount. */
 	outflow: Amount;
+	units: Amount;
+	cost: Amount;
+	paid: Amount;
+	price: Quantity | null;
 	unpriced: number;
 };
 
-/** What one account and the accounts under it gained over a whole span. */
-export type Total = {
+/** A delta with only the measures asked for. */
+type Row = {
 	account: string;
-	/** The account it is drawn under, as parentsIn divides them. */
-	parent: string | null;
-	first: Temporal.PlainDate;
-	amount: Amount;
-	inflow: Amount;
-	outflow: Amount;
+	commodity: string | null;
+	bucket: string;
 	unpriced: number;
+	value?: Amount;
+	inflow?: Amount;
+	outflow?: Amount;
+	units?: Amount;
+	cost?: Amount;
+	paid?: Amount;
+	price?: Quantity;
 };
 
 /**
- * Deltas over a span: the first and last day it covers, what its bars add up,
- * every bucket between, each account's total, and each account's buckets.
+ * The first and last day a span covers, the currency its amounts are in, and
+ * what each account drawn gained in each bucket.
  */
-export type Deltas = {
+export type Balances = {
 	from: Temporal.PlainDate;
 	to: Temporal.PlainDate;
+	base: string;
+	rows: Row[];
+};
+
+type BalancesOfOptions = {
+	span: Span;
+	base: string;
 	bucket: Bucket;
-	buckets: Temporal.PlainDate[];
-	totals: Total[];
-	deltas: Delta[];
+	aggregate: Aggregate;
+	measures: Measure[];
+	parents: Record<string, string | null>;
 };
 
-const texts = new WeakMap<Temporal.PlainDate, string>();
+const byBucket = new Intl.Collator('en', { numeric: true }).compare;
 
-/**
- * A date as text, which sorts as the date does, worked out once for each date
- * since a few dates fill thousands of rows.
- */
-const textOf = (d: Temporal.PlainDate): string => {
-	const text = texts.get(d) ?? d.toString();
-	texts.set(d, text);
-	return text;
+export const balancesOf = (
+	deltas: Delta[],
+	{ span, base, bucket, aggregate, measures, parents }: BalancesOfOptions,
+): Balances => {
+	const own = isByCommodity(measures) ? deltas : deltas.map((d) => ({ ...d, commodity: null }));
+	const drawn = rolledUp(own).filter((d) => Object.hasOwn(parents, d.account));
+	const averages = aggregate === 'average' && bucket === 'day';
+	const rows = averages ? drawn.map((d) => averaged(d, span)) : drawn;
+
+	return { from: span.from, to: span.to, base, rows: rows.map((r) => measured(r, measures)) };
 };
 
-type DeltasOfOptions = { span: Span; bucket: Bucket; parents: Record<string, string | null> };
-
-export const deltasOf = (deltas: Delta[], { span, bucket, parents }: DeltasOfOptions): Deltas => ({
-	from: span.from,
-	to: span.to,
-	bucket,
-	buckets: bucketsIn(span, bucket),
-	totals: totalsOf(deltas, parents),
-	deltas: rolledUp(deltas),
-});
-
-/** Each account's gain and its parents', by path and then bucket. */
+/** Each account's gain and its parents', by path, bucket and then commodity. */
 const rolledUp = (deltas: Delta[]): Delta[] => {
 	const byAccount = Object.groupBy(sharesOf(deltas), (s) => s.account);
 
 	return Object.keys(byAccount)
 		.toSorted(byPath)
 		.flatMap((account) => {
-			const byDay = Object.groupBy(byAccount[account] ?? [], (s) => textOf(s.bucket));
+			const byKey = Object.groupBy(byAccount[account] ?? [], (s) => s.bucket);
 
-			return Object.keys(byDay)
-				.toSorted((a, b) => Temporal.PlainDate.compare(a, b))
-				.flatMap((day) => {
-					const g = byDay[day];
-					return g?.[0] ? [{ ...g[0], ...added(g[0], g) }] : [];
+			return Object.keys(byKey)
+				.toSorted(byBucket)
+				.flatMap((key) => {
+					const byHeld = Object.groupBy(byKey[key] ?? [], (s) => s.commodity ?? '');
+
+					return Object.keys(byHeld)
+						.toSorted(byBucket)
+						.flatMap((held) => {
+							const g = byHeld[held];
+							return g?.[0] ? [{ ...g[0], ...added(g) }] : [];
+						});
 				});
 		});
-};
-
-/**
- * Each account's gain and its parents' over every bucket, by path, leaving out
- * those not drawn.
- */
-const totalsOf = (deltas: Delta[], parents: Record<string, string | null>): Total[] => {
-	const groups = Object.groupBy(sharesOf(deltas), (s) => s.account);
-	return Object.entries(groups)
-		.flatMap(([account, g]) =>
-			g?.[0] && Object.hasOwn(parents, account)
-				? [{ account, parent: parents[account] ?? null, ...added(g[0], g) }]
-				: [],
-		)
-		.toSorted((a, b) => byPath(a.account, b.account));
 };
 
 /**
@@ -107,38 +110,42 @@ const totalsOf = (deltas: Delta[], parents: Record<string, string | null>): Tota
 const sharesOf = (r: Delta[]) =>
 	r.flatMap((s) => parentsOf(s.account).map((a) => ({ ...s, account: a })));
 
-const added = (head: Delta, deltas: Delta[]) => ({
-	first: deltas.reduce((a, s) => (textOf(a) <= textOf(s.first) ? a : s.first), head.first),
-	amount: sum(deltas.map((s) => s.amount)),
+const added = (deltas: Delta[]) => ({
+	value: sum(deltas.map((s) => s.value)),
 	inflow: sum(deltas.map((s) => s.inflow)),
 	outflow: sum(deltas.map((s) => s.outflow)),
+	units: sum(deltas.map((s) => s.units)),
+	cost: sum(deltas.map((s) => s.cost)),
+	paid: sum(deltas.map((s) => s.paid)),
+	price: deltas.find((s) => s.price)?.price ?? null,
 	unpriced: deltas.reduce((n, s) => n + s.unpriced, 0),
 });
 
-/**
- * What these accounts gained on one day of the month, averaged over the months
- * of a span that have it.
- */
-export type Daily = { day: number; amount: Amount; unpriced: number };
+/** A day of the month's amounts divided by how many months of the span have it. */
+const averaged = (d: Delta, span: Span) => {
+	const times = BigInt(Math.max(monthsWith(Number(d.bucket), span), 1));
 
-/**
- * Every day of the month from the 1st to the 31st, dated in the reference
- * January the adapter buckets them in.
- */
-export const dailyOf = (deltas: Delta[], span: Span): Daily[] => {
-	const days = Object.groupBy(deltas, (s) => s.bucket.day);
-
-	return Array.from({ length: 31 }, (_, i) => {
-		const rows = days[i + 1] ?? [];
-		const months = Math.max(monthsWith(i + 1, span), 1);
-
-		return {
-			day: i + 1,
-			amount: (sum(rows.map((r) => r.amount)) / BigInt(months)) as Amount,
-			unpriced: rows.reduce((n, r) => n + r.unpriced, 0),
-		};
-	});
+	return {
+		...d,
+		value: (d.value / times) as Amount,
+		inflow: (d.inflow / times) as Amount,
+		outflow: (d.outflow / times) as Amount,
+	};
 };
+
+const measured = (d: Delta, measures: Measure[]) => ({
+	account: d.account,
+	commodity: d.commodity,
+	bucket: d.bucket,
+	unpriced: d.unpriced,
+	...(measures.includes('value') && { value: d.value }),
+	...(measures.includes('inflow') && { inflow: d.inflow }),
+	...(measures.includes('outflow') && { outflow: d.outflow }),
+	...(measures.includes('units') && { units: d.units }),
+	...(measures.includes('cost') && { cost: d.cost }),
+	...(measures.includes('paid') && { paid: d.paid }),
+	...(measures.includes('price') && d.price && { price: d.price }),
+});
 
 /** How many months of a span have this day of the month inside it. */
 const monthsWith = (day: number, span: Span) =>

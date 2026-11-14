@@ -1,11 +1,8 @@
 import { anyOf } from '#lib/server/db/expressions.ts';
-import { literalLike } from '#lib/server/db/index.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { sql, type SqlBool } from 'kysely';
 import type { AccountNode } from '../domain/tree';
-
-const SUGGESTIONS = 20;
 
 /** Whether any of these accounts has no postings left. */
 export const anyEmptied = (accounts: string[]): ResultAsync<boolean> =>
@@ -51,21 +48,7 @@ export const deleteUnusedAccounts = (ledgerId: string): ResultAsync<void> =>
 		}),
 	);
 
-/** The first accounts whose names start with a prefix, in any case. */
-export const listAccountNames = (ledgerId: string, prefix: string): ResultAsync<string[]> =>
-	withContext('db')((db) =>
-		attempt(() =>
-			db
-				.selectFrom('accounts')
-				.select('name')
-				.where('ledgerId', '=', ledgerId)
-				.where(sql<SqlBool>`lower(name) like lower(${literalLike(prefix)}) || '%'`)
-				.orderBy(sql`lower(name)`)
-				.limit(SUGGESTIONS)
-				.execute(),
-		).map((n) => n.map((r) => r.name)),
-	);
-
+/** Every account of a ledger, each with the one above it. */
 export const listAccountTree = (ledgerId: string): ResultAsync<AccountNode[]> =>
 	withContext('db')((db) =>
 		attempt(() =>

@@ -1,7 +1,7 @@
 <script lang="ts">
 	import Tooltip from '#lib/web/components/ui-tooltip/ui-tooltip.svelte';
 	import { AMOUNT_UNIT, type Amount, printAmount, toNumber } from '@rupea/shared/money.ts';
-	import { type Bucket, bucketOf, bucketsIn } from '@rupea/shared/dates.ts';
+	import { type Grain, bucketOf, bucketsIn } from '@rupea/shared/dates.ts';
 	import { formatAmount, formatBucket, formatMonth } from '#lib/web/shared/format.ts';
 
 	type Datum = {
@@ -22,14 +22,14 @@
 		from: Temporal.PlainDate;
 		to: Temporal.PlainDate;
 		today: Temporal.PlainDate;
-		bucket: Bucket;
+		bucket: Grain;
 		label: string;
 	};
 
 	const { lines, from, to, today, bucket, label }: Props = $props();
 
 	const LEAST = 3;
-	const LENGTHS: Record<Bucket, Temporal.DurationLike> = {
+	const LENGTHS: Record<Grain, Temporal.DurationLike> = {
 		day: { days: 1 },
 		month: { months: 1 },
 		year: { years: 1 },
@@ -50,7 +50,7 @@
 		bucketsIn({ from, to }, unit).filter((d) => Temporal.PlainDate.compare(d, from) >= 0),
 	);
 
-	const leftOf = (d: Temporal.PlainDate, by: Bucket) => {
+	const leftOf = (d: Temporal.PlainDate, by: Grain) => {
 		const end = bucketOf[by](d).add(LENGTHS[by]);
 		return Math.min(Math.max((daysFrom(d) + daysFrom(end)) / 2 / span, 0), 1) * 100;
 	};

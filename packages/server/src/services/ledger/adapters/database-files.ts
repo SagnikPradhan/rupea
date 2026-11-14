@@ -8,7 +8,7 @@ import { attempt, errAsync, type ResultAsync } from '#lib/server/shared/result/r
 import type { Span } from '@rupea/shared/dates.ts';
 import { sql, type SqlBool } from 'kysely';
 import { GROUP_KEYS } from '../domain/groups';
-import { CURRENCIES } from '../domain/lots';
+import { CURRENCIES } from '@rupea/shared/money.ts';
 import type { UnchangedEntry } from '../domain/parser';
 import { INDEXER } from '../domain/sync';
 import { BALANCE_TYPES } from '../domain/taxonomy';

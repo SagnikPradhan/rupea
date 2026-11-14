@@ -1,4 +1,7 @@
+import { bucketKeyOf, type Bucket } from '@rupea/shared/balances.ts';
 import { AMOUNT_UNIT, DEFAULT_COMMODITY, multiply, type Amount, type Quantity } from './amounts';
+import { costOn, heldCostsOn, unpricedIn, type CostMove, type RateThen } from './cost';
+import { type Delta } from './deltas';
 import { HOPS } from './holdings';
 import { NO_AMOUNT, readSeries } from './series';
 import { AccountType } from './types';
@@ -13,7 +16,7 @@ const MOST_DAYS = 1000;
  * What balance accounts were worth in rupees at the end of one day, owing below
  * zero as the accounts hold it, and how many commodities had no price.
  */
-export type Worth = {
+type Worth = {
 	day: Temporal.PlainDate;
 	assets: Amount;
 	liabilities: Amount;
@@ -77,11 +80,10 @@ export type WorthOfOptions = {
  * stretch's lowest and highest days, and the last.
  */
 export const worthOf = (o: WorthOfOptions): Worth[] => {
-	const count = o.from.until(o.to).days + 1;
-	const offsetOf = (y: number) =>
-		o.from.until(Temporal.PlainDate.from({ year: y, month: 1, day: 1 })).days;
-	const groups = groupsOf({ ...o, count, offsetOf });
-	const rates = ratesOf({ ...o, count, offsetOf });
+	const layout = layoutOf(o);
+	const { count } = layout;
+	const groups = groupsOf({ ...o, ...layout });
+	const rates = ratesOf({ ...o, ...layout });
 	const values = groups.map((g) => valuesOf(g.units, rates(g.commodity)));
 	const worth = Array.from({ length: count }, () => 0n);
 	values.forEach((v) =>
@@ -111,6 +113,95 @@ export const worthOf = (o: WorthOfOptions): Worth[] => {
 	});
 };
 
+type EndingsOptions = {
+	days: Temporal.PlainDate[];
+	lots: CostMove[];
+	bought: RateThen[];
+	paid: boolean;
+};
+
+type Ending = {
+	account: string;
+	commodity: string;
+	day: Temporal.PlainDate;
+	units: Amount;
+	value: Amount | null;
+	price: Quantity | null;
+	paid: Amount;
+	missed: number;
+	cost: Amount | null;
+};
+
+/**
+ * What each part held of each commodity at the end of each of these days, which
+ * a span holds: the units, their worth in rupees, or null with no price, the
+ * price of a unit, and what the lots held had cost converted at that day's
+ * prices, or null when a cost commodity had none, and what they had cost at the
+ * prices of the days they were bought, when asked, and how many cost
+ * commodities had none then. A part that held nothing in the span has none.
+ */
+export const endingsOf = (
+	o: WorthOfOptions,
+	{ days, lots, bought, paid }: EndingsOptions,
+): Ending[] => {
+	const layout = layoutOf(o);
+	const rates = ratesOf({ ...o, ...layout });
+	const partOf = new Map(o.parts.map((p) => [p.accountId, p.part]));
+	const byHolding = Object.groupBy(lots, (m) => `${partOf.get(m.accountId)} ${m.commodity}`);
+	const lotsOf = (g: Group) => byHolding[`${g.part} ${g.commodity}`] ?? [];
+
+	return groupsOf({ ...o, ...layout }).flatMap((g) => {
+		const values = valuesOf(g.units, rates(g.commodity));
+		const rate = rates(g.commodity);
+		const moves = lotsOf(g);
+		const costs = heldCostsOn({ moves, days });
+		const paidOn = costOn({ moves, rates: bought, days });
+		const missed = paid ? unpricedIn(moves, bought).length : 0;
+
+		return days.map((day, n) => {
+			const i = o.from.until(day).days;
+			const price = rate?.[i];
+			const converted = Object.entries(costs[n] ?? {}).map(([c, amount]) => {
+				const unit = rates(c)?.[i];
+				if (c === DEFAULT_COMMODITY) return amount;
+				return unit == null ? null : multiply(amount as Amount, unit as Amount);
+			});
+
+			return {
+				account: g.part,
+				commodity: g.commodity,
+				day,
+				units: (g.units[i] ?? 0n) as Amount,
+				value: (values[i] ?? null) as Amount | null,
+				price: price == null ? null : { amount: price as Amount, commodity: DEFAULT_COMMODITY },
+				paid: paidOn[n] ?? (0n as Amount),
+				missed,
+				cost: converted.includes(null) ? null : (converted.reduce((t, c) => t! + c!, 0n) as Amount),
+			};
+		});
+	});
+};
+
+/**
+ * The historical deltas of endings, each in its day's bucket, with no value
+ * counted as 1 unpriced when units are held, a cost with no price as 1, and the
+ * lots missed with no price when bought.
+ */
+export const deltasOf = (endings: Ending[], bucket: Bucket): Delta[] =>
+	endings.map((e) => ({
+		account: e.account,
+		commodity: e.commodity,
+		bucket: bucketKeyOf[bucket](e.day),
+		value: (e.value ?? 0n) as Amount,
+		inflow: 0n as Amount,
+		outflow: 0n as Amount,
+		units: e.units,
+		cost: (e.cost ?? 0n) as Amount,
+		paid: e.paid,
+		price: e.price,
+		unpriced: (e.value === null && e.units !== 0n ? 1 : 0) + (e.cost === null ? 1 : 0) + e.missed,
+	}));
+
 /**
  * What a part's holdings of the day before were worth at that day's prices and
  * at the day before's, in step by day from the first.
@@ -123,11 +214,10 @@ export type Move = { part: string; asset: boolean; before: bigint[]; after: bigi
  * taken out. A holding with no price on either day counts on neither.
  */
 export const movesOf = (o: WorthOfOptions): Move[] => {
-	const count = o.from.until(o.to).days + 1;
-	const offsetOf = (y: number) =>
-		o.from.until(Temporal.PlainDate.from({ year: y, month: 1, day: 1 })).days;
-	const groups = groupsOf({ ...o, count, offsetOf });
-	const rates = ratesOf({ ...o, count, offsetOf });
+	const layout = layoutOf(o);
+	const { count } = layout;
+	const groups = groupsOf({ ...o, ...layout });
+	const rates = ratesOf({ ...o, ...layout });
 
 	return Object.entries(Object.groupBy(groups, (g) => g.part)).map(([part, held = []]) => {
 		const before = Array.from({ length: count }, () => 0n);
@@ -152,6 +242,11 @@ export const movesOf = (o: WorthOfOptions): Move[] => {
 };
 
 type Span = { count: number; offsetOf: (year: number) => number };
+
+const layoutOf = ({ from, to }: { from: Temporal.PlainDate; to: Temporal.PlainDate }): Span => ({
+	count: from.until(to).days + 1,
+	offsetOf: (y) => from.until(Temporal.PlainDate.from({ year: y, month: 1, day: 1 })).days,
+});
 
 type Group = { asset: boolean; part: string; commodity: string; units: bigint[] };
 

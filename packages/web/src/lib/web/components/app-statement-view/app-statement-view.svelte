@@ -78,8 +78,10 @@
 		),
 	);
 	const account = $derived(accountOf(statement, found));
-	const latest = $derived(account ? (await findLatestFile({ handle, account })).data : null);
-	const files = $derived(await listFiles(handle));
+	const [latestFile, files] = $derived(
+		await Promise.all([account ? findLatestFile({ handle, account }) : null, listFiles(handle)]),
+	);
+	const latest = $derived(latestFile?.data ?? null);
 	const counted = $derived((files.data ?? []).map((f) => f.key).filter(isCounted));
 	const addition = $derived(done.addition?.statement === statement ? done.addition : null);
 

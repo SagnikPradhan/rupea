@@ -100,6 +100,11 @@ export const QuantityOut = v.object({ amount: AmountOut, commodity: v.string() }
 /** What a bare amount is in. */
 export const DEFAULT_COMMODITY = 'INR';
 
+/** ISO 4217 codes, which are held as money rather than in lots. */
+export const CURRENCIES = Intl.supportedValuesOf('currency');
+
+export const hasLots = (c: string) => !CURRENCIES.includes(c);
+
 const SIGN = { unit: '@', total: '@@' };
 
 /**

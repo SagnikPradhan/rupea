@@ -45,6 +45,27 @@ export const costOn = ({ moves, rates, days }: CostOnOptions): Amount[] => {
 	});
 };
 
+type HeldCostsOptions = { moves: CostMove[]; days: Temporal.PlainDate[] };
+
+/**
+ * What the lots had cost by the end of each day, in the commodity each cost in,
+ * as hledger and beancount keep a cost basis until the report converts it.
+ */
+export const heldCostsOn = ({ moves, days }: HeldCostsOptions): Record<string, bigint>[] => {
+	const ordered = moves.toSorted((a, b) => Temporal.PlainDate.compare(a.day, b.day));
+	const running: Record<string, bigint> = {};
+	const cursor = { at: 0 };
+
+	return days.map((day) => {
+		while (ordered[cursor.at] && Temporal.PlainDate.compare(ordered[cursor.at]!.day, day) <= 0) {
+			const m = ordered[cursor.at]!;
+			running[m.cost] = (running[m.cost] ?? 0n) + m.amount;
+			cursor.at++;
+		}
+		return { ...running };
+	});
+};
+
 /**
  * The commodities lots cost in whose price was missing on a day they were paid
  * in, which costOn leaves out.

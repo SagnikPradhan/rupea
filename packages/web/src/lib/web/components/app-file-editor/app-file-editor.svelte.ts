@@ -62,6 +62,10 @@ export const createEditor = (api: EditorApi, delay: number): Editor => {
 		Object.assign(state, closed(), { file, content: file.content });
 	};
 
+	const keep = (f: EditorFile) => {
+		state.file = f;
+	};
+
 	const accept = <T>(response: Reply<T>, use: (data: T) => void): boolean => {
 		if (response.data === null) {
 			state.errors.operation = response.errors;
@@ -96,7 +100,7 @@ export const createEditor = (api: EditorApi, delay: number): Editor => {
 		state.saving = false;
 
 		state.conflict = isConflict(saved.errors);
-		return accept(saved, (f) => (state.file = f));
+		return accept(saved, keep);
 	};
 
 	const edit = (content: string) => {
@@ -147,7 +151,7 @@ export const createEditor = (api: EditorApi, delay: number): Editor => {
 		rename: (to: string) =>
 			onFile(async (file) => {
 				const renamed = await api.rename({ key: file.key, to });
-				return accept(renamed, (f) => (state.file = f));
+				return accept(renamed, keep);
 			}),
 
 		remove: () =>

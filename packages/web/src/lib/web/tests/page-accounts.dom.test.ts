@@ -1,7 +1,7 @@
 import { render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import {
-	listAccounts,
+	listHoldings,
 	listDrops,
 	listInvested,
 	listReturns,
@@ -16,7 +16,7 @@ const amount = (t: string) => parseAmount(t) as Amount;
 
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
-	listAccounts: vi.fn(),
+	listHoldings: vi.fn(),
 	listReturns: vi.fn(() => answer([])),
 	listInvested: vi.fn(() => answer([])),
 	listDrops: vi.fn(() => answer([])),
@@ -78,7 +78,7 @@ const accounts = [
 describe('the accounts page', () => {
 	it('nests accounts under their groups, and links holdings with lots', async () => {
 		visit('/l/h/accounts');
-		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
+		vi.mocked(listHoldings).mockReturnValue(answer(accounts));
 		render(Page, { data });
 
 		expect(await screen.findByTitle('Assets:Broker')).toBeTruthy();
@@ -90,12 +90,12 @@ describe('the accounts page', () => {
 
 	it('reads the period picked from the address, and marks it in the filter', async () => {
 		visit('/l/h/accounts?at=2026-09');
-		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
+		vi.mocked(listHoldings).mockReturnValue(answer(accounts));
 		render(Page, { data });
 		await openFilter();
 
 		expect(await screen.findByTitle('Assets:Broker')).toBeTruthy();
-		expect(vi.mocked(listAccounts)).toHaveBeenCalledWith(
+		expect(vi.mocked(listHoldings)).toHaveBeenCalledWith(
 			expect.objectContaining({ period: { kind: 'month', at: '2026-09' } }),
 		);
 		expect(screen.getByRole('link', { name: 'Month' }).getAttribute('aria-current')).toBe('page');
@@ -103,7 +103,7 @@ describe('the accounts page', () => {
 
 	it('narrows the table to the account picked, offering those under it', async () => {
 		visit('/l/h/accounts?account=Assets:Broker');
-		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
+		vi.mocked(listHoldings).mockReturnValue(answer(accounts));
 		render(Page, { data });
 		await openFilter();
 
@@ -115,7 +115,7 @@ describe('the accounts page', () => {
 
 	it('draws the value against the cost, and says so when no holding has a cost', async () => {
 		visit('/l/h/accounts?account=Assets:Broker');
-		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
+		vi.mocked(listHoldings).mockReturnValue(answer(accounts));
 		render(Page, { data });
 
 		expect(await screen.findByText('No investments with a cost in this period.')).toBeTruthy();
@@ -136,7 +136,7 @@ describe('the accounts page', () => {
 
 	it('charts how far investments fell, and asks for price history when it cannot', async () => {
 		visit('/l/h/accounts');
-		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
+		vi.mocked(listHoldings).mockReturnValue(answer(accounts));
 		render(Page, { data });
 
 		expect(await screen.findAllByText('Needs price history.')).toHaveLength(2);
@@ -163,7 +163,7 @@ describe('the accounts page', () => {
 
 	it('plots return against swing for an account with both', async () => {
 		visit('/l/h/accounts');
-		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
+		vi.mocked(listHoldings).mockReturnValue(answer(accounts));
 		vi.mocked(listReturns).mockReturnValue(
 			answer([{ account: 'Assets:Broker', netIn: '1500', xirr: 0.1, yearly: true }]),
 		);
@@ -184,7 +184,7 @@ describe('the accounts page', () => {
 
 	it('divides the assets into rings, and says so when something owes', async () => {
 		visit('/l/h/accounts');
-		vi.mocked(listAccounts).mockReturnValue(
+		vi.mocked(listHoldings).mockReturnValue(
 			answer([
 				...accounts,
 				{
@@ -217,7 +217,7 @@ describe('the accounts page', () => {
 			unpriced: 0,
 			holdings: [rupees('-300')],
 		});
-		vi.mocked(listAccounts).mockReturnValue(
+		vi.mocked(listHoldings).mockReturnValue(
 			answer([...accounts, owing('Assets:Card'), owing('Assets:Loan')]),
 		);
 		render(Page, { data });
@@ -227,7 +227,7 @@ describe('the accounts page', () => {
 
 	it('shows no note when nothing is below zero', async () => {
 		visit('/l/h/accounts');
-		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
+		vi.mocked(listHoldings).mockReturnValue(answer(accounts));
 		render(Page, { data });
 
 		await screen.findByRole('img', { name: 'How Assets divides across its accounts' });
@@ -236,7 +236,7 @@ describe('the accounts page', () => {
 
 	it('says there is nothing to divide on a ledger with no accounts under Assets', async () => {
 		visit('/l/h/accounts');
-		vi.mocked(listAccounts).mockReturnValue(answer([]));
+		vi.mocked(listHoldings).mockReturnValue(answer([]));
 		render(Page, { data });
 
 		expect(await screen.findByText('Nothing to divide.')).toBeTruthy();
@@ -244,7 +244,7 @@ describe('the accounts page', () => {
 
 	it('starts every figure at zero on a ledger with nothing in it yet', async () => {
 		visit('/l/h/accounts');
-		vi.mocked(listAccounts).mockReturnValue(answer([]));
+		vi.mocked(listHoldings).mockReturnValue(answer([]));
 		render(Page, { data });
 
 		const strip = within(await screen.findByRole('region', { name: 'Figures' }));
@@ -257,7 +257,7 @@ describe('the accounts page', () => {
 	it('tones a loss as negative, and names a lone account and group in the singular', async () => {
 		const lost = { cost: '1500', gain: '-500' };
 		visit('/l/h/accounts');
-		vi.mocked(listAccounts).mockReturnValue(
+		vi.mocked(listHoldings).mockReturnValue(
 			answer([
 				{ ...accounts[0]!, ...lost },
 				{ ...accounts[2]!, ...lost },
@@ -273,7 +273,7 @@ describe('the accounts page', () => {
 
 	it('shows what flowed into each Assets account and its XIRR, per year only over a year', async () => {
 		visit('/l/h/accounts?at=2026-09');
-		vi.mocked(listAccounts).mockReturnValue(answer(accounts));
+		vi.mocked(listHoldings).mockReturnValue(answer(accounts));
 		vi.mocked(listReturns).mockReturnValue(
 			answer(
 				[

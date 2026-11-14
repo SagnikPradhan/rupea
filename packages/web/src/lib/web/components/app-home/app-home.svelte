@@ -1,7 +1,7 @@
 <script lang="ts">
 	import {
 		findBridge,
-		listAccounts,
+		listHoldings,
 		listDeltas,
 		listWorth,
 	} from '#lib/endpoints/accounts.remote.ts';
@@ -37,7 +37,7 @@
 
 	const worth = $derived(await listWorth({ handle, day, period, account }));
 	const moved = $derived(await findBridge({ handle, day, period }));
-	const balance = $derived(await listAccounts({ handle, day, period: now }));
+	const balance = $derived(await listHoldings({ handle, day, period: now }));
 	const spending = $derived(
 		await listDeltas({ handle, day, period: lastMonth, account: 'Expenses' }),
 	);

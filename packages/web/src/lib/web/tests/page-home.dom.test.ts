@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { findBridge, listAccounts, listDeltas, listWorth } from '#lib/endpoints/accounts.remote.ts';
+import { findBridge, listHoldings, listDeltas, listWorth } from '#lib/endpoints/accounts.remote.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
 import Page from '#routes/(signed-in)/+page.svelte';
@@ -9,7 +9,7 @@ import { type Amount, parseAmount } from '@rupea/shared/money.ts';
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
 	findBridge: vi.fn(),
-	listAccounts: vi.fn(),
+	listHoldings: vi.fn(),
 	listDeltas: vi.fn(),
 	listWorth: vi.fn(),
 }));
@@ -86,7 +86,7 @@ const bridge = {
 beforeEach(() => {
 	vi.mocked(findBridge).mockReturnValue(answer([bridge]));
 	vi.mocked(listWorth).mockReturnValue(answer(worth));
-	vi.mocked(listAccounts).mockReturnValue(answer(accounts));
+	vi.mocked(listHoldings).mockReturnValue(answer(accounts));
 	vi.mocked(listDeltas).mockImplementation(({ account }) =>
 		answer(
 			account === 'Income'
@@ -192,7 +192,7 @@ describe('the home page', () => {
 		render(Page, { data: { ...data, ledgers } });
 		await screen.findByText('Balance sheet');
 
-		expect(vi.mocked(listAccounts)).toHaveBeenCalledWith(expect.objectContaining({ handle: 'b' }));
+		expect(vi.mocked(listHoldings)).toHaveBeenCalledWith(expect.objectContaining({ handle: 'b' }));
 		const picker = within(screen.getByRole('navigation', { name: 'Ledger' }));
 		expect(picker.getByRole('link', { name: 'Shared' }).getAttribute('aria-current')).toBe('page');
 		expect(picker.getByRole('link', { name: 'Personal' }).getAttribute('href')).toBe('?ledger=a');
@@ -200,7 +200,7 @@ describe('the home page', () => {
 
 	it('starts every figure at zero on a ledger with nothing in it yet', async () => {
 		vi.mocked(listWorth).mockReturnValue(answer([]));
-		vi.mocked(listAccounts).mockReturnValue(answer([]));
+		vi.mocked(listHoldings).mockReturnValue(answer([]));
 		vi.mocked(listDeltas).mockReturnValue(answer([]));
 		visit('/');
 		render(Page, { data: { ...data, ledgers: [ledgers[0]!] } });
@@ -215,7 +215,7 @@ describe('the home page', () => {
 	});
 
 	it('names a lone group of assets in the singular', async () => {
-		vi.mocked(listAccounts).mockReturnValue(answer(accounts.slice(0, 2)));
+		vi.mocked(listHoldings).mockReturnValue(answer(accounts.slice(0, 2)));
 		visit('/');
 		render(Page, { data: { ...data, ledgers: [ledgers[0]!] } });
 		await screen.findByText('Balance sheet');

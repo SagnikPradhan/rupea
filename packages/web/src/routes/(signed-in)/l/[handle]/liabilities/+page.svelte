@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { listAccounts, listDeltas, listTerms } from '#lib/endpoints/accounts.remote.ts';
+	import { listHoldings, listDeltas, listTerms } from '#lib/endpoints/accounts.remote.ts';
 	import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
 	import { printAmount, BalanceAccount, LIABILITIES } from '@rupea/shared/money.ts';
 	import { spansOf } from '@rupea/shared/dates.ts';
@@ -46,7 +46,7 @@
 
 	const [response, flowed, first, termed] = $derived(
 		await Promise.all([
-			listAccounts({ handle, day, period }),
+			listHoldings({ handle, day, period }),
 			listDeltas({ handle, day, period, account: LIABILITIES }),
 			findFirstDay(handle),
 			listTerms({ handle, day }),

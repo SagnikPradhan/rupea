@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
-import { listAccountTree } from '#lib/endpoints/accounts.remote.ts';
+import { listAccounts } from '#lib/endpoints/accounts.remote.ts';
 import { listProblems } from '#lib/endpoints/ledger.remote.ts';
 import { listTransactions } from '#lib/endpoints/transactions.remote.ts';
 import { fault } from '@rupea/shared/errors.ts';
@@ -9,7 +9,7 @@ import { answer } from '#tests/shared/queries.ts';
 import Page from '#routes/(signed-in)/l/[handle]/transactions/+page.svelte';
 
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
-vi.mock('#lib/endpoints/accounts.remote.ts', () => ({ listAccountTree: vi.fn() }));
+vi.mock('#lib/endpoints/accounts.remote.ts', () => ({ listAccounts: vi.fn() }));
 vi.mock('#lib/endpoints/files.remote.ts', () => ({
 	findTransaction: vi.fn(),
 	findTransactionFiles: vi.fn(),
@@ -43,10 +43,10 @@ const answering = (rows: unknown[]) => {
 	vi.mocked(listProblems).mockReturnValue(
 		answer([], [fault('ParseInvalidPosting', { location: 'a.rupea:2' })]),
 	);
-	vi.mocked(listAccountTree).mockReturnValue(
+	vi.mocked(listAccounts).mockReturnValue(
 		answer([
-			{ account: 'Assets', parent: null },
-			{ account: 'Expenses', parent: null },
+			{ account: 'Assets', parent: null, posted: true },
+			{ account: 'Expenses', parent: null, posted: true },
 		]),
 	);
 	vi.mocked(listTransactions).mockReturnValue(answer({ rows, next: null }));

@@ -1,7 +1,7 @@
-import { AMOUNT_UNIT } from '#services/ledger/domain/amounts.ts';
+import { AMOUNT_UNIT, type Amount } from '#services/ledger/domain/amounts.ts';
 import { writeSeries } from '#services/ledger/domain/series.ts';
 import { AccountType } from '#services/ledger/domain/types.ts';
-import { symbolsOf, worthOf, type BalanceYear } from '#services/ledger/domain/worth.ts';
+import { deltasOf, symbolsOf, worthOf, type BalanceYear } from '#services/ledger/domain/worth.ts';
 import { describe, expect, it } from 'vitest';
 
 const day = (d: string) => Temporal.PlainDate.from(d);
@@ -128,5 +128,54 @@ describe('worth from years', () => {
 		});
 
 		expect(worth[0]).toMatchObject({ worth: 0n, unpriced: 1, parts: [] });
+	});
+});
+
+describe('the deltas of endings', () => {
+	const ending = {
+		account: 'Assets:Bank',
+		commodity: 'INFY',
+		day: day('2026-03-15'),
+		units: 2n as Amount,
+		value: 10n as Amount | null,
+		price: null as null | { amount: Amount; commodity: string },
+		paid: 7n as Amount,
+		missed: 0,
+		cost: 8n as Amount | null,
+	};
+	const unpricedOf = (e: Partial<typeof ending>) =>
+		deltasOf([{ ...ending, ...e }], 'month')[0]?.unpriced;
+
+	it('count 1 unpriced for a held unit with no value', () => {
+		expect(unpricedOf({ value: null })).toBe(1);
+	});
+
+	it('count none for no value with no units', () => {
+		expect(unpricedOf({ value: null, units: 0n as Amount })).toBe(0);
+	});
+
+	it('count 1 unpriced for a null cost', () => {
+		expect(unpricedOf({ cost: null })).toBe(1);
+	});
+
+	it('add the missed in', () => {
+		expect(unpricedOf({ value: null, cost: null, missed: 3 })).toBe(5);
+	});
+
+	it('carry the amounts with no flow, and read none as 0', () => {
+		expect(deltasOf([{ ...ending, value: null, cost: null }], 'month')[0]).toMatchObject({
+			value: 0n,
+			cost: 0n,
+			inflow: 0n,
+			outflow: 0n,
+			units: 2n,
+			paid: 7n,
+		});
+	});
+
+	it('key the bucket by the bucket asked', () => {
+		const keys = (['date', 'month', 'year'] as const).map((b) => deltasOf([ending], b)[0]?.bucket);
+
+		expect(keys).toEqual(['2026-03-15', '2026-03', '2026']);
 	});
 });

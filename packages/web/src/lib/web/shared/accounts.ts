@@ -1,3 +1,5 @@
+import { parentsIn, type AccountRow } from '@rupea/shared/account-tree.ts';
+
 /** How many parents an account has, so Expenses is 0 and Expenses:Food is 1. */
 export const depthOf = (a: string) => a.split(':').length - 1;
 
@@ -29,3 +31,20 @@ export const prefixOf = (account: string, full = false) =>
 		.join('');
 
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+
+const SUGGESTIONS = 20;
+
+/** The accounts as the pickers draw them, each with the one it is drawn under. */
+export const drawnIn = (r: AccountRow[]) =>
+	Object.entries(parentsIn(r)).map(([account, parent]) => ({ account, parent }));
+
+/**
+ * The accounts whose names start with what is typed, in any case, a few of them
+ * and in order.
+ */
+export const namesWith = (rows: AccountRow[], prefix: string) =>
+	rows
+		.map((r) => r.account)
+		.filter((a) => a.toLowerCase().startsWith(prefix.toLowerCase()))
+		.toSorted((a, b) => a.toLowerCase().localeCompare(b.toLowerCase()))
+		.slice(0, SUGGESTIONS);

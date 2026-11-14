@@ -1,35 +1,52 @@
+import { consistently } from '#lib/server/db/read-only.ts';
 import { errAsync, okAsync, ResultAsync } from '#lib/server/shared/result/result.ts';
-import { BEGINNING, type Bucket, type Span } from '@rupea/shared/dates.ts';
-import type { Batch } from '@rupea/shared/errors.ts';
-import { fault, type RupeaError } from '@rupea/shared/errors.ts';
+import type { AccountRow } from '@rupea/shared/account-tree.ts';
+import {
+	CLOSING_DAYS,
+	endsIn,
+	isReadable,
+	type Accumulate,
+	type Aggregate,
+	type Bucket,
+	type Measure,
+} from '@rupea/shared/balances.ts';
+import { BEGINNING, type Span } from '@rupea/shared/dates.ts';
+import { fault, type Batch, type RupeaError } from '@rupea/shared/errors.ts';
 import { ASSETS, LIABILITIES } from '@rupea/shared/money.ts';
 import * as DB from '../adapters/database';
-import { DEFAULT_COMMODITY, type Amount, type Quantity } from '../domain/amounts';
+import { DEFAULT_COMMODITY, sum, type Amount, type Quantity } from '../domain/amounts';
 import { bridgeOf, type Bridge } from '../domain/bridge';
-import { costOn, unpricedIn } from '../domain/cost';
-import { dailyOf, deltasOf, type Daily, type Deltas } from '../domain/deltas';
+import { unpricedIn, type CostMove } from '../domain/cost';
+import { balancesOf, type Balances, type Delta } from '../domain/deltas';
 import { dropsOf, type Drops } from '../domain/drawdown';
-import { byAccount, HOPS, pricedIn, valued, type Account, type Holding } from '../domain/holdings';
+import { HOPS, pricedIn, valued, type Holding } from '../domain/holdings';
 import { type LotHistory } from '../domain/lots';
 import { returnsOf, type Returns } from '../domain/returns';
 import { INVESTMENT_INCOME } from '../domain/taxonomy';
-import { idsUnder, parentsIn, partsIn, type AccountNode } from '../domain/tree';
-import type { Ledger } from '../domain/types';
 import {
+	accountsIn,
+	idsIn,
+	ownPartsIn,
+	parentsIn,
+	partsIn,
+	type AccountNode,
+} from '../domain/tree';
+import { AccountType, type Ledger } from '../domain/types';
+import {
+	deltasOf,
+	endingsOf,
 	movesOf,
 	symbolsOf,
 	worthOf,
 	type PartOf,
 	type PriceSources,
 	type PriceYear,
-	type Worth,
 	type WorthOfOptions,
 } from '../domain/worth';
 import { checkLots } from './sync-after';
 
 export type { LotHistory } from '../domain/lots';
-export type { Worth } from '../domain/worth';
-export type { Account, Bridge, Daily, Deltas, Drops, Returns };
+export type { Balances, Bridge, Drops, Returns };
 
 /**
  * The most days a span may cover, counted from the later of its start and the
@@ -37,70 +54,12 @@ export type { Account, Bridge, Daily, Deltas, Drops, Returns };
  */
 const SPAN_MOST_DAYS = 36_600;
 
-type ListAccountsOptions = { ledger: Ledger; day: Temporal.PlainDate };
-
-/**
- * What each balance account held at the end of a day, valued at that day's
- * prices.
- */
-export const listAccounts = ({ ledger, day }: ListAccountsOptions): ResultAsync<Batch<Account>> =>
-	DB.listProblems(ledger.id).andThen((failed) =>
-		ResultAsync.combine([DB.listBalances(ledger.id, day), DB.listAccountTree(ledger.id)])
-			.andThen(([b, tree]) =>
-				valuedOn(ledger.id, day, b.holdings).map((v) => byAccount(v, parentsIn(tree), b.posted)),
-			)
-			.andThen((accounts) =>
-				checkLots(ledger).map((unmatched) => ({
-					succeeded: accounts,
-					failed: [...failed, ...unmatched],
-				})),
-			),
-	);
-
-type ListWorthOptions = {
-	ledger: Ledger;
-	from: Temporal.PlainDate;
-	to: Temporal.PlainDate;
-	/**
-	 * Narrows the balances to an account and those under it; every balance
-	 * account without one.
-	 */
-	account: string | null;
-};
-
-/**
- * What balance accounts were worth in rupees at the end of each day, from the
- * ledger's first day at the earliest, divided into the parts partsIn picks.
- * Fails for a span that runs backwards or covers more than SPAN_MOST_DAYS.
- */
-export const listWorth = ({
-	ledger,
-	from,
-	to,
-	account,
-}: ListWorthOptions): ResultAsync<Batch<Worth>> =>
-	DB.listProblems(ledger.id).andThen((f) =>
-		DB.listAccountTree(ledger.id)
-			.andThen((t) => worthOver(ledger.id, { from, to }, partsIn(t, account)))
-			.map((w) => ({ succeeded: w, failed: f })),
-	);
-
 type WorthParts = {
 	parts: PartOf[];
 	byCommodity: boolean;
-	/**
-	 * Counts only these account and commodity pairs, written as the account's id,
-	 * a space and the commodity.
-	 */
-	held?: Set<string>;
+	withLots?: Set<string>;
+	alsoPriced?: string[];
 };
-
-/**
- * Worth from the later of a span's start and the first day the parts held
- * anything, or none before a sync has built the ledger's years.
- */
-const worthOver = (id: string, s: Span, p: WorthParts): ResultAsync<Worth[]> =>
-	walked(id, s, p).map((w) => (w === null ? [] : worthOf(w)));
 
 const reversedSpan = ({ from, to }: Span): RupeaError | null =>
 	Temporal.PlainDate.compare(from, to) > 0
@@ -120,14 +79,24 @@ const longSpan = ({ from, to }: Span, first: Temporal.PlainDate | null): RupeaEr
 	return days > SPAN_MOST_DAYS ? fault('SpanTooLong', { days, most: SPAN_MOST_DAYS }) : null;
 };
 
+const unclosedSpan = ({ from, to }: Span, bucket: Bucket): RupeaError | null => {
+	if (from.toString() === BEGINNING) return null;
+
+	const days = from.until(to, { largestUnit: 'days' }).days;
+
+	return bucket === 'date' && days > CLOSING_DAYS
+		? fault('SpanTooLong', { days, most: CLOSING_DAYS })
+		: null;
+};
+
 /**
  * What worth is made of for these parts over a span, or null when they held
  * nothing in it.
  */
-const walked = (
+const worthWalked = (
 	id: string,
 	{ from, to }: Span,
-	{ parts, byCommodity, held }: WorthParts,
+	{ parts, byCommodity, withLots, alsoPriced = [] }: WorthParts,
 ): ResultAsync<WorthOfOptions | null> => {
 	const reversed = reversedSpan({ from, to });
 	if (reversed) return errAsync(reversed);
@@ -142,10 +111,12 @@ const walked = (
 		const accounts = parts.map((p) => p.accountId);
 
 		return DB.listBalanceYears(id, { accounts, ...years }).andThen((all) => {
-			const balances = held ? all.filter((b) => held.has(`${b.accountId} ${b.commodity}`)) : all;
+			const balances = withLots
+				? all.filter((b) => withLots.has(`${b.accountId} ${b.commodity}`))
+				: all;
 			if (balances.length === 0) return okAsync(null);
 
-			const commodities = [...new Set(balances.map((b) => b.commodity))];
+			const commodities = [...new Set([...balances.map((b) => b.commodity), ...alsoPriced])];
 
 			return DB.listPriceSources(id).andThen((sources) =>
 				pricesWalked({ id, start, years, sources, commodities, hops: HOPS }).map(
@@ -165,73 +136,10 @@ const walked = (
 	});
 };
 
-export type Invested = { day: Temporal.PlainDate; value: Amount; cost: Amount };
-
-type ListInvestedOptions = {
-	ledger: Ledger;
-	from: Temporal.PlainDate;
-	to: Temporal.PlainDate;
-	/**
-	 * Narrows the lots to an account and those under it; every account with lots
-	 * without one.
-	 */
-	account: string | null;
-};
-
-/**
- * What the holdings with lots in an account and those under it were worth in
- * rupees at the end of each day, as listWorth values them, beside what their
- * lots had cost, each at the price of the day it was taken in. A sale takes the
- * cost of the lots it sold out, not what it fetched.
- */
-export const listInvested = ({
-	ledger,
-	from,
-	to,
-	account,
-}: ListInvestedOptions): ResultAsync<Batch<Invested>> =>
-	DB.listProblems(ledger.id).andThen((f) =>
-		DB.listAccountTree(ledger.id)
-			.andThen((t) => investedOver(ledger.id, { from, to }, partsIn(t, account).parts))
-			.map(({ days, unpriced }) => ({
-				succeeded: days,
-				failed: [...f, ...unpriced.map((c) => fault('CostUnpriced', { commodity: c }))],
-			})),
-	);
-
-const investedOver = (id: string, { from, to }: Span, parts: PartOf[]) =>
-	DB.listCostMoves(id, { accounts: parts.map((p) => p.accountId), to }).andThen((moves) => {
-		const held = new Set(moves.map((m) => `${m.accountId} ${m.commodity}`));
-		const lotted = parts.filter((p) => moves.some((m) => m.accountId === p.accountId));
-		const priced = moves.filter((m) => m.cost !== DEFAULT_COMMODITY);
-		const pairs = [...new Map(priced.map((m) => [`${m.cost} ${m.paid}`, m])).values()].map((m) => ({
-			commodity: m.cost,
-			day: m.paid,
-		}));
-
-		return ResultAsync.combine([
-			worthOver(id, { from, to }, { parts: lotted, byCommodity: false, held }),
-			DB.listRates(id, { pairs, base: DEFAULT_COMMODITY }),
-		]).map(([worth, rates]) => {
-			const costs = costOn({ moves, rates, days: worth.map((w) => w.day) });
-			const days = worth.map((w, i) => ({
-				day: w.day,
-				value: w.worth,
-				cost: costs[i] ?? (0n as Amount),
-			}));
-
-			return { days, unpriced: unpricedIn(moves, rates) };
-		});
-	});
-
 type ListDropsOptions = {
 	ledger: Ledger;
 	from: Temporal.PlainDate;
 	to: Temporal.PlainDate;
-	/**
-	 * Narrows the lots to an account and those under it; every account with lots
-	 * without one.
-	 */
 	account: string | null;
 };
 
@@ -247,10 +155,12 @@ export const listDrops = ({
 	to,
 	account,
 }: ListDropsOptions): ResultAsync<Batch<Drops>> =>
-	DB.listProblems(ledger.id).andThen((f) =>
-		DB.listAccountTree(ledger.id)
-			.andThen((t) => dropsOver(ledger.id, { from, to }, t, account))
-			.map((d) => ({ succeeded: d === null ? [] : [d], failed: f })),
+	consistently(() =>
+		DB.listProblems(ledger.id).andThen((f) =>
+			DB.listAccountTree(ledger.id)
+				.andThen((t) => dropsOver(ledger.id, { from, to }, t, account))
+				.map((d) => ({ succeeded: d === null ? [] : [d], failed: f })),
+		),
 	);
 
 const dropsOver = (id: string, span: Span, tree: AccountNode[], account: string | null) => {
@@ -262,10 +172,10 @@ const dropsOver = (id: string, span: Span, tree: AccountNode[], account: string 
 
 	return DB.listCostMoves(id, { accounts: parts.map((p) => p.accountId), to: span.to }).andThen(
 		(moves) => {
-			const held = new Set(moves.map((m) => `${m.accountId} ${m.commodity}`));
+			const withLots = new Set(moves.map((m) => `${m.accountId} ${m.commodity}`));
 			const lotted = parts.filter((p) => moves.some((m) => m.accountId === p.accountId));
 
-			return walked(id, span, { parts: lotted, byCommodity: false, held }).map((w) =>
+			return worthWalked(id, span, { parts: lotted, byCommodity: false, withLots }).map((w) =>
 				w === null
 					? null
 					: dropsOf(
@@ -286,21 +196,23 @@ type FindBridgeOptions = {
 /**
  * Why net worth went from the end of the span's first day, or the first day
  * anything was held, to its last: the income and expenses after that day, and
- * what prices did to each group of balances, valued as listWorth values them,
- * over every balance account, as income and expenses belong to the whole
+ * what prices did to each group of balances, valued as listBalances values
+ * them, over every balance account, as income and expenses belong to the whole
  * ledger. Nothing comes back for a span in which nothing was held.
  */
 export const findBridge = ({ ledger, from, to }: FindBridgeOptions): ResultAsync<Batch<Bridge>> =>
-	DB.listProblems(ledger.id).andThen((f) =>
-		DB.listAccountTree(ledger.id)
-			.andThen((t) => bridgeOver(ledger, { from, to }, t))
-			.map((b) => ({ succeeded: b === null ? [] : [b], failed: f })),
+	consistently(() =>
+		DB.listProblems(ledger.id).andThen((f) =>
+			DB.listAccountTree(ledger.id)
+				.andThen((t) => bridgeOver(ledger, { from, to }, t))
+				.map((b) => ({ succeeded: b === null ? [] : [b], failed: f })),
+		),
 	);
 
 const bridgeOver = (l: Ledger, span: Span, tree: AccountNode[]) => {
 	const parts = [ASSETS, LIABILITIES].flatMap((r) => partsIn(tree, r).parts);
 
-	return walked(l.id, span, { parts, byCommodity: false }).andThen((w) => {
+	return worthWalked(l.id, span, { parts, byCommodity: false }).andThen((w) => {
 		const worth = w === null ? [] : worthOf(w);
 		const start = worth[0];
 		const end = worth.at(-1);
@@ -310,8 +222,12 @@ const bridgeOver = (l: Ledger, span: Span, tree: AccountNode[]) => {
 		const total = (a: string) =>
 			Temporal.PlainDate.compare(after.from, after.to) > 0
 				? okAsync(0n as Amount)
-				: listDeltas({ ledger: l, spans: [after], bucket: 'month', account: a }).map(
-						(b) => b.succeeded[0]?.totals.find((t) => t.account === a)?.amount ?? (0n as Amount),
+				: listBalances({ ledger: l, ...after, account: a, bucket: 'year' }).map((b) =>
+						sum(
+							(b.succeeded[0]?.rows ?? [])
+								.filter((r) => r.account === a)
+								.map((r) => r.value ?? (0n as Amount)),
+						),
 					);
 
 		return ResultAsync.combine([total('Income'), total('Expenses')]).map(([income, expenses]) =>
@@ -381,24 +297,29 @@ type ListReturnsOptions = { ledger: Ledger; from: Temporal.PlainDate; to: Tempor
 
 /**
  * What flowed into each Assets account over a span less what flowed out, and
- * its XIRR; failures are only those of XIRR, as accounts report the rest. Fails
- * for a span that runs backwards or covers more than SPAN_MOST_DAYS.
+ * its XIRR; failures are the ledger's problems and those of XIRR. Fails for a
+ * span that runs backwards or covers more than SPAN_MOST_DAYS.
  */
 export const listReturns = ({
 	ledger,
 	from,
 	to,
 }: ListReturnsOptions): ResultAsync<Batch<Returns>> =>
-	DB.listAccountTree(ledger.id).andThen((tree) =>
-		startedBy(
-			ledger.id,
-			{ from, to },
-			tree.map((n) => n.id),
-		).andThen((s) => returnsOver(ledger, s, tree)),
+	consistently(() =>
+		ResultAsync.combine([DB.listProblems(ledger.id), DB.listAccountTree(ledger.id)]).andThen(
+			([failed, tree]) =>
+				spanFrom(
+					ledger.id,
+					{ from, to },
+					tree.map((n) => n.id),
+				)
+					.andThen((s) => returnsOver(ledger, s, tree))
+					.map((r) => ({ succeeded: r.succeeded, failed: [...failed, ...r.failed] })),
+		),
 	);
 
 const returnsOver = (ledger: Ledger, { from, to }: Span, tree: AccountNode[]) => {
-	const earning = INVESTMENT_INCOME.flatMap((n) => idsUnder(tree, n));
+	const earning = INVESTMENT_INCOME.flatMap((n) => idsIn(tree, n));
 	const flows = DB.listFlows(ledger.id, { earning, from, to, base: DEFAULT_COMMODITY });
 
 	return ResultAsync.combine([heldBefore(ledger.id, from), heldOn(ledger.id, to), flows]).map(
@@ -416,7 +337,7 @@ const returnsOver = (ledger: Ledger, { from, to }: Span, tree: AccountNode[]) =>
  * day these accounts moved. Fails for a span that runs backwards or covers more
  * than SPAN_MOST_DAYS.
  */
-const startedBy = (id: string, span: Span, accounts: string[]): ResultAsync<Span> => {
+const spanFrom = (id: string, span: Span, accounts: string[]): ResultAsync<Span> => {
 	const reversed = reversedSpan(span);
 	if (reversed) return errAsync(reversed);
 
@@ -431,78 +352,171 @@ const startedBy = (id: string, span: Span, accounts: string[]): ResultAsync<Span
 	});
 };
 
-type ListDeltasOptions = { ledger: Ledger; spans: Span[]; bucket: Bucket; account: string };
+type ListBalancesOptions = {
+	ledger: Ledger;
+	from: Temporal.PlainDate;
+	to: Temporal.PlainDate;
+	account?: string | undefined;
+	bucket: Bucket;
+	accumulate?: Accumulate;
+	aggregate?: Aggregate;
+	measures?: Measure[];
+};
+
+/** The field of an unreadable balances read that can be named, else measures. */
+const unreadableFieldOf = (o: { accumulate: Accumulate; aggregate: Aggregate; bucket: Bucket }) => {
+	if (o.aggregate === 'average' && o.bucket !== 'day') return 'aggregate';
+	return o.accumulate === 'historical' && o.bucket === 'day' ? 'bucket' : 'measures';
+};
 
 /**
- * What an account and those under it gained in the base currency over each
- * span, one Deltas per span.
+ * What an account and those under it, or every account, gained in the base over
+ * a span, by each account drawn and the bucket its day falls in: a date, a day
+ * of the month, a month or a year. A bucket the span comes to more than once is
+ * summed or averaged, and only a day of the month does. Historical instead
+ * gives what balance accounts were worth at the end of each bucket, from the
+ * ledger's first day at the earliest, and with a cost the lots that match no
+ * sale are failures. Fails for a span that runs backwards or covers more than
+ * SPAN_MOST_DAYS, or more than CLOSING_DAYS by date.
  */
-export const listDeltas = ({
+export const listBalances = ({
 	ledger,
-	spans,
-	bucket,
+	from,
+	to,
 	account,
-}: ListDeltasOptions): ResultAsync<Batch<Deltas>> => {
-	const spending = (span: Span, tree: AccountNode[]) =>
-		startedBy(ledger.id, span, idsUnder(tree, account)).andThen((s) =>
-			DB.listDeltas(ledger.id, {
-				...s,
-				accounts: idsUnder(tree, account),
-				bucket,
-				base: DEFAULT_COMMODITY,
-			}).map((r) => deltasOf(r, { span: s, bucket, parents: parentsIn(tree) })),
-		);
+	bucket,
+	accumulate = 'change',
+	aggregate = 'sum',
+	measures = ['value'],
+}: ListBalancesOptions): ResultAsync<Batch<Balances>> =>
+	consistently(() => {
+		const long = unclosedSpan({ from, to }, bucket);
+		if (long) return errAsync(long);
 
-	return DB.listProblems(ledger.id).andThen((f) =>
-		DB.listAccountTree(ledger.id)
-			.andThen((t) => ResultAsync.combine(spans.map((s) => spending(s, t))))
-			.map((s) => ({ succeeded: s, failed: f })),
+		return !isReadable({ accumulate, aggregate, bucket, measures })
+			? errAsync(
+					fault('InvalidRequest', {
+						field: unreadableFieldOf({ accumulate, aggregate, bucket }),
+						reason: 'unreadable',
+					}),
+				)
+			: ResultAsync.combine([DB.listProblems(ledger.id), DB.listAccountTree(ledger.id)]).andThen(
+					([failed, tree]) => {
+						const accounts = account === undefined ? tree.map((n) => n.id) : idsIn(tree, account);
+						if (account !== undefined && !accounts.length && !isRoot(account))
+							return errAsync(fault('AccountNotFound', { account }));
+
+						const base = DEFAULT_COMMODITY;
+						const read = { span: { from, to }, tree, accounts, bucket, measures };
+						const deltas =
+							accumulate === 'historical' ? historical(ledger.id, read) : changed(ledger.id, read);
+
+						const checked =
+							accumulate === 'historical' && measures.includes('cost')
+								? checkLots(ledger, { accounts, to })
+								: okAsync([] as RupeaError[]);
+
+						return ResultAsync.combine([deltas, checked]).map(
+							([{ span, rows, faults }, unmatched]) => {
+								const parents = parentsIn(tree);
+								const balances = balancesOf(rows, {
+									span,
+									base,
+									bucket,
+									aggregate,
+									measures,
+									parents,
+								});
+								return { succeeded: [balances], failed: [...failed, ...faults, ...unmatched] };
+							},
+						);
+					},
+				);
+	});
+
+const isRoot = (a: string) =>
+	Object.values(AccountType).some((r) => r.toLowerCase() === a.toLowerCase());
+
+type BalancesRead = {
+	span: Span;
+	tree: AccountNode[];
+	accounts: string[];
+	bucket: Bucket;
+	measures: Measure[];
+};
+
+/** What the accounts gained in each bucket of the span. */
+const changed = (id: string, { span, accounts, bucket }: BalancesRead) =>
+	spanFrom(id, span, accounts).andThen((started) => {
+		const long = unclosedSpan(started, bucket);
+		if (long) return errAsync(long);
+
+		return DB.listDeltas(id, { ...started, accounts, bucket, base: DEFAULT_COMMODITY }).map(
+			(r) => ({ span: started, rows: r, faults: [] }),
+		);
+	});
+
+/**
+ * What the balance accounts held at the end of each bucket of the span: the
+ * units of each commodity, what they were worth, what their lots cost at that
+ * day's prices and the price of a unit.
+ */
+const historical = (id: string, read: BalancesRead) => {
+	const { span, tree, accounts, measures } = read;
+	const bucket = read.bucket as 'date' | 'month' | 'year';
+	const asked = { from: span.from.toString() === BEGINNING ? span.to : span.from, to: span.to };
+	const spanOf = (w: WorthOfOptions | null): Span => (w ? { from: w.from, to: w.to } : asked);
+
+	const parts = ownPartsIn(tree, accounts);
+	const paid = measures.includes('paid');
+	const costMoves =
+		paid || measures.includes('cost')
+			? DB.listCostMovesFrom(id, {
+					accounts: parts.map((p) => p.accountId),
+					from: span.from,
+					to: span.to,
+				})
+			: okAsync([] as CostMove[]);
+
+	return costMoves.andThen((moves) =>
+		boughtAt(id, paid ? moves : []).andThen((bought) => {
+			const costs = [...new Set(moves.map((m) => m.cost))];
+			const alsoPriced = costs.filter((c) => c !== DEFAULT_COMMODITY);
+			const faults = (paid ? unpricedIn(moves, bought) : []).map((c) =>
+				fault('CostUnpriced', { commodity: c }),
+			);
+
+			return worthWalked(id, span, { parts, byCommodity: false, alsoPriced }).andThen((w) => {
+				const long = w && unclosedSpan(w, bucket);
+				if (long) return errAsync(long);
+				if (w === null) return okAsync({ span: spanOf(w), rows: [] as Delta[], faults });
+
+				const endings = endingsOf(w, { days: endsIn(w, bucket), lots: moves, bought, paid });
+				const rows = deltasOf(endings, bucket);
+
+				return okAsync({ span: spanOf(w), rows, faults });
+			});
+		}),
 	);
 };
 
-type ListDailyDeltasOptions = { ledger: Ledger; span: Span; account: string };
-
 /**
- * What an account and those under it averaged on each day of the month over a
- * span, one row for each day from the 1st to the 31st.
+ * The prices in rupees of the days lots were paid for, in the commodity each
+ * cost in.
  */
-export const listDailyDeltas = ({
-	ledger,
-	span,
-	account,
-}: ListDailyDeltasOptions): ResultAsync<Batch<Daily>> =>
-	DB.listProblems(ledger.id).andThen((failed) =>
-		DB.listAccountTree(ledger.id).andThen((tree) => {
-			const accounts = idsUnder(tree, account);
+const boughtAt = (id: string, moves: CostMove[]) => {
+	const priced = moves.filter((m) => m.cost !== DEFAULT_COMMODITY);
+	const pairs = [...new Map(priced.map((m) => [`${m.cost} ${m.paid}`, m])).values()].map((m) => ({
+		commodity: m.cost,
+		day: m.paid,
+	}));
 
-			return startedBy(ledger.id, span, accounts).andThen((s) =>
-				DB.listDeltas(ledger.id, {
-					...s,
-					accounts,
-					bucket: 'dayOfMonth',
-					base: DEFAULT_COMMODITY,
-				}).map((r) => ({ succeeded: dailyOf(r, s), failed })),
-			);
-		}),
-	);
+	return DB.listRates(id, { pairs, base: DEFAULT_COMMODITY });
+};
 
-/**
- * Every account, each with the one it is drawn under, as parentsIn divides
- * them.
- */
-export const listAccountTree = (
-	l: Ledger,
-): ResultAsync<{ account: string; parent: string | null }[]> =>
-	DB.listAccountTree(l.id).map((t) =>
-		Object.entries(parentsIn(t)).map(([account, parent]) => ({ account, parent })),
-	);
-
-type ListAccountNamesOptions = { ledger: Ledger; prefix: string };
-
-export const listAccountNames = ({
-	ledger,
-	prefix,
-}: ListAccountNamesOptions): ResultAsync<string[]> => DB.listAccountNames(ledger.id, prefix);
+/** A plain list of accounts, not a read, so it carries no failures. */
+export const listAccounts = (l: Ledger): ResultAsync<AccountRow[]> =>
+	DB.listAccountTree(l.id).map(accountsIn);
 
 type ListLotsOptions = { ledger: Ledger; account: string; commodity: string };
 

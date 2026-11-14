@@ -170,6 +170,27 @@ export const deltasBetween = (db: Database, ledgerId: string, o: DeltasOptions) 
 };
 
 /**
+ * What each posting moved, shaped as deltasBetween has it, for a read that adds
+ * the days up itself and has no use for the view's daily sums.
+ */
+export const postedBetween = (db: Database, ledgerId: string, { from, after }: DeltasOptions) =>
+	db
+		.selectFrom('postings as p')
+		.select((e) => [
+			'p.accountId',
+			'p.accountType',
+			'p.commodity',
+			'p.date as day',
+			'p.amount',
+			sql<bigint>`greatest(${e.ref('p.amount')}, 0)`.as('inflow'),
+			sql<bigint>`greatest(-${e.ref('p.amount')}, 0)`.as('outflow'),
+		])
+		.where('p.ledgerId', '=', ledgerId)
+		.where('p.counted', '=', true)
+		.where('p.date', '>=', from.toString())
+		.where('p.date', '<', after?.toString() ?? FOREVER);
+
+/**
  * The months from the first to start on or after the start to the last to end
  * before the stop, or null when none is whole.
  */

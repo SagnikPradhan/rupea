@@ -36,8 +36,9 @@ import {
 	deltasOf,
 	endingsOf,
 	movesOf,
+	shiftsOf,
 	symbolsOf,
-	worthOf,
+	worthOn,
 	type PartOf,
 	type PriceSources,
 	type PriceYear,
@@ -213,36 +214,44 @@ const bridgeOver = (l: Ledger, span: Span, tree: AccountNode[]) => {
 	const parts = [ASSETS, LIABILITIES].flatMap((r) => partsIn(tree, r).parts);
 
 	return worthWalked(l.id, span, { parts, byCommodity: false }).andThen((w) => {
-		const worth = w === null ? [] : worthOf(w);
-		const start = worth[0];
-		const end = worth.at(-1);
-		if (w === null || !start || !end) return okAsync(null);
+		if (w === null) return okAsync(null);
 
-		const after = { from: start.day.add({ days: 1 }), to: span.to };
-		const total = (a: string) =>
-			Temporal.PlainDate.compare(after.from, after.to) > 0
-				? okAsync(0n as Amount)
-				: listBalances({ ledger: l, ...after, account: a, bucket: 'year' }).map((b) =>
-						sum(
-							(b.succeeded[0]?.rows ?? [])
-								.filter((r) => r.account === a)
-								.map((r) => r.value ?? (0n as Amount)),
-						),
-					);
+		const after = { ledger: l, from: w.from.add({ days: 1 }), to: w.to };
 
-		return ResultAsync.combine([total('Income'), total('Expenses')]).map(([income, expenses]) =>
+		return ResultAsync.combine([
+			findTotal({ ...after, account: 'Income' }),
+			findTotal({ ...after, account: 'Expenses' }),
+		]).map(([income, expenses]) =>
 			bridgeOf({
-				from: start.day,
-				to: end.day,
-				start: start.worth,
-				end: end.worth,
+				from: w.from,
+				to: w.to,
+				start: worthOn(w, w.from).worth,
+				end: worthOn(w, w.to).worth,
 				income: -income as Amount,
 				expenses,
-				moves: movesOf(w),
+				shifts: shiftsOf(w),
 			}),
 		);
 	});
 };
+
+type FindTotalOptions = {
+	ledger: Ledger;
+	from: Temporal.PlainDate;
+	to: Temporal.PlainDate;
+	account: string;
+};
+
+const findTotal = ({ account, ...options }: FindTotalOptions) =>
+	Temporal.PlainDate.compare(options.from, options.to) > 0
+		? okAsync(0n as Amount)
+		: listBalances({ ...options, account, bucket: 'year' }).map((b) =>
+				sum(
+					(b.succeeded[0]?.rows ?? [])
+						.filter((r) => r.account === account)
+						.map((r) => r.value ?? (0n as Amount)),
+				),
+			);
 
 type PricesWalkedOptions = {
 	id: string;

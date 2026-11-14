@@ -74,7 +74,8 @@ export const balancesOf = (
 	const own = isByCommodity(measures) ? deltas : deltas.map((d) => ({ ...d, commodity: null }));
 	const drawn = rolledUp(own).filter((d) => Object.hasOwn(parents, d.account));
 	const averages = aggregate === 'average' && bucket === 'day';
-	const rows = averages ? drawn.map((d) => averaged(d, span)) : drawn;
+	const times = averages ? monthsByDay(span) : {};
+	const rows = averages ? drawn.map((d) => averaged(d, times)) : drawn;
 
 	return { from: span.from, to: span.to, base, rows: rows.map((r) => measured(r, measures)) };
 };
@@ -122,8 +123,8 @@ const added = (deltas: Delta[]) => ({
 });
 
 /** A day of the month's amounts divided by how many months of the span have it. */
-const averaged = (d: Delta, span: Span) => {
-	const times = BigInt(Math.max(monthsWith(Number(d.bucket), span), 1));
+const averaged = (d: Delta, monthsOf: Record<number, number>) => {
+	const times = BigInt(Math.max(monthsOf[Number(d.bucket)] ?? 1, 1));
 
 	return {
 		...d,
@@ -147,9 +148,16 @@ const measured = (d: Delta, measures: Measure[]) => ({
 	...(measures.includes('price') && d.price && { price: d.price }),
 });
 
-/** How many months of a span have this day of the month inside it. */
-const monthsWith = (day: number, span: Span) =>
-	bucketsIn(span, 'month').filter((m) => {
+/** How many months of a span have each day of the month inside it. */
+const monthsByDay = (span: Span) => {
+	const months = bucketsIn(span, 'month');
+	const days = Array.from({ length: 31 }, (_, i) => i + 1);
+
+	return Object.fromEntries(days.map((d) => [d, monthsWith(d, { months, span })]));
+};
+
+const monthsWith = (day: number, { months, span }: { months: Temporal.PlainDate[]; span: Span }) =>
+	months.filter((m) => {
 		if (m.daysInMonth < day) return false;
 		const on = m.with({ day });
 		return (

@@ -14,10 +14,16 @@ export const writeSeries = (amounts: bigint[]): Buffer => {
 	return bytes;
 };
 
-export const readSeries = (bytes: Buffer): bigint[] =>
-	Array.from({ length: bytes.length / WIDTH }, (_, i) => {
-		const low = bytes.readBigUInt64LE(i * WIDTH);
-		const high = bytes.readBigInt64LE(i * WIDTH + 8);
+/** How many days a series holds. */
+export const lengthOf = (b: Buffer) => b.length / WIDTH;
 
-		return high === 0n ? low : (high << 64n) + low;
-	});
+/** The amount on one day of a series. */
+export const readDay = (bytes: Buffer, day: number): bigint => {
+	const low = bytes.readBigUInt64LE(day * WIDTH);
+	const high = bytes.readBigInt64LE(day * WIDTH + 8);
+
+	return high === 0n ? low : (high << 64n) + low;
+};
+
+export const readSeries = (b: Buffer): bigint[] =>
+	Array.from({ length: lengthOf(b) }, (_, d) => readDay(b, d));

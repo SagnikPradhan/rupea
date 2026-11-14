@@ -3,7 +3,7 @@ import { AMOUNT_UNIT, DEFAULT_COMMODITY, multiply, type Amount, type Quantity } 
 import { costOn, heldCostsOn, unpricedIn, type CostMove, type RateThen } from './cost';
 import { type Delta } from './deltas';
 import { HOPS } from './holdings';
-import { NO_AMOUNT, readSeries } from './series';
+import { lengthOf, NO_AMOUNT, readDay, readSeries } from './series';
 import { AccountType } from './types';
 
 /**
@@ -83,7 +83,7 @@ export const worthOf = (o: WorthOfOptions): Worth[] => {
 	const layout = layoutOf(o);
 	const { count } = layout;
 	const groups = groupsOf({ ...o, ...layout });
-	const rates = ratesOf({ ...o, ...layout });
+	const { rates } = ratesOf({ ...o, ...layout });
 	const values = groups.map((g) => valuesOf(g.units, rates(g.commodity)));
 	const worth = Array.from({ length: count }, () => 0n);
 	values.forEach((v) =>
@@ -92,25 +92,61 @@ export const worthOf = (o: WorthOfOptions): Worth[] => {
 		}),
 	);
 
-	return shownDays(worth).map((i) => {
-		const counted = groups.map((g, n) => ({
-			...g,
-			value: values[n]?.[i] ?? null,
-			held: g.units[i],
-		}));
-		const priced = counted.filter((g) => g.value !== null);
-		const sumOf = (g: typeof priced) => g.reduce((t, x) => t + (x.value ?? 0n), 0n) as Amount;
-		const unpriced = counted.filter((g) => g.value === null && g.held !== 0n);
+	return shownDays(worth).map((i) =>
+		dayWorth(
+			groups.map((g, n) => ({ ...g, value: values[n]?.[i] ?? null, held: g.units[i] ?? 0n })),
+			{ day: o.from.add({ days: i }), byCommodity: o.byCommodity },
+		),
+	);
+};
 
-		return {
-			day: o.from.add({ days: i }),
-			assets: sumOf(priced.filter((g) => g.asset)),
-			liabilities: sumOf(priced.filter((g) => !g.asset)),
-			worth: sumOf(priced),
-			parts: sharesOf(priced, o.byCommodity),
-			unpriced: new Set(unpriced.map((g) => g.commodity)).size,
-		};
-	});
+/**
+ * The worth on one day, valued as worthOf values it, without walking the
+ * others.
+ */
+export const worthOn = (o: WorthOfOptions, day: Temporal.PlainDate): Worth => {
+	const layout = layoutOf(o);
+	const { rateAt } = ratesOf({ ...o, ...layout });
+	const i = o.from.until(day).days;
+
+	return dayWorth(
+		holdingsOf(o).map((g) => {
+			const held = heldOn(
+				g.years.map((y) => placedIn(y, layout)),
+				i,
+			);
+			const price = rateAt(g.commodity, i);
+
+			return { ...g, value: valueOf(g, { units: held, price }), held };
+		}),
+		{ day, byCommodity: o.byCommodity },
+	);
+};
+
+type Counted = {
+	asset: boolean;
+	part: string;
+	commodity: string;
+	value: bigint | null;
+	held: bigint;
+};
+
+const dayWorth = (
+	counted: Counted[],
+	{ day, byCommodity }: { day: Temporal.PlainDate; byCommodity: boolean },
+): Worth => {
+	const priced = counted.filter((g) => g.value !== null);
+	const sumOf = (g: Counted[]) => g.reduce((t, x) => t + (x.value ?? 0n), 0n) as Amount;
+	const unpriced = counted.filter((g) => g.value === null && g.held !== 0n);
+
+	return {
+		day,
+		assets: sumOf(priced.filter((g) => g.asset)),
+		liabilities: sumOf(priced.filter((g) => !g.asset)),
+		worth: sumOf(priced),
+		parts: sharesOf(priced, byCommodity),
+		unpriced: new Set(unpriced.map((g) => g.commodity)).size,
+	};
 };
 
 type EndingsOptions = {
@@ -145,41 +181,47 @@ export const endingsOf = (
 	{ days, lots, bought, paid }: EndingsOptions,
 ): Ending[] => {
 	const layout = layoutOf(o);
-	const rates = ratesOf({ ...o, ...layout });
+	const { rateAt } = ratesOf({ ...o, ...layout });
 	const partOf = new Map(o.parts.map((p) => [p.accountId, p.part]));
 	const byHolding = Object.groupBy(lots, (m) => `${partOf.get(m.accountId)} ${m.commodity}`);
-	const lotsOf = (g: Group) => byHolding[`${g.part} ${g.commodity}`] ?? [];
+	const indexes = days.map((d) => o.from.until(d).days);
 
-	return groupsOf({ ...o, ...layout }).flatMap((g) => {
-		const values = valuesOf(g.units, rates(g.commodity));
-		const rate = rates(g.commodity);
-		const moves = lotsOf(g);
+	return holdingsOf(o).flatMap((g) => {
+		const moves = byHolding[`${g.part} ${g.commodity}`] ?? [];
 		const costs = heldCostsOn({ moves, days });
 		const paidOn = costOn({ moves, rates: bought, days });
 		const missed = paid ? unpricedIn(moves, bought).length : 0;
+		const placed = g.years.map((y) => placedIn(y, layout));
 
 		return days.map((day, n) => {
-			const i = o.from.until(day).days;
-			const price = rate?.[i];
+			const i = indexes[n] ?? 0;
+			const units = heldOn(placed, i);
+			const price = g.commodity === DEFAULT_COMMODITY ? null : rateAt(g.commodity, i);
 			const converted = Object.entries(costs[n] ?? {}).map(([c, amount]) => {
-				const unit = rates(c)?.[i];
 				if (c === DEFAULT_COMMODITY) return amount;
-				return unit == null ? null : multiply(amount as Amount, unit as Amount);
+				const unit = rateAt(c, i);
+				return unit === null ? null : multiply(amount as Amount, unit as Amount);
 			});
 
 			return {
 				account: g.part,
 				commodity: g.commodity,
 				day,
-				units: (g.units[i] ?? 0n) as Amount,
-				value: (values[i] ?? null) as Amount | null,
-				price: price == null ? null : { amount: price as Amount, commodity: DEFAULT_COMMODITY },
+				units,
+				value: valueOf(g, { units, price }),
+				price: price === null ? null : { amount: price as Amount, commodity: DEFAULT_COMMODITY },
 				paid: paidOn[n] ?? (0n as Amount),
 				missed,
 				cost: converted.includes(null) ? null : (converted.reduce((t, c) => t! + c!, 0n) as Amount),
 			};
 		});
 	});
+};
+
+const valueOf = (g: Held, { units, price }: { units: Amount; price: bigint | null }) => {
+	if (units === 0n || g.commodity === DEFAULT_COMMODITY) return units;
+
+	return price === null ? null : (multiply(units, price as Amount) as Amount);
 };
 
 /**
@@ -217,7 +259,7 @@ export const movesOf = (o: WorthOfOptions): Move[] => {
 	const layout = layoutOf(o);
 	const { count } = layout;
 	const groups = groupsOf({ ...o, ...layout });
-	const rates = ratesOf({ ...o, ...layout });
+	const { rates } = ratesOf({ ...o, ...layout });
 
 	return Object.entries(Object.groupBy(groups, (g) => g.part)).map(([part, held = []]) => {
 		const before = Array.from({ length: count }, () => 0n);
@@ -241,6 +283,66 @@ export const movesOf = (o: WorthOfOptions): Move[] => {
 	});
 };
 
+/**
+ * What the prices of one part's holdings added over the span, owing as it is
+ * held.
+ */
+export type Shift = { account: string; amount: Amount };
+
+type RateAt = (commodity: string, i: number) => bigint | null;
+
+/**
+ * What the prices of each part's holdings added over the span, as movesOf's
+ * before and after add up, but found only where a holding's units change: in
+ * between, the day by day moves cancel to units times the rate's change. A
+ * commodity counts from the first day it has a price, which it keeps as the
+ * latest quote carries forward.
+ */
+export const shiftsOf = (o: WorthOfOptions): Shift[] => {
+	const layout = layoutOf(o);
+	const groups = groupsOf({ ...o, ...layout });
+	const { rateAt } = ratesOf({ ...o, ...layout });
+
+	return Object.entries(Object.groupBy(groups, (g) => g.part)).map(([account, held = []]) => ({
+		account,
+		amount: held.reduce((t, g) => t + shiftOf(g, rateAt), 0n) as Amount,
+	}));
+};
+
+const shiftOf = (g: Group, rateAt: RateAt) => {
+	const last = g.units.length - 1;
+	const priced = (i: number) => rateAt(g.commodity, i) !== null;
+	if (g.commodity === DEFAULT_COMMODITY || !priced(last)) return 0n;
+
+	const first = firstWhere(priced, { low: 0, high: last });
+	const starts = changesOf(g.units);
+	const rates = [...starts, last].map((i) => rateAt(g.commodity, Math.max(i, first)));
+
+	return starts.reduce((t, i, n) => {
+		const [then, now] = [rates[n], rates[n + 1]];
+		const units = (g.units[i] ?? 0n) as Amount;
+		if (then == null || now == null) return t;
+
+		return t + multiply(units, now as Amount) - multiply(units, then as Amount);
+	}, 0n);
+};
+
+/** The days a holding's units differ from the day before's, and the first. */
+const changesOf = (u: bigint[]) => u.flatMap((x, i) => (i === 0 || x !== u[i - 1] ? [i] : []));
+
+/** The first index in low to high where a test holds, which holds from there on. */
+const firstWhere = (
+	test: (i: number) => boolean,
+	{ low, high }: { low: number; high: number },
+): number => {
+	if (low >= high) return low;
+
+	const mid = Math.floor((low + high) / 2);
+	return test(mid)
+		? firstWhere(test, { low, high: mid })
+		: firstWhere(test, { low: mid + 1, high });
+};
+
 type Span = { count: number; offsetOf: (year: number) => number };
 
 const layoutOf = ({ from, to }: { from: Temporal.PlainDate; to: Temporal.PlainDate }): Span => ({
@@ -248,45 +350,72 @@ const layoutOf = ({ from, to }: { from: Temporal.PlainDate; to: Temporal.PlainDa
 	offsetOf: (y) => from.until(Temporal.PlainDate.from({ year: y, month: 1, day: 1 })).days,
 });
 
+type Held = { asset: boolean; part: string; commodity: string; years: BalanceYear[][] };
+
 type Group = { asset: boolean; part: string; commodity: string; units: bigint[] };
 
 /**
- * What each part held of each commodity on each day, assets and liabilities
- * apart.
+ * What each part holds of each commodity, assets and liabilities apart, as the
+ * years of each account's balances that add up to it.
  */
-const groupsOf = ({
-	parts,
-	balances,
-	count,
-	offsetOf,
-}: Span & { parts: PartOf[]; balances: BalanceYear[] }): Group[] => {
+const holdingsOf = ({ parts, balances }: { parts: PartOf[]; balances: BalanceYear[] }): Held[] => {
 	const partOf = new Map(parts.map((p) => [p.accountId, p.part]));
-	const held = Object.values(Object.groupBy(balances, (b) => `${b.accountId} ${b.commodity}`));
-	const groups = new Map<string, Group>();
+	const byHolding = Object.values(Object.groupBy(balances, (b) => `${b.accountId} ${b.commodity}`));
+	const held = new Map<string, Held>();
 
-	held.forEach((years = []) => {
+	byHolding.forEach((years = []) => {
 		const first = years[0];
 		const part = first && partOf.get(first.accountId);
 		if (!first || part === undefined) return;
 
 		const asset = first.accountType === AccountType.Assets;
 		const key = `${asset} ${part} ${first.commodity}`;
-		const group = groups.get(key) ?? {
-			asset,
-			part,
-			commodity: first.commodity,
-			units: Array.from({ length: count }, () => 0n),
-		};
-		groups.set(key, group);
-
-		const daily = dailyBalances(years, { count, offsetOf });
-		daily.forEach((u, i) => {
-			group.units[i] = (group.units[i] ?? 0n) + u;
-		});
+		const group = held.get(key) ?? { asset, part, commodity: first.commodity, years: [] };
+		held.set(key, group);
+		group.years.push(years);
 	});
 
-	return [...groups.values()];
+	return [...held.values()];
 };
+
+/** What each part held of each commodity on each day. */
+const groupsOf = ({
+	parts,
+	balances,
+	count,
+	offsetOf,
+}: Span & { parts: PartOf[]; balances: BalanceYear[] }): Group[] =>
+	holdingsOf({ parts, balances }).map(({ years, ...group }) => {
+		const units = Array.from({ length: count }, () => 0n);
+		years.forEach((h) =>
+			dailyBalances(h, { count, offsetOf }).forEach((u, i) => {
+				units[i] = (units[i] ?? 0n) + u;
+			}),
+		);
+
+		return { ...group, units };
+	});
+
+type Placed = { offset: number; balances: Buffer }[];
+
+/** A holding's years in order, each with the day of the span it starts on. */
+const placedIn = (ys: BalanceYear[], { offsetOf }: Span): Placed =>
+	ys
+		.toSorted((a, b) => a.year - b.year)
+		.map((y) => ({ offset: offsetOf(y.year), balances: y.balances }));
+
+/**
+ * What a holding held on one day: its latest year's balance on the day, or on
+ * the year's last day once the year has run out, and nothing before its first.
+ */
+const unitsAt = (years: Placed, i: number) => {
+	const year = years.findLast((y) => y.offset <= i);
+	if (!year || lengthOf(year.balances) === 0) return 0n;
+
+	return readDay(year.balances, Math.min(i - year.offset, lengthOf(year.balances) - 1));
+};
+
+const heldOn = (p: Placed[], i: number) => p.reduce((t, y) => t + unitsAt(y, i), 0n) as Amount;
 
 /**
  * Lays a holding's years out over the span, each carrying on from its last day
@@ -328,28 +457,55 @@ type RatesOptions = Span & {
 	opening: Record<string, Quantity>;
 };
 
-/** Each commodity's rupees per unit on each day, or null for rupees themselves. */
+type QuoteRow = {
+	offset: number;
+	amounts: Buffer;
+	priceCommodity: string;
+	from: number;
+	until: number;
+};
+
+type Quote = (commodity: string, i: number) => Quantity | null | undefined;
+
+/**
+ * Each commodity's rupees per unit: rates on every day, or rateAt on one. Both
+ * carry the latest quote forward and reach rupees by the same hops.
+ */
 const ratesOf = ({ prices, sources, opening, count, offsetOf }: RatesOptions) => {
 	const bySymbol = Map.groupBy(prices, (p) => p.symbolId);
 	const ownOf = new Map(sources.own.map((s) => [s.symbol, s.id]));
 	const linksOf = Map.groupBy(sources.links, (l) => l.alias);
-	const quotedOn = (
-		symbolId: string,
-		onto: (Quantity | undefined)[],
-		from: number,
-		until: number,
-	) =>
-		(bySymbol.get(symbolId) ?? []).forEach((p) => {
-			const offset = offsetOf(p.year);
-			readSeries(p.amounts).forEach((a, day) => {
-				const i = offset + day;
-				if (a !== NO_AMOUNT && i >= from && i < until)
-					onto[i] = { amount: a as Amount, commodity: p.priceCommodity };
-			});
-		});
 	const indexOf = (date: string | null, none: number) => {
 		if (date === null) return none;
 		return Math.max(Math.min(dayIndex(date, offsetOf), count), 0);
+	};
+
+	const known = new Map<string, QuoteRow[]>();
+	const rowsOf = (commodity: string) => {
+		const rows = known.get(commodity);
+		if (rows) return rows;
+
+		const own = ownOf.get(commodity);
+		const windows = [
+			...(linksOf.get(commodity) ?? []).map((l) => ({
+				symbolId: l.symbolId,
+				from: indexOf(l.since, 0),
+				until: indexOf(l.until, count),
+			})),
+			...(own ? [{ symbolId: own, from: 0, until: count }] : []),
+		];
+		const built = windows.flatMap((w) =>
+			(bySymbol.get(w.symbolId) ?? []).map((p) => ({
+				offset: offsetOf(p.year),
+				amounts: p.amounts,
+				priceCommodity: p.priceCommodity,
+				from: w.from,
+				until: w.until,
+			})),
+		);
+		known.set(commodity, built);
+
+		return built;
 	};
 
 	const timelines = new Map<string, (Quantity | null)[]>();
@@ -358,11 +514,13 @@ const ratesOf = ({ prices, sources, opening, count, offsetOf }: RatesOptions) =>
 		if (known) return known;
 
 		const quoted: (Quantity | undefined)[] = Array.from({ length: count }, () => undefined);
-		(linksOf.get(commodity) ?? []).forEach((l) =>
-			quotedOn(l.symbolId, quoted, indexOf(l.since, 0), indexOf(l.until, count)),
+		rowsOf(commodity).forEach((row) =>
+			readSeries(row.amounts).forEach((a, day) => {
+				const i = row.offset + day;
+				if (a !== NO_AMOUNT && i >= row.from && i < row.until)
+					quoted[i] = { amount: a as Amount, commodity: row.priceCommodity };
+			}),
 		);
-		const own = ownOf.get(commodity);
-		if (own) quotedOn(own, quoted, 0, count);
 
 		const carried = [opening[commodity] ?? null];
 		const timeline = quoted.map((q) => {
@@ -375,29 +533,77 @@ const ratesOf = ({ prices, sources, opening, count, offsetOf }: RatesOptions) =>
 		return timeline;
 	};
 
+	const quoteAt = (commodity: string, i: number) => {
+		const latest = rowsOf(commodity)
+			.flatMap((row) => {
+				const quote = lastQuote(row, i);
+				return quote ? [{ ...quote, commodity: row.priceCommodity }] : [];
+			})
+			.reduce<{ day: number; amount: Amount; commodity: string } | null>(
+				(b, q) => (b === null || q.day >= b.day ? q : b),
+				null,
+			);
+
+		return latest
+			? { amount: latest.amount, commodity: latest.commodity }
+			: (opening[commodity] ?? null);
+	};
+
+	const rates = new Map<string, (bigint | null)[]>();
+	const rateOnDay = rateThrough((c, i) => timelineOf(c)[i]);
+
+	return {
+		rates: (commodity: string) => {
+			if (commodity === DEFAULT_COMMODITY) return null;
+
+			const known = rates.get(commodity);
+			if (known) return known;
+
+			const daily = Array.from({ length: count }, (_, i) => rateOnDay(commodity, i));
+			rates.set(commodity, daily);
+
+			return daily;
+		},
+		rateAt: rateThrough(quoteAt),
+	};
+};
+
+/**
+ * Rupees per unit through at most HOPS quotes, rounding each step as multiply
+ * does, or null when a commodity has no quote on the day.
+ */
+const rateThrough = (quote: Quote) => {
 	const rateOn = (i: number, commodity: string, rate: bigint, hops: number): bigint | null => {
 		if (commodity === DEFAULT_COMMODITY) return rate;
 		if (hops === HOPS) return null;
 
-		const price = timelineOf(commodity)[i];
+		const price = quote(commodity, i);
 		if (!price) return null;
 
 		return rateOn(i, price.commodity, multiply(rate as Amount, price.amount), hops + 1);
 	};
 
-	const rates = new Map<string, (bigint | null)[]>();
+	return (c: string, i: number) => rateOn(i, c, AMOUNT_UNIT, 0);
+};
 
-	return (commodity: string) => {
-		if (commodity === DEFAULT_COMMODITY) return null;
+/**
+ * The latest quote in a year's row on or before a day, and the day it was for,
+ * inside the row's window.
+ */
+const lastQuote = (row: QuoteRow, i: number) => {
+	const first = Math.max(row.from - row.offset, 0);
+	const last = Math.min(i, row.until - 1, row.offset + lengthOf(row.amounts) - 1) - row.offset;
 
-		const known = rates.get(commodity);
-		if (known) return known;
+	return quoteBefore(row, { slot: last, first });
+};
 
-		const daily = Array.from({ length: count }, (_, i) => rateOn(i, commodity, AMOUNT_UNIT, 0));
-		rates.set(commodity, daily);
+const quoteBefore = (row: QuoteRow, { slot, first }: { slot: number; first: number }) => {
+	if (slot < first) return null;
 
-		return daily;
-	};
+	const amount = readDay(row.amounts, slot);
+	if (amount !== NO_AMOUNT) return { day: row.offset + slot, amount: amount as Amount };
+
+	return quoteBefore(row, { slot: slot - 1, first });
 };
 
 const dayIndex = (date: string, offsetOf: (year: number) => number) => {

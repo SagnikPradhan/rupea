@@ -72,25 +72,26 @@ Every account, every statement, one ledger, in files you own.
 
 ```sh
 pnpm install
-cp .env.example .env
+cp packages/server/.env.example packages/server/.env
+cp packages/web/.env.example packages/web/.env
 pnpm dev
 ```
 
-`pnpm dev` starts two processes: the server, which listens on `127.0.0.1:3001`, and the web app, which calls it at `RUPEA_API_URL` (by default `http://127.0.0.1:3001/api`). Change where the server listens with `RUPEA_SERVER_HOST` and `RUPEA_SERVER_PORT`. In production, `pnpm build` then `pnpm start` runs both, and the API URL should be `https`. `pnpm preview` serves only the web app, so start the server beside it with `pnpm start:server`.
+`pnpm dev` starts two processes: the server, which listens on `127.0.0.1:3001`, and the web app, which calls it at `RUPEA_API_URL` (by default `http://127.0.0.1:3001/api`). Change where the server listens with `RUPEA_SERVER_HOST` and `RUPEA_SERVER_PORT`. In production, `pnpm build` then `pnpm start` runs both, and the API URL should be `https`. `pnpm --filter @rupea/web preview` serves only the web app, so start the server beside it with `pnpm --filter @rupea/server start`.
 
 The first run downloads the ML models for statement import into `data/models`. How to use Rupea is in the [manual](docs/manual/index.md).
 
 ## Development
 
 ```sh
-pnpm models
+pnpm --filter @rupea/server models
 pnpm test
-pnpm test:e2e
+pnpm --filter @rupea/web test:e2e
 pnpm check
 pnpm lint
 ```
 
-`pnpm replay <folder>` predicts each statement in a ledger folder from the ones before it, and reports how many lines it got right; `--cold` predicts with no history, as for a new user. Run it before and after a change to prediction.
+`pnpm --filter @rupea/server replay <folder>` predicts each statement in a ledger folder from the ones before it, and reports how many lines it got right; `--cold` predicts with no history, as for a new user. Run it before and after a change to prediction.
 
 Domain terms are in [GLOSSARY.md](GLOSSARY.md), decisions in [docs/adr](docs/adr), how the code fits together in [docs/architecture.md](docs/architecture.md), plans in [ROADMAP.md](ROADMAP.md).
 

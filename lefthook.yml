@@ -20,4 +20,4 @@ pre-commit:
     harper:
       glob: '*.{ts,js,md}'
       exclude: ['packages/server/drizzle/**', '.agents/**', 'docs/manual/glossary.md']
-      run: pnpm lint:prose {staged_files}
+      run: lint/prose.sh {staged_files}

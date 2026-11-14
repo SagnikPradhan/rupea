@@ -41,7 +41,7 @@ export const it = base.extend<{
 		({}, use) =>
 			use(
 				createModels({
-					directory: resolve('data/models'),
+					directory: resolve('packages/server/data/models'),
 					files,
 					threads: 3,
 					mode: 'verify',

@@ -1,15 +1,15 @@
 import adapter from '@sveltejs/adapter-node';
-import { svelteTesting } from '@testing-library/svelte/vite';
 import { sveltekit } from '@sveltejs/kit/vite';
+import { svelteTesting } from '@testing-library/svelte/vite';
 import { defineConfig } from 'vitest/config';
 
 export default defineConfig({
+	root: import.meta.dirname,
 	plugins: [
 		sveltekit({
 			compilerOptions: {
 				// Force runes mode for the project, except for libraries. Can be removed in svelte 6.
-				runes: ({ filename }) =>
-					filename.split(/[/\\]/).includes('node_modules') ? undefined : true,
+				runes: (x) => (x.filename.split(/[/\\]/).includes('node_modules') ? undefined : true),
 				experimental: { async: true },
 			},
 			experimental: { remoteFunctions: true },
@@ -24,14 +24,6 @@ export default defineConfig({
 		? { sourcemap: 'inline', minify: false }
 		: { sourcemap: false },
 	test: {
-		maxWorkers: '50%',
-		coverage: {
-			include: ['src/**/*.{ts,svelte}'],
-			exclude: ['src/**/tests/**', '**/*.d.ts'],
-			reporter: ['text', 'html', 'lcov'],
-			reportsDirectory: '../../coverage/web',
-			thresholds: { lines: 90, branches: 80, functions: 90 },
-		},
 		projects: [
 			{
 				extends: true,

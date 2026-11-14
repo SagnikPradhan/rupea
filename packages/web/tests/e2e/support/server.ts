@@ -87,7 +87,7 @@ export const withServer = async (use: (server: Server) => Promise<void>) => {
 			RUPEA_SERVER_PORT: String(apiPort),
 			RUPEA_STORAGE_FILES: directory,
 			RUPEA_MODELS_MODE: 'verify',
-			RUPEA_MODELS_DIR: resolve('../../data/models'),
+			RUPEA_MODELS_DIR: resolve('../server/data/models'),
 			RUPEA_LOG_LEVEL: 'info',
 			RUPEA_ACCOUNTS_SIGNUP: 'open',
 		},

@@ -11,8 +11,20 @@
 		"#services/*": "./src/services/*"
 	},
 	"scripts": {
+		"dev": "pnpm build && pnpm --parallel run \"/^(watch|restart)$/\"",
+		"build": "vite build",
+		"watch": "vite build --watch --emptyOutDir false --mode development",
+		"restart": "NODE_ENV=development node --env-file-if-exists=.env --watch dist/main.js",
+		"start": "node --env-file-if-exists=.env dist/main.js",
+		"check": "node node_modules/@typescript/native/bin/tsc -p .",
+		"check:dist": "node scripts/dependencies.ts",
 		"db:generate": "drizzle-kit generate",
-		"db:migrate": "drizzle-kit migrate"
+		"db:migrate": "drizzle-kit migrate",
+		"models": "tsx --env-file-if-exists=.env scripts/models.ts",
+		"seed": "tsx --env-file-if-exists=.env scripts/seed.ts",
+		"fixtures": "tsx --env-file-if-exists=.env scripts/fixtures.ts",
+		"replay": "tsx --env-file-if-exists=.env scripts/replay.ts",
+		"bench": "vitest bench --run --reporter=verbose --silent=false"
 	},
 	"dependencies": {
 		"@embedpdf/pdfium": "2.15.1",
@@ -44,9 +56,18 @@
 		"yaml": "2.9.1"
 	},
 	"devDependencies": {
+		"@cantoo/pdf-lib": "2.11.1",
+		"@faker-js/faker": "10.6.0",
 		"@orpc/openapi-client": "1.16.2",
 		"@readme/openapi-parser": "10.0.0",
+		"@tsconfig/strictest": "^2.0.8",
+		"@types/emscripten": "1.41.6",
+		"@types/node": "^26.6.5",
+		"@types/pg": "8.23.1",
+		"@typescript/native": "npm:typescript@^7.0.2",
 		"drizzle-kit": "0.31.11",
-		"pino-pretty": "13.2.0"
+		"pino-pretty": "13.2.0",
+		"tsx": "4.23.15",
+		"vite": "^8.3.5"
 	}
 }

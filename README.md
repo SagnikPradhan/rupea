@@ -89,6 +89,7 @@ pnpm test
 pnpm --filter @rupea/web test:e2e
 pnpm check
 pnpm lint
+pnpm verify
 ```
 
 `pnpm --filter @rupea/server replay <folder>` predicts each statement in a ledger folder from the ones before it, and reports how many lines it got right; `--cold` predicts with no history, as for a new user. Run it before and after a change to prediction.

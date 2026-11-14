@@ -6,4 +6,4 @@ Sign off every commit with `git commit -s`. That adds a `Signed-off-by` line, wh
 
 Because contributors keep their rights, the license cannot be changed without asking each of them.
 
-Before a pull request, run `pnpm format:check`, `pnpm lint`, `pnpm check` and `pnpm test`. How the code is written is in [AGENTS.md](AGENTS.md).
+Before a pull request, run `pnpm verify`. How the code is written is in [AGENTS.md](AGENTS.md).

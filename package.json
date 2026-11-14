@@ -16,7 +16,9 @@
 		"check": "node node_modules/@typescript/native/bin/tsc -p . && pnpm -r check",
 		"test": "vitest run",
 		"lint": "eslint . && stylelint 'packages/web/src/**/*.svelte'",
-		"format": "prettier --write ."
+		"format": "prettier --write .",
+		"format:check": "prettier --check .",
+		"verify": "pnpm format:check && pnpm lint && pnpm check && pnpm test"
 	},
 	"devDependencies": {
 		"@commitlint/cli": "21.2.4",

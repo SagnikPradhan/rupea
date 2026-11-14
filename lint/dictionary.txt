@@ -34,6 +34,8 @@ costOn
 cron
 css
 d3
+dayNumberOf
+deltasBetween
 DETR
 e2e
 Enqueueing
@@ -43,6 +45,7 @@ Fava
 Fava's
 ffi
 Fintech
+flowsOf
 fns
 FNV
 FPDF
@@ -87,6 +90,7 @@ MiniLM
 misdated
 misspelt
 model2vec
+movesOf's
 mtime
 napi
 NAVs
@@ -125,6 +129,7 @@ qpdf
 Queueing
 rastering
 rasters
+rateAt
 readiest
 readText
 rebooks
@@ -191,6 +196,7 @@ wasm
 WCAG
 Wealthfolio
 WinAnsi
+worthOf
 XIRR
 xls
 XLS

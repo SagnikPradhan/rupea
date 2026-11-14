@@ -1,6 +1,6 @@
 import { parseAmount, type Amount } from '#services/ledger/domain/amounts.ts';
 import type { ValuedHolding } from '#services/ledger/domain/holdings.ts';
-import { returnsOf } from '#services/ledger/domain/returns.ts';
+import { dayNumberOf, returnsOf } from '#services/ledger/domain/returns.ts';
 import { describe, expect, it } from 'vitest';
 
 const amount = (text: string) => parseAmount(text) ?? (0n as Amount);
@@ -20,7 +20,7 @@ const held = (account: string, value: string | null): ValuedHolding => ({
 
 const flow = (account: string, d: string, value: string, unpriced = 0) => ({
 	account,
-	day: day(d),
+	day: dayNumberOf(d),
 	amount: amount(value),
 	unpriced,
 });
@@ -80,6 +80,18 @@ describe('returnsOf', () => {
 		});
 
 		expect(returns[0]?.xirr).toBeCloseTo(-0.9999999, 6);
+	});
+
+	it('takes the rate nearest 10% when the flows give two, which a bracket from -100% to a high rate would miss', () => {
+		const returns = returnsOf({
+			accounts: ['Assets:Fund'],
+			start: [held('Assets:Fund', '100')],
+			end: [held('Assets:Fund', '-140.4')],
+			flows: [flow('Assets:Fund', '2026-01-01', '-238')],
+			span: { from: day('2025-01-02'), to: day('2027-01-01') },
+		});
+
+		expect(returns[0]?.xirr).toBeCloseTo(0.08, 6);
 	});
 
 	it('has no rate when nothing went in, or something had no price', () => {

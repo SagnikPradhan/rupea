@@ -13,6 +13,7 @@ export const createLogger = (level: LevelWithSilent, pretty: boolean) =>
 			transport: {
 				// Under pnpm, pino cannot resolve pino-pretty from its own directory.
 				target: createRequire(import.meta.url).resolve('pino-pretty'),
+				options: { singleLine: true },
 			},
 		}),
 	});

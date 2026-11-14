@@ -16,7 +16,7 @@ import { models as files } from '#lib/server/shared/onnx/models.ts';
 import { bank, day, schema, statement, upload } from './fixtures/bank';
 
 const fixtures = join(import.meta.dirname, 'fixtures');
-const models = files.every(({ file }) => existsSync(join('data/models', file)));
+const models = files.every(({ file }) => existsSync(join('packages/server/data/models', file)));
 
 describe('extracting a statement', () => {
 	it('drafts a ledger file that parses, naming the statement', ({ context, db }) =>

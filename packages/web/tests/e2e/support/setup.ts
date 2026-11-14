@@ -7,7 +7,7 @@ import { models } from '@rupea/server/shared/onnx/models.ts';
 export default async function globalSetup() {
 	const missing = await Promise.all(
 		models.map((m) =>
-			access(join(resolve('../../data/models'), m.file)).then(
+			access(join(resolve('../server/data/models'), m.file)).then(
 				() => [],
 				() => [m.file],
 			),
@@ -15,7 +15,7 @@ export default async function globalSetup() {
 	);
 	if (missing.flat().length > 0)
 		throw new Error(
-			`Missing models ${missing.flat().join(', ')} in data/models. Run 'pnpm models' to download them.`,
+			`Missing models ${missing.flat().join(', ')} in packages/server/data/models. Run 'pnpm --filter @rupea/server models' to download them.`,
 		);
 
 	const build = (...args: string[]) =>

@@ -189,7 +189,7 @@ describe('predicting accounts in a ledger', () => {
 		}));
 });
 
-const live = pinned.every(({ file }) => existsSync(join('data/models', file)));
+const live = pinned.every(({ file }) => existsSync(join('packages/server/data/models', file)));
 
 const habits = [
 	['UPI/1/SWIGGY', 'Expenses:Dining'],

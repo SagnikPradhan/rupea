@@ -19,9 +19,9 @@ jobs:
       - uses: jdx/mise-action@v5
         with:
           install_args: harper-cli
-      - run: pnpm format:check
+      - run: pnpm exec prettier --check .
       - run: pnpm lint
-      - run: pnpm lint:prose
+      - run: lint/prose.sh
       - run: pnpm check
       - run: pnpm --filter site build
 
@@ -32,15 +32,13 @@ jobs:
       - uses: ./.github/actions/setup
       - uses: actions/cache@v6
         with:
-          path: data/models
+          path: packages/server/data/models
           key: models-${{ hashFiles('packages/server/src/shared/onnx/models.ts') }}
-      - run: pnpm models
-      - run: pnpm test:coverage
-      # The web app's run is rooted in its package; the reports name files from the repository.
-      - run: sed -i 's|^SF:|SF:packages/web/|' coverage/web/lcov.info
+      - run: pnpm --filter @rupea/server models
+      - run: pnpm test --coverage
       - uses: coverallsapp/github-action@v2
         with:
-          files: coverage/lcov.info coverage/web/lcov.info
+          files: coverage/lcov.info
           flag-name: unit
           parallel: true
       - uses: actions/upload-artifact@v7
@@ -48,7 +46,6 @@ jobs:
           name: coverage-unit
           path: |
             coverage/lcov.info
-            coverage/web/lcov.info
 
   e2e:
     runs-on: ubuntu-latest
@@ -57,13 +54,13 @@ jobs:
       - uses: ./.github/actions/setup
       - uses: actions/cache@v6
         with:
-          path: data/models
+          path: packages/server/data/models
           key: models-${{ hashFiles('packages/server/src/shared/onnx/models.ts') }}
-      - run: pnpm models
+      - run: pnpm --filter @rupea/server models
       # The runner image already has the libraries Chrome needs, and installing
       # them again through apt has taken up to 14 minutes on a slow mirror.
       - run: pnpm --filter @rupea/web exec playwright install --only-shell chromium
-      - run: pnpm test:e2e:coverage
+      - run: pnpm --filter @rupea/web test:e2e:coverage
       - if: ${{ !cancelled() }}
         uses: coverallsapp/github-action@v2
         with:

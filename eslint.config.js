@@ -23,7 +23,7 @@ const rupea = {
 
 export default defineConfig(
 	globalIgnores([
-		'data/',
+		'packages/server/data/',
 		'packages/web/build/',
 		'packages/web/.svelte-kit/',
 		'packages/server/drizzle/',

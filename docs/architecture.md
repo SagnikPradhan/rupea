@@ -14,9 +14,9 @@ Files can change without Rupea knowing, through an editor or a checkout. So read
 
 Rupea runs as a server and a web app ([ADR 0037](adr/0037-a-server-process-and-a-web-app-that-calls-it.md)). The server holds the database, the storage, the models and the background work, and answers an HTTP API. The web app serves the pages and calls that API. It has no database and never imports server code.
 
-`pnpm dev` starts both, and `pnpm start` runs the built pair. They can also run apart: `pnpm dev:server` or `pnpm start:server` for the server, `pnpm dev:web` or `pnpm start:web` for the web app.
+`pnpm dev` starts both, and `pnpm start` runs the built pair. They can also run apart: `pnpm --filter @rupea/server dev` or `start` for the server, `pnpm --filter @rupea/web dev` or `start` for the web app.
 
-- **Server.** `RUPEA_SERVER_HOST` and `RUPEA_SERVER_PORT` say where it listens (`127.0.0.1:3001`). It reads the rest of its configuration from `RUPEA_*` variables and `DATABASE_URL`, as `.env.example` shows.
+- **Server.** `RUPEA_SERVER_HOST` and `RUPEA_SERVER_PORT` say where it listens (`127.0.0.1:3001`). It reads the rest of its configuration from `RUPEA_*` variables and `DATABASE_URL`, as `packages/server/.env.example` shows.
 - **Web app.** It needs only `RUPEA_API_URL`, which defaults to `http://127.0.0.1:3001/api`. Past your own machine, make that URL `https`, since the session token travels in every call.
 
 ## Layout

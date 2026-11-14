@@ -6,10 +6,18 @@
 	"exports": {
 		"./*": "./src/*"
 	},
+	"scripts": {
+		"check": "node node_modules/@typescript/native/bin/tsc -p ."
+	},
 	"dependencies": {
 		"@orpc/contract": "1.16.2",
 		"@rupea/shared": "workspace:*",
 		"dedent": "1.7.2",
 		"valibot": "1.5.0"
+	},
+	"devDependencies": {
+		"@tsconfig/strictest": "^2.0.8",
+		"@types/node": "^26.6.5",
+		"@typescript/native": "npm:typescript@^7.0.2"
 	}
 }

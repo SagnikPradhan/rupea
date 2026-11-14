@@ -381,7 +381,7 @@ describe('a job in a worker process', () => {
 				entry: fileURLToPath(new URL('fixtures/worker.ts', import.meta.url)),
 				count: 1,
 				env: {},
-				execArgv: ['--import', 'tsx'],
+				execArgv: ['--import', import.meta.resolve('tsx')],
 			});
 			await use(pool);
 			await pool.stop();

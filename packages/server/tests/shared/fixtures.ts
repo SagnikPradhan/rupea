@@ -21,8 +21,8 @@ const LOCK = 20261021;
 const SEEDED = 'ledger.json';
 
 /**
- * A copy of a ledger that `pnpm fixtures` wrote, with its own database and
- * storage.
+ * A copy of a ledger that `pnpm --filter @rupea/server fixtures` wrote, with
+ * its own database and storage.
  *
  * The first copy of a name in a run seeds it, and every copy after, in this
  * worker or another, clones that.

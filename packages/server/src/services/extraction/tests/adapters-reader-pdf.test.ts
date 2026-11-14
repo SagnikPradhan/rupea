@@ -10,7 +10,7 @@ import { readPdf, unlockPdf } from '#services/extraction/adapters/reader-pdf.ts'
 import { err } from '#lib/server/shared/result/result.ts';
 import { PDFDocument } from '@cantoo/pdf-lib';
 
-const models = files.every(({ file }) => existsSync(join('data/models', file)));
+const models = files.every(({ file }) => existsSync(join('packages/server/data/models', file)));
 
 const plain = () => readFile(join(import.meta.dirname, 'fixtures/sbi-savings.pdf'));
 

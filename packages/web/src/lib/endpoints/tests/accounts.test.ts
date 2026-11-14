@@ -22,6 +22,7 @@ vi.mock('$app/server', () => import('#tests/shared/app-server.ts'));
 const day = '2026-09-01';
 const month = { kind: 'month', at: '2026-09' } as const;
 const empty = { succeeded: [], failed: [] };
+const never = { findFirstDay: vi.fn().mockResolvedValue(null) };
 
 describe('accounts', () => {
 	it('lists what accounts held at the end of the period, printing holdings for the page', async () => {
@@ -65,7 +66,10 @@ describe('accounts', () => {
 
 	it('lists worth over the period, narrowed to an account only when one is given', async () => {
 		const listed = vi.fn().mockResolvedValue(empty);
-		useApi({ accounts: { listBalances: listed, list: vi.fn().mockResolvedValue([]) } });
+		useApi({
+			ledger: never,
+			accounts: { listBalances: listed, list: vi.fn().mockResolvedValue([]) },
+		});
 
 		await listWorth({ handle: 'home', day, period: month, account: null });
 		await listWorth({ handle: 'home', day, period: month, account: 'Assets:Bank' });
@@ -78,7 +82,11 @@ describe('accounts', () => {
 			accumulate: 'historical',
 			measures: ['value', 'units'],
 		};
-		expect(listed).toHaveBeenNthCalledWith(1, { ...span, account: undefined });
+		expect(listed).toHaveBeenNthCalledWith(1, {
+			...span,
+			account: undefined,
+			measures: ['value'],
+		});
 		expect(listed).toHaveBeenNthCalledWith(2, { ...span, account: 'Assets:Bank' });
 	});
 
@@ -115,7 +123,10 @@ describe('accounts', () => {
 			{ account: 'Liabilities', parent: null, posted: false },
 			{ account: 'Liabilities:Card', parent: 'Liabilities', posted: true },
 		];
-		useApi({ accounts: { listBalances: listed, list: vi.fn().mockResolvedValue(tree) } });
+		useApi({
+			ledger: never,
+			accounts: { listBalances: listed, list: vi.fn().mockResolvedValue(tree) },
+		});
 
 		const worth = await listWorth({ handle: 'home', day, period: month, account: null });
 
@@ -161,6 +172,21 @@ describe('accounts', () => {
 		const spending = await listDeltas({ handle: 'home', day, period: month, account: 'Expenses' });
 
 		expect(spending.errors).toEqual([bad('a:1'), bad('b:2')]);
+	});
+
+	it.for([
+		['2024-01-01', 'date'],
+		['2015-01-01', 'month'],
+	])('counts all time from the ledger first day %s, drawing by the %s', async ([first, bucket]) => {
+		const listed = vi.fn().mockResolvedValue(empty);
+		useApi({
+			ledger: { findFirstDay: vi.fn().mockResolvedValue(first) },
+			accounts: { listBalances: listed, list: vi.fn().mockResolvedValue([]) },
+		});
+
+		await listWorth({ handle: 'home', day, period: { kind: 'all' }, account: null });
+
+		expect(listed).toHaveBeenCalledWith(expect.objectContaining({ bucket }));
 	});
 
 	it('asks the other reads over the days of the period, written out', async () => {
@@ -234,7 +260,7 @@ describe('accounts', () => {
 			],
 			failed: [],
 		});
-		useApi({ accounts: { listBalances: listed } });
+		useApi({ ledger: never, accounts: { listBalances: listed } });
 
 		const invested = await listInvested({ handle: 'home', day, period: month, account: null });
 

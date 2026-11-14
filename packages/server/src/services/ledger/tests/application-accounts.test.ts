@@ -559,13 +559,13 @@ describe('net worth', () => {
 			expect(worth.map((w) => w.day)).toEqual(['2026-10-02', '2026-10-03']);
 		}));
 
-	it('refuses a historical read by date over a year, and allows exactly 366 days', ({
+	it('refuses a historical read by date over five years, and allows exactly 1827 days', ({
 		context,
 		db,
 	}) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			const content = ['2025-01-01 Salary', '\tAssets:Bank 500', '\tIncome:Salary', ''].join('\n');
+			const content = ['2020-01-01 Salary', '\tAssets:Bank 500', '\tIncome:Salary', ''].join('\n');
 			await Files.createFile({ ledger, key: 'a.rupea', content });
 			const read = (start: string, end: string) =>
 				Accounts.listBalances({
@@ -576,19 +576,22 @@ describe('net worth', () => {
 					accumulate: 'historical',
 				});
 
-			const long = await read('2025-01-01', '2026-01-03');
-			const year = await read('2025-01-01', '2026-01-02');
-			const beginning = await read(BEGINNING, '2026-01-03');
+			const long = await read('2020-01-01', '2025-01-02');
+			const year = await read('2020-01-01', '2025-01-01');
+			const beginning = await read(BEGINNING, '2025-01-02');
 
-			expect(long._unsafeUnwrapErr()).toEqual({ type: 'SpanTooLong', days: 367, most: 366 });
+			expect(long._unsafeUnwrapErr()).toEqual({ type: 'SpanTooLong', days: 1828, most: 1827 });
 			expect(year.isOk()).toBe(true);
-			expect(beginning._unsafeUnwrapErr()).toMatchObject({ type: 'SpanTooLong', most: 366 });
+			expect(beginning._unsafeUnwrapErr()).toMatchObject({ type: 'SpanTooLong', most: 1827 });
 		}));
 
-	it('refuses a change read by date over a year, and allows exactly 366 days', ({ context, db }) =>
+	it('refuses a change read by date over five years, and allows exactly 1827 days', ({
+		context,
+		db,
+	}) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			const content = ['2025-01-01 Salary', '\tAssets:Bank 500', '\tIncome:Salary', ''].join('\n');
+			const content = ['2020-01-01 Salary', '\tAssets:Bank 500', '\tIncome:Salary', ''].join('\n');
 			await Files.createFile({ ledger, key: 'a.rupea', content });
 			const read = (start: string, end: string) =>
 				Accounts.listBalances({
@@ -598,30 +601,30 @@ describe('net worth', () => {
 					bucket: 'date',
 				});
 
-			const long = await read('2025-01-01', '2026-01-03');
-			const year = await read('2025-01-01', '2026-01-02');
-			const beginning = await read(BEGINNING, '2026-01-03');
+			const long = await read('2020-01-01', '2025-01-02');
+			const year = await read('2020-01-01', '2025-01-01');
+			const beginning = await read(BEGINNING, '2025-01-02');
 
-			expect(long._unsafeUnwrapErr()).toEqual({ type: 'SpanTooLong', days: 367, most: 366 });
+			expect(long._unsafeUnwrapErr()).toEqual({ type: 'SpanTooLong', days: 1828, most: 1827 });
 			expect(year.isOk()).toBe(true);
-			expect(beginning._unsafeUnwrapErr()).toMatchObject({ type: 'SpanTooLong', most: 366 });
+			expect(beginning._unsafeUnwrapErr()).toMatchObject({ type: 'SpanTooLong', most: 1827 });
 		}));
 
 	it.for(['change', 'historical'] as const)(
-		'refuses a %s read by date over a year before reading anything',
+		'refuses a %s read by date over five years before reading anything',
 		async (accumulate, { context, db }) =>
 			provide(context, async () => {
 				const ledger = { ...(await createLedger(db)), id: 'missing' };
 
 				const read = await Accounts.listBalances({
 					ledger,
-					from: Temporal.PlainDate.from('2025-01-01'),
-					to: Temporal.PlainDate.from('2026-01-03'),
+					from: Temporal.PlainDate.from('2020-01-01'),
+					to: Temporal.PlainDate.from('2025-01-02'),
 					bucket: 'date',
 					accumulate,
 				});
 
-				expect(read._unsafeUnwrapErr()).toEqual({ type: 'SpanTooLong', days: 367, most: 366 });
+				expect(read._unsafeUnwrapErr()).toEqual({ type: 'SpanTooLong', days: 1828, most: 1827 });
 			}),
 	);
 

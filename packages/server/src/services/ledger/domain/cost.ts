@@ -34,14 +34,15 @@ export const costOn = ({ moves, rates, days }: CostOnOptions): Amount[] => {
 		.toSorted((a, b) => Temporal.PlainDate.compare(a.day, b.day));
 	const running: Running[] = [];
 	for (const v of valued)
-		running.push({ day: v.day, total: (running.at(-1)?.total ?? 0n) + v.value });
+		running.push({ day: v.day.toString(), total: (running.at(-1)?.total ?? 0n) + v.value });
 
 	const cursor = { at: 0 };
 
 	return days.map((day) => {
-		while (isOn(running[cursor.at + 1], day)) cursor.at++;
+		const on = day.toString();
+		while (isOn(running[cursor.at + 1], on)) cursor.at++;
 		const latest = running[cursor.at];
-		return (isOn(latest, day) ? latest.total : 0n) as Amount;
+		return (isOn(latest, on) ? latest.total : 0n) as Amount;
 	});
 };
 
@@ -52,12 +53,15 @@ type HeldCostsOptions = { moves: CostMove[]; days: Temporal.PlainDate[] };
  * as hledger and beancount keep a cost basis until the report converts it.
  */
 export const heldCostsOn = ({ moves, days }: HeldCostsOptions): Record<string, bigint>[] => {
-	const ordered = moves.toSorted((a, b) => Temporal.PlainDate.compare(a.day, b.day));
+	const ordered = moves
+		.toSorted((a, b) => Temporal.PlainDate.compare(a.day, b.day))
+		.map((m) => ({ ...m, on: m.day.toString() }));
 	const running: Record<string, bigint> = {};
 	const cursor = { at: 0 };
 
 	return days.map((day) => {
-		while (ordered[cursor.at] && Temporal.PlainDate.compare(ordered[cursor.at]!.day, day) <= 0) {
+		const on = day.toString();
+		while (ordered[cursor.at] && ordered[cursor.at]!.on <= on) {
 			const m = ordered[cursor.at]!;
 			running[m.cost] = (running[m.cost] ?? 0n) + m.amount;
 			cursor.at++;
@@ -79,10 +83,9 @@ export const unpricedIn = (moves: CostMove[], rates: RateThen[]): string[] => {
 	return [...new Set(missing.map((m) => m.cost))];
 };
 
-type Running = { day: Temporal.PlainDate; total: bigint };
+type Running = { day: string; total: bigint };
 
-const isOn = (r: Running | undefined, d: Temporal.PlainDate): r is Running =>
-	r !== undefined && Temporal.PlainDate.compare(r.day, d) <= 0;
+const isOn = (r: Running | undefined, d: string): r is Running => r !== undefined && r.day <= d;
 
 const ratesIn = (rates: RateThen[]) => {
 	const entries = rates.map((r) => [`${r.commodity} ${r.day}`, r.rate] as const);

@@ -12,7 +12,7 @@ The output is `from`, `to`, the `base` commodity once, and rows of `account`, `c
 
 `cost` is the cost basis valued at each bucket's end prices, as hledger and beancount do, so a gain is price movement alone. `paid` is the rupees actually paid, each lot at the rate of its purchase day, and stays so the invested chart keeps its numbers.
 
-The web picks the bucket. Short spans use `date`. Net worth uses `month` once the span passes 366 days, and a daily chart stays daily up to a year and monthly beyond.
+The web picks the bucket. Short spans use `date`. Net worth uses `month` once the span passes 1827 days, and a daily chart stays daily up to five years and monthly beyond.
 
 Combinations that make no sense are rejected by a check in the contract: historical needs an ending bucket (`date`, not `day`) and no `inflow` or `outflow`, and change allows no `units`, `cost`, `paid` or `price`. Application code never imports the contract, so the check lives only there.
 

@@ -8,6 +8,7 @@ import {
 	viewPosting,
 	viewSuggestion,
 	viewTransaction,
+	worthFrom,
 } from '#lib/endpoints/views.ts';
 import { parseAmount } from '@rupea/shared/money.ts';
 import { describe, expect, it } from 'vitest';
@@ -347,5 +348,64 @@ describe('viewing what flowed', () => {
 		expect(daily[4]).toEqual({ day: 5, amount: '-50.00', unpriced: 0 });
 		expect(daily[5]).toEqual({ day: 6, amount: '0', unpriced: 0 });
 		expect(viewDaily(undefined, 'Expenses')[0]).toEqual({ day: 1, amount: '0', unpriced: 0 });
+	});
+});
+
+describe('viewing worth', () => {
+	const tree = [
+		{ account: 'Assets', parent: null, posted: false },
+		{ account: 'Assets:Bank', parent: 'Assets', posted: true },
+		{ account: 'Assets:Broker', parent: 'Assets', posted: true },
+		{ account: 'Liabilities', parent: null, posted: false },
+		{ account: 'Liabilities:Card', parent: 'Liabilities', posted: true },
+	];
+	const row = (
+		account: string,
+		bucket: string,
+		value: string,
+		commodity: string | null,
+		unpriced = 0,
+	) => ({
+		account,
+		commodity,
+		bucket,
+		unpriced,
+		value,
+	});
+	const day = (bucket: string, broker: string) => [
+		row('Assets:Bank', bucket, '1000.00', 'INR'),
+		row('Assets:Broker', bucket, broker, 'INFY'),
+		row('Assets:Broker', bucket, '200.00', 'USD', 1),
+		row('Assets', bucket, '1000.00', 'INR'),
+		row('Assets', bucket, broker, 'INFY'),
+		row('Assets', bucket, '200.00', 'USD', 1),
+		row('Liabilities:Card', bucket, '-200.00', 'INR'),
+		row('Liabilities', bucket, '-200.00', 'INR'),
+	];
+	const together = (bucket: string, held: string) => [
+		row('Assets:Bank', bucket, '1000.00', null),
+		row('Assets:Broker', bucket, held, null, 1),
+		row('Assets', bucket, (1000 + Number(held)).toFixed(2), null, 1),
+		row('Liabilities:Card', bucket, '-200.00', null),
+		row('Liabilities', bucket, '-200.00', null),
+	];
+
+	it('divides worth the same by commodity rows as without them', () => {
+		const apart = {
+			from: '2026-09-01',
+			to: '2026-09-02',
+			base: 'INR',
+			rows: [...day('2026-09-01', '300.00'), ...day('2026-09-02', '310.00')],
+		};
+		const whole = {
+			from: '2026-09-01',
+			to: '2026-09-02',
+			base: 'INR',
+			rows: [...together('2026-09-01', '500.00'), ...together('2026-09-02', '510.00')],
+		};
+
+		expect(worthFrom(whole, { tree, account: null })).toEqual(
+			worthFrom(apart, { tree, account: null }),
+		);
 	});
 });

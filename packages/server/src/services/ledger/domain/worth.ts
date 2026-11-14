@@ -181,25 +181,27 @@ export const endingsOf = (
 	{ days, lots, bought, paid }: EndingsOptions,
 ): Ending[] => {
 	const layout = layoutOf(o);
-	const { rateAt } = ratesOf({ ...o, ...layout });
+	const { rateAt, rates } = ratesOf({ ...o, ...layout });
+	const daily = days.length * 2 > layout.count;
+	const rateOn = (c: string, i: number) => (daily ? (rates(c)?.[i] ?? null) : rateAt(c, i));
 	const partOf = new Map(o.parts.map((p) => [p.accountId, p.part]));
 	const byHolding = Object.groupBy(lots, (m) => `${partOf.get(m.accountId)} ${m.commodity}`);
 	const indexes = days.map((d) => o.from.until(d).days);
 
 	return holdingsOf(o).flatMap((g) => {
 		const moves = byHolding[`${g.part} ${g.commodity}`] ?? [];
-		const costs = heldCostsOn({ moves, days });
-		const paidOn = costOn({ moves, rates: bought, days });
+		const costs = moves.length ? heldCostsOn({ moves, days }) : [];
+		const paidOn = moves.length ? costOn({ moves, rates: bought, days }) : [];
 		const missed = paid ? unpricedIn(moves, bought).length : 0;
 		const placed = g.years.map((y) => placedIn(y, layout));
 
 		return days.map((day, n) => {
 			const i = indexes[n] ?? 0;
 			const units = heldOn(placed, i);
-			const price = g.commodity === DEFAULT_COMMODITY ? null : rateAt(g.commodity, i);
+			const price = g.commodity === DEFAULT_COMMODITY ? null : rateOn(g.commodity, i);
 			const converted = Object.entries(costs[n] ?? {}).map(([c, amount]) => {
 				if (c === DEFAULT_COMMODITY) return amount;
-				const unit = rateAt(c, i);
+				const unit = rateOn(c, i);
 				return unit === null ? null : multiply(amount as Amount, unit as Amount);
 			});
 
@@ -229,11 +231,13 @@ const valueOf = (g: Held, { units, price }: { units: Amount; price: bigint | nul
  * counted as 1 unpriced when units are held, a cost with no price as 1, and the
  * lots missed with no price when bought.
  */
-export const deltasOf = (endings: Ending[], bucket: Bucket): Delta[] =>
-	endings.map((e) => ({
+export const deltasOf = (endings: Ending[], bucket: Bucket): Delta[] => {
+	const keys = new Map<Temporal.PlainDate, string>();
+
+	return endings.map((e) => ({
 		account: e.account,
 		commodity: e.commodity,
-		bucket: bucketKeyOf[bucket](e.day),
+		bucket: keys.getOrInsertComputed(e.day, bucketKeyOf[bucket]),
 		value: (e.value ?? 0n) as Amount,
 		inflow: 0n as Amount,
 		outflow: 0n as Amount,
@@ -243,6 +247,7 @@ export const deltasOf = (endings: Ending[], bucket: Bucket): Delta[] =>
 		price: e.price,
 		unpriced: (e.value === null && e.units !== 0n ? 1 : 0) + (e.cost === null ? 1 : 0) + e.missed,
 	}));
+};
 
 /**
  * What a part's holdings of the day before were worth at that day's prices and
@@ -534,15 +539,16 @@ const ratesOf = ({ prices, sources, opening, count, offsetOf }: RatesOptions) =>
 	};
 
 	const quoteAt = (commodity: string, i: number) => {
-		const latest = rowsOf(commodity)
-			.flatMap((row) => {
-				const quote = lastQuote(row, i);
-				return quote ? [{ ...quote, commodity: row.priceCommodity }] : [];
-			})
-			.reduce<{ day: number; amount: Amount; commodity: string } | null>(
-				(b, q) => (b === null || q.day >= b.day ? q : b),
-				null,
-			);
+		const latest = rowsOf(commodity).reduce<{
+			day: number;
+			amount: Amount;
+			commodity: string;
+		} | null>((best, row) => {
+			const quote = lastQuote(row, i);
+			if (!quote || (best !== null && quote.day < best.day)) return best;
+
+			return { ...quote, commodity: row.priceCommodity };
+		}, null);
 
 		return latest
 			? { amount: latest.amount, commodity: latest.commodity }

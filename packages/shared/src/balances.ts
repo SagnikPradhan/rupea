@@ -67,11 +67,11 @@ export const isReadable = (o: {
 /** Whether rows are told apart by commodity, as the units and price of one are. */
 export const isByCommodity = (m: Measure[]) => m.some((x) => x === 'units' || x === 'price');
 
-/** The most days a span can be and still close each of them. */
-export const CLOSING_DAYS = 366;
+/** The most days a span can be and still close each of them */
+export const CLOSING_DAYS = 1827;
 
 /**
- * The bucket a historical read of a span draws: each day up to a year, then
+ * The bucket a historical read of a span draws: each day up to five years, then
  * each month.
  */
 export const closingBucketOf = (s: Span) =>

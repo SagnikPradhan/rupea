@@ -14,6 +14,19 @@ import { viewDaily, viewDeltas, viewHoldings, investedFrom, viewLot, worthFrom }
 const writtenSpan = ({ from, to }: Span) => ({ from: from.toString(), to: to.toString() });
 
 /**
+ * The bucket a historical read draws, counting the span from the ledger's first
+ * day.
+ */
+const closingBucketIn = async (handle: string, { from, to }: Span) => {
+	const first = await api().ledger.findFirstDay({ handle });
+
+	return closingBucketOf({
+		from: first && first > from.toString() ? Temporal.PlainDate.from(first) : from,
+		to,
+	});
+};
+
+/**
  * Every account of the ledger, each with the one above it and whether anything
  * is posted to it.
  */
@@ -50,7 +63,7 @@ export const listHoldings = query(
 /** Net worth at the end of each day of a period. */
 export const listWorth = query(
 	v.object({ handle: Handle, day: Day, period: Period, account: BalanceAccount }),
-	({ handle, day, period, account }) => {
+	async ({ handle, day, period, account }) => {
 		const span = spansOf(period, day).current;
 
 		return replyFromBatchCall(
@@ -59,9 +72,9 @@ export const listWorth = query(
 					...writtenSpan(span),
 					handle,
 					account: account ?? undefined,
-					bucket: closingBucketOf(span),
+					bucket: await closingBucketIn(handle, span),
 					accumulate: 'historical',
-					measures: ['value', 'units'],
+					measures: account === null ? ['value'] : ['value', 'units'],
 				}),
 				api().accounts.list({ handle }),
 			]).then(([b, accounts]) => ({
@@ -78,7 +91,7 @@ export const listWorth = query(
  */
 export const listInvested = query(
 	v.object({ handle: Handle, day: Day, period: Period, account: BalanceAccount }),
-	({ handle, day, period, account }) => {
+	async ({ handle, day, period, account }) => {
 		const span = spansOf(period, day).current;
 
 		return replyFromBatchCall(
@@ -87,7 +100,7 @@ export const listInvested = query(
 					...writtenSpan(span),
 					handle,
 					account: account ?? ASSETS,
-					bucket: closingBucketOf(span),
+					bucket: await closingBucketIn(handle, span),
 					accumulate: 'historical',
 					measures: ['value', 'paid', 'units'],
 				})

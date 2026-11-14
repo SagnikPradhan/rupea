@@ -5,7 +5,7 @@ import {
 	type Measure,
 } from '@rupea/shared/balances.ts';
 import { bucketsIn, type Span } from '@rupea/shared/dates.ts';
-import { sum, type Amount, type Quantity } from './amounts';
+import { type Amount, type Quantity } from './amounts';
 import { byPath, parentsOf } from './taxonomy';
 
 /**
@@ -65,14 +65,15 @@ type BalancesOfOptions = {
 	parents: Record<string, string | null>;
 };
 
-const byBucket = new Intl.Collator('en', { numeric: true }).compare;
+const compareKeys = new Intl.Collator('en', { numeric: true }).compare;
 
 export const balancesOf = (
 	deltas: Delta[],
 	{ span, base, bucket, aggregate, measures, parents }: BalancesOfOptions,
 ): Balances => {
-	const own = isByCommodity(measures) ? deltas : deltas.map((d) => ({ ...d, commodity: null }));
-	const drawn = rolledUp(own).filter((d) => Object.hasOwn(parents, d.account));
+	const drawn = rolledUp(deltas, isByCommodity(measures)).filter((d) =>
+		Object.hasOwn(parents, d.account),
+	);
 	const averages = aggregate === 'average' && bucket === 'day';
 	const times = averages ? monthsByDay(span) : {};
 	const rows = averages ? drawn.map((d) => averaged(d, times)) : drawn;
@@ -80,47 +81,63 @@ export const balancesOf = (
 	return { from: span.from, to: span.to, base, rows: rows.map((r) => measured(r, measures)) };
 };
 
-/** Each account's gain and its parents', by path, bucket and then commodity. */
-const rolledUp = (deltas: Delta[]): Delta[] => {
-	const byAccount = Object.groupBy(sharesOf(deltas), (s) => s.account);
+/**
+ * Each account's gain and its parents', by path, bucket and then commodity when
+ * they are told apart. Each amount counts once for its own account and once for
+ * each parent, which adds up the accounts under it.
+ */
+const rolledUp = (deltas: Delta[], byCommodity: boolean): Delta[] => {
+	const chains = new Map<string, string[]>();
+	const totals = new Map<string, Map<string, Map<string, Delta>>>();
+	for (const s of deltas) {
+		const held = byCommodity ? (s.commodity ?? '') : '';
 
-	return Object.keys(byAccount)
-		.toSorted(byPath)
-		.flatMap((account) => {
-			const byKey = Object.groupBy(byAccount[account] ?? [], (s) => s.bucket);
+		for (const account of chains.getOrInsertComputed(s.account, parentsOf)) {
+			const total = totals
+				.getOrInsertComputed(account, () => new Map())
+				.getOrInsertComputed(s.bucket, () => new Map())
+				.getOrInsertComputed(held, () => ({
+					...NOTHING,
+					account,
+					bucket: s.bucket,
+					commodity: byCommodity ? s.commodity : null,
+				}));
 
-			return Object.keys(byKey)
-				.toSorted(byBucket)
-				.flatMap((key) => {
-					const byHeld = Object.groupBy(byKey[key] ?? [], (s) => s.commodity ?? '');
+			addTo(total, s);
+		}
+	}
 
-					return Object.keys(byHeld)
-						.toSorted(byBucket)
-						.flatMap((held) => {
-							const g = byHeld[held];
-							return g?.[0] ? [{ ...g[0], ...added(g) }] : [];
-						});
-				});
+	return [...totals.keys()].toSorted(byPath).flatMap((account) => {
+		const byBucket = totals.get(account) ?? new Map<string, Map<string, Delta>>();
+		return [...byBucket.keys()].toSorted(compareKeys).flatMap((bucket) => {
+			const byHeld = byBucket.get(bucket) ?? new Map<string, Delta>();
+			return [...byHeld.keys()].toSorted(compareKeys).flatMap((h) => byHeld.get(h) ?? []);
 		});
+	});
 };
 
-/**
- * Each amount once for its own account and once for each parent, which adds up
- * the accounts under it.
- */
-const sharesOf = (r: Delta[]) =>
-	r.flatMap((s) => parentsOf(s.account).map((a) => ({ ...s, account: a })));
+const NOTHING = {
+	value: 0n as Amount,
+	inflow: 0n as Amount,
+	outflow: 0n as Amount,
+	units: 0n as Amount,
+	cost: 0n as Amount,
+	paid: 0n as Amount,
+	price: null,
+	unpriced: 0,
+};
 
-const added = (deltas: Delta[]) => ({
-	value: sum(deltas.map((s) => s.value)),
-	inflow: sum(deltas.map((s) => s.inflow)),
-	outflow: sum(deltas.map((s) => s.outflow)),
-	units: sum(deltas.map((s) => s.units)),
-	cost: sum(deltas.map((s) => s.cost)),
-	paid: sum(deltas.map((s) => s.paid)),
-	price: deltas.find((s) => s.price)?.price ?? null,
-	unpriced: deltas.reduce((n, s) => n + s.unpriced, 0),
-});
+/** The first price a total sees stays, as a bucket's price is its first. */
+const addTo = (t: Delta, s: Delta) => {
+	t.value = (t.value + s.value) as Amount;
+	t.inflow = (t.inflow + s.inflow) as Amount;
+	t.outflow = (t.outflow + s.outflow) as Amount;
+	t.units = (t.units + s.units) as Amount;
+	t.cost = (t.cost + s.cost) as Amount;
+	t.paid = (t.paid + s.paid) as Amount;
+	t.price ??= s.price;
+	t.unpriced += s.unpriced;
+};
 
 /** A day of the month's amounts divided by how many months of the span have it. */
 const averaged = (d: Delta, monthsOf: Record<number, number>) => {

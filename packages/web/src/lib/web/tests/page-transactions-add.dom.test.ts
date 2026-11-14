@@ -7,7 +7,6 @@ import {
 	findTransactionFiles,
 	saveTransaction,
 } from '#lib/endpoints/files.remote.ts';
-import { listAccountNames } from '#lib/endpoints/accounts.remote.ts';
 import { goto } from '$app/navigation';
 import { fault } from '@rupea/shared/errors.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
@@ -17,8 +16,16 @@ import Page from '#routes/(signed-in)/l/[handle]/transactions/+page.svelte';
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('$app/navigation', () => import('#tests/shared/app-navigation.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
-	listAccountNames: vi.fn(() => answer(['Assets:Bank'])),
-	listAccountTree: vi.fn(() => answer([])),
+	listAccounts: vi.fn(() =>
+		answer([
+			{ account: 'Assets', parent: null, posted: false },
+			{ account: 'Assets:Bank', parent: 'Assets', posted: true },
+			{ account: 'Assets:Cash', parent: 'Assets', posted: true },
+			{ account: 'Expenses', parent: null, posted: false },
+			{ account: 'Expenses:Food', parent: 'Expenses', posted: true },
+			{ account: 'Liabilities:Card', parent: null, posted: true },
+		]),
+	),
 }));
 vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
 	findFirstDay: vi.fn(() => answer('2025-03-14')),
@@ -513,7 +520,6 @@ describe('the lines of an entry', () => {
 		);
 
 	beforeEach(() => {
-		vi.mocked(listAccountNames).mockClear();
 		vi.mocked(createTransaction).mockReset();
 		vi.mocked(findTransactionFiles).mockReturnValue(
 			answer({ keys: ['b.rupea'], newest: 'b.rupea' }),
@@ -526,8 +532,6 @@ describe('the lines of an entry', () => {
 		await type('Paid from', 'Ba');
 
 		await vi.waitFor(() => expect(suggested()).toEqual(['Assets:Bank']));
-		const prefixes = vi.mocked(listAccountNames).mock.calls.map((c) => c[0].prefix);
-		expect(prefixes).toEqual(['Expenses', 'Assets:Ba', 'Liabilities:Ba']);
 	});
 
 	it('suggests accounts by what is typed in a line, and not by kind', async () => {
@@ -537,9 +541,7 @@ describe('the lines of an entry', () => {
 		await fireEvent.focus(account!);
 		await fireEvent.input(account!, { target: { value: 'Exp' } });
 
-		await vi.waitFor(() => expect(suggested()).toEqual(['Assets:Bank']));
-		const prefixes = vi.mocked(listAccountNames).mock.calls.map((c) => c[0].prefix);
-		expect(prefixes).toEqual(['', 'Exp']);
+		await vi.waitFor(() => expect(suggested()).toEqual(['Expenses', 'Expenses:Food']));
 	});
 
 	it('writes the extra fields of a line, which open and close with its button', async () => {

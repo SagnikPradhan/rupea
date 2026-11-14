@@ -1,8 +1,9 @@
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { anyOf, total } from '#lib/server/db/expressions.ts';
-import type { Bucket, Span } from '@rupea/shared/dates.ts';
-import { sql } from 'kysely';
+import type { Bucket } from '@rupea/shared/balances.ts';
+import type { Span } from '@rupea/shared/dates.ts';
+import { sql, type RawBuilder } from 'kysely';
 import { type Amount } from '../domain/amounts';
 import type { Flow } from '../domain/returns';
 import type { Delta } from '../domain/deltas';
@@ -15,12 +16,20 @@ type DeltasOptions = {
 	accounts: string[];
 	from: Temporal.PlainDate;
 	to: Temporal.PlainDate;
-	/**
-	 * A day of the month puts every month's day n in one bucket, dated in January
-	 * 2000.
-	 */
-	bucket: Bucket | 'dayOfMonth';
+	bucket: Bucket;
 	base: string;
+};
+
+/**
+ * A day's bucket as the key the caller reads it by: the date, a day of the
+ * month, which puts every month's day n in one bucket, then a month as 2026-10
+ * and a year as 2026.
+ */
+const KEYS: Record<Bucket, (date: RawBuilder<unknown>) => RawBuilder<string>> = {
+	date: (d) => sql<string>`to_char(${d}::date, 'YYYY-MM-DD')`,
+	day: (d) => sql<string>`extract(day from ${d}::date)::int::text`,
+	month: (d) => sql<string>`to_char(${d}::date, 'YYYY-MM')`,
+	year: (d) => sql<string>`to_char(${d}::date, 'YYYY')`,
 };
 
 /**
@@ -101,10 +110,7 @@ export const listDeltas = (
 							's.account',
 							's.date',
 							's.postings',
-							(bucket === 'dayOfMonth'
-								? sql<string>`make_date(2000, 1, extract(day from ${e.ref('s.date')})::int)`
-								: sql<string>`date_trunc(${bucket}, ${e.ref('s.date')}::timestamp)::date`
-							).as('bucket'),
+							KEYS[bucket](sql`${e.ref('s.date')}`).as('bucket'),
 							inBase({
 								amount: e.ref('s.amount'),
 								commodity: e.ref('s.commodity'),
@@ -129,7 +135,6 @@ export const listDeltas = (
 				.select((e) => [
 					'v.account',
 					'v.bucket',
-					e.fn.min('v.date').as('first'),
 					total(e.ref('v.value')).as('amount'),
 					total(e.ref('v.inflow')).as('inflow'),
 					total(e.ref('v.outflow')).as('outflow'),
@@ -141,20 +146,21 @@ export const listDeltas = (
 				.orderBy('v.account')
 				.orderBy('v.bucket')
 				.execute(),
-		).map((rows) => {
-			const dates: Record<string, Temporal.PlainDate> = {};
-			const dateOf = (t: string) => (dates[t] ??= Temporal.PlainDate.from(t));
-
-			return rows.map((s) => ({
+		).map((rows) =>
+			rows.map((s) => ({
 				account: s.account,
-				bucket: dateOf(s.bucket),
-				first: dateOf(s.first),
-				amount: s.amount as Amount,
+				commodity: null,
+				bucket: s.bucket,
+				value: s.amount as Amount,
 				inflow: s.inflow as Amount,
 				outflow: s.outflow as Amount,
+				units: 0n as Amount,
+				cost: 0n as Amount,
+				paid: 0n as Amount,
+				price: null,
 				unpriced: s.unpriced,
-			}));
-		}),
+			})),
+		),
 	);
 };
 

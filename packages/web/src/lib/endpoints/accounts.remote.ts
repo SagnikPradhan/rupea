@@ -1,38 +1,73 @@
 import { replyFromBatchCall, replyFromCall } from './reply';
+import { bucketFor, closingBucketOf } from '@rupea/shared/balances.ts';
 import { Day, Period, type Span, spansOf } from '@rupea/shared/dates.ts';
-import { BalanceAccount, FlowAccount } from '@rupea/shared/money.ts';
+import { ASSETS, BalanceAccount, FlowAccount } from '@rupea/shared/money.ts';
 import { TermsForm } from '@rupea/shared/forms.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
 import { api } from './api';
 import { listProblems } from './ledger.remote';
+import { parentsIn } from '@rupea/shared/account-tree.ts';
 import { Handle } from '@rupea/shared/text.ts';
-import { viewAccount, viewDeltas, viewLot } from './views';
+import { viewDaily, viewDeltas, viewHoldings, investedFrom, viewLot, worthFrom } from './views';
 
 const writtenSpan = ({ from, to }: Span) => ({ from: from.toString(), to: to.toString() });
+
+/**
+ * Every account of the ledger, each with the one above it and whether anything
+ * is posted to it.
+ */
+export const listAccounts = query(Handle, (h) => replyFromCall(api().accounts.list({ handle: h })));
 
 /**
  * What each balance account held at the end of a period, valued at that day's
  * prices.
  */
-export const listAccounts = query(
+export const listHoldings = query(
 	v.object({ handle: Handle, day: Day, period: Period }),
-	({ handle, day, period }) =>
-		replyFromBatchCall(
-			api()
-				.accounts.list({ handle, day: spansOf(period, day).current.to.toString() })
-				.then((b) => ({ ...b, succeeded: b.succeeded.map(viewAccount) })),
-		),
+	({ handle, day, period }) => {
+		const on = spansOf(period, day).current.to.toString();
+
+		return replyFromBatchCall(
+			Promise.all([
+				api().accounts.listBalances({
+					handle,
+					from: on,
+					to: on,
+					bucket: 'date',
+					accumulate: 'historical',
+					measures: ['value', 'units', 'price', 'cost'],
+				}),
+				api().accounts.list({ handle }),
+			]).then(([b, accounts]) => ({
+				succeeded: b.succeeded.flatMap((d) => viewHoldings(d, parentsIn(accounts))),
+				failed: b.failed,
+			})),
+		);
+	},
 );
 
 /** Net worth at the end of each day of a period. */
 export const listWorth = query(
 	v.object({ handle: Handle, day: Day, period: Period, account: BalanceAccount }),
 	({ handle, day, period, account }) => {
-		const { from, to } = writtenSpan(spansOf(period, day).current);
+		const span = spansOf(period, day).current;
 
 		return replyFromBatchCall(
-			api().accounts.listWorth({ handle, from, to, account: account ?? undefined }),
+			Promise.all([
+				api().accounts.listBalances({
+					...writtenSpan(span),
+					handle,
+					account: account ?? undefined,
+					bucket: closingBucketOf(span),
+					accumulate: 'historical',
+					measures: ['value', 'units'],
+				}),
+				api().accounts.list({ handle }),
+			]).then(([b, accounts]) => ({
+				succeeded: b.succeeded.flatMap((d) => worthFrom(d, { tree: accounts, account })),
+				failed: b.failed,
+			})),
 		);
 	},
 );
@@ -44,9 +79,20 @@ export const listWorth = query(
 export const listInvested = query(
 	v.object({ handle: Handle, day: Day, period: Period, account: BalanceAccount }),
 	({ handle, day, period, account }) => {
-		const { from, to } = writtenSpan(spansOf(period, day).current);
+		const span = spansOf(period, day).current;
 
-		return replyFromBatchCall(api().accounts.listInvested({ handle, from, to, account }));
+		return replyFromBatchCall(
+			api()
+				.accounts.listBalances({
+					...writtenSpan(span),
+					handle,
+					account: account ?? ASSETS,
+					bucket: closingBucketOf(span),
+					accumulate: 'historical',
+					measures: ['value', 'paid', 'units'],
+				})
+				.then((b) => ({ ...b, succeeded: b.succeeded.flatMap(investedFrom) })),
+		);
 	},
 );
 
@@ -100,9 +146,25 @@ export const listDeltas = query(
 		const spans = (previous ? [current, previous] : [current]).map(writtenSpan);
 
 		return replyFromBatchCall(
-			api()
-				.accounts.listDeltas({ handle, spans, bucket, account })
-				.then((b) => ({ ...b, succeeded: b.succeeded.map(viewDeltas) })),
+			Promise.all([
+				Promise.all(
+					spans.map((s) =>
+						api().accounts.listBalances({
+							handle,
+							...s,
+							account,
+							bucket: bucketFor[bucket],
+							measures: ['value', 'inflow', 'outflow'],
+						}),
+					),
+				),
+				api().accounts.list({ handle }),
+			]).then(([batches, accounts]) => ({
+				succeeded: batches
+					.flatMap((b) => b.succeeded)
+					.map((d) => viewDeltas(d, { bucket, parents: parentsIn(accounts) })),
+				failed: batches.flatMap((b) => b.failed),
+			})),
 		);
 	},
 );
@@ -114,9 +176,13 @@ export const listDeltas = query(
 export const listDailyDeltas = query(
 	v.object({ handle: Handle, day: Day, period: Period, account: FlowAccount }),
 	({ handle, day, period, account }) => {
-		const { from, to } = writtenSpan(spansOf(period, day).current);
+		const span = writtenSpan(spansOf(period, day).current);
 
-		return replyFromBatchCall(api().accounts.listDailyDeltas({ handle, from, to, account }));
+		return replyFromBatchCall(
+			api()
+				.accounts.listBalances({ handle, ...span, account, bucket: 'day', aggregate: 'average' })
+				.then((b) => ({ ...b, succeeded: viewDaily(b.succeeded[0], account) })),
+		);
 	},
 );
 
@@ -128,15 +194,6 @@ export const listLots = query(
 				.accounts.listLots({ handle, account, commodity })
 				.then((b) => ({ ...b, succeeded: b.succeeded.map(viewLot) })),
 		),
-);
-
-export const listAccountTree = query(Handle, (h) =>
-	replyFromCall(api().accounts.listTree({ handle: h })),
-);
-
-export const listAccountNames = query(
-	v.object({ handle: Handle, prefix: v.string() }),
-	({ handle, prefix }) => replyFromCall(api().accounts.listNames({ handle, prefix })),
 );
 
 /** What the A lines of a ledger set each account up with on a day. */

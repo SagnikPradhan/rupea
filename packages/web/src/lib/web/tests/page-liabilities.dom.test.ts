@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
-import { listAccounts, listDeltas, listTerms, saveTerms } from '#lib/endpoints/accounts.remote.ts';
+import { listHoldings, listDeltas, listTerms, saveTerms } from '#lib/endpoints/accounts.remote.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
 import { openFilter } from '#tests/shared/filter.ts';
@@ -12,7 +12,7 @@ const amount = (t: string) => parseAmount(t) as Amount;
 
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
-	listAccounts: vi.fn(),
+	listHoldings: vi.fn(),
 	listDeltas: vi.fn(),
 	listTerms: vi.fn(),
 	saveTerms: Object.assign(vi.fn(), { pending: 0 }),
@@ -94,7 +94,7 @@ const open = (
 ) => {
 	visit(path);
 	vi.mocked(listTerms).mockReturnValue(answer(written as never));
-	vi.mocked(listAccounts).mockReturnValue(answer(owing));
+	vi.mocked(listHoldings).mockReturnValue(answer(owing));
 	vi.mocked(listDeltas).mockReturnValue(answer(shown as never));
 	render(Page, { data });
 };
@@ -137,7 +137,7 @@ describe('the liabilities page', () => {
 		expect(vi.mocked(listDeltas)).toHaveBeenCalledWith(
 			expect.objectContaining({ account: 'Liabilities', period: { kind: 'month', at: '2026-09' } }),
 		);
-		expect(vi.mocked(listAccounts)).toHaveBeenCalledWith(
+		expect(vi.mocked(listHoldings)).toHaveBeenCalledWith(
 			expect.objectContaining({ period: { kind: 'month', at: '2026-09' } }),
 		);
 	});
@@ -182,7 +182,7 @@ describe('the liabilities page', () => {
 		open('/l/h/liabilities');
 		expect(await screen.findByRole('img', { name: /^How what is owed divides/ })).toBeTruthy();
 
-		vi.mocked(listAccounts).mockReturnValue(
+		vi.mocked(listHoldings).mockReturnValue(
 			answer([...accounts, held('Liabilities:Refund', 'Liabilities', '300')]),
 		);
 		render(Page, { data });

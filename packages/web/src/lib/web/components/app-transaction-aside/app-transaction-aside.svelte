@@ -18,8 +18,12 @@
 	const wide = new MediaQuery('min-width: 90rem');
 	const editing = $derived(page.url.searchParams.get('edit'));
 	const adding = $derived(page.url.searchParams.has('add') || (wide.current && !editing));
-	const files = $derived(adding ? await findTransactionFiles(handle) : null);
-	const open = $derived(editing ? await findTransaction({ handle, id: editing }) : null);
+	const [files, open] = $derived(
+		await Promise.all([
+			adding ? findTransactionFiles(handle) : null,
+			editing ? findTransaction({ handle, id: editing }) : null,
+		]),
+	);
 	const closed = $derived(hrefWith(page.url.searchParams, { add: '', edit: '' }));
 
 	const saved = async () => {

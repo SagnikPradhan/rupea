@@ -1,4 +1,4 @@
-import type { Bucket } from '@rupea/shared/dates.ts';
+import type { Grain } from '@rupea/shared/dates.ts';
 
 const LOCALE = 'en-IN';
 
@@ -104,7 +104,7 @@ export const formatIsoDate = (d: Date) => isoDays.format(d);
 
 /** Formats a UTC day without its year, like `21 Oct`, for chart axes. */
 /** Names the bucket an ISO day starts, like 21 Oct, Oct 2026 or 2026. */
-export const formatBucket: Record<Bucket, (d: string) => string> = {
+export const formatBucket: Record<Grain, (d: string) => string> = {
 	day: (d) => shortDays.format(new Date(d)),
 	month: (d) => months.format(new Date(d)),
 	year: (d) => d.slice(0, 4),

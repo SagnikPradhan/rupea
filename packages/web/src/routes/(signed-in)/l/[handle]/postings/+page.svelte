@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { listAccountTree } from '#lib/endpoints/accounts.remote.ts';
+	import { listAccounts } from '#lib/endpoints/accounts.remote.ts';
 	import { findFirstDay, listProblems } from '#lib/endpoints/ledger.remote.ts';
 	import { listPostings } from '#lib/endpoints/transactions.remote.ts';
 	import { filterOf } from '#lib/web/shared/filter.ts';
@@ -16,6 +16,7 @@
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
+	import * as Accounts from '#lib/web/shared/accounts.ts';
 	import { formatDate, formatIsoDate } from '#lib/web/shared/format.ts';
 	import { editHref, hrefWith } from '#lib/web/shared/links.ts';
 	import { paged } from '#lib/web/shared/paged.svelte.ts';
@@ -27,10 +28,15 @@
 	const handle = $derived(data.ledger.handle);
 	const filter = $derived(filterOf(page.url.searchParams));
 
-	const issues = $derived(await listProblems(handle));
-	const accounts = $derived(await listAccountTree(handle));
-	const earliest = $derived((await findFirstDay(handle)).data ?? null);
-	const first = $derived(await listPostings({ handle, day, filter, after: null }));
+	const [issues, accounts, firstDay, first] = $derived(
+		await Promise.all([
+			listProblems(handle),
+			listAccounts(handle),
+			findFirstDay(handle),
+			listPostings({ handle, day, filter, after: null }),
+		]),
+	);
+	const earliest = $derived(firstDay.data ?? null);
 	const list = $derived(paged(first, (after) => listPostings({ handle, day, filter, after })));
 
 	const params = $derived([...page.url.searchParams]);
@@ -47,7 +53,7 @@
 		<ListFilter
 			period={filter.period}
 			account={filter.account || null}
-			accounts={accounts.data ?? []}
+			accounts={Accounts.drawnIn(accounts.data ?? [])}
 			today={day}
 			first={earliest}
 		/>

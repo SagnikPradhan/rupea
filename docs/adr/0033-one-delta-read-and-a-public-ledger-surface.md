@@ -1,8 +1,10 @@
 # Reports read deltas generically, and other services reach the ledger through one file
 
+The endpoints `listDeltas` and `listDailyDeltas` are superseded by [ADR 0038](0038-one-balances-read.md): the read is now `listBalances`, and the daily average is bucket `day` with aggregate `average`.
+
 Spending, income, holdings and worth had each grown a read of their own, and each treated its account type as special. A ledger is signed amounts per account and day, so one read serves them all: the **deltas** of any set of accounts over a span, grouped into a bucket and valued in a base currency. The account filter, the span, the bucket and the base are arguments. They are not new queries, and nothing in the read knows whether an account is Expenses, Income or Assets. Showing expenses as positive is presentation.
 
-`deltasBetween` is the shared read of the caches. Whole months come from `monthly_deltas` and the edge days from `daily_deltas`, so a span of any length reads at most two partial months of days. Holdings, balance checks, the year rewrite and `listDeltas` all use it. `listDeltas` takes account ids, which the application resolves once from the account tree with `idsUnder`, and not names that each query matches again. Posting-level reads stay posting-level where the rule needs it: `listFlows` splits net investment income by the price each posting names.
+`deltasBetween` is the shared read of the caches. Whole months come from `monthly_deltas` and the edge days from `daily_deltas`, so a span of any length reads at most two partial months of days. Holdings, balance checks, the year rewrite and the balances read all use it. the read takes account ids, which the application resolves once from the account tree with `idsIn`, and not names that each query matches again. Posting-level reads stay posting-level where the rule needs it: `listFlows` splits net investment income by the price each posting names.
 
 Valuation is one recursive CTE, `ratesOf`, that takes the base as a parameter. A posting already in the base skips conversion. There is no limit on the hops a price may take, and a path never returns to a commodity it has been through, so prices that go round end. The ledger will hold its base currency, so nothing in the adapters names rupees. The domain still compares against `DEFAULT_COMMODITY` and takes the ledger's base when the setting exists.
 
@@ -20,7 +22,7 @@ On the bench, the mean over `twenty-years` for all of history fell from 398 ms t
 
 ## Consequences
 
-- Returns and the cost behind the accounts table still read postings or lots of their own. `listFlows` repeats the join onto the rates that `listDeltas` writes. A helper over both would need generics that read worse than five repeated lines.
+- Returns and the cost behind the accounts table still read postings or lots of their own. `listFlows` repeats the join onto the rates that the balances read writes. A helper over both would need generics that read worse than five repeated lines.
 - A base currency on the ledger replaces `DEFAULT_COMMODITY` in `worth.ts`, `cost.ts`, `holdings.ts`, `lots.ts` and the accounts application. The adapters already take it.
 - A span of all history starts on the first day the accounts had a delta, which the application finds first with `findFirstDelta`.
-- The domain's spending names, `Spending` and the endpoints, are now `Deltas`, `listDeltas` and `listDailyDeltas`, and the pages still say spending.
+- The domain's spending names, `Spending` and the endpoints, are now `Deltas`, and the endpoints began as `listDeltas` and `listDailyDeltas`, and the pages still say spending.

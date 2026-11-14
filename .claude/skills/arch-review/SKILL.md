@@ -2,7 +2,6 @@
 name: arch-review
 description: Staff-level design review of a directory, a branch or a diff. Three reviewer agents cover six lenses (shape, reading, concepts, edges, failure, cost). A verifier checks the concrete claims. With --lite, one agent covers all six lenses and nothing is verified. The report gives findings by lens and a ranked fix list.
 argument-hint: '[--lite] [directory | branch | nothing for the current diff]'
-disable-model-invocation: true
 ---
 
 # Architecture review

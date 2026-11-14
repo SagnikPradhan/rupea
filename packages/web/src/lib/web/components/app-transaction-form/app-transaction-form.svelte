@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { listAccountNames } from '#lib/endpoints/accounts.remote.ts';
+	import { listAccounts } from '#lib/endpoints/accounts.remote.ts';
 	import {
 		createTransaction,
 		deleteTransaction,
@@ -13,6 +13,7 @@
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import Field from '#lib/web/components/ui-field/ui-field.svelte';
 	import SegmentedControl from '#lib/web/components/ui-segmented-control/ui-segmented-control.svelte';
+	import * as Accounts from '#lib/web/shared/accounts.ts';
 	import { explain } from '#lib/web/shared/errors.ts';
 	import { formatIsoDate } from '#lib/web/shared/format.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';
@@ -93,14 +94,15 @@
 		Object.keys(status.issues).some((p) => fields.some((f) => p.startsWith(`${path}${f}`)));
 
 	async function suggest(prefix: string) {
-		const names = await listAccountNames({ handle, prefix });
-		status.accounts = names.data ?? [];
+		const known = await listAccounts(handle);
+		status.accounts = Accounts.namesWith(known.data ?? [], prefix);
 	}
 
 	async function suggestFor(typed: string, types: string[]) {
+		const known = await listAccounts(handle);
 		const prefixes = types.map((t) => qualified(typed, t).replace(/^$/, t));
-		const names = await Promise.all(prefixes.map((prefix) => listAccountNames({ handle, prefix })));
-		status.accounts = [...new Set(names.flatMap((n) => n.data ?? []))];
+		const names = prefixes.flatMap((prefix) => Accounts.namesWith(known.data ?? [], prefix));
+		status.accounts = [...new Set(names)];
 	}
 
 	/**
@@ -500,7 +502,6 @@
 	}
 
 	.pair > :global(:only-child),
-	.wide,
 	.more {
 		grid-column: 1 / -1;
 	}

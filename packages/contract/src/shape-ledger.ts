@@ -1,5 +1,5 @@
 import { AmountOut, QuantityOut, PostedOut } from '@rupea/shared/money.ts';
-import { Bucket, Day, DayOut, TimeOut } from '@rupea/shared/dates.ts';
+import { Day, DayOut, TimeOut } from '@rupea/shared/dates.ts';
 import { Key, Line } from '@rupea/shared/files.ts';
 import { Handle } from '@rupea/shared/text.ts';
 import { TermsOut } from '@rupea/shared/forms.ts';
@@ -7,24 +7,10 @@ import * as v from 'valibot';
 
 export const Location = v.object({ file: v.string(), line: v.number() });
 
-const Holding = v.object({
-	commodity: v.string(),
-	hasLots: v.boolean(),
-	units: AmountOut,
-	price: v.nullable(QuantityOut),
-	value: v.nullable(AmountOut),
-	paid: v.nullable(AmountOut),
-	gain: v.nullable(AmountOut),
-});
-
-export const Account = v.object({
+export const AccountRow = v.object({
 	account: v.string(),
 	parent: v.nullable(v.string()),
-	holdings: v.array(Holding),
-	total: AmountOut,
-	cost: v.nullable(AmountOut),
-	gain: v.nullable(AmountOut),
-	unpriced: v.number(),
+	posted: v.boolean(),
 });
 
 export const Lot = v.object({
@@ -47,36 +33,28 @@ export const Lot = v.object({
 	),
 });
 
-const Flow = {
-	amount: AmountOut,
-	inflow: AmountOut,
-	outflow: AmountOut,
-	unpriced: v.number(),
-};
-
-export const Deltas = v.object({
+export const Balances = v.object({
 	from: DayOut,
 	to: DayOut,
-	bucket: Bucket,
-	buckets: v.array(DayOut),
-	totals: v.array(v.object({ account: v.string(), parent: v.nullable(v.string()), ...Flow })),
-	deltas: v.array(v.object({ account: v.string(), bucket: DayOut, ...Flow })),
+	base: v.string(),
+	rows: v.array(
+		v.object({
+			account: v.string(),
+			commodity: v.nullable(v.string()),
+			bucket: v.string(),
+			unpriced: v.number(),
+			value: v.optional(AmountOut),
+			inflow: v.optional(AmountOut),
+			outflow: v.optional(AmountOut),
+			units: v.optional(AmountOut),
+			cost: v.optional(AmountOut),
+			paid: v.optional(AmountOut),
+			price: v.optional(QuantityOut),
+		}),
+	),
 });
 
 export const Spanned = v.object({ handle: Handle, from: Day, to: Day });
-
-export const Worth = v.object({
-	day: DayOut,
-	assets: AmountOut,
-	liabilities: AmountOut,
-	worth: AmountOut,
-	parts: v.array(
-		v.object({ account: v.string(), commodity: v.nullable(v.string()), amount: AmountOut }),
-	),
-	unpriced: v.number(),
-});
-
-export const Invested = v.object({ day: DayOut, value: AmountOut, cost: AmountOut });
 
 export const Drops = v.object({
 	underwater: v.array(v.object({ day: DayOut, depth: v.number() })),
@@ -101,8 +79,6 @@ export const Returns = v.object({
 	xirr: v.nullable(v.number()),
 	yearly: v.boolean(),
 });
-
-export const Daily = v.object({ day: v.number(), amount: AmountOut, unpriced: v.number() });
 
 export const Held = v.object({
 	account: v.string(),

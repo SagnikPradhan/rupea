@@ -7,6 +7,7 @@ export const STATUS: Record<RupeaError['type'], 401 | 404 | 409 | 422 | 500 | 50
 	AuthInvalidCode: 401,
 
 	LedgerNotFound: 404,
+	AccountNotFound: 404,
 	TransactionNotFound: 404,
 	StorageNotFound: 404,
 
@@ -72,6 +73,7 @@ export const STATUS: Record<RupeaError['type'], 401 | 404 | 409 | 422 | 500 | 50
 	ExtractionMissingHeader: 422,
 	ExtractionMissingColumns: 422,
 	ExtractionInvalidField: 422,
+	InvalidRequest: 422,
 };
 
 /** The code an error is thrown with, by status. */

@@ -6,11 +6,12 @@ import { atomically } from '#lib/server/db/atomically.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { sql, type ExpressionBuilder, type SqlBool } from 'kysely';
+import { BEGINNING } from '@rupea/shared/dates.ts';
+import { CURRENCIES } from '@rupea/shared/money.ts';
 import type { Amount } from '../domain/amounts';
 import type { CostMove } from '../domain/cost';
 import {
 	book,
-	CURRENCIES,
 	realised,
 	type BookedPosting,
 	type Booking,
@@ -52,7 +53,13 @@ export const listLotCommodities = (ledgerId: string): ResultAsync<string[]> =>
 		),
 	);
 
-export const listUnmatched = (ledgerId: string): ResultAsync<UnmatchedDisposal[]> =>
+type UnmatchedScope = { accounts: string[]; to: Temporal.PlainDate };
+
+/** Disposals no lot covers, in these accounts up to a day when scoped. */
+export const listUnmatched = (
+	ledgerId: string,
+	scope?: UnmatchedScope,
+): ResultAsync<UnmatchedDisposal[]> =>
 	withContext('db')((db) =>
 		attempt(() =>
 			db
@@ -72,6 +79,14 @@ export const listUnmatched = (ledgerId: string): ResultAsync<UnmatchedDisposal[]
 				])
 				.where('disposals.ledgerId', '=', ledgerId)
 				.where('disposals.lotId', 'is', null)
+				.where((e) =>
+					scope
+						? e.and([
+								anyOf(e.ref('postings.accountId'), scope.accounts, 'uuid'),
+								e('postings.date', '<=', scope.to.toString()),
+							])
+						: sql<SqlBool>`true`,
+				)
 				.orderBy('ledgerFiles.key')
 				.orderBy('transactions.line')
 				.execute(),
@@ -99,64 +114,132 @@ export const listCostMoves = (
 ): ResultAsync<CostMove[]> =>
 	withContext('db')((db) =>
 		attempt(() =>
-			db
-				.selectFrom(
-					db
-						.selectFrom('lots as l')
-						.innerJoin('postings as p', 'p.id', 'l.postingId')
-						.select((e) => [
-							'l.accountId',
-							'l.commodity',
-							'l.costCommodity',
-							'p.date',
-							'p.date as paid',
-							multiply(e.ref('l.units'), e.ref('l.costAmount')).as('amount'),
-						])
-						.where('l.ledgerId', '=', ledgerId)
-						.where('p.date', '<=', to.toString())
-						.where((e) => anyOf(e.ref('l.accountId'), accounts, 'uuid'))
-						.unionAll(
-							db
-								.selectFrom('disposals as d')
-								.innerJoin('lots as l', 'l.id', 'd.lotId')
-								.innerJoin('postings as p', 'p.id', 'd.postingId')
-								.innerJoin('postings as lp', 'lp.id', 'l.postingId')
-								.select((e) => [
-									'l.accountId',
-									'l.commodity',
-									'l.costCommodity',
-									'p.date',
-									'lp.date as paid',
-									multiply(e.ref('d.units'), e.ref('l.costAmount')).as('amount'),
-								])
-								.where('d.ledgerId', '=', ledgerId)
-								.where('p.date', '<=', to.toString())
-								.where((e) => anyOf(e.ref('l.accountId'), accounts, 'uuid')),
-						)
-						.as('m'),
-				)
-				.select((e) => [
-					'm.accountId',
-					'm.commodity',
-					'm.costCommodity',
-					'm.date',
-					'm.paid',
-					e.fn.sum<bigint>('m.amount').as('amount'),
-				])
-				.groupBy(['m.accountId', 'm.commodity', 'm.costCommodity', 'm.date', 'm.paid'])
-				.orderBy('m.date')
-				.execute(),
-		).map((rows) =>
-			rows.map((r) => ({
-				accountId: r.accountId,
-				commodity: r.commodity,
-				cost: r.costCommodity,
-				day: Temporal.PlainDate.from(r.date),
-				paid: Temporal.PlainDate.from(r.paid),
-				amount: r.amount as Amount,
-			})),
-		),
+			costMovesBetween(db, { ledgerId, accounts, from: BEGINNING, to: to.toString() }),
+		).map((r) => r.map(moveOf)),
 	);
+
+type CostMovesFromOptions = {
+	accounts: string[];
+	from: Temporal.PlainDate;
+	to: Temporal.PlainDate;
+};
+
+/**
+ * The moves listCostMoves gives from a day on, after one move for each cost
+ * still open before it, dated the day before, so memory grows with the
+ * positions held and not with history.
+ */
+export const listCostMovesFrom = (
+	ledgerId: string,
+	{ accounts, from, to }: CostMovesFromOptions,
+): ResultAsync<CostMove[]> =>
+	withContext('db')((db) =>
+		attempt(async () => {
+			const day = from.toString();
+			const opening =
+				day === BEGINNING ? [] : await costMovesBefore(db, { ledgerId, accounts, day });
+			const moves = await costMovesBetween(db, {
+				ledgerId,
+				accounts,
+				from: day,
+				to: to.toString(),
+			});
+
+			return [
+				...opening.map((r) => moveOf({ ...r, date: from.subtract({ days: 1 }).toString() })),
+				...moves.map(moveOf),
+			];
+		}),
+	);
+
+type CostMovesBetween = { ledgerId: string; accounts: string[]; from: string; to: string };
+
+const costMovesBetween = (db: Database, { ledgerId, accounts, from, to }: CostMovesBetween) =>
+	costMovesOf(db, { ledgerId, accounts })
+		.select((e) => [
+			'm.accountId',
+			'm.commodity',
+			'm.costCommodity',
+			'm.date',
+			'm.paid',
+			e.fn.sum<bigint>('m.amount').as('amount'),
+		])
+		.where('m.date', '>=', from)
+		.where('m.date', '<=', to)
+		.groupBy(['m.accountId', 'm.commodity', 'm.costCommodity', 'm.date', 'm.paid'])
+		.orderBy('m.date')
+		.execute();
+
+type CostMovesBefore = { ledgerId: string; accounts: string[]; day: string };
+
+const costMovesBefore = (db: Database, { ledgerId, accounts, day }: CostMovesBefore) =>
+	costMovesOf(db, { ledgerId, accounts })
+		.select((e) => [
+			'm.accountId',
+			'm.commodity',
+			'm.costCommodity',
+			'm.paid',
+			e.fn.sum<bigint>('m.amount').as('amount'),
+		])
+		.where('m.date', '<', day)
+		.groupBy(['m.accountId', 'm.commodity', 'm.costCommodity', 'm.paid'])
+		.having(sql<SqlBool>`sum(m.amount) <> 0`)
+		.execute();
+
+type CostMovesOf = { ledgerId: string; accounts: string[] };
+
+const costMovesOf = (db: Database, { ledgerId, accounts }: CostMovesOf) =>
+	db.selectFrom(
+		db
+			.selectFrom('lots as l')
+			.innerJoin('postings as p', 'p.id', 'l.postingId')
+			.select((e) => [
+				'l.accountId',
+				'l.commodity',
+				'l.costCommodity',
+				'p.date',
+				'p.date as paid',
+				multiply(e.ref('l.units'), e.ref('l.costAmount')).as('amount'),
+			])
+			.where('l.ledgerId', '=', ledgerId)
+			.where((e) => anyOf(e.ref('l.accountId'), accounts, 'uuid'))
+			.unionAll(
+				db
+					.selectFrom('disposals as d')
+					.innerJoin('lots as l', 'l.id', 'd.lotId')
+					.innerJoin('postings as p', 'p.id', 'd.postingId')
+					.innerJoin('postings as lp', 'lp.id', 'l.postingId')
+					.select((e) => [
+						'l.accountId',
+						'l.commodity',
+						'l.costCommodity',
+						'p.date',
+						'lp.date as paid',
+						multiply(e.ref('d.units'), e.ref('l.costAmount')).as('amount'),
+					])
+					.where('d.ledgerId', '=', ledgerId)
+					.where((e) => anyOf(e.ref('l.accountId'), accounts, 'uuid')),
+			)
+			.as('m'),
+	);
+
+type MoveRow = {
+	accountId: string;
+	commodity: string;
+	costCommodity: string;
+	date: string;
+	paid: string;
+	amount: bigint;
+};
+
+const moveOf = (r: MoveRow): CostMove => ({
+	accountId: r.accountId,
+	commodity: r.commodity,
+	cost: r.costCommodity,
+	day: Temporal.PlainDate.from(r.date),
+	paid: Temporal.PlainDate.from(r.paid),
+	amount: r.amount as Amount,
+});
 
 type ListLotsOptions = { account: string; commodity: string };
 

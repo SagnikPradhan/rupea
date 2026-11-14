@@ -2,7 +2,7 @@
 	import Axes from '#lib/web/components/ui-chart-axes/ui-chart-axes.svelte';
 	import Key from '#lib/web/components/ui-chart-key/ui-chart-key.svelte';
 	import Tooltip from '#lib/web/components/ui-tooltip/ui-tooltip.svelte';
-	import type { Bucket } from '@rupea/shared/dates.ts';
+	import type { Grain } from '@rupea/shared/dates.ts';
 	import {
 		EDGE,
 		edgeOf,
@@ -37,7 +37,7 @@
 		/** The field holding the ISO day each bar starts on. */
 		x: keyof Row & string;
 		/** How many days one bar adds up, which names it on the axis. */
-		bucket: Bucket;
+		bucket: Grain;
 		series: Series[];
 		/**
 		 * What the key reads while no bar is under the cursor, such as the parts'

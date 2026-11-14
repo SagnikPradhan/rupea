@@ -1,5 +1,5 @@
 import { LIABILITIES, type Amount, ZERO, parseAmount, sum } from '@rupea/shared/money.ts';
-import { type Bucket, type Span, bucketOf, monthlyDaysIn } from '@rupea/shared/dates.ts';
+import { type Grain, type Span, bucketOf, monthlyDaysIn } from '@rupea/shared/dates.ts';
 import type { Terms } from '@rupea/shared/forms.ts';
 import { byCodeUnit } from '@rupea/shared/text.ts';
 import type * as v from 'valibot';
@@ -112,7 +112,7 @@ export const duesOn = (debt: Debt, span: Span) => {
  * A line for each debt with a pin for each payment made or due. A loan's pins
  * say how much is interest, unless a pin spans a whole year.
  */
-export const linesFor = (debts: Debt[], paid: Paid[], dues: Due[], bucket: Bucket) => {
+export const linesFor = (debts: Debt[], paid: Paid[], dues: Due[], bucket: Grain) => {
 	const made = Object.groupBy(
 		paid.filter((p) => p.inflow > 0n),
 		(p) => p.account,
@@ -197,7 +197,7 @@ const loanFrom = (
 	return { rate, method: terms.method, payment, months: terms.tenure };
 };
 
-const pastPinsFor = (debt: Debt, paid: Paid[], bucket: Bucket) => {
+const pastPinsFor = (debt: Debt, paid: Paid[], bucket: Grain) => {
 	const oldestFirst = paid.toSorted((x, y) => Temporal.PlainDate.compare(x.bucket, y.bucket));
 	const interest =
 		debt.loan === null || bucket === 'year'
@@ -216,7 +216,7 @@ const pastPinsFor = (debt: Debt, paid: Paid[], bucket: Bucket) => {
 	}));
 };
 
-const futurePinsFor = (dues: Due[], bucket: Bucket) =>
+const futurePinsFor = (dues: Due[], bucket: Grain) =>
 	dues.map((d) => ({
 		at: bucketOf[bucket](d.on),
 		amount: d.amount,

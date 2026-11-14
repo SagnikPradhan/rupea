@@ -7,7 +7,9 @@ describe('the error schema', () => {
 		const errors = [
 			fault('AuthInvalidCode'),
 			fault('LedgerNotFound', { handle: 'ada' }),
+			fault('AccountNotFound', { account: 'Assets:Nope' }),
 			fault('StorageConflict', { key: 'a', expected: null, actual: 'b' }),
+			fault('InvalidRequest', { field: 'bucket', reason: 'unreadable' }),
 			fault('FeedUnavailable', { feed: 'f', symbol: 's' }),
 			unknownError(new Error('boom')),
 		];

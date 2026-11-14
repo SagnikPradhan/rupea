@@ -20,7 +20,7 @@
 	import { scaleUtc } from 'd3-scale';
 	import { area, line, type SeriesPoint } from 'd3-shape';
 	import type { Snippet } from 'svelte';
-	import type { Bucket } from '@rupea/shared/dates.ts';
+	import type { Grain } from '@rupea/shared/dates.ts';
 
 	type Series = {
 		key: keyof Row & string;
@@ -64,7 +64,7 @@
 		},
 	};
 
-	const BUCKETS: { days: number; bucket: Bucket }[] = [
+	const BUCKETS: { days: number; bucket: Grain }[] = [
 		{ days: 365, bucket: 'year' },
 		{ days: 28, bucket: 'month' },
 	];
@@ -162,7 +162,7 @@
 	 * Dates a year or a month apart are named by their year or month, nearer ones
 	 * by their day.
 	 */
-	const bucketOf = ([first, second]: Date[]): Bucket => {
+	const bucketOf = ([first, second]: Date[]): Grain => {
 		const days = ((second?.getTime() ?? 0) - (first?.getTime() ?? 0)) / 86_400_000;
 		return BUCKETS.find((b) => days >= b.days)?.bucket ?? 'day';
 	};

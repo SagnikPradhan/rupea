@@ -1,3 +1,4 @@
+import { heldOn } from './fixtures/held';
 import type { Database } from '#lib/server/db/index.ts';
 import { provide, type RupeaContext } from '#lib/server/shared/context/context.ts';
 import { fault } from '@rupea/shared/errors.ts';
@@ -5,7 +6,6 @@ import { err, ok } from '#lib/server/shared/result/result.ts';
 import { listJobs, runJob } from '#services/jobs/application/jobs.ts';
 import { handlers } from '#services/ledger/adapters/jobs.ts';
 import { fetchQuotes } from '#services/ledger/application/jobs.ts';
-import * as Accounts from '#services/ledger/application/accounts.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
 import * as Quotes from '#services/ledger/application/quotes.ts';
@@ -57,9 +57,7 @@ const fetchedWith = (context: RupeaContext, fetch: typeof globalThis.fetch, symb
 	provide({ ...context, fetch }, () => Quotes.fetchQuotes({ symbolId }));
 
 const valueOf = async (ledger: Ledger) =>
-	(await Accounts.listAccounts({ ledger, day }))
-		._unsafeUnwrap()
-		.succeeded.find((a) => a.account === 'Assets:Kuvera')?.holdings[0]?.value;
+	(await heldOn(ledger, day)).find((r) => r.account === 'Assets:Kuvera')?.value;
 
 describe('fetching quotes', () => {
 	it('queues a fetch for a linked fund, and values the ledger at what it saves', ({

@@ -2,7 +2,7 @@
 
 A delta was one signed amount per account, commodity and day, which is all spending, income and worth need. It cannot say how much a card was drawn on in a year when it was also paid off, because the two cancel in the stored sum. The Liabilities page needs both ([ADR 0033](0033-one-delta-read-and-a-public-ledger-surface.md)).
 
-`daily_deltas` and `monthly_deltas` now also hold an **inflow**, the positive counted postings summed, and an **outflow**, the negative ones summed and made positive. The amount stays, as inflow less outflow. Both columns add up the way the amount does, so a month still sums its days, a span still reads at most two partial months of days, and the work does not grow with the number of postings. `deltasBetween` returns them with the amount, `listDeltas` values each at the same price as the amount, and every total and bucket carries them. Reports that need only the net ignore them.
+`daily_deltas` and `monthly_deltas` now also hold an **inflow**, the positive counted postings summed, and an **outflow**, the negative ones summed and made positive. The amount stays, as inflow less outflow. Both columns add up the way the amount does, so a month still sums its days, a span still reads at most two partial months of days, and the work does not grow with the number of postings. `deltasBetween` returns them with the amount, the balances read values each at the same price as the amount, and every total and bucket carries them. Reports that need only the net ignore them.
 
 The migration adds the columns with a default of nothing, replaces the view, and fills the stored months from it, so no ledger has to be rebuilt. The drift check compares the three columns.
 

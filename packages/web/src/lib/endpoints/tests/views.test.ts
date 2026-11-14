@@ -1,7 +1,8 @@
 import {
-	viewAccount,
 	viewCounted,
+	viewDaily,
 	viewDeltas,
+	viewHoldings,
 	viewGroup,
 	viewLot,
 	viewPosting,
@@ -110,61 +111,112 @@ describe('viewing a transaction', () => {
 	});
 });
 
-describe('viewing an account', () => {
-	const holding = {
+describe('viewing what accounts held', () => {
+	const infy = {
 		commodity: 'INFY',
-		hasLots: true,
+		bucket: '2026-10-21',
+		unpriced: 0,
 		units: '7.00',
 		price: { amount: '1800.00', commodity: 'INR' },
 		value: '12600.00',
-		paid: '10900.00',
-		gain: '1700.00',
-	};
-	const account = {
-		account: 'Assets:Broker',
-		parent: 'Assets',
-		holdings: [holding],
-		total: '12600.00',
 		cost: '10900.00',
-		gain: '1700.00',
-		unpriced: 0,
 	};
+	const cash = {
+		commodity: 'INR',
+		bucket: '2026-10-21',
+		unpriced: 0,
+		units: '500.00',
+		value: '500.00',
+		cost: '0.00',
+	};
+	const held = (rows: object[]) =>
+		({ from: '2026-10-21', to: '2026-10-21', base: 'INR', rows }) as never;
+	const parents = { Assets: null, 'Assets:Broker': 'Assets', 'Assets:Bank': 'Assets' };
 
-	it('prints a holding as the page shows it', () => {
-		expect(viewAccount(account)).toEqual({
-			...account,
-			total: parseAmount('12600'),
-			cost: parseAmount('10900'),
-			gain: parseAmount('1700'),
-			holdings: [
-				{
-					commodity: 'INFY',
-					hasLots: true,
-					units: '7.00 INFY',
-					cost: '10900.00',
-					price: '1800.00',
-					value: '12600.00',
-					gain: '1700.00',
-				},
-			],
-		});
+	it('shows a holding as the page does, with the gain its lots made', () => {
+		const viewed = viewHoldings(held([{ account: 'Assets:Broker', ...infy }]), parents);
+
+		expect(viewed).toEqual([
+			{
+				account: 'Assets:Broker',
+				parent: 'Assets',
+				holdings: [
+					{
+						commodity: 'INFY',
+						hasLots: true,
+						units: '7.00 INFY',
+						cost: '10900.00',
+						price: '1800.00',
+						value: '12600.00',
+						gain: '1700.00',
+					},
+				],
+				total: parseAmount('12600'),
+				cost: parseAmount('10900'),
+				gain: parseAmount('1700'),
+				unpriced: 0,
+			},
+		]);
 	});
 
-	it('leaves rupees without a count of units, and what has no price without a value', () => {
-		const cash = { ...holding, commodity: 'INR', price: null, value: null, paid: null, gain: null };
-		const viewed = viewAccount({ ...account, holdings: [cash], cost: null, gain: null });
-		expect(viewed).toMatchObject({ cost: null, gain: null });
-		expect(viewed.holdings).toEqual([
+	it('gives a parent only what it holds itself, and the total of all under it', () => {
+		const rows = [
+			{ account: 'Assets', ...cash, units: '500.00', value: '500.00' },
+			{ account: 'Assets:Bank', ...cash },
+		];
+		const [assets, bank] = viewHoldings(held(rows), parents);
+
+		expect(assets?.holdings).toEqual([]);
+		expect(assets?.total).toBe(parseAmount('500'));
+		expect(bank?.holdings).toEqual([
 			{
 				commodity: 'INR',
-				hasLots: true,
+				hasLots: false,
 				units: null,
 				cost: null,
 				price: null,
-				value: null,
+				value: '500.00',
 				gain: null,
 			},
 		]);
+		expect(bank).toMatchObject({ cost: null, gain: null });
+	});
+
+	it('totals cost and gain over only what has both a cost and a price', () => {
+		const rows = [
+			{ account: 'Assets', ...infy },
+			{ account: 'Assets', ...cash },
+			{
+				account: 'Assets',
+				commodity: 'TCS',
+				bucket: infy.bucket,
+				unpriced: 1,
+				units: '3.00',
+				value: '0.00',
+				cost: '9000.00',
+			},
+		];
+		const [assets] = viewHoldings(held(rows), { Assets: null });
+
+		expect(assets).toMatchObject({
+			cost: parseAmount('10900'),
+			gain: parseAmount('1700'),
+			unpriced: 1,
+		});
+	});
+
+	it('leaves a value out where a commodity has no price, and counts it', () => {
+		const lost = {
+			account: 'Assets:Broker',
+			...infy,
+			unpriced: 1,
+			price: undefined,
+			value: '0.00',
+		};
+		const [broker] = viewHoldings(held([lost]), parents);
+
+		expect(broker?.holdings[0]).toMatchObject({ value: null, gain: null });
+		expect(broker?.unpriced).toBe(1);
 	});
 });
 
@@ -226,23 +278,74 @@ describe('viewing a lot', () => {
 });
 
 describe('viewing what flowed', () => {
-	it('reads the amounts exact and the days as days', () => {
-		const flow = { amount: '-50.00', inflow: '0.00', outflow: '50.00', unpriced: 0 };
+	const flow = { commodity: null, value: '-50.00', inflow: '0.00', outflow: '50.00', unpriced: 0 };
+	const parents = { Expenses: null, 'Expenses:Food': 'Expenses' };
+
+	it('reads the amounts exact and the buckets as days', () => {
 		const deltas = {
 			from: '2026-08-01',
-			to: '2026-08-31',
-			bucket: 'month' as const,
-			buckets: ['2026-08-01'],
-			totals: [{ account: 'Expenses:Food', parent: 'Expenses', ...flow }],
-			deltas: [{ account: 'Expenses:Food', bucket: '2026-08-01', ...flow }],
+			to: '2026-09-30',
+			base: 'INR',
+			rows: [
+				{ account: 'Expenses:Food', bucket: '2026-08', ...flow },
+				{ account: 'Expenses:Food', bucket: '2026-09', ...flow },
+			],
 		};
-		const viewed = viewDeltas(deltas);
+		const viewed = viewDeltas(deltas, { bucket: 'month', parents });
 		expect(viewed.from).toEqual(Temporal.PlainDate.from('2026-08-01'));
-		expect(viewed.buckets).toEqual([Temporal.PlainDate.from('2026-08-01')]);
-		expect(viewed.totals[0]).toMatchObject({
-			amount: parseAmount('-50'),
-			outflow: parseAmount('50'),
+		expect(viewed.buckets.map(String)).toEqual(['2026-08-01', '2026-09-01']);
+		expect(viewed.deltas.map((d) => d.bucket.toString())).toEqual(['2026-08-01', '2026-09-01']);
+	});
+
+	it('adds up each account drawn over its buckets, under the one it is drawn under', () => {
+		const deltas = {
+			from: '2026-08-01',
+			to: '2026-09-30',
+			base: 'INR',
+			rows: [
+				{ account: 'Expenses:Food', bucket: '2026-08', ...flow },
+				{ account: 'Expenses:Food', bucket: '2026-09', ...flow },
+				{ account: 'Expenses:Hidden', bucket: '2026-09', ...flow },
+			],
+		};
+		const { totals } = viewDeltas(deltas, { bucket: 'month', parents });
+		expect(totals).toHaveLength(1);
+		expect(totals[0]).toMatchObject({
+			account: 'Expenses:Food',
+			parent: 'Expenses',
+			amount: parseAmount('-100'),
+			inflow: parseAmount('0'),
+			outflow: parseAmount('100'),
 		});
-		expect(viewed.deltas[0]?.bucket).toEqual(Temporal.PlainDate.from('2026-08-01'));
+	});
+
+	it('dates a calendar day by itself, and leaves out one the span does not touch', () => {
+		const deltas = {
+			from: '2026-08-20',
+			to: '2026-09-10',
+			base: 'INR',
+			rows: [
+				{ account: 'Expenses:Food', bucket: '2026-09-03', ...flow },
+				{ account: 'Expenses:Food', bucket: '2026-10-03', ...flow },
+			],
+		};
+		const { deltas: rows } = viewDeltas(deltas, { bucket: 'day', parents });
+		expect(rows.map((d) => d.bucket.toString())).toEqual(['2026-09-03']);
+	});
+
+	it('gives each day of the month, with none spent where there is no row', () => {
+		const daily = viewDaily(
+			{
+				from: '2026-01-01',
+				to: '2026-01-31',
+				base: 'INR',
+				rows: [{ account: 'Expenses', bucket: '5', ...flow }],
+			},
+			'Expenses',
+		);
+		expect(daily).toHaveLength(31);
+		expect(daily[4]).toEqual({ day: 5, amount: '-50.00', unpriced: 0 });
+		expect(daily[5]).toEqual({ day: 6, amount: '0', unpriced: 0 });
+		expect(viewDaily(undefined, 'Expenses')[0]).toEqual({ day: 1, amount: '0', unpriced: 0 });
 	});
 });

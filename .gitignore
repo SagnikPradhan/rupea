@@ -27,6 +27,7 @@ vite.config.ts.timestamp-*
 /test-results/
 /playwright-report/
 /blob-report/
+**.playwright-mcp/
 
 # Coverage
 /coverage/
@@ -39,5 +40,4 @@ vite.config.ts.timestamp-*
 /packages/site/.astro/
 
 # Generated fixtures
-/tests/fixtures/ledgers/
-.playwright-mcp/
+**/tests/fixtures/ledgers/

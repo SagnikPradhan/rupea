@@ -95,4 +95,4 @@ A short JSDoc on a public interface is welcome, since it shows on hover. Keep it
 
 Conventional commits with a lower-case subject, enforced by commitlint. Body lines are at most 72 characters.
 
-Before committing, run `pnpm format:check`, `pnpm lint`, `pnpm check` and `pnpm test`.
+Before committing, run `pnpm verify`.

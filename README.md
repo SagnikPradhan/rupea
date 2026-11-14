@@ -28,7 +28,7 @@ Every account, every statement, one ledger, in files you own.
 		<td width="50%">
 			<picture>
 				<source media="(prefers-color-scheme: dark)" srcset="packages/site/public/screenshots/accounts-dark.png">
-				<img alt="Net worth over six years, by account" src="packages/site/public/screenshots/accounts-light.png">
+				<img alt="Investments value against cost over six years" src="packages/site/public/screenshots/accounts-light.png">
 			</picture>
 		</td>
 		<td width="50%">
@@ -72,24 +72,19 @@ Every account, every statement, one ledger, in files you own.
 
 ```sh
 pnpm install
-cp packages/server/.env.example packages/server/.env
-cp packages/web/.env.example packages/web/.env
 pnpm dev
 ```
 
-`pnpm dev` starts two processes: the server, which listens on `127.0.0.1:3001`, and the web app, which calls it at `RUPEA_API_URL` (by default `http://127.0.0.1:3001/api`). Change where the server listens with `RUPEA_SERVER_HOST` and `RUPEA_SERVER_PORT`. In production, `pnpm build` then `pnpm start` runs both, and the API URL should be `https`. `pnpm --filter @rupea/web preview` serves only the web app, so start the server beside it with `pnpm --filter @rupea/server start`.
+`pnpm dev` starts two processes: the server, which listens on `127.0.0.1:3001`, and the web app, which calls it at `RUPEA_API_URL` (by default `http://127.0.0.1:3001/api`). Change where the server listens with `RUPEA_SERVER_HOST` and `RUPEA_SERVER_PORT`. Every setting has a default; to change one, copy `.env.example` to `.env` in `packages/server` or `packages/web`. In production, `pnpm build` then `pnpm start` runs both, and the API URL should be `https`. `pnpm --filter @rupea/web preview` serves only the web app, so start the server beside it with `pnpm --filter @rupea/server start`.
 
-The first run downloads the ML models for statement import into `data/models`. How to use Rupea is in the [manual](docs/manual/index.md).
+The first run downloads the ML models for statement import into `packages/server/data/models`. How to use Rupea is in the [manual](docs/manual/index.md).
 
 ## Development
 
 ```sh
-pnpm --filter @rupea/server models
-pnpm test
-pnpm --filter @rupea/web test:e2e
-pnpm check
-pnpm lint
-pnpm verify
+pnpm --filter @rupea/server models   # download the import models, needed for e2e
+pnpm verify                          # format, lint, types and unit tests
+pnpm --filter @rupea/web test:e2e    # browser tests
 ```
 
 `pnpm --filter @rupea/server replay <folder>` predicts each statement in a ledger folder from the ones before it, and reports how many lines it got right; `--cold` predicts with no history, as for a new user. Run it before and after a change to prediction.

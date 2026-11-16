@@ -2,7 +2,7 @@ import * as v from 'valibot';
 import { EXPENSES, INCOME, type Amount, ZERO, printAmount, sum } from '@rupea/shared/money.ts';
 import { PERIOD_PARAMS, periodIn } from './filter';
 import { MONTHS, spanOf, statementOf } from './home';
-import type { Spent } from './spending';
+import { totalOf, type Spent } from './spending';
 
 export const SPENT = 'Spent';
 export const SAVED = 'Saved';
@@ -42,16 +42,8 @@ export const investmentIncomeOf = (s: Spent | undefined) =>
  * text.
  */
 export const monthsOf = (income: Spent | undefined, spending: Spent | undefined) => {
-	const earned = Object.fromEntries(
-		(income?.deltas ?? [])
-			.filter((d) => d.account === INCOME)
-			.map((d) => [`${d.bucket}`, -d.amount]),
-	);
-	const spent = Object.fromEntries(
-		(spending?.deltas ?? [])
-			.filter((d) => d.account === EXPENSES)
-			.map((d) => [`${d.bucket}`, d.amount]),
-	);
+	const earned = amountsOn(income, INCOME, -1n);
+	const spent = amountsOn(spending, EXPENSES, 1n);
 
 	return (income?.buckets ?? []).map((b) => {
 		const earnedIn = (earned[`${b}`] ?? ZERO) as Amount;
@@ -69,7 +61,7 @@ export const monthsOf = (income: Spent | undefined, spending: Spent | undefined)
 /** The whole range as one bar, in the same text as a month. */
 export const wholeOf = (income: Spent | undefined, spending: Spent | undefined) => {
 	const earned = incomeOf(income, INCOME);
-	const spent = (spending?.totals.find((t) => t.account === EXPENSES)?.amount ?? ZERO) as Amount;
+	const spent = totalOf(spending, EXPENSES) ?? ZERO;
 
 	return {
 		bucket: '',
@@ -78,6 +70,15 @@ export const wholeOf = (income: Spent | undefined, spending: Spent | undefined) 
 		[SAVED]: printAmount((earned - spent) as Amount),
 	};
 };
+
+/**
+ * What an account came to in each month, by the day the month starts, with its
+ * sign made right.
+ */
+const amountsOn = (s: Spent | undefined, a: string, by: bigint) =>
+	Object.fromEntries(
+		(s?.deltas ?? []).filter((d) => d.account === a).map((d) => [`${d.bucket}`, by * d.amount]),
+	);
 
 /**
  * The accounts under Income as the table lists them, what each earned in a

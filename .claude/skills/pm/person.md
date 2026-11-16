@@ -19,7 +19,7 @@ The evidence is thin in places. Each persona says how strong its evidence is, an
 - **Triggers:** tired of updating a net-worth sheet by hand. Burned by a tracker app that was sold, redesigned or paywalled (Kuvera, ET Money). Wants no lock-in.
 - **Must never:** lock their data in, or pivot into selling them loans or products.
 - **Turned off by:** paywalls on basics, redesigns that remove features, wrong holdings.
-- **Evidence:** strong. Spreadsheets lead net-worth tracking in both crowds sampled. SEBI 2025: 9.5% of households hold market products, 23% in the top metros, and 21% of investors find tracking performance hard. About 45 of Kuvera's 80 newest low reviews blame its redesign after the sale to CRED. Of 414 Fold App Store reviews, 10 pay ₹2,999 a year for an aggregator, and one paying user still wants export.
+- **Evidence:** strong. Spreadsheets lead net-worth tracking in both crowds sampled. SEBI 2025: 9.5% of households hold market products, 23% in the top metros, and 21% of investors find tracking performance hard. About 45 of Kuvera's 80 newest low reviews blame its redesign after the sale to CRED. Since Fold's paid plans began, 13 of 180 App Store reviews say they pay (₹999 a year in the stores), and one still wants export. Investors pay ₹2,000 to ₹3,000 a year for analysis (Tickertape, Equitymaster), but no one was heard paying for storage or sync. 95 of ET Money's 347 low reviews are about paywalls on basics.
 
 ## Tracker
 
@@ -29,7 +29,7 @@ The evidence is thin in places. Each persona says how strong its evidence is, an
 - **Triggers:** a first salary, a month where UPI spending ran away, quitting an app after typing every expense.
 - **Must never:** make them type every transaction.
 - **Turned off by:** effort, transactions counted twice, broken capture, ads, asking for a phone number, loan and marketing spam, losing their data.
-- **Evidence:** medium. Spending is what most people track (about 80% of coded comments). Manual-entry fatigue is the top reason people quit. About 12% already use their card or bank statement as the log. The phone is where most people say they note spending; whether they want Rupea there is untested. Everything named in one r/india thread on small UPI spends is free, and no one said they pay.
+- **Evidence:** medium. Spending is what most people track (about 80% of coded comments). Manual-entry fatigue is the top reason people quit. About 12% already use their card or bank statement as the log. The phone is where most people say they note spending; whether they want Rupea there is untested. Everything named in one r/india thread on small UPI spends is free, and no one said they pay. Vendors report that most users will not pay for basic expense tracking.
 
 ## Bookkeeper
 
@@ -47,7 +47,7 @@ The evidence is thin in places. Each persona says how strong its evidence is, an
 
 - **Jobs, in order:** if something happens to me, my family can find what I hold. Share money with a partner under a rule we choose: split, pool, or a joint pot beside our own accounts. Look after my parents' money without exposing mine.
 - **Must never:** show one person's money to another in the family without being asked.
-- **Evidence:** weak, partly hypothesis. The threads were chosen for the topic and for conflict, and nothing sizes the need. See `research.md`.
+- **Evidence:** weak, partly hypothesis. The threads were chosen for the topic and for conflict, and nothing sizes the need. No Indian app publishes a family plan price, and family features trigger an upgrade for 2 of 13 paying Fold reviewers. See `research.md`.
 
 ## Money in two countries
 

@@ -1,6 +1,7 @@
 import { render, screen, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { listDeltas } from '#lib/endpoints/accounts.remote.ts';
+import { openFilter } from '#tests/shared/filter.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
 import Page from '#routes/(signed-in)/l/[handle]/income/+page.svelte';
@@ -123,5 +124,34 @@ describe('the income page', () => {
 		const figures = within(await screen.findByLabelText('Figures'));
 		expect(figures.getAllByText('–')).toHaveLength(2);
 		expect(figures.queryByText('100%')).toBeNull();
+	});
+
+	it('says when income fell against the month before, and names a period of its own', async () => {
+		visit('/l/h/income?at=2026-03');
+		const larger = range('Income', [['Income', null, '-4000']]);
+		vi.mocked(listDeltas).mockImplementation(({ account, period }) =>
+			answer(
+				account === 'Income' && period.kind === 'month' && period.at === '2026-10'
+					? [dated(earned, '2026-10-01'), dated(larger, '2026-09-01')]
+					: [account === 'Income' ? earned : spent],
+			),
+		);
+		render(Page, { data });
+
+		const figures = within(await screen.findByLabelText('Figures'));
+		expect(figures.getByText(/50% on September/)).toBeTruthy();
+		expect(listDeltas).toHaveBeenCalledWith(
+			expect.objectContaining({ account: 'Income', period: { kind: 'month', at: '2026-03' } }),
+		);
+		expect(screen.getByText('Period')).toBeTruthy();
+	});
+
+	it('offers the periods to read in the filter, with the one picked marked', async () => {
+		visit('/l/h/income?span=3');
+		render(Page, { data });
+
+		const dialog = within(await openFilter());
+		expect(dialog.getByRole('link', { name: '12M' })).toBeTruthy();
+		expect(dialog.getByRole('link', { name: '3M' }).getAttribute('aria-current')).toBeTruthy();
 	});
 });

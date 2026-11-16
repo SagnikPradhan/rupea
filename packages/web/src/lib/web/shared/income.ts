@@ -1,11 +1,16 @@
 import * as v from 'valibot';
-import { EXPENSES, INCOME, type Amount, ZERO, printAmount, sum } from '@rupea/shared/money.ts';
+import { Amount, EXPENSES, INCOME, ZERO, printAmount, sum } from '@rupea/shared/money.ts';
 import { PERIOD_PARAMS, periodIn } from './filter';
+import { type Period, spansOf } from '@rupea/shared/dates.ts';
 import { MONTHS, spanOf, statementOf } from './home';
 import { totalOf, type Spent } from './spending';
 
 export const SPENT = 'Spent';
 export const SAVED = 'Saved';
+export const INVESTED = 'Invested';
+export const NOT_INVESTED = 'Not invested';
+
+const LAST_DAY = '9999-12-31';
 
 const INVESTMENTS = ['Income:Interest', 'Income:Dividends'];
 
@@ -70,6 +75,70 @@ export const wholeOf = (income: Spent | undefined, spending: Spent | undefined) 
 		[SAVED]: printAmount((earned - spent) as Amount),
 	};
 };
+
+/**
+ * The period to read what lots were paid for over: the one asked, from the day
+ * before it starts so its first bucket has what came before it.
+ */
+export const openingOf = (period: Period, today: Temporal.PlainDate) => {
+	if (period.kind === 'all') return period;
+
+	const { from, to } = spansOf(period, today).current;
+
+	return {
+		kind: 'custom',
+		from: from.subtract({ days: 1 }).toString(),
+		to: to.toString(),
+	} as const;
+};
+
+export type Paid = { day: string; cost: string };
+
+/**
+ * Each bucket's income, split into what went into holdings with lots and what
+ * did not, as chart text. What went in is the change in what was paid for the
+ * lots over the bucket, held between nothing and the income. A bucket with no
+ * point keeps what the one before it paid.
+ */
+export const investedOf = (income: Spent | undefined, paid: Paid[]) => {
+	const earned = amountsOn(income, INCOME, -1n);
+	const closes = paid
+		.toSorted((a, b) => a.day.localeCompare(b.day))
+		.map((p) => [p.day, v.parse(Amount, p.cost)] as const);
+	const paidBy = (d: string) => closes.findLast(([k]) => k <= d)?.[1] ?? ZERO;
+	const buckets = income?.buckets ?? [];
+
+	return buckets.map((b, i) => {
+		const earnedIn = (earned[`${b}`] ?? ZERO) as Amount;
+		const next = buckets[i + 1];
+		const end = next ? next.subtract({ days: 1 }).toString() : LAST_DAY;
+		const into = clamp(paidBy(end) - paidBy(b.subtract({ days: 1 }).toString()), earnedIn);
+
+		return {
+			bucket: b.toString(),
+			total: printAmount(earnedIn),
+			[INVESTED]: printAmount(into),
+			[NOT_INVESTED]: printAmount((earnedIn - into) as Amount),
+		};
+	});
+};
+
+/** The whole range as one bar, in the same text as a month. */
+export const investedWholeOf = (income: Spent | undefined, paid: Paid[]) => {
+	const months = investedOf(income, paid);
+	const total = (f: (m: (typeof months)[number]) => string) =>
+		printAmount(sum(months.map((m) => v.parse(Amount, f(m)))));
+
+	return {
+		bucket: '',
+		total: total((m) => m.total),
+		[INVESTED]: total((m) => m[INVESTED]),
+		[NOT_INVESTED]: total((m) => m[NOT_INVESTED]),
+	};
+};
+
+/** A change held between nothing and the most. */
+const clamp = (c: bigint, m: Amount) => (c < ZERO ? ZERO : c > m ? m : c) as Amount;
 
 /**
  * What an account came to in each month, by the day the month starts, with its

@@ -34,8 +34,8 @@
 	/>
 	<Kpi
 		label="Saving rate"
-		figure={formatShare(printAmount(kept), printAmount(earned)) ?? '0%'}
-		detail="{formatWhole(printAmount(kept))} kept"
+		figure={spending ? (formatShare(printAmount(kept), printAmount(earned)) ?? '–') : '–'}
+		detail={spending ? `${formatWhole(printAmount(kept))} kept` : undefined}
 	/>
 	<Kpi
 		label="From investments"
@@ -44,7 +44,9 @@
 	/>
 	<Kpi
 		label="Spending it covers"
-		figure={formatShare(printAmount(investments), printAmount(spent)) ?? '0%'}
-		detail="{formatWhole(printAmount(investments))} of {formatWhole(printAmount(spent))}"
+		figure={spending ? (formatShare(printAmount(investments), printAmount(spent)) ?? '–') : '–'}
+		detail={spending
+			? `${formatWhole(printAmount(investments))} of ${formatWhole(printAmount(spent))}`
+			: undefined}
 	/>
 </KpiStrip>

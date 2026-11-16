@@ -113,4 +113,15 @@ describe('the income page', () => {
 		expect(table.getByText('Dividends')).toBeTruthy();
 		expect(table.getByText('Last 12 months')).toBeTruthy();
 	});
+
+	it('shows no saving rate or cover while the spending cannot be read', async () => {
+		vi.mocked(listDeltas).mockImplementation(({ account }) =>
+			answer(account === 'Income' ? [earned, earned] : undefined),
+		);
+		render(Page, { data });
+
+		const figures = within(await screen.findByLabelText('Figures'));
+		expect(figures.getAllByText('–')).toHaveLength(2);
+		expect(figures.queryByText('100%')).toBeNull();
+	});
 });

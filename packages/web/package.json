@@ -9,7 +9,7 @@
 		"#tests/*": "./tests/*"
 	},
 	"scripts": {
-		"dev": "node --env-file-if-exists=.env node_modules/vite/bin/vite.js dev",
+		"dev": "node --env-file-if-exists=.env node_modules/vite/bin/vite.js dev --host",
 		"build": "vite build",
 		"start": "node --env-file-if-exists=.env build",
 		"preview": "vite preview",

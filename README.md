@@ -93,4 +93,12 @@ Domain terms are in [GLOSSARY.md](GLOSSARY.md), decisions in [docs/adr](docs/adr
 
 ## License
 
-[AGPL-3.0](LICENSE). If you run a modified Rupea as a service, you share your changes with its users. Contributions are signed off, see [CONTRIBUTING.md](CONTRIBUTING.md).
+Rupea is [AGPL-3.0](LICENSE), except `packages/shared` and `packages/contract`, which are MIT so that anyone can build on them.
+
+Running your own copy asks little of you:
+
+- Run it as it is, for yourself or others you trust: nothing to do.
+- Change it and keep the change private: nothing to do.
+- Change it and let other people use it over a network: share your changes with those people.
+
+Contributions are signed off, see [CONTRIBUTING.md](CONTRIBUTING.md).

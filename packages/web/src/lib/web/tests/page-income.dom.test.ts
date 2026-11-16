@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/svelte';
+import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { listDeltas } from '#lib/endpoints/accounts.remote.ts';
 import { openFilter } from '#tests/shared/filter.ts';
@@ -153,5 +153,15 @@ describe('the income page', () => {
 		const dialog = within(await openFilter());
 		expect(dialog.getByRole('link', { name: '12M' })).toBeTruthy();
 		expect(dialog.getByRole('link', { name: '3M' }).getAttribute('aria-current')).toBeTruthy();
+	});
+
+	it('sums up the month under the pointer as income and the share of it that was kept', async () => {
+		Element.prototype.getBoundingClientRect = () => DOMRect.fromRect({ width: 100, height: 100 });
+		render(Page, { data });
+
+		const plot = await screen.findByRole('img', { name: /^Income from/ });
+		await fireEvent.pointerMove(plot, { clientX: 25, clientY: 0 });
+
+		expect(screen.getByText(/kept ·/).textContent).toContain('Sept 2026');
 	});
 });

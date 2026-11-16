@@ -4,7 +4,7 @@ What Rupea plans to build, in order, and what already works.
 
 ## Planned
 
-- [ ] A page for income, month by month ([#71](https://github.com/SagnikPradhan/rupea/issues/71))
+- [x] A page for income, month by month ([#71](https://github.com/SagnikPradhan/rupea/issues/71))
 - [ ] Set categories with rules, and change many at once ([#79](https://github.com/SagnikPradhan/rupea/issues/79))
 - [ ] Go from your first statement to a net worth chart in minutes ([#80](https://github.com/SagnikPradhan/rupea/issues/80))
 - [ ] Count transfers between your own accounts once ([#81](https://github.com/SagnikPradhan/rupea/issues/81))

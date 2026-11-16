@@ -8,17 +8,19 @@
 		formatExact,
 		formatShare,
 	} from '#lib/web/shared/format.ts';
+	import type { Grain } from '@rupea/shared/dates.ts';
 	import * as Income from '#lib/web/shared/income.ts';
 	import * as Spending from '#lib/web/shared/spending.ts';
 
 	type Props = {
+		bucket: Grain;
 		income: Spending.Spent | undefined;
 		spending: Spending.Spent | undefined;
 		first: Temporal.PlainDate;
 		last: Temporal.PlainDate;
 	};
 
-	const { income, spending, first, last }: Props = $props();
+	const { bucket, income, spending, first, last }: Props = $props();
 
 	const bars = $derived(Income.monthsOf(income, spending));
 	const whole = $derived(Income.wholeOf(income, spending));
@@ -31,7 +33,7 @@
 	<BarChart
 		rows={bars}
 		x="bucket"
-		bucket="month"
+		{bucket}
 		series={[
 			{ key: Income.SPENT, label: Income.SPENT, role: 'part', colour: 0 },
 			{ key: Income.SAVED, label: Income.SAVED, role: 'part', colour: 1 },
@@ -54,7 +56,7 @@
 	>
 		{formatShare(kept, figure) ?? '0%'} kept ·
 		{bar
-			? formatBucket.month(bar.bucket)
+			? formatBucket[bucket](bar.bucket)
 			: `${formatDate(first.toString())} – ${formatDate(last.toString())}`}
 	</ChartSummary>
 {/snippet}

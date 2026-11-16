@@ -4,6 +4,9 @@ import {
 	incomeOf,
 	investmentIncomeOf,
 	IncomeQuery,
+	investedOf,
+	investedWholeOf,
+	openingOf,
 	monthsOf,
 	sourcesOf,
 	wholeOf,
@@ -123,5 +126,97 @@ describe('IncomeQuery', () => {
 
 		expect(query.dated).toBe(true);
 		expect(query.period).toEqual({ kind: 'month', at: '2026-03' });
+	});
+});
+
+describe('investedOf', () => {
+	const paid = [
+		{ day: '2025-12-31', cost: '1000' },
+		{ day: '2026-01-31', cost: '1500' },
+		{ day: '2026-02-28', cost: '1200' },
+	];
+
+	it('splits each month of income by the change in what the lots were paid for', () => {
+		const rows = investedOf(income, paid);
+
+		expect(rows[0]).toMatchObject({ Invested: '500.00', 'Not invested': '500.00' });
+	});
+
+	it('holds a month of net sales at nothing', () => {
+		expect(investedOf(income, paid)[1]).toMatchObject({ Invested: '0.00' });
+	});
+
+	it('holds what went in at the income', () => {
+		const big = [{ day: '2026-01-31', cost: '9000' }];
+
+		expect(investedOf(income, big)[0]).toMatchObject({
+			Invested: '1000.00',
+			'Not invested': '0.00',
+		});
+	});
+
+	it('carries what was paid across a month with no point, and sorts the points', () => {
+		const gap = [
+			{ day: '2026-03-31', cost: '700' },
+			{ day: '2026-01-31', cost: '500' },
+		];
+		const march = { account: 'Income', bucket: on('2026-03-01'), amount: amount('-900') };
+		const wider: Spent = {
+			...income,
+			buckets: [...income.buckets, on('2026-03-01')],
+			deltas: [...income.deltas, march],
+		};
+
+		expect(investedOf(wider, gap).map((r) => r.Invested)).toEqual(['500.00', '0.00', '200.00']);
+	});
+
+	it('invests nothing in a month with no lots read, or with no range', () => {
+		expect(investedOf(income, [])[0]).toMatchObject({ Invested: '0.00' });
+		expect(investedOf(undefined, paid)).toEqual([]);
+	});
+});
+
+describe('investedOf over years', () => {
+	it('weighs each bucket by the day before it and the day it ends', () => {
+		const years: Spent = {
+			buckets: [on('2025-01-01'), on('2026-01-01')],
+			totals: [],
+			deltas: [
+				{ account: 'Income', bucket: on('2025-01-01'), amount: amount('-900') },
+				{ account: 'Income', bucket: on('2026-01-01'), amount: amount('-900') },
+			],
+		};
+		const paid = [
+			{ day: '2024-12-31', cost: '100' },
+			{ day: '2025-12-31', cost: '400' },
+			{ day: '2026-11-16', cost: '1000' },
+		];
+
+		expect(investedOf(years, paid).map((r) => r.Invested)).toEqual(['300.00', '600.00']);
+	});
+});
+
+describe('investedWholeOf', () => {
+	it('adds the months up as one bar', () => {
+		expect(investedWholeOf(income, [{ day: '2026-01-31', cost: '500' }])).toMatchObject({
+			bucket: '',
+			Invested: '500.00',
+		});
+	});
+});
+
+describe('openingOf', () => {
+	const today = on('2026-11-17');
+
+	it('reads all of time as it is, since nothing was paid before it', () => {
+		expect(openingOf({ kind: 'all' }, today)).toEqual({ kind: 'all' });
+	});
+
+	it('starts a period the day before it does', () => {
+		expect(openingOf({ kind: 'month', at: '2026-10' }, today)).toEqual({
+			kind: 'custom',
+			from: '2026-09-30',
+			to: '2026-10-31',
+		});
 	});
 });

@@ -1,6 +1,6 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { listDeltas } from '#lib/endpoints/accounts.remote.ts';
+import { listDeltas, listInvested } from '#lib/endpoints/accounts.remote.ts';
 import { openFilter } from '#tests/shared/filter.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
@@ -11,7 +11,10 @@ const on = (d: string) => Temporal.PlainDate.from(d);
 const amount = (t: string) => parseAmount(t) as Amount;
 
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
-vi.mock('#lib/endpoints/accounts.remote.ts', () => ({ listDeltas: vi.fn() }));
+vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
+	listDeltas: vi.fn(),
+	listInvested: vi.fn(),
+}));
 
 const range = (account: string, totals: [string, string | null, string][]) => ({
 	from: on('2026-01-01'),
@@ -44,6 +47,13 @@ describe('the income page', () => {
 		vi.useFakeTimers({ toFake: ['Date'] });
 		vi.setSystemTime(new Date('2026-11-16T10:00:00Z'));
 		visit('/l/h/income');
+		vi.mocked(listInvested).mockReturnValue(
+			answer([
+				{ day: '2026-08-31', value: '600', cost: '500' },
+				{ day: '2026-09-30', value: '1100', cost: '900' },
+				{ day: '2026-10-31', value: '6000', cost: '5000' },
+			]),
+		);
 		vi.mocked(listDeltas).mockImplementation(({ account, period }) => {
 			const whole = account === 'Income' ? earned : spent;
 
@@ -159,9 +169,69 @@ describe('the income page', () => {
 		Element.prototype.getBoundingClientRect = () => DOMRect.fromRect({ width: 100, height: 100 });
 		render(Page, { data });
 
-		const plot = await screen.findByRole('img', { name: /^Income from/ });
+		const plot = await screen.findByRole('img', { name: /^Income from .*kept$/ });
 		await fireEvent.pointerMove(plot, { clientX: 25, clientY: 0 });
 
 		expect(screen.getByText(/kept ·/).textContent).toContain('Sept 2026');
+	});
+
+	it('reads what was paid for lots from the day before the period', async () => {
+		render(Page, { data });
+		await screen.findByText('Income in October');
+
+		expect(listInvested).toHaveBeenCalledWith(
+			expect.objectContaining({
+				account: 'Assets',
+				period: { kind: 'custom', from: '2025-11-15', to: '2026-11-16' },
+			}),
+		);
+	});
+
+	it('draws income by month, split into what was invested and what was not', async () => {
+		render(Page, { data });
+
+		expect(
+			await screen.findByRole('img', { name: /^Income from .*, 4,000 in all, 2,400 invested$/ }),
+		).toBeTruthy();
+	});
+
+	it('sums up the month under the pointer as what went in of its income', async () => {
+		Element.prototype.getBoundingClientRect = () => DOMRect.fromRect({ width: 100, height: 100 });
+		render(Page, { data });
+
+		const plot = await screen.findByRole('img', { name: /^Income from .*invested$/ });
+		await fireEvent.pointerMove(plot, { clientX: 25, clientY: 0 });
+
+		expect(screen.getByText(/of .* income ·/).textContent).toContain('Sept 2026');
+	});
+
+	it('reads all of time as it is, with nothing paid before it', async () => {
+		visit('/l/h/income?range=all');
+		render(Page, { data });
+		await screen.findByText('Income in October');
+
+		expect(listInvested).toHaveBeenCalledWith(
+			expect.objectContaining({ period: { kind: 'all' }, account: 'Assets' }),
+		);
+	});
+
+	it('names a year bucket by its year, not as the January it starts on', async () => {
+		Element.prototype.getBoundingClientRect = () => DOMRect.fromRect({ width: 100, height: 100 });
+		visit('/l/h/income?range=all');
+		const yearly = (r: ReturnType<typeof range>) => ({
+			...r,
+			bucket: 'year',
+			buckets: [on('2025-01-01'), on('2026-01-01')],
+		});
+		vi.mocked(listDeltas).mockImplementation(({ account }) =>
+			answer([yearly(account === 'Income' ? earned : spent)]),
+		);
+		render(Page, { data });
+
+		const plot = await screen.findByRole('img', { name: /^Income from .*kept$/ });
+		await fireEvent.pointerMove(plot, { clientX: 25, clientY: 0 });
+
+		expect(screen.getByText(/kept ·/).textContent).toMatch(/·\s+2025/);
+		expect(screen.getByText(/kept ·/).textContent).not.toContain('Jan');
 	});
 });

@@ -1,6 +1,7 @@
 {
 	"name": "@rupea/web",
 	"private": true,
+	"license": "AGPL-3.0-only",
 	"type": "module",
 	"imports": {
 		"#lib": "./src/lib/index.js",

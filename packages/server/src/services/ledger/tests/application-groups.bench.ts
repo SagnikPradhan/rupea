@@ -5,7 +5,7 @@ import { cloneFixture, timed } from '@rupea/server/tests/shared/fixtures.ts';
 import { it } from '@rupea/server/tests/shared/vitest.ts';
 import { describe } from 'vitest';
 
-const LEDGERS = ['fifty-years', 'wide'];
+const LEDGERS = ['twenty-years', 'fifty-years', 'wide'];
 
 describe('groups', () => {
 	it.for(LEDGERS)('over %s', { timeout: 3_600_000 }, async (name, { bench, models }) => {

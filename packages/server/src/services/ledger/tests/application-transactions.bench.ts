@@ -13,7 +13,7 @@ const ALL: Transactions.ListFilter = {
 	account: null,
 	description: null,
 };
-const LEDGERS = ['fifty-years', 'wide'];
+const LEDGERS = ['twenty-years', 'fifty-years', 'wide'];
 const PAGES_DEEP = 50;
 
 describe('transactions', () => {

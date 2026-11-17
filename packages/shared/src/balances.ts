@@ -77,6 +77,12 @@ export const CLOSING_DAYS = 1827;
 export const closingBucketOf = (s: Span) =>
 	s.from.until(s.to, { largestUnit: 'days' }).days <= CLOSING_DAYS ? 'date' : 'month';
 
+/** The span, starting no earlier than the ledger's first day when it has one. */
+export const spanFrom = (span: Span, first: string | null): Span => ({
+	from: first && first > span.from.toString() ? Temporal.PlainDate.from(first) : span.from,
+	to: span.to,
+});
+
 const GRAINS: Record<Exclude<Bucket, 'day'>, Grain> = { date: 'day', month: 'month', year: 'year' };
 
 /**

@@ -1,5 +1,5 @@
 import { replyFromBatchCall, replyFromCall } from './reply';
-import { bucketFor, closingBucketOf } from '@rupea/shared/balances.ts';
+import { bucketFor, closingBucketOf, spanFrom } from '@rupea/shared/balances.ts';
 import { Day, Period, type Span, spansOf } from '@rupea/shared/dates.ts';
 import { ASSETS, BalanceAccount, FlowAccount } from '@rupea/shared/money.ts';
 import { TermsForm } from '@rupea/shared/forms.ts';
@@ -20,10 +20,7 @@ const writtenSpan = ({ from, to }: Span) => ({ from: from.toString(), to: to.toS
 const closingBucketIn = async (handle: string, { from, to }: Span) => {
 	const first = await api().ledger.findFirstDay({ handle });
 
-	return closingBucketOf({
-		from: first && first > from.toString() ? Temporal.PlainDate.from(first) : from,
-		to,
-	});
+	return closingBucketOf(spanFrom({ from, to }, first));
 };
 
 /**

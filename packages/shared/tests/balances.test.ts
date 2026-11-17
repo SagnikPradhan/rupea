@@ -7,6 +7,7 @@ import {
 	bucketKeyOf,
 	endsIn,
 	isReadable,
+	spanFrom,
 } from '../src/balances.ts';
 
 const day = (d: string) => Temporal.PlainDate.from(d);
@@ -60,5 +61,25 @@ describe('whether a read can be answered', () => {
 		expect(
 			isReadable({ ...asked, accumulate: 'change', aggregate: 'average', bucket: 'day' }),
 		).toBe(true);
+	});
+});
+
+describe('spanFrom', () => {
+	const span = { from: day('2026-03-01'), to: day('2026-03-31') };
+
+	it('keeps the span when the ledger has no first day', () => {
+		expect(spanFrom(span, null)).toEqual(span);
+	});
+
+	it('keeps the span when the ledger began before or on its first day', () => {
+		expect(spanFrom(span, '2026-01-15')).toEqual(span);
+		expect(spanFrom(span, '2026-03-01')).toEqual(span);
+	});
+
+	it('starts the span on the first day when the ledger began inside it', () => {
+		expect(spanFrom(span, '2026-03-10')).toEqual({
+			from: day('2026-03-10'),
+			to: day('2026-03-31'),
+		});
 	});
 });

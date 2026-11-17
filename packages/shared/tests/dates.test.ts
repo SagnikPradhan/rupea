@@ -8,6 +8,7 @@ import {
 	DayOut,
 	Instant,
 	InstantOut,
+	openingOf,
 	Period,
 	spansOf,
 } from '@rupea/shared/dates.ts';
@@ -165,5 +166,21 @@ describe('an instant', () => {
 		const text = v.parse(InstantOut, instant);
 		expect(v.parse(Instant, text).equals(instant)).toBe(true);
 		expect(v.safeParse(InstantOut, '2026-10-21T09:30:00Z').success).toBe(false);
+	});
+});
+
+describe('openingOf', () => {
+	const today = day('2026-11-17');
+
+	it('reads all of time as it is, since nothing was paid before it', () => {
+		expect(openingOf({ kind: 'all' }, today)).toEqual({ kind: 'all' });
+	});
+
+	it('starts a period the day before it does', () => {
+		expect(openingOf({ kind: 'month', at: '2026-10' }, today)).toEqual({
+			kind: 'custom',
+			from: '2026-09-30',
+			to: '2026-10-31',
+		});
 	});
 });

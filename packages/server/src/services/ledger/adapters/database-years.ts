@@ -6,13 +6,8 @@ import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { sql } from 'kysely';
 import { NO_AMOUNT, writeSeries } from '../domain/series';
-import { BALANCE_TYPES } from '../domain/taxonomy';
 import { Feed, PriceSource } from '../domain/types';
 import type { PriceSources, PriceYear } from '../domain/worth';
-import { BEGINNING } from '@rupea/shared/dates.ts';
-import { deltasBetween } from './database-deltas';
-import type { HoldingKey } from './database-files';
-import { amongHoldings } from './database-queries';
 
 /** How many rows one statement writes, since each carries a year of amounts. */
 const ROWS_WRITTEN = 200;
@@ -67,152 +62,34 @@ export const listPriceYears = (
 		),
 	);
 
-type BalanceYearsOptions = {
-	from: number;
-	/** The last year rewritten, or null for every year after from. */
-	to: number | null;
-	holdings: HoldingKey[] | null;
-};
-
 /**
- * Rewrites these holdings' balance years in a span of years. A move changes
- * every balance after it, so it needs every later year too. Monthly deltas must
- * already hold what they moved.
- */
-export const saveBalanceYears = (id: string, o: BalanceYearsOptions): ResultAsync<void> =>
-	atomically(() => withContext('db')((tx) => attempt(() => rewriteBalances(tx, id, o))));
-
-/**
- * Builds what a ledger indexed before these tables lacks: its balance years
- * when it has none, and the price years of its symbols that have none.
+ * Builds the price years of the symbols a ledger indexed before that table has
+ * none of.
  */
 export const saveMissingYears = (ledgerId: string): ResultAsync<void> =>
 	atomically(() =>
 		withContext('db')((tx) =>
 			attempt(async () => {
-				const built = await tx
-					.selectFrom('balanceYears')
-					.select('id')
-					.where('ledgerId', '=', ledgerId)
-					.limit(1)
-					.executeTakeFirst();
-				if (!built) await rewriteBalances(tx, ledgerId, { from: 1, to: null, holdings: null });
-
 				const symbols = await symbolsUsedBy(tx, ledgerId);
 				await rewritePriceYears(tx, await unbuiltPrices(tx, symbols));
 			}),
 		),
 	);
 
-/**
- * Rebuilds all a ledger's balance years and the price years of every symbol it
- * uses.
- */
+/** Rebuilds the price years of every symbol a ledger uses. */
 export const saveEveryYear = (ledgerId: string): ResultAsync<void> =>
 	atomically(() =>
 		withContext('db')((tx) =>
 			attempt(async () => {
-				await rewriteBalances(tx, ledgerId, { from: 1, to: null, holdings: null });
-
 				const symbols = await symbolsUsedBy(tx, ledgerId);
 				await rewritePriceYears(tx, await pricesOf(tx, symbols));
 			}),
 		),
 	);
 
-const rewriteBalances = async (
-	tx: Database,
-	ledgerId: string,
-	{ from, to, holdings }: BalanceYearsOptions,
-) => {
-	const first = Temporal.PlainDate.from({ year: from, month: 1, day: 1 });
-	const after = to === null ? null : Temporal.PlainDate.from({ year: to + 1, month: 1, day: 1 });
-	const year = sql<number>`extract(year from ${sql.ref('m.day')})::integer`;
-
-	await tx
-		.deleteFrom('balanceYears')
-		.where('ledgerId', '=', ledgerId)
-		.where('year', '>=', from)
-		.$if(to !== null, (q) => q.where('year', '<=', to ?? from))
-		.where((e) => amongHoldings(e.ref('accountId'), e.ref('commodity'), holdings))
-		.execute();
-
-	const moved = await tx
-		.selectFrom(deltasBetween(tx, ledgerId, { from: first, after, grain: 'day' }).as('m'))
-		.select((e) => [
-			'm.accountId',
-			'm.accountType',
-			'm.commodity',
-			'm.day as date',
-			year.as('year'),
-			e.ref('m.amount').as('amount'),
-		])
-		.where('m.accountType', 'in', BALANCE_TYPES)
-		.where((e) => amongHoldings(e.ref('m.accountId'), e.ref('m.commodity'), holdings))
-		.orderBy('m.day')
-		.execute();
-	if (moved.length === 0) return;
-
-	const opening = await tx
-		.selectFrom(
-			deltasBetween(tx, ledgerId, {
-				from: Temporal.PlainDate.from(BEGINNING),
-				after: first,
-				grain: 'month',
-			}).as('m'),
-		)
-		.select((e) => ['m.accountId', 'm.commodity', e.fn.sum<bigint>('m.amount').as('amount')])
-		.where('m.accountType', 'in', BALANCE_TYPES)
-		.where((e) => amongHoldings(e.ref('m.accountId'), e.ref('m.commodity'), holdings))
-		.groupBy(['m.accountId', 'm.commodity'])
-		.execute();
-	const openingOf = new Map(opening.map((o) => [`${o.accountId} ${o.commodity}`, o.amount]));
-
-	const rows = Object.values(Object.groupBy(moved, (m) => `${m.accountId} ${m.commodity}`)).flatMap(
-		(days = []) => {
-			const held = days[0];
-			if (!held) return [];
-
-			const opened = openingOf.get(`${held.accountId} ${held.commodity}`) ?? 0n;
-			return yearsOf(days, opened).map(({ year: y, balances }) => ({
-				ledgerId,
-				accountId: held.accountId,
-				accountType: held.accountType,
-				commodity: held.commodity,
-				year: y,
-				balances: writeSeries(balances),
-			}));
-		},
-	);
-
-	for (const chunk of chunks(rows, ROWS_WRITTEN))
-		await tx.insertInto('balanceYears').values(chunk).execute(); // NOSONAR -- a transaction's statements share one connection, so they run in turn
-};
-
 const daysIn = (y: number) => Temporal.PlainDate.from({ year: y, month: 1, day: 1 }).daysInYear;
 
 const dayOf = (d: string) => Temporal.PlainDate.from(d).dayOfYear - 1;
-
-/**
- * A holding's balance on each day of each year it moved in, carrying on from
- * what it opened with.
- */
-const yearsOf = (moves: { date: string; year: number; amount: bigint }[], opening: bigint) => {
-	const years = Map.groupBy(moves, (m) => m.year);
-	const running = [opening];
-
-	return [...years.entries()]
-		.toSorted(([a], [b]) => a - b)
-		.map(([year, moved]) => {
-			const changes = new Map(moved.map((m) => [dayOf(m.date), m.amount]));
-			const balances = Array.from({ length: daysIn(year) }, (_, day) => {
-				running[0] = (running[0] ?? 0n) + (changes.get(day) ?? 0n);
-				return running[0];
-			});
-
-			return { year, balances };
-		});
-};
 
 const symbolsUsedBy = async (tx: Database, ledgerId: string) => {
 	const own = tx

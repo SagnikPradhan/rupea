@@ -2,7 +2,6 @@ import { heldOn, worthDaysOf, worthHeldOf } from './fixtures/held';
 import type { Database } from '#lib/server/db/index.ts';
 import { provide } from '#lib/server/shared/context/context.ts';
 import * as DB from '#services/ledger/adapters/database.ts';
-import * as Accounts from '#services/ledger/application/accounts.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
 import * as Sync from '#services/ledger/application/sync.ts';
@@ -28,7 +27,7 @@ const worthOn = async (ledger: Ledger, d: string) => {
 const priceYearsOf = (db: Database, year: number) =>
 	db.selectFrom('priceYears').select(['symbolId', 'amounts']).where('year', '=', year).execute();
 
-describe('balance years', () => {
+describe('balances through edits', () => {
 	it('rewrite every later balance when an old day changes', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
@@ -52,41 +51,6 @@ describe('balance years', () => {
 			await Files.deleteFiles({ ledger, keys: ['a.rupea'] });
 
 			expect(await worthOn(ledger, '2025-01-01')).toBe(500n * UNIT);
-		}));
-
-	it('are not needed to read a bridge, before or after a sync builds them', ({ context, db }) =>
-		provide(context, async () => {
-			const ledger = await createLedger(db);
-			await Files.createFile({ ledger, key: 'a.rupea', content: OLD });
-			await db.deleteFrom('balanceYears').where('ledgerId', '=', ledger.id).execute();
-			const endOn = async () => {
-				const day = Temporal.PlainDate.from('2025-01-01');
-				const read = await Accounts.findBridge({ ledger, from: day, to: day });
-				return read._unsafeUnwrap().succeeded[0]?.end;
-			};
-			const empty = await endOn();
-
-			await Sync.syncIndex(ledger);
-
-			expect(empty).toBe(1000n * UNIT);
-			expect(await endOn()).toBe(1000n * UNIT);
-		}));
-
-	it('are put right as the check comes round to a year left wrong', ({ context, db }) =>
-		provide(context, async () => {
-			const ledger = await createLedger(db);
-			await Files.createFile({ ledger, key: 'a.rupea', content: OLD });
-			await sql`update balance_years set balances = ''::bytea where ledger_id = ${ledger.id}`.execute(
-				db,
-			);
-			await sql`update ledgers set checked_through = '2019-12-01' where id = ${ledger.id}`.execute(
-				db,
-			);
-
-			const elsewhere = '2024-03-01 Tip\n\tAssets:Cash 3\n\tIncome:Tips\n';
-			await Files.createFile({ ledger, key: 'b.rupea', content: elsewhere });
-
-			expect(await worthOn(ledger, '2020-06-01')).toBe(1000n * UNIT);
 		}));
 });
 
@@ -166,13 +130,10 @@ describe('price years', () => {
 });
 
 describe('a full reindex', () => {
-	it('rebuilds years left wrong and reads every file again', ({ context, db }) =>
+	it('rebuilds months left wrong and reads every file again', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({ ledger, key: 'a.rupea', content: OLD });
-			await sql`update balance_years set balances = ''::bytea where ledger_id = ${ledger.id}`.execute(
-				db,
-			);
 			await sql`update monthly_deltas set amount = 1, inflow = 1, outflow = 0 where ledger_id = ${ledger.id}`.execute(
 				db,
 			);

@@ -1,0 +1,1 @@
+DROP TABLE "balance_years" CASCADE;

@@ -177,7 +177,7 @@ const baseSpentIn = (db: Database, o: Spending & { bucket: Bucket }) => {
 	const after = to.add({ days: 1 });
 	const rolledUp = (bucket === 'month' || bucket === 'year') && !hasCounter(filter);
 	const read = rolledUp
-		? deltasBetween(db, ledgerId, { from, after, grain: 'month' })
+		? deltasBetween(db, ledgerId, { from, after })
 		: postedBetween(db, ledgerId, { from, after, filter });
 
 	return db

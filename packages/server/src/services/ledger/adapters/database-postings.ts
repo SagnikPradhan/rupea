@@ -159,7 +159,6 @@ export const saveBalanceChecks = (
 							deltasBetween(db, ledgerId, {
 								from: Temporal.PlainDate.from(BEGINNING),
 								after: Temporal.PlainDate.from(first),
-								grain: 'month',
 							}).as('m'),
 							(j) =>
 								j.onRef('m.accountId', '=', 'k.accountId').onRef('m.commodity', '=', 'k.commodity'),

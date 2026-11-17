@@ -9,7 +9,6 @@ import type { jobs } from '#services/jobs/adapters/database-schema.ts';
 import type {
 	accounts,
 	accountTerms,
-	balanceYears,
 	disposals,
 	ledgerFiles,
 	ledgers,
@@ -33,7 +32,6 @@ import type { storages } from '#services/storage/adapters/database-schema.ts';
 export type Tables = {
 	accounts: Kyselify<typeof accounts>;
 	accountTerms: Kyselify<typeof accountTerms>;
-	balanceYears: Kyselify<typeof balanceYears>;
 	/** A view: what an account's counted postings of a commodity moved on one day. */
 	dailyDeltas: {
 		ledgerId: string;

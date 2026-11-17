@@ -15,7 +15,6 @@ import { sql } from 'kysely';
 import { describe, expect } from 'vitest';
 
 const UNIT = 10_000_000_000n;
-const OLD = '2020-03-01 Salary\n\tAssets:Bank 1000\n\tIncome:Salary\n';
 
 const worthOn = async (ledger: Ledger, d: string, account?: string) => {
 	const day = Temporal.PlainDate.from(d);
@@ -23,62 +22,6 @@ const worthOn = async (ledger: Ledger, d: string, account?: string) => {
 
 	return found[0]?.worth;
 };
-
-const blank = (db: Database, id: string) =>
-	sql`update balance_years set balances = ''::bytea where ledger_id = ${id}`.execute(db);
-
-describe('the check coming round', () => {
-	it('reaches a first year that starts late and a last year that ends early', ({ context, db }) =>
-		provide(context, async () => {
-			const ledger = await createLedger(db);
-			const content = [
-				'2015-03-15 Salary\n\tAssets:Bank 100\n\tIncome:Salary\n',
-				'2018-06-01 Salary\n\tAssets:Bank 10\n\tIncome:Salary\n',
-				'2024-06-10 Salary\n\tAssets:Bank 1\n\tIncome:Salary\n',
-			].join('\n');
-			await Files.createFile({ ledger, key: 'a.rupea', content });
-			await blank(db, ledger.id);
-
-			for (const n of Array.from({ length: 12 }, (_, i) => i))
-				await Files.createFile({
-					ledger,
-					key: `tip-${n}.rupea`,
-					content: '2024-03-01 Tip\n\tAssets:Cash 3\n\tIncome:Tips\n',
-				});
-
-			expect(await worthOn(ledger, '2015-04-01', 'Assets:Bank')).toBe(100n * UNIT);
-			expect(await worthOn(ledger, '2018-07-01', 'Assets:Bank')).toBe(110n * UNIT);
-			expect(await worthOn(ledger, '2024-07-01', 'Assets:Bank')).toBe(111n * UNIT);
-		}));
-
-	it('rewrites only the years it is given', ({ context, db }) =>
-		provide(context, async () => {
-			const ledger = await createLedger(db);
-			const content = [
-				OLD,
-				'2021-03-01 Salary\n\tAssets:Bank 5\n\tIncome:Salary\n',
-				'2022-03-01 Salary\n\tAssets:Bank 7\n\tIncome:Salary\n',
-			].join('\n');
-			await Files.createFile({ ledger, key: 'a.rupea', content });
-			await blank(db, ledger.id);
-
-			await DB.saveBalanceYears(ledger.id, { from: 2021, to: 2021, holdings: null });
-
-			const years = await db
-				.selectFrom('balanceYears as y')
-				.innerJoin('accounts as a', 'a.id', 'y.accountId')
-				.select(['y.year', 'y.balances'])
-				.where('y.ledgerId', '=', ledger.id)
-				.where('a.name', '=', 'Assets:Bank')
-				.orderBy('y.year')
-				.execute();
-			expect(years.map((y) => [y.year, y.balances.length > 0])).toEqual([
-				[2020, false],
-				[2021, true],
-				[2022, false],
-			]);
-		}));
-});
 
 describe('price years of a shared symbol', () => {
 	const held = [
@@ -239,16 +182,5 @@ describe('a full reindex, of what reading alone cannot repair', () => {
 
 			const lots = await Accounts.listLots({ ledger, account: 'Assets:Demat', commodity: 'INFY' });
 			expect(lots._unsafeUnwrap().succeeded).toHaveLength(1);
-		}));
-
-	it('builds what a ledger indexed before these tables lacks', ({ context, db }) =>
-		provide(context, async () => {
-			const ledger = await createLedger(db);
-			await Files.createFile({ ledger, key: 'a.rupea', content: OLD });
-			await db.deleteFrom('balanceYears').where('ledgerId', '=', ledger.id).execute();
-
-			await Sync.resyncLedger(ledger);
-
-			expect(await worthOn(ledger, '2025-01-01')).toBe(1000n * UNIT);
 		}));
 });

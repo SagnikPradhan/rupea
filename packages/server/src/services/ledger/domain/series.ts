@@ -25,5 +25,13 @@ export const readDay = (bytes: Buffer, day: number): bigint => {
 	return high === 0n ? low : (high << 64n) + low;
 };
 
-export const readSeries = (b: Buffer): bigint[] =>
-	Array.from({ length: lengthOf(b) }, (_, d) => readDay(b, d));
+/** Every day's amount, reading the low half straight when the high half is zero. */
+export const readSeries = (b: Buffer): bigint[] => {
+	const bytes = b.buffer.slice(b.byteOffset, b.byteOffset + b.length);
+	const words = new Uint32Array(bytes);
+	const lows = new BigUint64Array(bytes);
+
+	return Array.from({ length: lengthOf(b) }, (_, d) =>
+		words[d * 4 + 2] === 0 && words[d * 4 + 3] === 0 ? (lows[d * 2] ?? 0n) : readDay(b, d),
+	);
+};

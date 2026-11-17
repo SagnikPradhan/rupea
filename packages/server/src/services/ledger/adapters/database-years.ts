@@ -8,7 +8,7 @@ import { sql } from 'kysely';
 import { NO_AMOUNT, writeSeries } from '../domain/series';
 import { BALANCE_TYPES } from '../domain/taxonomy';
 import { Feed, PriceSource } from '../domain/types';
-import type { BalanceYear, PriceSources, PriceYear } from '../domain/worth';
+import type { PriceSources, PriceYear } from '../domain/worth';
 import { BEGINNING } from '@rupea/shared/dates.ts';
 import { deltasBetween } from './database-deltas';
 import type { HoldingKey } from './database-files';
@@ -16,49 +16,6 @@ import { amongHoldings } from './database-queries';
 
 /** How many rows one statement writes, since each carries a year of amounts. */
 const ROWS_WRITTEN = 200;
-
-type YearsOptions = { accounts: string[]; from: number; to: number };
-
-/**
- * These accounts' balance years in a span of years, and each holding's last
- * before it, whose last day carries on into it.
- */
-export const listBalanceYears = (
-	ledgerId: string,
-	{ accounts, from, to }: YearsOptions,
-): ResultAsync<BalanceYear[]> =>
-	withContext('db')((db) =>
-		attempt(async () => {
-			const columns = [
-				'y.accountId',
-				'y.accountType',
-				'y.commodity',
-				'y.year',
-				'y.balances',
-			] as const;
-			const during = db
-				.selectFrom('balanceYears as y')
-				.select(columns)
-				.where('y.ledgerId', '=', ledgerId)
-				.where((e) => anyOf(e.ref('y.accountId'), accounts, 'uuid'))
-				.where('y.year', '>=', from)
-				.where('y.year', '<=', to)
-				.execute();
-			const before = db
-				.selectFrom('balanceYears as y')
-				.select(columns)
-				.distinctOn(['y.accountId', 'y.commodity'])
-				.where('y.ledgerId', '=', ledgerId)
-				.where((e) => anyOf(e.ref('y.accountId'), accounts, 'uuid'))
-				.where('y.year', '<', from)
-				.orderBy('y.accountId')
-				.orderBy('y.commodity')
-				.orderBy('y.year', 'desc')
-				.execute();
-
-			return (await Promise.all([before, during])).flat();
-		}),
-	);
 
 /**
  * The ledger's own symbols and its links, each link holding from its since

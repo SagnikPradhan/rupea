@@ -7,10 +7,8 @@ import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { sql, type ExpressionBuilder, type SqlBool } from 'kysely';
 import type { Bucket } from '@rupea/shared/balances.ts';
-import { BEGINNING } from '@rupea/shared/dates.ts';
 import { CURRENCIES } from '@rupea/shared/money.ts';
 import type { Amount } from '../domain/amounts';
-import type { CostMove } from '../domain/cost';
 import {
 	book,
 	realised,
@@ -104,20 +102,23 @@ export const listUnmatched = (
 		),
 	);
 
-type CostMovesOptions = { accounts: string[]; to: Temporal.PlainDate };
+type LottedOptions = { to: Temporal.PlainDate };
 
-/**
- * Each day's change in what these accounts' lots cost, as lots are taken in and
- * disposals give units up at the cost of the lot they come from.
- */
-export const listCostMoves = (
+/** The holdings that had lots by a day. */
+export const listLotted = (
 	ledgerId: string,
-	{ accounts, to }: CostMovesOptions,
-): ResultAsync<CostMove[]> =>
+	{ to }: LottedOptions,
+): ResultAsync<{ accountId: string; commodity: string }[]> =>
 	withContext('db')((db) =>
 		attempt(() =>
-			costMovesBetween(db, { ledgerId, accounts, from: BEGINNING, to: to.toString() }),
-		).map((r) => r.map(moveOf)),
+			db
+				.selectFrom('lots')
+				.select(['accountId', 'commodity'])
+				.distinct()
+				.where('ledgerId', '=', ledgerId)
+				.where('date', '<=', to.toString())
+				.execute(),
+		),
 	);
 
 type CostRow = {
@@ -198,24 +199,6 @@ const costRowOf = (r: {
 	amount: r.amount as Amount,
 });
 
-type CostMovesBetween = { ledgerId: string; accounts: string[]; from: string; to: string };
-
-const costMovesBetween = (db: Database, { ledgerId, accounts, from, to }: CostMovesBetween) =>
-	costMovesOf(db, { ledgerId, accounts })
-		.select((e) => [
-			'm.accountId',
-			'm.commodity',
-			'm.costCommodity',
-			'm.date',
-			'm.paid',
-			e.fn.sum<bigint>('m.amount').as('amount'),
-		])
-		.where('m.date', '>=', from)
-		.where('m.date', '<=', to)
-		.groupBy(['m.accountId', 'm.commodity', 'm.costCommodity', 'm.date', 'm.paid'])
-		.orderBy('m.date')
-		.execute();
-
 type CostMovesBefore = { ledgerId: string; accounts: string[]; day: string };
 
 const costMovesBefore = (db: Database, { ledgerId, accounts, day }: CostMovesBefore) =>
@@ -268,24 +251,6 @@ const costMovesOf = (db: Database, { ledgerId, accounts }: CostMovesOf) =>
 			)
 			.as('m'),
 	);
-
-type MoveRow = {
-	accountId: string;
-	commodity: string;
-	costCommodity: string;
-	date: string;
-	paid: string;
-	amount: bigint;
-};
-
-const moveOf = (r: MoveRow): CostMove => ({
-	accountId: r.accountId,
-	commodity: r.commodity,
-	cost: r.costCommodity,
-	day: Temporal.PlainDate.from(r.date),
-	paid: Temporal.PlainDate.from(r.paid),
-	amount: r.amount as Amount,
-});
 
 type ListLotsOptions = { account: string; commodity: string };
 

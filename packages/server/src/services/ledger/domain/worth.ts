@@ -206,20 +206,156 @@ type RatesOnOptions = {
 };
 
 /**
- * What a unit of a commodity is worth in rupees on each of these days, in step
- * with them and priced as the day by day walk prices it, or null with no price.
- * The days are where the valuation happens, so they need not be bucket ends.
+ * What a unit of a commodity is worth in rupees on each of these days, counted
+ * from the first, in step with them and priced as the day by day walk prices
+ * it, or null with no price. The days are where the valuation happens, so they
+ * need not be bucket ends. Many days are read from every day's rate at once,
+ * and a few from the quotes alone.
  */
-export const ratesOn = (o: RatesOnOptions, days: Temporal.PlainDate[]) => {
+export const ratesOn = (o: RatesOnOptions, days: number[]) => {
 	const layout = layoutOf(o);
-	const { rateAt, rates } = ratesOf({ ...o, ...layout });
+	const { rateAt } = ratesOf({ ...o, ...layout });
+	const every = ratesEvery({ ...o, count: layout.count });
 	const daily = days.length * 2 > layout.count;
-	const indexes = days.map((d) => o.from.until(d).days);
 
 	return (commodity: string): (bigint | null)[] => {
-		const every = daily ? rates(commodity) : null;
-		return indexes.map((i) => (every ? (every[i] ?? null) : rateAt(commodity, i)));
+		const series = daily ? every(commodity) : [];
+		return days.map((i) => (daily ? (series[i] ?? null) : rateAt(commodity, i)));
 	};
+};
+
+type RatesEveryOptions = RatesOnOptions & { count: number };
+
+type Timeline = { amounts: bigint[]; quoted: Int16Array };
+
+const NOT_QUOTED = -1;
+
+const DAY_MS = 86_400_000;
+
+/**
+ * Each commodity's rupees per unit on every day of a span, read straight from
+ * the price years without a date for each day. A day with no quote carries the
+ * latest one forward from the opening price, and rupees are reached by the same
+ * hops as rateAt, rounding each step as multiply does.
+ */
+const ratesEvery = ({ prices, sources, opening, from, count }: RatesEveryOptions) => {
+	const first = Date.UTC(from.year, from.month - 1, from.day) / DAY_MS;
+	const offsetOf = (y: number) => Date.UTC(y, 0, 1) / DAY_MS - first;
+	const indexOf = (date: string | null, none: number) => {
+		if (date === null) return none;
+		if (date === '-infinity') return 0;
+		if (date === 'infinity') return count;
+
+		return Math.max(Math.min(Date.parse(date) / DAY_MS - first, count), 0);
+	};
+
+	const bySymbol = Map.groupBy(prices, (p) => p.symbolId);
+	const ownOf = new Map(sources.own.map((s) => [s.symbol, s.id]));
+	const linksOf = Map.groupBy(sources.links, (l) => l.alias);
+	const names: string[] = [];
+	const ids = new Map<string, number>();
+	const idOf = (c: string) => ids.getOrInsertComputed(c, () => names.push(c) - 1);
+
+	const timelines = new Map<string, Timeline>();
+	const timelineOf = (commodity: string) =>
+		timelines.getOrInsertComputed(commodity, () => {
+			const own = ownOf.get(commodity);
+			const windows = [
+				...(linksOf.get(commodity) ?? []).map((l) => ({
+					symbolId: l.symbolId,
+					from: indexOf(l.since, 0),
+					until: indexOf(l.until, count),
+				})),
+				...(own ? [{ symbolId: own, from: 0, until: count }] : []),
+			];
+			const amounts = new Array<bigint>(count).fill(0n);
+			const quoted = new Int16Array(count).fill(NOT_QUOTED);
+
+			windows.forEach((w) =>
+				(bySymbol.get(w.symbolId) ?? []).forEach((p) => {
+					const offset = offsetOf(p.year);
+					const id = idOf(p.priceCommodity);
+
+					readSeries(p.amounts).forEach((a, day) => {
+						const i = offset + day;
+						if (a === NO_AMOUNT || i < w.from || i >= w.until) return;
+
+						amounts[i] = a;
+						quoted[i] = id;
+					});
+				}),
+			);
+
+			const open = opening[commodity];
+			const carried = {
+				amount: open?.amount ?? 0n,
+				quote: open ? idOf(open.commodity) : NOT_QUOTED,
+			};
+			quoted.forEach((q, i) => {
+				if (q === NOT_QUOTED) {
+					amounts[i] = carried.amount;
+					quoted[i] = carried.quote;
+					return;
+				}
+
+				carried.amount = amounts[i] ?? 0n;
+				carried.quote = q;
+			});
+
+			return { amounts, quoted };
+		});
+
+	const series = new Map<string, (bigint | null)[]>();
+	const rateThrough = (commodity: string, hops: number): (bigint | null)[] =>
+		series.getOrInsertComputed(`${commodity} ${hops}`, () => {
+			if (commodity === DEFAULT_COMMODITY) return new Array(count).fill(AMOUNT_UNIT);
+			if (hops === 0) return new Array(count).fill(null);
+
+			const { amounts, quoted } = timelineOf(commodity);
+			const onward = new Map<number, (bigint | null)[]>();
+			const last = {
+				quote: NOT_QUOTED,
+				amount: 0n,
+				onward: null as bigint | null,
+				rate: null as bigint | null,
+			};
+
+			const rates = new Array<bigint | null>(count).fill(null);
+
+			for (const i of quoted.keys()) {
+				const q = quoted[i] ?? NOT_QUOTED;
+				if (q === NOT_QUOTED) continue;
+
+				const further =
+					onward.getOrInsertComputed(q, () => rateThrough(names[q] ?? '', hops - 1))[i] ?? null;
+				const amount = amounts[i] ?? 0n;
+				if (q === last.quote && amount === last.amount && further === last.onward) {
+					rates[i] = last.rate;
+					continue;
+				}
+
+				last.quote = q;
+				last.amount = amount;
+				last.onward = further;
+				last.rate = rateOf(amount, further);
+				rates[i] = last.rate;
+			}
+
+			return rates;
+		});
+
+	return (c: string) => rateThrough(c, HOPS);
+};
+
+/**
+ * What an amount quoted in a currency comes to in rupees, with the rate of the
+ * currency; a quote in rupees needs no multiplying.
+ */
+const rateOf = (amount: bigint, onward: bigint | null) => {
+	if (onward === null) return null;
+	if (onward === AMOUNT_UNIT) return amount;
+
+	return multiply(amount as Amount, onward as Amount);
 };
 
 const valueOf = (g: Held, { units, price }: { units: Amount; price: bigint | null }) => {
@@ -249,45 +385,6 @@ export const deltasOf = (endings: Ending[], bucket: Bucket): Delta[] => {
 		price: e.price,
 		unpriced: (e.value === null && e.units !== 0n ? 1 : 0) + (e.cost === null ? 1 : 0) + e.missed,
 	}));
-};
-
-/**
- * What a part's holdings of the day before were worth at that day's prices and
- * at the day before's, in step by day from the first.
- */
-export type Move = { part: string; asset: boolean; before: bigint[]; after: bigint[] };
-
-/**
- * Values each part's holdings of the day before at the prices of both days, so
- * that what changed between the two is price alone and not what was put in or
- * taken out. A holding with no price on either day counts on neither.
- */
-export const movesOf = (o: WorthOfOptions): Move[] => {
-	const layout = layoutOf(o);
-	const { count } = layout;
-	const groups = groupsOf({ ...o, ...layout });
-	const { rates } = ratesOf({ ...o, ...layout });
-
-	return Object.entries(Object.groupBy(groups, (g) => g.part)).map(([part, held = []]) => {
-		const before = Array.from({ length: count }, () => 0n);
-		const after = Array.from({ length: count }, () => 0n);
-
-		held.forEach((g) => {
-			const rate = rates(g.commodity);
-			const yesterday = valuesOf(g.units, rate);
-			const today = valuesOf([0n, ...g.units.slice(0, -1)], rate);
-
-			today.forEach((now, i) => {
-				const was = yesterday[i - 1];
-				if (i === 0 || was == null || now == null) return;
-
-				before[i] = (before[i] ?? 0n) + was;
-				after[i] = (after[i] ?? 0n) + now;
-			});
-		});
-
-		return { part, asset: held.some((g) => g.asset), before, after };
-	});
 };
 
 type Span = { count: number; offsetOf: (year: number) => number };

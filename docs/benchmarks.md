@@ -11,51 +11,51 @@ The numbers below come from 2026-11-17 on an AMD Ryzen 5 5600X (6 cores, 12 thre
 | case                                 | mean (ms) | 99th percentile (ms) | mark        |
 | ------------------------------------ | --------: | -------------------: | ----------- |
 | files edit oldest                    |       182 |                  200 | over 150 ms |
-| accounts drops all                   |       117 |                  127 |             |
 | files edit newest                    |       113 |                  129 |             |
 | accounts returns all                 |       101 |                  106 |             |
-| accounts invested 5y                 |        70 |                   73 |             |
-| accounts drops 10y                   |        67 |                   71 |             |
 | files import 100                     |        62 |                   65 |             |
+| accounts invested 5y                 |        57 |                   69 |             |
 | groups candidates in oldest          |        55 |                   56 |             |
-| accounts home bridge all             |        53 |                   62 |             |
-| accounts home worth 5y               |        48 |                   49 |             |
+| accounts home bridge all             |        51 |                   56 |             |
 | accounts expenses daily all          |        46 |                   48 |             |
-| accounts drops 5y                    |        42 |                   45 |             |
 | accounts returns year                |        40 |                   41 |             |
-| accounts income invested all         |        40 |                   42 |             |
-| accounts invested all                |        39 |                   42 |             |
-| accounts invested 10y                |        38 |                   39 |             |
+| accounts invested all                |        38 |                   49 |             |
 | files statement find latest file     |        37 |                   40 |             |
-| accounts home bridge 10y             |        35 |                   38 |             |
-| accounts invested year               |        35 |                   52 |             |
-| accounts income invested year        |        33 |                   35 |             |
-| accounts income invested month       |        27 |                   28 |             |
-| accounts invested month              |        27 |                   30 |             |
-| accounts home bridge 5y              |        27 |                   32 |             |
-| accounts holdings month              |        25 |                   26 |             |
-| accounts holdings all                |        24 |                   26 |             |
-| accounts holdings year               |        24 |                   25 |             |
-| accounts home worth all              |        22 |                   24 |             |
+| accounts invested 10y                |        37 |                   40 |             |
+| accounts income invested all         |        37 |                   40 |             |
+| accounts drops all                   |        35 |                   41 |             |
+| accounts home worth 5y               |        33 |                   38 |             |
+| accounts home bridge 10y             |        32 |                   34 |             |
+| accounts income invested year        |        31 |                   33 |             |
+| accounts invested year               |        30 |                   31 |             |
+| accounts invested month              |        28 |                   36 |             |
+| accounts income invested month       |        26 |                   27 |             |
+| accounts home bridge 5y              |        24 |                   27 |             |
+| accounts holdings all                |        23 |                   25 |             |
+| accounts holdings year               |        23 |                   24 |             |
+| accounts holdings month              |        23 |                   24 |             |
 | accounts returns month               |        21 |                   22 |             |
-| accounts drops year                  |        20 |                   21 |             |
-| accounts home bridge year            |        20 |                   21 |             |
-| accounts drops month                 |        18 |                   19 |             |
-| accounts home bridge month           |        16 |                   17 |             |
+| accounts home worth all              |        21 |                   32 |             |
+| accounts drops 10y                   |        21 |                   23 |             |
+| accounts home bridge year            |        18 |                   20 |             |
 | accounts checks                      |        15 |                   17 |             |
 | accounts expenses deltas all         |        15 |                   16 |             |
-| accounts home worth 10y              |        14 |                   25 |             |
-| accounts home worth year             |        12 |                   13 |             |
+| accounts home bridge month           |        14 |                   15 |             |
+| accounts drops 5y                    |        13 |                   16 |             |
 | accounts expenses daily year         |        11 |                   12 |             |
+| accounts home worth 10y              |        11 |                   12 |             |
 | accounts expenses deltas year        |        10 |                   13 |             |
-| accounts home worth month            |       6.5 |                   11 |             |
+| accounts home worth year             |       8.9 |                   10 |             |
 | accounts expenses deltas month       |       6.4 |                  6.8 |             |
+| accounts drops year                  |       6.2 |                  7.3 |             |
 | transactions of an account           |       5.9 |                  7.1 |             |
 | accounts expenses daily month        |       5.8 |                  6.2 |             |
+| accounts drops month                 |       5.8 |                  7.1 |             |
 | groups candidates in newest          |       5.5 |                  6.3 |             |
 | accounts liabilities deltas year     |       5.4 |                  6.4 |             |
 | transactions postings of an account  |       5.3 |                  7.5 |             |
 | accounts income deltas year          |       4.7 |                  5.6 |             |
+| accounts home worth month            |       4.7 |                  5.3 |             |
 | accounts income deltas month         |       4.5 |                  5.2 |             |
 | groups in oldest                     |       4.4 |                  4.5 |             |
 | accounts income deltas all           |       4.2 |                  5.6 |             |
@@ -79,50 +79,50 @@ The numbers below come from 2026-11-17 on an AMD Ryzen 5 5600X (6 cores, 12 thre
 
 | case                                 | mean (ms) | 99th percentile (ms) | mark        |
 | ------------------------------------ | --------: | -------------------: | ----------- |
-| accounts drops all                   |       279 |                  309 | over 150 ms |
 | files edit oldest                    |       234 |                  257 | over 150 ms |
 | accounts returns all                 |       188 |                  208 | over 150 ms |
-| accounts home bridge all             |       114 |                  117 |             |
+| accounts home bridge all             |       111 |                  119 |             |
 | files edit newest                    |       106 |                  115 |             |
-| accounts income invested all         |       103 |                  112 |             |
-| accounts invested all                |       100 |                  111 |             |
+| accounts income invested all         |        95 |                  104 |             |
+| accounts invested all                |        94 |                  106 |             |
+| accounts drops all                   |        88 |                  105 |             |
 | groups candidates in oldest          |        86 |                   90 |             |
-| accounts invested 5y                 |        77 |                   94 |             |
-| accounts drops 10y                   |        75 |                   85 |             |
-| accounts home worth all              |        73 |                   82 |             |
 | files statement find latest file     |        65 |                   67 |             |
 | files import 100                     |        62 |                   66 |             |
+| accounts home worth all              |        62 |                   64 |             |
+| accounts invested 5y                 |        61 |                   75 |             |
 | accounts checks                      |        59 |                   61 |             |
 | accounts expenses daily all          |        51 |                   54 |             |
-| accounts drops 5y                    |        50 |                   52 |             |
-| accounts home worth 5y               |        48 |                   61 |             |
-| accounts invested 10y                |        45 |                   47 |             |
-| accounts invested year               |        41 |                   60 |             |
-| accounts income invested year        |        40 |                   43 |             |
-| accounts home bridge 10y             |        38 |                   40 |             |
-| accounts invested month              |        34 |                   42 |             |
-| accounts income invested month       |        33 |                   35 |             |
-| accounts home bridge 5y              |        30 |                   31 |             |
+| accounts invested 10y                |        44 |                   46 |             |
+| accounts home bridge 10y             |        38 |                   39 |             |
+| accounts income invested year        |        37 |                   39 |             |
+| accounts invested year               |        36 |                   37 |             |
+| accounts home worth 5y               |        34 |                   46 |             |
+| accounts income invested month       |        31 |                   33 |             |
+| accounts invested month              |        31 |                   33 |             |
 | accounts returns year                |        29 |                   30 |             |
 | accounts expenses deltas all         |        29 |                   31 |             |
-| accounts drops year                  |        28 |                   29 |             |
-| accounts holdings all                |        27 |                   31 |             |
+| accounts home bridge 5y              |        27 |                   28 |             |
+| accounts holdings all                |        26 |                   29 |             |
 | accounts holdings month              |        26 |                   28 |             |
-| accounts holdings year               |        26 |                   28 |             |
 | accounts returns month               |        25 |                   27 |             |
-| accounts drops month                 |        25 |                   27 |             |
-| accounts home bridge year            |        23 |                   24 |             |
-| accounts home bridge month           |        20 |                   22 |             |
+| accounts holdings year               |        25 |                   27 |             |
+| accounts drops 10y                   |        21 |                   24 |             |
+| accounts home bridge year            |        21 |                   23 |             |
+| accounts home bridge month           |        18 |                   26 |             |
 | transactions of an account           |        16 |                   17 |             |
-| accounts home worth 10y              |        13 |                   15 |             |
-| accounts home worth year             |        12 |                   14 |             |
+| accounts drops 5y                    |        14 |                   16 |             |
+| accounts home worth 10y              |        12 |                   14 |             |
 | accounts expenses daily year         |        11 |                   13 |             |
 | accounts expenses deltas year        |        11 |                   12 |             |
+| accounts home worth year             |       9.3 |                   10 |             |
 | groups candidates in newest          |       8.5 |                  9.2 |             |
 | accounts expenses deltas month       |       8.2 |                  8.6 |             |
+| accounts drops year                  |       7.6 |                  9.6 |             |
 | accounts expenses daily month        |       7.2 |                  8.1 |             |
 | transactions postings of an account  |       6.8 |                  8.3 |             |
-| accounts home worth month            |       6.7 |                  8.0 |             |
+| accounts drops month                 |       6.2 |                  7.5 |             |
+| accounts home worth month            |       5.8 |                  6.8 |             |
 | accounts index alone                 |       5.3 |                  6.2 |             |
 | accounts liabilities deltas year     |       5.0 |                  7.1 |             |
 | accounts income deltas all           |       4.8 |                  5.3 |             |
@@ -146,77 +146,77 @@ The numbers below come from 2026-11-17 on an AMD Ryzen 5 5600X (6 cores, 12 thre
 
 ## wide
 
-| case                                 | mean (ms) | 99th percentile (ms) | mark        |
-| ------------------------------------ | --------: | -------------------: | ----------- |
-| accounts drops all                   |       180 |                  191 | over 150 ms |
-| accounts drops 10y                   |       180 |                  195 | over 150 ms |
-| accounts invested 5y                 |       148 |                  170 |             |
-| groups candidates in oldest          |       135 |                  137 |             |
-| accounts home worth 5y               |       105 |                  117 |             |
-| accounts drops 5y                    |       103 |                  114 |             |
-| files edit oldest                    |       100 |                  102 |             |
-| files import 100                     |        83 |                   88 |             |
-| files edit newest                    |        78 |                   88 |             |
-| accounts home bridge 10y             |        73 |                   77 |             |
-| accounts home bridge all             |        72 |                   79 |             |
-| accounts returns all                 |        64 |                   69 |             |
-| accounts expenses daily all          |        60 |                   64 |             |
-| accounts home bridge 5y              |        56 |                   63 |             |
-| accounts home bridge year            |        41 |                   50 |             |
-| accounts expenses deltas all         |        39 |                   40 |             |
-| accounts returns year                |        39 |                   41 |             |
-| accounts income invested year        |        38 |                   42 |             |
-| accounts returns month               |        38 |                   41 |             |
-| accounts invested all                |        37 |                   46 |             |
-| accounts invested 10y                |        35 |                   39 |             |
-| accounts income invested all         |        35 |                   37 |             |
-| accounts invested year               |        34 |                   36 |             |
-| accounts home bridge month           |        31 |                   32 |             |
-| accounts expenses deltas year        |        30 |                   37 |             |
-| accounts drops year                  |        27 |                   28 |             |
-| accounts home worth 10y              |        25 |                   34 |             |
-| accounts home worth all              |        23 |                   25 |             |
-| accounts home worth year             |        21 |                   23 |             |
-| accounts income invested month       |        20 |                   21 |             |
-| accounts invested month              |        20 |                   21 |             |
-| accounts expenses daily year         |        19 |                   21 |             |
-| accounts drops month                 |        18 |                   19 |             |
-| accounts holdings month              |        18 |                   22 |             |
-| accounts holdings all                |        17 |                   18 |             |
-| accounts holdings year               |        17 |                   19 |             |
-| accounts expenses deltas month       |        14 |                   15 |             |
-| accounts expenses daily month        |        13 |                   13 |             |
-| accounts checks                      |        12 |                   13 |             |
-| accounts home worth month            |       9.9 |                   11 |             |
-| files statement find latest file     |       8.0 |                  9.1 |             |
-| accounts index alone                 |       7.5 |                  8.5 |             |
-| accounts income deltas year          |       7.1 |                  8.7 |             |
-| accounts liabilities deltas year     |       7.0 |                  8.1 |             |
-| accounts liabilities deltas month    |       6.4 |                  7.0 |             |
-| accounts income deltas month         |       6.0 |                  6.6 |             |
-| transactions by description          |       5.8 |                  7.9 |             |
-| accounts income deltas all           |       5.4 |                  6.3 |             |
-| accounts liabilities deltas all      |       5.4 |                  6.4 |             |
-| transactions postings by description |       4.6 |                  4.7 |             |
-| files list files                     |       3.8 |                  5.1 |             |
-| transactions deep page               |       2.7 |                  4.4 |             |
-| groups in oldest                     |       2.6 |                  2.9 |             |
-| transactions newest                  |       2.6 |                  2.9 |             |
-| transactions last month              |       2.4 |                  2.5 |             |
-| groups in newest                     |       2.4 |                  2.7 |             |
-| transactions of an account           |       2.3 |                  2.9 |             |
-| accounts tree                        |       1.9 |                  2.4 |             |
-| accounts lots                        |       1.4 |                  1.9 |             |
-| transactions postings newest         |       1.3 |                  1.5 |             |
-| groups candidates in newest          |       0.9 |                  1.0 |             |
-| transactions postings of an account  |       0.9 |                  0.9 |             |
-| files aside find transaction files   |       0.4 |                  0.5 |             |
-| files read newest                    |       0.2 |                  0.2 |             |
+| case                                 | mean (ms) | 99th percentile (ms) | mark |
+| ------------------------------------ | --------: | -------------------: | ---- |
+| groups candidates in oldest          |       135 |                  137 |      |
+| accounts invested 5y                 |       106 |                  122 |      |
+| files edit oldest                    |       100 |                  102 |      |
+| files import 100                     |        83 |                   88 |      |
+| files edit newest                    |        78 |                   88 |      |
+| accounts home bridge 10y             |        73 |                   79 |      |
+| accounts home bridge all             |        70 |                   73 |      |
+| accounts returns all                 |        64 |                   69 |      |
+| accounts home worth 5y               |        63 |                   78 |      |
+| accounts expenses daily all          |        60 |                   64 |      |
+| accounts drops all                   |        56 |                   64 |      |
+| accounts drops 10y                   |        56 |                   65 |      |
+| accounts home bridge 5y              |        54 |                   60 |      |
+| accounts expenses deltas all         |        39 |                   40 |      |
+| accounts returns year                |        39 |                   41 |      |
+| accounts returns month               |        38 |                   41 |      |
+| accounts home bridge year            |        36 |                   36 |      |
+| accounts invested 10y                |        35 |                   43 |      |
+| accounts invested all                |        35 |                   45 |      |
+| accounts income invested all         |        34 |                   36 |      |
+| accounts drops 5y                    |        33 |                   40 |      |
+| accounts expenses deltas year        |        30 |                   37 |      |
+| accounts income invested year        |        29 |                   33 |      |
+| accounts home bridge month           |        27 |                   28 |      |
+| accounts invested year               |        26 |                   27 |      |
+| accounts home worth all              |        22 |                   30 |      |
+| accounts home worth 10y              |        21 |                   25 |      |
+| accounts expenses daily year         |        19 |                   21 |      |
+| accounts income invested month       |        19 |                   24 |      |
+| accounts invested month              |        17 |                   18 |      |
+| accounts holdings all                |        16 |                   17 |      |
+| accounts holdings year               |        16 |                   17 |      |
+| accounts holdings month              |        16 |                   16 |      |
+| accounts home worth year             |        15 |                   17 |      |
+| accounts expenses deltas month       |        14 |                   15 |      |
+| accounts drops year                  |        14 |                   16 |      |
+| accounts expenses daily month        |        13 |                   13 |      |
+| accounts checks                      |        12 |                   13 |      |
+| accounts drops month                 |        12 |                   14 |      |
+| accounts home worth month            |       8.9 |                   13 |      |
+| files statement find latest file     |       8.0 |                  9.1 |      |
+| accounts index alone                 |       7.5 |                  8.5 |      |
+| accounts income deltas year          |       7.1 |                  8.7 |      |
+| accounts liabilities deltas year     |       7.0 |                  8.1 |      |
+| accounts liabilities deltas month    |       6.4 |                  7.0 |      |
+| accounts income deltas month         |       6.0 |                  6.6 |      |
+| transactions by description          |       5.8 |                  7.9 |      |
+| accounts income deltas all           |       5.4 |                  6.3 |      |
+| accounts liabilities deltas all      |       5.4 |                  6.4 |      |
+| transactions postings by description |       4.6 |                  4.7 |      |
+| files list files                     |       3.8 |                  5.1 |      |
+| transactions deep page               |       2.7 |                  4.4 |      |
+| groups in oldest                     |       2.6 |                  2.9 |      |
+| transactions newest                  |       2.6 |                  2.9 |      |
+| transactions last month              |       2.4 |                  2.5 |      |
+| groups in newest                     |       2.4 |                  2.7 |      |
+| transactions of an account           |       2.3 |                  2.9 |      |
+| accounts tree                        |       1.9 |                  2.4 |      |
+| accounts lots                        |       1.4 |                  1.9 |      |
+| transactions postings newest         |       1.3 |                  1.5 |      |
+| groups candidates in newest          |       0.9 |                  1.0 |      |
+| transactions postings of an account  |       0.9 |                  0.9 |      |
+| files aside find transaction files   |       0.4 |                  0.5 |      |
+| files read newest                    |       0.2 |                  0.2 |      |
 
 ## Still over 150 ms
 
 On twenty-years: files edit oldest.
 
-On fifty-years: accounts drops all, files edit oldest, accounts returns all.
+On fifty-years: files edit oldest, accounts returns all.
 
-On wide: accounts drops all, accounts drops 10y.
+On wide: nothing.

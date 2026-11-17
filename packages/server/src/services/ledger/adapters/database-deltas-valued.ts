@@ -123,8 +123,28 @@ export const listDeltas = (
 								.where('s.commodity', '<>', base),
 						),
 				)
-				.selectFrom('valued as v')
+				.with('folded', (q) =>
+					each
+						? q.selectFrom('valued as v').selectAll()
+						: q
+								.selectFrom('valued as v')
+								.select((e) => [
+									'v.account',
+									'v.bucket',
+									sql<string>`null`.as('commodity'),
+									sql<string>`null`.as('posted'),
+									sql<string | null>`null::uuid`.as('transactionId'),
+									sql<number | null>`null::integer`.as('position'),
+									sql<bigint>`sum(${e.ref('v.amount')})`.as('amount'),
+									sql<bigint>`sum(${e.ref('v.inflow')})`.as('inflow'),
+									sql<bigint>`sum(${e.ref('v.outflow')})`.as('outflow'),
+									sql<number>`sum(${e.ref('v.unpriced')})::integer`.as('unpriced'),
+								])
+								.groupBy(['v.account', 'v.bucket']),
+				)
+				.selectFrom('folded as f')
 				.selectAll()
+				.$if(!each, (q) => q.orderBy('f.account').orderBy('f.bucket'))
 				.execute(),
 		).map((rows) =>
 			rows.map((s) => ({

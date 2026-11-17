@@ -50,8 +50,9 @@ type UnitDelta = { accountId: string; commodity: string; bucket: string; units: 
 /**
  * What these accounts gained of each commodity over a span, in units and not
  * valued, by the bucket its day falls in. A bucket of months or years reads the
- * monthly deltas for the months it holds whole, and a bucket of dates, which
- * spans at most CLOSING_DAYS, adds up the counted postings of its days.
+ * monthly deltas for the months it holds whole, and a bucket of dates adds up
+ * the counted postings of its days over the whole span, so the caller guards
+ * how long that span is.
  */
 export const listUnitDeltas = (
 	ledgerId: string,

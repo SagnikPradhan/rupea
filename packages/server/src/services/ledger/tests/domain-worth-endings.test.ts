@@ -1,4 +1,9 @@
-import { AMOUNT_UNIT, type Amount } from '#services/ledger/domain/amounts.ts';
+import {
+	AMOUNT_UNIT,
+	multiply,
+	type Amount,
+	type Quantity,
+} from '#services/ledger/domain/amounts.ts';
 import { NO_AMOUNT, writeSeries } from '#services/ledger/domain/series.ts';
 import { AccountType } from '#services/ledger/domain/types.ts';
 import {
@@ -6,6 +11,7 @@ import {
 	ratesOn,
 	worthOf,
 	type BalanceYear,
+	type PriceSources,
 	type PriceYear,
 	type WorthOfOptions,
 } from '#services/ledger/domain/worth.ts';
@@ -125,12 +131,13 @@ describe('rates at days', () => {
 	const days = Array.from({ length: options.from.until(options.to).days + 1 }, (_, i) =>
 		options.from.add({ days: i }),
 	);
+	const every = days.map((_, i) => i);
 	const endings = endingsOf(options, { days, lots: [], bought: [], paid: false });
 	const priceOn = (commodity: string, d: Temporal.PlainDate) =>
 		endings.find((e) => e.commodity === commodity && e.day.equals(d))?.price?.amount ?? null;
 
 	it('are what endingsOf prices a commodity at on every day, null with none', () => {
-		const rates = ratesOn(options, days);
+		const rates = ratesOn(options, every);
 
 		for (const commodity of ['FUND', 'BOND', 'GHOST'])
 			expect(rates(commodity)).toEqual(days.map((d) => priceOn(commodity, d)));
@@ -140,21 +147,140 @@ describe('rates at days', () => {
 	});
 
 	it('are the same on a few days as on all of them', () => {
-		const few = [days[3], days[200], days[330], days[500], days.at(-1)].filter(
-			(d) => d !== undefined,
-		);
+		const few = [3, 200, 330, 500, every.length - 1];
 		const rates = ratesOn(options, few);
 
 		expect(few).toHaveLength(5);
 		for (const commodity of ['FUND', 'BOND'])
-			expect(rates(commodity)).toEqual(few.map((d) => priceOn(commodity, d)));
+			expect(rates(commodity)).toEqual(few.map((i) => priceOn(commodity, days[i] ?? options.to)));
 	});
 
 	it('value every bucket at one day when that day is given for each', () => {
-		const last = days.at(-1) ?? options.to;
+		const last = every.length - 1;
 		const rates = ratesOn(options, [last, last, last]);
 
 		expect(new Set(rates('FUND')).size).toBe(1);
-		expect(rates('FUND')[0]).toBe(priceOn('FUND', last));
+		expect(rates('FUND')[0]).toBe(priceOn('FUND', options.to));
+	});
+});
+
+describe('exact rates on every day', () => {
+	const from = day('2024-01-01');
+	const to = day('2024-01-10');
+	const all = Array.from({ length: 10 }, (_, i) => i);
+	const big = 2n ** 70n + 12_345n;
+	const row = (
+		symbolId: string,
+		priceCommodity: string,
+		amounts: (bigint | null)[],
+	): PriceYear => ({
+		symbolId,
+		priceCommodity,
+		year: 2024,
+		amounts: writeSeries(Array.from({ length: 366 }, (_, i) => amounts[i] ?? NO_AMOUNT)),
+	});
+	const read = (o: {
+		prices?: PriceYear[];
+		sources?: PriceSources;
+		opening?: Record<string, Quantity>;
+	}) => ratesOn({ from, to, prices: [], sources: { own: [], links: [] }, opening: {}, ...o }, all);
+
+	it('keep amounts wider than a machine word, and round a hop as multiply does', () => {
+		const rates = read({
+			prices: [row('a', 'USD', [units(2)]), row('u', 'INR', [big])],
+			sources: {
+				own: [
+					{ id: 'a', symbol: 'ACME' },
+					{ id: 'u', symbol: 'USD' },
+				],
+				links: [],
+			},
+		});
+
+		expect(rates('USD')[0]).toBe(big);
+		expect(rates('ACME')[0]).toBe(multiply(units(2) as Amount, big as Amount));
+		expect(rates('ACME')[9]).toBe(rates('ACME')[0]);
+	});
+
+	it('carry the latest quote over gaps, and the opening price before the first', () => {
+		const rates = read({
+			prices: [row('a', 'INR', [null, null, units(5), null, units(7)])],
+			sources: { own: [{ id: 'a', symbol: 'ACME' }], links: [] },
+			opening: { ACME: { amount: units(4) as Amount, commodity: 'INR' } },
+		});
+
+		expect(rates('ACME').map((r) => r && r / AMOUNT_UNIT)).toEqual([
+			4n,
+			4n,
+			5n,
+			5n,
+			7n,
+			7n,
+			7n,
+			7n,
+			7n,
+			7n,
+		]);
+	});
+
+	it('hold a link only between its days, from the start and for good when open', () => {
+		const sources = {
+			own: [],
+			links: [
+				{ alias: 'ACME', symbolId: 'early', since: '-infinity', until: '2024-01-04' },
+				{ alias: 'ACME', symbolId: 'late', since: '2024-01-04', until: null },
+				{ alias: 'OPEN', symbolId: 'early', since: null, until: 'infinity' },
+			],
+		};
+		const rates = read({
+			prices: [
+				row('early', 'INR', [1, 2, 3, 4, 5].map(units)),
+				row('late', 'INR', [null, null, null, units(50), units(60)]),
+			],
+			sources,
+		});
+
+		expect(rates('ACME').map((r) => r && r / AMOUNT_UNIT)).toEqual([
+			1n,
+			2n,
+			3n,
+			50n,
+			60n,
+			60n,
+			60n,
+			60n,
+			60n,
+			60n,
+		]);
+		expect(rates('OPEN').map((r) => r && r / AMOUNT_UNIT)).toEqual([
+			1n,
+			2n,
+			3n,
+			4n,
+			5n,
+			5n,
+			5n,
+			5n,
+			5n,
+			5n,
+		]);
+	});
+
+	it('reach rupees in two hops and no more', () => {
+		const rates = read({
+			prices: [row('a', 'B', [units(2)]), row('b', 'C', [units(3)]), row('c', 'INR', [units(5)])],
+			sources: {
+				own: [
+					{ id: 'a', symbol: 'A' },
+					{ id: 'b', symbol: 'B' },
+					{ id: 'c', symbol: 'C' },
+				],
+				links: [],
+			},
+		});
+
+		expect(rates('C')[0]).toBe(units(5));
+		expect(rates('B')[0]).toBe(units(15));
+		expect(rates('A')[0]).toBeNull();
 	});
 });

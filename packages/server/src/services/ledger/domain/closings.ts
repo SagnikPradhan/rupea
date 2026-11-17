@@ -1,7 +1,8 @@
-import { bucketKeyOf, type Bucket } from '@rupea/shared/balances.ts';
-import { multiply, type Amount } from './amounts';
+import type { Bucket, Measure } from '@rupea/shared/balances.ts';
+import type { Span } from '@rupea/shared/dates.ts';
+import { AMOUNT_UNIT, multiply, type Amount, type Quantity } from './amounts';
 import { lotKeyOf, type Costed, type Lots } from './closings-lots';
-import type { Delta } from './deltas';
+import type { Delta, Series } from './deltas';
 
 /**
  * What one account held of one commodity before a span, and what it gained of
@@ -40,12 +41,49 @@ export const holdingsOf = (
 	return [...held.values()];
 };
 
+const DAY_MS = 86_400_000;
+
+const KEY_LENGTH = { date: 10, month: 7, year: 4 };
+
+type Closes = { keys: string[]; days: number[] };
+
+/** Every day of a span, counted in days from the span's start, with no keys. */
+export const daysOf = ({ from, to }: Span): Closes => ({
+	keys: [],
+	days: Array.from({ length: from.until(to).days + 1 }, (_, n) => n),
+});
+
+/**
+ * The last day of each bucket of a span, cut short at the span's end: its key,
+ * and how many days it is from the span's start.
+ */
+export const closesOf = ({ from, to }: Span, bucket: Exclude<Bucket, 'day'>): Closes => {
+	const first = Date.UTC(from.year, from.month - 1, from.day) / DAY_MS;
+	const last = Date.UTC(to.year, to.month - 1, to.day) / DAY_MS;
+	const lasts = {
+		date: () => Array.from({ length: last - first + 1 }, (_, n) => first + n),
+		month: () =>
+			Array.from({ length: (to.year - from.year) * 12 + to.month - from.month + 1 }, (_, n) =>
+				Math.min(Date.UTC(from.year, from.month + n, 0) / DAY_MS, last),
+			),
+		year: () =>
+			Array.from({ length: to.year - from.year + 1 }, (_, n) =>
+				Math.min(Date.UTC(from.year + n + 1, 0, 0) / DAY_MS, last),
+			),
+	}[bucket]();
+
+	return {
+		keys: lasts.map((d) => new Date(d * DAY_MS).toISOString().slice(0, KEY_LENGTH[bucket])),
+		days: lasts.map((d) => d - first),
+	};
+};
+
 type ClosingsOptions = {
 	base: string;
-	bucket: Bucket;
-	ends: Temporal.PlainDate[];
+	keys: string[];
+	measures: Measure[];
 	lots?: Record<string, Lots>;
-	/** A commodity's rate in the base on each valuation day, in step with ends. */
+	/** A commodity's rate in the base on each valuation day, in step with keys. */
 	ratesFor: (commodity: string) => (bigint | null)[];
 };
 
@@ -56,13 +94,13 @@ type ClosingsOptions = {
  * days they were paid for. A holding with units and no rate counts nothing and
  * is one unpriced, and so is one whose cost had no rate or whose lots were paid
  * for with none; a row counts a holding once, and the holdings that went
- * unpriced come back beside the rows.
+ * unpriced come back beside the rows. A value or price nobody asked for is left
+ * alone.
  */
 export const closingsOf = (
 	holdings: Holding[],
-	{ base, bucket, ends, lots = {}, ratesFor }: ClosingsOptions,
+	{ base, keys, measures, lots = {}, ratesFor }: ClosingsOptions,
 ): { rows: Delta[]; unpriced: Holding[] } => {
-	const keys = ends.map(bucketKeyOf[bucket]);
 	const order = new Map(keys.map((k, n) => [k, n]));
 	const costed = Object.values(lots).flatMap((l) => Object.keys(l.costs));
 	const rates = new Map(
@@ -71,7 +109,7 @@ export const closingsOf = (
 			.map((c) => [c, ratesFor(c)]),
 	);
 	const prices = new Map(
-		[...rates].map(([c, r]) => [c, r.map((x) => (x === null ? null : quoted(x, base)))]),
+		[...rates].map(([c, r]) => [c, measures.includes('price') ? pricesOf(r, base) : []]),
 	);
 	const unpriced = new Set<Holding>();
 
@@ -79,7 +117,7 @@ export const closingsOf = (
 		const lot = lots[lotKeyOf(h.account, h.commodity)];
 		const units = runningOf(h, order);
 		const rateOn = rates.get(h.commodity);
-		const values = rateOn ? valuesOf(units, rateOn) : units;
+		const values = measures.includes('value') ? valuesOf(units, rateOn) : [];
 		const paid = lot ? runningOf(lot.paid, order) : [];
 		const costs = Object.entries(lot?.costs ?? {}).map(
 			([c, k]) => [c, runningOf(k, order)] as const,
@@ -87,16 +125,16 @@ export const closingsOf = (
 		const priceOn = prices.get(h.commodity);
 
 		return keys.map((key, n) => {
-			const value = values[n] ?? null;
 			const cost = costs.length ? costOf(costs, { n, base, rates }) : 0n;
-			const failed = value === null || cost === null || (lot?.unpriced.size ?? 0) > 0;
+			const unrated = rateOn !== undefined && units[n] !== 0n && (rateOn[n] ?? null) === null;
+			const failed = unrated || cost === null || (lot?.unpriced.size ?? 0) > 0;
 			if (failed) unpriced.add(h);
 
 			return {
 				account: h.account,
 				commodity: h.commodity,
 				bucket: key,
-				value: (value ?? 0n) as Amount,
+				value: (values[n] ?? 0n) as Amount,
 				inflow: 0n as Amount,
 				outflow: 0n as Amount,
 				units: units[n] as Amount,
@@ -109,6 +147,100 @@ export const closingsOf = (
 	});
 
 	return { rows, unpriced: [...unpriced] };
+};
+
+type SeriesOptions = {
+	base: string;
+	span: Span;
+	ratesFor: (commodity: string) => (bigint | null)[];
+};
+
+const SCALE = Number(AMOUNT_UNIT);
+
+/**
+ * The units and price of each holding on every day from the first, as floats,
+ * and the holdings that had units on a day with no price. A commodity's price
+ * is one array shared by the holdings of it.
+ */
+export const seriesOf = (
+	holdings: Holding[],
+	{ base, span, ratesFor }: SeriesOptions,
+): { series: Series[]; unpriced: Holding[] } => {
+	const count = span.from.until(span.to).days + 1;
+	const first = Date.UTC(span.from.year, span.from.month - 1, span.from.day) / DAY_MS;
+	const prices = new Map<string, Float64Array>();
+	const priceOn = (c: string) =>
+		prices.getOrInsertComputed(c, () =>
+			c === base ? new Float64Array(count).fill(1) : pricesFrom(ratesFor(c), count),
+		);
+
+	const series = holdings.map((h) => ({
+		account: h.account,
+		commodity: h.commodity,
+		units: unitsOn(h, { first, count }),
+		prices: priceOn(h.commodity),
+	}));
+	const unpriced = holdings.filter((_, i) => {
+		const s = series[i];
+		return (
+			s?.prices.some(Number.isNaN) && s.units.some((u, d) => u !== 0 && Number.isNaN(s.prices[d]))
+		);
+	});
+
+	return { series, unpriced };
+};
+
+/**
+ * Rates as floats, with no rate as NaN, and one conversion to the days that
+ * share a rate.
+ */
+const pricesFrom = (rates: (bigint | null)[], count: number) => {
+	const prices = new Float64Array(count);
+	const last: { rate: bigint | null; price: number } = { rate: null, price: Number.NaN };
+
+	for (const i of prices.keys()) {
+		const r = rates[i] ?? null;
+		if (r !== last.rate) {
+			last.rate = r;
+			last.price = r === null ? Number.NaN : Number(r) / SCALE;
+		}
+		prices[i] = last.price;
+	}
+
+	return prices;
+};
+
+/** The opening plus the gains up to each day from the first, as floats. */
+const unitsOn = (
+	{ opening, gains }: Holding,
+	{ first, count }: { first: number; count: number },
+) => {
+	const units = new Float64Array(count).fill(Number(opening) / SCALE);
+	const moves = Object.entries(gains)
+		.map(([key, gain]) => ({ at: Date.parse(key) / DAY_MS - first, gain }))
+		.toSorted((a, b) => a.at - b.at);
+
+	moves.reduce((held, move, i) => {
+		const now = (held + move.gain) as Amount;
+		units.fill(Number(now) / SCALE, move.at, moves[i + 1]?.at ?? count);
+		return now;
+	}, opening);
+
+	return units;
+};
+
+/** A rate as a price, one price to the days that share a rate. */
+const pricesOf = (rates: (bigint | null)[], base: string) => {
+	const last: { rate: bigint | null; price: Quantity | null } = { rate: null, price: null };
+
+	return rates.map((r) => {
+		if (r === last.rate) return last.price;
+
+		last.rate = r;
+		last.price = r === null ? null : quoted(r, base);
+
+		return last.price;
+	});
 };
 
 const quoted = (r: bigint, b: string) => ({ amount: r as Amount, commodity: b });
@@ -133,10 +265,13 @@ const runningOf = ({ opening, gains }: Costed, order: Map<string, number>) => {
 };
 
 /**
- * Units valued at each day's rate, or null with units and no rate. A day
- * unchanged keeps the last value.
+ * Units valued at each day's rate, or null with units and no rate, and the
+ * units themselves for the base, which has no rates. A day unchanged keeps the
+ * last value.
  */
-const valuesOf = (units: Amount[], rates: (bigint | null)[]) => {
+const valuesOf = (units: Amount[], rates: (bigint | null)[] | undefined) => {
+	if (!rates) return units;
+
 	const values: (Amount | null)[] = [];
 	units.forEach((u, n) => {
 		const same = n > 0 && u === units[n - 1] && rates[n] === rates[n - 1];

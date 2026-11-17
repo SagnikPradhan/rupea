@@ -34,46 +34,37 @@ describe('deltas', () => {
 			expect((await read('EXPENSES'))._unsafeUnwrap().succeeded[0]?.rows).toEqual([]);
 		}));
 
-	it('refuses a change read by date over five years, and allows exactly 1827 days', ({
-		context,
-		db,
-	}) =>
+	it('refuses a date bucket over 1827 days, and allows exactly 1827 days', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
-			const content = ['2020-01-01 Salary', '\tAssets:Bank 500', '\tIncome:Salary', ''].join('\n');
-			await Files.createFile({ ledger, key: 'a.rupea', content });
-			const read = (start: string, end: string) =>
-				Deltas.listDeltas({
+			await Files.createFile({
+				ledger,
+				key: 'a.rupea',
+				content: '2020-01-01 Fund\n\tAssets:Bank 5\n\tIncome:Gift\n',
+			});
+			const refusal = (start: string, bucket: Bucket, account?: string) =>
+				Deltas.refusalOn({
 					ledger,
 					from: Temporal.PlainDate.from(start),
-					to: Temporal.PlainDate.from(end),
-					bucket: 'date',
+					to: Temporal.PlainDate.from('2025-01-02'),
+					account,
+					bucket,
 				});
 
-			const long = await read('2020-01-01', '2025-01-02');
-			const year = await read('2020-01-01', '2025-01-01');
-			const beginning = await read(BEGINNING, '2025-01-02');
-
-			expect(long._unsafeUnwrapErr()).toEqual({ type: 'SpanTooLong', days: 1828, most: 1827 });
-			expect(year.isOk()).toBe(true);
-			expect(beginning._unsafeUnwrapErr()).toMatchObject({ type: 'SpanTooLong', most: 1827 });
-		}));
-
-	it('refuses a change read by date over five years before reading anything', async ({
-		context,
-		db,
-	}) =>
-		provide(context, async () => {
-			const ledger = { ...(await createLedger(db)), id: 'missing' };
-
-			const read = await Deltas.listDeltas({
-				ledger,
-				from: Temporal.PlainDate.from('2020-01-01'),
-				to: Temporal.PlainDate.from('2025-01-02'),
-				bucket: 'date',
+			expect((await refusal('2020-01-01', 'date'))._unsafeUnwrapErr()).toEqual({
+				type: 'SpanTooLong',
+				days: 1828,
+				most: 1827,
 			});
-
-			expect(read._unsafeUnwrapErr()).toEqual({ type: 'SpanTooLong', days: 1828, most: 1827 });
+			expect((await refusal(BEGINNING, 'date'))._unsafeUnwrapErr()).toEqual({
+				type: 'SpanTooLong',
+				days: 1828,
+				most: 1827,
+			});
+			expect((await refusal('2020-01-02', 'date')).isOk()).toBe(true);
+			expect((await refusal(BEGINNING, 'date', 'Expenses')).isOk()).toBe(true);
+			expect((await refusal(BEGINNING, 'month')).isOk()).toBe(true);
+			expect((await refusal('2020-01-01', 'year')).isOk()).toBe(true);
 		}));
 });
 
@@ -661,10 +652,7 @@ describe('deltas by posting and at cost', () => {
 			expect(await read('then')).toBe(450_0000000000n);
 		}));
 
-	it('is not refused over 1827 days by date when read long, and still is when not', ({
-		context,
-		db,
-	}) =>
+	it('reads a span of dates over 1827 days, the days that had deltas only', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({
@@ -679,10 +667,178 @@ describe('deltas by posting and at cost', () => {
 				bucket: 'date',
 			} as const;
 
-			const long = await Deltas.listLongDeltas(read);
-			const short = await Deltas.listDeltas(read);
+			const rows = (await Deltas.listDeltas(read))._unsafeUnwrap().succeeded[0]?.rows;
 
-			expect(long.isOk()).toBe(true);
-			expect(short._unsafeUnwrapErr()).toEqual({ type: 'SpanTooLong', days: 1828, most: 1827 });
+			expect(rows?.filter((r) => r.account === 'Assets:Bank')).toMatchObject([
+				{ bucket: '2020-01-01', value: 500_0000000000n },
+			]);
+		}));
+
+	it('closes every day of a balances read over 1827 days', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({
+				ledger,
+				key: 'a.rupea',
+				content: '2020-01-01 Pay\n\tAssets:Bank 500\n\tIncome:Salary\n',
+			});
+			const read = {
+				ledger,
+				from: Temporal.PlainDate.from('2020-01-01'),
+				to: Temporal.PlainDate.from('2025-01-02'),
+				bucket: 'date',
+				account: 'Assets:Bank',
+			} as const;
+
+			const balances = (await Deltas.listBalances(read))._unsafeUnwrap().succeeded[0];
+
+			const bank = balances?.rows.filter((r) => r.account === 'Assets:Bank');
+
+			expect(bank).toHaveLength(1829);
+			expect(bank?.at(-1)).toMatchObject({ bucket: '2025-01-02', value: 500_0000000000n });
+		}));
+
+	it('still refuses a balances read that runs backwards', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+
+			const read = await Deltas.listBalances({
+				ledger,
+				from: Temporal.PlainDate.from('2025-01-02'),
+				to: Temporal.PlainDate.from('2020-01-01'),
+				bucket: 'date',
+			});
+
+			expect(read._unsafeUnwrapErr()).toMatchObject({ type: 'SpanReversed' });
+		}));
+});
+
+describe('balances of a list of accounts', () => {
+	const from = Temporal.PlainDate.from('2026-10-01');
+	const to = Temporal.PlainDate.from('2026-10-03');
+	const content = [
+		'2026-10-02 Fund',
+		'\tAssets:Bank:Savings 5',
+		'\tAssets:Cash 7',
+		'\tAssets:Broker 11',
+		'\tIncome:Gift',
+		'',
+	].join('\n');
+
+	it('reads each account named and everything under it, and no other', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const read = await Deltas.listBalances({
+				ledger,
+				from,
+				to,
+				bucket: 'date',
+				accounts: ['Assets:Bank', 'assets:cash'],
+			});
+			const rows = read._unsafeUnwrap().succeeded[0]?.rows ?? [];
+
+			expect([...new Set(rows.map((r) => r.account))]).toEqual([
+				'Assets',
+				'Assets:Bank:Savings',
+				'Assets:Cash',
+			]);
+			expect(rows.find((r) => r.account === 'Assets')?.value).toBe(12_0000000000n);
+		}));
+
+	it('fails for the first account that is not there, and reads none when the list is empty', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+			const read = (accounts: string[]) =>
+				Deltas.listBalances({ ledger, from, to, bucket: 'date', accounts });
+
+			expect((await read(['Assets:Cash', 'Assets:Nope']))._unsafeUnwrapErr()).toEqual({
+				type: 'AccountNotFound',
+				account: 'Assets:Nope',
+			});
+			expect((await read(['Liabilities'])).isOk()).toBe(true);
+			expect((await read([]))._unsafeUnwrap().succeeded[0]?.rows).toEqual([]);
+		}));
+
+	it('reads only the accounts named, none under them, when exact', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const read = await Deltas.listBalances({
+				ledger,
+				from,
+				to,
+				bucket: 'date',
+				accounts: ['assets:bank', 'Assets:Cash'],
+				exact: true,
+				measures: ['units'],
+			});
+			const rows = read._unsafeUnwrap().succeeded[0]?.rows ?? [];
+
+			expect([...new Set(rows.map((r) => r.account))].toSorted()).toEqual([
+				'Assets',
+				'Assets:Cash',
+			]);
+		}));
+
+	it('refuses a series of any bucket but the date', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+			const read = (bucket: Bucket) =>
+				Deltas.listBalances({
+					ledger,
+					from,
+					to,
+					bucket,
+					measures: ['units', 'price'],
+					series: true,
+				});
+			const refused = { type: 'InvalidRequest', field: 'series', reason: 'unreadable' };
+
+			expect((await read('month'))._unsafeUnwrapErr()).toEqual(refused);
+			expect((await read('year'))._unsafeUnwrapErr()).toEqual(refused);
+			expect((await read('date')).isOk()).toBe(true);
+		}));
+
+	it('gives the units and price of each holding on every day as floats beside no rows, when asked', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({
+				ledger,
+				key: 'a.rupea',
+				content: [
+					'2026-10-02 Buy',
+					'\tAssets:Broker 4 USD @ 80',
+					'\tAssets:Bank',
+					'',
+					'P 2026-10-03 USD 90',
+					'',
+				].join('\n'),
+			});
+
+			const read = await Deltas.listBalances({
+				ledger,
+				from,
+				to,
+				bucket: 'date',
+				measures: ['units', 'price'],
+				series: true,
+			});
+			const balances = read._unsafeUnwrap().succeeded[0];
+			const usd = balances?.series?.find((s) => s.commodity === 'USD');
+
+			expect(balances?.rows).toEqual([]);
+			expect(usd?.units).toEqual(Float64Array.from([4, 4]));
+			expect(usd?.prices).toEqual(Float64Array.from([80, 90]));
 		}));
 });

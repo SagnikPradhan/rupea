@@ -62,7 +62,7 @@ describe('accounts', () => {
 				Deltas.listBalances({
 					ledger,
 					...span,
-					account,
+					accounts: [account],
 					bucket: closingBucketIn(span),
 					measures: ['value', 'paid', 'units'],
 				}),

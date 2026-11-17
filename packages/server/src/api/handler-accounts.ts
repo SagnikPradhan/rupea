@@ -42,9 +42,15 @@ const listBalances = os.accounts.listBalances
 			await inLedger({
 				handle,
 				action: (l) =>
-					accumulate === 'historical'
-						? Deltas.listBalances({ ledger: l, ...options })
-						: Deltas.listDeltas({ ledger: l, ...options }),
+					Deltas.refusalOn({ ledger: l, ...options }).andThen(() =>
+						accumulate === 'historical'
+							? Deltas.listBalances({
+									ledger: l,
+									...options,
+									accounts: options.account === undefined ? undefined : [options.account],
+								})
+							: Deltas.listDeltas({ ledger: l, ...options }),
+					),
 			}),
 		),
 	);

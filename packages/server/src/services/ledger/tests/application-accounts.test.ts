@@ -1380,6 +1380,41 @@ describe('invested', () => {
 			expect(balances.failed).toContainEqual({ type: 'CostUnpriced', commodity: 'USD' });
 		}));
 
+	it('fails an account once for a cost with no rate, however many buckets it spans', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = [
+				'P 2026-01-01 AAPL 150',
+				'2026-01-02 Buy',
+				'\tAssets:IBKR 2 AAPL @ 100 USD',
+				'\tAssets:Bank -200 USD',
+				'',
+			].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const balances = (
+				await Deltas.listBalances({
+					ledger,
+					from: Temporal.PlainDate.from('2026-01-01'),
+					to: Temporal.PlainDate.from('2026-03-31'),
+					bucket: 'month',
+					account: 'Assets:IBKR',
+					measures: ['cost', 'units'],
+				})
+			)._unsafeUnwrap();
+			const rows = balances.succeeded[0]?.rows.filter(
+				(r) => r.account === 'Assets:IBKR' && r.commodity === 'AAPL',
+			);
+
+			expect(rows?.map((r) => r.unpriced)).toEqual([1, 1, 1]);
+			expect(balances.failed.filter((f) => f.type === 'BalanceUnpriced')).toEqual([
+				{ type: 'BalanceUnpriced', account: 'Assets:IBKR', unpriced: 1 },
+			]);
+		}));
+
 	describe('unmatched sales', () => {
 		const sold = [
 			'2026-01-01 Buy',
@@ -1393,7 +1428,12 @@ describe('invested', () => {
 			'',
 		].join('\n');
 
-		const failures = async (ledger: Ledger, account: string, to: string) =>
+		const failures = async (
+			ledger: Ledger,
+			account: string,
+			to: string,
+			measures: Measure[] = ['cost'],
+		) =>
 			(
 				await Deltas.listBalances({
 					ledger,
@@ -1401,7 +1441,7 @@ describe('invested', () => {
 					to: Temporal.PlainDate.from(to),
 					bucket: 'month',
 					account,
-					measures: ['cost'],
+					measures,
 				})
 			)
 				._unsafeUnwrap()
@@ -1413,6 +1453,14 @@ describe('invested', () => {
 				await Files.createFile({ ledger, key: 'a.rupea', content: sold });
 
 				expect(await failures(ledger, 'Assets:Zerodha', '2026-01-31')).toHaveLength(1);
+			}));
+
+		it('fails a read of paid as it does of cost', ({ context, db }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				await Files.createFile({ ledger, key: 'a.rupea', content: sold });
+
+				expect(await failures(ledger, 'Assets:Zerodha', '2026-01-31', ['paid'])).toHaveLength(1);
 			}));
 
 		it('does not fail a read of other accounts', ({ context, db }) =>
@@ -1674,5 +1722,155 @@ describe('bridge', () => {
 			await Files.createFile({ ledger, key: 'a.rupea', content: '' });
 
 			expect(await crossed(ledger)).toBeUndefined();
+		}));
+});
+
+describe('balances as a running sum of deltas', () => {
+	const content = [
+		'2026-01-05 Salary\n\tAssets:Bank 100000\n\tIncome:Salary\n',
+		'2026-02-01 Dinner\n\tExpenses:Food 2000\n\tLiabilities:Card\n',
+		'2026-03-02 Fund\n\tAssets:IBKR 10 USD @ 83\n\tAssets:Bank\n',
+		'2026-04-10 Buy\n\tAssets:Zerodha 3 INFY @ 1500\n\tAssets:Bank\n',
+		'2026-04-20 Pay\n\tLiabilities:Card 2000\n\tAssets:Bank\n',
+		'P 2026-03-10 USD 85\n',
+		'P 2026-04-01 USD 90\n',
+		'P 2026-04-15 INFY 1600\n',
+		'P 2026-05-20 INFY 1700\n',
+	].join('\n');
+	const to = Temporal.PlainDate.from('2026-05-31');
+
+	const read = async (
+		ledger: Ledger,
+		o: { from: string; bucket: Exclude<Bucket, 'day'>; measures: Measure[] },
+	) =>
+		(
+			await Deltas.listBalances({ ledger, ...o, from: Temporal.PlainDate.from(o.from), to })
+		)._unsafeUnwrap();
+
+	const held = async (ledger: Ledger, o: { from: string; bucket: Exclude<Bucket, 'day'> }) => {
+		const running = await read(ledger, { ...o, measures: ['value', 'units'] });
+		const walked = await read(ledger, { ...o, measures: ['value', 'units', 'cost'] });
+		const shown = (b: typeof running) =>
+			b.succeeded[0]?.rows.map((r) => [
+				r.account,
+				r.commodity,
+				r.bucket,
+				r.value,
+				r.units,
+				r.unpriced,
+			]);
+
+		return { running: shown(running), walked: shown(walked), span: running.succeeded[0] };
+	};
+
+	it.for(['date', 'month', 'year'] as const)(
+		'reads the same by %s as walking each day, from the first day or after it',
+		async (bucket, { context, db }) =>
+			provide(context, async () => {
+				const ledger = await createLedger(db);
+				await Files.createFile({ ledger, key: 'a.rupea', content });
+
+				for (const from of [BEGINNING, '2026-01-01', '2026-03-15', '2026-05-25']) {
+					const { running, walked } = await held(ledger, { from, bucket });
+
+					expect(running?.length).toBeGreaterThan(0);
+					expect(running).toEqual(walked);
+				}
+			}),
+	);
+
+	it('starts from what the accounts held before a span that begins after the first day', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const { span } = await held(ledger, { from: '2026-05-25', bucket: 'date' });
+			const bank = span?.rows.filter((r) => r.account === 'Assets:Bank' && r.commodity === 'INR');
+
+			expect(span?.from.toString()).toBe('2026-05-25');
+			expect(bank?.map((r) => [r.bucket, r.value, r.units])).toEqual(
+				['25', '26', '27', '28', '29', '30', '31'].map((d) => [
+					`2026-05-${d}`,
+					92670_0000000000n,
+					92670_0000000000n,
+				]),
+			);
+		}));
+
+	it('values each bucket at the prices of its last day', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const rows = (
+				await read(ledger, { from: BEGINNING, bucket: 'month', measures: ['value', 'units'] })
+			).succeeded[0]?.rows;
+			const usd = rows?.filter((r) => r.account === 'Assets:IBKR' && r.commodity === 'USD');
+
+			expect(usd?.map((r) => [r.bucket, r.units, r.value])).toEqual([
+				['2026-01', 0n, 0n],
+				['2026-02', 0n, 0n],
+				['2026-03', 10_0000000000n, 850_0000000000n],
+				['2026-04', 10_0000000000n, 900_0000000000n],
+				['2026-05', 10_0000000000n, 900_0000000000n],
+			]);
+		}));
+
+	it('fails each account holding a commodity with no price on a bucket’s last day', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const unpriced = [
+				'2026-01-02 Gift\n\tAssets:Zerodha 2 TCS\n\tIncome:Gifts -2 TCS\n',
+				'2026-01-03 Gift\n\tAssets:Groww 1 TCS\n\tAssets:Groww 1 MIRAE\n\tIncome:Gifts -1 TCS\n\tIncome:Gifts -1 MIRAE\n',
+				'P 2026-01-20 MIRAE 40\n',
+			].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content: unpriced });
+
+			const balances = await read(ledger, {
+				from: '2026-01-01',
+				bucket: 'month',
+				measures: ['value', 'units'],
+			});
+			const rows = balances.succeeded[0]?.rows;
+			const tcs = rows?.find((r) => r.account === 'Assets:Zerodha' && r.commodity === 'TCS');
+
+			expect(tcs).toMatchObject({ units: 2_0000000000n, value: 0n, unpriced: 1 });
+			expect(balances.failed.filter((f) => f.type === 'BalanceUnpriced')).toEqual([
+				{ type: 'BalanceUnpriced', account: 'Assets:Groww', unpriced: 1 },
+				{ type: 'BalanceUnpriced', account: 'Assets:Zerodha', unpriced: 1 },
+			]);
+		}));
+
+	it('does not fail an account whose priced commodities are all valued', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const balances = await read(ledger, {
+				from: BEGINNING,
+				bucket: 'month',
+				measures: ['value'],
+			});
+
+			expect(balances.failed).toEqual([]);
+		}));
+
+	it('needs no balance years, only the monthly deltas', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+			const before = await read(ledger, { from: BEGINNING, bucket: 'month', measures: ['value'] });
+
+			await db.deleteFrom('balanceYears').where('ledgerId', '=', ledger.id).execute();
+			const after = await read(ledger, { from: BEGINNING, bucket: 'month', measures: ['value'] });
+
+			expect(before.succeeded[0]?.rows.length).toBeGreaterThan(0);
+			expect(after).toEqual(before);
 		}));
 });

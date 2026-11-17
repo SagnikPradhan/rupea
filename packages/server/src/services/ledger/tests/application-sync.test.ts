@@ -12,7 +12,7 @@ import { MODEL } from '#services/ledger/adapters/prediction-model2vec.ts';
 import * as Files from '#services/ledger/application/files.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
 import * as Sync from '#services/ledger/application/sync.ts';
-import { checkLots } from '#services/ledger/application/sync-after.ts';
+import { checkLots } from '#services/ledger/application/checks.ts';
 import * as Transactions from '#services/ledger/application/transactions.ts';
 import { INDEXER } from '#services/ledger/domain/sync.ts';
 import { Feed, PriceSource } from '#services/ledger/domain/types.ts';

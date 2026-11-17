@@ -71,99 +71,109 @@ export const balancesOf = (
 	deltas: Delta[],
 	{ span, base, bucket, aggregate, measures, parents }: BalancesOfOptions,
 ): Balances => {
-	const drawn = rolledUp(deltas, isByCommodity(measures)).filter((d) =>
-		Object.hasOwn(parents, d.account),
-	);
-	const averages = aggregate === 'average' && bucket === 'day';
-	const times = averages ? monthsByDay(span) : {};
-	const rows = averages ? drawn.map((d) => averaged(d, times)) : drawn;
+	const rows = rolledUp(deltas, { byCommodity: isByCommodity(measures), measures, parents });
+	if (aggregate === 'average' && bucket === 'day') rows.forEach(averaged(monthsByDay(span)));
 
-	return { from: span.from, to: span.to, base, rows: rows.map((r) => measured(r, measures)) };
+	return { from: span.from, to: span.to, base, rows };
+};
+
+type Column = { account: string; totals: Row[] };
+
+type RolledUpOptions = {
+	byCommodity: boolean;
+	measures: Measure[];
+	parents: Record<string, string | null>;
 };
 
 /**
  * Each account's gain and its parents', by path, bucket and then commodity when
- * they are told apart. Each amount counts once for its own account and once for
- * each parent, which adds up the accounts under it.
+ * they are told apart, for the accounts there are, with the measures asked for.
+ * Each amount counts once for its own account and once for each parent, which
+ * adds up the accounts under it.
  */
-const rolledUp = (deltas: Delta[], byCommodity: boolean): Delta[] => {
-	const chains = new Map<string, string[]>();
-	const totals = new Map<string, Map<string, Map<string, Delta>>>();
+const rolledUp = (deltas: Delta[], { byCommodity, measures, parents }: RolledUpOptions) => {
+	const added = measures.filter(isAdded);
+	const priced = measures.includes('price');
+	const totals = new Map<string, Map<string, Row[]>>();
+	const places = new Map<string, number>();
+	const helds = new Set<string>();
+	const run = { account: '', held: '', columns: [] as Column[] };
+
+	const columnsOf = (leaf: string, held: string) =>
+		parentsOf(leaf).map((account) => ({
+			account,
+			totals: totals
+				.getOrInsertComputed(account, () => new Map())
+				.getOrInsertComputed(held, () => []),
+		}));
+
 	for (const s of deltas) {
 		const held = byCommodity ? (s.commodity ?? '') : '';
+		const place = places.get(s.bucket) ?? places.size;
+		places.set(s.bucket, place);
+		if (s.account !== run.account || held !== run.held) {
+			helds.add(held);
+			Object.assign(run, { account: s.account, held, columns: columnsOf(s.account, held) });
+		}
 
-		for (const account of chains.getOrInsertComputed(s.account, parentsOf)) {
-			const total = totals
-				.getOrInsertComputed(account, () => new Map())
-				.getOrInsertComputed(s.bucket, () => new Map())
-				.getOrInsertComputed(held, () => ({
-					...NOTHING,
-					account,
-					bucket: s.bucket,
-					commodity: byCommodity ? s.commodity : null,
-				}));
+		for (const column of run.columns) {
+			const total = column.totals[place] ?? totalIn(column, { s, place, byCommodity });
 
-			addTo(total, s);
+			total.unpriced += s.unpriced;
+			for (const m of added) total[m] = plus(total[m], s[m]);
+			if (priced && s.price) total.price ??= s.price;
 		}
 	}
 
-	return [...totals.keys()].toSorted(byPath).flatMap((account) => {
-		const byBucket = totals.get(account) ?? new Map<string, Map<string, Delta>>();
-		return [...byBucket.keys()].toSorted(compareKeys).flatMap((bucket) => {
-			const byHeld = byBucket.get(bucket) ?? new Map<string, Delta>();
-			return [...byHeld.keys()].toSorted(compareKeys).flatMap((h) => byHeld.get(h) ?? []);
-		});
-	});
+	const bucketOrder = [...places]
+		.toSorted(([a], [b]) => compareKeys(a, b))
+		.map(([, place]) => place);
+	const heldOrder = [...helds].toSorted(compareKeys);
+	const rows: Row[] = [];
+
+	for (const account of [...totals.keys()]
+		.filter((a) => Object.hasOwn(parents, a))
+		.toSorted(byPath)) {
+		const byHeld = heldOrder.map((h) => totals.get(account)?.get(h)).filter((c) => c !== undefined);
+
+		for (const place of bucketOrder)
+			for (const column of byHeld) {
+				const total = column[place];
+				if (total) rows.push(total);
+			}
+	}
+
+	return rows;
 };
 
-const NOTHING = {
-	value: 0n as Amount,
-	inflow: 0n as Amount,
-	outflow: 0n as Amount,
-	units: 0n as Amount,
-	cost: 0n as Amount,
-	paid: 0n as Amount,
-	price: null,
-	unpriced: 0,
+const totalIn = (
+	column: Column,
+	{ s, place, byCommodity }: { s: Delta; place: number; byCommodity: boolean },
+) => {
+	const total: Row = {
+		account: column.account,
+		commodity: byCommodity ? s.commodity : null,
+		bucket: s.bucket,
+		unpriced: 0,
+	};
+	column.totals[place] = total;
+
+	return total;
 };
 
-/** The first price a total sees stays, as a bucket's price is its first. */
-const addTo = (t: Delta, s: Delta) => {
-	t.value = (t.value + s.value) as Amount;
-	t.inflow = (t.inflow + s.inflow) as Amount;
-	t.outflow = (t.outflow + s.outflow) as Amount;
-	t.units = (t.units + s.units) as Amount;
-	t.cost = (t.cost + s.cost) as Amount;
-	t.paid = (t.paid + s.paid) as Amount;
-	t.price ??= s.price;
-	t.unpriced += s.unpriced;
-};
+const plus = (t: Amount | undefined, g: Amount) => (t === undefined ? g : ((t + g) as Amount));
+
+type Added = Exclude<Measure, 'price'>;
+
+const isAdded = (m: Measure): m is Added => m !== 'price';
 
 /** A day of the month's amounts divided by how many months of the span have it. */
-const averaged = (d: Delta, monthsOf: Record<number, number>) => {
-	const times = BigInt(Math.max(monthsOf[Number(d.bucket)] ?? 1, 1));
+const averaged = (monthsOf: Record<number, number>) => (row: Row) => {
+	const times = BigInt(Math.max(monthsOf[Number(row.bucket)] ?? 1, 1));
 
-	return {
-		...d,
-		value: (d.value / times) as Amount,
-		inflow: (d.inflow / times) as Amount,
-		outflow: (d.outflow / times) as Amount,
-	};
+	for (const m of ['value', 'inflow', 'outflow'] as const)
+		if (row[m] !== undefined) row[m] = (row[m] / times) as Amount;
 };
-
-const measured = (d: Delta, measures: Measure[]) => ({
-	account: d.account,
-	commodity: d.commodity,
-	bucket: d.bucket,
-	unpriced: d.unpriced,
-	...(measures.includes('value') && { value: d.value }),
-	...(measures.includes('inflow') && { inflow: d.inflow }),
-	...(measures.includes('outflow') && { outflow: d.outflow }),
-	...(measures.includes('units') && { units: d.units }),
-	...(measures.includes('cost') && { cost: d.cost }),
-	...(measures.includes('paid') && { paid: d.paid }),
-	...(measures.includes('price') && d.price && { price: d.price }),
-});
 
 /** How many months of a span have each day of the month inside it. */
 const monthsByDay = (span: Span) => {

@@ -4,12 +4,12 @@ import { inOrder, ok, okAsync, type ResultAsync } from '#lib/server/shared/resul
 import { enqueue } from '#services/jobs/application/jobs.ts';
 import * as DB from '../adapters/database';
 import { embedTexts, MODEL } from '../adapters/prediction-model2vec';
-import { formatQuantity, type Amount } from '../domain/amounts';
+import { formatQuantity } from '../domain/amounts';
 import { checkGroups } from '../domain/groups';
-import type { UnmatchedDisposal } from '../domain/lots';
 import { displayLocation } from '../domain/parser';
 import { filled, wordsOf, type Unembedded } from '../domain/text';
-import { DisposalKind, type Ledger } from '../domain/types';
+import type { Ledger } from '../domain/types';
+import { checkLots } from './checks';
 import { fetchQuotes, syncLedger } from './jobs';
 
 /**
@@ -63,15 +63,6 @@ export const checkLedger = (l: Ledger): ResultAsync<RupeaError[]> =>
 		.andThen((f) => checkTerms(l).map((k) => [...f, ...k]))
 		.orElse((e) => ok([e]));
 
-type LotsScope = { accounts: string[]; to: Temporal.PlainDate };
-
-/**
- * Disposals no lot covers, in the scope's accounts up to its day, or in the
- * whole ledger.
- */
-export const checkLots = (l: Ledger, s?: LotsScope): ResultAsync<RupeaError[]> =>
-	DB.listUnmatched(l.id, s).map((u) => u.map(toLotError));
-
 const queueSync = (l: Ledger): ResultAsync<void> =>
 	enqueue({ job: syncLedger, user: l.owner, payload: { ledger: l.handle } });
 
@@ -112,16 +103,4 @@ const toBalanceError = (c: DB.BalanceCheck): RupeaError =>
 				account: c.account,
 				expected: formatQuantity({ amount: c.expected, commodity: c.commodity }),
 				actual: formatQuantity({ amount: c.actual, commodity: c.commodity }),
-			});
-
-const toLotError = (disposal: UnmatchedDisposal): RupeaError =>
-	disposal.kind === DisposalKind.Sale && !disposal.named
-		? fault('LotCostMissing', {
-				location: displayLocation(disposal.location),
-				account: disposal.account,
-			})
-		: fault('LotNotOpen', {
-				location: displayLocation(disposal.location),
-				account: disposal.account,
-				units: formatQuantity({ amount: -disposal.units as Amount, commodity: disposal.commodity }),
 			});

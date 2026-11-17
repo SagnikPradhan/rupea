@@ -62,6 +62,7 @@ export const STATUS: Record<RupeaError['type'], 401 | 404 | 409 | 422 | 500 | 50
 	LotCostMissing: 422,
 	LotNotOpen: 422,
 	ReturnUnpriced: 422,
+	BalanceUnpriced: 422,
 	ReturnUnsolved: 422,
 	CostUnpriced: 422,
 	ExtractionInvalidSchema: 422,

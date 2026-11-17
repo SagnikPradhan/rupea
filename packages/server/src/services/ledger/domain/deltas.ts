@@ -58,6 +58,19 @@ export type Balances = {
 	to: Temporal.PlainDate;
 	base: string;
 	rows: Row[];
+	series?: Series[];
+};
+
+/**
+ * A holding's units and price in the base at the end of every day of a span, as
+ * floats, with no price as NaN. A read gives them beside its rows when asked,
+ * for a report that goes through every day and reads no money from them.
+ */
+export type Series = {
+	account: string;
+	commodity: string;
+	units: Float64Array;
+	prices: Float64Array;
 };
 
 type BalancesOfOptions = {
@@ -78,7 +91,11 @@ export const balancesOf = (
 	if (bucket === 'posting')
 		return { from: span.from, to: span.to, base, rows: deltas.map(postingRow) };
 
-	const rows = rolledUp(deltas, { byCommodity: isByCommodity(measures), measures, parents });
+	const rows = rolledUp(deltas, {
+		byCommodity: isByCommodity(measures),
+		measures,
+		parents,
+	});
 	if (aggregate === 'average' && bucket === 'day') rows.forEach(averaged(monthsByDay(span)));
 
 	return { from: span.from, to: span.to, base, rows };
@@ -116,8 +133,8 @@ const rolledUp = (deltas: Delta[], { byCommodity, measures, parents }: RolledUpO
 	const helds = new Set<string>();
 	const run = { account: '', held: '', columns: [] as Column[] };
 
-	const columnsOf = (leaf: string, held: string) =>
-		parentsOf(leaf).map((account) => ({
+	const columnsOf = (own: string, held: string) =>
+		parentsOf(own).map((account) => ({
 			account,
 			totals: totals
 				.getOrInsertComputed(account, () => new Map())

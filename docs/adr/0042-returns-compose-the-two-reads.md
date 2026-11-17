@@ -8,7 +8,7 @@ Returns for a span is a handful of reads and two pure functions.
 
 - The balances read for the day before the span, and for its last day, over Assets, says what each account held at the two ends.
 - The deltas read by date over Assets, valued at cost, says what each account gained each day. A posting that names a price is worth that price, so a purchase is not a gain.
-- The deltas read by posting over Assets, with the filter that keeps the postings whose other side is not an asset, says which postings carried money in or out of the portfolio. The bucket posting gives one row for each posting with its transaction and position.
+- The deltas read by posting over Assets, with the earning filter, says which postings carried money in or out of the portfolio. That filter keeps the postings whose transaction has another posting on an investment income account, which are Income:Interest, Income:Dividends and Expenses:Fees. The bucket posting gives one row for each posting with its transaction and position.
 - One deltas read by posting for each investment income account that the ledger has says which dividends and interest came in. Each is its own read of one account.
 
 A pure function in the flows module turns the date rows and the posting rows into the dated cash flows of every account, and a pure function in the returns module turns balances and flows into the rate of return, as before. Application code is only the composition. The answers are the same as the old walk gave, byte for byte.
@@ -17,7 +17,7 @@ A pure function in the flows module turns the date rows and the posting rows int
 
 The first version asked for all earning postings with one filter that was an or of counter tests, one for each income account. The database planned each test as a separate separate plan run for every posting, and the read took 12 seconds. The fix is in the filter compiler. An or made only of account tests is now one test of the account being in one list of accounts, so it is one subquery and the planner uses an index. The same filter is cheap now.
 
-Two smaller changes came with it. The deltas read has a bucket for a single posting, and a valued setting of cost. A second entry point, the long deltas read, does not refuse a span over 1827 days by date. It comes back with the days that had deltas only, so it costs what they do, and the refusal stays on the plain deltas read, which fills every day.
+Two smaller changes came with it. The deltas read has a bucket for a single posting, and a valued setting of cost. The deltas read takes a span of any length by date, and comes back with the days that had deltas only, so it costs what they do. The refusal of a span over 1827 days by date lives in the endpoint that pages call, which checks it before the read, counting from the first day with data when the span starts at the beginning, so returns and drops can read longer spans.
 
 ## Numbers
 

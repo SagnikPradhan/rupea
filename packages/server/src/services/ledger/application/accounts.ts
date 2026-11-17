@@ -1,8 +1,9 @@
 import { consistently } from '#lib/server/db/read-only.ts';
-import { okAsync, ResultAsync } from '#lib/server/shared/result/result.ts';
+import { errAsync, okAsync, ResultAsync } from '#lib/server/shared/result/result.ts';
 import type { AccountRow } from '@rupea/shared/account-tree.ts';
-import { type Span } from '@rupea/shared/dates.ts';
+import { BEGINNING, type Span } from '@rupea/shared/dates.ts';
 import { fault, type Batch, type RupeaError } from '@rupea/shared/errors.ts';
+import { ASSETS } from '@rupea/shared/money.ts';
 import * as DB from '../adapters/database';
 import { bridgeOf, type Bridge } from '../domain/bridge';
 import { type Balances } from '../domain/deltas';
@@ -11,10 +12,9 @@ import { EARNING, flowsOf } from '../domain/flows';
 import { INVESTMENT_INCOME } from '../domain/taxonomy';
 import { type LotHistory } from '../domain/lots';
 import { returnsOf, type Returns } from '../domain/returns';
-import { accountsIn, idsIn, parentsIn, partsIn, type AccountNode } from '../domain/tree';
+import { accountsIn, idsIn, parentsIn, type AccountNode } from '../domain/tree';
 import { type Ledger } from '../domain/types';
-import { movesOf } from '../domain/worth';
-import { listBalances, listDeltas, listLongDeltas, spanFrom, worthWalked } from './deltas';
+import { findShared, isRoot, listBalances, listDeltas, spanFrom, type Shared } from './deltas';
 
 export type { LotHistory } from '../domain/lots';
 export type { Balances, Bridge, Drops, Returns };
@@ -39,36 +39,50 @@ export const listDrops = ({
 	account,
 }: ListDropsOptions): ResultAsync<Batch<Drops>> =>
 	consistently(() =>
-		DB.listProblems(ledger.id).andThen((f) =>
-			DB.listAccountTree(ledger.id)
-				.andThen((t) => dropsOver(ledger.id, { from, to }, t, account))
-				.map((d) => ({ succeeded: d === null ? [] : [d], failed: f })),
+		findShared(ledger.id).andThen((shared) =>
+			lottedIn(ledger.id, { account: account ?? ASSETS, to, tree: shared.tree }).andThen((held) => {
+				if (!held.length) return okAsync({ succeeded: [], failed: [] });
+
+				return listBalances({
+					ledger,
+					from,
+					to,
+					accounts: held.map((h) => h.name),
+					exact: true,
+					bucket: 'date',
+					measures: ['units', 'price'],
+					series: true,
+					shared,
+				}).map((daily) => {
+					const balances = daily.succeeded[0];
+					const drops = balances === undefined ? null : dropsOf(balances, held);
+
+					return { succeeded: drops === null ? [] : [drops], failed: daily.failed };
+				});
+			}),
 		),
 	);
 
-const dropsOver = (id: string, span: Span, tree: AccountNode[], account: string | null) => {
-	const names = Object.fromEntries(tree.map((n) => [n.id, n.name]));
-	const parts = partsIn(tree, account).parts.map((p) => ({
-		accountId: p.accountId,
-		part: names[p.accountId] ?? p.part,
-	}));
+type LottedInOptions = { account: string; to: Temporal.PlainDate; tree: AccountNode[] };
 
-	return DB.listCostMoves(id, { accounts: parts.map((p) => p.accountId), to: span.to }).andThen(
-		(moves) => {
-			const withLots = new Set(moves.map((m) => `${m.accountId} ${m.commodity}`));
-			const lotted = parts.filter((p) => moves.some((m) => m.accountId === p.accountId));
+/**
+ * The holdings that had lots by a day, in an account and those under it. Fails
+ * for an account that is not in the ledger.
+ */
+const lottedIn = (id: string, { account, to, tree }: LottedInOptions) =>
+	DB.listLotted(id, { to }).andThen((lots) => {
+		const ids = new Set(idsIn(tree, account));
+		const inside = tree.filter((n) => ids.has(n.id));
+		if (!inside.length && !isRoot(account)) return errAsync(fault('AccountNotFound', { account }));
 
-			return worthWalked(id, span, { parts: lotted, byCommodity: false, withLots }).map((w) =>
-				w === null
-					? null
-					: dropsOf(
-							w.from,
-							movesOf(w).filter((m) => m.asset),
-						),
-			);
-		},
-	);
-};
+		const byId = Object.groupBy(lots, (l) => l.accountId);
+
+		return okAsync(
+			inside.flatMap((n) =>
+				(byId[n.id] ?? []).map((l) => ({ name: n.name, commodity: l.commodity })),
+			),
+		);
+	});
 
 type FindBridgeOptions = {
 	ledger: Ledger;
@@ -77,40 +91,47 @@ type FindBridgeOptions = {
 };
 
 /**
- * Why net worth went from the end of the span's first day, or the first day
- * anything was held, to its last: the income and expenses after that day, and
- * what prices did to each group of balances, over every balance account, as
- * income and expenses belong to the whole ledger. Nothing comes back for a span
- * in which nothing was held.
+ * Why net worth went from the end of the later of the span's first day and the
+ * first day any account moved, to its last: the income and expenses after that
+ * day, and what prices did to each group of balances, over every balance
+ * account, as income and expenses belong to the whole ledger. Nothing comes
+ * back for a span in which nothing was held.
  */
 export const findBridge = ({ ledger, from, to }: FindBridgeOptions): ResultAsync<Batch<Bridge>> =>
 	consistently(() =>
-		listBalances({ ledger, from, to, bucket: 'year' }).andThen((ended) => {
-			const end = ended.succeeded[0];
-			if (end === undefined || end.rows.length === 0)
-				return okAsync({ succeeded: [], failed: ended.failed });
+		findShared(ledger.id).andThen((shared) =>
+			listBalances({ ledger, from, to, bucket: 'year', shared }).andThen((ended) => {
+				const end = ended.succeeded[0];
+				if (end === undefined || end.rows.length === 0)
+					return okAsync({ succeeded: [], failed: ended.failed });
 
-			const first = end.from;
-			const after = { ledger, from: first.add({ days: 1 }), to };
+				const first = end.from;
+				const after = { ledger, from: first.add({ days: 1 }), to, shared };
 
-			return ResultAsync.combine([
-				listBalances({ ledger, from: first, to: first, bucket: 'date' }),
-				Temporal.PlainDate.compare(after.from, to) > 0
-					? okAsync(null)
-					: listDeltas({ ...after, bucket: 'year' }),
-			]).map(([start, gains]) => ({
-				succeeded: [
-					bridgeOf({
-						from: first,
-						to,
-						start: start.succeeded[0]?.rows ?? [],
-						end: end.rows,
-						gains: gains?.succeeded[0]?.rows ?? [],
-					}),
-				],
-				failed: ended.failed,
-			}));
-		}),
+				return ResultAsync.combine([
+					listBalances({ ledger, from: first, to: first, bucket: 'date', shared }),
+					Temporal.PlainDate.compare(after.from, to) > 0
+						? okAsync(null)
+						: listDeltas({ ...after, bucket: 'year' }),
+				]).map(([start, gains]) => {
+					const failures = [...ended.failed, ...start.failed, ...(gains?.failed ?? [])];
+					const failed = [...new Map(failures.map((f) => [JSON.stringify(f), f])).values()];
+
+					return {
+						succeeded: [
+							bridgeOf({
+								from: first,
+								to,
+								start: start.succeeded[0]?.rows ?? [],
+								end: end.rows,
+								gains: gains?.succeeded[0]?.rows ?? [],
+							}),
+						],
+						failed,
+					};
+				});
+			}),
+		),
 	);
 
 type ListReturnsOptions = { ledger: Ledger; from: Temporal.PlainDate; to: Temporal.PlainDate };
@@ -126,32 +147,37 @@ export const listReturns = ({
 	to,
 }: ListReturnsOptions): ResultAsync<Batch<Returns>> =>
 	consistently(() =>
-		ResultAsync.combine([DB.listProblems(ledger.id), DB.listAccountTree(ledger.id)]).andThen(
-			([failed, tree]) =>
-				spanFrom(
-					ledger.id,
-					{ from, to },
-					tree.map((n) => n.id),
-				)
-					.andThen((s) => returnsOver(ledger, s, tree))
-					.map((r) => ({ succeeded: r.succeeded, failed: [...failed, ...r.failed] })),
+		findShared(ledger.id).andThen((shared) =>
+			spanFrom(
+				ledger.id,
+				{ from, to },
+				shared.tree.map((n) => n.id),
+			)
+				.andThen((s) => returnsOver({ ledger, shared, span: s }))
+				.map((r) => ({ succeeded: r.succeeded, failed: [...shared.failed, ...r.failed] })),
 		),
 	);
 
-const returnsOver = (ledger: Ledger, { from, to }: Span, tree: AccountNode[]) => {
-	const assets = { ledger, account: 'Assets', bucket: 'date' } as const;
+type ReturnsOverOptions = { ledger: Ledger; shared: Shared; span: Span };
+
+const returnsOver = ({ ledger, shared, span }: ReturnsOverOptions) => {
+	const { from, to } = span;
+	const tree = shared.tree;
+	const assets = { ledger, shared, account: ASSETS, bucket: 'date' } as const;
+	const held = { ledger, shared, accounts: [ASSETS], bucket: 'date' as const };
 	const cost = { valued: 'cost' } as const;
 	const before = from.subtract({ days: 1 });
+	const nothing = okAsync<Batch<Balances>>({ succeeded: [], failed: [] });
 
 	const earned = INVESTMENT_INCOME.filter((n) => idsIn(tree, n).length > 0).map((a) =>
-		listLongDeltas({ ledger, account: a, ...cost, from, to, bucket: 'posting' }),
+		listDeltas({ ledger, shared, account: a, ...cost, from, to, bucket: 'posting' }),
 	);
 
 	return ResultAsync.combine([
-		listBalances({ ...assets, from: before, to: before }),
-		listBalances({ ...assets, from: to, to }),
-		listLongDeltas({ ...assets, ...cost, from, to }),
-		listLongDeltas({ ...assets, ...cost, from, to, bucket: 'posting', filter: EARNING }),
+		from.toString() === BEGINNING ? nothing : listBalances({ ...held, from: before, to: before }),
+		listBalances({ ...held, from: to, to }),
+		listDeltas({ ...assets, ...cost, from, to }),
+		listDeltas({ ...assets, ...cost, from, to, bucket: 'posting', filter: EARNING }),
 		ResultAsync.combine(earned),
 	]).map(([start, end, moved, alongside, earned]) => {
 		const rowsOf = (b: Batch<Balances>) => b.succeeded[0]?.rows ?? [];

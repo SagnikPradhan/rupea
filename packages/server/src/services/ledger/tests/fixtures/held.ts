@@ -42,7 +42,7 @@ export const worthDaysOf = async (
 		ledger,
 		from,
 		to,
-		account,
+		accounts: account === undefined ? undefined : [account],
 		bucket: 'date',
 		measures,
 	});

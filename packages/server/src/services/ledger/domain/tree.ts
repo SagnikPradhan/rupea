@@ -42,6 +42,12 @@ export const idsIn = (tree: AccountNode[], account: string): string[] => {
 		.map((n) => n.id);
 };
 
+/** This account alone, whatever its case, and none of those under it. */
+export const ownIdsIn = (tree: AccountNode[], account: string): string[] => {
+	const name = account.toLowerCase();
+	return tree.filter((n) => n.name.toLowerCase() === name).map((n) => n.id);
+};
+
 /** Which part of worth each balance account under one counts towards. */
 export const partsIn = (tree: AccountNode[], account: string | null) => {
 	const found = partsDividing(accountsIn(tree), account);

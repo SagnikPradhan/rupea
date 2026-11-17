@@ -22,7 +22,7 @@ Application code was about 95 of the 139 milliseconds on fifty-years. The price 
 
 The bridge is now two reads and a pure function, and no read treats a part of the ledger as special.
 
-- The balances read for the whole span, by year, says when anything was first held (the read's first day) and what each account held at the end of the last bucket, valued at the prices of the last day.
+- The balances read for the whole span, by year, says which day the bridge starts on and what each account held at the end of the last bucket, valued at the prices of the last day. That day is the later of the span's first day and the first day any account moved, which is the first day of the read, so a ledger whose first posting is a gift or a loan counts from it, and not from the first day anything was worth money.
 - The balances read for that first day alone says what each account held then.
 - The deltas read for every account, by year, from the day after the first day to the last day, says what accounts gained. Income and Expenses give the totals, and each group of balances gives what it gained. It is left out when the span is one day.
 
@@ -35,7 +35,7 @@ The two reads run one after the other, and the second pair runs together. Nothin
 - The old price move counted a commodity only from the first day it had a price. A holding with no price when it came in, such as a gift, and priced later, had no price move and its whole value fell into other. It is now a price move, as the group gained nothing and its balance grew.
 - A ledger with no balance years used to show no bridge until a sync built them. It now shows the bridge at once. The test that said so now says that the bridge does not need them.
 - A posting made directly on Assets or Liabilities, not on an account under them, has no group, so it is part of other.
-- The bridge now reports the failures of the balances read, such as a holding with no price, besides the ledger's problems.
+- The bridge now reports the failures of every balances read it makes, such as a holding with no price on the first day or on the last, besides the ledger's problems, each once.
 
 ## Numbers
 

@@ -300,12 +300,14 @@ describe('net worth', () => {
 	const from = Temporal.PlainDate.from('2026-10-01');
 	const to = Temporal.PlainDate.from('2026-10-03');
 	const heldBy = async (ledger: Ledger, o: { account?: string; measures?: Measure[] }) => {
+		const { account, measures } = o;
 		const read = await Deltas.listBalances({
 			ledger,
 			from,
 			to,
 			bucket: 'date',
-			...o,
+			accounts: account === undefined ? undefined : [account],
+			...(measures === undefined ? {} : { measures }),
 		});
 		const rows = read._unsafeUnwrap().succeeded[0]?.rows ?? [];
 
@@ -380,7 +382,7 @@ describe('net worth', () => {
 					ledger,
 					from,
 					to,
-					account: 'Assets:IBKR',
+					accounts: ['Assets:IBKR'],
 					bucket: 'month',
 					measures: ['units', 'price', 'cost', 'paid'],
 				})
@@ -533,48 +535,6 @@ describe('net worth', () => {
 			const worth = await worthDaysOf(ledger, { from: beginning, to });
 
 			expect(worth.map((w) => w.day)).toEqual(['2026-10-02', '2026-10-03']);
-		}));
-
-	it('refuses a historical read by date over five years, and allows exactly 1827 days', ({
-		context,
-		db,
-	}) =>
-		provide(context, async () => {
-			const ledger = await createLedger(db);
-			const content = ['2020-01-01 Salary', '\tAssets:Bank 500', '\tIncome:Salary', ''].join('\n');
-			await Files.createFile({ ledger, key: 'a.rupea', content });
-			const read = (start: string, end: string) =>
-				Deltas.listBalances({
-					ledger,
-					from: Temporal.PlainDate.from(start),
-					to: Temporal.PlainDate.from(end),
-					bucket: 'date',
-				});
-
-			const long = await read('2020-01-01', '2025-01-02');
-			const year = await read('2020-01-01', '2025-01-01');
-			const beginning = await read(BEGINNING, '2025-01-02');
-
-			expect(long._unsafeUnwrapErr()).toEqual({ type: 'SpanTooLong', days: 1828, most: 1827 });
-			expect(year.isOk()).toBe(true);
-			expect(beginning._unsafeUnwrapErr()).toMatchObject({ type: 'SpanTooLong', most: 1827 });
-		}));
-
-	it('refuses a historical read by date over five years before reading anything', async ({
-		context,
-		db,
-	}) =>
-		provide(context, async () => {
-			const ledger = { ...(await createLedger(db)), id: 'missing' };
-
-			const read = await Deltas.listBalances({
-				ledger,
-				from: Temporal.PlainDate.from('2020-01-01'),
-				to: Temporal.PlainDate.from('2025-01-02'),
-				bucket: 'date',
-			});
-
-			expect(read._unsafeUnwrapErr()).toEqual({ type: 'SpanTooLong', days: 1828, most: 1827 });
 		}));
 
 	it('answers an empty ledger read from the beginning as the day asked', ({ context, db }) =>
@@ -990,6 +950,24 @@ describe('returns', () => {
 			expect(ever.failed).toEqual(first.failed);
 		}));
 
+	it('reads a ledger whose first posting is on the first day there is', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({
+				ledger,
+				key: 'a.rupea',
+				content: ['0001-01-01 Opening', '\tAssets:Bank 1000', '\tEquity:Opening', ''].join('\n'),
+			});
+
+			const read = await Accounts.listReturns({
+				ledger,
+				from: Temporal.PlainDate.from(BEGINNING),
+				to: Temporal.PlainDate.from('0001-06-30'),
+			});
+
+			expect(read.isOk()).toBe(true);
+		}));
+
 	it('gives no returns for all of history ending before the first day with data', ({
 		context,
 		db,
@@ -1056,6 +1034,38 @@ describe('returns', () => {
 
 			const returns = (await Accounts.listReturns({ ledger, ...year }))._unsafeUnwrap();
 			expect(returns.failed).toEqual([error]);
+		}));
+
+	it('finds the problems and the account tree once for a page that reads several times', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+			const error = fault('CannotReadFile', { path: 'a.rupea', reason: 'EACCES' });
+			await db
+				.insertInto('problems')
+				.values({ ledgerId: ledger.id, kind: ProblemKind.Parse, error })
+				.execute();
+			const problems = vi.spyOn(DB, 'listProblems');
+			const trees = vi.spyOn(DB, 'listAccountTree');
+			const asked = { ledger, ...year };
+
+			try {
+				const pages = [
+					await Accounts.listReturns(asked),
+					await Accounts.findBridge(asked),
+					await Accounts.listDrops({ ...asked, account: null }),
+				];
+
+				expect(problems).toHaveBeenCalledTimes(3);
+				expect(trees).toHaveBeenCalledTimes(3);
+				expect(pages.map((p) => p._unsafeUnwrap().failed)).toEqual([[error], [error], [error]]);
+			} finally {
+				problems.mockRestore();
+				trees.mockRestore();
+			}
 		}));
 
 	it('reads every account read in one read-only transaction', ({ context, db }) =>
@@ -1152,7 +1162,7 @@ describe('returns', () => {
 			const day = Temporal.PlainDate.from('2025-02-01');
 			const read = async (o: { account?: string; bucket: 'date' | 'posting'; filter?: Filter }) =>
 				(
-					await Deltas.listLongDeltas({ ledger, from: day, to: day, valued: 'cost', ...o })
+					await Deltas.listDeltas({ ledger, from: day, to: day, valued: 'cost', ...o })
 				)._unsafeUnwrap().succeeded[0]?.rows ?? [];
 
 			const flows = flowsOf(await read({ account: 'Assets', bucket: 'date' }), [
@@ -1175,7 +1185,7 @@ describe('invested', () => {
 			ledger,
 			from: Temporal.PlainDate.from('2026-01-01'),
 			to: Temporal.PlainDate.from('2026-10-05'),
-			account: top,
+			accounts: [top],
 			bucket: 'date',
 			measures: ['value', 'paid', 'units'],
 		});
@@ -1267,7 +1277,7 @@ describe('invested', () => {
 						ledger,
 						from: Temporal.PlainDate.from(from),
 						to: Temporal.PlainDate.from('2026-10-05'),
-						account: 'Assets',
+						accounts: ['Assets'],
 						bucket: 'month',
 						measures: ['units', 'paid', 'cost'],
 					})
@@ -1351,7 +1361,7 @@ describe('invested', () => {
 					from: Temporal.PlainDate.from('2026-01-01'),
 					to: Temporal.PlainDate.from('2026-01-31'),
 					bucket: 'month',
-					account: 'Assets:IBKR',
+					accounts: ['Assets:IBKR'],
 					measures: ['paid', 'units'],
 				})
 			)._unsafeUnwrap().succeeded[0]?.rows;
@@ -1376,7 +1386,7 @@ describe('invested', () => {
 					from: Temporal.PlainDate.from('2026-01-01'),
 					to: Temporal.PlainDate.from('2026-01-31'),
 					bucket: 'month',
-					account: 'Assets:IBKR',
+					accounts: ['Assets:IBKR'],
 					measures: ['paid', 'units'],
 				})
 			)._unsafeUnwrap();
@@ -1405,7 +1415,7 @@ describe('invested', () => {
 					from: Temporal.PlainDate.from('2026-01-01'),
 					to: Temporal.PlainDate.from('2026-03-31'),
 					bucket: 'month',
-					account: 'Assets:IBKR',
+					accounts: ['Assets:IBKR'],
 					measures: ['cost', 'units'],
 				})
 			)._unsafeUnwrap();
@@ -1444,7 +1454,7 @@ describe('invested', () => {
 					from: Temporal.PlainDate.from('2026-01-01'),
 					to: Temporal.PlainDate.from(to),
 					bucket: 'month',
-					account,
+					accounts: [account],
 					measures,
 				})
 			)
@@ -1624,6 +1634,128 @@ describe('drops', () => {
 			expect(drops?.swings[0]?.swing).toBeCloseTo(0.158, 2);
 		}));
 
+	it('counts only the holdings with lots of an account that holds others too', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = [
+				'2026-01-02 Buy',
+				'\tAssets:Zerodha 10 INFY @ 100',
+				'\tAssets:Bank',
+				'',
+				'2026-01-02 Dollars',
+				'\tAssets:Zerodha 5 USD',
+				'\tEquity:Opening -5 USD',
+				'',
+				'P 2026-01-10 INFY 50',
+				'P 2026-01-02 USD 10',
+				'P 2026-01-10 USD 20',
+				'',
+			].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const drops = await fell(ledger);
+
+			expect(drops?.lows.map((l) => [l.account, l.depth])).toEqual([['Assets:Zerodha', -0.5]]);
+		}));
+
+	it('neither reads nor reports what sits under an account with lots and has none', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = [
+				'2026-01-02 Buy',
+				'\tAssets:Zerodha 10 INFY @ 100',
+				'\tAssets:Bank',
+				'',
+				'2026-01-02 Dollars',
+				'\tAssets:Zerodha:Cash 5 USD',
+				'\tEquity:Opening -5 USD',
+				'',
+				'P 2026-01-10 INFY 50',
+				'',
+			].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const read = (
+				await Accounts.listDrops({
+					ledger,
+					from: Temporal.PlainDate.from('2026-01-01'),
+					to: Temporal.PlainDate.from('2026-01-31'),
+					account: null,
+				})
+			)._unsafeUnwrap();
+
+			expect(read.failed.filter((f) => f.type === 'BalanceUnpriced')).toEqual([]);
+			expect(read.succeeded[0]?.lows.map((l) => [l.account, l.depth])).toEqual([
+				['Assets:Zerodha', -0.5],
+			]);
+		}));
+
+	it('leaves out an account whose lots come after the span', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = [
+				'2026-01-02 Dollars',
+				'\tAssets:Zerodha 5 USD',
+				'\tEquity:Opening -5 USD',
+				'',
+				'2026-02-10 Buy',
+				'\tAssets:Zerodha 10 INFY @ 100',
+				'\tAssets:Bank',
+				'',
+				'P 2026-01-10 USD 20',
+				'P 2026-02-12 INFY 50',
+				'',
+			].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			expect(await fell(ledger)).toBeUndefined();
+		}));
+
+	it('reads a span of more than five years by date', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = [
+				'2018-01-02 Buy',
+				'\tAssets:Zerodha 10 INFY @ 100',
+				'\tAssets:Bank',
+				'',
+				'P 2020-06-10 INFY 50',
+				'',
+			].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const drops = (
+				await Accounts.listDrops({
+					ledger,
+					from: Temporal.PlainDate.from('2018-01-01'),
+					to: Temporal.PlainDate.from('2026-01-31'),
+					account: null,
+				})
+			)._unsafeUnwrap().succeeded[0];
+
+			expect(drops?.lows.map((l) => [l.account, l.depth, `${l.day}`])).toEqual([
+				['Assets:Zerodha', -0.5, '2020-06-10'],
+			]);
+			expect(drops?.underwater.length).toBeLessThan(1100);
+		}));
+
+	it('is not taken from an account that is not there', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+
+			const read = await Accounts.listDrops({
+				ledger,
+				from: Temporal.PlainDate.from('2026-01-01'),
+				to: Temporal.PlainDate.from('2026-01-31'),
+				account: 'Assets:Nope',
+			});
+
+			expect(read._unsafeUnwrapErr()).toEqual({ type: 'AccountNotFound', account: 'Assets:Nope' });
+		}));
+
 	it('has nothing to say when no holding with lots was held', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
@@ -1759,6 +1891,40 @@ describe('bridge', () => {
 
 			expect(bridge).toMatchObject({ income: 0n, expenses: 0n, other: 300n * UNIT });
 			expect(bridge?.shifts).toEqual([]);
+		}));
+
+	it('reports a holding with no price on its first day, though the bridge comes back', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = [
+				'2026-01-01 Opening',
+				'\tAssets:Bank 1000',
+				'\tEquity:Opening',
+				'',
+				'2026-01-01 Gift',
+				'\tAssets:Broker 5 USD',
+				'\tEquity:Gifts',
+				'',
+				'P 2026-01-10 USD 80',
+				'',
+			].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const read = (
+				await Accounts.findBridge({
+					ledger,
+					from: Temporal.PlainDate.from('2026-01-01'),
+					to: Temporal.PlainDate.from('2026-01-31'),
+				})
+			)._unsafeUnwrap();
+
+			expect(read.succeeded).toHaveLength(1);
+			expect(read.failed).toEqual([
+				{ type: 'BalanceUnpriced', account: 'Assets:Broker', unpriced: 1 },
+			]);
 		}));
 
 	it('has nothing to say when nothing was held', ({ context, db }) =>

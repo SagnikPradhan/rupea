@@ -115,6 +115,59 @@ describe('the api', () => {
 			expect(reply.json()).toMatchObject({ data: { type: 'SpanTooLong', most: 36_600 } });
 		}));
 
+	it('answers a span of dates over 1827 days with a 422, for a change and a balance', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+			const api = await createApi(context);
+			const headers = await bearerOf(ledger.owner);
+			const get = (accumulate: string, from: string) =>
+				api.inject({
+					url: `/api/ledgers/${ledger.handle}/balances?from=${from}&to=2026-10-02&bucket=date&accumulate=${accumulate}`,
+					headers,
+				});
+
+			for (const accumulate of ['change', 'historical']) {
+				const refused = await get(accumulate, '2020-01-01');
+				const beginning = await get(accumulate, '0001-01-01');
+
+				expect(refused.statusCode).toBe(422);
+				expect(refused.json()).toMatchObject({ data: { type: 'SpanTooLong', most: 1827 } });
+				expect(beginning.statusCode).toBe(200);
+			}
+		}));
+
+	it('answers a date bucket from the beginning by the days of history, a month or year always', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const old = ['2020-01-01 Salary', '\tAssets:Bank 500', '\tIncome:Salary', ''].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content: old });
+			const api = await createApi(context);
+			const headers = await bearerOf(ledger.owner);
+			const get = (accumulate: string, bucket: string, to: string) =>
+				api.inject({
+					url: `/api/ledgers/${ledger.handle}/balances?from=0001-01-01&to=${to}&bucket=${bucket}&accumulate=${accumulate}`,
+					headers,
+				});
+
+			for (const accumulate of ['change', 'historical']) {
+				const long = await get(accumulate, 'date', '2026-10-02');
+				const short = await get(accumulate, 'date', '2021-01-01');
+				const month = await get(accumulate, 'month', '2026-10-02');
+				const year = await get(accumulate, 'year', '2026-10-02');
+
+				expect(long.statusCode).toBe(422);
+				expect(long.json()).toMatchObject({ data: { type: 'SpanTooLong', most: 1827 } });
+				expect([short.statusCode, month.statusCode, year.statusCode]).toEqual([200, 200, 200]);
+			}
+		}));
+
 	it('answers 200 with what failed beside what succeeded', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);

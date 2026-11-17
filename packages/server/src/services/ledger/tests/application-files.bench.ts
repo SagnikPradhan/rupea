@@ -4,7 +4,7 @@ import { cloneFixture, timed } from '@rupea/server/tests/shared/fixtures.ts';
 import { it } from '@rupea/server/tests/shared/vitest.ts';
 import { describe } from 'vitest';
 
-const LEDGERS = ['fifty-years', 'wide'];
+const LEDGERS = ['twenty-years', 'fifty-years', 'wide'];
 const STATEMENT = 100;
 
 describe('files', () => {
@@ -32,12 +32,16 @@ describe('files', () => {
 			);
 		const read = (k: string) => timed(context, () => Files.readFile({ ledger, key: k }));
 		const list = timed(context, () => Files.listFiles(ledger));
+		const targets = timed(context, () => Files.findTransactionFiles(ledger));
+		const latest = timed(context, () => Files.findLatestFile({ ledger, account: 'Assets:Bank' }));
 		const imported = timed(context, () =>
 			Files.importFile({ ledger, key: 'statement.rupea', content: statementOf(imports.push(0)) }),
 		);
 
 		await bench.compare(
 			bench('list files', list),
+			bench('aside find transaction files', targets),
+			bench('statement find latest file', latest),
 			bench('read newest', read(newest)),
 			bench('edit newest', edit(newest)),
 			bench('edit oldest', edit(oldest)),

@@ -1,7 +1,6 @@
 import * as v from 'valibot';
 import { Amount, EXPENSES, INCOME, ZERO, printAmount, sum } from '@rupea/shared/money.ts';
 import { PERIOD_PARAMS, periodIn } from './filter';
-import { type Period, spansOf } from '@rupea/shared/dates.ts';
 import { MONTHS, spanOf, statementOf } from './home';
 import { totalOf, type Spent } from './spending';
 
@@ -74,22 +73,6 @@ export const wholeOf = (income: Spent | undefined, spending: Spent | undefined) 
 		[SPENT]: printAmount(spent),
 		[SAVED]: printAmount((earned - spent) as Amount),
 	};
-};
-
-/**
- * The period to read what lots were paid for over: the one asked, from the day
- * before it starts so its first bucket has what came before it.
- */
-export const openingOf = (period: Period, today: Temporal.PlainDate) => {
-	if (period.kind === 'all') return period;
-
-	const { from, to } = spansOf(period, today).current;
-
-	return {
-		kind: 'custom',
-		from: from.subtract({ days: 1 }).toString(),
-		to: to.toString(),
-	} as const;
 };
 
 export type Paid = { day: string; cost: string };

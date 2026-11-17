@@ -1,6 +1,11 @@
 import * as Accounts from '#services/ledger/application/accounts.ts';
+import * as Ledgers from '#services/ledger/application/ledger.ts';
 import * as Sync from '#services/ledger/application/sync.ts';
-import { BEGINNING } from '@rupea/shared/dates.ts';
+import { provide } from '#lib/server/shared/context/context.ts';
+import { ResultAsync } from '#lib/server/shared/result/result.ts';
+import { bucketFor, closingBucketOf, spanFrom } from '@rupea/shared/balances.ts';
+import { openingOf, type Period, type Span, spansOf } from '@rupea/shared/dates.ts';
+import { ASSETS, EXPENSES, INCOME, LIABILITIES } from '@rupea/shared/money.ts';
 import { cloneFixture, timed } from '@rupea/server/tests/shared/fixtures.ts';
 import { it } from '@rupea/server/tests/shared/vitest.ts';
 import { describe } from 'vitest';
@@ -8,92 +13,97 @@ import { describe } from 'vitest';
 const TO = Temporal.PlainDate.from('2026-10-21');
 const LEDGERS = ['twenty-years', 'fifty-years', 'wide'];
 
+const PAGES: Record<string, Period> = {
+	month: { kind: 'month', at: TO.toPlainYearMonth().toString() },
+	year: { kind: 'year', at: String(TO.year) },
+	all: { kind: 'all' },
+};
+const CUSTOM: Record<string, Period> = {
+	'5y': { kind: 'custom', from: TO.subtract({ years: 5 }).toString(), to: TO.toString() },
+	'10y': { kind: 'custom', from: TO.subtract({ years: 10 }).toString(), to: TO.toString() },
+};
+const CUSTOM_CASES = ['home worth', 'home bridge', 'accounts drops', 'accounts invested'];
+
 describe('accounts', () => {
 	it.for(LEDGERS)('over %s', { timeout: 3_600_000 }, async (name, { bench, models }) => {
 		const { ledger, context } = await cloneFixture(name, models);
+		const first = (await provide(context, () => Ledgers.findFirstDay(ledger)))._unsafeUnwrap();
 
-		const worth = (f: Temporal.PlainDate, bucket: 'date' | 'month' = 'date') =>
-			timed(context, () =>
+		const spanOf = (p: Period) => spansOf(p, TO).current;
+		const closingBucketIn = (s: Span) => closingBucketOf(spanFrom(s, first?.toString() ?? null));
+
+		const holdings = (p: Period) => {
+			const on = spanOf(p).to;
+			return timed(context, () =>
 				Accounts.listBalances({
 					ledger,
-					from: f,
-					to: TO,
-					bucket,
-					accumulate: 'historical',
-				}),
-			);
-		const invested = (f: Temporal.PlainDate, bucket: 'date' | 'month' = 'date') =>
-			timed(context, () =>
-				Accounts.listBalances({
-					ledger,
-					from: f,
-					to: TO,
-					account: 'Assets',
-					bucket,
-					accumulate: 'historical',
-					measures: ['value', 'paid', 'units'],
-				}),
-			);
-		const cost = (f: Temporal.PlainDate, bucket: 'date' | 'month' = 'date') =>
-			timed(context, () =>
-				Accounts.listBalances({
-					ledger,
-					from: f,
-					to: TO,
-					account: 'Assets',
-					bucket,
+					from: on,
+					to: on,
+					bucket: 'date',
 					accumulate: 'historical',
 					measures: ['value', 'units', 'price', 'cost'],
 				}),
 			);
-		const drops = (f: Temporal.PlainDate) =>
-			timed(context, () => Accounts.listDrops({ ledger, from: f, to: TO, account: null }));
-		const bridge = (f: Temporal.PlainDate) =>
-			timed(context, () => Accounts.findBridge({ ledger, from: f, to: TO }));
-		const returns = (f: Temporal.PlainDate) =>
-			timed(context, () => Accounts.listReturns({ ledger, from: f, to: TO }));
-		const spending = (f: Temporal.PlainDate) =>
-			timed(context, () =>
+		};
+		const worth = (p: Period) => {
+			const span = spanOf(p);
+			return timed(context, () =>
 				Accounts.listBalances({
 					ledger,
-					from: f,
-					to: TO,
-					bucket: 'month',
-					aggregate: 'sum',
-					account: 'Expenses',
-				}),
-			);
-		const history = (f: Temporal.PlainDate) =>
-			timed(context, () =>
-				Accounts.listBalances({
-					ledger,
-					from: f,
-					to: TO,
-					bucket: 'month',
+					...span,
+					bucket: closingBucketIn(span),
 					accumulate: 'historical',
+					measures: ['value'],
 				}),
 			);
-		const daily = (f: Temporal.PlainDate) =>
+		};
+		const invested = (p: Period, account: string) => {
+			const span = spanOf(p);
+			return timed(context, () =>
+				Accounts.listBalances({
+					ledger,
+					...span,
+					account,
+					bucket: closingBucketIn(span),
+					accumulate: 'historical',
+					measures: ['value', 'paid', 'units'],
+				}),
+			);
+		};
+		const deltas = (p: Period, account: string) => {
+			const { current, previous, bucket } = spansOf(p, TO);
+			const spans = previous ? [current, previous] : [current];
+			return timed(context, () =>
+				ResultAsync.combine(
+					spans.map((span) =>
+						Accounts.listBalances({
+							ledger,
+							...span,
+							account,
+							bucket: bucketFor[bucket],
+							measures: ['value', 'inflow', 'outflow'],
+						}),
+					),
+				),
+			);
+		};
+		const daily = (p: Period, account: string) =>
 			timed(context, () =>
 				Accounts.listBalances({
 					ledger,
-					from: f,
-					to: TO,
+					...spanOf(p),
+					account,
 					bucket: 'day',
 					aggregate: 'average',
-					account: 'Expenses',
 				}),
 			);
-		const holdings = timed(context, () =>
-			Accounts.listBalances({
-				ledger,
-				from: TO,
-				to: TO,
-				bucket: 'date',
-				accumulate: 'historical',
-				measures: ['value', 'units', 'price', 'cost'],
-			}),
-		);
+		const drops = (p: Period) =>
+			timed(context, () => Accounts.listDrops({ ledger, ...spanOf(p), account: null }));
+		const bridge = (p: Period) =>
+			timed(context, () => Accounts.findBridge({ ledger, ...spanOf(p) }));
+		const returns = (p: Period) =>
+			timed(context, () => Accounts.listReturns({ ledger, ...spanOf(p) }));
+
 		const tree = timed(context, () => Accounts.listAccounts(ledger));
 		const lots = timed(context, () =>
 			Accounts.listLots({ ledger, account: 'Assets:IBKR', commodity: 'USD' }),
@@ -101,38 +111,29 @@ describe('accounts', () => {
 		const checks = timed(context, () => Sync.listProblems(ledger));
 		const index = timed(context, () => Sync.syncIndex(ledger));
 
+		const cases = {
+			'home worth': worth,
+			'home bridge': bridge,
+			'accounts holdings': holdings,
+			'accounts drops': drops,
+			'accounts invested': (p: Period) => invested(p, ASSETS),
+			'accounts returns': returns,
+			'expenses deltas': (p: Period) => deltas(p, EXPENSES),
+			'expenses daily': (p: Period) => daily(p, EXPENSES),
+			'income deltas': (p: Period) => deltas(p, INCOME),
+			'income invested': (p: Period) => invested(openingOf(p, TO), ASSETS),
+			'liabilities deltas': (p: Period) => deltas(p, LIABILITIES),
+		};
+		const benchesOf = (periods: Record<string, Period>, names: string[]) =>
+			Object.entries(periods).flatMap(([span, p]) =>
+				Object.entries(cases)
+					.filter(([name]) => names.includes(name))
+					.map(([name, run]) => bench(`${name} ${span}`, run(p))),
+			);
+
 		await bench.compare(
-			bench('worth 1m', worth(TO.subtract({ months: 1 }))),
-			bench('worth ytd', worth(TO.with({ month: 1, day: 1 }))),
-			bench('worth 1y', worth(TO.subtract({ years: 1 }))),
-			bench('worth 5y', worth(TO.subtract({ years: 5 }))),
-			bench('worth 10y', worth(TO.subtract({ years: 10 }), 'month')),
-			bench('worth 20y', worth(TO.subtract({ years: 20 }), 'month')),
-			bench('worth all', worth(Temporal.PlainDate.from(BEGINNING), 'month')),
-			bench('invested 1m', invested(TO.subtract({ months: 1 }))),
-			bench('invested 1y', invested(TO.subtract({ years: 1 }))),
-			bench('invested 5y', invested(TO.subtract({ years: 5 }))),
-			bench('invested 10y', invested(TO.subtract({ years: 10 }), 'month')),
-			bench('invested all', invested(Temporal.PlainDate.from(BEGINNING), 'month')),
-			bench('holdings 1y', cost(TO.subtract({ years: 1 }))),
-			bench('holdings 10y', cost(TO.subtract({ years: 10 }), 'month')),
-			bench('drops 1y', drops(TO.subtract({ years: 1 }))),
-			bench('drops 10y', drops(TO.subtract({ years: 10 }))),
-			bench('drops all', drops(Temporal.PlainDate.from(BEGINNING))),
-			bench('bridge 1y', bridge(TO.subtract({ years: 1 }))),
-			bench('bridge 10y', bridge(TO.subtract({ years: 10 }))),
-			bench('bridge all', bridge(Temporal.PlainDate.from(BEGINNING))),
-			bench('returns 1m', returns(TO.subtract({ months: 1 }))),
-			bench('returns ytd', returns(TO.with({ month: 1, day: 1 }))),
-			bench('returns 1y', returns(TO.subtract({ years: 1 }))),
-			bench('returns all', returns(Temporal.PlainDate.from(BEGINNING))),
-			bench('spending 1y', spending(TO.subtract({ years: 1 }))),
-			bench('spending all', spending(Temporal.PlainDate.from(BEGINNING))),
-			bench('history 1y', history(TO.subtract({ years: 1 }))),
-			bench('history all', history(Temporal.PlainDate.from(BEGINNING))),
-			bench('daily 1y', daily(TO.subtract({ years: 1 }))),
-			bench('daily all', daily(Temporal.PlainDate.from(BEGINNING))),
-			bench('holdings', holdings),
+			...benchesOf(PAGES, Object.keys(cases)),
+			...benchesOf(CUSTOM, CUSTOM_CASES),
 			bench('tree', tree),
 			bench('lots', lots),
 			bench('checks', checks),

@@ -125,6 +125,22 @@ export const spansOf = (period: Period, day: Temporal.PlainDate): Spans => {
 	return spansIn(period, day);
 };
 
+/**
+ * The period to read what lots were paid for over: the one asked, from the day
+ * before it starts so its first bucket has what came before it.
+ */
+export const openingOf = (period: Period, today: Temporal.PlainDate) => {
+	if (period.kind === 'all') return period;
+
+	const { from, to } = spansOf(period, today).current;
+
+	return {
+		kind: 'custom',
+		from: from.subtract({ days: 1 }).toString(),
+		to: to.toString(),
+	} as const;
+};
+
 const UNITS = { day: 'days', month: 'months', year: 'years' } as const;
 
 /** The first day of the bucket a day falls in. */

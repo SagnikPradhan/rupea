@@ -6,7 +6,6 @@ import {
 	IncomeQuery,
 	investedOf,
 	investedWholeOf,
-	openingOf,
 	monthsOf,
 	sourcesOf,
 	wholeOf,
@@ -201,22 +200,6 @@ describe('investedWholeOf', () => {
 		expect(investedWholeOf(income, [{ day: '2026-01-31', cost: '500' }])).toMatchObject({
 			bucket: '',
 			Invested: '500.00',
-		});
-	});
-});
-
-describe('openingOf', () => {
-	const today = on('2026-11-17');
-
-	it('reads all of time as it is, since nothing was paid before it', () => {
-		expect(openingOf({ kind: 'all' }, today)).toEqual({ kind: 'all' });
-	});
-
-	it('starts a period the day before it does', () => {
-		expect(openingOf({ kind: 'month', at: '2026-10' }, today)).toEqual({
-			kind: 'custom',
-			from: '2026-09-30',
-			to: '2026-10-31',
 		});
 	});
 });

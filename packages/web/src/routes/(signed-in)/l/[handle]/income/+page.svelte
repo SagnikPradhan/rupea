@@ -15,6 +15,7 @@
 	import { formatIsoDate, formatMonthName } from '#lib/web/shared/format.ts';
 	import { MONTHS, MONTHS_BRIEF, lastMonthOf } from '#lib/web/shared/home.ts';
 	import * as Income from '#lib/web/shared/income.ts';
+	import { openingOf } from '@rupea/shared/dates.ts';
 	import { readQuery } from '#lib/web/shared/query.svelte.ts';
 
 	const { data } = $props();
@@ -34,7 +35,7 @@
 			listInvested({
 				handle,
 				day,
-				period: Income.openingOf(url.query.period, today),
+				period: openingOf(url.query.period, today),
 				account: ASSETS,
 			}),
 		]),

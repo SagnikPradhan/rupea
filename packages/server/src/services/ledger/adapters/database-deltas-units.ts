@@ -28,7 +28,6 @@ export const listOpenings = (
 					deltasBetween(db, ledgerId, {
 						from: Temporal.PlainDate.from(BEGINNING),
 						after: before,
-						grain: 'month',
 					}).as('m'),
 				)
 				.select((e) => ['m.accountId', 'm.commodity', e.fn.sum<Amount>('m.amount').as('units')])
@@ -77,11 +76,7 @@ export const listUnitDeltas = (
 						.groupBy((e) => ['p.accountId', 'p.commodity', KEYS.date(sql`${e.ref('p.date')}`)])
 						.execute()
 				: db
-						.selectFrom(
-							deltasBetween(db, ledgerId, { from, after: to.add({ days: 1 }), grain: 'month' }).as(
-								'm',
-							),
-						)
+						.selectFrom(deltasBetween(db, ledgerId, { from, after: to.add({ days: 1 }) }).as('m'))
 						.select((e) => [
 							'm.accountId',
 							'm.commodity',

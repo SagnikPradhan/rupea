@@ -34,7 +34,6 @@ const settleTouched = (id: string, t: Settling): ResultAsync<void> =>
 	rebook(id, t)
 		.andThen(() => saveMonths(id, t))
 		.andThen(() => repairMonths(id))
-		.andThen(() => saveYears(id, t))
 		.andThen(() => saveChecks(id, t))
 		.andThen(() => deleteUnused(id, t));
 
@@ -69,18 +68,10 @@ const saveMonths = (id: string, t: Settling): ResultAsync<void> =>
 const saveMonthsAll = (id: string): ResultAsync<void> => DB.saveEveryMonth(id);
 
 /**
- * Puts right the months the check has come round to and the years they fall in,
- * so what a bug left wrong does not stay.
+ * Puts right the months the check has come round to, so what a bug left wrong
+ * does not stay.
  */
-const repairMonths = (id: string): ResultAsync<void> =>
-	DB.saveCheckedMonths(id).andThen((y) =>
-		y ? DB.saveBalanceYears(id, { ...y, holdings: null }) : okAsync(),
-	);
-
-const saveYears = (id: string, t: Settling): ResultAsync<void> =>
-	t.span
-		? DB.saveBalanceYears(id, { from: t.span.from.year, to: null, holdings: t.holdings })
-		: okAsync();
+const repairMonths = (id: string): ResultAsync<void> => DB.saveCheckedMonths(id);
 
 const saveYearsAll = (id: string): ResultAsync<void> => DB.saveEveryYear(id);
 

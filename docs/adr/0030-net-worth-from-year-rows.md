@@ -1,5 +1,7 @@
 # Net worth multiplies year rows on read
 
+> Balance years were dropped by [ADR 0044](0044-balance-years-dropped.md), since balances became a running sum of monthly deltas. Price years stand.
+
 Working out net worth in SQL took a price lookup for every day of every holding, which cost 172 ms for a year and 11 s for ten over 20 years of history. Hiding that behind weekly or monthly points would hide dips, and a chart of someone's money should not.
 
 `balance_years` holds one row per account, commodity and year the holding moved in, with its balance on each day of that year. `price_years` holds one row per symbol, quote commodity and year, with the price that won each day, or none. Both keep their days as 16-byte little-endian integers in a `bytea`, since a `numeric(38,0)` needs 127 bits and 8 bytes stop at ₹920 million in ten-billionths. Prices belong to symbols, not ledgers ([ADR 0017](0017-prices-belong-to-symbols.md)), so a quote is written once however many ledgers link it, and each read walks the conversions itself.

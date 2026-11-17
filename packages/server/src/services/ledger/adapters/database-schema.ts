@@ -426,38 +426,6 @@ export const monthlyDeltas = PG.pgTable(
 );
 
 /**
- * What an account held of a commodity on each day of a year it moved in; a year
- * it did not move in holds what the one before ended on.
- */
-export const balanceYears = PG.pgTable(
-	'balance_years',
-	(t) => ({
-		...base,
-		ledgerId: t
-			.uuid()
-			.notNull()
-			.references(() => ledgers.id, { onDelete: 'cascade' }),
-		accountId: t
-			.uuid()
-			.notNull()
-			.references(() => accounts.id, { onDelete: 'cascade' }),
-		accountType: accountType().notNull(),
-		commodity: t.text().notNull(),
-		year: t.integer().notNull(),
-		balances: series().notNull(),
-	}),
-	(t) => [
-		PG.unique('balance_years_ledger_id_account_id_commodity_year').on(
-			t.ledgerId,
-			t.accountId,
-			t.commodity,
-			t.year,
-		),
-		PG.index('balance_years_account_id').on(t.accountId),
-	],
-);
-
-/**
  * A symbol's prices in one currency on each day of a year, each day's being the
  * one that wins it; a day without one holds NO_AMOUNT.
  */

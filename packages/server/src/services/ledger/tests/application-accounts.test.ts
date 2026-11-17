@@ -2071,17 +2071,4 @@ describe('balances as a running sum of deltas', () => {
 
 			expect(balances.failed).toEqual([]);
 		}));
-
-	it('needs no balance years, only the monthly deltas', ({ context, db }) =>
-		provide(context, async () => {
-			const ledger = await createLedger(db);
-			await Files.createFile({ ledger, key: 'a.rupea', content });
-			const before = await read(ledger, { from: BEGINNING, bucket: 'month', measures: ['value'] });
-
-			await db.deleteFrom('balanceYears').where('ledgerId', '=', ledger.id).execute();
-			const after = await read(ledger, { from: BEGINNING, bucket: 'month', measures: ['value'] });
-
-			expect(before.succeeded[0]?.rows.length).toBeGreaterThan(0);
-			expect(after).toEqual(before);
-		}));
 });

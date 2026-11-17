@@ -1,7 +1,8 @@
 import { AMOUNT_UNIT, type Amount } from '#services/ledger/domain/amounts.ts';
 import { writeSeries } from '#services/ledger/domain/series.ts';
 import { AccountType } from '#services/ledger/domain/types.ts';
-import { deltasOf, symbolsOf, worthOf, type BalanceYear } from '#services/ledger/domain/worth.ts';
+import { symbolsOf } from '#services/ledger/domain/worth.ts';
+import { deltasOf, worthOf, type BalanceYear } from './fixtures/worth-oracle';
 import { describe, expect, it } from 'vitest';
 
 const day = (d: string) => Temporal.PlainDate.from(d);

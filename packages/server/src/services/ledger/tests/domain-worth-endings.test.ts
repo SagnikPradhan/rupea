@@ -6,15 +6,8 @@ import {
 } from '#services/ledger/domain/amounts.ts';
 import { NO_AMOUNT, writeSeries } from '#services/ledger/domain/series.ts';
 import { AccountType } from '#services/ledger/domain/types.ts';
-import {
-	endingsOf,
-	ratesOn,
-	worthOf,
-	type BalanceYear,
-	type PriceSources,
-	type PriceYear,
-	type WorthOfOptions,
-} from '#services/ledger/domain/worth.ts';
+import { ratesOn, type PriceSources, type PriceYear } from '#services/ledger/domain/worth.ts';
+import { endingsOf, worthOf, type BalanceYear, type WorthOfOptions } from './fixtures/worth-oracle';
 import { describe, expect, it } from 'vitest';
 
 const day = (d: string) => Temporal.PlainDate.from(d);

@@ -19,6 +19,9 @@ export type Filter = Tree<Account | { kind: 'counter'; test: Test }>;
 /** The filter every posting passes. */
 export const EVERYTHING: Filter = { kind: 'all', of: [] };
 
+/** Whether the filter is the one every posting passes. */
+export const isEverything = (f: Filter) => f.kind === 'all' && f.of.length === 0;
+
 /** Whether any posting needs the others of its transaction to pass. */
 export const hasCounter = (filter: Filter): boolean => {
 	if (filter.kind === 'counter') return true;

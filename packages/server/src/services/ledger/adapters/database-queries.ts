@@ -3,7 +3,7 @@ import { containing } from '#lib/server/db/expressions.ts';
 import { literalLike } from '#lib/server/db/index.ts';
 import type { Span } from '@rupea/shared/dates.ts';
 import { AMOUNT_UNIT, type Amount, type Quantity } from '../domain/amounts';
-import type { LotCost, Price, PriceKind } from '../domain/types';
+import { PriceKind, type LotCost, type Price } from '../domain/types';
 import type { HoldingKey } from './database-files';
 
 const LISTED = ['date', 'sortTime', 'id'];
@@ -52,6 +52,19 @@ export const ledgerOrder = (t: string, f: string) =>
  */
 export const multiply = (a: Expression<unknown>, b: Expression<unknown>) =>
 	sql<bigint>`round(${a} * ${b} / ${sql.lit(AMOUNT_UNIT)})`;
+
+/**
+ * What a posting of this table alias is worth in its price commodity: its
+ * amount at the unit price, the total price with its sign, or the amount when
+ * it names none.
+ */
+export const costOf = (p: string) => {
+	const kind = sql.ref(`${p}.priceKind`);
+	const amount = sql.ref(`${p}.amount`);
+	const price = sql.ref(`${p}.priceAmount`);
+
+	return sql<bigint>`case ${kind} when ${PriceKind.Unit} then ${multiply(amount, price)} when ${PriceKind.Total} then sign(${amount}) * ${price} else ${amount} end`;
+};
 
 /**
  * This account or any under it, ignoring case, so it reads through

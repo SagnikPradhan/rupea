@@ -426,6 +426,50 @@ export const monthlyDeltas = PG.pgTable(
 );
 
 /**
+ * What an account's counted postings of a commodity came to at cost on one day,
+ * in the commodity they are worth: the one a posting names a price in, or its
+ * own. Kept for balance accounts only, so returns read it, not the postings.
+ */
+export const dailyCosts = PG.pgTable(
+	'daily_costs',
+	(t) => ({
+		...base,
+		ledgerId: t
+			.uuid()
+			.notNull()
+			.references(() => ledgers.id, { onDelete: 'cascade' }),
+		accountId: t
+			.uuid()
+			.notNull()
+			.references(() => accounts.id, { onDelete: 'cascade' }),
+		commodity: t.text().notNull(),
+		costCommodity: t.text().notNull(),
+		date: t.date().notNull(),
+		cost: amount().notNull(),
+		/**
+		 * The positive costs of the postings summed, and the negative ones summed
+		 * and made positive.
+		 */
+		inflow: amount().notNull(),
+		outflow: amount().notNull(),
+		postings: t.integer().notNull(),
+	}),
+	(t) => [
+		PG.unique('daily_costs_ledger_id_account_id_date_commodity_cost_commodity').on(
+			t.ledgerId,
+			t.accountId,
+			t.date,
+			t.commodity,
+			t.costCommodity,
+		),
+		PG.check(
+			'daily_costs_cost_is_inflow_less_outflow',
+			sql`${t.cost} = ${t.inflow} - ${t.outflow}`,
+		),
+	],
+);
+
+/**
  * A symbol's prices in one currency on each day of a year, each day's being the
  * one that wins it; a day without one holds NO_AMOUNT.
  */

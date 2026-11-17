@@ -9,6 +9,7 @@ import type { jobs } from '#services/jobs/adapters/database-schema.ts';
 import type {
 	accounts,
 	accountTerms,
+	dailyCosts,
 	disposals,
 	ledgerFiles,
 	ledgers,
@@ -43,6 +44,7 @@ export type Tables = {
 		inflow: bigint;
 		outflow: bigint;
 	};
+	dailyCosts: Kyselify<typeof dailyCosts>;
 	dismissedMatches: Kyselify<typeof dismissedMatches>;
 	disposals: Kyselify<typeof disposals>;
 	emailCodes: Kyselify<typeof emailCodes>;

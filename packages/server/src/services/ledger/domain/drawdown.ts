@@ -53,7 +53,7 @@ type Held = { name: string; commodity: string };
  * understate it, scaled to a year, and is left out below MOST_QUIET such days.
  */
 export const dropsOf = (daily: Balances, lotted: Held[]): Drops | null => {
-	const series = seriesOf(daily, lotted);
+	const series = lottedSeriesOf(daily, lotted);
 	const count = daily.from.until(daily.to).days + 1;
 	const open = series.reduce((first, s) => {
 		const day = s.units.findIndex((u) => u !== 0);
@@ -63,7 +63,7 @@ export const dropsOf = (daily: Balances, lotted: Held[]): Drops | null => {
 
 	const from = daily.from.add({ days: open });
 	const moves = [...Map.groupBy(series, (s) => s.account)].map(([account, held]) =>
-		movesOf(account, held, open),
+		movesOf({ account, held, open }),
 	);
 	const together = depthsOf({
 		before: sumByDay(moves.map((m) => m.before)),
@@ -93,7 +93,7 @@ export const dropsOf = (daily: Balances, lotted: Held[]): Drops | null => {
 };
 
 /** The series of the holdings that had lots, which are the ones that count. */
-const seriesOf = ({ series = [] }: Balances, lotted: Held[]) => {
+const lottedSeriesOf = ({ series = [] }: Balances, lotted: Held[]) => {
 	const keys = new Set(lotted.map((h) => `${h.name} ${h.commodity}`));
 
 	return series.filter((s) => keys.has(`${s.account} ${s.commodity}`));
@@ -105,12 +105,14 @@ const seriesOf = ({ series = [] }: Balances, lotted: Held[]) => {
  */
 type Move = { account: string; before: Float64Array; after: Float64Array };
 
+type MovesOptions = { account: string; held: Series[]; open: number };
+
 /**
  * Values the units each holding held at the end of a day at the price of that
  * day and of the next, from day open. A holding with no price on either day
  * counts on neither.
  */
-const movesOf = (account: string, held: Series[], open: number): Move => {
+const movesOf = ({ account, held, open }: MovesOptions): Move => {
 	const days = (held[0]?.prices.length ?? open) - open;
 	const before = new Float64Array(days);
 	const after = new Float64Array(days);
@@ -140,8 +142,10 @@ const sumByDay = (series: Float64Array[]) => {
 	return sum;
 };
 
+type Depths = { before: Float64Array; after: Float64Array };
+
 /** The index of a part against its running high, one depth for each day. */
-const depthsOf = ({ before, after }: Pick<Move, 'before' | 'after'>) => {
+const depthsOf = ({ before, after }: Depths) => {
 	const depths = new Float64Array(before.length);
 	const run = { latest: 1, high: Number.NEGATIVE_INFINITY };
 

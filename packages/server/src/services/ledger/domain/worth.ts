@@ -1,3 +1,4 @@
+import { dayNumberOf } from '#lib/server/shared/dates.ts';
 import { AMOUNT_UNIT, DEFAULT_COMMODITY, multiply, type Amount, type Quantity } from './amounts';
 import { HOPS } from './holdings';
 import { lengthOf, NO_AMOUNT, readDay, readSeries } from './series';
@@ -48,23 +49,32 @@ type RatesOnOptions = {
  */
 export const ratesOn = (o: RatesOnOptions, days: number[]) => {
 	const layout = layoutOf(o);
-	const { rateAt } = ratesOf({ ...o, ...layout });
-	const every = ratesEvery({ ...o, count: layout.count });
-	const daily = days.length * 2 > layout.count;
 
-	return (commodity: string): (bigint | null)[] => {
-		const series = daily ? every(commodity) : [];
-		return days.map((i) => (daily ? (series[i] ?? null) : rateAt(commodity, i)));
-	};
+	if (days.length * 2 > layout.count) {
+		const every = ratesEvery({ ...o, count: layout.count });
+
+		return (c: string): (bigint | null)[] => {
+			const series = every(c);
+			return days.map((i) => series[i] ?? null);
+		};
+	}
+
+	const { rateAt } = ratesOf({ ...o, ...layout });
+
+	return (c: string): (bigint | null)[] => days.map((i) => rateAt(c, i));
 };
 
-type RatesEveryOptions = RatesOnOptions & { count: number };
+type RatesEveryOptions = {
+	from: Temporal.PlainDate;
+	count: number;
+	prices: PriceYear[];
+	sources: PriceSources;
+	opening: Record<string, Quantity>;
+};
 
 type Timeline = { amounts: bigint[]; quoted: Int16Array };
 
 const NOT_QUOTED = -1;
-
-const DAY_MS = 86_400_000;
 
 /**
  * Each commodity's rupees per unit on every day of a span, read straight from
@@ -73,14 +83,14 @@ const DAY_MS = 86_400_000;
  * hops as rateAt, rounding each step as multiply does.
  */
 const ratesEvery = ({ prices, sources, opening, from, count }: RatesEveryOptions) => {
-	const first = Date.UTC(from.year, from.month - 1, from.day) / DAY_MS;
-	const offsetOf = (y: number) => Date.UTC(y, 0, 1) / DAY_MS - first;
+	const first = dayNumberOf(from);
+	const offsetOf = (y: number) => dayNumberOf({ year: y, month: 1, day: 1 }) - first;
 	const indexOf = (date: string | null, none: number) => {
 		if (date === null) return none;
 		if (date === '-infinity') return 0;
 		if (date === 'infinity') return count;
 
-		return Math.max(Math.min(Date.parse(date) / DAY_MS - first, count), 0);
+		return Math.max(Math.min(dayNumberOf(date) - first, count), 0);
 	};
 
 	const bySymbol = Map.groupBy(prices, (p) => p.symbolId);
@@ -198,7 +208,9 @@ const layoutOf = ({ from, to }: { from: Temporal.PlainDate; to: Temporal.PlainDa
 	offsetOf: (y) => from.until(Temporal.PlainDate.from({ year: y, month: 1, day: 1 })).days,
 });
 
-type RatesOptions = Span & {
+type RatesOptions = {
+	count: number;
+	offsetOf: (year: number) => number;
 	prices: PriceYear[];
 	sources: PriceSources;
 	opening: Record<string, Quantity>;

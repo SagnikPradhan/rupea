@@ -16,6 +16,19 @@ export const DATE_FORMATS = [
 
 export const TIME_FORMATS = ['HH:mm', 'H:mm', 'HH:mm:ss', 'H:mm:ss', 'h:mm a', 'h:mm:ss a'];
 
+const DAY_MS = 86_400_000;
+
+/**
+ * The days since 1970-01-01 of an ISO date as 2026-10-05, or of a year, month
+ * and day, where the month counts from 1 and a day or month past its range
+ * rolls over. Years 0 to 99 count as 1900 to 1999, as Date.UTC has it.
+ */
+export const dayNumberOf = (d: string | { year: number; month: number; day: number }) =>
+	typeof d === 'string' ? Date.parse(d) / DAY_MS : Date.UTC(d.year, d.month - 1, d.day) / DAY_MS;
+
+/** The ISO date of a day number, as 2026-10-05. */
+export const isoDateOf = (n: number) => new Date(n * DAY_MS).toISOString().slice(0, 10);
+
 /**
  * Date-fns fills fields a format leaves out with the 1st, January or 1970, so
  * this avoids all three.

@@ -28,6 +28,8 @@ export type Delta = {
 	paid: Amount;
 	price: Quantity | null;
 	unpriced: number;
+	transaction?: string;
+	position?: number;
 };
 
 /** A delta with only the measures asked for. */
@@ -43,6 +45,8 @@ export type Row = {
 	cost?: Amount;
 	paid?: Amount;
 	price?: Quantity;
+	transaction?: string;
+	position?: number;
 };
 
 /**
@@ -59,7 +63,7 @@ export type Balances = {
 type BalancesOfOptions = {
 	span: Span;
 	base: string;
-	bucket: Bucket;
+	bucket: Bucket | 'posting';
 	aggregate: Aggregate;
 	measures: Measure[];
 	parents: Record<string, string | null>;
@@ -71,11 +75,24 @@ export const balancesOf = (
 	deltas: Delta[],
 	{ span, base, bucket, aggregate, measures, parents }: BalancesOfOptions,
 ): Balances => {
+	if (bucket === 'posting')
+		return { from: span.from, to: span.to, base, rows: deltas.map(postingRow) };
+
 	const rows = rolledUp(deltas, { byCommodity: isByCommodity(measures), measures, parents });
 	if (aggregate === 'average' && bucket === 'day') rows.forEach(averaged(monthsByDay(span)));
 
 	return { from: span.from, to: span.to, base, rows };
 };
+
+/** A posting alone, as a row with its value, transaction and position. */
+const postingRow = (d: Delta): Row => ({
+	account: d.account,
+	commodity: d.commodity,
+	bucket: d.bucket,
+	unpriced: d.unpriced,
+	value: d.value,
+	...(d.transaction === undefined ? {} : { transaction: d.transaction, position: d.position ?? 0 }),
+});
 
 type Column = { account: string; totals: Row[] };
 

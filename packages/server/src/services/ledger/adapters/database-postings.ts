@@ -6,14 +6,11 @@ import {
 	total,
 	totalBefore,
 } from '#lib/server/db/expressions.ts';
-import type { Database } from '#lib/server/db/index.ts';
 import { readOnly } from '#lib/server/db/read-only.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
-import { sql, type Expression, type SqlBool } from 'kysely';
+import { sql, type SqlBool } from 'kysely';
 import type { Amount } from '../domain/amounts';
-import type { Holding } from '../domain/holdings';
-import { BALANCE_TYPES } from '../domain/taxonomy';
 import type { RupeaParseLocation, RupeaPosting } from '../domain/types';
 import { BEGINNING } from '@rupea/shared/dates.ts';
 import { deltasBetween } from './database-deltas';
@@ -23,11 +20,9 @@ import {
 	ledgerOrder,
 	listedIn,
 	listingKey,
-	multiply,
 	newestFirst,
 	toCost,
 	toPrice,
-	toQuantity,
 	underAccount,
 } from './database-queries';
 import type { Page, PageOptions } from './database-transactions';
@@ -129,99 +124,6 @@ export const listPostings = (
 				? { date: last.date, time: last.time, id: last.id, position: last.position }
 				: null,
 		};
-	});
-
-type Balances = { holdings: Holding[]; posted: string[] };
-
-/**
- * What each balance account held at the end of a day, and what its lots still
- * open then cost; history before the day's month is summed by the month.
- */
-export const listHoldings = (id: string, d: Temporal.PlainDate) =>
-	listBalances(id, d).map((b) => b.holdings);
-
-/**
- * The holdings at the end of a day, and every balance account any posting up to
- * then names, whether it holds anything or is settled.
- */
-export const listBalances = (ledgerId: string, day: Temporal.PlainDate): ResultAsync<Balances> =>
-	withContext('db')((db) => {
-		const on = day.toString();
-
-		return attempt(() =>
-			db
-				.with('deltas', (q) =>
-					q
-						.selectFrom(
-							deltasBetween(db, ledgerId, {
-								from: Temporal.PlainDate.from(BEGINNING),
-								after: day.add({ days: 1 }),
-								grain: 'month',
-							}).as('m'),
-						)
-						.select(['m.accountId', 'm.commodity', 'm.amount'])
-						.where('m.accountType', 'in', BALANCE_TYPES),
-				)
-				.with('balances', (q) =>
-					q
-						.selectFrom('deltas')
-						.select([
-							'deltas.accountId',
-							'deltas.commodity',
-							(e) => e.fn.sum<bigint>('deltas.amount').as('units'),
-						])
-						.groupBy(['deltas.accountId', 'deltas.commodity']),
-				)
-				.with('open', () => lotsOpenOn(db, ledgerId, on))
-				.with('costs', (q) =>
-					q
-						.selectFrom('open')
-						.select((e) => [
-							'open.accountId',
-							'open.commodity',
-							e.fn
-								.sum<bigint>(
-									multiply(e.cast(e.ref('open.remaining'), 'numeric'), e.ref('open.costAmount')),
-								)
-								.as('costAmount'),
-							e
-								.case()
-								.when(e(e.fn.count('open.costCommodity').distinct(), '=', 1))
-								.then(e.fn.min('open.costCommodity'))
-								.end()
-								.as('costCommodity'),
-						])
-						.where('open.remaining', '!=', 0n)
-						.groupBy(['open.accountId', 'open.commodity']),
-				)
-				.selectFrom('balances')
-				.innerJoin('accounts as a', 'a.id', 'balances.accountId')
-				.leftJoin('costs', (j) =>
-					j
-						.onRef('costs.accountId', '=', 'balances.accountId')
-						.onRef('costs.commodity', '=', 'balances.commodity'),
-				)
-				.select([
-					'a.name as account',
-					'balances.commodity',
-					'balances.units',
-					'costs.costAmount',
-					'costs.costCommodity',
-				])
-				.orderBy('a.name')
-				.orderBy('balances.commodity')
-				.execute(),
-		).map((rows) => ({
-			holdings: rows
-				.filter((r) => r.units !== 0n)
-				.map((r) => ({
-					account: r.account,
-					commodity: r.commodity,
-					units: r.units as Amount,
-					cost: toQuantity({ amount: r.costAmount, commodity: r.costCommodity }),
-				})),
-			posted: [...new Set(rows.map((r) => r.account))],
-		}));
 	});
 
 type BalanceChecksOptions = { from: Temporal.PlainDate; holdings: HoldingKey[] | null };
@@ -451,35 +353,3 @@ export const listBalanceChecks = (ledgerId: string): ResultAsync<BalanceCheck[]>
 			})),
 		),
 	);
-
-/**
- * The lots a ledger had bought by a day, and how many units of each it still
- * held then.
- */
-const lotsOpenOn = (db: Database, ledgerId: string, on: string) =>
-	db
-		.selectFrom('lots as l')
-		.innerJoin('postings as o', 'o.id', 'l.postingId')
-		.select((e) => [
-			'l.accountId',
-			'l.commodity',
-			'l.costAmount',
-			'l.costCommodity',
-			e('l.units', '+', e.fn.coalesce(disposedOn(db, e.ref('l.id'), on), sql<bigint>`0`)).as(
-				'remaining',
-			),
-		])
-		.where('l.ledgerId', '=', ledgerId)
-		.where('o.date', '<=', on);
-
-/**
- * How many units of a lot were sold or moved by a day, or none when nothing
- * was.
- */
-const disposedOn = (db: Database, lotId: Expression<string>, on: string) =>
-	db
-		.selectFrom('disposals as d')
-		.innerJoin('postings as t', 't.id', 'd.postingId')
-		.select((e) => e.fn.sum<bigint>('d.units').as('units'))
-		.where('d.lotId', '=', lotId)
-		.where('t.date', '<=', on);

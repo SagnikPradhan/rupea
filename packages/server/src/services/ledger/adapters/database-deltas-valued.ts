@@ -1,29 +1,30 @@
-import { anyOf, total } from '#lib/server/db/expressions.ts';
+import { anyOf } from '#lib/server/db/expressions.ts';
 import type { Database } from '#lib/server/db/index.ts';
+import type { Tables } from '#lib/server/db/tables.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import type { Bucket } from '@rupea/shared/balances.ts';
-import type { Span } from '@rupea/shared/dates.ts';
-import { sql, type RawBuilder } from 'kysely';
+import { sql, type QueryCreator, type RawBuilder } from 'kysely';
+import { PriceKind } from '../domain/types';
 import { type Amount } from '../domain/amounts';
 import type { Delta } from '../domain/deltas';
-import { flowsOf } from '../domain/flows';
 import { hasCounter, type Filter } from '../domain/filters';
-import type { Flow } from '../domain/returns';
-import { AccountType, PriceKind } from '../domain/types';
 import { deltasBetween, postedBetween } from './database-deltas';
 import { conditionFor } from './database-filters';
 import { multiply } from './database-queries';
-import { inBase, ownSymbols, ratesOf } from './database-rates';
+import { ownSymbols, ratesOf } from './database-rates';
 
 type DeltasOptions = {
 	accounts: string[];
 	filter: Filter;
 	from: Temporal.PlainDate;
 	to: Temporal.PlainDate;
-	bucket: Bucket;
+	bucket: Bucket | 'posting';
+	valued: 'then' | 'cost';
 	base: string;
 };
+
+type Spending = DeltasOptions & { ledgerId: string };
 
 /**
  * A day's bucket as the key the caller reads it by: the date, a day of the
@@ -31,7 +32,7 @@ type DeltasOptions = {
  * and a year as 2026.
  */
 export const KEYS: Record<Bucket, (date: RawBuilder<unknown>) => RawBuilder<string>> = {
-	date: (d) => sql<string>`to_char(${d}::date, 'YYYY-MM-DD')`,
+	date: (d) => sql<string>`${d}::date::text`,
 	day: (d) => sql<string>`extract(day from ${d}::date)::int::text`,
 	month: (d) => sql<string>`to_char(${d}::date, 'YYYY-MM')`,
 	year: (d) => sql<string>`to_char(${d}::date, 'YYYY')`,
@@ -40,109 +41,95 @@ export const KEYS: Record<Bucket, (date: RawBuilder<unknown>) => RawBuilder<stri
 /**
  * What these accounts gained over a span, whatever their type, valued in the
  * base at the latest price on or before each amount's own day, as worth does,
- * and added up by account and the bucket its day falls in.
+ * and added up by account and the bucket its day falls in. Valued at cost, a
+ * posting that names a price is worth that price, as hledger's cost option has
+ * it, and the rest are valued as they were. The bucket posting keeps each
+ * posting alone, dated by its day, with its commodity, transaction and
+ * position. Amounts in the base need no price, so a row may share its account
+ * and bucket with another, and the caller adds them.
  */
 export const listDeltas = (
 	ledgerId: string,
-	{ accounts, filter, from, to, bucket, base }: DeltasOptions,
+	{ accounts, filter, from, to, bucket, valued, base }: DeltasOptions,
 ): ResultAsync<Delta[]> =>
-	withContext('db')((db) =>
-		attempt(() =>
+	withContext('db')((db) => {
+		const each = bucket === 'posting';
+		const key = KEYS[each ? 'date' : bucket];
+		const read = { ledgerId, accounts, filter, from, to, bucket, valued, base };
+
+		return attempt(() =>
 			db
 				.withRecursive('own(id, symbol)', () => ownSymbols(db, ledgerId))
-				.with('spent', (q) =>
-					baseSpentIn(db, { ledgerId, accounts, filter, from, to, bucket, base }).unionAll(
-						q
-							.selectFrom('postings as p')
-							.innerJoin('accounts as a', 'a.id', 'p.accountId')
-							.leftJoin('own as o', 'o.symbol', 'p.commodity')
-							.select((e) => [
-								'a.name as account',
-								'p.date',
-								'p.commodity',
-								'o.id as symbolId',
-								e.fn.sum<bigint>('p.amount').as('amount'),
-								sql<bigint>`sum(greatest(${e.ref('p.amount')}, 0))`.as('inflow'),
-								sql<bigint>`sum(greatest(-${e.ref('p.amount')}, 0))`.as('outflow'),
-								e.fn.countAll<bigint>().as('postings'),
-							])
-							.where('p.ledgerId', '=', ledgerId)
-							.where('p.commodity', '<>', base)
-							.where('p.counted', '=', true)
-							.where((e) => anyOf(e.ref('p.accountId'), accounts, 'uuid'))
-							.where((e) =>
-								conditionFor(db, {
-									filter,
-									ledgerId,
-									account: e.ref('p.accountId'),
-									transaction: e.ref('p.transactionId'),
-								}),
-							)
-							.where('p.date', '>=', from.toString())
-							.where('p.date', '<=', to.toString())
-							.groupBy(['a.name', 'p.date', 'p.commodity', 'o.id']),
-					),
-				)
+				.with('spent', (q) => {
+					if (valued === 'cost') return costSpentIn(db, { ...read, q });
+					if (bucket === 'posting')
+						return baseEachIn(db, read).unionAll(otherSpentIn(db, { ...read, q }));
+
+					return baseSpentIn(db, { ...read, bucket }).unionAll(otherSpentIn(db, { ...read, q }));
+				})
 				.with('wanted', (q) =>
 					q
 						.selectFrom('spent as s')
 						.select(['s.commodity', 's.date as day', 's.symbolId as at'])
+						.where('s.commodity', '<>', base)
 						.distinct(),
 				)
 				.withRecursive('rates(origin, day, commodity, at, rate, path)', ratesOf(db, ledgerId, base))
 				.with('valued', (q) =>
 					q
 						.selectFrom('spent as s')
-						.leftJoin('rates as r', (j) =>
-							j
-								.onRef('r.origin', '=', 's.commodity')
-								.onRef('r.day', '=', 's.date')
-								.on('r.commodity', '=', base),
-						)
 						.select((e) => [
 							's.account',
-							's.date',
-							's.postings',
-							KEYS[bucket](sql`${e.ref('s.date')}`).as('bucket'),
-							inBase({
-								amount: e.ref('s.amount'),
-								commodity: e.ref('s.commodity'),
-								rate: e.ref('r.rate'),
-								base,
-							}).as('value'),
-							inBase({
-								amount: e.ref('s.inflow'),
-								commodity: e.ref('s.commodity'),
-								rate: e.ref('r.rate'),
-								base,
-							}).as('inflow'),
-							inBase({
-								amount: e.ref('s.outflow'),
-								commodity: e.ref('s.commodity'),
-								rate: e.ref('r.rate'),
-								base,
-							}).as('outflow'),
-						]),
+							key(sql`${e.ref('s.date')}`).as('bucket'),
+							's.commodity',
+							's.posted',
+							's.transactionId',
+							's.position',
+							's.amount',
+							's.inflow',
+							's.outflow',
+							sql<number>`0`.as('unpriced'),
+						])
+						.where('s.commodity', '=', base)
+						.unionAll(
+							q
+								.selectFrom('spent as s')
+								.leftJoin('rates as r', (j) =>
+									j
+										.onRef('r.origin', '=', 's.commodity')
+										.onRef('r.day', '=', 's.date')
+										.on('r.commodity', '=', base),
+								)
+								.select((e) => [
+									's.account',
+									key(sql`${e.ref('s.date')}`).as('bucket'),
+									's.commodity',
+									's.posted',
+									's.transactionId',
+									's.position',
+									sql<bigint>`coalesce(${multiply(e.ref('s.amount'), e.ref('r.rate'))}, 0)`.as(
+										'amount',
+									),
+									sql<bigint>`coalesce(${multiply(e.ref('s.inflow'), e.ref('r.rate'))}, 0)`.as(
+										'inflow',
+									),
+									sql<bigint>`coalesce(${multiply(e.ref('s.outflow'), e.ref('r.rate'))}, 0)`.as(
+										'outflow',
+									),
+									sql<number>`case when ${e.ref('r.rate')} is null then ${e.ref('s.postings')} else 0 end`.as(
+										'unpriced',
+									),
+								])
+								.where('s.commodity', '<>', base),
+						),
 				)
 				.selectFrom('valued as v')
-				.select((e) => [
-					'v.account',
-					'v.bucket',
-					total(e.ref('v.value')).as('amount'),
-					total(e.ref('v.inflow')).as('inflow'),
-					total(e.ref('v.outflow')).as('outflow'),
-					sql<number>`${total(e.ref('v.postings'), e('v.value', 'is', null))}::integer`.as(
-						'unpriced',
-					),
-				])
-				.groupBy(['v.account', 'v.bucket'])
-				.orderBy('v.account')
-				.orderBy('v.bucket')
+				.selectAll()
 				.execute(),
 		).map((rows) =>
 			rows.map((s) => ({
 				account: s.account,
-				commodity: null,
+				commodity: each ? s.posted : null,
 				bucket: s.bucket,
 				value: s.amount as Amount,
 				inflow: s.inflow as Amount,
@@ -151,10 +138,13 @@ export const listDeltas = (
 				cost: 0n as Amount,
 				paid: 0n as Amount,
 				price: null,
-				unpriced: s.unpriced,
+				unpriced: Number(s.unpriced),
+				...(s.transactionId === null
+					? {}
+					: { transaction: s.transactionId, position: s.position ?? 0 }),
 			})),
-		),
-	);
+		);
+	});
 
 /**
  * What the base-currency postings of these accounts came to, added up by
@@ -162,10 +152,8 @@ export const listDeltas = (
  * accounts. A bucket of months or years reads the monthly rollup, and the rest
  * read the postings.
  */
-const baseSpentIn = (
-	db: Database,
-	{ ledgerId, accounts, filter, from, to, bucket, base }: DeltasOptions & { ledgerId: string },
-) => {
+const baseSpentIn = (db: Database, o: Spending & { bucket: Bucket }) => {
+	const { ledgerId, accounts, filter, from, to, bucket, base } = o;
 	const after = to.add({ days: 1 });
 	const rolledUp = (bucket === 'month' || bucket === 'year') && !hasCounter(filter);
 	const read = rolledUp
@@ -204,7 +192,10 @@ const baseSpentIn = (
 			'a.name as account',
 			'g.date',
 			'g.commodity',
+			'g.commodity as posted',
 			sql<string | null>`null::uuid`.as('symbolId'),
+			sql<string | null>`null::uuid`.as('transactionId'),
+			sql<number | null>`null::integer`.as('position'),
 			'g.amount',
 			'g.inflow',
 			'g.outflow',
@@ -212,109 +203,106 @@ const baseSpentIn = (
 		]);
 };
 
-type FlowsOptions = Span & { earning: string[]; base: string };
+/** Each base-currency posting of these accounts that passes the filter, alone. */
+const baseEachIn = (db: Database, o: Spending) => {
+	const { ledgerId, accounts, filter, from, to, base } = o;
 
-type Moving = FlowsOptions & { ledgerId: string };
-
-const MOVED_BY = [
-	'x.account',
-	'x.date',
-	'x.commodity',
-	'x.transactionId',
-	'x.position',
-	'x.earned',
-	'x.held',
-] as const;
-
-/**
- * What flowed into each Assets account on each day in the base: the value of
- * its counted postings, less its share of their transaction's net investment
- * income, which the earning accounts post. That income goes to the
- * transaction's Assets postings of commodities other than the base, or to its
- * base ones when it has none, split equally with what does not divide going to
- * the first. A posting is valued at its own price when it names one, then at
- * the latest price on or before its day, as worth does.
- *
- * Postings come added up by account and day, except those of a transaction with
- * an earning posting and those valued in another commodity, which come one by
- * one for flowsOf to share the income between.
- */
-export const listFlows = (
-	ledgerId: string,
-	{ earning, from, to, base }: FlowsOptions,
-): ResultAsync<Flow[]> =>
-	withContext('db')((db) =>
-		attempt(() =>
-			db
-				.withRecursive('own(id, symbol)', () => ownSymbols(db, ledgerId))
-				.with('moved', () => movedIn(db, { ledgerId, earning, from, to, base }))
-				.with('wanted', (q) =>
-					q
-						.selectFrom('moved as m')
-						.leftJoin('own as o', 'o.symbol', 'm.commodity')
-						.select(['m.commodity', 'm.date as day', 'o.id as at'])
-						.where('m.commodity', '<>', base)
-						.distinct(),
-				)
-				.withRecursive('rates(origin, day, commodity, at, rate, path)', ratesOf(db, ledgerId, base))
-				.selectFrom('moved as m')
-				.leftJoin('rates as r', (j) =>
-					j
-						.onRef('r.origin', '=', 'm.commodity')
-						.onRef('r.day', '=', 'm.date')
-						.on('r.commodity', '=', base),
-				)
-				.select((e) => [
-					'm.transactionId',
-					'm.position',
-					'm.account',
-					'm.date',
-					'm.earned',
-					'm.held',
-					inBase({
-						base,
-						amount: e.ref('m.amount'),
-						commodity: e.ref('m.commodity'),
-						rate: e.ref('r.rate'),
-					}).as('amount'),
-				])
-				.execute(),
-		).map((rows) =>
-			flowsOf(
-				rows.map((r) => ({
-					transactionId: r.transactionId,
-					position: r.position ?? 0,
-					account: r.account,
-					date: r.date,
-					amount: r.amount as Amount | null,
-					unpriced: 0,
-					earned: r.earned,
-					held: r.held,
-				})),
-			),
-		),
-	);
+	return db
+		.selectFrom('postings as p')
+		.innerJoin('accounts as a', 'a.id', 'p.accountId')
+		.select((e) => [
+			'a.name as account',
+			'p.date',
+			'p.commodity',
+			'p.commodity as posted',
+			sql<string | null>`null::uuid`.as('symbolId'),
+			sql<string | null>`${e.ref('p.transactionId')}`.as('transactionId'),
+			sql<number | null>`${e.ref('p.position')}`.as('position'),
+			'p.amount',
+			sql<bigint>`greatest(${e.ref('p.amount')}, 0)`.as('inflow'),
+			sql<bigint>`greatest(-${e.ref('p.amount')}, 0)`.as('outflow'),
+			sql<bigint>`1::bigint`.as('postings'),
+		])
+		.where('p.ledgerId', '=', ledgerId)
+		.where('p.commodity', '=', base)
+		.where('p.counted', '=', true)
+		.where((e) => anyOf(e.ref('p.accountId'), accounts, 'uuid'))
+		.where((e) =>
+			conditionFor(db, {
+				filter,
+				ledgerId,
+				account: e.ref('p.accountId'),
+				transaction: e.ref('p.transactionId'),
+			}),
+		)
+		.where('p.date', '>=', from.toString())
+		.where('p.date', '<=', to.toString());
+};
 
 /**
- * Each counted posting of the Assets and earning accounts, valued at its own
- * price when it names one, added up by account, day and commodity. Those of a
- * transaction with an earning posting, or held in another commodity than the
- * base, keep their transaction and position, which is what tells them apart
- * from the rest.
+ * What the postings of these accounts in a commodity other than the base came
+ * to, added up by account, day and commodity, or each alone for the bucket
+ * posting, with the symbol the ledger prices the commodity by.
  */
-const movedIn = (db: Database, { ledgerId, earning, from, to, base }: Moving) =>
-	db
+type Own = { own: { id: string; symbol: string } };
+
+const otherSpentIn = (db: Database, o: Spending & { q: QueryCreator<Tables & Own> }) => {
+	const { q, ledgerId, accounts, filter, from, to, bucket, base } = o;
+	const each = bucket === 'posting';
+
+	return q
+		.selectFrom('postings as p')
+		.innerJoin('accounts as a', 'a.id', 'p.accountId')
+		.leftJoin('own as o', 'o.symbol', 'p.commodity')
+		.select((e) => [
+			'a.name as account',
+			'p.date',
+			'p.commodity',
+			'p.commodity as posted',
+			'o.id as symbolId',
+			sql<string | null>`${each ? e.ref('p.transactionId') : sql`null::uuid`}`.as('transactionId'),
+			sql<number | null>`${each ? e.ref('p.position') : sql`null::integer`}`.as('position'),
+			e.fn.sum<bigint>('p.amount').as('amount'),
+			sql<bigint>`sum(greatest(${e.ref('p.amount')}, 0))`.as('inflow'),
+			sql<bigint>`sum(greatest(-${e.ref('p.amount')}, 0))`.as('outflow'),
+			e.fn.countAll<bigint>().as('postings'),
+		])
+		.where('p.ledgerId', '=', ledgerId)
+		.where('p.commodity', '<>', base)
+		.where('p.counted', '=', true)
+		.where((e) => anyOf(e.ref('p.accountId'), accounts, 'uuid'))
+		.where((e) =>
+			conditionFor(db, {
+				filter,
+				ledgerId,
+				account: e.ref('p.accountId'),
+				transaction: e.ref('p.transactionId'),
+			}),
+		)
+		.where('p.date', '>=', from.toString())
+		.where('p.date', '<=', to.toString())
+		.groupBy(
+			each
+				? ['a.name', 'p.date', 'p.commodity', 'o.id', 'p.transactionId', 'p.position']
+				: ['a.name', 'p.date', 'p.commodity', 'o.id'],
+		);
+};
+
+/**
+ * What the postings of these accounts came to at cost, added up by account, day
+ * and the commodity they are worth in, or each alone for the bucket posting: a
+ * posting that names a price is worth that price in its commodity, and the rest
+ * are worth their own.
+ */
+const costSpentIn = (db: Database, o: Spending & { q: QueryCreator<Tables & Own> }) => {
+	const { q, ledgerId, accounts, filter, from, to, bucket } = o;
+	const each = bucket === 'posting';
+
+	return q
 		.selectFrom((s) =>
 			s
 				.selectFrom('postings as p')
-				.innerJoin('accounts as a', 'a.id', 'p.accountId')
-				.leftJoin(earningIn(db, { ledgerId, earning, from, to, base }).as('g'), (j) =>
-					j.onRef('g.transactionId', '=', 'p.transactionId'),
-				)
 				.select((e) => {
-					const commodity = e.fn.coalesce('p.priceCommodity', 'p.commodity');
-					const one = sql<boolean>`(${e.ref('g.transactionId')} is not null or ${commodity} <> ${base})`;
-					const earned = anyOf(e.ref('p.accountId'), earning, 'uuid');
 					const amount = e
 						.case()
 						.when('p.priceKind', '=', PriceKind.Unit)
@@ -325,41 +313,55 @@ const movedIn = (db: Database, { ledgerId, earning, from, to, base }: Moving) =>
 						.end();
 
 					return [
-						'a.name as account',
+						'p.accountId',
 						'p.date',
-						commodity.as('commodity'),
-						amount.as('amount'),
-						sql<string | null>`case when ${one} then ${e.ref('p.transactionId')} end`.as(
+						e.fn.coalesce('p.priceCommodity', 'p.commodity').as('commodity'),
+						'p.commodity as posted',
+						sql<string | null>`${each ? e.ref('p.transactionId') : sql`null::uuid`}`.as(
 							'transactionId',
 						),
-						sql<number | null>`case when ${one} then ${e.ref('p.position')} end`.as('position'),
-						sql<boolean>`${one} and ${earned}`.as('earned'),
-						sql<boolean>`${one} and ${e('p.commodity', '<>', base)}`.as('held'),
+						sql<number | null>`${each ? e.ref('p.position') : sql`null::integer`}`.as('position'),
+						sql<bigint>`sum(${amount})`.as('amount'),
+						sql<bigint>`sum(greatest(${amount}, 0))`.as('inflow'),
+						sql<bigint>`sum(greatest(-${amount}, 0))`.as('outflow'),
+						e.fn.countAll<bigint>().as('postings'),
 					];
 				})
 				.where('p.ledgerId', '=', ledgerId)
+				.where('p.counted', '=', true)
+				.where((e) => anyOf(e.ref('p.accountId'), accounts, 'uuid'))
+				.where((e) =>
+					conditionFor(db, {
+						filter,
+						ledgerId,
+						account: e.ref('p.accountId'),
+						transaction: e.ref('p.transactionId'),
+					}),
+				)
 				.where('p.date', '>=', from.toString())
 				.where('p.date', '<=', to.toString())
-				.where('p.counted', '=', true)
-				.where((e) =>
-					e.or([
-						e('p.accountType', '=', AccountType.Assets),
-						anyOf(e.ref('p.accountId'), earning, 'uuid'),
-					]),
-				)
-				.as('x'),
+				.groupBy((e) => [
+					'p.accountId',
+					'p.date',
+					e.fn.coalesce('p.priceCommodity', 'p.commodity'),
+					'p.commodity',
+					...(each ? (['p.transactionId', 'p.position'] as const) : []),
+				])
+				.as('g'),
 		)
-		.select((e) => [...MOVED_BY, e.fn.sum<bigint>('x.amount').as('amount')])
-		.groupBy(MOVED_BY);
-
-/** The transactions with a counted posting on an earning account in the span. */
-const earningIn = (db: Database, { ledgerId, earning, from, to }: Moving) =>
-	db
-		.selectFrom('postings as p')
-		.select('p.transactionId')
-		.where('p.ledgerId', '=', ledgerId)
-		.where('p.date', '>=', from.toString())
-		.where('p.date', '<=', to.toString())
-		.where('p.counted', '=', true)
-		.where((e) => anyOf(e.ref('p.accountId'), earning, 'uuid'))
-		.distinct();
+		.innerJoin('accounts as a', 'a.id', 'g.accountId')
+		.leftJoin('own as o', 'o.symbol', 'g.commodity')
+		.select([
+			'a.name as account',
+			'g.date',
+			'g.commodity',
+			'g.posted',
+			'o.id as symbolId',
+			'g.transactionId',
+			'g.position',
+			'g.amount',
+			'g.inflow',
+			'g.outflow',
+			'g.postings',
+		]);
+};

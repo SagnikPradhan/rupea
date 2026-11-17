@@ -1,6 +1,6 @@
 import { AMOUNT_UNIT, sum, type Amount } from './amounts';
-import type { ValuedHolding } from './holdings';
-import { accountType, parentsOf } from './taxonomy';
+import type { Row } from './deltas';
+import { accountType } from './taxonomy';
 import { AccountType } from './types';
 
 const YEAR = 365;
@@ -27,16 +27,23 @@ const RATES = [
 const POWER_DIGITS = 290;
 
 /**
- * What flowed into one Assets account on one day in rupees, and how many of its
- * postings had no price. The day is a day number, as dayNumberOf gives.
+ * What flowed into one Assets account, and every account under it, on one day
+ * in rupees, and how many of its postings had no price. The day is a day
+ * number, as dayNumberOf gives.
  */
 export type Flow = { account: string; day: number; amount: Amount; unpriced: number };
 
 /**
+ * Why no XIRR was found: something had no price, nothing moved over time, or no
+ * rate fit.
+ */
+export type Why = 'unpriced' | 'nothing' | 'unsolved';
+
+/**
  * What flowed into an Assets account and those under it over a span less what
  * flowed out, and its XIRR: per year over a year or more, and over the span
- * itself when shorter. XIRR is null when something had no price or no rate
- * solves it.
+ * itself when shorter. XIRR is null when something had no price, nothing moved
+ * over time, or no rate below 100 000 000% solves it, and why says which.
  */
 export type Returns = {
 	account: string;
@@ -44,12 +51,13 @@ export type Returns = {
 	xirr: number | null;
 	yearly: boolean;
 	unpriced: number;
+	why?: Why;
 };
 
 type ReturnsOptions = {
 	accounts: string[];
-	start: ValuedHolding[];
-	end: ValuedHolding[];
+	start: Row[];
+	end: Row[];
 	flows: Flow[];
 	span: { from: Temporal.PlainDate; to: Temporal.PlainDate };
 };
@@ -61,61 +69,54 @@ type ReturnsOptions = {
 export const returnsOf = ({ accounts, start, end, flows, span }: ReturnsOptions): Returns[] => {
 	const returns: Returns[] = [];
 	const flowing = movedBy(flows);
-
-	const isUnpriced = (h: ValuedHolding) => h.value === null;
-	const valueOf = (h: ValuedHolding[]) => sum(h.map((x) => x.value ?? (0n as Amount)));
+	const opening = Object.groupBy(start, (x) => x.account);
+	const closing = Object.groupBy(end, (x) => x.account);
 
 	for (const account of accounts) {
 		if (accountType(account) !== AccountType.Assets) continue;
 
-		const isUnderAccount = (a: string) => a === account || a.startsWith(account + ':');
-		const opening = start.filter((x) => isUnderAccount(x.account));
-		const closing = end.filter((x) => isUnderAccount(x.account));
+		const held = [...(opening[account] ?? []), ...(closing[account] ?? [])];
 		const moved = flowing[account] ?? { net: 0n as Amount, unpriced: 0, days: {} };
 		const days = Object.entries(moved.days);
-		if (opening.length + closing.length + days.length === 0) continue;
+		if (held.length + days.length === 0) continue;
 
-		const missing =
-			opening.filter(isUnpriced).length + closing.filter(isUnpriced).length + moved.unpriced;
-
+		const missing = held.reduce((n, x) => n + x.unpriced, moved.unpriced);
 		const entries = [
-			{ n: dayNumberOf(span.from.toString()) - 1, amount: -valueOf(opening) },
+			{ n: dayNumberOf(span.from.toString()) - 1, amount: -valueOf(opening[account]) },
 			...days.map(([n, amount]) => ({ n: Number(n), amount: -amount })),
-			{ n: dayNumberOf(span.to.toString()), amount: valueOf(closing) },
+			{ n: dayNumberOf(span.to.toString()), amount: valueOf(closing[account]) },
 		];
-		const rate = missing > 0 ? null : xirrOf(entries);
+		const rate: Rate =
+			missing > 0 ? { xirr: null, yearly: false, why: 'unpriced' } : xirrOf(entries);
 
-		returns.push({
-			account,
-			netIn: moved.net,
-			xirr: rate?.xirr ?? null,
-			yearly: rate?.yearly ?? false,
-			unpriced: missing,
-		});
+		returns.push({ account, netIn: moved.net, unpriced: missing, ...rate });
 	}
 
 	return returns;
 };
 
+const valueOf = (rows: Row[] = []) => sum(rows.map((x) => x.value ?? (0n as Amount)));
+
 type Moved = { net: Amount; unpriced: number; days: Record<number, bigint> };
 
 /**
- * What flowed into each account and every account above it: the net, the
- * unpriced postings and the amount on each day number.
+ * What flowed into each account: the net, the unpriced postings and the amount
+ * on each day number.
  */
 const movedBy = (flows: Flow[]) => {
 	const byAccount: Record<string, Moved> = {};
 
-	for (const f of flows)
-		for (const account of parentsOf(f.account)) {
-			const moved = (byAccount[account] ??= { net: 0n as Amount, unpriced: 0, days: {} });
-			moved.net = (moved.net + f.amount) as Amount;
-			moved.unpriced += f.unpriced;
-			moved.days[f.day] = (moved.days[f.day] ?? 0n) + f.amount;
-		}
+	for (const f of flows) {
+		const moved = (byAccount[f.account] ??= { net: 0n as Amount, unpriced: 0, days: {} });
+		moved.net = (moved.net + f.amount) as Amount;
+		moved.unpriced += f.unpriced;
+		moved.days[f.day] = (moved.days[f.day] ?? 0n) + f.amount;
+	}
 
 	return byAccount;
 };
+
+type Rate = { xirr: number | null; yearly: boolean; why?: Why };
 
 type Entry = { n: number; amount: bigint };
 
@@ -125,11 +126,11 @@ type Entry = { n: number; amount: bigint };
  * covering fewer than a year of days, counting both ends, gives the return over
  * the span rather than per year, as GIPS asks.
  */
-const xirrOf = (entries: Entry[]) => {
+const xirrOf = (entries: Entry[]): Rate => {
 	const moving = entries.filter((x) => x.amount !== 0n);
 	const first = moving.reduce((n, x) => Math.min(n, x.n), Infinity);
 	const last = entries.reduce((n, x) => Math.max(n, x.n), -Infinity);
-	if (moving.length === 0) return null;
+	if (moving.length === 0) return { xirr: null, yearly: false, why: 'nothing' };
 
 	const timed = moving.map((x) => ({
 		years: (x.n - first) / YEAR,
@@ -138,7 +139,9 @@ const xirrOf = (entries: Entry[]) => {
 	const length = (last - first) / YEAR;
 	const covered = last - first + 1;
 	const rate = solve(timed);
-	if (rate === null || length === 0) return null;
+	if (length === 0) return { xirr: null, yearly: false, why: 'nothing' };
+	if (rate === null || !Number.isFinite(rate))
+		return { xirr: null, yearly: false, why: 'unsolved' };
 
 	return covered >= YEAR
 		? { xirr: rate, yearly: true }

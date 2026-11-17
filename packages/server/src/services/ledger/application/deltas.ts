@@ -42,7 +42,8 @@ type ListDeltasOptions = {
 	to: Temporal.PlainDate;
 	account?: string | undefined;
 	filter?: Filter;
-	bucket: Bucket;
+	bucket: Bucket | 'posting';
+	valued?: 'then' | 'cost';
 	aggregate?: Aggregate;
 	measures?: Measure[];
 };
@@ -56,29 +57,50 @@ type ListDeltasOptions = {
  * runs backwards or covers more than SPAN_MOST_DAYS, or more than CLOSING_DAYS
  * by date.
  */
-export const listDeltas = ({
-	ledger,
-	from,
-	to,
-	account,
-	filter,
-	bucket,
-	aggregate = 'sum',
-	measures = ['value'],
-}: ListDeltasOptions): ResultAsync<Batch<Balances>> =>
+export const listDeltas = (options: ListDeltasOptions): ResultAsync<Batch<Balances>> =>
 	consistently(() => {
-		const refused = refusal({ from, to }, { accumulate: 'change', aggregate, bucket, measures });
+		const { from, to, bucket, aggregate = 'sum', measures = ['value'] } = options;
+		const kind = bucket === 'posting' ? 'date' : bucket;
+		const refused = refusal(
+			{ from, to },
+			{ accumulate: 'change', aggregate, bucket: kind, measures },
+		);
 		if (refused) return errAsync(refused);
 
-		return listed(ledger.id, account).andThen(({ failed, tree, accounts }) => {
-			const base = DEFAULT_COMMODITY;
-			const read = { span: { from, to }, tree, accounts, filter, bucket, measures, base };
+		return deltasRead(options, { closed: true });
+	});
 
-			return changed(ledger.id, read).map(({ span, rows }) => {
-				const parents = parentsIn(tree);
-				const balances = balancesOf(rows, { span, base, bucket, aggregate, measures, parents });
-				return { succeeded: [balances], failed };
-			});
+/**
+ * What the list of deltas gives, for a span of any length by date: it comes
+ * back with the days that had deltas only, so it costs what they do, and is not
+ * refused for covering more than CLOSING_DAYS. Fails for a span that runs
+ * backwards or covers more than SPAN_MOST_DAYS.
+ */
+export const listLongDeltas = (o: ListDeltasOptions): ResultAsync<Batch<Balances>> =>
+	consistently(() => deltasRead(o, { closed: false }));
+
+const deltasRead = (
+	{
+		ledger,
+		from,
+		to,
+		account,
+		filter,
+		bucket,
+		valued = 'then',
+		aggregate = 'sum',
+		measures = ['value'],
+	}: ListDeltasOptions,
+	{ closed }: { closed: boolean },
+) =>
+	listed(ledger.id, account).andThen(({ failed, tree, accounts }) => {
+		const base = DEFAULT_COMMODITY;
+		const read = { span: { from, to }, tree, accounts, filter, bucket, valued, measures, base };
+
+		return changed(ledger.id, read, { closed }).map(({ span, rows }) => {
+			const parents = parentsIn(tree);
+			const balances = balancesOf(rows, { span, base, bucket, aggregate, measures, parents });
+			return { succeeded: [balances], failed };
 		});
 	});
 
@@ -170,21 +192,28 @@ type BalancesRead = {
 	tree: AccountNode[];
 	accounts: string[];
 	filter?: Filter | undefined;
-	bucket: Bucket;
+	bucket: Bucket | 'posting';
+	valued?: 'then' | 'cost';
 	measures: Measure[];
 	base: string;
 };
 
 /** What the accounts gained in each bucket of the span. */
-const changed = (id: string, { span, accounts, filter = EVERYTHING, bucket, base }: BalancesRead) =>
+const changed = (
+	id: string,
+	{ span, accounts, filter = EVERYTHING, bucket, valued = 'then', base }: BalancesRead,
+	{ closed }: { closed: boolean },
+) =>
 	spanFrom(id, span, accounts).andThen((started) => {
-		const long = unclosedSpan(started, bucket);
+		const long = closed ? unclosedSpan(started, bucket === 'posting' ? 'date' : bucket) : null;
 		if (long) return errAsync(long);
 
-		return DB.listDeltas(id, { ...started, accounts, filter, bucket, base }).map((rows) => ({
-			span: started,
-			rows,
-		}));
+		return DB.listDeltas(id, { ...started, accounts, filter, bucket, valued, base }).map(
+			(rows) => ({
+				span: started,
+				rows,
+			}),
+		);
 	});
 
 /**

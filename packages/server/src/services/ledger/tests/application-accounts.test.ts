@@ -7,8 +7,8 @@ import * as Files from '#services/ledger/application/files.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
 import { AMOUNT_UNIT, parseAmount, type Amount } from '#services/ledger/domain/amounts.ts';
 import { ProblemKind } from '#services/ledger/application/language.ts';
-import { INVESTMENT_INCOME } from '#services/ledger/domain/taxonomy.ts';
-import { idsIn } from '#services/ledger/domain/tree.ts';
+import { EARNING, flowsOf } from '#services/ledger/domain/flows.ts';
+import type { Filter } from '#services/ledger/domain/filters.ts';
 import { Feed, PriceSource } from '#services/ledger/domain/types.ts';
 import type { Bucket, Measure } from '@rupea/shared/balances.ts';
 import { BEGINNING } from '@rupea/shared/dates.ts';
@@ -1149,14 +1149,18 @@ describe('returns', () => {
 			].join('\n');
 			await Files.createFile({ ledger, key: 'a.rupea', content: moved });
 
-			const tree = (await DB.listAccountTree(ledger.id))._unsafeUnwrap();
-			const flows = await DB.listFlows(ledger.id, {
-				earning: INVESTMENT_INCOME.flatMap((n) => idsIn(tree, n)),
-				from: Temporal.PlainDate.from('2025-02-01'),
-				to: Temporal.PlainDate.from('2025-02-01'),
-				base: 'INR',
-			});
-			expect(flows._unsafeUnwrap().map((f) => [f.account, f.amount])).toEqual([
+			const day = Temporal.PlainDate.from('2025-02-01');
+			const read = async (o: { account?: string; bucket: 'date' | 'posting'; filter?: Filter }) =>
+				(
+					await Deltas.listLongDeltas({ ledger, from: day, to: day, valued: 'cost', ...o })
+				)._unsafeUnwrap().succeeded[0]?.rows ?? [];
+
+			const flows = flowsOf(await read({ account: 'Assets', bucket: 'date' }), [
+				...(await read({ account: 'Assets', bucket: 'posting', filter: EARNING })),
+				...(await read({ account: 'Expenses:Fees', bucket: 'posting' })),
+			]);
+			expect(flows.map((f) => [f.account, f.amount])).toEqual([
+				['Assets', 0n],
 				['Assets:Bank', -3n],
 				['Assets:IBKR', 12000_0000000001n],
 				['Assets:Zerodha', -11999_9999999998n],

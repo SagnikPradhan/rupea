@@ -3,7 +3,7 @@ import { sum, type Amount } from './amounts';
 import type { Row } from './deltas';
 
 /** What the prices of one group of balances added over the span. */
-export type Shift = { account: string; amount: Amount };
+type Shift = { account: string; amount: Amount };
 
 /**
  * Why net worth went from start to end: what came in as income, what went out
@@ -53,8 +53,8 @@ export const bridgeOf = ({ from, to, start, end, gains }: BridgeOfOptions): Brid
 
 	const income = -totalOf(gains, INCOME) as Amount;
 	const expenses = totalOf(gains, EXPENSES);
-	const before = worthOf(start);
-	const after = worthOf(last);
+	const before = netWorthOf(start);
+	const after = netWorthOf(last);
 	const moved = sum(shifts.map((s) => s.amount));
 
 	return {
@@ -75,7 +75,7 @@ const groupsIn = (r: Row[]) =>
 		.map((x) => x.account)
 		.filter((a) => WORTH.includes(a.split(':')[0] ?? '') && a.split(':').length === 2);
 
-const worthOf = (r: Row[]) => sum(WORTH.map((a) => totalOf(r, a)));
+const netWorthOf = (r: Row[]) => sum(WORTH.map((a) => totalOf(r, a)));
 
 const totalOf = (r: Row[], a: string) =>
 	sum(r.filter((x) => x.account === a).map((x) => x.value ?? (0n as Amount)));

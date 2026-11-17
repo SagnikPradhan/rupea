@@ -1,7 +1,8 @@
+import { dayNumberOf } from '#lib/server/shared/dates.ts';
 import { DEFAULT_COMMODITY, sum, type Amount } from './amounts';
 import type { Row } from './deltas';
 import type { Filter } from './filters';
-import { dayNumberOf, type Flow } from './returns';
+import type { Flow } from './returns';
 import { accountType, INVESTMENT_INCOME, parentsOf } from './taxonomy';
 import { AccountType } from './types';
 

@@ -1,3 +1,4 @@
+import { dayNumberOf, isoDateOf } from '#lib/server/shared/dates.ts';
 import type { Bucket, Measure } from '@rupea/shared/balances.ts';
 import type { Span } from '@rupea/shared/dates.ts';
 import { AMOUNT_UNIT, multiply, type Amount, type Quantity } from './amounts';
@@ -41,8 +42,6 @@ export const holdingsOf = (
 	return [...held.values()];
 };
 
-const DAY_MS = 86_400_000;
-
 const KEY_LENGTH = { date: 10, month: 7, year: 4 };
 
 type Closes = { keys: string[]; days: number[] };
@@ -58,22 +57,22 @@ export const daysOf = ({ from, to }: Span): Closes => ({
  * and how many days it is from the span's start.
  */
 export const closesOf = ({ from, to }: Span, bucket: Exclude<Bucket, 'day'>): Closes => {
-	const first = Date.UTC(from.year, from.month - 1, from.day) / DAY_MS;
-	const last = Date.UTC(to.year, to.month - 1, to.day) / DAY_MS;
+	const first = dayNumberOf(from);
+	const last = dayNumberOf(to);
 	const lasts = {
 		date: () => Array.from({ length: last - first + 1 }, (_, n) => first + n),
 		month: () =>
 			Array.from({ length: (to.year - from.year) * 12 + to.month - from.month + 1 }, (_, n) =>
-				Math.min(Date.UTC(from.year, from.month + n, 0) / DAY_MS, last),
+				Math.min(dayNumberOf({ year: from.year, month: from.month + n + 1, day: 0 }), last),
 			),
 		year: () =>
 			Array.from({ length: to.year - from.year + 1 }, (_, n) =>
-				Math.min(Date.UTC(from.year + n + 1, 0, 0) / DAY_MS, last),
+				Math.min(dayNumberOf({ year: from.year + n + 1, month: 1, day: 0 }), last),
 			),
 	}[bucket]();
 
 	return {
-		keys: lasts.map((d) => new Date(d * DAY_MS).toISOString().slice(0, KEY_LENGTH[bucket])),
+		keys: lasts.map((d) => isoDateOf(d).slice(0, KEY_LENGTH[bucket])),
 		days: lasts.map((d) => d - first),
 	};
 };
@@ -167,7 +166,7 @@ export const seriesOf = (
 	{ base, span, ratesFor }: SeriesOptions,
 ): { series: Series[]; unpriced: Holding[] } => {
 	const count = span.from.until(span.to).days + 1;
-	const first = Date.UTC(span.from.year, span.from.month - 1, span.from.day) / DAY_MS;
+	const first = dayNumberOf(span.from);
 	const prices = new Map<string, Float64Array>();
 	const priceOn = (c: string) =>
 		prices.getOrInsertComputed(c, () =>
@@ -217,7 +216,7 @@ const unitsOn = (
 ) => {
 	const units = new Float64Array(count).fill(Number(opening) / SCALE);
 	const moves = Object.entries(gains)
-		.map(([key, gain]) => ({ at: Date.parse(key) / DAY_MS - first, gain }))
+		.map(([key, gain]) => ({ at: dayNumberOf(key) - first, gain }))
 		.toSorted((a, b) => a.at - b.at);
 
 	moves.reduce((held, move, i) => {

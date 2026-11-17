@@ -1,7 +1,7 @@
+import { dayNumberOf } from '#lib/server/shared/dates.ts';
 import { parseAmount, type Amount } from '#services/ledger/domain/amounts.ts';
 import type { Row } from '#services/ledger/domain/deltas.ts';
 import { flowsOf } from '#services/ledger/domain/flows.ts';
-import { dayNumberOf } from '#services/ledger/domain/returns.ts';
 import { parentsOf } from '#services/ledger/domain/taxonomy.ts';
 import { describe, expect, it } from 'vitest';
 
@@ -9,7 +9,14 @@ const DAY = dayNumberOf('2025-01-01');
 
 const amount = (text: string) => parseAmount(text) ?? (0n as Amount);
 
-const posting = (p: Partial<Row> & { account: string }): Row => ({
+const posting = (p: {
+	account: string;
+	commodity?: string;
+	unpriced?: number;
+	value?: Amount;
+	transaction?: string;
+	position?: number;
+}): Row => ({
 	commodity: 'INR',
 	bucket: '2025-01-01',
 	unpriced: 0,

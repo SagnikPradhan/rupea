@@ -1,6 +1,8 @@
 import {
 	DATE_FORMATS,
+	dayNumberOf,
 	isDateFormat,
+	isoDateOf,
 	isTimeFormat,
 	parseDate,
 	parseTime,
@@ -113,5 +115,28 @@ describe('time formats', () => {
 
 	it.each(['HH', 'mm:ss', 'h:mm'])('rejects %j', (ft) => {
 		expect(isTimeFormat(ft)).toBe(false);
+	});
+});
+
+describe('counting days', () => {
+	it('counts from 1970-01-01 for a string and for a year, month and day', () => {
+		expect(dayNumberOf('1970-01-01')).toBe(0);
+		expect(dayNumberOf('2026-10-05')).toBe(20731);
+		expect(dayNumberOf({ year: 2026, month: 10, day: 5 })).toBe(20731);
+	});
+
+	it('rolls a day or month past its range over', () => {
+		expect(dayNumberOf({ year: 2026, month: 3, day: 0 })).toBe(dayNumberOf('2026-02-28'));
+		expect(dayNumberOf({ year: 2026, month: 13, day: 1 })).toBe(dayNumberOf('2027-01-01'));
+	});
+
+	it('reads years 0 to 99 as 1900 to 1999, as Date.UTC does', () => {
+		expect(dayNumberOf({ year: 1, month: 1, day: 1 })).toBe(Date.UTC(1901, 0, 1) / 86_400_000);
+		expect(dayNumberOf({ year: 99, month: 1, day: 1 })).toBe(Date.UTC(1999, 0, 1) / 86_400_000);
+		expect(dayNumberOf({ year: 100, month: 1, day: 1 })).toBe(Date.UTC(100, 0, 1) / 86_400_000);
+	});
+
+	it('gives the date of a day number back', () => {
+		expect(isoDateOf(20731)).toBe('2026-10-05');
 	});
 });

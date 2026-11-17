@@ -82,7 +82,7 @@ export const listDeltas = ({
 			const span = { from, to };
 			const read = { span, tree, accounts, filter, bucket, valued, measures, base };
 
-			return changed(ledger.id, read).map(({ span, rows }) => {
+			return listGains(ledger.id, read).map(({ span, rows }) => {
 				const parents = parentsIn(tree);
 				const balances = balancesOf(rows, { span, base, bucket, aggregate, measures, parents });
 				return { succeeded: [balances], failed };
@@ -136,7 +136,7 @@ export const listBalances = ({
 				? checkLots(ledger, { accounts, to })
 				: okAsync([] as RupeaError[]);
 
-			return ResultAsync.combine([closing(ledger.id, read), checked]).map(
+			return ResultAsync.combine([listClosings(ledger.id, read), checked]).map(
 				([{ span, rows, columns, faults }, unmatched]) => {
 					const parents = parentsIn(tree);
 					const balances = balancesOf(rows, { span, base, bucket, aggregate, measures, parents });
@@ -259,7 +259,7 @@ type BalancesRead = {
 };
 
 /** What the accounts gained in each bucket of the span. */
-const changed = (
+const listGains = (
 	id: string,
 	{ span, accounts, filter = EVERYTHING, bucket, valued = 'then', base }: BalancesRead,
 ) =>
@@ -279,7 +279,7 @@ const changed = (
  * at the prices of the bucket's last day. An account that holds a commodity
  * with no price on that day is a failure.
  */
-const closing = (id: string, read: BalancesRead) => {
+const listClosings = (id: string, read: BalancesRead) => {
 	const { span, tree, accounts, measures, base } = read;
 	const bucket = read.bucket as 'date' | 'month' | 'year';
 	const asked = { from: span.from.toString() === BEGINNING ? span.to : span.from, to: span.to };
@@ -298,7 +298,7 @@ const closing = (id: string, read: BalancesRead) => {
 		return ResultAsync.combine([
 			DB.listOpenings(id, { accounts: ids, before: start }),
 			DB.listUnitDeltas(id, scope),
-			lotsRead(id, { ...scope, measures, names, base }),
+			listCostLots(id, { ...scope, measures, names, base }),
 			DB.listPriceSources(id),
 		]).andThen(([openings, gains, lots, sources]) => {
 			const holdings = holdingsOf({ openings, gains }, names);
@@ -310,25 +310,25 @@ const closing = (id: string, read: BalancesRead) => {
 				({ prices, opening }) => {
 					const { keys, days } = read.series ? daysOf(walked) : closesOf(walked, bucket);
 					const ratesFor = ratesOn({ ...walked, prices, sources, opening }, days);
-					const closed = read.series
+					const valuation = read.series
 						? { rows: [] as Delta[], ...seriesOf(holdings, { base, span: walked, ratesFor }) }
 						: {
 								...closingsOf(holdings, { base, keys, measures, lots, ratesFor }),
 								series: [] as Series[],
 							};
 					const faults = [
-						...unpricedFaults(closed.unpriced),
+						...unpricedFaults(valuation.unpriced),
 						...unpricedCostsIn(lots).map((c) => fault('CostUnpriced', { commodity: c })),
 					];
 
-					return { span: walked, rows: closed.rows, columns: closed.series, faults };
+					return { span: walked, rows: valuation.rows, columns: valuation.series, faults };
 				},
 			);
 		});
 	});
 };
 
-type LotsReadOptions = {
+type ListCostLotsOptions = {
 	accounts: string[];
 	from: Temporal.PlainDate;
 	to: Temporal.PlainDate;
@@ -343,7 +343,7 @@ type LotsReadOptions = {
  * valued at the prices of the days they were paid for when paid is asked. Cost
  * and paid are the only measures that read lots.
  */
-const lotsRead = (id: string, o: LotsReadOptions) => {
+const listCostLots = (id: string, o: ListCostLotsOptions) => {
 	const { accounts, from, to, bucket, measures, names, base } = o;
 	const paid = measures.includes('paid');
 	if (!paid && !measures.includes('cost')) return okAsync<Record<string, Lots>>({});

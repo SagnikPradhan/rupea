@@ -1,3 +1,4 @@
+import { dayNumberOf } from '#lib/server/shared/dates.ts';
 import { AMOUNT_UNIT, sum, type Amount } from './amounts';
 import type { Row } from './deltas';
 import { accountType } from './taxonomy';
@@ -37,7 +38,7 @@ export type Flow = { account: string; day: number; amount: Amount; unpriced: num
  * Why no XIRR was found: something had no price, nothing moved over time, or no
  * rate fit.
  */
-export type Why = 'unpriced' | 'nothing' | 'unsolved';
+type Why = 'unpriced' | 'nothing' | 'unsolved';
 
 /**
  * What flowed into an Assets account and those under it over a span less what
@@ -147,9 +148,6 @@ const xirrOf = (entries: Entry[]): Rate => {
 		? { xirr: rate, yearly: true }
 		: { xirr: (1 + rate) ** length - 1, yearly: false };
 };
-
-/** The days since 1970-01-01 of a date as 2026-10-05. */
-export const dayNumberOf = (d: string) => Date.parse(d) / 86_400_000;
 
 type Timed = { years: number; amount: number };
 

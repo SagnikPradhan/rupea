@@ -1,6 +1,7 @@
+import { dayNumberOf } from '#lib/server/shared/dates.ts';
 import { parseAmount, type Amount } from '#services/ledger/domain/amounts.ts';
 import type { Row } from '#services/ledger/domain/deltas.ts';
-import { dayNumberOf, returnsOf, type Flow } from '#services/ledger/domain/returns.ts';
+import { returnsOf, type Flow } from '#services/ledger/domain/returns.ts';
 import { parentsOf } from '#services/ledger/domain/taxonomy.ts';
 import { describe, expect, it } from 'vitest';
 

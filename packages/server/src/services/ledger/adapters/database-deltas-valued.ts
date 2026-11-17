@@ -24,7 +24,39 @@ type DeltasOptions = {
 	base: string;
 };
 
-type Spending = DeltasOptions & { ledgerId: string };
+type Spending = {
+	ledgerId: string;
+	accounts: string[];
+	filter: Filter;
+	from: Temporal.PlainDate;
+	to: Temporal.PlainDate;
+	valued: 'then' | 'cost';
+	base: string;
+	bucket: Bucket | 'posting';
+};
+
+type BaseSpending = {
+	ledgerId: string;
+	accounts: string[];
+	filter: Filter;
+	from: Temporal.PlainDate;
+	to: Temporal.PlainDate;
+	valued: 'then' | 'cost';
+	base: string;
+	bucket: Bucket;
+};
+
+type OtherSpending = {
+	ledgerId: string;
+	accounts: string[];
+	filter: Filter;
+	from: Temporal.PlainDate;
+	to: Temporal.PlainDate;
+	valued: 'then' | 'cost';
+	base: string;
+	bucket: Bucket | 'posting';
+	q: QueryCreator<Tables & Own>;
+};
 
 /**
  * A day's bucket as the key the caller reads it by: the date, a day of the
@@ -172,7 +204,7 @@ export const listDeltas = (
  * accounts. A bucket of months or years reads the monthly rollup, and the rest
  * read the postings.
  */
-const baseSpentIn = (db: Database, o: Spending & { bucket: Bucket }) => {
+const baseSpentIn = (db: Database, o: BaseSpending) => {
 	const { ledgerId, accounts, filter, from, to, bucket, base } = o;
 	const after = to.add({ days: 1 });
 	const rolledUp = (bucket === 'month' || bucket === 'year') && !hasCounter(filter);
@@ -266,7 +298,7 @@ const baseEachIn = (db: Database, o: Spending) => {
  */
 type Own = { own: { id: string; symbol: string } };
 
-const otherSpentIn = (db: Database, o: Spending & { q: QueryCreator<Tables & Own> }) => {
+const otherSpentIn = (db: Database, o: OtherSpending) => {
 	const { q, ledgerId, accounts, filter, from, to, bucket, base } = o;
 	const each = bucket === 'posting';
 
@@ -314,7 +346,7 @@ const otherSpentIn = (db: Database, o: Spending & { q: QueryCreator<Tables & Own
  * posting that names a price is worth that price in its commodity, and the rest
  * are worth their own.
  */
-const costSpentIn = (db: Database, o: Spending & { q: QueryCreator<Tables & Own> }) => {
+const costSpentIn = (db: Database, o: OtherSpending) => {
 	const { q, ledgerId, accounts, filter, from, to, bucket } = o;
 	const each = bucket === 'posting';
 

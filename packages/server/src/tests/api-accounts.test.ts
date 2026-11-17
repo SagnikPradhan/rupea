@@ -52,7 +52,7 @@ describe('the api', () => {
 			const api = await createApi(context);
 
 			const reply = await api.inject({
-				url: `/api/ledgers/${ledger.handle}/balances?from=2026-10-01&to=2026-10-02&bucket=date&accumulate=historical`,
+				url: `/api/ledgers/${ledger.handle}/balances?from=2026-10-01&to=2026-10-02&bucket=date`,
 				headers: await bearerOf(ledger.owner),
 			});
 
@@ -69,7 +69,7 @@ describe('the api', () => {
 			const api = await createApi(context);
 
 			const reply = await api.inject({
-				url: '/api/ledgers/nowhere/balances?from=2026-10-01&to=2026-10-02&bucket=date&accumulate=historical',
+				url: '/api/ledgers/nowhere/balances?from=2026-10-01&to=2026-10-02&bucket=date',
 				headers: await bearerOf(ledger.owner),
 			});
 
@@ -87,7 +87,7 @@ describe('the api', () => {
 			const api = await createApi(context);
 
 			const reply = await api.inject({
-				url: `/api/ledgers/${ledger.handle}/balances?from=2026-10-02&to=2026-10-01&bucket=date&accumulate=historical`,
+				url: `/api/ledgers/${ledger.handle}/balances?from=2026-10-02&to=2026-10-01&bucket=date`,
 				headers: await bearerOf(ledger.owner),
 			});
 
@@ -107,7 +107,7 @@ describe('the api', () => {
 			const api = await createApi(context);
 
 			const reply = await api.inject({
-				url: `/api/ledgers/${ledger.handle}/balances?from=1900-01-01&to=2026-10-01&bucket=year&accumulate=historical`,
+				url: `/api/ledgers/${ledger.handle}/balances?from=1900-01-01&to=2026-10-01&bucket=year`,
 				headers: await bearerOf(ledger.owner),
 			});
 
@@ -115,7 +115,7 @@ describe('the api', () => {
 			expect(reply.json()).toMatchObject({ data: { type: 'SpanTooLong', most: 36_600 } });
 		}));
 
-	it('answers a span of dates over 1827 days with a 422, for a change and a balance', ({
+	it('answers a span of dates over 1827 days with a 422, for deltas and balances', ({
 		context,
 		db,
 	}) =>
@@ -124,15 +124,15 @@ describe('the api', () => {
 			await Files.createFile({ ledger, key: 'a.rupea', content });
 			const api = await createApi(context);
 			const headers = await bearerOf(ledger.owner);
-			const get = (accumulate: string, from: string) =>
+			const get = (read: string, from: string) =>
 				api.inject({
-					url: `/api/ledgers/${ledger.handle}/balances?from=${from}&to=2026-10-02&bucket=date&accumulate=${accumulate}`,
+					url: `/api/ledgers/${ledger.handle}/${read}?from=${from}&to=2026-10-02&bucket=date`,
 					headers,
 				});
 
-			for (const accumulate of ['change', 'historical']) {
-				const refused = await get(accumulate, '2020-01-01');
-				const beginning = await get(accumulate, '0001-01-01');
+			for (const read of ['deltas', 'balances']) {
+				const refused = await get(read, '2020-01-01');
+				const beginning = await get(read, '0001-01-01');
 
 				expect(refused.statusCode).toBe(422);
 				expect(refused.json()).toMatchObject({ data: { type: 'SpanTooLong', most: 1827 } });
@@ -150,17 +150,17 @@ describe('the api', () => {
 			await Files.createFile({ ledger, key: 'a.rupea', content: old });
 			const api = await createApi(context);
 			const headers = await bearerOf(ledger.owner);
-			const get = (accumulate: string, bucket: string, to: string) =>
+			const get = (read: string, bucket: string, to: string) =>
 				api.inject({
-					url: `/api/ledgers/${ledger.handle}/balances?from=0001-01-01&to=${to}&bucket=${bucket}&accumulate=${accumulate}`,
+					url: `/api/ledgers/${ledger.handle}/${read}?from=0001-01-01&to=${to}&bucket=${bucket}`,
 					headers,
 				});
 
-			for (const accumulate of ['change', 'historical']) {
-				const long = await get(accumulate, 'date', '2026-10-02');
-				const short = await get(accumulate, 'date', '2021-01-01');
-				const month = await get(accumulate, 'month', '2026-10-02');
-				const year = await get(accumulate, 'year', '2026-10-02');
+			for (const read of ['deltas', 'balances']) {
+				const long = await get(read, 'date', '2026-10-02');
+				const short = await get(read, 'date', '2021-01-01');
+				const month = await get(read, 'month', '2026-10-02');
+				const year = await get(read, 'year', '2026-10-02');
 
 				expect(long.statusCode).toBe(422);
 				expect(long.json()).toMatchObject({ data: { type: 'SpanTooLong', most: 1827 } });
@@ -180,7 +180,7 @@ describe('the api', () => {
 			const api = await createApi(context);
 
 			const reply = await api.inject({
-				url: `/api/ledgers/${ledger.handle}/balances?from=2026-10-01&to=2026-10-01&bucket=date&accumulate=historical`,
+				url: `/api/ledgers/${ledger.handle}/balances?from=2026-10-01&to=2026-10-01&bucket=date`,
 				headers: await bearerOf(ledger.owner),
 			});
 
@@ -202,7 +202,7 @@ describe('the api', () => {
 			const api = await createApi(context);
 
 			const reply = await api.inject({
-				url: `/api/ledgers/${ledger.handle}/balances?from=2026-10-01&to=2026-10-01&bucket=date&accumulate=historical`,
+				url: `/api/ledgers/${ledger.handle}/balances?from=2026-10-01&to=2026-10-01&bucket=date`,
 				headers: await bearerOf(ledger.owner),
 			});
 
@@ -219,7 +219,7 @@ describe('the api', () => {
 			const api = await createApi(context);
 
 			const reply = await api.inject({
-				url: `/api/ledgers/${ledger.handle}/balances?from=2026-10-01&to=2026-10-02&bucket=date&accumulate=historical`,
+				url: `/api/ledgers/${ledger.handle}/balances?from=2026-10-01&to=2026-10-02&bucket=date`,
 			});
 
 			expect(reply.statusCode).toBe(401);
@@ -326,7 +326,7 @@ describe('the api', () => {
 			const api = await createApi(context);
 
 			const reply = await api.inject({
-				url: '/api/ledgers/any/balances?from=2026-02-30&to=2026-03-01&bucket=date&accumulate=historical',
+				url: '/api/ledgers/any/balances?from=2026-02-30&to=2026-03-01&bucket=date',
 			});
 
 			expect(reply.statusCode).toBe(400);
@@ -337,7 +337,7 @@ describe('the api', () => {
 			const api = await createApi(context);
 
 			const reply = await api.inject({
-				url: '/api/ledgers/any/balances?from=2026-02-30&to=2026-03-01&bucket=date&accumulate=historical',
+				url: '/api/ledgers/any/balances?from=2026-02-30&to=2026-03-01&bucket=date',
 			});
 
 			expect(reply.json().data.issues).toEqual([{ path: ['from'], message: expect.any(String) }]);
@@ -354,7 +354,7 @@ describe('the api', () => {
 			const api = await createApi(context);
 
 			const reply = await api.inject({
-				url: '/api/ledgers/any/balances?from=2026-10-01&to=2026-10-02&bucket=date&accumulate=historical',
+				url: '/api/ledgers/any/balances?from=2026-10-01&to=2026-10-02&bucket=date',
 				headers: await bearerOf(ledger.owner),
 			});
 
@@ -373,7 +373,7 @@ describe('the api', () => {
 			const api = await createApi({ ...context, logger });
 
 			const reply = await api.inject({
-				url: '/api/ledgers/any/balances?from=2026-10-01&to=2026-10-02&bucket=date&accumulate=historical',
+				url: '/api/ledgers/any/balances?from=2026-10-01&to=2026-10-02&bucket=date',
 				headers: await bearerOf(ledger.owner),
 			});
 
@@ -503,7 +503,6 @@ describe('the api', () => {
 					from: '2026-10-01',
 					to: '2026-10-01',
 					bucket: 'date',
-					accumulate: 'historical',
 				})
 			).succeeded[0];
 			const card = first?.rows.find((r) => r.account === 'Liabilities:Card');

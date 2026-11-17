@@ -56,6 +56,7 @@ const span = (from: string, to: string) => ({
 	bridge: `bridge?from=${from}&to=${to}`,
 	drops: `drops?from=${from}&to=${to}`,
 	returns: `returns?from=${from}&to=${to}`,
+	deltas: `deltas?from=${from}&to=${to}&bucket=month`,
 	balances: `balances?from=${from}&to=${to}&bucket=month`,
 });
 
@@ -75,7 +76,7 @@ const inject = async (context: Parameters<typeof createApi>[0], text: string, ur
 describe('the accounts api', () => {
 	it.for([
 		[
-			'balances?from=2026-10-02&to=2026-10-02&bucket=date&accumulate=historical&account=Assets:Zerodha&measures=units&measures=price&measures=value&measures=cost&measures=paid',
+			'balances?from=2026-10-02&to=2026-10-02&bucket=date&account=Assets:Zerodha&measures=units&measures=price&measures=value&measures=cost&measures=paid',
 			{
 				succeeded: [
 					{
@@ -126,7 +127,7 @@ describe('the accounts api', () => {
 			},
 		],
 		[
-			'balances?from=2026-03-01&to=2026-03-31&account=Expenses&bucket=month&measures=value&measures=inflow',
+			'deltas?from=2026-03-01&to=2026-03-31&account=Expenses&bucket=month&measures=value&measures=inflow',
 			{
 				succeeded: [
 					{
@@ -146,7 +147,7 @@ describe('the accounts api', () => {
 			},
 		],
 		[
-			'balances?from=2026-03-01&to=2026-03-31&account=Expenses&bucket=day&aggregate=average',
+			'deltas?from=2026-03-01&to=2026-03-31&account=Expenses&bucket=day&aggregate=average',
 			{
 				succeeded: [
 					{
@@ -200,9 +201,21 @@ describe('the accounts api', () => {
 		}),
 	);
 
+	it('refuses deltas with units or an average by month', ({ context }) =>
+		provide(context, async () => {
+			const base = 'deltas?from=2026-03-01&to=2026-03-31&bucket=month';
+			const replies = await Promise.all(
+				[`${base}&measures=units`, `${base}&aggregate=average`].map((url) =>
+					inject(context, content, url),
+				),
+			);
+
+			expect(replies.map((r) => r.statusCode)).toEqual([400, 400]);
+		}));
+
 	it('refuses a historical balance by day of the month, or with inflow', ({ context }) =>
 		provide(context, async () => {
-			const base = 'balances?from=2026-03-01&to=2026-03-31&accumulate=historical';
+			const base = 'balances?from=2026-03-01&to=2026-03-31';
 			const replies = await Promise.all(
 				[`${base}&bucket=day`, `${base}&bucket=month&measures=inflow`].map((url) =>
 					inject(context, content, url),
@@ -260,10 +273,25 @@ describe('the accounts api', () => {
 			});
 		}));
 
+	it('answers deltas of an account nothing matches with a 404', ({ context }) =>
+		provide(context, async () => {
+			const reply = await inject(
+				context,
+				old,
+				'deltas?from=1900-01-01&to=1900-01-02&bucket=date&account=Expenses:Nope',
+			);
+
+			expect(reply.statusCode).toBe(404);
+			expect(reply.json()).toMatchObject({
+				data: { type: 'AccountNotFound', account: 'Expenses:Nope' },
+			});
+		}));
+
 	it.for<['GET' | 'PUT' | 'POST' | 'PATCH' | 'DELETE', string, object?, Record<string, string>?]>([
 		['GET', 'bridge?from=2026-10-01&to=2026-10-02'],
 		['GET', 'drops?from=2026-10-01&to=2026-10-02'],
 		['GET', 'returns?from=2026-10-01&to=2026-10-02'],
+		['GET', 'deltas?from=2026-10-01&to=2026-10-02&bucket=date'],
 		['GET', 'balances?from=2026-10-01&to=2026-10-02&bucket=date'],
 		['GET', 'lots?account=Assets:Zerodha&commodity=INFY'],
 		['GET', 'accounts'],

@@ -57,7 +57,6 @@ describe('accounts', () => {
 			from: '2026-09-01',
 			to: '2026-09-01',
 			bucket: 'date',
-			accumulate: 'historical',
 			measures: ['value', 'units', 'price', 'cost'],
 		});
 		expect(accounts.ok).toBe(true);
@@ -79,7 +78,6 @@ describe('accounts', () => {
 			from: '2026-09-01',
 			to: '2026-09-01',
 			bucket: 'date',
-			accumulate: 'historical',
 			measures: ['value', 'units'],
 		};
 		expect(listed).toHaveBeenNthCalledWith(1, {
@@ -148,7 +146,7 @@ describe('accounts', () => {
 
 	it('lists spending against the period before it, when there is one', async () => {
 		const listed = vi.fn().mockResolvedValue({ succeeded: [], failed: [] });
-		useApi({ accounts: { listBalances: listed, list: vi.fn().mockResolvedValue([]) } });
+		useApi({ accounts: { listDeltas: listed, list: vi.fn().mockResolvedValue([]) } });
 
 		await listDeltas({ handle: 'home', day, period: month, account: 'Expenses' });
 		await listDeltas({ handle: 'home', day, period: { kind: 'all' }, account: 'Expenses' });
@@ -167,7 +165,7 @@ describe('accounts', () => {
 			.fn()
 			.mockResolvedValueOnce({ succeeded: [], failed: [bad('a:1')] })
 			.mockResolvedValueOnce({ succeeded: [], failed: [bad('b:2')] });
-		useApi({ accounts: { listBalances: listed, list: vi.fn().mockResolvedValue([]) } });
+		useApi({ accounts: { listDeltas: listed, list: vi.fn().mockResolvedValue([]) } });
 
 		const spending = await listDeltas({ handle: 'home', day, period: month, account: 'Expenses' });
 
@@ -196,7 +194,7 @@ describe('accounts', () => {
 				findBridge: listed,
 				listDrops: listed,
 				listReturns: listed,
-				listBalances: listed,
+				listDeltas: listed,
 			},
 		});
 		const asked = { handle: 'home', day, period: month };
@@ -270,7 +268,6 @@ describe('accounts', () => {
 			to: '2026-09-01',
 			account: 'Assets',
 			bucket: 'date',
-			accumulate: 'historical',
 			measures: ['value', 'paid', 'units'],
 		});
 		expect(invested.data).toEqual([

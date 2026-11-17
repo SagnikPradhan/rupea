@@ -1631,11 +1631,11 @@ describe('drops', () => {
 });
 
 describe('bridge', () => {
-	const crossed = async (ledger: Ledger) =>
+	const crossed = async (ledger: Ledger, from = '2026-01-01') =>
 		(
 			await Accounts.findBridge({
 				ledger,
-				from: Temporal.PlainDate.from('2026-01-01'),
+				from: Temporal.PlainDate.from(from),
 				to: Temporal.PlainDate.from('2026-01-31'),
 			})
 		)._unsafeUnwrap().succeeded[0];
@@ -1676,6 +1676,47 @@ describe('bridge', () => {
 				other: 0n,
 				end: 1500n * UNIT,
 			});
+			expect(bridge?.shifts).toEqual([{ account: 'Assets:Zerodha', amount: 200n * UNIT }]);
+		}));
+
+	it('starts from what was held at the end of a first day after the first move', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = [
+				'2026-01-01 Opening',
+				'\tAssets:Bank 1000',
+				'\tEquity:Opening',
+				'',
+				'2026-01-02 Buy',
+				'\tAssets:Zerodha 10 INFY @ 100',
+				'\tAssets:Bank',
+				'',
+				'2026-01-05 Pay',
+				'\tAssets:Bank 500',
+				'\tIncome:Salary',
+				'',
+				'2026-01-06 Rent',
+				'\tExpenses:Rent 200',
+				'\tAssets:Bank',
+				'',
+				'P 2026-01-10 INFY 120',
+				'',
+			].join('\n');
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const bridge = await crossed(ledger, '2026-01-03');
+
+			expect(bridge).toMatchObject({
+				start: 1000n * UNIT,
+				income: 500n * UNIT,
+				expenses: 200n * UNIT,
+				other: 0n,
+				end: 1500n * UNIT,
+			});
+			expect(bridge?.from.toString()).toBe('2026-01-03');
 			expect(bridge?.shifts).toEqual([{ account: 'Assets:Zerodha', amount: 200n * UNIT }]);
 		}));
 

@@ -54,10 +54,7 @@ describe('balance years', () => {
 			expect(await worthOn(ledger, '2025-01-01')).toBe(500n * UNIT);
 		}));
 
-	it('show nothing until a sync builds what a ledger lacks, even with no change', ({
-		context,
-		db,
-	}) =>
+	it('are not needed to read a bridge, before or after a sync builds them', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			await Files.createFile({ ledger, key: 'a.rupea', content: OLD });
@@ -71,7 +68,7 @@ describe('balance years', () => {
 
 			await Sync.syncIndex(ledger);
 
-			expect(empty).toBeUndefined();
+			expect(empty).toBe(1000n * UNIT);
 			expect(await endOn()).toBe(1000n * UNIT);
 		}));
 

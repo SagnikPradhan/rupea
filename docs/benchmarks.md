@@ -17,9 +17,9 @@ The numbers below come from 2026-11-17 on an AMD Ryzen 5 5600X (6 cores, 12 thre
 | accounts invested 5y                 |        74 |                   85 |             |
 | accounts drops 10y                   |        69 |                   73 |             |
 | files import 100                     |        62 |                   65 |             |
-| accounts home bridge all             |        57 |                   66 |             |
 | groups candidates in oldest          |        55 |                   56 |             |
 | accounts home worth 5y               |        53 |                   57 |             |
+| accounts home bridge all             |        51 |                   54 |             |
 | accounts expenses daily all          |        47 |                   49 |             |
 | accounts returns year                |        44 |                   45 |             |
 | accounts drops 5y                    |        44 |                   46 |             |
@@ -28,22 +28,22 @@ The numbers below come from 2026-11-17 on an AMD Ryzen 5 5600X (6 cores, 12 thre
 | accounts income invested all         |        38 |                   42 |             |
 | accounts invested 10y                |        38 |                   40 |             |
 | files statement find latest file     |        37 |                   40 |             |
-| accounts home bridge 10y             |        35 |                   42 |             |
+| accounts home bridge 10y             |        34 |                   35 |             |
 | accounts invested year               |        34 |                   41 |             |
 | accounts income invested year        |        33 |                   35 |             |
 | accounts income invested month       |        27 |                   28 |             |
 | accounts invested month              |        26 |                   27 |             |
-| accounts home bridge 5y              |        25 |                   26 |             |
+| accounts home bridge 5y              |        26 |                   27 |             |
 | accounts holdings all                |        24 |                   25 |             |
 | accounts holdings year               |        24 |                   25 |             |
 | accounts holdings month              |        24 |                   25 |             |
 | accounts home worth all              |        21 |                   22 |             |
 | accounts drops year                  |        20 |                   21 |             |
+| accounts home bridge year            |        20 |                   21 |             |
 | accounts drops month                 |        18 |                   20 |             |
-| accounts home bridge year            |        17 |                   19 |             |
+| accounts home bridge month           |        16 |                   19 |             |
 | accounts checks                      |        15 |                   17 |             |
 | accounts expenses deltas all         |        15 |                   16 |             |
-| accounts home bridge month           |        13 |                   15 |             |
 | accounts home worth year             |        12 |                   14 |             |
 | accounts home worth 10y              |        12 |                   14 |             |
 | accounts expenses daily year         |        12 |                   13 |             |
@@ -82,7 +82,7 @@ The numbers below come from 2026-11-17 on an AMD Ryzen 5 5600X (6 cores, 12 thre
 | accounts drops all                   |       286 |                  300 | over 150 ms |
 | files edit oldest                    |       234 |                  257 | over 150 ms |
 | accounts returns all                 |       187 |                  198 | over 150 ms |
-| accounts home bridge all             |       149 |                  154 |             |
+| accounts home bridge all             |       112 |                  117 |             |
 | files edit newest                    |       106 |                  115 |             |
 | accounts income invested all         |       102 |                  111 |             |
 | accounts invested all                |       101 |                  111 |             |
@@ -101,19 +101,19 @@ The numbers below come from 2026-11-17 on an AMD Ryzen 5 5600X (6 cores, 12 thre
 | accounts invested 10y                |        47 |                   63 |             |
 | accounts invested year               |        43 |                   68 |             |
 | accounts income invested year        |        40 |                   42 |             |
-| accounts home bridge 10y             |        39 |                   40 |             |
+| accounts home bridge 10y             |        39 |                   42 |             |
 | accounts invested month              |        34 |                   36 |             |
 | accounts income invested month       |        33 |                   37 |             |
 | accounts expenses deltas all         |        30 |                   32 |             |
+| accounts home bridge 5y              |        30 |                   30 |             |
 | accounts holdings month              |        29 |                   35 |             |
-| accounts home bridge 5y              |        29 |                   34 |             |
 | accounts drops year                  |        29 |                   30 |             |
 | accounts holdings all                |        27 |                   29 |             |
 | accounts holdings year               |        27 |                   29 |             |
 | accounts drops month                 |        27 |                   32 |             |
-| accounts home bridge year            |        17 |                   18 |             |
+| accounts home bridge year            |        23 |                   25 |             |
+| accounts home bridge month           |        19 |                   21 |             |
 | transactions of an account           |        16 |                   17 |             |
-| accounts home bridge month           |        15 |                   16 |             |
 | accounts home worth 10y              |        14 |                   16 |             |
 | accounts home worth year             |        12 |                   14 |             |
 | accounts expenses daily year         |        11 |                   13 |             |
@@ -155,15 +155,15 @@ The numbers below come from 2026-11-17 on an AMD Ryzen 5 5600X (6 cores, 12 thre
 | accounts drops 5y                    |       107 |                  117 |             |
 | accounts home worth 5y               |       106 |                  112 |             |
 | files edit oldest                    |       100 |                  102 |             |
-| accounts home bridge 10y             |        91 |                   96 |             |
-| accounts home bridge all             |        91 |                   94 |             |
 | files import 100                     |        83 |                   88 |             |
 | files edit newest                    |        78 |                   88 |             |
-| accounts home bridge 5y              |        63 |                   67 |             |
+| accounts home bridge all             |        73 |                   76 |             |
+| accounts home bridge 10y             |        72 |                   73 |             |
 | accounts expenses daily all          |        59 |                   61 |             |
 | accounts returns all                 |        56 |                   59 |             |
+| accounts home bridge 5y              |        55 |                   59 |             |
 | accounts expenses deltas all         |        41 |                   44 |             |
-| accounts home bridge year            |        38 |                   40 |             |
+| accounts home bridge year            |        38 |                   41 |             |
 | accounts income invested year        |        37 |                   39 |             |
 | accounts invested all                |        36 |                   40 |             |
 | accounts invested 10y                |        36 |                   42 |             |
@@ -171,7 +171,7 @@ The numbers below come from 2026-11-17 on an AMD Ryzen 5 5600X (6 cores, 12 thre
 | accounts invested year               |        35 |                   46 |             |
 | accounts returns year                |        34 |                   38 |             |
 | accounts returns month               |        32 |                   33 |             |
-| accounts home bridge month           |        29 |                   30 |             |
+| accounts home bridge month           |        31 |                   33 |             |
 | accounts drops year                  |        27 |                   28 |             |
 | accounts home worth 10y              |        26 |                   40 |             |
 | accounts expenses deltas year        |        26 |                   28 |             |

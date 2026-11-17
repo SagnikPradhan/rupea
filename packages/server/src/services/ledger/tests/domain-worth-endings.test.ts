@@ -3,11 +3,8 @@ import { NO_AMOUNT, writeSeries } from '#services/ledger/domain/series.ts';
 import { AccountType } from '#services/ledger/domain/types.ts';
 import {
 	endingsOf,
-	movesOf,
 	ratesOn,
-	shiftsOf,
 	worthOf,
-	worthOn,
 	type BalanceYear,
 	type PriceYear,
 	type WorthOfOptions,
@@ -121,29 +118,6 @@ describe('endings on every day', () => {
 		expect(held('2021-06-01')?.units).toBeGreaterThan(0n);
 		expect(held('2022-07-01')?.units).toBe(held('2021-12-31')?.units);
 		expect(held('2023-03-31')?.units).toBe(units(20 + 89) + units(1 + 99 / 3));
-	});
-});
-
-describe('worth on one day', () => {
-	const worth = worthOf(options);
-
-	it('is what worth gives for the first, a middle and the last day', () => {
-		const days = [worth[0], worth[400], worth.at(-1)];
-
-		expect(days.every((w) => w !== undefined)).toBe(true);
-		expect(days.map((w) => w && worthOn(options, w.day))).toEqual(days);
-	});
-});
-
-describe('shifts', () => {
-	it('add up what movesOf gives for each part', () => {
-		const moved = movesOf(options).map((m) => ({
-			account: m.part,
-			amount: m.after.reduce((t, a, i) => t + a - (m.before[i] ?? 0n), 0n),
-		}));
-
-		expect(moved.some((m) => m.amount !== 0n)).toBe(true);
-		expect(shiftsOf(options)).toEqual(moved);
 	});
 });
 

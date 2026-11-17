@@ -3,9 +3,8 @@ import { okAsync, ResultAsync } from '#lib/server/shared/result/result.ts';
 import type { AccountRow } from '@rupea/shared/account-tree.ts';
 import { BEGINNING, type Span } from '@rupea/shared/dates.ts';
 import { fault, type Batch, type RupeaError } from '@rupea/shared/errors.ts';
-import { ASSETS, LIABILITIES } from '@rupea/shared/money.ts';
 import * as DB from '../adapters/database';
-import { DEFAULT_COMMODITY, sum, type Amount, type Quantity } from '../domain/amounts';
+import { DEFAULT_COMMODITY, type Quantity } from '../domain/amounts';
 import { bridgeOf, type Bridge } from '../domain/bridge';
 import { type Balances } from '../domain/deltas';
 import { dropsOf, type Drops } from '../domain/drawdown';
@@ -15,8 +14,8 @@ import { returnsOf, type Returns } from '../domain/returns';
 import { INVESTMENT_INCOME } from '../domain/taxonomy';
 import { accountsIn, idsIn, parentsIn, partsIn, type AccountNode } from '../domain/tree';
 import { type Ledger } from '../domain/types';
-import { movesOf, shiftsOf, worthOn } from '../domain/worth';
-import { listDeltas, spanFrom, worthWalked } from './deltas';
+import { movesOf } from '../domain/worth';
+import { listBalances, listDeltas, spanFrom, worthWalked } from './deltas';
 
 export type { LotHistory } from '../domain/lots';
 export type { Balances, Bridge, Drops, Returns };
@@ -81,61 +80,39 @@ type FindBridgeOptions = {
 /**
  * Why net worth went from the end of the span's first day, or the first day
  * anything was held, to its last: the income and expenses after that day, and
- * what prices did to each group of balances, valued as the deltas read values
- * them, over every balance account, as income and expenses belong to the whole
- * ledger. Nothing comes back for a span in which nothing was held.
+ * what prices did to each group of balances, over every balance account, as
+ * income and expenses belong to the whole ledger. Nothing comes back for a span
+ * in which nothing was held.
  */
 export const findBridge = ({ ledger, from, to }: FindBridgeOptions): ResultAsync<Batch<Bridge>> =>
 	consistently(() =>
-		DB.listProblems(ledger.id).andThen((f) =>
-			DB.listAccountTree(ledger.id)
-				.andThen((t) => bridgeOver(ledger, { from, to }, t))
-				.map((b) => ({ succeeded: b === null ? [] : [b], failed: f })),
-		),
+		listBalances({ ledger, from, to, bucket: 'year' }).andThen((ended) => {
+			const end = ended.succeeded[0];
+			if (end === undefined || end.rows.length === 0)
+				return okAsync({ succeeded: [], failed: ended.failed });
+
+			const first = end.from;
+			const after = { ledger, from: first.add({ days: 1 }), to };
+
+			return ResultAsync.combine([
+				listBalances({ ledger, from: first, to: first, bucket: 'date' }),
+				Temporal.PlainDate.compare(after.from, to) > 0
+					? okAsync(null)
+					: listDeltas({ ...after, bucket: 'year' }),
+			]).map(([start, gains]) => ({
+				succeeded: [
+					bridgeOf({
+						from: first,
+						to,
+						start: start.succeeded[0]?.rows ?? [],
+						end: end.rows,
+						gains: gains?.succeeded[0]?.rows ?? [],
+					}),
+				],
+				failed: ended.failed,
+			}));
+		}),
 	);
-
-const bridgeOver = (l: Ledger, span: Span, tree: AccountNode[]) => {
-	const parts = [ASSETS, LIABILITIES].flatMap((r) => partsIn(tree, r).parts);
-
-	return worthWalked(l.id, span, { parts, byCommodity: false }).andThen((w) => {
-		if (w === null) return okAsync(null);
-
-		const after = { ledger: l, from: w.from.add({ days: 1 }), to: w.to };
-
-		return ResultAsync.combine([
-			findTotal({ ...after, account: 'Income' }),
-			findTotal({ ...after, account: 'Expenses' }),
-		]).map(([income, expenses]) =>
-			bridgeOf({
-				from: w.from,
-				to: w.to,
-				start: worthOn(w, w.from).worth,
-				end: worthOn(w, w.to).worth,
-				income: -income as Amount,
-				expenses,
-				shifts: shiftsOf(w),
-			}),
-		);
-	});
-};
-
-type FindTotalOptions = {
-	ledger: Ledger;
-	from: Temporal.PlainDate;
-	to: Temporal.PlainDate;
-	account: string;
-};
-
-const findTotal = ({ account, ...options }: FindTotalOptions) =>
-	Temporal.PlainDate.compare(options.from, options.to) > 0
-		? okAsync(0n as Amount)
-		: listDeltas({ ...options, account, bucket: 'year' }).map((b) =>
-				sum(
-					(b.succeeded[0]?.rows ?? [])
-						.filter((r) => r.account === account)
-						.map((r) => r.value ?? (0n as Amount)),
-				),
-			);
 
 type ListReturnsOptions = { ledger: Ledger; from: Temporal.PlainDate; to: Temporal.PlainDate };
 

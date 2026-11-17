@@ -220,6 +220,31 @@ export const endingsOf = (
 	});
 };
 
+type RatesOnOptions = {
+	from: Temporal.PlainDate;
+	to: Temporal.PlainDate;
+	prices: PriceYear[];
+	sources: PriceSources;
+	opening: Record<string, Quantity>;
+};
+
+/**
+ * What a unit of a commodity is worth in rupees on each of these days, in step
+ * with them and priced as the day by day walk prices it, or null with no price.
+ * The days are where the valuation happens, so they need not be bucket ends.
+ */
+export const ratesOn = (o: RatesOnOptions, days: Temporal.PlainDate[]) => {
+	const layout = layoutOf(o);
+	const { rateAt, rates } = ratesOf({ ...o, ...layout });
+	const daily = days.length * 2 > layout.count;
+	const indexes = days.map((d) => o.from.until(d).days);
+
+	return (commodity: string): (bigint | null)[] => {
+		const every = daily ? rates(commodity) : null;
+		return indexes.map((i) => (every ? (every[i] ?? null) : rateAt(commodity, i)));
+	};
+};
+
 const valueOf = (g: Held, { units, price }: { units: Amount; price: bigint | null }) => {
 	if (units === 0n || g.commodity === DEFAULT_COMMODITY) return units;
 

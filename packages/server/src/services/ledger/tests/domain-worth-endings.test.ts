@@ -4,6 +4,7 @@ import { AccountType } from '#services/ledger/domain/types.ts';
 import {
 	endingsOf,
 	movesOf,
+	ratesOn,
 	shiftsOf,
 	worthOf,
 	worthOn,
@@ -143,5 +144,43 @@ describe('shifts', () => {
 
 		expect(moved.some((m) => m.amount !== 0n)).toBe(true);
 		expect(shiftsOf(options)).toEqual(moved);
+	});
+});
+
+describe('rates at days', () => {
+	const days = Array.from({ length: options.from.until(options.to).days + 1 }, (_, i) =>
+		options.from.add({ days: i }),
+	);
+	const endings = endingsOf(options, { days, lots: [], bought: [], paid: false });
+	const priceOn = (commodity: string, d: Temporal.PlainDate) =>
+		endings.find((e) => e.commodity === commodity && e.day.equals(d))?.price?.amount ?? null;
+
+	it('are what endingsOf prices a commodity at on every day, null with none', () => {
+		const rates = ratesOn(options, days);
+
+		for (const commodity of ['FUND', 'BOND', 'GHOST'])
+			expect(rates(commodity)).toEqual(days.map((d) => priceOn(commodity, d)));
+		expect(rates('BOND').some((r) => r === null)).toBe(true);
+		expect(rates('BOND').some((r) => r !== null)).toBe(true);
+		expect(rates('GHOST').every((r) => r === null)).toBe(true);
+	});
+
+	it('are the same on a few days as on all of them', () => {
+		const few = [days[3], days[200], days[330], days[500], days.at(-1)].filter(
+			(d) => d !== undefined,
+		);
+		const rates = ratesOn(options, few);
+
+		expect(few).toHaveLength(5);
+		for (const commodity of ['FUND', 'BOND'])
+			expect(rates(commodity)).toEqual(few.map((d) => priceOn(commodity, d)));
+	});
+
+	it('value every bucket at one day when that day is given for each', () => {
+		const last = days.at(-1) ?? options.to;
+		const rates = ratesOn(options, [last, last, last]);
+
+		expect(new Set(rates('FUND')).size).toBe(1);
+		expect(rates('FUND')[0]).toBe(priceOn('FUND', last));
 	});
 });

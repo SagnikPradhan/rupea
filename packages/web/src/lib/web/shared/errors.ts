@@ -74,6 +74,11 @@ export const explain = (error: RupeaError): string =>
 				`${e.account} has no XIRR: ${e.unpriced} of its holdings or flows have no price. Add a P line for them.`,
 		)
 		.with(
+			{ type: 'BalanceUnpriced' },
+			(e) =>
+				`${e.account} is worth less than it should: ${e.unpriced} of its holdings have no price. Add a P line for them.`,
+		)
+		.with(
 			{ type: 'ReturnUnsolved' },
 			(e) => `${e.account} has no XIRR: no rate makes its flows and values add up.`,
 		)
@@ -147,5 +152,6 @@ export const isWarning = (e: RupeaError) =>
 	e.type === 'BalanceAssertionFailed' ||
 	e.type === 'BalanceAssertionAmbiguous' ||
 	e.type === 'ReturnUnpriced' ||
+	e.type === 'BalanceUnpriced' ||
 	e.type === 'ReturnUnsolved' ||
 	e.type === 'CostUnpriced';

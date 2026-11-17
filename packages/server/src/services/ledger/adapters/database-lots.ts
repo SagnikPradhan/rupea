@@ -6,6 +6,7 @@ import { atomically } from '#lib/server/db/atomically.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { sql, type ExpressionBuilder, type SqlBool } from 'kysely';
+import type { Bucket } from '@rupea/shared/balances.ts';
 import { BEGINNING } from '@rupea/shared/dates.ts';
 import { CURRENCIES } from '@rupea/shared/money.ts';
 import type { Amount } from '../domain/amounts';
@@ -19,6 +20,7 @@ import {
 	type UnmatchedDisposal,
 } from '../domain/lots';
 import { BALANCE_TYPES } from '../domain/taxonomy';
+import { KEYS } from './database-deltas-valued';
 import { ledgerOrder, multiply, toCost, toPrice, toQuantity } from './database-queries';
 
 /** Books each commodity's lots again from its counted postings. */
@@ -118,39 +120,83 @@ export const listCostMoves = (
 		).map((r) => r.map(moveOf)),
 	);
 
-type CostMovesFromOptions = {
+type CostRow = {
+	accountId: string;
+	commodity: string;
+	cost: string;
+	paid: Temporal.PlainDate;
+	amount: Amount;
+};
+
+type CostOpeningsOptions = { accounts: string[]; before: Temporal.PlainDate };
+
+/**
+ * What the lots of these accounts had cost before a day, in the commodity each
+ * cost in and by the day the lot was paid for. A cost that came back to nothing
+ * is left out.
+ */
+export const listCostOpenings = (
+	ledgerId: string,
+	{ accounts, before }: CostOpeningsOptions,
+): ResultAsync<CostRow[]> =>
+	withContext('db')((db) =>
+		attempt(() => costMovesBefore(db, { ledgerId, accounts, day: before.toString() })).map((r) =>
+			r.map(costRowOf),
+		),
+	);
+
+type CostDeltasOptions = {
 	accounts: string[];
 	from: Temporal.PlainDate;
 	to: Temporal.PlainDate;
+	bucket: Exclude<Bucket, 'day'>;
 };
 
 /**
- * The moves listCostMoves gives from a day on, after one move for each cost
- * still open before it, dated the day before, so memory grows with the
- * positions held and not with history.
+ * What the lots of these accounts took in or gave up over a span at what they
+ * cost, by the bucket the day falls in and the day the lot was paid for.
  */
-export const listCostMovesFrom = (
+export const listCostDeltas = (
 	ledgerId: string,
-	{ accounts, from, to }: CostMovesFromOptions,
-): ResultAsync<CostMove[]> =>
+	{ accounts, from, to, bucket }: CostDeltasOptions,
+): ResultAsync<(CostRow & { bucket: string })[]> =>
 	withContext('db')((db) =>
-		attempt(async () => {
-			const day = from.toString();
-			const opening =
-				day === BEGINNING ? [] : await costMovesBefore(db, { ledgerId, accounts, day });
-			const moves = await costMovesBetween(db, {
-				ledgerId,
-				accounts,
-				from: day,
-				to: to.toString(),
-			});
-
-			return [
-				...opening.map((r) => moveOf({ ...r, date: from.subtract({ days: 1 }).toString() })),
-				...moves.map(moveOf),
-			];
-		}),
+		attempt(() =>
+			costMovesOf(db, { ledgerId, accounts })
+				.select((e) => [
+					'm.accountId',
+					'm.commodity',
+					'm.costCommodity',
+					'm.paid',
+					KEYS[bucket](sql`${e.ref('m.date')}`).as('bucket'),
+					e.fn.sum<bigint>('m.amount').as('amount'),
+				])
+				.where('m.date', '>=', from.toString())
+				.where('m.date', '<=', to.toString())
+				.groupBy((e) => [
+					'm.accountId',
+					'm.commodity',
+					'm.costCommodity',
+					'm.paid',
+					KEYS[bucket](sql`${e.ref('m.date')}`),
+				])
+				.execute(),
+		).map((r) => r.map((c) => ({ ...costRowOf(c), bucket: c.bucket }))),
 	);
+
+const costRowOf = (r: {
+	accountId: string;
+	commodity: string;
+	costCommodity: string;
+	paid: string;
+	amount: bigint;
+}): CostRow => ({
+	accountId: r.accountId,
+	commodity: r.commodity,
+	cost: r.costCommodity,
+	paid: Temporal.PlainDate.from(r.paid),
+	amount: r.amount as Amount,
+});
 
 type CostMovesBetween = { ledgerId: string; accounts: string[]; from: string; to: string };
 

@@ -70,6 +70,7 @@ const Plain = v.variant('type', [
 	v.object({ type: v.literal('LotCostMissing'), location: str, account: str }),
 	v.object({ type: v.literal('LotNotOpen'), location: str, account: str, units: str }),
 	v.object({ type: v.literal('ReturnUnpriced'), account: str, unpriced: num }),
+	v.object({ type: v.literal('BalanceUnpriced'), account: str, unpriced: num }),
 	v.object({ type: v.literal('ReturnUnsolved'), account: str }),
 	v.object({ type: v.literal('CostUnpriced'), commodity: str }),
 	v.object({ type: v.literal('ExtractionInvalidSchema'), path: str, reason: str }),

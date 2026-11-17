@@ -1,5 +1,6 @@
 export * from './database-accounts';
 export * from './database-deltas';
+export * from './database-deltas-units';
 export * from './database-deltas-valued';
 export * from './database-files';
 export * from './database-ledgers';

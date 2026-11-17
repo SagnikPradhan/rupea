@@ -1,5 +1,6 @@
 import * as Deltas from '#services/ledger/application/deltas.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
+import type { Measure } from '@rupea/shared/balances.ts';
 
 /**
  * What each account held at the end of a day, by commodity, as listBalances
@@ -22,19 +23,28 @@ export const heldOn = async (ledger: Ledger, day: Temporal.PlainDate) =>
 export const worthHeldOf = (r: { account: string; value: bigint }[], a: string) =>
 	r.filter((x) => x.account === a).reduce((t, x) => t + x.value, 0n);
 
-type WorthSpan = { from: Temporal.PlainDate; to: Temporal.PlainDate; account?: string | undefined };
+type WorthSpan = {
+	from: Temporal.PlainDate;
+	to: Temporal.PlainDate;
+	account?: string | undefined;
+	measures?: Measure[] | undefined;
+};
 
 /**
  * What the top accounts were worth at the end of each day of a span, as
  * listBalances reads it, and how many amounts had no price.
  */
-export const worthDaysOf = async (ledger: Ledger, { from, to, account }: WorthSpan) => {
+export const worthDaysOf = async (
+	ledger: Ledger,
+	{ from, to, account, measures = ['value'] }: WorthSpan,
+) => {
 	const read = await Deltas.listBalances({
 		ledger,
 		from,
 		to,
 		account,
 		bucket: 'date',
+		measures,
 	});
 	const rows = read._unsafeUnwrap().succeeded[0]?.rows ?? [];
 	const tops = rows.filter((r) => r.account === 'Assets' || r.account === 'Liabilities');

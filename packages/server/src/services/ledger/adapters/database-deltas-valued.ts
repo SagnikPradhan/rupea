@@ -30,7 +30,7 @@ type DeltasOptions = {
  * month, which puts every month's day n in one bucket, then a month as 2026-10
  * and a year as 2026.
  */
-const KEYS: Record<Bucket, (date: RawBuilder<unknown>) => RawBuilder<string>> = {
+export const KEYS: Record<Bucket, (date: RawBuilder<unknown>) => RawBuilder<string>> = {
 	date: (d) => sql<string>`to_char(${d}::date, 'YYYY-MM-DD')`,
 	day: (d) => sql<string>`extract(day from ${d}::date)::int::text`,
 	month: (d) => sql<string>`to_char(${d}::date, 'YYYY-MM')`,

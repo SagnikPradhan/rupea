@@ -187,6 +187,9 @@ export const postings = PG.pgTable(
 		PG.index('postings_account_id_commodity_date').on(t.accountId, t.commodity, t.date), // an account's days
 		PG.index('postings_account_id_date').on(t.accountId, t.date), // account filters
 		PG.index('postings_ledger_id_commodity').on(t.ledgerId, t.commodity), // lots are booked per commodity
+		PG.index('postings_account_id_date_other')
+			.on(t.accountId, t.date)
+			.where(sql`${t.commodity} <> 'INR' and ${t.counted}`), // held in another commodity than the base
 		PG.index('postings_ledger_id_balance')
 			.on(t.ledgerId, t.accountId, t.commodity)
 			.where(sql`${t.balance} IS NOT NULL`),

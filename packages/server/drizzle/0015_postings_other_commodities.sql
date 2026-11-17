@@ -1,0 +1,1 @@
+CREATE INDEX "postings_account_id_date_other" ON "postings" USING btree ("account_id","date") WHERE "postings"."commodity" <> 'INR' and "postings"."counted";

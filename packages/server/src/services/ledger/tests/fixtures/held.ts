@@ -1,4 +1,4 @@
-import * as Accounts from '#services/ledger/application/accounts.ts';
+import * as Deltas from '#services/ledger/application/deltas.ts';
 import type { Ledger } from '#services/ledger/application/ledger.ts';
 
 /**
@@ -8,12 +8,11 @@ import type { Ledger } from '#services/ledger/application/ledger.ts';
 export const heldOn = async (ledger: Ledger, day: Temporal.PlainDate) =>
 	(
 		(
-			await Accounts.listBalances({
+			await Deltas.listBalances({
 				ledger,
 				from: day,
 				to: day,
 				bucket: 'date',
-				accumulate: 'historical',
 				measures: ['value', 'units', 'price', 'cost'],
 			})
 		)._unsafeUnwrap().succeeded[0]?.rows ?? []
@@ -30,13 +29,12 @@ type WorthSpan = { from: Temporal.PlainDate; to: Temporal.PlainDate; account?: s
  * listBalances reads it, and how many amounts had no price.
  */
 export const worthDaysOf = async (ledger: Ledger, { from, to, account }: WorthSpan) => {
-	const read = await Accounts.listBalances({
+	const read = await Deltas.listBalances({
 		ledger,
 		from,
 		to,
 		account,
 		bucket: 'date',
-		accumulate: 'historical',
 	});
 	const rows = read._unsafeUnwrap().succeeded[0]?.rows ?? [];
 	const tops = rows.filter((r) => r.account === 'Assets' || r.account === 'Liabilities');

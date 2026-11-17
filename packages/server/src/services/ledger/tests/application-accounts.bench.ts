@@ -1,4 +1,5 @@
 import * as Accounts from '#services/ledger/application/accounts.ts';
+import * as Deltas from '#services/ledger/application/deltas.ts';
 import * as Ledgers from '#services/ledger/application/ledger.ts';
 import * as Sync from '#services/ledger/application/sync.ts';
 import { provide } from '#lib/server/shared/context/context.ts';
@@ -35,12 +36,11 @@ describe('accounts', () => {
 		const holdings = (p: Period) => {
 			const on = spanOf(p).to;
 			return timed(context, () =>
-				Accounts.listBalances({
+				Deltas.listBalances({
 					ledger,
 					from: on,
 					to: on,
 					bucket: 'date',
-					accumulate: 'historical',
 					measures: ['value', 'units', 'price', 'cost'],
 				}),
 			);
@@ -48,11 +48,10 @@ describe('accounts', () => {
 		const worth = (p: Period) => {
 			const span = spanOf(p);
 			return timed(context, () =>
-				Accounts.listBalances({
+				Deltas.listBalances({
 					ledger,
 					...span,
 					bucket: closingBucketIn(span),
-					accumulate: 'historical',
 					measures: ['value'],
 				}),
 			);
@@ -60,12 +59,11 @@ describe('accounts', () => {
 		const invested = (p: Period, account: string) => {
 			const span = spanOf(p);
 			return timed(context, () =>
-				Accounts.listBalances({
+				Deltas.listBalances({
 					ledger,
 					...span,
 					account,
 					bucket: closingBucketIn(span),
-					accumulate: 'historical',
 					measures: ['value', 'paid', 'units'],
 				}),
 			);
@@ -76,7 +74,7 @@ describe('accounts', () => {
 			return timed(context, () =>
 				ResultAsync.combine(
 					spans.map((span) =>
-						Accounts.listBalances({
+						Deltas.listDeltas({
 							ledger,
 							...span,
 							account,
@@ -89,7 +87,7 @@ describe('accounts', () => {
 		};
 		const daily = (p: Period, account: string) =>
 			timed(context, () =>
-				Accounts.listBalances({
+				Deltas.listDeltas({
 					ledger,
 					...spanOf(p),
 					account,

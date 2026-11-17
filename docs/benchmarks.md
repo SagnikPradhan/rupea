@@ -16,12 +16,12 @@ The numbers below come from 2026-11-17 on an AMD Ryzen 5 5600X (6 cores, 12 thre
 | accounts drops all                   |       120 |                  145 |             |
 | files edit newest                    |       113 |                  129 |             |
 | accounts drops 10y                   |        68 |                   72 |             |
-| accounts expenses daily all          |        67 |                   74 |             |
 | accounts home bridge all             |        66 |                   68 |             |
 | accounts home worth 5y               |        64 |                   81 |             |
 | files import 100                     |        62 |                   65 |             |
 | groups candidates in oldest          |        55 |                   56 |             |
 | accounts invested all                |        50 |                   55 |             |
+| accounts expenses daily all          |        49 |                   49 |             |
 | accounts invested 10y                |        49 |                   61 |             |
 | accounts income invested all         |        48 |                   53 |             |
 | accounts invested year               |        46 |                   50 |             |
@@ -33,35 +33,35 @@ The numbers below come from 2026-11-17 on an AMD Ryzen 5 5600X (6 cores, 12 thre
 | files statement find latest file     |        37 |                   40 |             |
 | accounts income invested month       |        36 |                   40 |             |
 | accounts invested month              |        35 |                   37 |             |
-| accounts home worth all              |        31 |                   62 |             |
 | accounts home bridge 5y              |        29 |                   30 |             |
 | accounts holdings year               |        29 |                   34 |             |
 | accounts holdings all                |        29 |                   33 |             |
 | accounts holdings month              |        28 |                   31 |             |
-| accounts expenses deltas all         |        24 |                   25 |             |
+| accounts home worth all              |        24 |                   26 |             |
 | accounts drops year                  |        23 |                   28 |             |
 | accounts drops month                 |        20 |                   23 |             |
 | accounts home bridge year            |        19 |                   21 |             |
 | accounts home worth year             |        19 |                   47 |             |
+| accounts expenses deltas all         |        16 |                   20 |             |
 | accounts checks                      |        16 |                   19 |             |
 | accounts home worth 10y              |        15 |                   20 |             |
-| accounts expenses daily year         |        15 |                   16 |             |
 | accounts home bridge month           |        14 |                   17 |             |
-| accounts expenses deltas year        |        12 |                   13 |             |
-| accounts liabilities deltas all      |        10 |                   12 |             |
-| accounts expenses deltas month       |       7.4 |                  8.0 |             |
-| accounts expenses daily month        |       6.8 |                  7.6 |             |
+| accounts expenses daily year         |        13 |                   14 |             |
+| accounts expenses deltas year        |        10 |                   12 |             |
+| accounts expenses deltas month       |       7.2 |                  7.7 |             |
 | accounts home worth month            |       6.5 |                  7.6 |             |
+| accounts expenses daily month        |       6.3 |                  7.0 |             |
 | transactions of an account           |       5.9 |                  7.1 |             |
-| accounts liabilities deltas year     |       5.6 |                   11 |             |
 | groups candidates in newest          |       5.5 |                  6.3 |             |
 | transactions postings of an account  |       5.3 |                  7.5 |             |
-| accounts income deltas year          |       5.3 |                  6.5 |             |
-| accounts liabilities deltas month    |       5.0 |                   10 |             |
+| accounts liabilities deltas month    |       4.8 |                  8.4 |             |
+| accounts liabilities deltas year     |       4.5 |                  5.1 |             |
 | accounts index alone                 |       4.5 |                  5.7 |             |
+| accounts income deltas year          |       4.4 |                  4.6 |             |
 | groups in oldest                     |       4.4 |                  4.5 |             |
-| accounts income deltas month         |       4.4 |                  5.8 |             |
-| accounts income deltas all           |       4.3 |                  5.0 |             |
+| accounts income deltas month         |       4.2 |                  4.4 |             |
+| accounts income deltas all           |       4.0 |                  4.7 |             |
+| accounts liabilities deltas all      |       3.9 |                  4.6 |             |
 | transactions by description          |       3.6 |                  3.6 |             |
 | groups in newest                     |       2.8 |                  3.2 |             |
 | transactions newest                  |       2.7 |                  4.5 |             |
@@ -88,8 +88,7 @@ The numbers below come from 2026-11-17 on an AMD Ryzen 5 5600X (6 cores, 12 thre
 | accounts income invested all         |       127 |                  134 |             |
 | files edit newest                    |       106 |                  115 |             |
 | groups candidates in oldest          |        86 |                   90 |             |
-| accounts expenses daily all          |        86 |                   98 |             |
-| accounts home worth all              |        83 |                  104 |             |
+| accounts home worth all              |        82 |                   99 |             |
 | accounts drops 10y                   |        75 |                   78 |             |
 | accounts returns year                |        70 |                   73 |             |
 | accounts returns month               |        67 |                   70 |             |
@@ -100,14 +99,15 @@ The numbers below come from 2026-11-17 on an AMD Ryzen 5 5600X (6 cores, 12 thre
 | accounts income invested year        |        60 |                   61 |             |
 | accounts invested year               |        59 |                   62 |             |
 | accounts checks                      |        59 |                   62 |             |
+| accounts expenses daily all          |        54 |                   56 |             |
 | accounts drops 5y                    |        52 |                   55 |             |
 | accounts income invested month       |        48 |                   50 |             |
 | accounts invested month              |        48 |                   51 |             |
 | accounts home bridge 10y             |        42 |                   44 |             |
-| accounts expenses deltas all         |        42 |                   46 |             |
 | accounts holdings all                |        35 |                   43 |             |
 | accounts holdings year               |        34 |                   39 |             |
 | accounts holdings month              |        33 |                   39 |             |
+| accounts expenses deltas all         |        32 |                   33 |             |
 | accounts home bridge 5y              |        31 |                   32 |             |
 | accounts drops year                  |        30 |                   39 |             |
 | accounts drops month                 |        27 |                   35 |             |
@@ -115,22 +115,22 @@ The numbers below come from 2026-11-17 on an AMD Ryzen 5 5600X (6 cores, 12 thre
 | accounts home bridge year            |        17 |                   20 |             |
 | transactions of an account           |        16 |                   17 |             |
 | accounts home bridge month           |        15 |                   16 |             |
-| accounts liabilities deltas all      |        14 |                   15 |             |
-| accounts expenses daily year         |        14 |                   16 |             |
 | accounts home worth 10y              |        14 |                   16 |             |
-| accounts expenses deltas year        |        12 |                   12 |             |
+| accounts expenses daily year         |        13 |                   14 |             |
+| accounts expenses deltas year        |        11 |                   12 |             |
+| accounts liabilities deltas year     |        11 |                   62 |             |
+| accounts expenses deltas month       |       9.2 |                   11 |             |
 | groups candidates in newest          |       8.5 |                  9.2 |             |
-| accounts expenses deltas month       |       8.5 |                  9.4 |             |
-| accounts expenses daily month        |       7.4 |                  7.6 |             |
+| accounts expenses daily month        |       7.2 |                  7.3 |             |
 | transactions postings of an account  |       6.8 |                  8.3 |             |
 | accounts home worth month            |       6.8 |                  8.0 |             |
-| accounts income deltas all           |       6.3 |                   14 |             |
-| accounts liabilities deltas month    |       5.5 |                   11 |             |
-| accounts liabilities deltas year     |       5.5 |                   10 |             |
 | accounts index alone                 |       5.2 |                  6.3 |             |
-| accounts income deltas year          |       4.9 |                  5.4 |             |
+| accounts income deltas year          |       5.0 |                  6.3 |             |
+| accounts income deltas all           |       4.9 |                  5.7 |             |
+| accounts liabilities deltas month    |       4.8 |                  6.6 |             |
 | groups in oldest                     |       4.6 |                  5.8 |             |
-| accounts income deltas month         |       4.0 |                  4.6 |             |
+| accounts income deltas month         |       4.6 |                  5.4 |             |
+| accounts liabilities deltas all      |       4.3 |                  5.6 |             |
 | transactions by description          |       3.3 |                  4.9 |             |
 | groups in newest                     |       3.1 |                  3.5 |             |
 | transactions deep page               |       3.1 |                  5.0 |             |
@@ -158,8 +158,8 @@ The numbers below come from 2026-11-17 on an AMD Ryzen 5 5600X (6 cores, 12 thre
 | accounts home bridge all             |        97 |                  105 |             |
 | accounts home bridge 10y             |        97 |                  105 |             |
 | files import 100                     |        83 |                   88 |             |
-| accounts expenses daily all          |        80 |                   88 |             |
 | files edit newest                    |        78 |                   88 |             |
+| accounts expenses daily all          |        71 |                   72 |             |
 | accounts income invested year        |        70 |                   84 |             |
 | accounts invested year               |        68 |                   85 |             |
 | accounts home bridge 5y              |        68 |                   78 |             |
@@ -167,36 +167,36 @@ The numbers below come from 2026-11-17 on an AMD Ryzen 5 5600X (6 cores, 12 thre
 | accounts invested 10y                |        53 |                   63 |             |
 | accounts invested all                |        51 |                   58 |             |
 | accounts income invested all         |        50 |                   60 |             |
-| accounts expenses deltas all         |        47 |                   48 |             |
+| accounts expenses deltas all         |        44 |                   45 |             |
 | accounts home bridge year            |        39 |                   41 |             |
 | accounts returns year                |        33 |                   35 |             |
 | accounts home worth 10y              |        32 |                   48 |             |
 | accounts returns month               |        31 |                   33 |             |
+| accounts home worth all              |        31 |                   40 |             |
 | accounts home worth year             |        30 |                   32 |             |
 | accounts home bridge month           |        29 |                   31 |             |
 | accounts invested month              |        29 |                   41 |             |
-| accounts home worth all              |        29 |                   31 |             |
 | accounts drops year                  |        28 |                   31 |             |
-| accounts expenses deltas year        |        28 |                   30 |             |
 | accounts income invested month       |        28 |                   28 |             |
+| accounts expenses deltas year        |        27 |                   29 |             |
 | accounts holdings year               |        22 |                   30 |             |
 | accounts holdings month              |        20 |                   22 |             |
-| accounts expenses daily year         |        20 |                   21 |             |
 | accounts holdings all                |        20 |                   21 |             |
+| accounts expenses daily year         |        19 |                   20 |             |
 | accounts drops month                 |        18 |                   19 |             |
 | accounts expenses deltas month       |        14 |                   15 |             |
-| accounts expenses daily month        |        13 |                   13 |             |
+| accounts expenses daily month        |        12 |                   13 |             |
 | accounts checks                      |        12 |                   16 |             |
 | accounts home worth month            |        12 |                   14 |             |
 | files statement find latest file     |       8.0 |                  9.1 |             |
 | accounts index alone                 |       7.7 |                  9.2 |             |
-| accounts liabilities deltas year     |       7.0 |                  8.0 |             |
-| accounts income deltas year          |       6.8 |                  7.7 |             |
-| accounts liabilities deltas month    |       6.3 |                  7.2 |             |
-| accounts liabilities deltas all      |       6.3 |                  7.0 |             |
-| accounts income deltas month         |       5.9 |                  6.7 |             |
+| accounts liabilities deltas year     |       7.3 |                  9.4 |             |
+| accounts income deltas year          |       6.6 |                  7.6 |             |
+| accounts liabilities deltas month    |       6.6 |                  7.4 |             |
+| accounts income deltas month         |       6.1 |                  7.1 |             |
 | transactions by description          |       5.8 |                  7.9 |             |
-| accounts income deltas all           |       5.6 |                  7.2 |             |
+| accounts liabilities deltas all      |       5.4 |                  6.9 |             |
+| accounts income deltas all           |       5.4 |                  6.2 |             |
 | transactions postings by description |       4.6 |                  4.7 |             |
 | files list files                     |       3.8 |                  5.1 |             |
 | transactions deep page               |       2.7 |                  4.4 |             |

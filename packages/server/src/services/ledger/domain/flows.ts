@@ -1,37 +1,72 @@
-import { sum, type Amount } from './amounts';
+import { DEFAULT_COMMODITY, sum, type Amount } from './amounts';
+import type { Row } from './deltas';
+import type { Filter } from './filters';
 import { dayNumberOf, type Flow } from './returns';
+import { accountType, INVESTMENT_INCOME, parentsOf } from './taxonomy';
+import { AccountType } from './types';
 
-/**
- * A posting valued in the base, as Postgres reads it: the postings of a
- * transaction with no earning posting come already added up by account and day,
- * with a null transaction. The rest come one by one.
- */
-export type Moved = {
-	transactionId: string | null;
+/** The postings that have a posting on an earning account in their transaction. */
+export const EARNING: Filter = {
+	kind: 'counter',
+	test: { kind: 'any', of: INVESTMENT_INCOME.map((n) => ({ kind: 'account', name: n })) },
+};
+
+type Moved = {
+	transaction: string;
 	position: number;
 	account: string;
 	date: string;
 	amount: Amount | null;
-	unpriced: number;
 	earned: boolean;
 	held: boolean;
 };
 
 /**
- * What flowed into each account on each day: a posting's value less its share
- * of the income its transaction's earning postings made. Oldest account and day
- * first.
+ * What flowed into each account on each day, as the deltas of the Assets
+ * accounts say, less each posting's share of the income its transaction's
+ * earning postings made: the postings of the transactions that have any, each
+ * alone, with their commodity. Oldest account and day first.
  */
-export const flowsOf = (moved: Moved[]): Flow[] => {
-	const added = moved.filter((m) => m.transactionId === null);
-	const shared = Object.values(
-		Object.groupBy(
-			moved.filter((m) => m.transactionId !== null),
-			(m) => m.transactionId ?? '',
-		),
-	).flatMap((p) => sharedIn(p ?? []));
+export const flowsOf = (deltas: Row[], earning: Row[]): Flow[] => {
+	const days = deltas.map((r) => ({
+		account: r.account,
+		day: dayNumberOf(r.bucket),
+		amount: r.value ?? (0n as Amount),
+		unpriced: r.unpriced,
+	}));
+	const moved = earning
+		.map(movedFrom)
+		.filter((m) => m.earned || accountType(m.account) === AccountType.Assets);
+	const shared = Object.values(Object.groupBy(moved, (m) => m.transaction)).flatMap((p) =>
+		sharedIn(p ?? []),
+	);
+	const changes = shared.flatMap((m) =>
+		parentsOf(m.account).map((account) => ({
+			account,
+			day: dayNumberOf(m.date),
+			amount: ((m.shared ?? 0n) - (m.amount ?? 0n)) as Amount,
+			unpriced: Number(m.shared === null) - Number(m.amount === null),
+		})),
+	);
 
-	return merged([...added, ...shared]);
+	return merged([...days, ...changes]);
+};
+
+const movedFrom = (r: Row): Moved => ({
+	transaction: r.transaction ?? '',
+	position: r.position ?? 0,
+	account: r.account,
+	date: r.bucket,
+	amount: r.unpriced > 0 ? null : (r.value ?? (0n as Amount)),
+	earned: INVESTMENT_INCOME.some((n) => isUnder(r.account, n)),
+	held: r.commodity !== null && r.commodity !== DEFAULT_COMMODITY,
+});
+
+const isUnder = (account: string, name: string) => {
+	const a = account.toLowerCase();
+	const n = name.toLowerCase();
+
+	return a === n || a.startsWith(`${n}:`);
 };
 
 /**
@@ -41,7 +76,7 @@ export const flowsOf = (moved: Moved[]): Flow[] => {
  * when none does, with what does not divide going to the first. An unpriced
  * earning posting leaves the income unknown.
  */
-const sharedIn = (postings: Moved[]): Moved[] => {
+const sharedIn = (postings: Moved[]) => {
 	const earning = postings.filter((p) => p.earned);
 	const income = earning.some((p) => p.amount === null)
 		? null
@@ -65,34 +100,20 @@ const sharedIn = (postings: Moved[]): Moved[] => {
 		.filter((p) => !p.earned)
 		.map((p) => {
 			const share = shareOf(p);
-			const amount = p.amount === null || share === null ? null : ((p.amount - share) as Amount);
 
-			return { ...p, amount, unpriced: amount === null ? 1 : 0 };
+			return { ...p, shared: p.amount === null || share === null ? null : p.amount - share };
 		});
 };
 
-const merged = (moved: Moved[]): Flow[] => {
-	const byDay: Record<string, Moved> = {};
+const merged = (flows: Flow[]): Flow[] => {
+	const byAccount: Record<string, Record<number, Flow>> = {};
 
-	for (const m of moved) {
-		const day = (byDay[`${m.account} ${m.date}`] ??= { ...m, amount: 0n as Amount, unpriced: 0 });
-		day.amount = ((day.amount ?? 0n) + (m.amount ?? 0n)) as Amount;
-		day.unpriced += m.unpriced;
+	for (const f of flows) {
+		const days = (byAccount[f.account] ??= {});
+		const day = (days[f.day] ??= { ...f, amount: 0n as Amount, unpriced: 0 });
+		day.amount = (day.amount + f.amount) as Amount;
+		day.unpriced += f.unpriced;
 	}
 
-	return Object.keys(byDay)
-		.toSorted((a, b) => a.localeCompare(b))
-		.map((k) => byDay[k])
-		.flatMap((m) =>
-			m
-				? [
-						{
-							account: m.account,
-							day: dayNumberOf(m.date),
-							amount: m.amount ?? (0n as Amount),
-							unpriced: m.unpriced,
-						},
-					]
-				: [],
-		);
+	return Object.values(byAccount).flatMap((d) => Object.values(d));
 };

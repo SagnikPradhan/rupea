@@ -20,10 +20,17 @@ export const conditionFor = (db: Database, o: ConditionOptions): Expression<SqlB
 
 	if (filter.kind === 'all')
 		return eb.and(filter.of.map((f) => conditionFor(db, { ...o, filter: f })));
+	if (filter.kind === 'any' && filter.of.length > 0 && filter.of.every((f) => f.kind === 'account'))
+		return sql<SqlBool>`${o.account} in ${named(
+			db,
+			o,
+			filter.of.map((f) => f.name),
+		)}`;
 	if (filter.kind === 'any')
 		return eb.or(filter.of.map((f) => conditionFor(db, { ...o, filter: f })));
 	if (filter.kind === 'not') return eb.not(conditionFor(db, { ...o, filter: filter.of }));
-	if (filter.kind === 'account') return sql<SqlBool>`${o.account} in ${named(db, o, filter.name)}`;
+	if (filter.kind === 'account')
+		return sql<SqlBool>`${o.account} in ${named(db, o, [filter.name])}`;
 
 	const { ledgerId, account, transaction } = o;
 	if (transaction === null) return eb.lit(false);
@@ -31,17 +38,22 @@ export const conditionFor = (db: Database, o: ConditionOptions): Expression<SqlB
 	return eb.exists(counterOf(db, { test: filter.test, ledgerId, account, transaction }));
 };
 
-/** The accounts of the ledger with this name, or under it, in any case. */
-const named = (db: Database, { ledgerId }: ConditionOptions, name: string) =>
+/**
+ * The accounts of the ledger with one of these names, or under one, in any
+ * case.
+ */
+const named = (db: Database, { ledgerId }: ConditionOptions, names: string[]) =>
 	db
 		.selectFrom('accounts as a')
 		.select('a.id')
 		.where('a.ledgerId', '=', ledgerId)
 		.where((e) =>
-			e.or([
-				sql<SqlBool>`lower(${e.ref('a.name')}) = lower(${name})`,
-				sql<SqlBool>`starts_with(lower(${e.ref('a.name')}), lower(${name}) || ':')`,
-			]),
+			e.or(
+				names.flatMap((name) => [
+					sql<SqlBool>`lower(${e.ref('a.name')}) = lower(${name})`,
+					sql<SqlBool>`starts_with(lower(${e.ref('a.name')}), lower(${name}) || ':')`,
+				]),
+			),
 		);
 
 type CounterOptions = {

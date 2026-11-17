@@ -1,21 +1,20 @@
 import { consistently } from '#lib/server/db/read-only.ts';
 import { okAsync, ResultAsync } from '#lib/server/shared/result/result.ts';
 import type { AccountRow } from '@rupea/shared/account-tree.ts';
-import { BEGINNING, type Span } from '@rupea/shared/dates.ts';
+import { type Span } from '@rupea/shared/dates.ts';
 import { fault, type Batch, type RupeaError } from '@rupea/shared/errors.ts';
 import * as DB from '../adapters/database';
-import { DEFAULT_COMMODITY, type Quantity } from '../domain/amounts';
 import { bridgeOf, type Bridge } from '../domain/bridge';
 import { type Balances } from '../domain/deltas';
 import { dropsOf, type Drops } from '../domain/drawdown';
-import { HOPS, pricedIn, valued, type Holding } from '../domain/holdings';
+import { EARNING, flowsOf } from '../domain/flows';
+import { INVESTMENT_INCOME } from '../domain/taxonomy';
 import { type LotHistory } from '../domain/lots';
 import { returnsOf, type Returns } from '../domain/returns';
-import { INVESTMENT_INCOME } from '../domain/taxonomy';
 import { accountsIn, idsIn, parentsIn, partsIn, type AccountNode } from '../domain/tree';
 import { type Ledger } from '../domain/types';
 import { movesOf } from '../domain/worth';
-import { listBalances, listDeltas, spanFrom, worthWalked } from './deltas';
+import { listBalances, listDeltas, listLongDeltas, spanFrom, worthWalked } from './deltas';
 
 export type { LotHistory } from '../domain/lots';
 export type { Balances, Bridge, Drops, Returns };
@@ -140,17 +139,34 @@ export const listReturns = ({
 	);
 
 const returnsOver = (ledger: Ledger, { from, to }: Span, tree: AccountNode[]) => {
-	const earning = INVESTMENT_INCOME.flatMap((n) => idsIn(tree, n));
-	const flows = DB.listFlows(ledger.id, { earning, from, to, base: DEFAULT_COMMODITY });
+	const assets = { ledger, account: 'Assets', bucket: 'date' } as const;
+	const cost = { valued: 'cost' } as const;
+	const before = from.subtract({ days: 1 });
 
-	return ResultAsync.combine([heldBefore(ledger.id, from), heldOn(ledger.id, to), flows]).map(
-		([s, end, f]) => {
-			const accounts = Object.keys(parentsIn(tree));
-			const returns = returnsOf({ accounts, start: s, end, flows: f, span: { from, to } });
-
-			return { succeeded: returns, failed: unsolvedIn(returns) };
-		},
+	const earned = INVESTMENT_INCOME.filter((n) => idsIn(tree, n).length > 0).map((a) =>
+		listLongDeltas({ ledger, account: a, ...cost, from, to, bucket: 'posting' }),
 	);
+
+	return ResultAsync.combine([
+		listBalances({ ...assets, from: before, to: before }),
+		listBalances({ ...assets, from: to, to }),
+		listLongDeltas({ ...assets, ...cost, from, to }),
+		listLongDeltas({ ...assets, ...cost, from, to, bucket: 'posting', filter: EARNING }),
+		ResultAsync.combine(earned),
+	]).map(([start, end, moved, alongside, earned]) => {
+		const rowsOf = (b: Batch<Balances>) => b.succeeded[0]?.rows ?? [];
+		const flows = flowsOf(rowsOf(moved), [...rowsOf(alongside), ...earned.flatMap(rowsOf)]);
+		const accounts = Object.keys(parentsIn(tree));
+		const returns = returnsOf({
+			accounts,
+			start: rowsOf(start),
+			end: rowsOf(end),
+			flows,
+			span: { from, to },
+		});
+
+		return { succeeded: returns, failed: unsolvedIn(returns) };
+	});
 };
 
 /** A plain list of accounts, not a read, so it carries no failures. */
@@ -168,16 +184,6 @@ export const listLots = ({
 		DB.listLots(ledger.id, { account, commodity }).map((l) => ({ succeeded: l, failed: f })),
 	);
 
-const heldOn = (id: string, d: Temporal.PlainDate) =>
-	DB.listHoldings(id, d).andThen((h) => valuedOn(id, d, h));
-
-/**
- * Nothing is held before all of history, whose day before Postgres cannot
- * write.
- */
-const heldBefore = (id: string, d: Temporal.PlainDate) =>
-	d.toString() === BEGINNING ? okAsync([]) : heldOn(id, d.subtract({ days: 1 }));
-
 /**
  * Each account whose XIRR could not be worked out, unless one under it could
  * not either.
@@ -187,37 +193,8 @@ const unsolvedIn = (returns: Returns[]): RupeaError[] => {
 	const deepest = failed.filter((r) => !failed.some((o) => o.account.startsWith(`${r.account}:`)));
 
 	return deepest.map((r) =>
-		r.unpriced > 0
+		r.why === 'unpriced'
 			? fault('ReturnUnpriced', { account: r.account, unpriced: r.unpriced })
 			: fault('ReturnUnsolved', { account: r.account }),
 	);
-};
-
-const valuedOn = (id: string, d: Temporal.PlainDate, h: Holding[]) =>
-	pricesOn({ ledgerId: id, day: d, commodities: pricedIn(h), hops: HOPS }).map((p) =>
-		h.map((x) => valued(x, p)),
-	);
-
-type PricesOnOptions = {
-	ledgerId: string;
-	day: Temporal.PlainDate;
-	commodities: string[];
-	hops: number;
-};
-
-const pricesOn = ({
-	ledgerId,
-	day,
-	commodities,
-	hops,
-}: PricesOnOptions): ResultAsync<Record<string, Quantity>> => {
-	if (hops === 0 || commodities.length === 0) return okAsync({});
-
-	return DB.findLatestPrices(ledgerId, commodities, day).andThen((prices) => {
-		const currencies = [...new Set(Object.values(prices).map((p) => p.commodity))];
-		return pricesOn({ ledgerId, day, commodities: currencies, hops: hops - 1 }).map((further) => ({
-			...further,
-			...prices,
-		}));
-	});
 };

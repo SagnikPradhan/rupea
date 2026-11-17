@@ -594,3 +594,95 @@ describe('deltas filtered by the other side', () => {
 		});
 	});
 });
+
+describe('deltas by posting and at cost', () => {
+	const content = [
+		'2026-10-01 Salary',
+		'\tAssets:Bank 1000',
+		'\tIncome:Salary',
+		'',
+		'2026-10-02 Lunch',
+		'\tExpenses:Food 100',
+		'\tAssets:Bank',
+		'',
+		'2026-10-03 Change',
+		'\tAssets:Wallet 5 USD @ 80 INR',
+		'\tAssets:Bank -400',
+		'',
+	].join('\n');
+	const span = {
+		from: Temporal.PlainDate.from('2026-10-01'),
+		to: Temporal.PlainDate.from('2026-10-31'),
+	};
+
+	it('gives one row for each posting, with its transaction and position', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+
+			const [balances] = (
+				await Deltas.listDeltas({ ledger, ...span, account: 'Assets:Bank', bucket: 'posting' })
+			)._unsafeUnwrap().succeeded;
+			const rows = balances?.rows ?? [];
+
+			expect(rows.map((r) => [r.account, r.bucket, r.value])).toEqual([
+				['Assets:Bank', '2026-10-01', 1000_0000000000n],
+				['Assets:Bank', '2026-10-02', -100_0000000000n],
+				['Assets:Bank', '2026-10-03', -400_0000000000n],
+			]);
+			expect(rows.map((r) => r.position)).toEqual([0, 1, 1]);
+			expect(new Set(rows.map((r) => r.transaction)).size).toBe(3);
+			expect(rows.every((r) => typeof r.transaction === 'string')).toBe(true);
+		}));
+
+	it('values a posting that names a price at that price when valued at cost', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({
+				ledger,
+				key: 'a.rupea',
+				content: `P 2026-10-03 USD 90\n\n${content}`,
+			});
+			const read = async (valued: 'then' | 'cost') => {
+				const [balances] = (
+					await Deltas.listDeltas({
+						ledger,
+						...span,
+						account: 'Assets:Wallet',
+						bucket: 'month',
+						valued,
+					})
+				)._unsafeUnwrap().succeeded;
+
+				return balances?.rows.find((r) => r.account === 'Assets:Wallet')?.value;
+			};
+
+			expect(await read('cost')).toBe(400_0000000000n);
+			expect(await read('then')).toBe(450_0000000000n);
+		}));
+
+	it('is not refused over 1827 days by date when read long, and still is when not', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({
+				ledger,
+				key: 'a.rupea',
+				content: '2020-01-01 Pay\n\tAssets:Bank 500\n\tIncome:Salary\n',
+			});
+			const read = {
+				ledger,
+				from: Temporal.PlainDate.from('2020-01-01'),
+				to: Temporal.PlainDate.from('2025-01-02'),
+				bucket: 'date',
+			} as const;
+
+			const long = await Deltas.listLongDeltas(read);
+			const short = await Deltas.listDeltas(read);
+
+			expect(long.isOk()).toBe(true);
+			expect(short._unsafeUnwrapErr()).toEqual({ type: 'SpanTooLong', days: 1828, most: 1827 });
+		}));
+});

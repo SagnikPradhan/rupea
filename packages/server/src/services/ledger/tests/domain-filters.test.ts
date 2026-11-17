@@ -59,14 +59,23 @@ describe('conditionFor', () => {
 		db,
 	}) => {
 		const both = compiled(db, { kind: 'all', of: [account, account] }).sql;
-		const either = compiled(db, { kind: 'any', of: [account, account] }).sql;
+		const either = compiled(db, { kind: 'any', of: [account, counter] }).sql;
 		const except = compiled(db, { kind: 'not', of: account }).sql;
 
 		expect(both).toContain(' and "p"."account_id" in ');
-		expect(either).toContain(' or "p"."account_id" in ');
+		expect(either).toContain(') or exists (select');
 		expect(except).toContain('not ');
 		expect(compiled(db, EVERYTHING).sql).toMatch(/where 1 = 1$/);
 		expect(compiled(db, { kind: 'any', of: [] }).sql).toMatch(/where 1 = 0$/);
+	});
+
+	it('writes an any of accounts as one subquery of the accounts, not one for each', ({ db }) => {
+		const other: Filter = { kind: 'account', name: 'Expenses' };
+		const query = compiled(db, { kind: 'any', of: [account, other] });
+
+		expect(query.sql.match(/"account_id" in \(select/g)).toHaveLength(1);
+		expect(query.sql).not.toContain(' or "p"."account_id" in ');
+		expect(query.parameters).toEqual(['ledger', 'Assets', 'Assets', 'Expenses', 'Expenses']);
 	});
 
 	it('writes a counter as the other postings of the transaction on other accounts', ({ db }) => {

@@ -100,29 +100,6 @@ export const worthOf = (o: WorthOfOptions): Worth[] => {
 	);
 };
 
-/**
- * The worth on one day, valued as worthOf values it, without walking the
- * others.
- */
-export const worthOn = (o: WorthOfOptions, day: Temporal.PlainDate): Worth => {
-	const layout = layoutOf(o);
-	const { rateAt } = ratesOf({ ...o, ...layout });
-	const i = o.from.until(day).days;
-
-	return dayWorth(
-		holdingsOf(o).map((g) => {
-			const held = heldOn(
-				g.years.map((y) => placedIn(y, layout)),
-				i,
-			);
-			const price = rateAt(g.commodity, i);
-
-			return { ...g, value: valueOf(g, { units: held, price }), held };
-		}),
-		{ day, byCommodity: o.byCommodity },
-	);
-};
-
 type Counted = {
 	asset: boolean;
 	part: string;
@@ -311,66 +288,6 @@ export const movesOf = (o: WorthOfOptions): Move[] => {
 
 		return { part, asset: held.some((g) => g.asset), before, after };
 	});
-};
-
-/**
- * What the prices of one part's holdings added over the span, owing as it is
- * held.
- */
-export type Shift = { account: string; amount: Amount };
-
-type RateAt = (commodity: string, i: number) => bigint | null;
-
-/**
- * What the prices of each part's holdings added over the span, as movesOf's
- * before and after add up, but found only where a holding's units change: in
- * between, the day by day moves cancel to units times the rate's change. A
- * commodity counts from the first day it has a price, which it keeps as the
- * latest quote carries forward.
- */
-export const shiftsOf = (o: WorthOfOptions): Shift[] => {
-	const layout = layoutOf(o);
-	const groups = groupsOf({ ...o, ...layout });
-	const { rateAt } = ratesOf({ ...o, ...layout });
-
-	return Object.entries(Object.groupBy(groups, (g) => g.part)).map(([account, held = []]) => ({
-		account,
-		amount: held.reduce((t, g) => t + shiftOf(g, rateAt), 0n) as Amount,
-	}));
-};
-
-const shiftOf = (g: Group, rateAt: RateAt) => {
-	const last = g.units.length - 1;
-	const priced = (i: number) => rateAt(g.commodity, i) !== null;
-	if (g.commodity === DEFAULT_COMMODITY || !priced(last)) return 0n;
-
-	const first = firstWhere(priced, { low: 0, high: last });
-	const starts = changesOf(g.units);
-	const rates = [...starts, last].map((i) => rateAt(g.commodity, Math.max(i, first)));
-
-	return starts.reduce((t, i, n) => {
-		const [then, now] = [rates[n], rates[n + 1]];
-		const units = (g.units[i] ?? 0n) as Amount;
-		if (then == null || now == null) return t;
-
-		return t + multiply(units, now as Amount) - multiply(units, then as Amount);
-	}, 0n);
-};
-
-/** The days a holding's units differ from the day before's, and the first. */
-const changesOf = (u: bigint[]) => u.flatMap((x, i) => (i === 0 || x !== u[i - 1] ? [i] : []));
-
-/** The first index in low to high where a test holds, which holds from there on. */
-const firstWhere = (
-	test: (i: number) => boolean,
-	{ low, high }: { low: number; high: number },
-): number => {
-	if (low >= high) return low;
-
-	const mid = Math.floor((low + high) / 2);
-	return test(mid)
-		? firstWhere(test, { low, high: mid })
-		: firstWhere(test, { low: mid + 1, high });
 };
 
 type Span = { count: number; offsetOf: (year: number) => number };

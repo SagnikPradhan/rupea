@@ -31,7 +31,7 @@ export type Delta = {
 };
 
 /** A delta with only the measures asked for. */
-type Row = {
+export type Row = {
 	account: string;
 	commodity: string | null;
 	bucket: string;

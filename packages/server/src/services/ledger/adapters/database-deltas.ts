@@ -9,7 +9,8 @@ import { sql } from 'kysely';
 import type { HoldingKey } from './database-files';
 import type { Filter } from '../domain/filters';
 import { conditionFor } from './database-filters';
-import { amongHoldings } from './database-queries';
+import { amongHoldings, costOf } from './database-queries';
+import { AccountType } from '../domain/types';
 
 const CHECKED = { months: 12 };
 
@@ -223,7 +224,15 @@ type RewriteOptions = {
 	holdings: HoldingKey[] | null;
 };
 
-const rewrite = async (tx: Database, { ledgerId, first, after, holdings }: RewriteOptions) => {
+const rewrite = async (tx: Database, o: RewriteOptions) => {
+	await rewriteMonths(tx, o);
+	await rewriteCosts(tx, o);
+};
+
+const rewriteMonths = async (
+	tx: Database,
+	{ ledgerId, first, after, holdings }: RewriteOptions,
+) => {
 	const month = monthOf(sql.ref<string>('d.date'));
 
 	await tx
@@ -263,6 +272,60 @@ const rewrite = async (tx: Database, { ledgerId, first, after, holdings }: Rewri
 				.where('d.date', '<', after)
 				.where((e) => amongHoldings(e.ref('d.accountId'), e.ref('d.commodity'), holdings))
 				.groupBy(['d.ledgerId', 'd.accountId', 'd.accountType', 'd.commodity', month]),
+		)
+		.execute();
+};
+
+const rewriteCosts = async (tx: Database, { ledgerId, first, after, holdings }: RewriteOptions) => {
+	const cost = costOf('p');
+
+	await tx
+		.deleteFrom('dailyCosts')
+		.where('ledgerId', '=', ledgerId)
+		.where('date', '>=', first)
+		.where('date', '<', after)
+		.where((e) => amongHoldings(e.ref('accountId'), e.ref('commodity'), holdings))
+		.execute();
+	await tx
+		.insertInto('dailyCosts')
+		.columns([
+			'ledgerId',
+			'accountId',
+			'commodity',
+			'costCommodity',
+			'date',
+			'cost',
+			'inflow',
+			'outflow',
+			'postings',
+		])
+		.expression(
+			tx
+				.selectFrom('postings as p')
+				.select((e) => [
+					'p.ledgerId',
+					'p.accountId',
+					'p.commodity',
+					e.fn.coalesce('p.priceCommodity', 'p.commodity').as('costCommodity'),
+					'p.date',
+					sql<bigint>`sum(${cost})`.as('cost'),
+					sql<bigint>`sum(greatest(${cost}, 0))`.as('inflow'),
+					sql<bigint>`sum(greatest(-${cost}, 0))`.as('outflow'),
+					sql<number>`count(*)::integer`.as('postings'),
+				])
+				.where('p.ledgerId', '=', ledgerId)
+				.where('p.counted', '=', true)
+				.where('p.accountType', 'in', [AccountType.Assets, AccountType.Liabilities])
+				.where('p.date', '>=', first)
+				.where('p.date', '<', after)
+				.where((e) => amongHoldings(e.ref('p.accountId'), e.ref('p.commodity'), holdings))
+				.groupBy((e) => [
+					'p.ledgerId',
+					'p.accountId',
+					'p.commodity',
+					e.fn.coalesce('p.priceCommodity', 'p.commodity'),
+					'p.date',
+				]),
 		)
 		.execute();
 };

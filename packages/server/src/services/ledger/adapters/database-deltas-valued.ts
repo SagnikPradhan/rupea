@@ -5,13 +5,13 @@ import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import type { Bucket } from '@rupea/shared/balances.ts';
 import { sql, type QueryCreator, type RawBuilder } from 'kysely';
-import { PriceKind } from '../domain/types';
+import { AccountType } from '../domain/types';
 import { type Amount } from '../domain/amounts';
 import type { Delta } from '../domain/deltas';
-import { hasCounter, type Filter } from '../domain/filters';
+import { hasCounter, isEverything, type Filter } from '../domain/filters';
 import { deltasBetween, postedBetween } from './database-deltas';
 import { conditionFor } from './database-filters';
-import { multiply } from './database-queries';
+import { costOf, multiply } from './database-queries';
 import { ownSymbols, ratesOf } from './database-rates';
 
 type DeltasOptions = {
@@ -340,48 +340,99 @@ const otherSpentIn = (db: Database, o: OtherSpending) => {
 		);
 };
 
+type CostSpending = {
+	q: QueryCreator<Tables & Own>;
+	ledgerId: string;
+	accounts: string[];
+	filter: Filter;
+	from: Temporal.PlainDate;
+	to: Temporal.PlainDate;
+	bucket: Bucket | 'posting';
+	stored: boolean;
+};
+
 /**
  * What the postings of these accounts came to at cost, added up by account, day
  * and the commodity they are worth in, or each alone for the bucket posting: a
  * posting that names a price is worth that price in its commodity, and the rest
- * are worth their own.
+ * are worth their own. A read of every posting by day reads the balance
+ * accounts' days from daily_costs and the postings of the other accounts.
  */
 const costSpentIn = (db: Database, o: OtherSpending) => {
 	const { q, ledgerId, accounts, filter, from, to, bucket } = o;
+	const stored = bucket !== 'posting' && isEverything(filter);
+	const read = { q, ledgerId, accounts, filter, from, to, bucket, stored };
+	const posted = costPostedIn(db, read);
+
+	return stored ? costStoredIn(read).unionAll(posted) : posted;
+};
+
+/**
+ * The days the daily cost table holds for these accounts, shaped as the posted
+ * days are.
+ */
+const costStoredIn = (o: CostSpending) => {
+	const { q, ledgerId, accounts, from, to } = o;
+
+	return q
+		.selectFrom('dailyCosts as d')
+		.innerJoin('accounts as a', 'a.id', 'd.accountId')
+		.leftJoin('own as o', 'o.symbol', 'd.costCommodity')
+		.select((e) => [
+			'a.name as account',
+			'd.date',
+			'd.costCommodity as commodity',
+			'd.commodity as posted',
+			'o.id as symbolId',
+			sql<string | null>`null::uuid`.as('transactionId'),
+			sql<number | null>`null::integer`.as('position'),
+			'd.cost as amount',
+			'd.inflow',
+			'd.outflow',
+			sql<bigint>`${e.ref('d.postings')}::bigint`.as('postings'),
+		])
+		.where('d.ledgerId', '=', ledgerId)
+		.where((e) => anyOf(e.ref('d.accountId'), accounts, 'uuid'))
+		.where('d.date', '>=', from.toString())
+		.where('d.date', '<=', to.toString());
+};
+
+const costPostedIn = (db: Database, o: CostSpending) => {
+	const { q, ledgerId, accounts, filter, from, to, bucket, stored } = o;
 	const each = bucket === 'posting';
+	const cost = costOf('p');
 
 	return q
 		.selectFrom((s) =>
 			s
 				.selectFrom('postings as p')
-				.select((e) => {
-					const amount = e
-						.case()
-						.when('p.priceKind', '=', PriceKind.Unit)
-						.then(multiply(e.ref('p.amount'), e.ref('p.priceAmount')))
-						.when('p.priceKind', '=', PriceKind.Total)
-						.then(sql<bigint>`sign(${e.ref('p.amount')}) * ${e.ref('p.priceAmount')}`)
-						.else(e.ref('p.amount'))
-						.end();
-
-					return [
-						'p.accountId',
-						'p.date',
-						e.fn.coalesce('p.priceCommodity', 'p.commodity').as('commodity'),
-						'p.commodity as posted',
-						sql<string | null>`${each ? e.ref('p.transactionId') : sql`null::uuid`}`.as(
-							'transactionId',
-						),
-						sql<number | null>`${each ? e.ref('p.position') : sql`null::integer`}`.as('position'),
-						sql<bigint>`sum(${amount})`.as('amount'),
-						sql<bigint>`sum(greatest(${amount}, 0))`.as('inflow'),
-						sql<bigint>`sum(greatest(-${amount}, 0))`.as('outflow'),
-						e.fn.countAll<bigint>().as('postings'),
-					];
-				})
+				.select((e) => [
+					'p.accountId',
+					'p.date',
+					e.fn.coalesce('p.priceCommodity', 'p.commodity').as('commodity'),
+					'p.commodity as posted',
+					sql<string | null>`${each ? e.ref('p.transactionId') : sql`null::uuid`}`.as(
+						'transactionId',
+					),
+					sql<number | null>`${each ? e.ref('p.position') : sql`null::integer`}`.as('position'),
+					sql<bigint>`sum(${cost})`.as('amount'),
+					sql<bigint>`sum(greatest(${cost}, 0))`.as('inflow'),
+					sql<bigint>`sum(greatest(-${cost}, 0))`.as('outflow'),
+					e.fn.countAll<bigint>().as('postings'),
+				])
 				.where('p.ledgerId', '=', ledgerId)
 				.where('p.counted', '=', true)
-				.where((e) => anyOf(e.ref('p.accountId'), accounts, 'uuid'))
+				.where((e) =>
+					stored
+						? e('p.accountId', 'in', (a) =>
+								a
+									.selectFrom('accounts as k')
+									.select('k.id')
+									.where((f) => anyOf(f.ref('k.id'), accounts, 'uuid'))
+									.where('k.type', 'not in', [AccountType.Assets, AccountType.Liabilities]),
+							)
+						: anyOf(e.ref('p.accountId'), accounts, 'uuid'),
+				)
 				.where((e) =>
 					conditionFor(db, {
 						filter,

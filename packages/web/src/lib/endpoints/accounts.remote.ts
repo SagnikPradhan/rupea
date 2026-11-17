@@ -45,7 +45,6 @@ export const listHoldings = query(
 					from: on,
 					to: on,
 					bucket: 'date',
-					accumulate: 'historical',
 					measures: ['value', 'units', 'price', 'cost'],
 				}),
 				api().accounts.list({ handle }),
@@ -70,7 +69,6 @@ export const listWorth = query(
 					handle,
 					account: account ?? undefined,
 					bucket: await closingBucketIn(handle, span),
-					accumulate: 'historical',
 					measures: account === null ? ['value'] : ['value', 'units'],
 				}),
 				api().accounts.list({ handle }),
@@ -98,7 +96,6 @@ export const listInvested = query(
 					handle,
 					account: account ?? ASSETS,
 					bucket: await closingBucketIn(handle, span),
-					accumulate: 'historical',
 					measures: ['value', 'paid', 'units'],
 				})
 				.then((b) => ({ ...b, succeeded: b.succeeded.flatMap(investedFrom) })),
@@ -159,7 +156,7 @@ export const listDeltas = query(
 			Promise.all([
 				Promise.all(
 					spans.map((s) =>
-						api().accounts.listBalances({
+						api().accounts.listDeltas({
 							handle,
 							...s,
 							account,
@@ -190,7 +187,7 @@ export const listDailyDeltas = query(
 
 		return replyFromBatchCall(
 			api()
-				.accounts.listBalances({ handle, ...span, account, bucket: 'day', aggregate: 'average' })
+				.accounts.listDeltas({ handle, ...span, account, bucket: 'day', aggregate: 'average' })
 				.then((b) => ({ ...b, succeeded: viewDaily(b.succeeded[0], account) })),
 		);
 	},

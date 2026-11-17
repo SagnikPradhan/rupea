@@ -6,7 +6,8 @@ import {
 	bucketFor,
 	bucketKeyOf,
 	endsIn,
-	isReadable,
+	isBalanceReadable,
+	isChangeReadable,
 	spanFrom,
 } from '../src/balances.ts';
 
@@ -48,19 +49,19 @@ describe('whether a read can be answered', () => {
 	};
 
 	it('refuses a balance by day of the month, or with inflow or outflow', () => {
-		expect(isReadable({ ...asked, accumulate: 'historical' })).toBe(true);
-		expect(isReadable({ ...asked, accumulate: 'historical', bucket: 'day' })).toBe(false);
-		expect(isReadable({ ...asked, accumulate: 'historical', measures: ['inflow'] })).toBe(false);
-		expect(
-			isReadable({ ...asked, accumulate: 'change', bucket: 'day', measures: ['inflow'] }),
-		).toBe(true);
+		expect(isBalanceReadable(asked)).toBe(true);
+		expect(isBalanceReadable({ ...asked, bucket: 'day' })).toBe(false);
+		expect(isBalanceReadable({ ...asked, measures: ['inflow'] })).toBe(false);
+	});
+
+	it('refuses a change with units, cost, paid or price', () => {
+		expect(isChangeReadable({ ...asked, bucket: 'day', measures: ['inflow'] })).toBe(true);
+		expect(isChangeReadable({ ...asked, measures: ['units'] })).toBe(false);
 	});
 
 	it('refuses an average unless the bucket is a day of the month', () => {
-		expect(isReadable({ ...asked, accumulate: 'change', aggregate: 'average' })).toBe(false);
-		expect(
-			isReadable({ ...asked, accumulate: 'change', aggregate: 'average', bucket: 'day' }),
-		).toBe(true);
+		expect(isChangeReadable({ ...asked, aggregate: 'average' })).toBe(false);
+		expect(isChangeReadable({ ...asked, aggregate: 'average', bucket: 'day' })).toBe(true);
 	});
 });
 

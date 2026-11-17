@@ -1,7 +1,13 @@
 import { oc } from '@orpc/contract';
 import dedent from 'dedent';
 import { BalanceAccount } from '@rupea/shared/money.ts';
-import { Accumulate, Aggregate, Bucket, isReadable, Measure } from '@rupea/shared/balances.ts';
+import {
+	Aggregate,
+	Bucket,
+	isBalanceReadable,
+	isChangeReadable,
+	Measure,
+} from '@rupea/shared/balances.ts';
 import { Day } from '@rupea/shared/dates.ts';
 import { TermsForm } from '@rupea/shared/forms.ts';
 import { Handle } from '@rupea/shared/text.ts';
@@ -89,16 +95,17 @@ const listReturns = oc
 	.errors(errors)
 	.output(batchOf(Returns));
 
-const listBalances = oc
+const listDeltas = oc
 	.route({
 		method: 'GET',
-		path: '/ledgers/{handle}/balances',
-		operationId: 'accounts.listBalances',
+		path: '/ledgers/{handle}/deltas',
+		operationId: 'accounts.listDeltas',
 		description: dedent`
-			Lists what an account and those under it came to over a span, by account
-			and bucket, with the measures asked for: the net, what came in and what
-			went out. Without an account, every account of the ledger. A bucket the
-			span comes to more than once is summed or averaged.
+			Lists what an account and those under it gained over a span, by account and
+			bucket, with the measures asked for: the net, what came in and what went
+			out. Without an account, every account of the ledger. A bucket the span
+			comes to more than once is summed or averaged, and only a day of the month
+			is averaged.
 
 			Fails with LedgerNotFound when the caller cannot open the ledger, and with
 			AccountNotFound when the account is not in it. A request that cannot be
@@ -112,13 +119,46 @@ const listBalances = oc
 				...Spanned.entries,
 				account: v.optional(v.string()),
 				bucket: Bucket,
-				accumulate: v.optional(Accumulate, 'change'),
 				aggregate: v.optional(Aggregate, 'sum'),
 				measures: v.optional(v.pipe(v.array(Measure), v.minLength(1)), ['value']),
 			}),
 			v.check(
-				(i) => isReadable(i),
-				'A historical balance needs a bucket that ends and has no inflow or outflow; units, cost and price are historical only.',
+				(i) => isChangeReadable(i),
+				'A change has no units, cost or price, and only a day of the month is averaged.',
+			),
+		),
+	)
+	.errors(errors)
+	.output(batchOf(Balances));
+
+const listBalances = oc
+	.route({
+		method: 'GET',
+		path: '/ledgers/{handle}/balances',
+		operationId: 'accounts.listBalances',
+		description: dedent`
+			Lists what an account and those under it were worth at the end of each
+			bucket of a span, by account and bucket, with the measures asked for: the
+			value, the units held, what they cost, what was paid and the price.
+			Without an account, every account of the ledger.
+
+			Fails with LedgerNotFound when the caller cannot open the ledger, and with
+			AccountNotFound when the account is not in it. A request that cannot be
+			read fails with InvalidRequest. A span that runs backwards fails with
+			SpanReversed, and one that covers too many days with SpanTooLong.
+		`,
+	})
+	.input(
+		v.pipe(
+			v.object({
+				...Spanned.entries,
+				account: v.optional(v.string()),
+				bucket: Bucket,
+				measures: v.optional(v.pipe(v.array(Measure), v.minLength(1)), ['value']),
+			}),
+			v.check(
+				(i) => isBalanceReadable(i),
+				'A balance needs a bucket that ends and has no inflow or outflow.',
 			),
 		),
 	)
@@ -175,6 +215,7 @@ const saveTerms = oc
 
 export const accounts = {
 	list: listAccounts,
+	listDeltas,
 	listBalances,
 	findBridge,
 	listDrops,

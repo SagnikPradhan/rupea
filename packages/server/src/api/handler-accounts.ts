@@ -35,21 +35,33 @@ const listReturns = os.accounts.listReturns
 		),
 	);
 
-const listBalances = os.accounts.listBalances
+const listDeltas = os.accounts.listDeltas
 	.use(signedIn)
-	.handler(async ({ input: { handle, accumulate, ...options } }) =>
+	.handler(async ({ input: { handle, ...options } }) =>
 		sanitiseBatch(
 			await inLedger({
 				handle,
 				action: (l) =>
 					Deltas.refusalOn({ ledger: l, ...options }).andThen(() =>
-						accumulate === 'historical'
-							? Deltas.listBalances({
-									ledger: l,
-									...options,
-									accounts: options.account === undefined ? undefined : [options.account],
-								})
-							: Deltas.listDeltas({ ledger: l, ...options }),
+						Deltas.listDeltas({ ledger: l, ...options }),
+					),
+			}),
+		),
+	);
+
+const listBalances = os.accounts.listBalances
+	.use(signedIn)
+	.handler(async ({ input: { handle, account, ...options } }) =>
+		sanitiseBatch(
+			await inLedger({
+				handle,
+				action: (l) =>
+					Deltas.refusalOn({ ledger: l, account, ...options }).andThen(() =>
+						Deltas.listBalances({
+							ledger: l,
+							...options,
+							accounts: account === undefined ? undefined : [account],
+						}),
 					),
 			}),
 		),
@@ -80,6 +92,7 @@ const saveTerms = os.accounts.saveTerms
 
 export const accounts = {
 	list: listAccounts,
+	listDeltas,
 	listBalances,
 	findBridge,
 	listDrops,

@@ -40,29 +40,25 @@ export const bucketKeyOf: Record<Bucket, (d: Temporal.PlainDate) => string> = {
 	year: (d) => d.toString().slice(0, 4),
 };
 
-/** Whether a read carries each bucket's change or the balance it ends on. */
-export const Accumulate = v.picklist(['change', 'historical']);
-
-export type Accumulate = v.InferOutput<typeof Accumulate>;
-
 const CHANGES: Set<Measure> = new Set(['inflow', 'outflow']);
 const HELD: Set<Measure> = new Set(['units', 'cost', 'paid', 'price']);
 
 /**
- * Whether a read can be answered: a balance needs a bucket that ends, so not a
- * day of the month, and has no inflow or outflow; a change has no units, cost
- * or price; only a day of the month is averaged.
+ * Whether a read of changes can be answered: it has no units, cost or price,
+ * and only a day of the month is averaged.
  */
-export const isReadable = (o: {
-	accumulate: Accumulate;
+export const isChangeReadable = (o: {
 	aggregate: Aggregate;
 	bucket: Bucket;
 	measures: Measure[];
-}) =>
-	(o.aggregate !== 'average' || o.bucket === 'day') &&
-	(o.accumulate === 'change'
-		? !o.measures.some((m) => HELD.has(m))
-		: o.bucket !== 'day' && !o.measures.some((m) => CHANGES.has(m)));
+}) => (o.aggregate !== 'average' || o.bucket === 'day') && !o.measures.some((m) => HELD.has(m));
+
+/**
+ * Whether a read of balances can be answered: it needs a bucket that ends, so
+ * not a day of the month, and has no inflow or outflow.
+ */
+export const isBalanceReadable = (o: { bucket: Bucket; measures: Measure[] }) =>
+	o.bucket !== 'day' && !o.measures.some((m) => CHANGES.has(m));
 
 /** Whether rows are told apart by commodity, as the units and price of one are. */
 export const isByCommodity = (m: Measure[]) => m.some((x) => x === 'units' || x === 'price');

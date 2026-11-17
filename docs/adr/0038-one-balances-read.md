@@ -2,6 +2,8 @@
 
 The contract had a read for each view: `listDeltas`, `listHoldings`, `listInvested` and `listWorth`, with the daily average split off as `listDailyDeltas` ([ADR 0033](0033-one-delta-read-and-a-public-ledger-surface.md)). They all answer one question, what the accounts held or moved per bucket, in different clothes. They are now one read, `listBalances`, modelled on the balance reports of hledger and beancount.
 
+The read has since split in two for pages. The endpoint `listDeltas` answers the changes: sum or average, with the measures value, inflow and outflow. The endpoint `listBalances` answers only the historical balance, so it has no `accumulate` or `aggregate` input, and the shared checks `isChangeReadable` and `isBalanceReadable` replace the one check that took `accumulate`. The list below describes the first form.
+
 The input is the handle, `from`, `to`, an optional account and bucket (`date`, `day`, `month` or `year`), and what to show:
 
 - `accumulate` is `change` (the default) or `historical`, like hledger's `--historical`. Change sums what moved inside each bucket. Historical carries everything from before `from` and reports the balance at each bucket's end.

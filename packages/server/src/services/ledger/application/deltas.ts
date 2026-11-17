@@ -2,8 +2,8 @@ import { consistently } from '#lib/server/db/read-only.ts';
 import { errAsync, okAsync, ResultAsync } from '#lib/server/shared/result/result.ts';
 import {
 	CLOSING_DAYS,
-	isReadable,
-	type Accumulate,
+	isBalanceReadable,
+	isChangeReadable,
 	type Aggregate,
 	type Bucket,
 	type Measure,
@@ -71,8 +71,8 @@ export const listDeltas = ({
 }: ListDeltasOptions): ResultAsync<Batch<Balances>> =>
 	consistently(() => {
 		const kind = bucket === 'posting' ? 'date' : bucket;
-		const refused = refusal({ accumulate: 'change', aggregate, bucket: kind, measures });
-		if (refused) return errAsync(refused);
+		const reading = { aggregate, bucket: kind, measures };
+		if (!isChangeReadable(reading)) return errAsync(unreadable(unreadableChangeFieldOf(reading)));
 
 		return listed(ledger.id, {
 			named: account === undefined ? undefined : [account],
@@ -97,7 +97,6 @@ type ListBalancesOptions = {
 	accounts?: string[] | undefined;
 	exact?: boolean;
 	bucket: Bucket;
-	aggregate?: Aggregate;
 	measures?: Measure[];
 	series?: boolean;
 	shared?: Shared;
@@ -117,14 +116,12 @@ export const listBalances = ({
 	accounts: named,
 	exact = false,
 	bucket,
-	aggregate = 'sum',
 	measures = ['value'],
 	series = false,
 	shared,
 }: ListBalancesOptions): ResultAsync<Batch<Balances>> =>
 	consistently(() => {
-		const reading = { accumulate: 'historical', aggregate, bucket, measures, series } as const;
-		const refused = refusal(reading);
+		const refused = refusalOfBalances({ bucket, measures, series });
 		if (refused) return errAsync(refused);
 
 		return listed(ledger.id, { named, exact, shared }).andThen(({ failed, tree, accounts }) => {
@@ -139,7 +136,14 @@ export const listBalances = ({
 			return ResultAsync.combine([listClosings(ledger.id, read), checked]).map(
 				([{ span, rows, columns, faults }, unmatched]) => {
 					const parents = parentsIn(tree);
-					const balances = balancesOf(rows, { span, base, bucket, aggregate, measures, parents });
+					const balances = balancesOf(rows, {
+						span,
+						base,
+						bucket,
+						aggregate: 'sum',
+						measures,
+						parents,
+					});
 					return {
 						succeeded: [series ? { ...balances, series: columns } : balances],
 						failed: [...failed, ...faults, ...unmatched],
@@ -183,22 +187,16 @@ export const refusalOn = ({
 		});
 };
 
-type Reading = {
-	accumulate: Accumulate;
-	aggregate: Aggregate;
-	bucket: Bucket;
-	measures: Measure[];
-	series?: boolean;
-};
+type BalanceReading = { bucket: Bucket; measures: Measure[]; series: boolean };
+
+const unreadable = (f: string) => fault('InvalidRequest', { field: f, reason: 'unreadable' });
 
 /** Why a balances read is refused before it reads anything, when it is. */
-const refusal = (o: Reading): RupeaError | null =>
-	(o.series && o.bucket !== 'date'
-		? fault('InvalidRequest', { field: 'series', reason: 'unreadable' })
-		: null) ??
-	(isReadable(o)
-		? null
-		: fault('InvalidRequest', { field: unreadableFieldOf(o), reason: 'unreadable' }));
+const refusalOfBalances = (o: BalanceReading): RupeaError | null => {
+	if (o.series && o.bucket !== 'date') return unreadable('series');
+	if (isBalanceReadable(o)) return null;
+	return unreadable(o.bucket === 'day' ? 'bucket' : 'measures');
+};
 
 /**
  * The ledger's problems and account tree, which every read of a ledger starts
@@ -233,11 +231,9 @@ const listed = (id: string, { named, exact = false, shared }: ListedOptions) =>
 		return okAsync({ failed, tree, accounts });
 	});
 
-/** The field of an unreadable balances read that can be named, else measures. */
-const unreadableFieldOf = (o: Reading) => {
-	if (o.aggregate === 'average' && o.bucket !== 'day') return 'aggregate';
-	return o.accumulate === 'historical' && o.bucket === 'day' ? 'bucket' : 'measures';
-};
+/** The field of an unreadable changes read that can be named, else measures. */
+const unreadableChangeFieldOf = (o: { aggregate: Aggregate; bucket: Bucket }) =>
+	o.aggregate === 'average' && o.bucket !== 'day' ? 'aggregate' : 'measures';
 
 /**
  * Whether a name is one of the five roots, which exist with no account under

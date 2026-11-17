@@ -107,7 +107,7 @@ describe('the auth routes', () => {
 			vi.setSystemTime(Date.now() + 16 * DAY);
 
 			const balances = await api.inject({
-				url: '/api/ledgers/any/balances?from=2026-10-01&to=2026-10-02&bucket=date&accumulate=historical',
+				url: '/api/ledgers/any/balances?from=2026-10-01&to=2026-10-02&bucket=date',
 				headers: bearer(token),
 			});
 			const user = await api.inject({ url: '/api/auth/user', headers: bearer(token) });

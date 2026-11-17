@@ -1,4 +1,5 @@
 import * as Accounts from '#services/ledger/application/accounts.ts';
+import * as Deltas from '#services/ledger/application/deltas.ts';
 import * as Terms from '#services/ledger/application/terms.ts';
 import { sanitiseBatch } from './sanitise.ts';
 import { inLedger, os, signedIn } from './session.ts';
@@ -36,9 +37,15 @@ const listReturns = os.accounts.listReturns
 
 const listBalances = os.accounts.listBalances
 	.use(signedIn)
-	.handler(async ({ input: { handle, ...options } }) =>
+	.handler(async ({ input: { handle, accumulate, ...options } }) =>
 		sanitiseBatch(
-			await inLedger({ handle, action: (l) => Accounts.listBalances({ ledger: l, ...options }) }),
+			await inLedger({
+				handle,
+				action: (l) =>
+					accumulate === 'historical'
+						? Deltas.listBalances({ ledger: l, ...options })
+						: Deltas.listDeltas({ ledger: l, ...options }),
+			}),
 		),
 	);
 

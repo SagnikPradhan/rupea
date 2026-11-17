@@ -8,14 +8,17 @@ import { sql, type RawBuilder } from 'kysely';
 import { type Amount } from '../domain/amounts';
 import type { Delta } from '../domain/deltas';
 import { flowsOf } from '../domain/flows';
+import { hasCounter, type Filter } from '../domain/filters';
 import type { Flow } from '../domain/returns';
 import { AccountType, PriceKind } from '../domain/types';
 import { deltasBetween, postedBetween } from './database-deltas';
+import { conditionFor } from './database-filters';
 import { multiply } from './database-queries';
 import { inBase, ownSymbols, ratesOf } from './database-rates';
 
 type DeltasOptions = {
 	accounts: string[];
+	filter: Filter;
 	from: Temporal.PlainDate;
 	to: Temporal.PlainDate;
 	bucket: Bucket;
@@ -41,14 +44,14 @@ const KEYS: Record<Bucket, (date: RawBuilder<unknown>) => RawBuilder<string>> = 
  */
 export const listDeltas = (
 	ledgerId: string,
-	{ accounts, from, to, bucket, base }: DeltasOptions,
+	{ accounts, filter, from, to, bucket, base }: DeltasOptions,
 ): ResultAsync<Delta[]> =>
 	withContext('db')((db) =>
 		attempt(() =>
 			db
 				.withRecursive('own(id, symbol)', () => ownSymbols(db, ledgerId))
 				.with('spent', (q) =>
-					baseSpentIn(db, { ledgerId, accounts, from, to, bucket, base }).unionAll(
+					baseSpentIn(db, { ledgerId, accounts, filter, from, to, bucket, base }).unionAll(
 						q
 							.selectFrom('postings as p')
 							.innerJoin('accounts as a', 'a.id', 'p.accountId')
@@ -67,6 +70,14 @@ export const listDeltas = (
 							.where('p.commodity', '<>', base)
 							.where('p.counted', '=', true)
 							.where((e) => anyOf(e.ref('p.accountId'), accounts, 'uuid'))
+							.where((e) =>
+								conditionFor(db, {
+									filter,
+									ledgerId,
+									account: e.ref('p.accountId'),
+									transaction: e.ref('p.transactionId'),
+								}),
+							)
 							.where('p.date', '>=', from.toString())
 							.where('p.date', '<=', to.toString())
 							.groupBy(['a.name', 'p.date', 'p.commodity', 'o.id']),
@@ -153,15 +164,18 @@ export const listDeltas = (
  */
 const baseSpentIn = (
 	db: Database,
-	{ ledgerId, accounts, from, to, bucket, base }: DeltasOptions & { ledgerId: string },
+	{ ledgerId, accounts, filter, from, to, bucket, base }: DeltasOptions & { ledgerId: string },
 ) => {
-	const grain = bucket === 'month' || bucket === 'year' ? 'month' : 'day';
-	const read = grain === 'day' ? postedBetween : deltasBetween;
+	const after = to.add({ days: 1 });
+	const rolledUp = (bucket === 'month' || bucket === 'year') && !hasCounter(filter);
+	const read = rolledUp
+		? deltasBetween(db, ledgerId, { from, after, grain: 'month' })
+		: postedBetween(db, ledgerId, { from, after, filter });
 
 	return db
 		.selectFrom((s) =>
 			s
-				.selectFrom(read(db, ledgerId, { from, after: to.add({ days: 1 }), grain }).as('m'))
+				.selectFrom(read.as('m'))
 				.select((e) => [
 					'm.accountId',
 					'm.commodity',
@@ -172,6 +186,16 @@ const baseSpentIn = (
 				])
 				.where('m.commodity', '=', base)
 				.where((e) => anyOf(e.ref('m.accountId'), accounts, 'uuid'))
+				.$if(rolledUp, (q) =>
+					q.where((e) =>
+						conditionFor(db, {
+							filter,
+							ledgerId,
+							account: e.ref('m.accountId'),
+							transaction: null,
+						}),
+					),
+				)
 				.groupBy((e) => ['m.accountId', 'm.commodity', KEYS[bucket](sql`${e.ref('m.day')}`)])
 				.as('g'),
 		)

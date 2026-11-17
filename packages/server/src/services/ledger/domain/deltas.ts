@@ -167,17 +167,16 @@ const measured = (d: Delta, measures: Measure[]) => ({
 
 /** How many months of a span have each day of the month inside it. */
 const monthsByDay = (span: Span) => {
-	const months = bucketsIn(span, 'month');
-	const days = Array.from({ length: 31 }, (_, i) => i + 1);
+	const counts: Record<number, number> = {};
 
-	return Object.fromEntries(days.map((d) => [d, monthsWith(d, { months, span })]));
+	for (const month of bucketsIn(span, 'month')) {
+		const first = Temporal.PlainDate.compare(month, span.from) > 0 ? month : span.from;
+		const end = month.with({ day: month.daysInMonth });
+		const last = Temporal.PlainDate.compare(end, span.to) < 0 ? end : span.to;
+
+		const days = Array.from({ length: last.day - first.day + 1 }, (_, i) => first.day + i);
+		for (const day of days) counts[day] = (counts[day] ?? 0) + 1;
+	}
+
+	return counts;
 };
-
-const monthsWith = (day: number, { months, span }: { months: Temporal.PlainDate[]; span: Span }) =>
-	months.filter((m) => {
-		if (m.daysInMonth < day) return false;
-		const on = m.with({ day });
-		return (
-			Temporal.PlainDate.compare(on, span.from) >= 0 && Temporal.PlainDate.compare(on, span.to) <= 0
-		);
-	}).length;

@@ -7,6 +7,8 @@ import type { Span } from '@rupea/shared/dates.ts';
 import { anyOf } from '#lib/server/db/expressions.ts';
 import { sql } from 'kysely';
 import type { HoldingKey } from './database-files';
+import type { Filter } from '../domain/filters';
+import { conditionFor } from './database-filters';
 import { amongHoldings } from './database-queries';
 
 const CHECKED = { months: 12 };
@@ -169,11 +171,22 @@ export const deltasBetween = (db: Database, ledgerId: string, o: DeltasOptions) 
 		.unionAll(days(whole?.after ?? from, whole ? after : from));
 };
 
+type PostedOptions = {
+	from: Temporal.PlainDate;
+	after: Temporal.PlainDate | null;
+	filter: Filter;
+};
+
 /**
- * What each posting moved, shaped as deltasBetween has it, for a read that adds
- * the days up itself and has no use for the view's daily sums.
+ * What each posting that passes the filter moved, shaped as deltasBetween has
+ * it, for a read that adds the days up itself and has no use for the view's
+ * daily sums.
  */
-export const postedBetween = (db: Database, ledgerId: string, { from, after }: DeltasOptions) =>
+export const postedBetween = (
+	db: Database,
+	ledgerId: string,
+	{ from, after, filter }: PostedOptions,
+) =>
 	db
 		.selectFrom('postings as p')
 		.select((e) => [
@@ -188,7 +201,15 @@ export const postedBetween = (db: Database, ledgerId: string, { from, after }: D
 		.where('p.ledgerId', '=', ledgerId)
 		.where('p.counted', '=', true)
 		.where('p.date', '>=', from.toString())
-		.where('p.date', '<', after?.toString() ?? FOREVER);
+		.where('p.date', '<', after?.toString() ?? FOREVER)
+		.where((e) =>
+			conditionFor(db, {
+				filter,
+				ledgerId,
+				account: e.ref('p.accountId'),
+				transaction: e.ref('p.transactionId'),
+			}),
+		);
 
 /**
  * The months from the first to start on or after the start to the last to end

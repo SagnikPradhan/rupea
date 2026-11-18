@@ -2,7 +2,7 @@
 
 Every request has 300 ms: 150 ms on the server and 150 ms on the network. The target is a mean under 150 ms for each case, with the 99th percentile shown beside it. The gate applies to every case a web page calls, and it is recorded here for people to read: the bench does not fail when a case is over 150 ms.
 
-Run all benchmarks with `pnpm --filter @rupea/server bench`, which takes about 6 minutes. Add a file name, such as `pnpm --filter @rupea/server bench application-accounts`, to run one area. Each case is an application-level call, measured before transport.
+Run all benchmarks with `pnpm --filter @rupea/server bench`, which takes about 6 minutes. Add a file name, such as `pnpm --filter @rupea/server bench application-accounts`, to run one area. Each case is an application-level call, measured before transport, except the API section at the end, which goes through the HTTP handler and shows serialization.
 
 The numbers below come from 2026-11-18 on an AMD Ryzen 5 5600X (6 cores, 12 threads) with 15 GB RAM on Linux, using embedded Postgres from portable-pg. Each case has 10 samples. Times are in milliseconds. Later steps update this file.
 
@@ -213,10 +213,47 @@ The numbers below come from 2026-11-18 on an AMD Ryzen 5 5600X (6 cores, 12 thre
 | files aside find transaction files   |       0.4 |                  0.6 |      |
 | files read newest                    |       0.2 |                  0.2 |      |
 
+## API
+
+The largest responses of the accounts endpoints for the whole history, called through the HTTP handler with a signed-in user, so the query string, the answer's encoding and the response are timed too. Worth all uses the bucket the page picks for all. Holdings all is one day of the assets with value, units, price and cost. Deltas all is expenses by the bucket the page picks for all.
+
+### twenty-years
+
+| case             | mean (ms) | 99th percentile (ms) | mark |
+| ---------------- | --------: | -------------------: | ---- |
+| API deltas all   |        19 |                   22 |      |
+| API worth all    |        25 |                   29 |      |
+| API holdings all |        30 |                   31 |      |
+| API drops all    |        41 |                   49 |      |
+| API bridge all   |        52 |                   56 |      |
+| API returns all  |        95 |                  101 |      |
+
+### fifty-years
+
+| case             | mean (ms) | 99th percentile (ms) | mark     |
+| ---------------- | --------: | -------------------: | -------- |
+| API holdings all |        31 |                   33 |          |
+| API deltas all   |        38 |                   39 |          |
+| API worth all    |        73 |                   84 |          |
+| API drops all    |        90 |                  111 |          |
+| API bridge all   |       111 |                  116 |          |
+| API returns all  |       190 |                  210 | over 150 |
+
+### wide
+
+| case             | mean (ms) | 99th percentile (ms) | mark |
+| ---------------- | --------: | -------------------: | ---- |
+| API holdings all |        21 |                   23 |      |
+| API worth all    |        26 |                   34 |      |
+| API deltas all   |        50 |                   53 |      |
+| API returns all  |        55 |                   65 |      |
+| API drops all    |        57 |                   69 |      |
+| API bridge all   |        74 |                   77 |      |
+
 ## Still over 150 ms
 
 On twenty-years: nothing.
 
-On fifty-years: accounts returns all (waived by decision on 2026-11-18, see [ADR 0045](adr/0045-a-daily-cost-table-for-returns.md)).
+On fifty-years: accounts returns all, and API returns all, which is the same read (waived by decision on 2026-11-18, see [ADR 0045](adr/0045-a-daily-cost-table-for-returns.md)).
 
 On wide: nothing.

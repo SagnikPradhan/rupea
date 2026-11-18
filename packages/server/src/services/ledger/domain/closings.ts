@@ -219,11 +219,12 @@ const unitsOn = (
 		.map(([key, gain]) => ({ at: dayNumberOf(key) - first, gain }))
 		.toSorted((a, b) => a.at - b.at);
 
-	moves.reduce((held, move, i) => {
-		const now = (held + move.gain) as Amount;
-		units.fill(Number(now) / SCALE, move.at, moves[i + 1]?.at ?? count);
-		return now;
-	}, opening);
+	const held = { amount: opening };
+
+	for (const [i, move] of moves.entries()) {
+		held.amount = (held.amount + move.gain) as Amount;
+		units.fill(Number(held.amount) / SCALE, move.at, moves[i + 1]?.at ?? count);
+	}
 
 	return units;
 };
@@ -254,11 +255,12 @@ const runningOf = ({ opening, gains }: Costed, order: Map<string, number>) => {
 		})
 		.toSorted((a, b) => a.at - b.at);
 
-	moves.reduce((held, move, i) => {
-		const now = (held + move.gain) as Amount;
-		totals.fill(now, move.at, moves[i + 1]?.at ?? order.size);
-		return now;
-	}, opening);
+	const held = { amount: opening };
+
+	for (const [i, move] of moves.entries()) {
+		held.amount = (held.amount + move.gain) as Amount;
+		totals.fill(held.amount, move.at, moves[i + 1]?.at ?? order.size);
+	}
 
 	return totals;
 };

@@ -52,7 +52,7 @@ describe('conditionFor', () => {
 		const query = compiled(db, account);
 
 		expect(query.sql).toContain('"p"."account_id" in (select "a"."id" from "accounts" as "a"');
-		expect(query.sql).toContain("|| ':'");
+		expect(query.sql).toContain("like lower($3) || ':%'");
 	});
 
 	it('writes all, any and not as and, or and not, and the empty ones as 1 = 1 and 1 = 0', ({

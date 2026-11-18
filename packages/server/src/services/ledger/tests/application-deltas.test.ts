@@ -24,7 +24,7 @@ describe('deltas', () => {
 				content: '2026-10-02 Fund\n\tAssets:Bank 5\n\tIncome:Gift\n',
 			});
 			const read = (account: string) =>
-				Deltas.listDeltas({ ledger, from, to, bucket: 'date', account });
+				Deltas.listDeltas({ ledger, from, to, bucket: 'date', accounts: [account] });
 
 			expect((await read('Assets:Nope'))._unsafeUnwrapErr()).toEqual({
 				type: 'AccountNotFound',
@@ -43,12 +43,13 @@ describe('deltas', () => {
 				content: '2020-01-01 Fund\n\tAssets:Bank 5\n\tIncome:Gift\n',
 			});
 			const refusal = (start: string, bucket: Bucket, account?: string) =>
-				Deltas.refusalOn({
+				Deltas.listDeltas({
 					ledger,
 					from: Temporal.PlainDate.from(start),
 					to: Temporal.PlainDate.from('2025-01-02'),
-					account,
+					accounts: account === undefined ? undefined : [account],
 					bucket,
+					most: bucket === 'date' ? 1827 : undefined,
 				});
 
 			expect((await refusal('2020-01-01', 'date'))._unsafeUnwrapErr()).toEqual({
@@ -100,6 +101,7 @@ describe('spending', () => {
 		{
 			from,
 			to,
+			account,
 			...rest
 		}: { from: string; to: string; account?: string; bucket?: Bucket; measures?: Measure[] },
 		aggregate: Aggregate = 'sum',
@@ -110,6 +112,7 @@ describe('spending', () => {
 				...span(from, to),
 				bucket: 'month',
 				aggregate,
+				accounts: account === undefined ? undefined : [account],
 				...rest,
 			})
 		)._unsafeUnwrap().succeeded;
@@ -423,7 +426,7 @@ describe('spending', () => {
 			const reply = await Deltas.listDeltas({
 				ledger,
 				...span('2026-02-01', '2026-01-01'),
-				account: 'Expenses',
+				accounts: ['Expenses'],
 				bucket: 'month',
 				aggregate: 'sum',
 			});
@@ -500,7 +503,7 @@ describe('deltas filtered by the other side', () => {
 					ledger,
 					from: Temporal.PlainDate.from('2026-10-01'),
 					to: Temporal.PlainDate.from('2026-10-31'),
-					account: 'Assets',
+					accounts: ['Assets'],
 					...(filter && { filter }),
 					bucket,
 				})
@@ -612,7 +615,7 @@ describe('deltas by posting and at cost', () => {
 			await Files.createFile({ ledger, key: 'a.rupea', content });
 
 			const [balances] = (
-				await Deltas.listDeltas({ ledger, ...span, account: 'Assets:Bank', bucket: 'posting' })
+				await Deltas.listDeltas({ ledger, ...span, accounts: ['Assets:Bank'], bucket: 'posting' })
 			)._unsafeUnwrap().succeeded;
 			const rows = balances?.rows ?? [];
 
@@ -639,7 +642,7 @@ describe('deltas by posting and at cost', () => {
 					await Deltas.listDeltas({
 						ledger,
 						...span,
-						account: 'Assets:Wallet',
+						accounts: ['Assets:Wallet'],
 						bucket: 'month',
 						valued,
 					})

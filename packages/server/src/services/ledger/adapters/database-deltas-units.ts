@@ -5,8 +5,7 @@ import type { Bucket } from '@rupea/shared/balances.ts';
 import { BEGINNING } from '@rupea/shared/dates.ts';
 import { sql } from 'kysely';
 import type { Amount } from '../domain/amounts';
-import { deltasBetween } from './database-deltas';
-import { KEYS } from './database-deltas-valued';
+import { deltasBetween, KEYS } from './database-deltas';
 
 type OpeningsOptions = { accounts: string[]; before: Temporal.PlainDate };
 

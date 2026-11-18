@@ -1,6 +1,7 @@
 import type { Database } from '#lib/server/db/index.ts';
 import { expressionBuilder, sql, type Expression, type SqlBool } from 'kysely';
 import type { Filter, Test } from '../domain/filters';
+import { underAccount } from './database-queries';
 
 type ConditionOptions = {
 	filter: Filter;
@@ -47,14 +48,7 @@ const named = (db: Database, { ledgerId }: ConditionOptions, names: string[]) =>
 		.selectFrom('accounts as a')
 		.select('a.id')
 		.where('a.ledgerId', '=', ledgerId)
-		.where((e) =>
-			e.or(
-				names.flatMap((name) => [
-					sql<SqlBool>`lower(${e.ref('a.name')}) = lower(${name})`,
-					sql<SqlBool>`starts_with(lower(${e.ref('a.name')}), lower(${name}) || ':')`,
-				]),
-			),
-		);
+		.where((e) => e.or(names.map((n) => underAccount(e.ref('a.name'), n))));
 
 type CounterOptions = {
 	test: Test;

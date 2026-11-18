@@ -4,15 +4,17 @@ import type { Tables } from '#lib/server/db/tables.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import type { Bucket } from '@rupea/shared/balances.ts';
-import { sql, type QueryCreator, type RawBuilder } from 'kysely';
-import { AccountType } from '../domain/types';
+import { sql, type QueryCreator } from 'kysely';
 import { type Amount } from '../domain/amounts';
 import type { Delta } from '../domain/deltas';
 import { hasCounter, isEverything, type Filter } from '../domain/filters';
-import { deltasBetween, postedBetween } from './database-deltas';
+import { COST_STORED_TYPES, deltasBetween, KEYS, postedBetween } from './database-deltas';
 import { conditionFor } from './database-filters';
-import { costOf, multiply } from './database-queries';
+import { multiply, postingCostOf } from './database-queries';
 import { ownSymbols, ratesOf } from './database-rates';
+
+const NULL_UUID = sql`null::uuid`;
+const NULL_INTEGER = sql`null::integer`;
 
 type DeltasOptions = {
 	accounts: string[];
@@ -25,49 +27,15 @@ type DeltasOptions = {
 };
 
 type Spending = {
-	ledgerId: string;
-	accounts: string[];
-	filter: Filter;
-	from: Temporal.PlainDate;
-	to: Temporal.PlainDate;
-	valued: 'then' | 'cost';
-	base: string;
-	bucket: Bucket | 'posting';
-};
-
-type BaseSpending = {
-	ledgerId: string;
-	accounts: string[];
-	filter: Filter;
-	from: Temporal.PlainDate;
-	to: Temporal.PlainDate;
-	valued: 'then' | 'cost';
-	base: string;
-	bucket: Bucket;
-};
-
-type OtherSpending = {
-	ledgerId: string;
-	accounts: string[];
-	filter: Filter;
-	from: Temporal.PlainDate;
-	to: Temporal.PlainDate;
-	valued: 'then' | 'cost';
-	base: string;
-	bucket: Bucket | 'posting';
 	q: QueryCreator<Tables & Own>;
-};
-
-/**
- * A day's bucket as the key the caller reads it by: the date, a day of the
- * month, which puts every month's day n in one bucket, then a month as 2026-10
- * and a year as 2026.
- */
-export const KEYS: Record<Bucket, (date: RawBuilder<unknown>) => RawBuilder<string>> = {
-	date: (d) => sql<string>`${d}::date::text`,
-	day: (d) => sql<string>`extract(day from ${d}::date)::int::text`,
-	month: (d) => sql<string>`to_char(${d}::date, 'YYYY-MM')`,
-	year: (d) => sql<string>`to_char(${d}::date, 'YYYY')`,
+	ledgerId: string;
+	accounts: string[];
+	filter: Filter;
+	from: Temporal.PlainDate;
+	to: Temporal.PlainDate;
+	bucket: Bucket | 'posting';
+	valued: 'then' | 'cost';
+	base: string;
 };
 
 /**
@@ -78,7 +46,9 @@ export const KEYS: Record<Bucket, (date: RawBuilder<unknown>) => RawBuilder<stri
  * it, and the rest are valued as they were. The bucket posting keeps each
  * posting alone, dated by its day, with its commodity, transaction and
  * position. Amounts in the base need no price, so a row may share its account
- * and bucket with another, and the caller adds them.
+ * and bucket with another, and the caller adds them. A row's commodity is the
+ * one its amount is valued in, the cost commodity at cost, and held is the one
+ * the posting holds.
  */
 export const listDeltas = (
 	ledgerId: string,
@@ -87,17 +57,17 @@ export const listDeltas = (
 	withContext('db')((db) => {
 		const each = bucket === 'posting';
 		const key = KEYS[each ? 'date' : bucket];
-		const read = { ledgerId, accounts, filter, from, to, bucket, valued, base };
+		const spending = { ledgerId, accounts, filter, from, to, bucket, valued, base };
 
 		return attempt(() =>
 			db
 				.withRecursive('own(id, symbol)', () => ownSymbols(db, ledgerId))
 				.with('spent', (q) => {
-					if (valued === 'cost') return costSpentIn(db, { ...read, q });
-					if (bucket === 'posting')
-						return baseEachIn(db, read).unionAll(otherSpentIn(db, { ...read, q }));
+					const read = { ...spending, q };
+					if (valued === 'cost') return costSpentIn(db, read);
+					if (bucket === 'posting') return baseEachIn(db, read).unionAll(otherSpentIn(db, read));
 
-					return baseSpentIn(db, { ...read, bucket }).unionAll(otherSpentIn(db, { ...read, q }));
+					return baseSpentIn(db, read).unionAll(otherSpentIn(db, read));
 				})
 				.with('wanted', (q) =>
 					q
@@ -114,7 +84,7 @@ export const listDeltas = (
 							's.account',
 							key(sql`${e.ref('s.date')}`).as('bucket'),
 							's.commodity',
-							's.posted',
+							's.held',
 							's.transactionId',
 							's.position',
 							's.amount',
@@ -136,7 +106,7 @@ export const listDeltas = (
 									's.account',
 									key(sql`${e.ref('s.date')}`).as('bucket'),
 									's.commodity',
-									's.posted',
+									's.held',
 									's.transactionId',
 									's.position',
 									sql<bigint>`coalesce(${multiply(e.ref('s.amount'), e.ref('r.rate'))}, 0)`.as(
@@ -164,7 +134,7 @@ export const listDeltas = (
 									'v.account',
 									'v.bucket',
 									sql<string>`null`.as('commodity'),
-									sql<string>`null`.as('posted'),
+									sql<string>`null`.as('held'),
 									sql<string | null>`null::uuid`.as('transactionId'),
 									sql<number | null>`null::integer`.as('position'),
 									sql<bigint>`sum(${e.ref('v.amount')})`.as('amount'),
@@ -181,7 +151,7 @@ export const listDeltas = (
 		).map((rows) =>
 			rows.map((s) => ({
 				account: s.account,
-				commodity: each ? s.posted : null,
+				commodity: each ? s.held : null,
 				bucket: s.bucket,
 				value: s.amount as Amount,
 				inflow: s.inflow as Amount,
@@ -204,8 +174,9 @@ export const listDeltas = (
  * accounts. A bucket of months or years reads the monthly rollup, and the rest
  * read the postings.
  */
-const baseSpentIn = (db: Database, o: BaseSpending) => {
-	const { ledgerId, accounts, filter, from, to, bucket, base } = o;
+const baseSpentIn = (db: Database, o: Spending) => {
+	const { ledgerId, accounts, filter, from, to, base } = o;
+	const bucket = o.bucket === 'posting' ? 'date' : o.bucket;
 	const after = to.add({ days: 1 });
 	const rolledUp = (bucket === 'month' || bucket === 'year') && !hasCounter(filter);
 	const read = rolledUp
@@ -244,7 +215,7 @@ const baseSpentIn = (db: Database, o: BaseSpending) => {
 			'a.name as account',
 			'g.date',
 			'g.commodity',
-			'g.commodity as posted',
+			'g.commodity as held',
 			sql<string | null>`null::uuid`.as('symbolId'),
 			sql<string | null>`null::uuid`.as('transactionId'),
 			sql<number | null>`null::integer`.as('position'),
@@ -266,7 +237,7 @@ const baseEachIn = (db: Database, o: Spending) => {
 			'a.name as account',
 			'p.date',
 			'p.commodity',
-			'p.commodity as posted',
+			'p.commodity as held',
 			sql<string | null>`null::uuid`.as('symbolId'),
 			sql<string | null>`${e.ref('p.transactionId')}`.as('transactionId'),
 			sql<number | null>`${e.ref('p.position')}`.as('position'),
@@ -298,7 +269,7 @@ const baseEachIn = (db: Database, o: Spending) => {
  */
 type Own = { own: { id: string; symbol: string } };
 
-const otherSpentIn = (db: Database, o: OtherSpending) => {
+const otherSpentIn = (db: Database, o: Spending) => {
 	const { q, ledgerId, accounts, filter, from, to, bucket, base } = o;
 	const each = bucket === 'posting';
 
@@ -310,10 +281,10 @@ const otherSpentIn = (db: Database, o: OtherSpending) => {
 			'a.name as account',
 			'p.date',
 			'p.commodity',
-			'p.commodity as posted',
+			'p.commodity as held',
 			'o.id as symbolId',
-			sql<string | null>`${each ? e.ref('p.transactionId') : sql`null::uuid`}`.as('transactionId'),
-			sql<number | null>`${each ? e.ref('p.position') : sql`null::integer`}`.as('position'),
+			sql<string | null>`${each ? e.ref('p.transactionId') : NULL_UUID}`.as('transactionId'),
+			sql<number | null>`${each ? e.ref('p.position') : NULL_INTEGER}`.as('position'),
 			e.fn.sum<bigint>('p.amount').as('amount'),
 			sql<bigint>`sum(greatest(${e.ref('p.amount')}, 0))`.as('inflow'),
 			sql<bigint>`sum(greatest(-${e.ref('p.amount')}, 0))`.as('outflow'),
@@ -340,17 +311,6 @@ const otherSpentIn = (db: Database, o: OtherSpending) => {
 		);
 };
 
-type CostSpending = {
-	q: QueryCreator<Tables & Own>;
-	ledgerId: string;
-	accounts: string[];
-	filter: Filter;
-	from: Temporal.PlainDate;
-	to: Temporal.PlainDate;
-	bucket: Bucket | 'posting';
-	stored: boolean;
-};
-
 /**
  * What the postings of these accounts came to at cost, added up by account, day
  * and the commodity they are worth in, or each alone for the bucket posting: a
@@ -358,20 +318,20 @@ type CostSpending = {
  * are worth their own. A read of every posting by day reads the balance
  * accounts' days from daily_costs and the postings of the other accounts.
  */
-const costSpentIn = (db: Database, o: OtherSpending) => {
-	const { q, ledgerId, accounts, filter, from, to, bucket } = o;
-	const stored = bucket !== 'posting' && isEverything(filter);
-	const read = { q, ledgerId, accounts, filter, from, to, bucket, stored };
-	const posted = costPostedIn(db, read);
+const costSpentIn = (db: Database, o: Spending) => {
+	const posted = costPostedIn(db, o);
 
-	return stored ? costStoredIn(read).unionAll(posted) : posted;
+	return isStoredRead(o) ? costStoredIn(o).unionAll(posted) : posted;
 };
+
+/** Whether a read of cost takes the balance accounts' days from daily_costs. */
+const isStoredRead = ({ bucket, filter }: Spending) => bucket !== 'posting' && isEverything(filter);
 
 /**
  * The days the daily cost table holds for these accounts, shaped as the posted
  * days are.
  */
-const costStoredIn = (o: CostSpending) => {
+const costStoredIn = (o: Spending) => {
 	const { q, ledgerId, accounts, from, to } = o;
 
 	return q
@@ -382,7 +342,7 @@ const costStoredIn = (o: CostSpending) => {
 			'a.name as account',
 			'd.date',
 			'd.costCommodity as commodity',
-			'd.commodity as posted',
+			'd.commodity as held',
 			'o.id as symbolId',
 			sql<string | null>`null::uuid`.as('transactionId'),
 			sql<number | null>`null::integer`.as('position'),
@@ -397,10 +357,11 @@ const costStoredIn = (o: CostSpending) => {
 		.where('d.date', '<=', to.toString());
 };
 
-const costPostedIn = (db: Database, o: CostSpending) => {
-	const { q, ledgerId, accounts, filter, from, to, bucket, stored } = o;
+const costPostedIn = (db: Database, o: Spending) => {
+	const { q, ledgerId, accounts, filter, from, to, bucket } = o;
+	const stored = isStoredRead(o);
 	const each = bucket === 'posting';
-	const cost = costOf('p');
+	const cost = postingCostOf('p');
 
 	return q
 		.selectFrom((s) =>
@@ -410,11 +371,9 @@ const costPostedIn = (db: Database, o: CostSpending) => {
 					'p.accountId',
 					'p.date',
 					e.fn.coalesce('p.priceCommodity', 'p.commodity').as('commodity'),
-					'p.commodity as posted',
-					sql<string | null>`${each ? e.ref('p.transactionId') : sql`null::uuid`}`.as(
-						'transactionId',
-					),
-					sql<number | null>`${each ? e.ref('p.position') : sql`null::integer`}`.as('position'),
+					'p.commodity as held',
+					sql<string | null>`${each ? e.ref('p.transactionId') : NULL_UUID}`.as('transactionId'),
+					sql<number | null>`${each ? e.ref('p.position') : NULL_INTEGER}`.as('position'),
 					sql<bigint>`sum(${cost})`.as('amount'),
 					sql<bigint>`sum(greatest(${cost}, 0))`.as('inflow'),
 					sql<bigint>`sum(greatest(-${cost}, 0))`.as('outflow'),
@@ -429,7 +388,7 @@ const costPostedIn = (db: Database, o: CostSpending) => {
 									.selectFrom('accounts as k')
 									.select('k.id')
 									.where((f) => anyOf(f.ref('k.id'), accounts, 'uuid'))
-									.where('k.type', 'not in', [AccountType.Assets, AccountType.Liabilities]),
+									.where('k.type', 'not in', COST_STORED_TYPES),
 							)
 						: anyOf(e.ref('p.accountId'), accounts, 'uuid'),
 				)
@@ -458,7 +417,7 @@ const costPostedIn = (db: Database, o: CostSpending) => {
 			'a.name as account',
 			'g.date',
 			'g.commodity',
-			'g.posted',
+			'g.held',
 			'o.id as symbolId',
 			'g.transactionId',
 			'g.position',

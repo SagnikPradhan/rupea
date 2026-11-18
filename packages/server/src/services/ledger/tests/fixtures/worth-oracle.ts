@@ -14,7 +14,7 @@ import {
 	type RateThen,
 } from '#services/ledger/domain/cost.ts';
 import type { Delta } from '#services/ledger/domain/deltas.ts';
-import { HOPS } from '#services/ledger/domain/holdings.ts';
+import { HOPS } from '#services/ledger/domain/worth.ts';
 import { lengthOf, NO_AMOUNT, readDay, readSeries } from '#services/ledger/domain/series.ts';
 import { AccountType } from '#services/ledger/domain/types.ts';
 import {

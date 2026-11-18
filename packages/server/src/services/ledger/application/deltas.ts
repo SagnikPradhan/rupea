@@ -1,7 +1,6 @@
 import { consistently } from '#lib/server/db/read-only.ts';
 import { errAsync, okAsync, ResultAsync } from '#lib/server/shared/result/result.ts';
 import {
-	CLOSING_DAYS,
 	isBalanceReadable,
 	isChangeReadable,
 	type Aggregate,
@@ -23,10 +22,9 @@ import {
 import { lotsOf, unpricedCostsIn, type Lots } from '../domain/closings-lots';
 import { balancesOf, type Balances, type Delta, type Series } from '../domain/deltas';
 import { EVERYTHING, type Filter } from '../domain/filters';
-import { HOPS } from '../domain/holdings';
 import { idsIn, ownIdsIn, ownPartsIn, parentsIn, type AccountNode } from '../domain/tree';
 import { AccountType, type Ledger } from '../domain/types';
-import { ratesOn, symbolsOf, type PriceSources, type PriceYear } from '../domain/worth';
+import { HOPS, ratesOn, symbolsOf, type PriceSources, type PriceYear } from '../domain/worth';
 import { checkLots } from './checks';
 
 /**
@@ -39,12 +37,13 @@ type ListDeltasOptions = {
 	ledger: Ledger;
 	from: Temporal.PlainDate;
 	to: Temporal.PlainDate;
-	account?: string | undefined;
+	accounts?: string[] | undefined;
 	filter?: Filter;
 	bucket: Bucket | 'posting';
 	valued?: 'then' | 'cost';
 	aggregate?: Aggregate;
 	measures?: Measure[];
+	most?: number | undefined;
 	shared?: Shared;
 };
 
@@ -55,32 +54,33 @@ type ListDeltasOptions = {
  * summed or averaged, and only a day of the month does. Only the postings that
  * pass the filter count, all of them when there is none. A bucket of dates
  * comes back with the days that had deltas only, so it costs what they do.
- * Fails for a span that runs backwards or covers more than SPAN_MOST_DAYS.
+ * Fails for a span that runs backwards or covers more than SPAN_MOST_DAYS, or
+ * more days than most when it is given.
  */
 export const listDeltas = ({
 	ledger,
 	from,
 	to,
-	account,
+	accounts: named,
 	filter,
 	bucket,
 	valued = 'then',
 	aggregate = 'sum',
 	measures = ['value'],
+	most,
 	shared,
 }: ListDeltasOptions): ResultAsync<Batch<Balances>> =>
 	consistently(() => {
-		const kind = bucket === 'posting' ? 'date' : bucket;
-		const reading = { aggregate, bucket: kind, measures };
-		if (!isChangeReadable(reading)) return errAsync(unreadable(unreadableChangeFieldOf(reading)));
+		const refused = refusalOfDeltas({ aggregate, bucket, measures });
+		if (refused) return errAsync(refused);
 
-		return listed(ledger.id, {
-			named: account === undefined ? undefined : [account],
+		return findScope(ledger.id, {
+			named,
 			shared,
 		}).andThen(({ failed, tree, accounts }) => {
 			const base = DEFAULT_COMMODITY;
 			const span = { from, to };
-			const read = { span, tree, accounts, filter, bucket, valued, measures, base };
+			const read = { span, tree, accounts, filter, bucket, valued, measures, base, most };
 
 			return listGains(ledger.id, read).map(({ span, rows }) => {
 				const parents = parentsIn(tree);
@@ -99,6 +99,7 @@ type ListBalancesOptions = {
 	bucket: Bucket;
 	measures?: Measure[];
 	series?: boolean;
+	most?: number | undefined;
 	shared?: Shared;
 };
 
@@ -107,7 +108,7 @@ type ListBalancesOptions = {
  * the ledger's first day at the earliest, and with a cost or paid the lots that
  * match no sale are failures. Every day of a bucket of dates is closed, so it
  * costs what the days do. Fails for a span that runs backwards or covers more
- * than SPAN_MOST_DAYS.
+ * than SPAN_MOST_DAYS, or more days than most when it is given.
  */
 export const listBalances = ({
 	ledger,
@@ -118,16 +119,17 @@ export const listBalances = ({
 	bucket,
 	measures = ['value'],
 	series = false,
+	most,
 	shared,
 }: ListBalancesOptions): ResultAsync<Batch<Balances>> =>
 	consistently(() => {
 		const refused = refusalOfBalances({ bucket, measures, series });
 		if (refused) return errAsync(refused);
 
-		return listed(ledger.id, { named, exact, shared }).andThen(({ failed, tree, accounts }) => {
+		return findScope(ledger.id, { named, exact, shared }).andThen(({ failed, tree, accounts }) => {
 			const base = DEFAULT_COMMODITY;
 			const span = { from, to };
-			const read = { span, tree, accounts, bucket, measures, base, series };
+			const read = { span, tree, accounts, bucket, measures, base, series, most };
 
 			const checked = measures.some((m) => m === 'cost' || m === 'paid')
 				? checkLots(ledger, { accounts, to })
@@ -153,38 +155,13 @@ export const listBalances = ({
 		});
 	});
 
-type RefusalOnOptions = {
-	ledger: Ledger;
-	from: Temporal.PlainDate;
-	to: Temporal.PlainDate;
-	account?: string | undefined;
-	bucket: Bucket;
-};
+type DeltaReading = { aggregate: Aggregate; bucket: Bucket | 'posting'; measures: Measure[] };
 
-/**
- * Why a span may not be read by date: one over CLOSING_DAYS, counted from the
- * first day with data when it starts at the beginning, fails as too long. The
- * reads take any span, so the endpoints that pages call ask this first and
- * returns and drops do not. It reads no postings.
- */
-export const refusalOn = ({
-	ledger,
-	from,
-	to,
-	account,
-	bucket,
-}: RefusalOnOptions): ResultAsync<void> => {
-	if (bucket !== 'date') return okAsync(undefined);
-
-	return listed(ledger.id, { named: account === undefined ? undefined : [account] })
-		.andThen(({ accounts }) => spanFrom(ledger.id, { from, to }, accounts))
-		.andThen((started) => {
-			const days = started.from.until(started.to, { largestUnit: 'days' }).days;
-
-			return days > CLOSING_DAYS
-				? errAsync(fault('SpanTooLong', { days, most: CLOSING_DAYS }))
-				: okAsync(undefined);
-		});
+/** Why a deltas read is refused before it reads anything, when it is. */
+const refusalOfDeltas = (o: DeltaReading): RupeaError | null => {
+	const reading = { ...o, bucket: o.bucket === 'posting' ? ('date' as const) : o.bucket };
+	if (isChangeReadable(reading)) return null;
+	return unreadable(unreadableChangeFieldOf(reading));
 };
 
 type BalanceReading = { bucket: Bucket; measures: Measure[]; series: boolean };
@@ -212,14 +189,18 @@ export const findShared = (id: string): ResultAsync<Shared> =>
 		tree,
 	}));
 
-type ListedOptions = { named: string[] | undefined; exact?: boolean; shared?: Shared | undefined };
+type FindScopeOptions = {
+	named: string[] | undefined;
+	exact?: boolean;
+	shared?: Shared | undefined;
+};
 
 /**
  * The ledger's problems and account tree, shared or found, and the accounts the
  * read names with every account under each, or each alone when exact, or every
  * account when it names none.
  */
-const listed = (id: string, { named, exact = false, shared }: ListedOptions) =>
+const findScope = (id: string, { named, exact = false, shared }: FindScopeOptions) =>
 	(shared ? okAsync(shared) : findShared(id)).andThen(({ failed, tree }) => {
 		const idsOf = exact ? ownIdsIn : idsIn;
 		const found = named?.map((a) => ({ account: a, ids: idsOf(tree, a) }));
@@ -252,14 +233,15 @@ type BalancesRead = {
 	measures: Measure[];
 	base: string;
 	series?: boolean;
+	most?: number | undefined;
 };
 
 /** What the accounts gained in each bucket of the span. */
 const listGains = (
 	id: string,
-	{ span, accounts, filter = EVERYTHING, bucket, valued = 'then', base }: BalancesRead,
+	{ span, accounts, filter = EVERYTHING, bucket, valued = 'then', base, most }: BalancesRead,
 ) =>
-	spanFrom(id, span, accounts).andThen((started) =>
+	findSpan(id, span, { accounts, most }).andThen((started) =>
 		DB.listDeltas(id, { ...started, accounts, filter, bucket, valued, base }).map((rows) => ({
 			span: started,
 			rows,
@@ -284,7 +266,7 @@ const listClosings = (id: string, read: BalancesRead) => {
 	const ids = parts.map((p) => p.accountId);
 	const names = Object.fromEntries(parts.map((p) => [p.accountId, p.part]));
 
-	return startOf(id, span, ids).andThen((start) => {
+	return findStart(id, span, { accounts: ids, most: read.most }).andThen((start) => {
 		if (start === null)
 			return okAsync({ span: asked, rows: [] as Delta[], columns: [] as Series[], faults: [] });
 
@@ -376,17 +358,19 @@ const boughtAt = (id: string, { rows, base }: BoughtAtOptions) => {
 	return DB.listRates(id, { pairs, base });
 };
 
+type SpanOptions = { accounts: string[]; most?: number | undefined };
+
 /**
  * All of history starts long before a ledger does, so it starts on the first
  * day these accounts moved. Fails for a span that runs backwards or covers more
  * than SPAN_MOST_DAYS.
  */
-export const spanFrom = (id: string, span: Span, accounts: string[]): ResultAsync<Span> => {
+export const findSpan = (id: string, span: Span, o: SpanOptions): ResultAsync<Span> => {
 	const reversed = reversedSpan(span);
 	if (reversed) return errAsync(reversed);
 
-	return DB.findFirstDelta(id, { accounts, to: span.to }).andThen((first) => {
-		const long = longSpan(span, first);
+	return DB.findFirstDelta(id, { accounts: o.accounts, to: span.to }).andThen((first) => {
+		const long = longSpan(span, first, o.most);
 		if (long) return errAsync(long);
 		if (span.from.toString() !== BEGINNING) return okAsync(span);
 
@@ -401,16 +385,16 @@ export const spanFrom = (id: string, span: Span, accounts: string[]): ResultAsyn
  * these accounts moved, or null when they had not moved by its end. Fails for a
  * span that runs backwards or covers more than SPAN_MOST_DAYS.
  */
-const startOf = (
+const findStart = (
 	id: string,
 	{ from, to }: Span,
-	accounts: string[],
+	o: SpanOptions,
 ): ResultAsync<Temporal.PlainDate | null> => {
 	const reversed = reversedSpan({ from, to });
 	if (reversed) return errAsync(reversed);
 
-	return DB.findFirstDelta(id, { accounts, to }).andThen((first) => {
-		const long = longSpan({ from, to }, first);
+	return DB.findFirstDelta(id, { accounts: o.accounts, to }).andThen((first) => {
+		const long = longSpan({ from, to }, first, o.most);
 		if (long) return errAsync(long);
 		if (first === null || Temporal.PlainDate.compare(first, to) > 0) return okAsync(null);
 
@@ -476,12 +460,22 @@ const reversedSpan = ({ from, to }: Span): RupeaError | null =>
 
 /**
  * Why a span is refused for covering more than SPAN_MOST_DAYS from the later of
- * its start and the first day with data, when there is one.
+ * its start and the first day with data, when there is one, or more days than
+ * most from its start, or from the first day with data when it starts at the
+ * beginning, when most is given.
  */
-const longSpan = ({ from, to }: Span, first: Temporal.PlainDate | null): RupeaError | null => {
+const longSpan = (
+	{ from, to }: Span,
+	first: Temporal.PlainDate | null,
+	most?: number,
+): RupeaError | null => {
 	if (first === null || Temporal.PlainDate.compare(first, to) > 0) return null;
 
 	const start = Temporal.PlainDate.compare(first, from) > 0 ? first : from;
+	const asked = from.toString() === BEGINNING ? start : from;
+	const between = asked.until(to, { largestUnit: 'days' }).days;
+	if (most !== undefined && between > most) return fault('SpanTooLong', { days: between, most });
+
 	const days = start.until(to, { largestUnit: 'days' }).days + 1;
 
 	return days > SPAN_MOST_DAYS ? fault('SpanTooLong', { days, most: SPAN_MOST_DAYS }) : null;

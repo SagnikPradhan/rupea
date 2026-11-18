@@ -1,8 +1,11 @@
 import * as Accounts from '#services/ledger/application/accounts.ts';
 import * as Deltas from '#services/ledger/application/deltas.ts';
 import * as Terms from '#services/ledger/application/terms.ts';
+import { CLOSING_DAYS } from '@rupea/shared/balances.ts';
 import { sanitiseBatch } from './sanitise.ts';
 import { inLedger, os, signedIn } from './session.ts';
+
+const mostOf = (b: string) => (b === 'date' ? CLOSING_DAYS : undefined);
 
 const listAccounts = os.accounts.list
 	.use(signedIn)
@@ -37,14 +40,17 @@ const listReturns = os.accounts.listReturns
 
 const listDeltas = os.accounts.listDeltas
 	.use(signedIn)
-	.handler(async ({ input: { handle, ...options } }) =>
+	.handler(async ({ input: { handle, account, ...options } }) =>
 		sanitiseBatch(
 			await inLedger({
 				handle,
 				action: (l) =>
-					Deltas.refusalOn({ ledger: l, ...options }).andThen(() =>
-						Deltas.listDeltas({ ledger: l, ...options }),
-					),
+					Deltas.listDeltas({
+						ledger: l,
+						...options,
+						accounts: account === undefined ? undefined : [account],
+						most: mostOf(options.bucket),
+					}),
 			}),
 		),
 	);
@@ -56,13 +62,12 @@ const listBalances = os.accounts.listBalances
 			await inLedger({
 				handle,
 				action: (l) =>
-					Deltas.refusalOn({ ledger: l, account, ...options }).andThen(() =>
-						Deltas.listBalances({
-							ledger: l,
-							...options,
-							accounts: account === undefined ? undefined : [account],
-						}),
-					),
+					Deltas.listBalances({
+						ledger: l,
+						...options,
+						accounts: account === undefined ? undefined : [account],
+						most: mostOf(options.bucket),
+					}),
 			}),
 		),
 	);

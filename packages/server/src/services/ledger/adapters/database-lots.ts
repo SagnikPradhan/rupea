@@ -18,7 +18,7 @@ import {
 	type UnmatchedDisposal,
 } from '../domain/lots';
 import { BALANCE_TYPES } from '../domain/taxonomy';
-import { KEYS } from './database-deltas-valued';
+import { KEYS } from './database-deltas';
 import { ledgerOrder, multiply, toCost, toPrice, toQuantity } from './database-queries';
 
 /** Books each commodity's lots again from its counted postings. */

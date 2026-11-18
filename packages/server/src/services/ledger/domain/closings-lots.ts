@@ -54,7 +54,8 @@ export const lotsOf = (
 		const rate = rates.get(`${row.cost} ${row.paid}`);
 
 		addTo(lot.paid, row.bucket, rupeesOf(row, { base, rate }));
-		addTo((lot.costs[row.cost] ??= nothing()), row.bucket, row.amount);
+		const costed = (lot.costs[row.cost] ??= nothing());
+		addTo(costed, row.bucket, row.amount);
 		if (paid && row.cost !== base && rate === undefined) lot.unpriced.add(row.cost);
 	}
 
@@ -63,7 +64,9 @@ export const lotsOf = (
 
 /** The cost commodities that had no price on a day a lot was paid for. */
 export const unpricedCostsIn = (l: Record<string, Lots>): string[] =>
-	[...new Set(Object.values(l).flatMap((x) => [...x.unpriced]))].toSorted();
+	[...new Set(Object.values(l).flatMap((x) => [...x.unpriced]))].toSorted((a, b) =>
+		a.localeCompare(b),
+	);
 
 const nothing = (): Costed => ({ opening: 0n as Amount, gains: {} });
 

@@ -14,7 +14,7 @@ import { type LotHistory } from '../domain/lots';
 import { returnsOf, type Returns } from '../domain/returns';
 import { accountsIn, idsIn, parentsIn, type AccountNode } from '../domain/tree';
 import { type Ledger } from '../domain/types';
-import { findShared, isRoot, listBalances, listDeltas, spanFrom, type Shared } from './deltas';
+import { findShared, isRoot, listBalances, listDeltas, findSpan, type Shared } from './deltas';
 
 export type { LotHistory } from '../domain/lots';
 export type { Balances, Bridge, Drops, Returns };
@@ -113,26 +113,37 @@ export const findBridge = ({ ledger, from, to }: FindBridgeOptions): ResultAsync
 					Temporal.PlainDate.compare(after.from, to) > 0
 						? okAsync(null)
 						: listDeltas({ ...after, bucket: 'year' }),
-				]).map(([start, gains]) => {
-					const failures = [...ended.failed, ...start.failed, ...(gains?.failed ?? [])];
-					const failed = [...new Map(failures.map((f) => [JSON.stringify(f), f])).values()];
-
-					return {
-						succeeded: [
-							bridgeOf({
-								from: first,
-								to,
-								start: start.succeeded[0]?.rows ?? [],
-								end: end.rows,
-								gains: gains?.succeeded[0]?.rows ?? [],
-							}),
-						],
-						failed,
-					};
-				});
+				]).map((r) => batchedBridgeOf({ first, to, end, failed: ended.failed }, r));
 			}),
 		),
 	);
+
+type BatchedBridgeOptions = {
+	first: Temporal.PlainDate;
+	to: Temporal.PlainDate;
+	end: Balances;
+	failed: RupeaError[];
+};
+
+const batchedBridgeOf = (
+	{ first, to, end, failed }: BatchedBridgeOptions,
+	[start, gains]: [Batch<Balances>, Batch<Balances> | null],
+): Batch<Bridge> => {
+	const failures = [...failed, ...start.failed, ...(gains?.failed ?? [])];
+
+	return {
+		succeeded: [
+			bridgeOf({
+				from: first,
+				to,
+				start: start.succeeded[0]?.rows ?? [],
+				end: end.rows,
+				gains: gains?.succeeded[0]?.rows ?? [],
+			}),
+		],
+		failed: [...new Map(failures.map((f) => [JSON.stringify(f), f])).values()],
+	};
+};
 
 type ListReturnsOptions = { ledger: Ledger; from: Temporal.PlainDate; to: Temporal.PlainDate };
 
@@ -147,15 +158,13 @@ export const listReturns = ({
 	to,
 }: ListReturnsOptions): ResultAsync<Batch<Returns>> =>
 	consistently(() =>
-		findShared(ledger.id).andThen((shared) =>
-			spanFrom(
-				ledger.id,
-				{ from, to },
-				shared.tree.map((n) => n.id),
-			)
+		findShared(ledger.id).andThen((shared) => {
+			const accounts = shared.tree.map((n) => n.id);
+
+			return findSpan(ledger.id, { from, to }, { accounts })
 				.andThen((s) => returnsOver({ ledger, shared, span: s }))
-				.map((r) => ({ succeeded: r.succeeded, failed: [...shared.failed, ...r.failed] })),
-		),
+				.map((r) => ({ succeeded: r.succeeded, failed: [...shared.failed, ...r.failed] }));
+		}),
 	);
 
 type ReturnsOverOptions = { ledger: Ledger; shared: Shared; span: Span };
@@ -163,14 +172,14 @@ type ReturnsOverOptions = { ledger: Ledger; shared: Shared; span: Span };
 const returnsOver = ({ ledger, shared, span }: ReturnsOverOptions) => {
 	const { from, to } = span;
 	const tree = shared.tree;
-	const assets = { ledger, shared, account: ASSETS, bucket: 'date' } as const;
+	const assets = { ledger, shared, accounts: [ASSETS], bucket: 'date' as const };
 	const held = { ledger, shared, accounts: [ASSETS], bucket: 'date' as const };
 	const cost = { valued: 'cost' } as const;
 	const before = from.subtract({ days: 1 });
 	const nothing = okAsync<Batch<Balances>>({ succeeded: [], failed: [] });
 
 	const earned = INVESTMENT_INCOME.filter((n) => idsIn(tree, n).length > 0).map((a) =>
-		listDeltas({ ledger, shared, account: a, ...cost, from, to, bucket: 'posting' }),
+		listDeltas({ ledger, shared, accounts: [a], ...cost, from, to, bucket: 'posting' }),
 	);
 
 	return ResultAsync.combine([

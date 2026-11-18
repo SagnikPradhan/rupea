@@ -152,10 +152,7 @@ const rolledUp = (deltas: Delta[], { byCommodity, measures, parents }: RolledUpO
 
 		for (const column of run.columns) {
 			const total = column.totals[place] ?? totalIn(column, { s, place, byCommodity });
-
-			total.unpriced += s.unpriced;
-			for (const m of added) total[m] = plus(total[m], s[m]);
-			if (priced && s.price) total.price ??= s.price;
+			addedTo(total, s, { added, priced });
 		}
 	}
 
@@ -163,21 +160,19 @@ const rolledUp = (deltas: Delta[], { byCommodity, measures, parents }: RolledUpO
 		.toSorted(([a], [b]) => compareKeys(a, b))
 		.map(([, place]) => place);
 	const heldOrder = [...helds].toSorted(compareKeys);
-	const rows: Row[] = [];
+	const accounts = [...totals.keys()].filter((a) => Object.hasOwn(parents, a)).toSorted(byPath);
 
-	for (const account of [...totals.keys()]
-		.filter((a) => Object.hasOwn(parents, a))
-		.toSorted(byPath)) {
+	return accounts.flatMap((account) => {
 		const byHeld = heldOrder.map((h) => totals.get(account)?.get(h)).filter((c) => c !== undefined);
 
-		for (const place of bucketOrder)
-			for (const column of byHeld) {
-				const total = column[place];
-				if (total) rows.push(total);
-			}
-	}
+		return bucketOrder.flatMap((p) => byHeld.flatMap((c) => c[p] ?? []));
+	});
+};
 
-	return rows;
+const addedTo = (total: Row, s: Delta, { added, priced }: { added: Added[]; priced: boolean }) => {
+	total.unpriced += s.unpriced;
+	for (const m of added) total[m] = plus(total[m], s[m]);
+	if (priced && s.price) total.price ??= s.price;
 };
 
 const totalIn = (

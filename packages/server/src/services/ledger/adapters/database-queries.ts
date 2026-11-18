@@ -58,7 +58,7 @@ export const multiply = (a: Expression<unknown>, b: Expression<unknown>) =>
  * amount at the unit price, the total price with its sign, or the amount when
  * it names none.
  */
-export const costOf = (p: string) => {
+export const postingCostOf = (p: string) => {
 	const kind = sql.ref(`${p}.priceKind`);
 	const amount = sql.ref(`${p}.amount`);
 	const price = sql.ref(`${p}.priceAmount`);

@@ -94,9 +94,9 @@ describe('balances of deltas', () => {
 		expect(rows.find((r) => r.account === 'Assets' && r.bucket === '2026-01')?.price).toEqual(
 			price(7),
 		);
-		expect(rows.find((r) => r.account === 'Assets' && r.bucket === '2026-02')?.price).toBe(
-			undefined,
-		);
+		expect(
+			rows.find((r) => r.account === 'Assets' && r.bucket === '2026-02')?.price,
+		).toBeUndefined();
 	});
 
 	it('divide a day of the month by the months of the span that have it', () => {

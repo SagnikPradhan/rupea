@@ -1160,9 +1160,23 @@ describe('returns', () => {
 			await Files.createFile({ ledger, key: 'a.rupea', content: moved });
 
 			const day = Temporal.PlainDate.from('2025-02-01');
-			const read = async (o: { account?: string; bucket: 'date' | 'posting'; filter?: Filter }) =>
+			const read = async ({
+				account,
+				...o
+			}: {
+				account?: string;
+				bucket: 'date' | 'posting';
+				filter?: Filter;
+			}) =>
 				(
-					await Deltas.listDeltas({ ledger, from: day, to: day, valued: 'cost', ...o })
+					await Deltas.listDeltas({
+						ledger,
+						from: day,
+						to: day,
+						valued: 'cost',
+						accounts: account === undefined ? undefined : [account],
+						...o,
+					})
 				)._unsafeUnwrap().succeeded[0]?.rows ?? [];
 
 			const flows = flowsOf(await read({ account: 'Assets', bucket: 'date' }), [

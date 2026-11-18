@@ -5,12 +5,28 @@ import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import type { Span } from '@rupea/shared/dates.ts';
 import { anyOf } from '#lib/server/db/expressions.ts';
-import { sql } from 'kysely';
+import { sql, type RawBuilder } from 'kysely';
+import type { Bucket } from '@rupea/shared/balances.ts';
 import type { HoldingKey } from './database-files';
 import type { Filter } from '../domain/filters';
 import { conditionFor } from './database-filters';
-import { amongHoldings, costOf } from './database-queries';
+import { amongHoldings, postingCostOf } from './database-queries';
 import { AccountType } from '../domain/types';
+
+/**
+ * A day's bucket as the key the caller reads it by: the date, a day of the
+ * month, which puts every month's day n in one bucket, then a month as 2026-10
+ * and a year as 2026.
+ */
+export const KEYS: Record<Bucket, (date: RawBuilder<unknown>) => RawBuilder<string>> = {
+	date: (d) => sql<string>`${d}::date::text`,
+	day: (d) => sql<string>`extract(day from ${d}::date)::int::text`,
+	month: (d) => sql<string>`to_char(${d}::date, 'YYYY-MM')`,
+	year: (d) => sql<string>`to_char(${d}::date, 'YYYY')`,
+};
+
+/** The types of account whose cost by day is stored in daily_costs. */
+export const COST_STORED_TYPES = [AccountType.Assets, AccountType.Liabilities];
 
 const CHECKED = { months: 12 };
 
@@ -277,7 +293,7 @@ const rewriteMonths = async (
 };
 
 const rewriteCosts = async (tx: Database, { ledgerId, first, after, holdings }: RewriteOptions) => {
-	const cost = costOf('p');
+	const cost = postingCostOf('p');
 
 	await tx
 		.deleteFrom('dailyCosts')
@@ -315,7 +331,7 @@ const rewriteCosts = async (tx: Database, { ledgerId, first, after, holdings }: 
 				])
 				.where('p.ledgerId', '=', ledgerId)
 				.where('p.counted', '=', true)
-				.where('p.accountType', 'in', [AccountType.Assets, AccountType.Liabilities])
+				.where('p.accountType', 'in', COST_STORED_TYPES)
 				.where('p.date', '>=', first)
 				.where('p.date', '<', after)
 				.where((e) => amongHoldings(e.ref('p.accountId'), e.ref('p.commodity'), holdings))

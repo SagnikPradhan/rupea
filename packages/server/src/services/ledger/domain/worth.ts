@@ -1,6 +1,5 @@
 import { dayNumberOf } from '#lib/server/shared/dates.ts';
 import { AMOUNT_UNIT, DEFAULT_COMMODITY, multiply, type Amount, type Quantity } from './amounts';
-import { HOPS } from './holdings';
 import { lengthOf, NO_AMOUNT, readDay, readSeries } from './series';
 
 /**
@@ -74,6 +73,9 @@ type RatesEveryOptions = {
 
 type Timeline = { amounts: bigint[]; quoted: Int16Array };
 
+/** How many quotes a price may hop through to reach the base. */
+export const HOPS = 2;
+
 const NOT_QUOTED = -1;
 
 /**
@@ -100,6 +102,21 @@ const ratesEvery = ({ prices, sources, opening, from, count }: RatesEveryOptions
 	const ids = new Map<string, number>();
 	const idOf = (c: string) => ids.getOrInsertComputed(c, () => names.push(c) - 1);
 
+	const paint = (w: { symbolId: string; from: number; until: number }, t: Timeline) => {
+		for (const p of bySymbol.get(w.symbolId) ?? []) {
+			const offset = offsetOf(p.year);
+			const id = idOf(p.priceCommodity);
+
+			for (const [day, a] of readSeries(p.amounts).entries()) {
+				const i = offset + day;
+				if (a === NO_AMOUNT || i < w.from || i >= w.until) continue;
+
+				t.amounts[i] = a;
+				t.quoted[i] = id;
+			}
+		}
+	};
+
 	const timelines = new Map<string, Timeline>();
 	const timelineOf = (commodity: string) =>
 		timelines.getOrInsertComputed(commodity, () => {
@@ -115,20 +132,7 @@ const ratesEvery = ({ prices, sources, opening, from, count }: RatesEveryOptions
 			const amounts = new Array<bigint>(count).fill(0n);
 			const quoted = new Int16Array(count).fill(NOT_QUOTED);
 
-			windows.forEach((w) =>
-				(bySymbol.get(w.symbolId) ?? []).forEach((p) => {
-					const offset = offsetOf(p.year);
-					const id = idOf(p.priceCommodity);
-
-					readSeries(p.amounts).forEach((a, day) => {
-						const i = offset + day;
-						if (a === NO_AMOUNT || i < w.from || i >= w.until) return;
-
-						amounts[i] = a;
-						quoted[i] = id;
-					});
-				}),
-			);
+			for (const w of windows) paint(w, { amounts, quoted });
 
 			const open = opening[commodity];
 			const carried = {

@@ -79,7 +79,7 @@ export const dropsOf = (daily: Balances, lotted: Held[]): Drops | null => {
 			.filter((m) => m.before.some((b) => b > 0))
 			.map((m) => {
 				const depths = depthsOf(m);
-				const lowest = depths.reduce((l, d) => (d < l ? d : l), 0);
+				const lowest = depths.reduce((l, d) => Math.min(l, d), 0);
 				const low = depths.findIndex((d) => d <= lowest + SAME_LOW);
 
 				return { account: m.account, depth: depths[low] ?? 0, day: from.add({ days: low }) };

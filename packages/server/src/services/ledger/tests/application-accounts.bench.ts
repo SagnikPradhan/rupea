@@ -77,7 +77,7 @@ describe('accounts', () => {
 						Deltas.listDeltas({
 							ledger,
 							...span,
-							account,
+							accounts: [account],
 							bucket: bucketFor[bucket],
 							measures: ['value', 'inflow', 'outflow'],
 						}),
@@ -90,7 +90,7 @@ describe('accounts', () => {
 				Deltas.listDeltas({
 					ledger,
 					...spanOf(p),
-					account,
+					accounts: [account],
 					bucket: 'day',
 					aggregate: 'average',
 				}),

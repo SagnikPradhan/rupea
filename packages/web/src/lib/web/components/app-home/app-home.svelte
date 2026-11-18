@@ -35,14 +35,16 @@
 	const now = { kind: 'month', at: day.slice(0, 7) } as const;
 	const lastMonth = { kind: 'month', at: lastMonthOf(day) } as const;
 
-	const worth = $derived(await listWorth({ handle, day, period, account }));
-	const moved = $derived(await findBridge({ handle, day, period }));
-	const balance = $derived(await listHoldings({ handle, day, period: now }));
-	const spending = $derived(
-		await listDeltas({ handle, day, period: lastMonth, account: 'Expenses' }),
+	const loaded = $derived(
+		await Promise.all([
+			listWorth({ handle, day, period, account }),
+			findBridge({ handle, day, period }),
+			listHoldings({ handle, day, period: now }),
+			listDeltas({ handle, day, period: lastMonth, account: 'Expenses' }),
+			listDeltas({ handle, day, period: lastMonth, account: INCOME }),
+		]),
 	);
-
-	const earning = $derived(await listDeltas({ handle, day, period: lastMonth, account: INCOME }));
+	const [worth, moved, balance, spending, earning] = $derived(loaded);
 
 	const last = $derived(worth.data?.at(-1));
 	const bridge = $derived(moved.data?.[0]);

@@ -14,6 +14,7 @@ import {
 	Amount,
 	DEFAULT_COMMODITY,
 	hasLots,
+	parseAmount,
 	printAmount,
 	printPosted,
 	printQuantity,
@@ -101,7 +102,7 @@ export const viewGroup = ({ group, members }: GroupOut) => ({
  * closes.
  */
 export const investedFrom = (deltas: DeltasOut) => {
-	const to = v.parse(Day, deltas.to);
+	const to = v.parse(Day, deltas.to).toString();
 	const depth = (r: RowOut) => r.account.split(':').length;
 	const top = Math.min(...deltas.rows.map(depth));
 	const lotted = deltas.rows.filter((r) => depth(r) === top && hasLots(r.commodity ?? ''));
@@ -124,24 +125,25 @@ type ViewWorthOptions = { tree: AccountRow[]; account: string | null };
  * under the account, each one's commodities too when it divides into nothing.
  */
 export const worthFrom = (deltas: DeltasOut, { tree, account }: ViewWorthOptions) => {
+	const seen = new Map<string, Amount>();
 	const parents = parentsIn(tree);
 	const { parts, byCommodity } = partsIn(tree, account);
 	const partOf = Object.fromEntries(parts.map((p) => [p.account, p.part]));
-	const to = v.parse(Day, deltas.to);
-	const held = deltas.rows.filter((r) => partOf[r.account] !== undefined);
+	const to = v.parse(Day, deltas.to).toString();
+	const held = deltas.rows
+		.filter((r) => partOf[r.account] !== undefined)
+		.map((r) => ({ ...r, amount: amountSeen(seen, r.value) }));
 	const byBucket = Object.groupBy(held, (r) => r.bucket);
 
 	return Object.entries(byBucket)
 		.toSorted(([a], [b]) => a.localeCompare(b))
 		.map(([bucket, rows = []]) => {
+			const kids = Object.groupBy(rows, (r) => parents[r.account] ?? '');
 			const own = rows.map((r) => ({
 				part: partOf[r.account] ?? r.account,
 				asset: /^assets(:|$)/i.test(r.account),
 				commodity: r.commodity ?? DEFAULT_COMMODITY,
-				...ownValueOf(
-					r,
-					rows.filter((k) => parents[k.account] === r.account),
-				),
+				...ownValueOf(r, kids[r.account] ?? []),
 			}));
 			const shares = Object.values(
 				Object.groupBy(own, (o) => `${o.part} ${byCommodity ? o.commodity : ''}`),
@@ -172,24 +174,26 @@ export const worthFrom = (deltas: DeltasOut, { tree, account }: ViewWorthOptions
 		});
 };
 
+type Held = { account: string; commodity: string | null; unpriced: number; amount: Amount };
+
 /** A row less the same commodity's rows of the accounts drawn under it. */
-const ownValueOf = (r: RowOut, under: RowOut[]) => {
+const ownValueOf = (r: Held, under: Held[]) => {
 	const kids = under.filter((k) => k.commodity === r.commodity);
 
 	return {
-		value: (amountOf(r.value) - sum(kids.map((k) => amountOf(k.value)))) as Amount,
+		value: (r.amount - sum(kids.map((k) => k.amount))) as Amount,
 		unpriced: r.unpriced - kids.reduce((n, k) => n + k.unpriced, 0),
 	};
 };
 
 /** The day a date or month closes on, held to the last day of the span. */
-const closeOf = (bucket: string, last: Temporal.PlainDate) => {
+const closeOf = (bucket: string, last: string) => {
 	const end =
 		bucket.length === 10
-			? Temporal.PlainDate.from(bucket)
-			: Temporal.PlainYearMonth.from(bucket).toPlainDate({ day: 31 });
+			? bucket
+			: Temporal.PlainYearMonth.from(bucket).toPlainDate({ day: 31 }).toString();
 
-	return (Temporal.PlainDate.compare(end, last) > 0 ? last : end).toString();
+	return end > last ? last : end;
 };
 
 /**
@@ -216,7 +220,16 @@ export const viewHoldings = (deltas: DeltasOut, parents: Record<string, string |
 		};
 	});
 
-const amountOf = (t: string | undefined) => (t === undefined ? ZERO : v.parse(Amount, t));
+/** Reads a text once, as a balance that holds still reads the same each day. */
+const amountSeen = (seen: Map<string, Amount>, t: string | undefined) => {
+	if (t === undefined) return ZERO;
+
+	const known = seen.get(t) ?? amountOf(t);
+	seen.set(t, known);
+	return known;
+};
+
+const amountOf = (t: string | undefined) => (t === undefined ? ZERO : (parseAmount(t) ?? ZERO));
 
 /**
  * A row less the same commodity's rows of the accounts under it, if any is

@@ -24,6 +24,7 @@ const edit = (line: number, description: string, date: string, role: GroupRole):
 	description,
 	role,
 	group: `e${line}`,
+	counter: null,
 });
 
 const insert = (e: LinkEdit[], text = content) =>

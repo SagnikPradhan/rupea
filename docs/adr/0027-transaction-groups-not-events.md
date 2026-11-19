@@ -4,6 +4,8 @@ What [ADR 0001](0001-events-for-multi-source-transactions.md) called an event, t
 
 This is a clean break: `- event:` is no longer read as a link, only as metadata like any other key. Ledgers written before it need `- event:` rewritten as `- group:`.
 
+A group also holds a transfer between two of your own accounts, which each statement sees only one side of. Accepting one writes each side's other account where it said Unknown, so both transactions say the same thing and the group counts it once. This keeps groups the one way to count a movement once. The alternative, a separate kind of link that leaves a transfer out of spending and income, would have had every read tell the two kinds apart. Only a transaction whose other side is still Unknown or Uncategorized is matched, so no category you chose is overwritten.
+
 ## Considered Options
 
 - **Keep "event" for the ledger and call the server's something else, like notice**: the files keep their syntax, but every developer reading the server would trip over two meanings of the word.

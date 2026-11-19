@@ -28,7 +28,7 @@ A group is just text, so you can write one by hand, or undo one by deleting its 
 
 ## Finding duplicates
 
-Open **Files**, then **Refine**, and choose a file. Rupea looks for transactions in other files that could be the same money. They must be on the same day, for the same amount, in the same bank, card or investment account.
+Open **Files**, then **Refine**, and choose a file. Rupea looks for transactions in other files that could be the same money. They must be on the same day, for the same amount, in the same bank, card or investment account. A transfer between two of your own accounts is matched differently, as the next section explains.
 
 Each match shows both transactions side by side, with the line it would add to each:
 
@@ -47,6 +47,30 @@ For each match:
 - **Dismiss** hides the match. It won't be suggested again.
 
 **Accept all duplicates** accepts every match whose descriptions are the same, and **Accept all** accepts every match on the page.
+
+## Transfers between your accounts
+
+A transfer shows up on two statements, and each only knows its own side. The sending bank has a withdrawal, the receiving bank has a deposit, and neither says where the money went. Until it is linked, the withdrawal counts as spending and the deposit as income.
+
+Rupea suggests a group when two transactions in different files have the same amount in opposite directions, on two of your accounts, up to two days apart. Both must still say `Unknown` or `Uncategorized` for the other side. A transaction you have already categorised is left alone.
+
+When you accept, Rupea writes the other account in place of `Unknown` in both files, then links them like any other group:
+
+```
+2026-10-03 NEFT TO SBI
+    - group: 2026-10-03-neft-brave-otter
+    Assets:Bank:SBI            1,000.00
+    Assets:Bank:HDFC
+```
+
+```
+2026-10-03 NEFT FROM HDFC
+    - same-as: 2026-10-03-neft-brave-otter
+    Assets:Bank:HDFC          -1,000.00
+    Assets:Bank:SBI
+```
+
+The money counts once, and neither spending nor income includes it. If only one statement is imported, there is nothing to match and the transaction stays as it is.
 
 ## When a group is wrong
 

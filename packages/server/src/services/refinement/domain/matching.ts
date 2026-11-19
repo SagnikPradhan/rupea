@@ -1,9 +1,11 @@
 import { sha256 } from '#lib/server/shared/hash.ts';
 import { byCodeUnit } from '@rupea/shared/text.ts';
 import {
+	BALANCE_TYPES,
 	GroupRole,
 	type LinkEdit,
 	type RupeaTransaction,
+	accountType,
 	formatQuantity,
 	linksOf,
 } from '#services/ledger/application/language.ts';
@@ -91,28 +93,45 @@ const link = (c: Scored, ourGroups: Set<string>): Suggestion | null => {
 	const theirLinks = linksOf(c.theirs.metadata);
 	if (ourLinks.length + theirLinks.length > 1) return null;
 
+	const ours = balanceOf(c.ours);
+	const theirs = balanceOf(c.theirs);
+	const moved = ours && theirs && ours !== theirs;
+	if (moved && ourLinks.length + theirLinks.length > 0) return null;
+	const counter = (t: MatchedTransaction) => (!moved ? null : t === c.ours ? theirs : ours);
+
 	const [ourLink] = ourLinks;
 	const [theirLink] = theirLinks;
 	if (theirLink && ourGroups.has(theirLink.group)) return null;
 	if (theirLink)
-		return { ...c, group: theirLink.group, links: [target(c.ours, GroupRole.Evidence)] };
-	if (ourLink) return { ...c, group: ourLink.group, links: [target(c.theirs, GroupRole.Evidence)] };
+		return { ...c, group: theirLink.group, links: [target(c.ours, GroupRole.Evidence, null)] };
+	if (ourLink)
+		return { ...c, group: ourLink.group, links: [target(c.theirs, GroupRole.Evidence, null)] };
 
 	const [primary, evidence] =
 		c.theirs.postings.length > c.ours.postings.length ? [c.theirs, c.ours] : [c.ours, c.theirs];
 	return {
 		...c,
 		group: null,
-		links: [target(primary, GroupRole.Primary), target(evidence, GroupRole.Evidence)],
+		links: [
+			target(primary, GroupRole.Primary, counter(primary)),
+			target(evidence, GroupRole.Evidence, counter(evidence)),
+		],
 	};
 };
 
-const target = (t: MatchedTransaction, role: GroupRole): LinkTarget => ({
+// The one balance account a transaction posts to, when it posts to only one.
+const balanceOf = (t: MatchedTransaction): string | null => {
+	const held = t.postings.filter((p) => BALANCE_TYPES.some((b) => b === accountType(p.account)));
+	return held.length === 1 ? (held[0]?.account ?? null) : null;
+};
+
+const target = (t: MatchedTransaction, role: GroupRole, counter: string | null): LinkTarget => ({
 	file: t.location.file,
 	line: t.location.line,
 	date: t.date.toString(),
 	description: t.description,
 	role,
+	counter,
 });
 
 // Changes when either side does, so a dismissal lapses with an edit. The

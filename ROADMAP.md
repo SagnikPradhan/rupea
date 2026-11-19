@@ -43,7 +43,7 @@ Not planned for now: futures and options trading, whose tax rules and trade volu
 - [x] Keep your ledger in plain text files, and edit them in the browser
 - [x] Browse and filter transactions and postings
 - [x] Guess categories from past transactions
-- [x] Link the same money reported by two statements, after reviewing both
+- [x] Link the same money reported by two statements, or moved between your own accounts, after reviewing both
 - [x] Track shares and funds: lots, cost, prices, holdings and returns
 - [x] Chart spending and net worth over time
 - [x] Add, edit and delete transactions from a form, and see the lines it writes

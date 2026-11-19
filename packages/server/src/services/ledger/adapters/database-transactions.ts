@@ -164,9 +164,19 @@ export const recount = (ledgerId: string, uncounted: string[]): ResultAsync<Touc
 
 export type CandidatePair = { ours: string; theirs: string };
 
+// Days either side of a transfer's date that its other half may be booked.
+const TRANSFER_DAYS = 2;
+
+export const listCandidates = (ledgerId: string, key: string): ResultAsync<CandidatePair[]> => {
+	const duplicates = listDuplicates(ledgerId, key);
+	const transfers = listTransfers(ledgerId, key);
+
+	return ResultAsync.combine([duplicates, transfers]).map((p) => p.flat());
+};
+
 // Same date, amount and balance account, in another file; the other side goes
 // through the `(account_id, commodity, amount)` index.
-export const listCandidates = (ledgerId: string, key: string): ResultAsync<CandidatePair[]> =>
+const listDuplicates = (ledgerId: string, key: string): ResultAsync<CandidatePair[]> =>
 	withContext('db')((db) =>
 		attempt(() =>
 			db
@@ -193,6 +203,52 @@ export const listCandidates = (ledgerId: string, key: string): ResultAsync<Candi
 				.execute(),
 		),
 	);
+
+// The opposite amount on another balance account, a few days either side, where
+// each file only knew its own side; through the `(ledger_id, commodity, amount,
+// date)` index.
+const listTransfers = (ledgerId: string, key: string): ResultAsync<CandidatePair[]> =>
+	withContext('db')((db) =>
+		attempt(() =>
+			db
+				.selectFrom('ledgerFiles as ourFile')
+				.innerJoin('transactions as ourTransaction', 'ourTransaction.fileId', 'ourFile.id')
+				.innerJoin('postings as ourPosting', 'ourPosting.transactionId', 'ourTransaction.id')
+				.innerJoin('postings as theirPosting', (join) =>
+					join
+						.onRef('theirPosting.ledgerId', '=', 'ourPosting.ledgerId')
+						.onRef('theirPosting.commodity', '=', 'ourPosting.commodity')
+						.on(sql<SqlBool>`"their_posting"."amount" = -"our_posting"."amount"`)
+						.onRef('theirPosting.accountId', '!=', 'ourPosting.accountId')
+						.on(
+							sql<SqlBool>`"their_posting"."date" between "our_posting"."date" - ${TRANSFER_DAYS}::int and "our_posting"."date" + ${TRANSFER_DAYS}::int`,
+						),
+				)
+				.innerJoin('transactions as theirTransaction', (j) =>
+					j
+						.onRef('theirTransaction.id', '=', 'theirPosting.transactionId')
+						.onRef('theirTransaction.fileId', '!=', 'ourFile.id'),
+				)
+				.where('ourFile.ledgerId', '=', ledgerId)
+				.where('ourFile.key', '=', key)
+				.where('ourPosting.accountType', 'in', BALANCE_TYPES)
+				.where('theirPosting.accountType', 'in', BALANCE_TYPES)
+				.where(unsettledLeg('our_transaction'))
+				.where(unsettledLeg('their_transaction'))
+				.select(['ourTransaction.id as ours', 'theirTransaction.id as theirs'])
+				.distinct()
+				.execute(),
+		),
+	);
+
+// A leg on an account still called Unknown or Uncategorized, so no one chose it.
+const unsettledLeg = (transaction: string) =>
+	sql<SqlBool>`exists (
+		select 1 from postings leg
+		join accounts leg_account on leg_account.id = leg.account_id
+		where leg.transaction_id = ${sql.ref(`${transaction}.id`)}
+			and leg_account.name ~ ':(Unknown|Uncategorized)$'
+	)`;
 
 // Only transactions in a group, through the metadata `(ledger_id, key, value)` index.
 export const listGroupTransactions = (ledgerId: string): ResultAsync<IndexedTransaction[]> =>

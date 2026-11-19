@@ -184,6 +184,9 @@ export const postings = PG.pgTable(
 	(t) => [
 		PG.index('postings_transaction_id').on(t.transactionId),
 		PG.index('postings_account_id_commodity_amount').on(t.accountId, t.commodity, t.amount), // refinement matches
+		PG.index('postings_ledger_id_commodity_amount_date')
+			.on(t.ledgerId, t.commodity, t.amount, t.date)
+			.where(sql`${t.accountType} in ('Assets', 'Liabilities')`), // refinement finds a transfer's other half
 		PG.index('postings_account_id_commodity_date').on(t.accountId, t.commodity, t.date), // an account's days
 		PG.index('postings_account_id_date').on(t.accountId, t.date), // account filters
 		PG.index('postings_ledger_id_commodity').on(t.ledgerId, t.commodity), // lots are booked per commodity

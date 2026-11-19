@@ -13,10 +13,14 @@ export type LinkEdit = {
 	description: string;
 	role: GroupRole;
 	group: string;
+	counter: string | null;
 };
 
+const UNSETTLED = /^(\S*:)?(Unknown|Uncategorized)$/;
+
 // A link goes right under its header, so it is transaction metadata. Each
-// header must still be the one suggested, with no link of its own.
+// header must still be the one suggested, with no link of its own. A counter
+// is the account to put where the transaction still says Unknown.
 export const insertLinks = (
 	config: LedgerConfiguration,
 	file: Pick<RupeaFile, 'key' | 'content'>,
@@ -39,14 +43,30 @@ export const insertLinks = (
 	});
 	if (stale) return err(fault('GroupStale', { location: `${stale.file}:${stale.line}` }));
 
+	const settled = edits.reduce<string[] | undefined>(
+		(l, e) => (l && e.counter ? settle(l, e.line, e.counter) : l),
+		file.content.split('\n'),
+	);
+	if (!settled) return err(fault('GroupStale', { location: file.key }));
+
 	// Bottom up, so earlier insertions do not move later lines.
 	const lines = [...edits]
 		.sort((a, b) => b.line - a.line)
-		.reduce(
-			(l, e) => l.toSpliced(e.line, 0, `\t- ${GROUP_KEY[e.role]}: ${e.group}`),
-			file.content.split('\n'),
-		);
+		.reduce((l, e) => l.toSpliced(e.line, 0, `\t- ${GROUP_KEY[e.role]}: ${e.group}`), settled);
 	return ok(lines.join('\n'));
+};
+
+// Names the counter where the transaction under the header still says Unknown.
+const settle = (lines: string[], header: number, counter: string): string[] | undefined => {
+	const end = lines.findIndex((l, i) => i >= header && l.trim() === '');
+	const at = lines
+		.slice(header, end < 0 ? lines.length : end)
+		.findIndex((l) => UNSETTLED.test(l.trim().split(/\s+/)[0] ?? ''));
+	if (at < 0) return undefined;
+
+	const line = lines[header + at] ?? '';
+	const account = line.trim().split(/\s+/)[0] ?? '';
+	return lines.with(header + at, line.replace(account, counter));
 };
 
 export type Relink = (t: RupeaTransaction, l: GroupLink) => GroupLink;

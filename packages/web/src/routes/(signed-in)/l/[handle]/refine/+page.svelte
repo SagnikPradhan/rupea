@@ -37,6 +37,9 @@
 	const roleAt = (s: Suggestion, t: Suggestion['ours']) =>
 		links(s).find((l) => l.file === t.file && l.line === t.line)?.role;
 
+	const counterAt = (s: Suggestion, t: Suggestion['ours']) =>
+		links(s).find((l) => l.file === t.file && l.line === t.line)?.counter ?? null;
+
 	const edits = (s: Suggestion[]) =>
 		s.flatMap((x) => links(x).map((l) => ({ ...l, group: x.group ?? '' })));
 
@@ -52,13 +55,22 @@
 	}
 </script>
 
-{#snippet side(t: Suggestion['ours'], role: string | undefined, group: string | null)}
+{#snippet side(
+	t: Suggestion['ours'],
+	role: string | undefined,
+	group: string | null,
+	counter: string | null,
+)}
 	<div>
 		<p><a href={fileHref(handle, t.file, t.line)}>{t.file}:{t.line}</a></p>
 		<pre>{[
 				`${t.date} ${t.description}`,
 				...(role ? [`\t- ${KEYS[role]}: ${group}   ← added`] : []),
-				...t.postings.map((p) => `\t${p.account} ${p.quantity}`),
+				...t.postings.map((p) =>
+					counter && /(^|:)(Unknown|Uncategorized)$/.test(p.account)
+						? `\t${counter} ${p.quantity}   ← was ${p.account}`
+						: `\t${p.account} ${p.quantity}`,
+				),
 			].join('\n')}</pre>
 	</div>
 {/snippet}
@@ -98,8 +110,8 @@
 			<article aria-label="Match {s.ours.file}:{s.ours.line}">
 				<h2>{s.confidence === 'duplicate' ? 'Duplicate' : 'Possible match'}: {s.group}</h2>
 				<div style="display: flex; gap: var(--size-3)">
-					{@render side(s.ours, roleAt(s, s.ours), s.group)}
-					{@render side(s.theirs, roleAt(s, s.theirs), s.group)}
+					{@render side(s.ours, roleAt(s, s.ours), s.group, counterAt(s, s.ours))}
+					{@render side(s.theirs, roleAt(s, s.theirs), s.group, counterAt(s, s.theirs))}
 				</div>
 				<button onclick={() => accept([s])}>Accept</button>
 				{#if s.links.length === 2}

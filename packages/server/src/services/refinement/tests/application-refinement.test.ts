@@ -77,6 +77,54 @@ describe('refining a saved file', () => {
 			expect(await Refinement.listSuggestions({ ledger, file: 'ibkr.rupea' })).toEqual(ok([]));
 		}));
 
+	describe('a transfer each statement saw one side of', () => {
+		const sent = (date: string, other = 'Expenses:Unknown') =>
+			`${date} NEFT TO SBI\n\t${other} 1000\n\tAssets:HDFC\n`;
+		const received = (date: string, other = 'Income:Unknown') =>
+			`${date} NEFT FROM HDFC\n\t${other} -1000\n\tAssets:SBI\n`;
+
+		const suggestFor = async (db: Parameters<typeof createLedger>[0], a: string, b: string) => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'hdfc.rupea', content: a });
+			await Files.createFile({ ledger, key: 'sbi.rupea', content: b });
+			return { ledger, found: await Refinement.listSuggestions({ ledger, file: 'sbi.rupea' }) };
+		};
+
+		it('is suggested, and accepting it counts the money once', ({ context, db }) =>
+			provide(context, async () => {
+				const { ledger, found } = await suggestFor(db, sent('2026-10-03'), received('2026-10-03'));
+				const suggestions = found._unsafeUnwrap();
+				expect(suggestions).toHaveLength(1);
+
+				expect(await Groups.linkGroups({ ledger, edits: edits(suggestions) })).toEqual(ok([]));
+				const hdfcFile = (await Files.readFile({ ledger, key: 'hdfc.rupea' }))._unsafeUnwrap();
+				const sbiFile = (await Files.readFile({ ledger, key: 'sbi.rupea' }))._unsafeUnwrap();
+				expect(hdfcFile.content).toContain('\tAssets:SBI 1000\n\tAssets:HDFC\n');
+				expect(sbiFile.content).toContain('\tAssets:HDFC -1000\n\tAssets:SBI\n');
+				expect(await issues(ledger)).toEqual(ok([]));
+				expect((await listed(ledger)).filter((t) => t.counted)).toHaveLength(1);
+			}));
+
+		it('is suggested up to two days apart, and no further', ({ context, db }) =>
+			provide(context, async () => {
+				const near = await suggestFor(db, sent('2026-10-03'), received('2026-10-05'));
+				expect(near.found._unsafeUnwrap()).toHaveLength(1);
+
+				const far = await suggestFor(db, sent('2026-10-03'), received('2026-10-06'));
+				expect(far.found._unsafeUnwrap()).toHaveLength(0);
+			}));
+
+		it('is not suggested when a side already has a category', ({ context, db }) =>
+			provide(context, async () => {
+				const { found } = await suggestFor(
+					db,
+					sent('2026-10-03', 'Expenses:Family'),
+					received('2026-10-03'),
+				);
+				expect(found._unsafeUnwrap()).toHaveLength(0);
+			}));
+	});
+
 	it('stops suggesting a pair once it is dismissed', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);

@@ -189,7 +189,7 @@ describe('the expenses page', () => {
 				name: 'All accounts',
 			},
 		);
-		expect(all.getAttribute('href')).toBe('?');
+		expect(all.getAttribute('href')).toBe('/l/h/expenses');
 	});
 
 	it('draws how the spending divides beside the spending over time', async () => {

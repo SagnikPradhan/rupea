@@ -1,7 +1,12 @@
 <script lang="ts">
+	import type { ResolvedPathname } from '$app/types';
 	import type { HTMLButtonAttributes } from 'svelte/elements';
 
-	type Props = HTMLButtonAttributes & { primary?: boolean; destructive?: boolean; href?: string };
+	type Props = HTMLButtonAttributes & {
+		primary?: boolean;
+		destructive?: boolean;
+		href?: ResolvedPathname;
+	};
 
 	const { primary = false, destructive = false, href, children, ...rest }: Props = $props();
 </script>

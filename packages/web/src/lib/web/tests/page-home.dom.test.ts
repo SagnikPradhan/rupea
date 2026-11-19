@@ -195,7 +195,7 @@ describe('the home page', () => {
 		expect(vi.mocked(listHoldings)).toHaveBeenCalledWith(expect.objectContaining({ handle: 'b' }));
 		const picker = within(screen.getByRole('navigation', { name: 'Ledger' }));
 		expect(picker.getByRole('link', { name: 'Shared' }).getAttribute('aria-current')).toBe('page');
-		expect(picker.getByRole('link', { name: 'Personal' }).getAttribute('href')).toBe('?ledger=a');
+		expect(picker.getByRole('link', { name: 'Personal' }).getAttribute('href')).toBe('/?ledger=a');
 	});
 
 	it('starts every figure at zero on a ledger with nothing in it yet', async () => {

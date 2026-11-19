@@ -4,9 +4,11 @@ import PeriodPicker from '#lib/web/components/ui-picker-period/ui-picker-period.
 import { goto } from '$app/navigation';
 
 vi.mock('$app/navigation', () => ({ goto: vi.fn() }));
-vi.mock('$app/state', () => ({
-	page: { url: new URL('https://rupea.test/l/h/expenses?scale=log&at=2026-09') },
-}));
+vi.mock('$app/state', async () => {
+	const state = await import('#tests/shared/app-state.ts');
+	state.visit('https://rupea.test/l/h/expenses?scale=log&at=2026-09');
+	return state;
+});
 
 const TODAY = '2026-10-24';
 const SHOWN = { from: '2026-09-01', to: '2026-09-30' };
@@ -21,13 +23,13 @@ describe('the period picker', () => {
 		});
 		expect(screen.getByRole('link', { name: 'Month' }).getAttribute('aria-current')).toBe('page');
 		expect(screen.getByRole('link', { name: 'Year' }).getAttribute('href')).toBe(
-			'?scale=log&at=2026',
+			'/l/h/expenses?scale=log&at=2026',
 		);
 		expect(screen.getByRole('link', { name: 'All' }).getAttribute('href')).toBe(
-			'?scale=log&range=all',
+			'/l/h/expenses?scale=log&range=all',
 		);
 		expect(screen.getByRole('link', { name: 'Custom' }).getAttribute('href')).toBe(
-			'?scale=log&from=2026-09-01&to=2026-09-30',
+			'/l/h/expenses?scale=log&from=2026-09-01&to=2026-09-30',
 		);
 	});
 
@@ -51,10 +53,10 @@ describe('the period picker', () => {
 			first: '2024-05-10',
 		});
 		expect(screen.getByRole('link', { name: '2025' }).getAttribute('href')).toBe(
-			'?scale=log&at=2025-03',
+			'/l/h/expenses?scale=log&at=2025-03',
 		);
 		expect(screen.getByRole('link', { name: '2024' }).getAttribute('href')).toBe(
-			'?scale=log&at=2024-05',
+			'/l/h/expenses?scale=log&at=2024-05',
 		);
 	});
 
@@ -67,7 +69,7 @@ describe('the period picker', () => {
 		});
 		expect(screen.queryByRole('link', { name: 'Apr' })).toBeNull();
 		expect(screen.getByRole('link', { name: 'May' }).getAttribute('href')).toBe(
-			'?scale=log&at=2024-05',
+			'/l/h/expenses?scale=log&at=2024-05',
 		);
 	});
 
@@ -123,7 +125,7 @@ describe('the period picker', () => {
 		expect(year.querySelectorAll('option')).toHaveLength(8);
 
 		await fireEvent.change(year, { target: { value: '2026' } });
-		expect(vi.mocked(goto)).toHaveBeenCalledWith('?scale=log&at=2026-10');
+		expect(vi.mocked(goto)).toHaveBeenCalledWith('/l/h/expenses?scale=log&at=2026-10');
 	});
 
 	it('picks no year for the whole of the ledger', () => {

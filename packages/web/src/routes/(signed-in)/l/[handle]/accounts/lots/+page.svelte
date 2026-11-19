@@ -40,9 +40,9 @@
 					<td class="date">{formatDate(lot.date)}</td>
 					<th scope="row" class="truncate">
 						{lot.origin}{lot.from ? ` from ${lot.from}` : ''}
-						<Tag title={formatExact(lot.remaining, formatAmount(lot.remaining, true))}
-							>{formatAmount(lot.remaining, true)} left</Tag
-						>
+						<Tag title={formatExact(lot.remaining, formatAmount(lot.remaining, true))}>
+							{formatAmount(lot.remaining, true)} left
+						</Tag>
 					</th>
 					<Amount value={lot.units} units />
 					<Amount value={lot.cost} optional />

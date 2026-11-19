@@ -33,8 +33,9 @@
 		{@render children?.()}
 	{:else}
 		{@const [number, ...commodity] = shown.split(' ')}
-		{number}{#if commodity.length > 0}&nbsp;<span class="commodity">{commodity.join(' ')}</span
-			>{/if}
+		{number}{#if commodity.length > 0}&nbsp;<span class="commodity">
+				{commodity.join(' ')}
+			</span>{/if}
 	{/if}
 </td>
 

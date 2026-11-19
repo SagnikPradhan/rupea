@@ -7,6 +7,7 @@
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
 	import { detail } from '#lib/web/shared/errors.ts';
+	import { hrefOnly } from '#lib/web/shared/links.ts';
 	import { STATUS_LABELS, statusOf } from '#lib/web/shared/statements.ts';
 	import IconDelete from '@tabler/icons-svelte-runes/icons/trash';
 
@@ -45,7 +46,7 @@
 				{#each rows as row (row.key)}
 					<tr>
 						<th scope="row" class="truncate">
-							<a href="?statement={encodeURIComponent(row.key)}">
+							<a href={hrefOnly({ statement: row.key })}>
 								<FilePath path={row.key} />
 							</a>
 						</th>

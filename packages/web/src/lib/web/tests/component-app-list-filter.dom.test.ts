@@ -3,9 +3,11 @@ import { describe, expect, it, vi } from 'vitest';
 import { openFilter } from '#tests/shared/filter.ts';
 import ListFilter from '#lib/web/components/app-list-filter/app-list-filter.svelte';
 
-vi.mock('$app/state', () => ({
-	page: { url: new URL('https://rupea.test/l/h/postings?range=all&account=Assets') },
-}));
+vi.mock('$app/state', async () => {
+	const state = await import('#tests/shared/app-state.ts');
+	state.visit('https://rupea.test/l/h/postings?range=all&account=Assets');
+	return state;
+});
 
 const ACCOUNTS = [
 	{ account: 'Assets', parent: null },
@@ -25,7 +27,7 @@ describe('the list filter', () => {
 		render(ListFilter, props);
 		await openFilter();
 		expect(screen.getByRole('link', { name: 'Year' }).getAttribute('href')).toBe(
-			'?account=Assets&at=2026',
+			'/l/h/postings?account=Assets&at=2026',
 		);
 	});
 
@@ -33,7 +35,7 @@ describe('the list filter', () => {
 		render(ListFilter, props);
 		await openFilter();
 		expect(screen.getByRole('link', { name: 'Custom' }).getAttribute('href')).toBe(
-			'?account=Assets&from=2024-03-05&to=2026-10-27',
+			'/l/h/postings?account=Assets&from=2024-03-05&to=2026-10-27',
 		);
 	});
 
@@ -42,7 +44,7 @@ describe('the list filter', () => {
 		render(ListFilter, { ...props, period: custom });
 		await openFilter();
 		expect(screen.getByRole('link', { name: 'Custom' }).getAttribute('href')).toBe(
-			'?account=Assets&from=2026-03-01&to=2026-03-31',
+			'/l/h/postings?account=Assets&from=2026-03-01&to=2026-03-31',
 		);
 	});
 

@@ -1,4 +1,6 @@
 <script lang="ts">
+	import type { ResolvedPathname } from '$app/types';
+
 	type Props = {
 		label: string;
 		fill?: boolean;
@@ -6,7 +8,7 @@
 		 * A segment with an href is a link; one with only a click handler is a
 		 * button.
 		 */
-		segments: { name: string; chosen: boolean; href?: string; onclick?: () => void }[];
+		segments: { name: string; chosen: boolean; href?: ResolvedPathname; onclick?: () => void }[];
 	};
 
 	const { label, fill = false, segments }: Props = $props();

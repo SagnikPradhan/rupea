@@ -17,6 +17,8 @@
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import type { Reply } from '@rupea/shared/errors.ts';
 	import { beforeNavigate, goto } from '$app/navigation';
+	import { resolve } from '$app/paths';
+	import { hrefOnly } from '#lib/web/shared/links.ts';
 	import { page } from '$app/state';
 	import { untrack } from 'svelte';
 
@@ -78,14 +80,17 @@
 			Object.assign(matches, { key, count: found.value.data?.length ?? 0 });
 	}
 
-	const open = (key: string | null) =>
-		goto(key === null ? page.url.pathname : `?file=${encodeURIComponent(key)}`);
+	const open = (key: string | null) => goto(hrefOnly(key === null ? {} : { file: key }));
 </script>
 
 <FileEditor {handle} {editor} {line} onopen={open} onremoved={() => open(null)}>
 	{#snippet links()}
 		{#if selected !== null}
-			<a href="/l/{handle}/refine?file={encodeURIComponent(selected)}">
+			<a
+				href={resolve(`/(signed-in)/l/[handle]/refine?file=${encodeURIComponent(selected)}`, {
+					handle,
+				})}
+			>
 				{matches.key === selected && matches.count > 0
 					? `${matches.count} possible matches: review`
 					: 'Find matches'}

@@ -171,8 +171,10 @@
 					class="name"
 					class:last
 					style:left="{last ? box.x0 : box.x1}%"
-					style:top="{box.y0 + height / 2}%">{box.flow.label}</span
+					style:top="{box.y0 + height / 2}%"
 				>
+					{box.flow.label}
+				</span>
 			{/if}
 		{/each}
 		{#if hovered.node}

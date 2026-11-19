@@ -24,9 +24,9 @@
 				<li role={warning ? 'status' : 'alert'}>
 					{detailed ? detail(error) : explain(error)}
 					{#each placesOf(error) as place (`${place.file}:${place.line}`)}
-						<a href={fileHref(handle, place.file, place.line)}
-							>{place.line ? `${place.file}:${place.line}` : place.file}</a
-						>
+						<a href={fileHref(handle, place.file, place.line)}>
+							{place.line ? `${place.file}:${place.line}` : place.file}
+						</a>
 					{/each}
 				</li>
 			{/each}

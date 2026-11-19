@@ -5,6 +5,11 @@ import { fault } from '@rupea/shared/errors.ts';
 import FileGroups from '#lib/web/components/app-file-groups/app-file-groups.svelte';
 import { answer } from '#tests/shared/queries.ts';
 
+vi.mock('$app/state', async () => {
+	const state = await import('#tests/shared/app-state.ts');
+	state.visit('/l/h/files?file=a.rupea');
+	return state;
+});
 vi.mock('#lib/endpoints/refinement.remote.ts', () => ({
 	listGroups: vi.fn(),
 	makePrimary: vi.fn(),

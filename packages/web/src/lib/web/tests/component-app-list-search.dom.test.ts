@@ -2,11 +2,11 @@ import { render } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import ListSearch from '#lib/web/components/app-list-search/app-list-search.svelte';
 
-vi.mock('$app/state', () => ({
-	page: {
-		url: new URL('https://rupea.test/l/h/postings?at=2026&account=Assets&page=&description=tea'),
-	},
-}));
+vi.mock('$app/state', async () => {
+	const state = await import('#tests/shared/app-state.ts');
+	state.visit('https://rupea.test/l/h/postings?at=2026&account=Assets&page=&description=tea');
+	return state;
+});
 
 describe('the list search', () => {
 	it('keeps every other parameter of the query, and drops the empty ones', () => {

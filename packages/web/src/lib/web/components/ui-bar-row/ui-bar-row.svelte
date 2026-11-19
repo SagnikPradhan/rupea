@@ -15,9 +15,9 @@
 
 <li>
 	<p>
-		<span class="name"
-			>{#if prefix}<span class="prefix">{prefix}</span>{/if}{name}</span
-		>
+		<span class="name">
+			{#if prefix}<span class="prefix">{prefix}</span>{/if}{name}
+		</span>
 		{#if detail}<span class="detail">{detail}</span>{/if}
 		<span class={['figure', tone]}>{figure}</span>
 	</p>

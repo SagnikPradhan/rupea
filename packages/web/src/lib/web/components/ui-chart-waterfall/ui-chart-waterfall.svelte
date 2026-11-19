@@ -74,9 +74,9 @@
 			</svg>
 			<Axes {across} {up} />
 			{#each bars as b (b.key)}
-				<span class="figure {b.tone}" style:left="{b.left + b.width / 2}%" style:top="{b.top}%"
-					>{b.figure}</span
-				>
+				<span class="figure {b.tone}" style:left="{b.left + b.width / 2}%" style:top="{b.top}%">
+					{b.figure}
+				</span>
 			{/each}
 		</div>
 	</div>

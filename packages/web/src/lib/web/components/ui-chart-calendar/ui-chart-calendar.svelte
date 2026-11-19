@@ -1,5 +1,6 @@
 <script lang="ts" generics="Row extends Record<string, unknown>">
 	import { formatAmount, formatBucket, formatCompact } from '#lib/web/shared/format.ts';
+	import type { ResolvedPathname } from '$app/types';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
@@ -14,7 +15,7 @@
 		y: keyof Row & string;
 		label: string;
 		/** Where a day leads, such as its postings; none draws it without a link. */
-		href?: (day: string) => string;
+		href?: (day: string) => ResolvedPathname;
 		/**
 		 * False draws days of the month from the 1st, under no weekday, for rows
 		 * that stand for a day in every month.

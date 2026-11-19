@@ -61,7 +61,7 @@ describe('the postings page', () => {
 		render(Page, { data });
 
 		const link = (await screen.findByRole('link', { name: 'Groceries' })) as HTMLAnchorElement;
-		expect(link.getAttribute('href')).toBe('?account=Expenses&edit=1');
+		expect(link.getAttribute('href')).toBe('/l/h/postings?account=Expenses&edit=1');
 	});
 
 	it('says when nothing matches the filter', async () => {

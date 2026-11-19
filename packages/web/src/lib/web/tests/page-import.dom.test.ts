@@ -168,7 +168,7 @@ describe('the import page', () => {
 		respond(uploadStatements, ['new.xls']);
 		await user.upload(await screen.findByLabelText('Statements'), new File(['x'], 'new.xls'));
 
-		await waitFor(() => expect(goto).toHaveBeenCalledWith('?statement=new.xls'));
+		await waitFor(() => expect(goto).toHaveBeenCalledWith('/l/h/import?statement=new.xls'));
 	});
 
 	it('deletes a statement once asked again', async () => {

@@ -89,11 +89,11 @@
 							{line.label}
 							<data value={printAmount(p.amount)}>{formatAmount(printAmount(p.amount))}</data>
 							{#if split}
-								<small
-									>about <data value={printAmount(p.interest)}
-										>{formatAmount(printAmount(p.interest))}</data
-									> interest</small
-								>
+								<small>
+									about <data value={printAmount(p.interest)}>
+										{formatAmount(printAmount(p.interest))}
+									</data> interest
+								</small>
 							{/if}
 							<time datetime={p.at.toString()}>{formatBucket[bucket](p.at.toString())}</time>
 						</Tooltip>
@@ -104,9 +104,9 @@
 	</div>
 	<div class="ticks" aria-hidden="true">
 		{#each ticks as t (t.toString())}
-			<time datetime={t.toString()} style:left="{leftOf(t, unit)}%"
-				>{yearly ? formatBucket.year(t.toString()) : formatMonth(t.toString())}</time
-			>
+			<time datetime={t.toString()} style:left="{leftOf(t, unit)}%">
+				{yearly ? formatBucket.year(t.toString()) : formatMonth(t.toString())}
+			</time>
 		{/each}
 	</div>
 </div>

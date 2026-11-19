@@ -6,4 +6,4 @@ export const PAGES = [
 	{ path: 'liabilities', label: 'Liabilities' },
 	{ path: 'transactions', label: 'Transactions' },
 	{ path: 'files', label: 'Files' },
-];
+] as const;

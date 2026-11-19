@@ -10,7 +10,7 @@
 	import type { RupeaError } from '@rupea/shared/errors.ts';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import { detail } from '#lib/web/shared/errors.ts';
-	import { fileHref } from '#lib/web/shared/links.ts';
+	import { fileHref, hrefOnly } from '#lib/web/shared/links.ts';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 
@@ -80,10 +80,7 @@
 
 <label>
 	Find matches for
-	<select
-		value={file ?? ''}
-		onchange={(e) => goto(`?file=${encodeURIComponent(e.currentTarget.value)}`)}
-	>
+	<select value={file ?? ''} onchange={(e) => goto(hrefOnly({ file: e.currentTarget.value }))}>
 		<option value="" disabled>Choose a file</option>
 		{#each files.data ?? [] as f (f.key)}
 			<option value={f.key}>{f.key}</option>

@@ -3,9 +3,11 @@ import { describe, expect, it, vi } from 'vitest';
 import ChoicePicker from '#lib/web/components/ui-picker-choice/ui-picker-choice.svelte';
 import { SCALE_LABELS } from '#lib/web/shared/choices.ts';
 
-vi.mock('$app/state', () => ({
-	page: { url: new URL('https://rupee.test/l/h/expenses?range=1y') },
-}));
+vi.mock('$app/state', async () => {
+	const state = await import('#tests/shared/app-state.ts');
+	state.visit('https://rupee.test/l/h/expenses?range=1y');
+	return state;
+});
 
 const picker = (current: string) =>
 	render(ChoicePicker, { param: 'scale', label: 'Scale', choices: SCALE_LABELS, current });
@@ -21,7 +23,7 @@ describe('the choice picker', () => {
 	it('swaps only its parameter, keeping the rest of the query', () => {
 		picker('linear');
 		expect(screen.getByRole('link', { name: 'Log' }).getAttribute('href')).toBe(
-			'?range=1y&scale=log',
+			'/l/h/expenses?range=1y&scale=log',
 		);
 	});
 });

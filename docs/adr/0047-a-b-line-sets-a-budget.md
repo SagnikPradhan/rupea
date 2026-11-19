@@ -16,7 +16,7 @@ B * Expenses:Travel
 - start: 2026-04-01
 ```
 
-`*` sets the budget from the start and a date sets it from that day. A later line overrides only the keys it names, so the second line above leaves `period` alone. Of two lines for one day, the later written wins. The ledger check reports two `*` lines for one account, naming both. Accounts match whatever their case.
+`*` sets the budget from the start and a date sets it from that day. A later line overrides only the keys it names, so the second line above leaves `period` alone. Of two lines for one day, the later written wins. A period's limit is the limit in effect on its last day, or on the last day of the range asked for when that ends earlier, so a dated line in the middle of a period changes the whole period. The ledger check reports two `*` lines for one account, naming both. Accounts match whatever their case.
 
 ## Keys
 

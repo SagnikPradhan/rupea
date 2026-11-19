@@ -1,6 +1,12 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
-import { listDailyDeltas, listDeltas } from '#lib/endpoints/accounts.remote.ts';
+import {
+	listAccounts,
+	listBudgets,
+	listDailyDeltas,
+	listDeltas,
+} from '#lib/endpoints/accounts.remote.ts';
+import { goto } from '#tests/shared/app-navigation.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
 import { openFilter } from '#tests/shared/filter.ts';
@@ -11,7 +17,11 @@ const on = (d: string) => Temporal.PlainDate.from(d);
 const amount = (t: string) => parseAmount(t) as Amount;
 
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
+vi.mock('$app/navigation', () => import('#tests/shared/app-navigation.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
+	listAccounts: vi.fn(() => answer([])),
+	listBudgets: vi.fn(() => answer([])),
+	saveBudget: Object.assign(vi.fn(), { pending: 0 }),
 	listDailyDeltas: vi.fn(),
 	listDeltas: vi.fn(),
 }));
@@ -306,5 +316,180 @@ describe('the expenses page', () => {
 
 		expect(await screen.findByText('Nothing under Rent to divide.')).toBeTruthy();
 		expect(screen.getByRole('navigation', { name: 'Scale' })).toBeTruthy();
+	});
+
+	describe('the budgets', () => {
+		const budget = (account: string, limit: string, spent: string) => ({
+			account,
+			length: 'month',
+			from: on('2026-01-01'),
+			to: on('2026-01-31'),
+			limit: amount(limit),
+			spent: amount(spent),
+			left: amount('0'),
+			current: {},
+		});
+
+		it('lists them in the panel and counts the ones over in the figures', async () => {
+			visit('/l/h/expenses');
+			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
+			vi.mocked(listBudgets).mockReturnValue(
+				answer([budget('Expenses:Food', '100', '150'), budget('Expenses:Rent', '500', '100')]),
+			);
+			render(Page, { data });
+
+			expect(await screen.findByText('150 of 100')).toBeTruthy();
+			expect(screen.getByText('100 of 500')).toBeTruthy();
+			expect(screen.getByText('1 of 2')).toBeTruthy();
+		});
+
+		it('reads the budgets over the period shown, from its first day to its last', async () => {
+			visit('/l/h/expenses?at=2025-09');
+			vi.mocked(listBudgets).mockClear();
+			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
+			render(Page, { data });
+
+			await screen.findByText('Budgets');
+			expect(vi.mocked(listBudgets)).toHaveBeenCalledWith({
+				handle: 'h',
+				from: '2025-09-01',
+				day: '2025-09-30',
+			});
+		});
+
+		it('reads a year back from today as its twelve months, from the day a year ago', async () => {
+			visit('/l/h/expenses');
+			vi.mocked(listBudgets).mockClear();
+			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
+			render(Page, { data });
+
+			await screen.findByText('Budgets');
+			const today = Temporal.Now.plainDateISO().toString();
+			const call = vi.mocked(listBudgets).mock.calls[0]?.[0];
+			expect(call?.day).toBe(today);
+			expect(call?.from).toBe(Temporal.PlainDate.from(today).subtract({ months: 12 }).toString());
+		});
+
+		it('says there are none when none are set', async () => {
+			visit('/l/h/expenses');
+			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
+			vi.mocked(listBudgets).mockReturnValue(answer([]));
+			render(Page, { data });
+
+			expect(await screen.findByText('No budgets yet. Add one to see what is left.')).toBeTruthy();
+			expect(screen.getByText('None set')).toBeTruthy();
+		});
+
+		it('links Add budget with add set, keeping the other params', async () => {
+			visit('/l/h/expenses?at=2026');
+			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
+			render(Page, { data });
+
+			const link = await screen.findByRole('link', { name: 'Add budget' });
+			expect(link.getAttribute('href')).toContain('add=1');
+			expect(link.getAttribute('href')).toContain('at=2026');
+		});
+
+		it('shows no aside when no budget is asked for', async () => {
+			visit('/l/h/expenses');
+			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
+			render(Page, { data });
+
+			await screen.findByText('Budgets');
+			expect(screen.queryByRole('complementary')).toBeNull();
+		});
+
+		it('opens Add budget beside the budgets with the accounts under Expenses to pick from', async () => {
+			visit('/l/h/expenses?add=1');
+			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
+			vi.mocked(listAccounts).mockReturnValue(
+				answer([
+					{ account: 'Assets:Bank', parent: null, posted: true },
+					{ account: 'Expenses', parent: null, posted: true },
+					{ account: 'Expenses:Food', parent: 'Expenses', posted: true },
+				]),
+			);
+			render(Page, { data });
+
+			const aside = await screen.findByRole('complementary', { name: 'Add budget' });
+			const options = within(within(aside).getByLabelText(/Account/)).getAllByRole('option');
+			expect(options.map((o) => o.getAttribute('value'))).toEqual(['', 'Expenses:Food']);
+		});
+
+		it('offers only the accounts that have no budget yet', async () => {
+			visit('/l/h/expenses?add=1');
+			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
+			vi.mocked(listBudgets).mockReturnValue(answer([budget('expenses:food', '100', '10')]));
+			vi.mocked(listAccounts).mockReturnValue(
+				answer([
+					{ account: 'Expenses:Food', parent: 'Expenses', posted: true },
+					{ account: 'Expenses:Rent', parent: 'Expenses', posted: true },
+				]),
+			);
+			render(Page, { data });
+
+			const aside = await screen.findByRole('complementary', { name: 'Add budget' });
+			const options = within(within(aside).getByLabelText(/Account/)).getAllByRole('option');
+			expect(options.map((o) => o.getAttribute('value'))).toEqual(['', 'Expenses:Rent']);
+		});
+
+		it('lists the accounts only while adding', async () => {
+			visit('/l/h/expenses');
+			vi.mocked(listAccounts).mockClear();
+			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
+			render(Page, { data });
+
+			await screen.findByText('Budgets');
+			expect(vi.mocked(listAccounts)).not.toHaveBeenCalled();
+		});
+
+		it('opens the budget asked for with its account and what it has now', async () => {
+			visit('/l/h/expenses?budget=Expenses:Food');
+			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
+			vi.mocked(listBudgets).mockReturnValue(
+				answer([{ ...budget('Expenses:Food', '100', '150'), current: { limit: '100' } }]),
+			);
+			render(Page, { data });
+
+			const aside = await screen.findByRole('complementary', { name: 'Budget for Food' });
+			expect((within(aside).getByLabelText(/Limit/) as HTMLInputElement).value).toBe('100');
+			expect(within(aside).queryByLabelText(/Account/)).toBeNull();
+		});
+
+		it('closes Add budget back to the page without add', async () => {
+			visit('/l/h/expenses?at=2026&add=1');
+			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
+			render(Page, { data });
+
+			const aside = await screen.findByRole('complementary', { name: 'Add budget' });
+			await fireEvent.click(within(aside).getByRole('button', { name: 'Close' }));
+
+			expect(goto).toHaveBeenLastCalledWith('/l/h/expenses?at=2026');
+		});
+
+		it('closes a budget back to the page without budget', async () => {
+			visit('/l/h/expenses?at=2026&budget=Expenses:Food');
+			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
+			vi.mocked(listBudgets).mockReturnValue(
+				answer([{ ...budget('Expenses:Food', '100', '150'), current: { limit: '100' } }]),
+			);
+			render(Page, { data });
+
+			const aside = await screen.findByRole('complementary', { name: 'Budget for Food' });
+			await fireEvent.click(within(aside).getByRole('button', { name: 'Close' }));
+
+			expect(goto).toHaveBeenLastCalledWith('/l/h/expenses?at=2026');
+		});
+
+		it('shows what went wrong reading them', async () => {
+			visit('/l/h/expenses');
+			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
+			vi.mocked(listBudgets).mockReturnValue(
+				answer(undefined, [{ type: 'ParseInvalidPosting', location: 'main.ledger:3' }]),
+			);
+			render(Page, { data });
+
+			expect(await screen.findByText(/This posting can’t be read\./)).toBeTruthy();
+		});
 	});
 });

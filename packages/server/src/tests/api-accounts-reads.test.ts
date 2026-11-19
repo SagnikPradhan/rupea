@@ -399,6 +399,28 @@ describe('the accounts api', () => {
 			});
 		}));
 
+	it('adds the budget over the days from from to day', ({ context }) =>
+		provide(context, async () => {
+			const text = ['B * Expenses:Food', '- limit: 5000', '', content].join('\n');
+
+			const reply = await inject(context, text, 'budgets?from=2026-02-01&day=2026-03-15');
+
+			expect(reply.statusCode).toBe(200);
+			expect(reply.json().succeeded).toMatchObject([
+				{ from: '2026-02-01', to: '2026-03-31', limit: '10000.00', spent: '2000.50' },
+			]);
+		}));
+
+	it('refuses budgets over a range that runs backwards', ({ context }) =>
+		provide(context, async () => {
+			const text = ['B * Expenses:Food', '- limit: 5000', '', content].join('\n');
+
+			const reply = await inject(context, text, 'budgets?from=2026-03-16&day=2026-03-15');
+
+			expect(reply.statusCode).toBe(422);
+			expect(reply.json()).toMatchObject({ data: { type: 'SpanReversed' } });
+		}));
+
 	it('saves the terms of an account and lists them back', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
@@ -433,6 +455,7 @@ describe('the accounts api', () => {
 	it('saves the budget of an account and lists it back', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content });
 			const headers = await bearerOf(ledger.owner);
 			const api = await createApi(context);
 			const url = `/api/ledgers/${ledger.handle}/budgets`;
@@ -449,6 +472,25 @@ describe('the accounts api', () => {
 			expect(listed.json().succeeded).toMatchObject([
 				{ account: 'Expenses:Food', limit: '5000.00' },
 			]);
+		}));
+
+	it('refuses the budget of an account the ledger does not know with a 404', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content });
+			const api = await createApi(context);
+
+			const reply = await api.inject({
+				method: 'PUT',
+				url: `/api/ledgers/${ledger.handle}/budgets`,
+				headers: await bearerOf(ledger.owner),
+				payload: { account: 'Expenses:Nope', entries: [['limit', '5000']] },
+			});
+
+			expect(reply.statusCode).toBe(404);
+			expect(reply.json()).toMatchObject({
+				data: { type: 'AccountNotFound', account: 'Expenses:Nope' },
+			});
 		}));
 
 	it('leaves the file as it was when the same terms are saved again', ({ context, db }) =>

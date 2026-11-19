@@ -203,13 +203,15 @@ const listBudgets = oc
 		path: '/ledgers/{handle}/budgets',
 		operationId: 'accounts.listBudgets',
 		description: dedent`
-			Lists each account's budget on a day with what it and the accounts under it
-			spent in the budget's period, and what is left of the limit.
+			Lists each account's budget over the days from from to day, with the limits
+			of the periods they touch added up, what the account and those under it
+			spent in them, and what is left. Without from, the one day. Fails with
+			SpanReversed when from is after day.
 
 			Fails with LedgerNotFound when the caller cannot open the ledger.
 		`,
 	})
-	.input(v.object({ handle: Handle, day: Day }))
+	.input(v.object({ handle: Handle, from: v.optional(Day), day: Day }))
 	.errors(errors)
 	.output(batchOf(Budget));
 

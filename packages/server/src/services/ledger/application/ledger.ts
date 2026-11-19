@@ -44,6 +44,9 @@ type CreateLedgerOptions = {
 export const createLedger = ({ user, name }: CreateLedgerOptions): ResultAsync<Ledger> =>
 	createNamed({ user, name }, TRIES);
 
+/** The file terms and budgets are written to when no line sets them yet. */
+export const MAIN = 'main.rupea';
+
 type OpenFolderOptions = {
 	ledger: Ledger;
 	folder: 'files' | 'statements' | 'schemas';

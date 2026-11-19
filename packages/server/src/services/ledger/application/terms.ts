@@ -5,10 +5,8 @@ import { errAsync, type ResultAsync } from '#lib/server/shared/result/result.ts'
 import * as DB from '../adapters/database';
 import { setTerms, termsOn } from '../domain/terms';
 import type { Ledger } from '../domain/types';
-import { openFolder } from './ledger';
+import { MAIN, openFolder } from './ledger';
 import { reindex } from './sync';
-
-const MAIN = 'main.rupea';
 
 type ListTermsOptions = { ledger: Ledger; day: string };
 

@@ -134,7 +134,7 @@ B 2027-04-01 Expenses:Food
 - limit: 18,000
 ```
 
-Rupea reads budgets but does not show them yet.
+The Expenses page shows each budget's spending this period and what is left, and has an Add budget form that writes the account's `B *` line. The form writes a new line to `main.rupea` unless the account already has one. In that case it edits that line in place and keeps its comments and any keys it does not know.
 
 A budget with a limit that is not an amount, a period that is not `month` or `year`, or a start that is not a date is listed as a problem with its file and line. `ledger` ignores `B` lines and `hledger` stops at them, so keep them in a file of their own if you open your ledger in those tools.
 

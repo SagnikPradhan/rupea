@@ -141,7 +141,7 @@ const printComments = (t: string, c: string[]): string =>
 
 const printLines = (l: string[]): string => l.map((t) => `${t}\n`).join('');
 
-const printDate = (f: string | undefined, d: Temporal.PlainDate) =>
+export const printDate = (f: string | undefined, d: Temporal.PlainDate) =>
 	f ? dateFns.format(new Date(d.year, d.month - 1, d.day), f) : d.toString();
 
 /** The first format that holds the time, so seconds are never dropped. */

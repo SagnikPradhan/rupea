@@ -92,9 +92,12 @@ const listTerms = os.accounts.listTerms
 
 const listBudgets = os.accounts.listBudgets
 	.use(signedIn)
-	.handler(async ({ input: { handle, day } }) =>
+	.handler(async ({ input: { handle, from, day } }) =>
 		sanitiseBatch(
-			await inLedger({ handle, action: (l) => Budgets.listBudgets({ ledger: l, day }) }),
+			await inLedger({
+				handle,
+				action: (l) => Budgets.listBudgets({ ledger: l, from: from ?? day, to: day }),
+			}),
 		),
 	);
 

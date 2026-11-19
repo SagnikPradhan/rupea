@@ -2,6 +2,7 @@ import { ORPCError } from '@orpc/client';
 import {
 	findBridge,
 	listAccounts,
+	listBudgets,
 	listDailyDeltas,
 	listDeltas,
 	listDrops,
@@ -11,8 +12,10 @@ import {
 	listReturns,
 	listTerms,
 	listWorth,
+	saveBudget,
 	saveTerms,
 } from '#lib/endpoints/accounts.remote.ts';
+import { parseAmount } from '@rupea/shared/money.ts';
 import { fault } from '@rupea/shared/errors.ts';
 import { useApi } from '#tests/shared/app-server.ts';
 import { describe, expect, it, vi } from 'vitest';
@@ -327,5 +330,68 @@ describe('accounts', () => {
 
 		expect(saved).toHaveBeenCalledWith({ handle: 'home', ...form });
 		expect(reply).toEqual({ ok: true, data: { file: 'a.rupea' }, errors: [] });
+	});
+
+	it('lists the budgets of a day, reading amounts and days', async () => {
+		const listed = vi.fn().mockResolvedValue({
+			succeeded: [
+				{
+					account: 'Expenses:Food',
+					length: 'month',
+					from: '2026-09-01',
+					to: '2026-09-30',
+					limit: '500.00',
+					spent: '620.50',
+					left: '-120.50',
+					current: { limit: '500' },
+				},
+			],
+			failed: [],
+		});
+		useApi({ accounts: { listBudgets: listed } });
+
+		const budgets = await listBudgets({ handle: 'home', day });
+
+		expect(listed).toHaveBeenCalledWith({ handle: 'home', day: '2026-09-01', from: undefined });
+		expect(budgets).toEqual({
+			ok: true,
+			data: [
+				{
+					account: 'Expenses:Food',
+					length: 'month',
+					from: Temporal.PlainDate.from('2026-09-01'),
+					to: Temporal.PlainDate.from('2026-09-30'),
+					limit: parseAmount('500.00'),
+					spent: parseAmount('620.50'),
+					left: parseAmount('-120.50'),
+					current: { limit: '500' },
+				},
+			],
+			errors: [],
+		});
+	});
+
+	it('lists the budgets from a day to a day', async () => {
+		const listed = vi.fn().mockResolvedValue({ succeeded: [], failed: [] });
+		useApi({ accounts: { listBudgets: listed } });
+
+		await listBudgets({ handle: 'home', from: '2026-06-01', day });
+
+		expect(listed).toHaveBeenCalledWith({ handle: 'home', from: '2026-06-01', day: '2026-09-01' });
+	});
+
+	it('saves a budget under the ledger, sending the account and its lines', async () => {
+		const saved = vi.fn().mockResolvedValue({ file: 'a.rupea', written: 'B Expenses:Food' });
+		useApi({ accounts: { saveBudget: saved } });
+		const form = { account: 'Expenses:Food', entries: [['limit', '500']] as [string, string][] };
+
+		const reply = await saveBudget({ handle: 'home', from: day, day, form });
+
+		expect(saved).toHaveBeenCalledWith({ handle: 'home', ...form });
+		expect(reply).toEqual({
+			ok: true,
+			data: { file: 'a.rupea', written: 'B Expenses:Food' },
+			errors: [],
+		});
 	});
 });

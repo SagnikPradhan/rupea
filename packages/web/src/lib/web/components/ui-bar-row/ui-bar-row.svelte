@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { ResolvedPathname } from '$app/types';
 	import Bar from '#lib/web/components/ui-bar/ui-bar.svelte';
 
 	type Props = {
@@ -8,20 +9,28 @@
 		figure: string;
 		tone?: 'positive' | 'negative';
 		share: number;
+		limit?: number;
+		href?: ResolvedPathname;
 	};
 
-	const { name, prefix, detail, figure, tone, share }: Props = $props();
+	const { name, prefix, detail, figure, tone, share, limit, href }: Props = $props();
 </script>
 
 <li>
 	<p>
-		<span class="name">
-			{#if prefix}<span class="prefix">{prefix}</span>{/if}{name}
-		</span>
+		{#if href}
+			<a class="name" {href}>
+				{#if prefix}<span class="prefix">{prefix}</span>{/if}{name}
+			</a>
+		{:else}
+			<span class="name">
+				{#if prefix}<span class="prefix">{prefix}</span>{/if}{name}
+			</span>
+		{/if}
 		{#if detail}<span class="detail">{detail}</span>{/if}
 		<span class={['figure', tone]}>{figure}</span>
 	</p>
-	<Bar {share} />
+	<Bar {share} {limit} />
 </li>
 
 <style>
@@ -53,6 +62,10 @@
 
 	.figure {
 		margin-left: auto;
+	}
+
+	a {
+		color: inherit;
 	}
 
 	.positive {

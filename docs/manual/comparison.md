@@ -20,7 +20,7 @@ Choose one of them if you want a proven tool today, or need reports Rupea doesn'
 
 Rupea keeps it in files instead. You can read them without Rupea, keep them in version control, and nothing is lost if Rupea goes away. Rupea is also stronger on investments: lots, gains, prices and the return on each account.
 
-Choose Actual or Firefly III if budgets matter most to you now. Rupea has no budgets yet.
+Choose Actual or Firefly III if budgets matter most to you now. Rupea has monthly and yearly budgets for each category, a limit for an account and everything under it, but no envelope budgeting or rollover.
 
 ## Indian money apps
 
@@ -32,4 +32,4 @@ Choose one of them if you want something that works by itself on your phone toda
 
 ## Not ready yet
 
-Rupea is a work in progress. It has no budgets, bill reminders or phone app, and no hosted version you can sign up for. The [roadmap](roadmap.md) lists what's done and what's next.
+Rupea is a work in progress. It has no bill reminders or phone app, and no hosted version you can sign up for. The [roadmap](roadmap.md) lists what's done and what's next.

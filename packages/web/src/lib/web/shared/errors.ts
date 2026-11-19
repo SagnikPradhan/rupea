@@ -110,6 +110,7 @@ export const explain = (error: RupeaError): string =>
 			{ type: 'CannotMergeFile' },
 			() => 'Only transactions can be added to another file. Add these to a new file instead.',
 		)
+		.with({ type: 'AccountNotFound' }, (e) => `${e.account} is not in this ledger.`)
 		.with(
 			{ type: 'TransactionNotFound' },
 			() => 'That transaction is no longer where it was. Reload the list.',
@@ -122,6 +123,10 @@ export const explain = (error: RupeaError): string =>
 		.with(
 			{ type: 'CannotWriteTerms' },
 			() => 'These terms wouldn’t read back as written. Check them for a line break.',
+		)
+		.with(
+			{ type: 'CannotWriteBudget' },
+			() => 'This budget wouldn’t read back as written. Check it for a line break.',
 		)
 		.with({ type: 'StorageConflict' }, () => 'This file changed since you opened it.')
 		.with({ type: 'StorageNotFound' }, () => 'This file no longer exists.')

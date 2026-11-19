@@ -366,7 +366,7 @@ type SpanOptions = { accounts: string[]; most?: number | undefined };
  * than SPAN_MOST_DAYS.
  */
 export const findSpan = (id: string, span: Span, o: SpanOptions): ResultAsync<Span> => {
-	const reversed = reversedSpan(span);
+	const reversed = reversalOf(span);
 	if (reversed) return errAsync(reversed);
 
 	return DB.findFirstDelta(id, { accounts: o.accounts, to: span.to }).andThen((first) => {
@@ -390,7 +390,7 @@ const findStart = (
 	{ from, to }: Span,
 	o: SpanOptions,
 ): ResultAsync<Temporal.PlainDate | null> => {
-	const reversed = reversedSpan({ from, to });
+	const reversed = reversalOf({ from, to });
 	if (reversed) return errAsync(reversed);
 
 	return DB.findFirstDelta(id, { accounts: o.accounts, to }).andThen((first) => {
@@ -453,7 +453,7 @@ const pricesBefore = (id: string, d: Temporal.PlainDate, c: string[]) =>
 		? okAsync<Record<string, Quantity>>({})
 		: DB.findLatestPrices(id, c, d.subtract({ days: 1 }));
 
-const reversedSpan = ({ from, to }: Span): RupeaError | null =>
+export const reversalOf = ({ from, to }: Span): RupeaError | null =>
 	Temporal.PlainDate.compare(from, to) > 0
 		? fault('SpanReversed', { from: from.toString(), to: to.toString() })
 		: null;

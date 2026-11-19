@@ -83,6 +83,10 @@ describe('explain', () => {
 			'These terms wouldn’t read back as written. Check them for a line break.',
 		],
 		[
+			fault('CannotWriteBudget', { path: 'main.rupea' }),
+			'This budget wouldn’t read back as written. Check it for a line break.',
+		],
+		[
 			fault('AccountRepeated', { location: at, account: 'Liabilities:Card' }),
 			'Liabilities:Card is set up more than once from the same day.',
 		],
@@ -141,6 +145,7 @@ describe('explain', () => {
 			fault('StorageConflict', { key: 'a.rupea', expected: null, actual: null }),
 			'This file changed since you opened it.',
 		],
+		[fault('AccountNotFound', { account: 'Assets:Nope' }), 'Assets:Nope is not in this ledger.'],
 		[fault('StorageNotFound', { key: 'a.rupea' }), 'This file no longer exists.'],
 		[fault('StorageInvalidKey', { key: 'a.txt' }), '“a.txt” isn’t a valid file name.'],
 		[fault('AuthInvalidCode'), 'Something went wrong (AuthInvalidCode).'],

@@ -1,5 +1,11 @@
 import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
-import { budgetsOn, setBudget, type BudgetLine } from '#services/ledger/domain/budgets.ts';
+import {
+	budgetsIn,
+	budgetsOn,
+	entriesIn,
+	setBudget,
+	type BudgetLine,
+} from '#services/ledger/domain/budgets.ts';
 import { fault } from '@rupea/shared/errors.ts';
 import { parseAmount } from '#services/ledger/domain/amounts.ts';
 import { describe, expect, it } from 'vitest';
@@ -24,6 +30,18 @@ const line = (
 
 const on = (lines: BudgetLine[], d: string) =>
 	budgetsOn(lines, { day: day(d), dateFormats }).map((b) => ({
+		...b,
+		from: b.from.toString(),
+		to: b.to.toString(),
+	}));
+
+const across = (lines: BudgetLine[], from: string, to: string, first?: string) =>
+	budgetsIn(lines, {
+		from: day(from),
+		to: day(to),
+		first: first ? day(first) : null,
+		dateFormats,
+	}).map((b) => ({
 		...b,
 		from: b.from.toString(),
 		to: b.to.toString(),
@@ -89,9 +107,53 @@ describe('setting the budget of an account', () => {
 		);
 	});
 
+	it('refuses a value that would write a second B line for the account', () => {
+		expect(set('', [['limit', '1\nB * Expenses:Food']])._unsafeUnwrapErr()).toEqual(
+			fault('CannotWriteBudget', { path: 'main.rupea' }),
+		);
+	});
+
 	it('refuses a value that would not read back as written', () => {
 		expect(set('', [['limit', '1\n2026-10-01 Sneak']])._unsafeUnwrapErr()).toEqual(
 			fault('CannotWriteBudget', { path: 'main.rupea' }),
+		);
+	});
+});
+
+describe('writing the entries of a budget in the formats of a ledger', () => {
+	const entries: [string, string][] = [
+		['limit', '100'],
+		['start', '2026-10-05'],
+	];
+
+	it('prints an ISO start in the first format', () => {
+		expect(entriesIn(entries, ['dd/MM/yyyy', 'yyyy-MM-dd'])).toEqual([
+			['limit', '100'],
+			['start', '05/10/2026'],
+		]);
+	});
+
+	it('keeps an ISO start when the first format is ISO, and every start not ISO as it is', () => {
+		expect(entriesIn(entries, dateFormats)).toEqual(entries);
+		expect(entriesIn([['start', '05-10-2026']], ['yyyy-MM-dd'])).toEqual([['start', '05-10-2026']]);
+		expect(entriesIn([['start', '2026-13-45']], ['dd/MM/yyyy'])).toEqual([['start', '2026-13-45']]);
+	});
+
+	it('leaves other keys that hold a date alone', () => {
+		expect(entriesIn([['note', '2026-10-05']], ['dd/MM/yyyy'])).toEqual([['note', '2026-10-05']]);
+	});
+
+	it('reads back a start in a ledger that has only that format', () => {
+		const c = { ...defaultConfiguration.ledger, dateFormats: ['dd/MM/yyyy'] };
+
+		const written = setBudget(c, {
+			file: { key: 'main.rupea', content: '' },
+			account: 'Expenses:Food',
+			keys: entriesIn(entries, c.dateFormats),
+		});
+
+		expect(written._unsafeUnwrap()).toBe(
+			'B * Expenses:Food\n\t- limit: 100\n\t- start: 05/10/2026\n',
 		);
 	});
 });
@@ -312,5 +374,139 @@ describe('budgets on a day', () => {
 		expect(
 			on([line('Expenses:Food', '2026-10-01', { limit: '2' })], '2026-10-15')[0]?.current,
 		).toEqual({});
+	});
+});
+
+describe('budgets over a range', () => {
+	const food = line('Expenses:Food', null, { limit: '100' });
+
+	it('answers the budget of the day when the range is that one day', () => {
+		expect(across([food], '2026-10-15', '2026-10-15')).toEqual(on([food], '2026-10-15'));
+	});
+
+	it('adds the limit of each period that starts within the range', () => {
+		expect(across([food], '2026-08-20', '2026-10-05')).toEqual([
+			{
+				account: 'Expenses:Food',
+				length: 'month',
+				limit: amount('200'),
+				current: { limit: '100' },
+				from: '2026-09-01',
+				to: '2026-10-31',
+			},
+		]);
+	});
+
+	it('counts twelve months for a year back from a day', () => {
+		expect(across([food], '2025-11-19', '2026-11-19')).toMatchObject([
+			{ limit: amount('1200'), from: '2025-12-01', to: '2026-11-30' },
+		]);
+	});
+
+	it('counts one month from its first day to its last', () => {
+		expect(across([food], '2026-10-01', '2026-10-31')).toMatchObject([
+			{ limit: amount('100'), from: '2026-10-01', to: '2026-10-31' },
+		]);
+	});
+
+	it('falls back to the period of the last day when none starts within the range', () => {
+		expect(across([food], '2026-10-05', '2026-10-20')).toEqual(on([food], '2026-10-20'));
+	});
+
+	it('changes the limit in the first period that starts after a dated line', () => {
+		const raised = line('Expenses:Food', '2026-09-10', { limit: '250' }, 2);
+
+		expect(across([food, raised], '2026-08-01', '2026-10-31')).toMatchObject([
+			{ limit: amount('600'), from: '2026-08-01', to: '2026-10-31', current: { limit: '100' } },
+		]);
+	});
+
+	it('takes the limit in effect on the last day of each period', () => {
+		const raised = line('Expenses:Food', '2026-10-20', { limit: '250' }, 2);
+
+		expect(on([food, raised], '2026-10-15')[0]?.limit).toBe(amount('100'));
+		expect(on([food, raised], '2026-10-20')[0]?.limit).toBe(amount('250'));
+		expect(across([food, raised], '2026-10-01', '2026-11-30')).toMatchObject([
+			{ limit: amount('500'), from: '2026-10-01', to: '2026-11-30' },
+		]);
+	});
+
+	it('takes the limit on the last day of the range when it ends inside a period', () => {
+		const raised = line('Expenses:Food', '2026-10-20', { limit: '250' }, 2);
+
+		expect(across([food, raised], '2026-10-01', '2026-10-15')[0]?.limit).toBe(amount('100'));
+		expect(across([food, raised], '2026-10-01', '2026-10-20')[0]?.limit).toBe(amount('250'));
+	});
+
+	it('walks a range from a start on the 31st through every month once', () => {
+		const end = line('Expenses:Food', null, { limit: '100', start: '2026-01-31' });
+
+		expect(across([end], '2026-01-31', '2027-03-30')).toMatchObject([
+			{ limit: amount('1400'), from: '2026-01-31', to: '2027-03-30' },
+		]);
+		expect(across([end], '2026-02-28', '2026-02-28')).toMatchObject([
+			{ limit: amount('100'), from: '2026-02-28', to: '2026-03-30' },
+		]);
+	});
+
+	it('walks a yearly start on 29 February through every year once', () => {
+		const leap = line('Expenses:Food', null, { limit: '100', period: 'year', start: '2024-02-29' });
+
+		expect(across([leap], '2024-02-29', '2028-02-28')).toMatchObject([
+			{ limit: amount('400'), from: '2024-02-29', to: '2028-02-28' },
+		]);
+	});
+
+	it('starts in the period of the first day of the ledger', () => {
+		expect(across([food], '2000-01-01', '2026-10-31', '2026-07-20')).toMatchObject([
+			{ limit: amount('400'), from: '2026-07-01', to: '2026-10-31' },
+		]);
+	});
+
+	it('ignores a first day after the range', () => {
+		expect(across([food], '2026-08-01', '2026-10-31', '2027-01-01')).toMatchObject([
+			{ limit: amount('300'), from: '2026-08-01' },
+		]);
+	});
+
+	it('answers nothing for a range that runs backwards', () => {
+		expect(across([food], '2026-10-31', '2026-10-01')).toEqual([]);
+	});
+
+	it('skips the periods before the budget has a limit', () => {
+		const later = line('Expenses:Food', '2026-09-10', { limit: '100' });
+
+		expect(across([later], '2026-07-01', '2026-10-31')).toMatchObject([
+			{ limit: amount('200'), from: '2026-09-01', to: '2026-10-31' },
+		]);
+	});
+
+	it('answers nothing for a range before the budget has a limit', () => {
+		const later = line('Expenses:Food', '2026-09-10', { limit: '100' });
+
+		expect(across([later], '2026-06-01', '2026-07-31')).toEqual([]);
+	});
+
+	it('answers nothing for a budget that never has a limit', () => {
+		const none = line('Expenses:Food', null, { period: 'year' });
+
+		expect(across([none], '2026-01-01', '2026-10-31')).toEqual([]);
+	});
+
+	it('adds each account on its own', () => {
+		const fuel = line('Expenses:Fuel', null, { limit: '10', period: 'year' }, 3);
+
+		expect(
+			across([food, fuel], '2026-09-01', '2026-10-31').map((b) => [b.account, b.limit]),
+		).toEqual([
+			['Expenses:Food', amount('200')],
+			['Expenses:Fuel', amount('10')],
+		]);
+	});
+
+	it('reaches back at most a hundred years', () => {
+		const [all] = across([food], '0001-01-01', '2026-10-31');
+
+		expect(all?.from).toBe('1926-10-01');
 	});
 });

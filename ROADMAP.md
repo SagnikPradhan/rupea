@@ -16,7 +16,7 @@ What Rupea plans to build, in order, and what already works.
 - [ ] Back up and restore
 - [ ] Report capital gains for an Indian financial year, and show which gains can be harvested tax-free
 - [ ] Match refunds to charges
-- [ ] Set a monthly or yearly budget for a category, and see how much is left ([#112](https://github.com/SagnikPradhan/rupea/issues/112))
+- [x] Set a monthly or yearly budget for a category, and see how much is left ([#112](https://github.com/SagnikPradhan/rupea/issues/112))
 - [ ] Run Rupea on your own computer without signing in
 - [ ] Send sign-in codes by email, with an email provider you set up ([#82](https://github.com/SagnikPradhan/rupea/issues/82))
 - [ ] Use Rupea from other apps through a documented interface ([#103](https://github.com/SagnikPradhan/rupea/issues/103))

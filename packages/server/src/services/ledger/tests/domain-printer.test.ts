@@ -377,6 +377,34 @@ describe('printing a ledger', () => {
 		expect(reprinted(content)).toBe(content);
 	});
 
+	it('writes A and B lines made from a file the way they are first written', () => {
+		const location = { file: 'a.rupea', line: 1 };
+		const metadata = { rate: ['9%'] };
+		const file: RupeaLedgerFile = {
+			...ledger([]),
+			accounts: [{ location, since: null, account: 'Liabilities:Card', metadata }],
+			budgets: [
+				{
+					location,
+					since: Temporal.PlainDate.from('2027-04-01'),
+					account: 'Expenses:Food',
+					metadata: { limit: ['18000'] },
+				},
+			],
+		};
+
+		expect(printed(file)).toBe(
+			[
+				'A * Liabilities:Card',
+				'\t- rate: 9%',
+				'',
+				'B 2027-04-01 Expenses:Food',
+				'\t- limit: 18000',
+				'',
+			].join('\n'),
+		);
+	});
+
 	it('writes P lines in a row as one block', () => {
 		const content = ['P 2026-10-17 INFY 1820.00', 'P 2026-10-18 INFY 1830.00', ''].join('\n');
 

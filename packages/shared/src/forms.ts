@@ -161,9 +161,12 @@ export const TermsForm = v.object({
 	),
 });
 
+export const BudgetLength = v.picklist(['month', 'year']);
+export type BudgetLength = v.InferOutput<typeof BudgetLength>;
+
 const Budget = v.object({
 	limit: amount,
-	period: v.optional(v.picklist(['month', 'year'])),
+	period: v.optional(BudgetLength),
 	start: v.optional(
 		v.pipe(
 			v.string(),

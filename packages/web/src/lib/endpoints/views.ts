@@ -1,5 +1,6 @@
 import {
 	Balances,
+	Budget,
 	Group,
 	LinkTarget,
 	Lot,
@@ -351,4 +352,17 @@ export const viewLot = (lot: LotOut) => ({
 		price: disposal.price && printQuantity(disposal.price),
 		gain: disposal.gain && printQuantity(disposal.gain),
 	})),
+});
+
+type BudgetOut = v.InferOutput<typeof Budget>;
+
+export const viewBudget = (budget: BudgetOut) => ({
+	account: budget.account,
+	length: budget.length,
+	from: Temporal.PlainDate.from(budget.from),
+	to: Temporal.PlainDate.from(budget.to),
+	limit: amountOf(budget.limit),
+	spent: amountOf(budget.spent),
+	left: amountOf(budget.left),
+	current: budget.current,
 });

@@ -2,14 +2,22 @@ import { replyFromBatchCall, replyFromCall } from './reply';
 import { bucketFor, closingBucketOf, spanFrom } from '@rupea/shared/balances.ts';
 import { Day, Period, type Span, spansOf } from '@rupea/shared/dates.ts';
 import { ASSETS, BalanceAccount, FlowAccount } from '@rupea/shared/money.ts';
-import { TermsForm } from '@rupea/shared/forms.ts';
+import { BudgetForm, TermsForm } from '@rupea/shared/forms.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
 import { api } from './api';
 import { listProblems } from './ledger.remote';
 import { parentsIn } from '@rupea/shared/account-tree.ts';
 import { Handle } from '@rupea/shared/text.ts';
-import { viewDaily, viewDeltas, viewHoldings, investedFrom, viewLot, worthFrom } from './views';
+import {
+	viewDaily,
+	viewDeltas,
+	viewHoldings,
+	investedFrom,
+	viewBudget,
+	viewLot,
+	worthFrom,
+} from './views';
 
 const writtenSpan = ({ from, to }: Span) => ({ from: from.toString(), to: to.toString() });
 
@@ -214,6 +222,31 @@ export const saveTerms = command(
 	async ({ handle, form }) => {
 		const saved = await replyFromCall(api().accounts.saveTerms({ handle, ...form }));
 		void listProblems(handle).refresh();
+		return saved;
+	},
+);
+
+/**
+ * Each account's budget over the days between the start and day, with what was
+ * spent and what is left; the start is the day itself when left out.
+ */
+export const listBudgets = query(
+	v.object({ handle: Handle, from: v.optional(Day), day: Day }),
+	({ handle, from, day }) =>
+		replyFromBatchCall(
+			api()
+				.accounts.listBudgets({ handle, from: from?.toString(), day: day.toString() })
+				.then((b) => ({ ...b, succeeded: b.succeeded.map(viewBudget) })),
+		),
+);
+
+/** Sets a budget by writing its limit under a B line of the account. */
+export const saveBudget = command(
+	v.object({ handle: Handle, from: Day, day: Day, form: BudgetForm }),
+	async ({ handle, from, day, form }) => {
+		const saved = await replyFromCall(api().accounts.saveBudget({ handle, ...form }));
+		void listProblems(handle).refresh();
+		void listBudgets({ handle, from: from.toString(), day: day.toString() }).refresh();
 		return saved;
 	},
 );

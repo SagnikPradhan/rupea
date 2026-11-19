@@ -2,7 +2,7 @@ import { AmountOut, QuantityOut, PostedOut } from '@rupea/shared/money.ts';
 import { Day, DayOut, TimeOut } from '@rupea/shared/dates.ts';
 import { Key, Line } from '@rupea/shared/files.ts';
 import { Handle } from '@rupea/shared/text.ts';
-import { TermsOut } from '@rupea/shared/forms.ts';
+import { BudgetLength, TermsOut } from '@rupea/shared/forms.ts';
 import * as v from 'valibot';
 
 export const Location = v.object({ file: v.string(), line: v.number() });
@@ -88,7 +88,7 @@ export const Held = v.object({
 
 export const Budget = v.object({
 	account: v.string(),
-	length: v.picklist(['month', 'year']),
+	length: BudgetLength,
 	from: DayOut,
 	to: DayOut,
 	limit: AmountOut,

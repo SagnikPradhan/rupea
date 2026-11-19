@@ -57,6 +57,7 @@ const BUDGETS = [
 	'- limit: 18000',
 	'- start: 2026-06-10',
 ].join('\n');
+const MANY = 30;
 const CUSTOM_CASES = ['home worth', 'home bridge', 'accounts drops', 'accounts invested'];
 
 describe('accounts', () => {
@@ -144,7 +145,28 @@ describe('accounts', () => {
 		const lots = timed(context, () =>
 			Accounts.listLots({ ledger, account: 'Assets:IBKR', commodity: 'USD' }),
 		);
-		const budgets = timed(context, () => Budgets.listBudgets({ ledger, day: TO }));
+		const budgets = timed(context, () => Budgets.listBudgets({ ledger, from: TO, to: TO }));
+		const staged: Promise<unknown>[] = [];
+		const stage = () =>
+			(staged[0] ??= provide(context, async () => {
+				const shared = (await Deltas.findShared(ledger.id))._unsafeUnwrap();
+				const names = shared.tree
+					.map((n) => n.name)
+					.filter((n) => n.startsWith('Expenses:') && !BUDGETS.includes(`B * ${n}\n`))
+					.slice(0, MANY);
+				const content = names
+					.map(
+						(n, i) =>
+							`B * ${n}\n- limit: 1000\n- start: 2026-04-${String(i + 1).padStart(2, '0')}\n`,
+					)
+					.join('\n');
+
+				return Files.createFile({ ledger, key: 'many.rupea', content });
+			}).then((r) => r._unsafeUnwrap()));
+		const budgetsFromManyDays = async () => {
+			await stage();
+			await budgets();
+		};
 		const checks = timed(context, () => Sync.listProblems(ledger));
 		const index = timed(context, () => Sync.syncIndex(ledger));
 
@@ -176,6 +198,7 @@ describe('accounts', () => {
 			bench('budgets', budgets),
 			bench('checks', checks),
 			bench('index alone', index),
+			bench('budgets 30 starts', budgetsFromManyDays),
 			{ iterations: 10, time: 0, warmupIterations: 1 },
 		);
 	});

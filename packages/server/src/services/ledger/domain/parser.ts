@@ -7,6 +7,8 @@ import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
 import { cut } from '#lib/server/shared/text.ts';
 import type { Batch } from '@rupea/shared/errors.ts';
 import { fault, type RupeaError } from '@rupea/shared/errors.ts';
+import { BudgetLength } from '@rupea/shared/forms.ts';
+import * as v from 'valibot';
 import { match, P } from 'ts-pattern';
 import {
 	DEFAULT_COMMODITY,
@@ -469,8 +471,6 @@ const readBLine = (
 	);
 };
 
-const PERIODS = ['month', 'year'];
-
 /**
  * Each key a B line names must hold what it means; a B * line must give its
  * limit.
@@ -496,7 +496,7 @@ const budgetFaults = (
 
 	const faults = {
 		limit: (limit === undefined && since === null) || (limit !== undefined && !isLimit(limit)),
-		period: period !== undefined && !PERIODS.includes(period),
+		period: period !== undefined && !v.is(BudgetLength, period),
 		start: start !== undefined && !isStart(start),
 	};
 

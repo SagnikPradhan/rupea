@@ -170,6 +170,14 @@ export const rowsOf = ({ ledgerId, fileId, file, failed, lineHashes, matchOf }: 
 		fileId,
 		line: a.location.line,
 	}));
+	const budgets = file.budgets.map((b) => ({
+		ledgerId,
+		account: b.account,
+		since: b.since?.toString() ?? null,
+		keys: b.metadata,
+		fileId,
+		line: b.location.line,
+	}));
 	const metadata = [
 		...ownedBy({ ledgerId, fileId }, file.metadata),
 		...indexed.flatMap(({ id, transaction }) =>
@@ -182,7 +190,7 @@ export const rowsOf = ({ ledgerId, fileId, file, failed, lineHashes, matchOf }: 
 
 	const problems = failed.map((e) => ({ ledgerId, fileId, kind: ProblemKind.Parse, error: e }));
 
-	return { transactions, postings, prices, links, accounts, metadata, problems };
+	return { transactions, postings, prices, links, accounts, budgets, metadata, problems };
 };
 
 /**

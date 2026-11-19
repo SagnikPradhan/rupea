@@ -131,12 +131,24 @@ export type RupeaAccount = {
 	metadata: RupeaMetadata;
 };
 
+/**
+ * What a B line budgets an account at from a day on, or from the start when
+ * since is null: the dash lines under it, kept as written.
+ */
+export type RupeaBudget = {
+	location: RupeaParseLocation;
+	since: Temporal.PlainDate | null;
+	account: string;
+	metadata: RupeaMetadata;
+};
+
 export type RupeaLedgerFile = {
 	metadata: RupeaMetadata;
 	transactions: RupeaTransaction[];
 	prices: RupeaMarketPrice[];
 	links: RupeaLink[];
 	accounts: RupeaAccount[];
+	budgets: RupeaBudget[];
 };
 
 /**
@@ -150,6 +162,7 @@ export enum NodeKind {
 	Price = 'price',
 	Link = 'link',
 	Account = 'account',
+	Budget = 'budget',
 	Note = 'note',
 	Failed = 'failed',
 }
@@ -170,6 +183,7 @@ export type RupeaEntryNode =
 	| RupeaPriceNode
 	| RupeaLinkNode
 	| RupeaAccountNode
+	| RupeaBudgetNode
 	| RupeaNoteNode
 	| RupeaFailedNode;
 
@@ -224,6 +238,16 @@ export type RupeaLinkNode = {
 
 export type RupeaAccountNode = {
 	kind: NodeKind.Account;
+	location: RupeaParseLocation;
+	comments: string[];
+	since: Temporal.PlainDate | null;
+	account: string;
+	metadata: RupeaEntries;
+	children: [];
+};
+
+export type RupeaBudgetNode = {
+	kind: NodeKind.Budget;
 	location: RupeaParseLocation;
 	comments: string[];
 	since: Temporal.PlainDate | null;

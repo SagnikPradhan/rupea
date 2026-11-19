@@ -86,6 +86,17 @@ export const Held = v.object({
 	held: v.nullable(TermsOut),
 });
 
+export const Budget = v.object({
+	account: v.string(),
+	length: v.picklist(['month', 'year']),
+	from: DayOut,
+	to: DayOut,
+	limit: AmountOut,
+	current: v.record(v.string(), v.string()),
+	spent: AmountOut,
+	left: AmountOut,
+});
+
 /** A transaction as a file holds it, with where it stands. */
 export const TransactionOut = v.object({
 	file: v.string(),

@@ -1,4 +1,4 @@
-import { Terms, TermsForm } from '@rupea/shared/forms.ts';
+import { BudgetForm, Terms, TermsForm } from '@rupea/shared/forms.ts';
 import * as v from 'valibot';
 import { describe, expect, it } from 'vitest';
 
@@ -26,6 +26,68 @@ describe('the form for the terms of a liability', () => {
 		expect(v.safeParse(TermsForm, { account: 'Liabilities:Card', entries: [entry] }).success).toBe(
 			false,
 		);
+	});
+});
+
+describe('the form for the budget of an account', () => {
+	const account = 'Expenses:Food';
+
+	it('takes an account and one-line entries', () => {
+		expect(
+			v.safeParse(BudgetForm, {
+				account: ' Expenses:Food ',
+				entries: [[' limit ', ' 15,000 ']],
+			}).output,
+		).toEqual({ account: 'Expenses:Food', entries: [['limit', '15,000']] });
+	});
+
+	it('takes a period and a start, and keys it does not know', () => {
+		expect(
+			v.safeParse(BudgetForm, {
+				account,
+				entries: [
+					['limit', '500'],
+					['period', 'year'],
+					['start', '2026-04-01'],
+					['note', 'x'],
+				],
+			}).success,
+		).toBe(true);
+	});
+
+	it.each([
+		['no limit', [['period', 'month']]],
+		['a signed limit', [['limit', '-5']]],
+		[
+			'a period of a week',
+			[
+				['limit', '5'],
+				['period', 'week'],
+			],
+		],
+		[
+			'a start that is not on the calendar',
+			[
+				['limit', '5'],
+				['start', '2026-13-45'],
+			],
+		],
+		[
+			'the same key twice',
+			[
+				['limit', '5'],
+				['limit', '6'],
+			],
+		],
+		[
+			'a start that is not a date',
+			[
+				['limit', '5'],
+				['start', 'April'],
+			],
+		],
+	])('refuses %s', (_, entries) => {
+		expect(v.safeParse(BudgetForm, { account, entries }).success).toBe(false);
 	});
 });
 

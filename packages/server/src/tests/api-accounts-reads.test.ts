@@ -296,7 +296,9 @@ describe('the accounts api', () => {
 		['GET', 'lots?account=Assets:Zerodha&commodity=INFY'],
 		['GET', 'accounts'],
 		['GET', 'terms?day=2026-10-02'],
+		['GET', 'budgets?day=2026-10-02'],
 		['PUT', 'terms', { account: 'Liabilities:Car', entries: [['kind', 'loan']] }],
+		['PUT', 'budgets', { account: 'Expenses:Food', entries: [['limit', '5000']] }],
 		['GET', 'transactions?from=2026-10-01&to=2026-10-02'],
 		['GET', 'postings?from=2026-10-01&to=2026-10-02'],
 		['GET', 'first-day'],
@@ -373,6 +375,30 @@ describe('the accounts api', () => {
 			}),
 	);
 
+	it('lists the budgets of a day with what each spent and has left', ({ context }) =>
+		provide(context, async () => {
+			const text = ['B * Expenses:Food', '- limit: 5000', '', content].join('\n');
+
+			const reply = await inject(context, text, 'budgets?day=2026-03-15');
+
+			expect(reply.statusCode).toBe(200);
+			expect(reply.json()).toEqual({
+				succeeded: [
+					{
+						account: 'Expenses:Food',
+						length: 'month',
+						from: '2026-03-01',
+						to: '2026-03-31',
+						limit: '5000.00',
+						current: { limit: '5000' },
+						spent: '2000.50',
+						left: '2999.50',
+					},
+				],
+				failed: [],
+			});
+		}));
+
 	it('saves the terms of an account and lists them back', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);
@@ -401,6 +427,27 @@ describe('the accounts api', () => {
 					current: { kind: 'loan', rate: '9.5%', tenure: '60' },
 					held: { kind: 'loan', rate: 9.5, tenure: 60, method: 'reducing' },
 				},
+			]);
+		}));
+
+	it('saves the budget of an account and lists it back', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const headers = await bearerOf(ledger.owner);
+			const api = await createApi(context);
+			const url = `/api/ledgers/${ledger.handle}/budgets`;
+			const payload = { account: 'Expenses:Food', entries: [['limit', '5000']] };
+
+			const saved = await api.inject({ method: 'PUT', url, headers, payload });
+			const listed = await api.inject({ url: `${url}?day=2026-10-02`, headers });
+
+			expect(saved.statusCode).toBe(200);
+			expect(saved.json()).toEqual({
+				file: 'main.rupea',
+				written: 'B * Expenses:Food\n\t- limit: 5000\n',
+			});
+			expect(listed.json().succeeded).toMatchObject([
+				{ account: 'Expenses:Food', limit: '5000.00' },
 			]);
 		}));
 

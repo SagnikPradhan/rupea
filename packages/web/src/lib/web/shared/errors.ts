@@ -36,6 +36,15 @@ export const explain = (error: RupeaError): string =>
 			() => 'This A line should give a date or *, then an account.',
 		)
 		.with(
+			{ type: 'ParseInvalidBudgetLine' },
+			() => 'This B line should give a date or *, then an account.',
+		)
+		.with({ type: 'ParseInvalidBudget' }, (e) =>
+			e.key === 'limit'
+				? 'This budget needs a limit that is an amount.'
+				: `This budget’s ${e.key} can’t be read.`,
+		)
+		.with(
 			{ type: 'AccountRepeated' },
 			(e) => `${e.account} is set up more than once from the same day.`,
 		)

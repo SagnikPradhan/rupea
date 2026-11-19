@@ -67,6 +67,18 @@ describe('explain', () => {
 			'This A line should give a date or *, then an account.',
 		],
 		[
+			fault('ParseInvalidBudgetLine', { location: at }),
+			'This B line should give a date or *, then an account.',
+		],
+		[
+			fault('ParseInvalidBudget', { location: at, key: 'limit' }),
+			'This budget needs a limit that is an amount.',
+		],
+		[
+			fault('ParseInvalidBudget', { location: at, key: 'period' }),
+			'This budget’s period can’t be read.',
+		],
+		[
 			fault('CannotWriteTerms', { path: 'main.rupea' }),
 			'These terms wouldn’t read back as written. Check them for a line break.',
 		],

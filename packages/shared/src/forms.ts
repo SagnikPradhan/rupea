@@ -1,4 +1,5 @@
 import * as v from 'valibot';
+import { IsoDay } from './dates.ts';
 import { isCounted } from './files.ts';
 
 const ACCOUNT = /^(Assets|Liabilities|Income|Expenses|Equity)(:[^\s:=@{}]+)*$/;
@@ -157,6 +158,28 @@ export const TermsForm = v.object({
 	entries: v.pipe(
 		Lines,
 		v.check((e) => v.is(Terms, Object.fromEntries(e)), 'Check the terms against the hints.'),
+	),
+});
+
+const Budget = v.object({
+	limit: amount,
+	period: v.optional(v.picklist(['month', 'year'])),
+	start: v.optional(
+		v.pipe(
+			v.string(),
+			v.regex(/^\d{4}-\d{2}-\d{2}$/),
+			v.check((d) => v.is(IsoDay, d)),
+		),
+	),
+});
+
+/** The budget to save for one account, which must read as a budget. */
+export const BudgetForm = v.object({
+	account: v.pipe(Line, v.regex(ACCOUNT, 'Pick an account.')),
+	entries: v.pipe(
+		Lines,
+		v.check((e) => new Set(e.map(([key]) => key)).size === e.length, 'Each key goes once.'),
+		v.check((e) => v.is(Budget, Object.fromEntries(e)), 'Check the budget against the hints.'),
 	),
 });
 

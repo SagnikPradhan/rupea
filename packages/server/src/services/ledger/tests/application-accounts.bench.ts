@@ -1,5 +1,7 @@
 import * as Accounts from '#services/ledger/application/accounts.ts';
+import * as Budgets from '#services/ledger/application/budgets.ts';
 import * as Deltas from '#services/ledger/application/deltas.ts';
+import * as Files from '#services/ledger/application/files.ts';
 import * as Ledgers from '#services/ledger/application/ledger.ts';
 import * as Sync from '#services/ledger/application/sync.ts';
 import { provide } from '#lib/server/shared/context/context.ts';
@@ -23,12 +25,48 @@ const CUSTOM: Record<string, Period> = {
 	'5y': { kind: 'custom', from: TO.subtract({ years: 5 }).toString(), to: TO.toString() },
 	'10y': { kind: 'custom', from: TO.subtract({ years: 10 }).toString(), to: TO.toString() },
 };
+const BUDGETS = [
+	'B * Expenses:Home',
+	'- limit: 60000',
+	'',
+	'B * Expenses:Food',
+	'- limit: 15000',
+	'',
+	'B * Expenses:Shopping',
+	'- limit: 8000',
+	'',
+	'B * Expenses:Fun',
+	'- limit: 5000',
+	'- start: 2026-04-25',
+	'',
+	'B * Expenses:Transport',
+	'- limit: 4000',
+	'',
+	'B * Expenses:Travel',
+	'- limit: 120000',
+	'- period: year',
+	'- start: 2026-04-01',
+	'',
+	'B * Expenses:Health',
+	'- limit: 3000',
+	'',
+	'B * Expenses:Bills',
+	'- limit: 9000',
+	'',
+	'B 2026-06-10 Expenses:Food',
+	'- limit: 18000',
+	'- start: 2026-06-10',
+].join('\n');
 const CUSTOM_CASES = ['home worth', 'home bridge', 'accounts drops', 'accounts invested'];
 
 describe('accounts', () => {
 	it.for(LEDGERS)('over %s', { timeout: 3_600_000 }, async (name, { bench, models }) => {
 		const { ledger, context } = await cloneFixture(name, models);
 		const first = (await provide(context, () => Ledgers.findFirstDay(ledger)))._unsafeUnwrap();
+
+		await provide(context, () =>
+			Files.createFile({ ledger, key: 'budgets.rupea', content: BUDGETS }),
+		);
 
 		const spanOf = (p: Period) => spansOf(p, TO).current;
 		const closingBucketIn = (s: Span) => closingBucketOf(spanFrom(s, first?.toString() ?? null));
@@ -106,6 +144,7 @@ describe('accounts', () => {
 		const lots = timed(context, () =>
 			Accounts.listLots({ ledger, account: 'Assets:IBKR', commodity: 'USD' }),
 		);
+		const budgets = timed(context, () => Budgets.listBudgets({ ledger, day: TO }));
 		const checks = timed(context, () => Sync.listProblems(ledger));
 		const index = timed(context, () => Sync.syncIndex(ledger));
 
@@ -134,6 +173,7 @@ describe('accounts', () => {
 			...benchesOf(CUSTOM, CUSTOM_CASES),
 			bench('tree', tree),
 			bench('lots', lots),
+			bench('budgets', budgets),
 			bench('checks', checks),
 			bench('index alone', index),
 			{ iterations: 10, time: 0, warmupIterations: 1 },

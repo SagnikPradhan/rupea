@@ -113,6 +113,31 @@ P * INFY yahoo:INFY.NS
 
 `*` links it for all time. A date links it from that day.
 
+## Budgets
+
+A `B` line sets a budget for an account and everything under it. The keys under it, written like metadata, say how much and for how long:
+
+```
+B * Expenses:Food
+- limit: 15,000
+- period: month
+```
+
+- `limit` is the most to spend in one period. A `B *` line needs one.
+- `period` is `month` or `year`, and `month` when you leave it out. A year is the calendar year.
+- `start` is the date a period begins, and periods run from it. A month with `start: 2026-04-25` runs from the 25th to the 24th. A year with `start: 2026-04-01` is the Indian financial year.
+
+`*` sets the budget from the start. A date sets it from that day, and the keys it names replace the ones before:
+
+```
+B 2027-04-01 Expenses:Food
+- limit: 18,000
+```
+
+Rupea reads budgets but does not show them yet.
+
+A budget with a limit that is not an amount, a period that is not `month` or `year`, or a start that is not a date is listed as a problem with its file and line. `ledger` ignores `B` lines and `hledger` stops at them, so keep them in a file of their own if you open your ledger in those tools.
+
 ## Problems
 
 Some transactions can't be read, such as one that doesn't balance, or one that names an account without a type. Rupea leaves each one out and lists it as a problem, with its file and line. The rest of the file still counts.

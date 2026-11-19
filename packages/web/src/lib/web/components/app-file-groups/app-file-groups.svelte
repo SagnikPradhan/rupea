@@ -2,6 +2,7 @@
 	import { listGroups, makePrimary, renameGroup } from '#lib/endpoints/refinement.remote.ts';
 	import type { RupeaError, Reply } from '@rupea/shared/errors.ts';
 	import { detail } from '#lib/web/shared/errors.ts';
+	import { hrefOnly } from '#lib/web/shared/links.ts';
 
 	type Props = {
 		handle: string;
@@ -46,7 +47,7 @@
 					{#each e.members as m (`${m.file}:${m.line}`)}
 						<li style:opacity={m.counted ? 1 : 0.5}>
 							{m.role === 'primary' ? 'Primary' : 'Evidence'}{m.counted ? '' : ', not counted'}:
-							<a href="?file={encodeURIComponent(m.file)}">{m.file}:{m.line}</a>
+							<a href={hrefOnly({ file: m.file })}>{m.file}:{m.line}</a>
 							{m.date}
 							{m.description}
 							{#if m.role !== 'primary'}

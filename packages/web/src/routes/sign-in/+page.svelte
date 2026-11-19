@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { resolve } from '$app/paths';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import CodeInput from '#lib/web/components/ui-input-code/ui-input-code.svelte';
 	import Field from '#lib/web/components/ui-field/ui-field.svelte';
@@ -41,7 +42,7 @@
 				<span role="status">Sent again.</span>
 			{/if}
 		</div>
-		<a href="/sign-in" data-sveltekit-reload>Use a different email</a>
+		<a href={resolve('/sign-in')} data-sveltekit-reload>Use a different email</a>
 	</form>
 	<form {...resend} id="resend">
 		<input {...resend.fields.email.as('hidden', sent)} />

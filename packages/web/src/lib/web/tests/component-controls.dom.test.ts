@@ -2,7 +2,11 @@ import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { createRawSnippet } from 'svelte';
 import { describe, expect, it, vi } from 'vitest';
 
-vi.mock('$app/state', () => ({ page: { url: new URL('https://rupee.test/?ledger=a&span=5') } }));
+vi.mock('$app/state', async () => {
+	const state = await import('#tests/shared/app-state.ts');
+	state.visit('https://rupee.test/?ledger=a&span=5');
+	return state;
+});
 import Button from '#lib/web/components/ui-button/ui-button.svelte';
 import ChoiceChips from '#lib/web/components/ui-chip-choices/ui-chip-choices.svelte';
 import FilterModal from '#lib/web/components/ui-filter-modal/ui-filter-modal.svelte';
@@ -86,7 +90,7 @@ describe('a filter modal', () => {
 	it('resets by clearing its own parameters, keeping the rest of the query', async () => {
 		const panel = await opened();
 
-		expect(panel.getByRole('link', { name: 'Reset' }).getAttribute('href')).toBe('?ledger=a');
+		expect(panel.getByRole('link', { name: 'Reset' }).getAttribute('href')).toBe('/?ledger=a');
 	});
 });
 
@@ -99,7 +103,7 @@ describe('choice chips', () => {
 		const nav = screen.getByRole('navigation', { name: 'Accounts' });
 		expect(nav.querySelectorAll('svg')).toHaveLength(1);
 		expect(screen.getByRole('link', { name: 'All accounts' }).getAttribute('href')).toBe(
-			'?ledger=a&span=5',
+			'/?ledger=a&span=5',
 		);
 	});
 });

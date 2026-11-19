@@ -86,15 +86,16 @@
 		class={['amount', tone]}
 		title={r?.xirr == null ? undefined : r.yearly ? 'XIRR, per year' : 'Return over the period'}
 	>
-		{#if r?.xirr != null}{formatPercent(r.xirr)}{#if r.yearly}&nbsp;<span class="unit">p.a.</span
-				>{/if}{/if}
+		{#if r?.xirr != null}{formatPercent(r.xirr)}{#if r.yearly}&nbsp;<span class="unit">
+					p.a.
+				</span>{/if}{/if}
 	</td>
 {/snippet}
 
 {#snippet shareOf(value: string | null)}
-	<td class="share optional"
-		><Bar share={value === null || assets === 0n ? 0 : Number(value) / toNumber(assets)} /></td
-	>
+	<td class="share optional">
+		<Bar share={value === null || assets === 0n ? 0 : Number(value) / toNumber(assets)} />
+	</td>
 {/snippet}
 
 {#snippet held(account: string, holding: Holding, child: boolean)}
@@ -115,9 +116,9 @@
 		</td>
 		<Amount value={child ? numberOf(holding.units) : holding.units} units optional />
 		<Amount value={holding.cost} optional />
-		<Amount value={holding.value} note={holding.price && `@ ${formatAmount(holding.price, true)}`}
-			><span class="unpriced">unpriced</span></Amount
-		>
+		<Amount value={holding.value} note={holding.price && `@ ${formatAmount(holding.price, true)}`}>
+			<span class="unpriced">unpriced</span>
+		</Amount>
 		<Amount value={holding.gain} signed />
 		{@render returnOf(holding.gain, holding.cost)}
 		{@render flowed(child ? null : account)}

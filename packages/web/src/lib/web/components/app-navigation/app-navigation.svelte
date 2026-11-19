@@ -13,6 +13,7 @@
 	import { flowerOf } from '#lib/web/shared/flower.ts';
 	import { PAGES } from '#lib/web/shared/pages.ts';
 	import { afterNavigate } from '$app/navigation';
+	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 
 	type Props = {
@@ -27,14 +28,14 @@
 	const section = $derived(page.url.pathname.split('/')[3]);
 	const home = $derived({
 		label: 'Home',
-		href: '/',
+		href: resolve('/(signed-in)'),
 		current: page.route.id === '/(signed-in)',
 	});
 	const ledger = $derived(
 		handle
 			? PAGES.map((p) => ({
 					label: p.label,
-					href: `/l/${handle}/${p.path}`,
+					href: resolve(`/(signed-in)/l/[handle]/${p.path}`, { handle }),
 					current: page.params.handle !== undefined && p.path === section,
 				}))
 			: [],
@@ -72,7 +73,7 @@
 {/snippet}
 
 <header>
-	<a class="brand" href="/">Rupea</a>
+	<a class="brand" href={resolve('/(signed-in)')}>Rupea</a>
 
 	{#if username}
 		<form {...signOut} id="log-out" hidden></form>
@@ -99,8 +100,9 @@
 			<Dialog.Root bind:open={drawer.open}>
 				<Dialog.Trigger>
 					{#snippet child({ props })}
-						<span class="menu"><IconButton {...props} label="Menu" icon={IconMenu} outlined /></span
-						>
+						<span class="menu">
+							<IconButton {...props} label="Menu" icon={IconMenu} outlined />
+						</span>
 					{/snippet}
 				</Dialog.Trigger>
 				<Dialog.Content>

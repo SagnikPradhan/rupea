@@ -1,10 +1,11 @@
 <script lang="ts">
 	import IconCheck from '@tabler/icons-svelte-runes/icons/check';
+	import type { ResolvedPathname } from '$app/types';
 	import type { Snippet } from 'svelte';
 
 	type Props = {
 		/** A chip without a link is a button that calls onclick. */
-		href?: string;
+		href?: ResolvedPathname;
 		onclick?: () => void;
 		on?: boolean;
 		toggle?: boolean;
@@ -23,9 +24,9 @@
 	role={toggle && href !== undefined ? 'button' : undefined}
 	aria-pressed={toggle || href === undefined ? on : undefined}
 >
-	<span class="box" aria-hidden="true"
-		>{#if on}<IconCheck size={14} />{/if}</span
-	>
+	<span class="box" aria-hidden="true">
+		{#if on}<IconCheck size={14} />{/if}
+	</span>
 	{@render children()}
 </svelte:element>
 

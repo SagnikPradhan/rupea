@@ -89,7 +89,7 @@ describe('the transactions page', () => {
 		render(Page, { data });
 
 		const link = (await screen.findByRole('link', { name: 'Groceries' })) as HTMLAnchorElement;
-		expect(link.getAttribute('href')).toBe('?account=Expenses&edit=1');
+		expect(link.getAttribute('href')).toBe('/l/h/transactions?account=Expenses&edit=1');
 	});
 
 	it('names the applied filters as chips that remove them', async () => {
@@ -99,8 +99,8 @@ describe('the transactions page', () => {
 
 		const account = (await screen.findByRole('button', { name: 'Expenses' })) as HTMLAnchorElement;
 		const month = screen.getByRole('button', { name: 'Aug 2026' }) as HTMLAnchorElement;
-		expect(account.getAttribute('href')).toBe('?at=2026-08');
-		expect(month.getAttribute('href')).toBe('?account=Expenses');
+		expect(account.getAttribute('href')).toBe('/l/h/transactions?at=2026-08');
+		expect(month.getAttribute('href')).toBe('/l/h/transactions?account=Expenses');
 	});
 
 	it('shows the comment above a transaction as the file writes it', async () => {

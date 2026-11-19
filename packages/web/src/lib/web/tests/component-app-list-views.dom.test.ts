@@ -3,9 +3,11 @@ import { createRawSnippet } from 'svelte';
 import { describe, expect, it, vi } from 'vitest';
 import ListViews from '#lib/web/components/app-list-views/app-list-views.svelte';
 
-vi.mock('$app/state', () => ({
-	page: { url: new URL('https://rupea.test/l/h/transactions?account=Assets') },
-}));
+vi.mock('$app/state', async () => {
+	const state = await import('#tests/shared/app-state.ts');
+	state.visit('https://rupea.test/l/h/transactions?account=Assets');
+	return state;
+});
 
 const search = createRawSnippet(() => ({ render: () => '<form>Search</form>' }));
 

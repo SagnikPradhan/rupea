@@ -234,9 +234,9 @@
 		</div>
 	{/each}
 	<div class="more">
-		<button type="button" class="link" onclick={() => list.push({ key: '', value: '' })}
-			>Add detail</button
-		>
+		<button type="button" class="link" onclick={() => list.push({ key: '', value: '' })}>
+			Add detail
+		</button>
 	</div>
 {/snippet}
 
@@ -266,11 +266,13 @@
 			class="link"
 			aria-pressed={!mode.detail}
 			disabled={mode.detail && !fitsSimple}
-			onclick={showSimple}>Simple</button
+			onclick={showSimple}
 		>
-		<button type="button" class="link" aria-pressed={mode.detail} onclick={showDetail}
-			>Detail</button
-		>
+			Simple
+		</button>
+		<button type="button" class="link" aria-pressed={mode.detail} onclick={showDetail}>
+			Detail
+		</button>
 	</div>
 	{#if mode.detail && !fitsSimple}
 		<p class="reason">Simple fits two lines with an amount and nothing extra.</p>

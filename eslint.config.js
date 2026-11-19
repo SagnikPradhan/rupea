@@ -40,7 +40,13 @@ export default defineConfig(
 	svelte.configs.prettier,
 	{
 		files: ['**/*.svelte', '**/*.svelte.ts', '**/*.svelte.js'],
-		languageOptions: { parserOptions: { parser: ts.parser } },
+		languageOptions: {
+			parserOptions: {
+				parser: ts.parser,
+				projectService: true,
+				extraFileExtensions: ['.svelte'],
+			},
+		},
 	},
 	{
 		languageOptions: { globals: { ...globals.browser, ...globals.node } },

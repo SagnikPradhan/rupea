@@ -172,7 +172,7 @@ describe('the add transaction panel', () => {
 		await fireEvent.keyDown(window, { key: 'Escape' });
 
 		expect(goto).toHaveBeenCalledTimes(2);
-		expect(goto).toHaveBeenCalledWith('?at=2026-08');
+		expect(goto).toHaveBeenCalledWith('/l/h/transactions?at=2026-08');
 		expect(screen.queryByRole('link', { name: 'Cancel' })).toBeNull();
 	});
 
@@ -458,7 +458,7 @@ describe('the edit transaction panel', () => {
 		await type('Description', 'Groceries and fruit');
 		await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 
-		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('?at=2026-08'));
+		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/l/h/transactions?at=2026-08'));
 		expect(vi.mocked(saveTransaction).mock.calls[0]?.[0]).toMatchObject({
 			handle: 'h',
 			file: 'a.rupea',
@@ -490,7 +490,7 @@ describe('the edit transaction panel', () => {
 		await editing();
 		await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
-		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('?at=2026-08'));
+		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/l/h/transactions?at=2026-08'));
 		expect(vi.mocked(deleteTransaction).mock.calls[0]?.[0]).toEqual({
 			handle: 'h',
 			file: 'a.rupea',

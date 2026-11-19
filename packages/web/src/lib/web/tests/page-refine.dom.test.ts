@@ -66,7 +66,7 @@ describe('the refine page', () => {
 		await fireEvent.change(await screen.findByRole('combobox'), {
 			target: { value: 'hdfc.rupea' },
 		});
-		expect(goto).toHaveBeenCalledWith('?file=hdfc.rupea');
+		expect(goto).toHaveBeenCalledWith('/l/h/refine?file=hdfc.rupea');
 		expect(listSuggestions).not.toHaveBeenCalled();
 	});
 

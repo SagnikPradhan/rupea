@@ -110,7 +110,9 @@ describe('the accounts page', () => {
 		await screen.findByRole('navigation', { name: 'Account' });
 		expect(screen.getByTitle('Assets:Broker')).toBeTruthy();
 		expect(screen.queryByTitle('Assets:Bank')).toBeNull();
-		expect(screen.getByRole('link', { name: 'Select all' }).getAttribute('href')).toBe('?');
+		expect(screen.getByRole('link', { name: 'Select all' }).getAttribute('href')).toBe(
+			'/l/h/accounts',
+		);
 	});
 
 	it('draws the value against the cost, and says so when no holding has a cost', async () => {

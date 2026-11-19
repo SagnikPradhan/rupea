@@ -76,12 +76,12 @@
 					<span class="name">
 						{#if a.level > 1}<AccountName account={a.key} />{:else}{a.label}{/if}
 					</span>
-					<data
-						>{amounts ? `${formatAmount(String(a.value))} · ` : ''}{formatShare(
+					<data>
+						{amounts ? `${formatAmount(String(a.value))} · ` : ''}{formatShare(
 							String(a.share),
 							'1',
-						)}</data
-					>
+						)}
+					</data>
 				</li>
 			{/each}
 		</ul>

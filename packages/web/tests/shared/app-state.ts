@@ -4,9 +4,21 @@
  */
 const current = { url: new URL('https://rupea.test/') };
 
+const LEDGER = /^\/l\/([^/]+)(\/.*)?$/;
+
 export const page = {
 	get url() {
 		return current.url;
+	},
+	get route() {
+		const ledger = LEDGER.exec(current.url.pathname);
+		if (ledger) return { id: `/(signed-in)/l/[handle]${ledger[2] ?? ''}` };
+		if (current.url.pathname === '/') return { id: '/(signed-in)' };
+		return { id: current.url.pathname === '/sign-in' ? '/sign-in' : null };
+	},
+	get params() {
+		const handle = LEDGER.exec(current.url.pathname)?.[1];
+		return handle === undefined ? {} : { handle };
 	},
 };
 

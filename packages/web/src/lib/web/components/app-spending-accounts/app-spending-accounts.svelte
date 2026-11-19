@@ -72,10 +72,12 @@
 									class="fold"
 									aria-label="Accounts under {nameOf(row.account)}"
 									aria-expanded={opened.has(row.account)}
-									onclick={() => fold(row.account)}><Chevron size={16} /></button
-								>{/if}<a href={postingsOf(row.account)} title={row.account}
-								><AccountName account={row.account} depth={folds ? depth - 1 : depth} /></a
-							>
+									onclick={() => fold(row.account)}
+								>
+									<Chevron size={16} />
+								</button>{/if}<a href={postingsOf(row.account)} title={row.account}>
+								<AccountName account={row.account} depth={folds ? depth - 1 : depth} />
+							</a>
 							{#if partOf(row.account)}
 								{@const under = partOf(row.account)}
 								<Swatch

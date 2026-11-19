@@ -91,14 +91,14 @@
 						</td>
 						<td class="optional truncate">
 							<div class="line">
-								<span class="name"
-									>{#if from}<Account account={from.account} />{/if}</span
-								>
+								<span class="name">
+									{#if from}<Account account={from.account} />{/if}
+								</span>
 							</div>
 							<div class="line">
-								<span class="name"
-									>{#if to}<Account account={to.account} />{/if}</span
-								>
+								<span class="name">
+									{#if to}<Account account={to.account} />{/if}
+								</span>
 								{#if more > 0}<Tag>+{more}</Tag>{/if}
 							</div>
 						</td>

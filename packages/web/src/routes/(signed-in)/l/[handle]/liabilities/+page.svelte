@@ -26,7 +26,7 @@
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import Field from '#lib/web/components/ui-field/ui-field.svelte';
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
-	import { hrefWith } from '#lib/web/shared/links.ts';
+	import { hrefWith, postingsHref } from '#lib/web/shared/links.ts';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import * as v from 'valibot';
@@ -84,8 +84,7 @@
 	const fresh = $state({ name: '' });
 	const setupHref = (a: string | null) => hrefWith(page.url.searchParams, { setup: a ?? '' });
 
-	const postingsOf = (a: string) =>
-		`/l/${handle}/postings?${new URLSearchParams({ account: a, ...paramsOf(period) })}`;
+	const postingsOf = (a: string) => postingsHref(handle, { account: a, ...paramsOf(period) });
 </script>
 
 <PageHeader subtitle="What you owe, what is due, and when it ends">
@@ -195,9 +194,9 @@
 					{#each rows as row (row.account)}
 						<tr>
 							<th scope="row">
-								<a href={postingsOf(row.account)} title={row.account}
-									><AccountName account={row.account} depth={depthOf(row.account) - 1} /></a
-								>
+								<a href={postingsOf(row.account)} title={row.account}>
+									<AccountName account={row.account} depth={depthOf(row.account) - 1} />
+								</a>
 								{#if row.unpriced > 0}<Tag>{row.unpriced} unpriced</Tag>{/if}
 							</th>
 							<Amount value={printAmount(row.owed)} />
@@ -207,8 +206,9 @@
 							<Amount value={printAmount(row.payment)} />
 							<td class="amount">{row.due ?? ''}</td>
 							<td class="nowrap">
-								{#if row.leaf}<a href={setupHref(row.account)}>{row.setUp ? 'Edit' : 'Set up'}</a
-									>{/if}
+								{#if row.leaf}<a href={setupHref(row.account)}>
+										{row.setUp ? 'Edit' : 'Set up'}
+									</a>{/if}
 							</td>
 						</tr>
 					{/each}

@@ -9,6 +9,7 @@
 	import StatementView from '#lib/web/components/app-statement-view/app-statement-view.svelte';
 	import { UPLOAD_EXTENSIONS } from '@rupea/shared/files.ts';
 	import { goto } from '$app/navigation';
+	import { hrefOnly } from '#lib/web/shared/links.ts';
 	import { page } from '$app/state';
 
 	const { data } = $props();
@@ -25,7 +26,7 @@
 	// One statement uploaded alone opens at once.
 	async function openSingle(keys: string[]) {
 		const single = keys.length === 1 ? keys[0] : undefined;
-		if (single) await goto(`?statement=${encodeURIComponent(single)}`);
+		if (single) await goto(hrefOnly({ statement: single }));
 	}
 
 	// Imports run as jobs; poll them until none is left to run, then list what they made.

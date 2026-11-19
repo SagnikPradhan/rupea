@@ -3,6 +3,9 @@ import { AccountType } from './types';
 /** Where real money sits; Income and Expenses only say what it was for. */
 export const BALANCE_TYPES = [AccountType.Assets, AccountType.Liabilities];
 
+/** An account that holds money, as against one that says what it was for. */
+export const isBalance = (a: string) => BALANCE_TYPES.some((t) => t === accountType(a));
+
 /**
  * Accounts whose postings, and those under them, are an account's net
  * investment income rather than a flow.

@@ -1,4 +1,5 @@
 import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
+import { UNSETTLED } from '@rupea/shared/account-tree.ts';
 import { fault } from '@rupea/shared/errors.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
 import { GROUP_KEY, GROUP_KEYS, linksOf, type GroupLink, type GroupRole } from './groups';
@@ -13,14 +14,12 @@ export type LinkEdit = {
 	description: string;
 	role: GroupRole;
 	group: string;
-	counter: string | null;
+	settledAs: string | null;
 };
 
-const UNSETTLED = /^(\S*:)?(Unknown|Uncategorized)$/;
-
 // A link goes right under its header, so it is transaction metadata. Each
-// header must still be the one suggested, with no link of its own. A counter
-// is the account to put where the transaction still says Unknown.
+// header must still be the one suggested, with no link of its own. An edit
+// that names an account puts it where the transaction still says Unknown.
 export const insertLinks = (
 	config: LedgerConfiguration,
 	file: Pick<RupeaFile, 'key' | 'content'>,
@@ -44,7 +43,7 @@ export const insertLinks = (
 	if (stale) return err(fault('GroupStale', { location: `${stale.file}:${stale.line}` }));
 
 	const settled = edits.reduce<string[] | undefined>(
-		(l, e) => (l && e.counter ? settle(l, e.line, e.counter) : l),
+		(l, e) => (l && e.settledAs ? settle(l, e.line, e.settledAs) : l),
 		file.content.split('\n'),
 	);
 	if (!settled) return err(fault('GroupStale', { location: file.key }));
@@ -56,8 +55,8 @@ export const insertLinks = (
 	return ok(lines.join('\n'));
 };
 
-// Names the counter where the transaction under the header still says Unknown.
-const settle = (lines: string[], header: number, counter: string): string[] | undefined => {
+// Names the account where the transaction under the header still says Unknown.
+const settle = (lines: string[], header: number, account: string): string[] | undefined => {
 	const end = lines.findIndex((l, i) => i >= header && l.trim() === '');
 	const at = lines
 		.slice(header, end < 0 ? lines.length : end)
@@ -65,8 +64,8 @@ const settle = (lines: string[], header: number, counter: string): string[] | un
 	if (at < 0) return undefined;
 
 	const line = lines[header + at] ?? '';
-	const account = line.trim().split(/\s+/)[0] ?? '';
-	return lines.with(header + at, line.replace(account, counter));
+	const old = line.trim().split(/\s+/)[0] ?? '';
+	return lines.with(header + at, line.replace(old, account));
 };
 
 export type Relink = (t: RupeaTransaction, l: GroupLink) => GroupLink;

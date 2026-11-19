@@ -11,7 +11,7 @@ export type { LinkEdit } from '../domain/links';
 export { toNode } from '../domain/nodes';
 export { displayLocation, parse } from '../domain/parser';
 export { print } from '../domain/printer';
-export { accountType, BALANCE_TYPES } from '../domain/taxonomy';
+export { accountType, isBalance } from '../domain/taxonomy';
 export {
 	AccountType,
 	DisposalKind,

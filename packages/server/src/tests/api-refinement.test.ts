@@ -48,7 +48,7 @@ describe('the refinement api', () => {
 						date: '2026-10-03',
 						description: 'Deposit',
 						role: 'primary',
-						counter: null,
+						settledAs: null,
 					},
 					{
 						file: 'hdfc.rupea',
@@ -56,7 +56,7 @@ describe('the refinement api', () => {
 						date: '2026-10-03',
 						description: 'NEFT TO INTERACTIVE BROKERS',
 						role: 'evidence',
-						counter: null,
+						settledAs: null,
 					},
 				],
 			});

@@ -164,3 +164,19 @@ describe('changing a group', () => {
 			]);
 		}));
 });
+
+describe('listing candidates for a transfer', () => {
+	it('keeps the nearest few partners of a round amount', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const sent = '2026-10-03 NEFT TO SBI\n\tExpenses:Unknown 1000\n\tAssets:HDFC\n';
+			const received = ['03', '04', '05', '03', '04'].map(
+				(day, i) => `2026-10-${day} NEFT ${i}\n\tIncome:Unknown -1000\n\tAssets:SBI\n`,
+			);
+			await Files.createFile({ ledger, key: 'hdfc.rupea', content: sent });
+			await Files.createFile({ ledger, key: 'sbi.rupea', content: received.join('\n') });
+
+			const found = (await Groups.listCandidates({ ledger, file: 'hdfc.rupea' }))._unsafeUnwrap();
+			expect(found.pairs).toHaveLength(3);
+		}));
+});

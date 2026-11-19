@@ -6,6 +6,7 @@ import { atomically } from '#lib/server/db/atomically.ts';
 import { chunks } from '#lib/server/shared/arrays.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, okAsync, ResultAsync } from '#lib/server/shared/result/result.ts';
+import { UNSETTLED } from '@rupea/shared/account-tree.ts';
 import { sql, type Expression, type ExpressionBuilder, type SqlBool } from 'kysely';
 import type { Amount } from '../domain/amounts';
 import { GROUP_KEYS } from '../domain/groups';
@@ -167,6 +168,10 @@ export type CandidatePair = { ours: string; theirs: string };
 // Days either side of a transfer's date that its other half may be booked.
 const TRANSFER_DAYS = 2;
 
+// Partners kept for each posting, the nearest in date first, so a round amount
+// seen all over the ledger cannot fan out.
+const TRANSFER_PARTNERS = 3;
+
 export const listCandidates = (ledgerId: string, key: string): ResultAsync<CandidatePair[]> => {
 	const duplicates = listDuplicates(ledgerId, key);
 	const transfers = listTransfers(ledgerId, key);
@@ -209,8 +214,8 @@ const listDuplicates = (ledgerId: string, key: string): ResultAsync<CandidatePai
 // date)` index.
 const listTransfers = (ledgerId: string, key: string): ResultAsync<CandidatePair[]> =>
 	withContext('db')((db) =>
-		attempt(() =>
-			db
+		attempt(() => {
+			const pairs = db
 				.selectFrom('ledgerFiles as ourFile')
 				.innerJoin('transactions as ourTransaction', 'ourTransaction.fileId', 'ourFile.id')
 				.innerJoin('postings as ourPosting', 'ourPosting.transactionId', 'ourTransaction.id')
@@ -218,10 +223,10 @@ const listTransfers = (ledgerId: string, key: string): ResultAsync<CandidatePair
 					join
 						.onRef('theirPosting.ledgerId', '=', 'ourPosting.ledgerId')
 						.onRef('theirPosting.commodity', '=', 'ourPosting.commodity')
-						.on(sql<SqlBool>`"their_posting"."amount" = -"our_posting"."amount"`)
+						.on(sql<SqlBool>`${sql.ref('theirPosting.amount')} = -${sql.ref('ourPosting.amount')}`)
 						.onRef('theirPosting.accountId', '!=', 'ourPosting.accountId')
 						.on(
-							sql<SqlBool>`"their_posting"."date" between "our_posting"."date" - ${TRANSFER_DAYS}::int and "our_posting"."date" + ${TRANSFER_DAYS}::int`,
+							sql<SqlBool>`${sql.ref('theirPosting.date')} between ${sql.ref('ourPosting.date')} - ${TRANSFER_DAYS}::int and ${sql.ref('ourPosting.date')} + ${TRANSFER_DAYS}::int`,
 						),
 				)
 				.innerJoin('transactions as theirTransaction', (j) =>
@@ -233,21 +238,33 @@ const listTransfers = (ledgerId: string, key: string): ResultAsync<CandidatePair
 				.where('ourFile.key', '=', key)
 				.where('ourPosting.accountType', 'in', BALANCE_TYPES)
 				.where('theirPosting.accountType', 'in', BALANCE_TYPES)
-				.where(unsettledLeg('our_transaction'))
-				.where(unsettledLeg('their_transaction'))
-				.select(['ourTransaction.id as ours', 'theirTransaction.id as theirs'])
+				.where(unsettledLeg(sql.ref('ourTransaction.id')))
+				.where(unsettledLeg(sql.ref('theirTransaction.id')))
+				.select([
+					'ourTransaction.id as ours',
+					'theirTransaction.id as theirs',
+					sql<number>`row_number() over (
+						partition by ${sql.ref('ourPosting.id')}
+						order by abs(${sql.ref('theirPosting.date')} - ${sql.ref('ourPosting.date')}), ${sql.ref('theirTransaction.id')}
+					)`.as('nearness'),
+				]);
+
+			return db
+				.selectFrom(pairs.as('pairs'))
+				.where('pairs.nearness', '<=', TRANSFER_PARTNERS)
+				.select(['pairs.ours', 'pairs.theirs'])
 				.distinct()
-				.execute(),
-		),
+				.execute();
+		}),
 	);
 
 // A leg on an account still called Unknown or Uncategorized, so no one chose it.
-const unsettledLeg = (transaction: string) =>
+const unsettledLeg = (transaction: Expression<string>) =>
 	sql<SqlBool>`exists (
 		select 1 from postings leg
 		join accounts leg_account on leg_account.id = leg.account_id
-		where leg.transaction_id = ${sql.ref(`${transaction}.id`)}
-			and leg_account.name ~ ':(Unknown|Uncategorized)$'
+		where leg.transaction_id = ${transaction}
+			and leg_account.name ~ ${UNSETTLED.source}
 	)`;
 
 // Only transactions in a group, through the metadata `(ledger_id, key, value)` index.

@@ -114,6 +114,46 @@ describe('refining a saved file', () => {
 				expect(far.found._unsafeUnwrap()).toHaveLength(0);
 			}));
 
+		it('is not suggested when a side posts to two balance accounts', ({ context, db }) =>
+			provide(context, async () => {
+				const split =
+					'2026-10-03 NEFT TO SBI\n\tAssets:HDFC -1000\n\tAssets:Cash 400\n\tExpenses:Unknown 600\n';
+				const { found } = await suggestFor(db, split, received('2026-10-03'));
+				expect(found._unsafeUnwrap()).toHaveLength(0);
+			}));
+
+		it('is only ever a possible match, whatever the descriptions say', ({ context, db }) =>
+			provide(context, async () => {
+				const same = (other: string, sign: string) =>
+					`2026-10-03 NEFT TRANSFER\n\t${other} ${sign}1000\n\t${sign === '' ? 'Assets:HDFC' : 'Assets:SBI'}\n`;
+				const { found } = await suggestFor(
+					db,
+					same('Expenses:Unknown', ''),
+					same('Income:Unknown', '-'),
+				);
+				expect(found._unsafeUnwrap().map((s) => s.confidence)).toEqual(['possible']);
+			}));
+
+		it('finishes when only the first file was written', ({ context, db }) =>
+			provide(context, async () => {
+				const { ledger, found } = await suggestFor(db, sent('2026-10-03'), received('2026-10-03'));
+				const [transfer] = found._unsafeUnwrap();
+				const primary = edits([transfer as Refinement.Suggestion]).filter(
+					(e) => e.role === 'primary',
+				);
+				expect(await Groups.linkGroups({ ledger, edits: primary })).toEqual(ok([]));
+
+				const again = (
+					await Refinement.listSuggestions({ ledger, file: 'sbi.rupea' })
+				)._unsafeUnwrap();
+				expect(again.map((s) => [s.group, s.links.map((l) => l.role)])).toEqual([
+					[transfer?.group, ['evidence']],
+				]);
+				expect(await Groups.linkGroups({ ledger, edits: edits(again) })).toEqual(ok([]));
+				expect(await issues(ledger)).toEqual(ok([]));
+				expect((await listed(ledger)).filter((t) => t.counted)).toHaveLength(1);
+			}));
+
 		it('is not suggested when a side already has a category', ({ context, db }) =>
 			provide(context, async () => {
 				const { found } = await suggestFor(

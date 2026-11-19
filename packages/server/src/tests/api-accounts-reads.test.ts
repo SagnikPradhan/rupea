@@ -343,7 +343,7 @@ describe('the accounts api', () => {
 						date: '2026-10-02',
 						description: 'x',
 						role: 'primary',
-						counter: null,
+						settledAs: null,
 						group: 'g',
 					},
 				],

@@ -1,3 +1,6 @@
+/** An account named for a guess, so no one has said where the money went. */
+export const UNSETTLED = /(^|:)(Unknown|Uncategorized)$/;
+
 /** An account, the one right above it, and whether anything is posted to it. */
 export type AccountRow = { account: string; parent: string | null; posted: boolean };
 

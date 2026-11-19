@@ -121,7 +121,7 @@ export const LinkTarget = v.object({
 	 * The account to put where the transaction says Unknown, when it is a
 	 * transfer.
 	 */
-	counter: v.nullable(v.string()),
+	settledAs: v.nullable(v.string()),
 });
 
 /** The most link lines one call writes. */

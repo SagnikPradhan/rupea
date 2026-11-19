@@ -28,7 +28,7 @@ describe('suggested groups', () => {
 			description: 'Transfer',
 			role: 'primary' as const,
 			group: 'transfer',
-			counter: null,
+			settledAs: null,
 		});
 		const edits = [edit('hdfc.rupea', 1), edit('ibkr.rupea', 1), edit('ibkr.rupea', 4)];
 
@@ -54,7 +54,7 @@ describe('suggested groups', () => {
 			description: 'Transfer',
 			role: 'primary' as const,
 			group: 'transfer',
-			counter: null,
+			settledAs: null,
 		};
 
 		const linked = await linkGroups({ handle: 'home', edits: [edit] });

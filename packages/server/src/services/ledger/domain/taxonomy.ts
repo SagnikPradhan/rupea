@@ -4,7 +4,10 @@ import { AccountType } from './types';
 export const BALANCE_TYPES = [AccountType.Assets, AccountType.Liabilities];
 
 /** An account that holds money, as against one that says what it was for. */
-export const isBalance = (a: string) => BALANCE_TYPES.some((t) => t === accountType(a));
+export const isBalance = (a: string) => {
+	const type = accountType(a);
+	return type !== null && BALANCE_TYPES.includes(type);
+};
 
 /**
  * Accounts whose postings, and those under them, are an account's net

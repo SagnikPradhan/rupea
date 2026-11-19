@@ -1,1 +1,0 @@
-CREATE INDEX "postings_ledger_id_commodity_amount_date" ON "postings" USING btree ("ledger_id","commodity","amount","date") WHERE "postings"."account_type" in ('Assets', 'Liabilities');

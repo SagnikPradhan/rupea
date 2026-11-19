@@ -110,18 +110,17 @@ export const GroupId = v.pipe(
 /** What a suggestion is known by, so a dismissal can name it. */
 export const Fingerprint = v.pipe(v.string(), v.regex(/^[0-9a-f]{64}$/));
 
-/** Where a link line goes, and what the header there must still say. */
+/**
+ * Where a link line goes, and what the header there must still say. A transfer
+ * also names the account to write where the transaction says Unknown.
+ */
 export const LinkTarget = v.object({
 	file: Key,
 	line: Line,
 	date: v.string(),
 	description: v.string(),
 	role: Role,
-	/**
-	 * The account to put where the transaction says Unknown, when it is a
-	 * transfer.
-	 */
-	settledAs: v.nullable(v.string()),
+	settledAs: v.nullable(v.pipe(v.string(), v.regex(/^\S+$/), v.maxLength(200))),
 });
 
 /** The most link lines one call writes. */

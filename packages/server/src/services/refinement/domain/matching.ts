@@ -1,4 +1,5 @@
 import { sha256 } from '#lib/server/shared/hash.ts';
+import { UNSETTLED } from '@rupea/shared/account-tree.ts';
 import { byCodeUnit } from '@rupea/shared/text.ts';
 import {
 	GroupRole,
@@ -60,7 +61,14 @@ export const suggest = (options: SuggestOptions): Suggestion[] => {
 	});
 };
 
-type Scored = Omit<Suggestion, 'group' | 'links'>;
+type Scored = {
+	fingerprint: string;
+	confidence: Confidence;
+	ours: MatchedTransaction;
+	theirs: MatchedTransaction;
+	transfer: boolean;
+	settled: Settled;
+};
 
 const score = (
 	ours: MatchedTransaction | undefined,
@@ -79,6 +87,8 @@ const score = (
 			confidence: same && !transfer ? Confidence.Duplicate : Confidence.Possible,
 			ours,
 			theirs,
+			transfer,
+			settled,
 		},
 	];
 };
@@ -91,16 +101,13 @@ const strongestFirst = (a: Scored, b: Scored) =>
 
 // Joins an existing group when one side has it; otherwise the side with more
 // postings is the primary, and on a tie the one being refined, as the latest.
-const link = (c: Scored, ourGroups: Set<string>): Suggestion | null => {
+const link = ({ settled, transfer, ...c }: Scored, ourGroups: Set<string>): Suggestion | null => {
 	const ourLinks = linksOf(c.ours.metadata);
 	const theirLinks = linksOf(c.theirs.metadata);
 	if (ourLinks.length + theirLinks.length > 1) return null;
+	if (transfer && ourLinks.length + theirLinks.length > 0) return null;
 
-	const settled = settlementOf(c.ours, c.theirs);
-	if (!settled) return null;
-	if (settled.ours !== null && ourLinks.length + theirLinks.length > 0) return null;
-
-	const settledAs = (t: MatchedTransaction) => (t === c.ours ? settled.ours : settled.theirs);
+	const accountFor = (t: MatchedTransaction) => (t === c.ours ? settled.ours : settled.theirs);
 
 	const [ourLink] = ourLinks;
 	const [theirLink] = theirLinks;
@@ -109,13 +116,13 @@ const link = (c: Scored, ourGroups: Set<string>): Suggestion | null => {
 		return {
 			...c,
 			group: theirLink.group,
-			links: [target(c.ours, GroupRole.Evidence, settledAs(c.ours))],
+			links: [target(c.ours, GroupRole.Evidence, accountFor(c.ours))],
 		};
 	if (ourLink)
 		return {
 			...c,
 			group: ourLink.group,
-			links: [target(c.theirs, GroupRole.Evidence, settledAs(c.theirs))],
+			links: [target(c.theirs, GroupRole.Evidence, accountFor(c.theirs))],
 		};
 
 	const [primary, evidence] =
@@ -124,15 +131,18 @@ const link = (c: Scored, ourGroups: Set<string>): Suggestion | null => {
 		...c,
 		group: null,
 		links: [
-			target(primary, GroupRole.Primary, settledAs(primary)),
-			target(evidence, GroupRole.Evidence, settledAs(evidence)),
+			target(primary, GroupRole.Primary, accountFor(primary)),
+			target(evidence, GroupRole.Evidence, accountFor(evidence)),
 		],
 	};
 };
 
-// What each side's Unknown leg becomes. A transfer settles each side as the
-// other's account; the same movement booked alike on both has nothing to settle.
-// Null when the pair is neither, as when a side splits across balance accounts.
+/**
+ * What each side's Unknown leg becomes. A transfer settles each side as the
+ * other's account, and the same movement booked alike on both has nothing to
+ * settle. Null for any other pair, as when a side splits across balance
+ * accounts.
+ */
 type Settled = { ours: string | null; theirs: string | null };
 
 const settlementOf = (ours: MatchedTransaction, theirs: MatchedTransaction): Settled | null => {
@@ -149,8 +159,15 @@ const settlementOf = (ours: MatchedTransaction, theirs: MatchedTransaction): Set
 	const [theirAccount, ...theirOthers] = theirHeld.map((p) => p.account);
 	if (!ourAccount || !theirAccount || ourOthers.length > 0 || theirOthers.length > 0) return null;
 	if (ourAccount === theirAccount) return null;
+	if (!offsets(ours) || !offsets(theirs)) return null;
 
 	return { ours: theirAccount, theirs: ourAccount };
+};
+
+const offsets = (t: MatchedTransaction) => {
+	const [held] = heldBy(t);
+	const open = t.postings.filter((p) => UNSETTLED.test(p.account));
+	return open.length === 1 && open[0]?.amount === -(held?.amount ?? 0n);
 };
 
 const heldBy = (t: MatchedTransaction) => t.postings.filter((p) => isBalance(p.account));

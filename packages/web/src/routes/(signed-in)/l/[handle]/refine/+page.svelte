@@ -68,7 +68,7 @@
 				`${t.date} ${t.description}`,
 				...(role ? [`\t- ${KEYS[role]}: ${group}   ← added`] : []),
 				...t.postings.map((p) =>
-					settledAs && UNSETTLED.test(p.account)
+					settledAs && p === t.postings.find((x) => UNSETTLED.test(x.account))
 						? `\t${settledAs} ${p.quantity}   ← was ${p.account}`
 						: `\t${p.account} ${p.quantity}`,
 				),

@@ -165,11 +165,13 @@ export const recount = (ledgerId: string, uncounted: string[]): ResultAsync<Touc
 
 export type CandidatePair = { ours: string; theirs: string };
 
-// Days either side of a transfer's date that its other half may be booked.
+/** Days either side of a transfer's date that its other half may be booked. */
 const TRANSFER_DAYS = 2;
 
-// Partners kept for each posting, the nearest in date first, so a round amount
-// seen all over the ledger cannot fan out.
+/**
+ * Partners kept for each posting, nearest first, so a round amount cannot fan
+ * out.
+ */
 const TRANSFER_PARTNERS = 3;
 
 export const listCandidates = (ledgerId: string, key: string): ResultAsync<CandidatePair[]> => {
@@ -179,92 +181,92 @@ export const listCandidates = (ledgerId: string, key: string): ResultAsync<Candi
 	return ResultAsync.combine([duplicates, transfers]).map((p) => p.flat());
 };
 
-// Same date, amount and balance account, in another file; the other side goes
-// through the `(account_id, commodity, amount)` index.
+/** Same date, amount and balance account, in another file. */
 const listDuplicates = (ledgerId: string, key: string): ResultAsync<CandidatePair[]> =>
 	withContext('db')((db) =>
 		attempt(() =>
 			db
-				.selectFrom('ledgerFiles as ourFile')
-				.innerJoin('transactions as ourTransaction', 'ourTransaction.fileId', 'ourFile.id')
-				.innerJoin('postings as ourPosting', 'ourPosting.transactionId', 'ourTransaction.id')
-				.innerJoin('postings as theirPosting', (join) =>
-					join
-						.onRef('theirPosting.accountId', '=', 'ourPosting.accountId')
-						.onRef('theirPosting.commodity', '=', 'ourPosting.commodity')
-						.onRef('theirPosting.amount', '=', 'ourPosting.amount'),
+				.selectFrom('ledgerFiles as f')
+				.innerJoin('transactions as t', 't.fileId', 'f.id')
+				.innerJoin('postings as p', 'p.transactionId', 't.id')
+				.innerJoin('postings as q', (j) =>
+					j
+						.onRef('q.accountId', '=', 'p.accountId')
+						.onRef('q.commodity', '=', 'p.commodity')
+						.onRef('q.amount', '=', 'p.amount'),
 				)
-				.innerJoin('transactions as theirTransaction', (join) =>
-					join
-						.onRef('theirTransaction.id', '=', 'theirPosting.transactionId')
-						.onRef('theirTransaction.date', '=', 'ourTransaction.date')
-						.onRef('theirTransaction.fileId', '!=', 'ourFile.id'),
+				.innerJoin('transactions as u', (j) =>
+					j
+						.onRef('u.id', '=', 'q.transactionId')
+						.onRef('u.date', '=', 't.date')
+						.onRef('u.fileId', '!=', 'f.id'),
 				)
-				.where('ourFile.ledgerId', '=', ledgerId)
-				.where('ourFile.key', '=', key)
-				.where('ourPosting.accountType', 'in', BALANCE_TYPES)
-				.select(['ourTransaction.id as ours', 'theirTransaction.id as theirs'])
+				.where('f.ledgerId', '=', ledgerId)
+				.where('f.key', '=', key)
+				.where('p.accountType', 'in', BALANCE_TYPES)
+				.select(['t.id as ours', 'u.id as theirs'])
 				.distinct()
 				.execute(),
 		),
 	);
 
-// The opposite amount on another balance account, a few days either side, where
-// each file only knew its own side; through the `(ledger_id, commodity, amount,
-// date)` index.
+/**
+ * The opposite amount on another balance account a few days either side, where
+ * each file only knew its own side. Each balance account is looked up through
+ * the account, commodity and amount index.
+ */
 const listTransfers = (ledgerId: string, key: string): ResultAsync<CandidatePair[]> =>
 	withContext('db')((db) =>
 		attempt(() => {
 			const pairs = db
-				.selectFrom('ledgerFiles as ourFile')
-				.innerJoin('transactions as ourTransaction', 'ourTransaction.fileId', 'ourFile.id')
-				.innerJoin('postings as ourPosting', 'ourPosting.transactionId', 'ourTransaction.id')
-				.innerJoin('postings as theirPosting', (join) =>
-					join
-						.onRef('theirPosting.ledgerId', '=', 'ourPosting.ledgerId')
-						.onRef('theirPosting.commodity', '=', 'ourPosting.commodity')
-						.on(sql<SqlBool>`${sql.ref('theirPosting.amount')} = -${sql.ref('ourPosting.amount')}`)
-						.onRef('theirPosting.accountId', '!=', 'ourPosting.accountId')
+				.selectFrom('ledgerFiles as f')
+				.innerJoin('transactions as t', 't.fileId', 'f.id')
+				.innerJoin('postings as p', 'p.transactionId', 't.id')
+				.innerJoin('accounts as a', (j) =>
+					j
+						.onRef('a.ledgerId', '=', 'p.ledgerId')
+						.onRef('a.id', '!=', 'p.accountId')
+						.on('a.type', 'in', BALANCE_TYPES),
+				)
+				.innerJoin('postings as q', (j) =>
+					j
+						.onRef('q.accountId', '=', 'a.id')
+						.onRef('q.commodity', '=', 'p.commodity')
+						.on(sql<SqlBool>`q.amount = -p.amount`)
 						.on(
-							sql<SqlBool>`${sql.ref('theirPosting.date')} between ${sql.ref('ourPosting.date')} - ${TRANSFER_DAYS}::int and ${sql.ref('ourPosting.date')} + ${TRANSFER_DAYS}::int`,
+							sql<SqlBool>`q.date between p.date - ${TRANSFER_DAYS}::int and p.date + ${TRANSFER_DAYS}::int`,
 						),
 				)
-				.innerJoin('transactions as theirTransaction', (j) =>
-					j
-						.onRef('theirTransaction.id', '=', 'theirPosting.transactionId')
-						.onRef('theirTransaction.fileId', '!=', 'ourFile.id'),
+				.innerJoin('transactions as u', (j) =>
+					j.onRef('u.id', '=', 'q.transactionId').onRef('u.fileId', '!=', 'f.id'),
 				)
-				.where('ourFile.ledgerId', '=', ledgerId)
-				.where('ourFile.key', '=', key)
-				.where('ourPosting.accountType', 'in', BALANCE_TYPES)
-				.where('theirPosting.accountType', 'in', BALANCE_TYPES)
-				.where(unsettledLeg(sql.ref('ourTransaction.id')))
-				.where(unsettledLeg(sql.ref('theirTransaction.id')))
+				.where('f.ledgerId', '=', ledgerId)
+				.where('f.key', '=', key)
+				.where('p.accountType', 'in', BALANCE_TYPES)
+				.where(unsettled('t.id'))
+				.where(unsettled('u.id'))
 				.select([
-					'ourTransaction.id as ours',
-					'theirTransaction.id as theirs',
-					sql<number>`row_number() over (
-						partition by ${sql.ref('ourPosting.id')}
-						order by abs(${sql.ref('theirPosting.date')} - ${sql.ref('ourPosting.date')}), ${sql.ref('theirTransaction.id')}
-					)`.as('nearness'),
+					't.id as ours',
+					'u.id as theirs',
+					sql<number>`row_number() over (partition by p.id order by abs(q.date - p.date), u.id)`.as(
+						'rank',
+					),
 				]);
 
 			return db
-				.selectFrom(pairs.as('pairs'))
-				.where('pairs.nearness', '<=', TRANSFER_PARTNERS)
-				.select(['pairs.ours', 'pairs.theirs'])
+				.selectFrom(pairs.as('r'))
+				.where('r.rank', '<=', TRANSFER_PARTNERS)
+				.select(['r.ours', 'r.theirs'])
 				.distinct()
 				.execute();
 		}),
 	);
 
-// A leg on an account still called Unknown or Uncategorized, so no one chose it.
-const unsettledLeg = (transaction: Expression<string>) =>
+/** A transaction with a leg on an account still named Unknown or Uncategorized. */
+const unsettled = (transaction: string) =>
 	sql<SqlBool>`exists (
-		select 1 from postings leg
-		join accounts leg_account on leg_account.id = leg.account_id
-		where leg.transaction_id = ${transaction}
-			and leg_account.name ~ ${UNSETTLED.source}
+		select 1 from postings l join accounts n on n.id = l.account_id
+		where l.transaction_id = ${sql.ref(transaction)} and n.name ~ ${UNSETTLED.source}
 	)`;
 
 // Only transactions in a group, through the metadata `(ledger_id, key, value)` index.

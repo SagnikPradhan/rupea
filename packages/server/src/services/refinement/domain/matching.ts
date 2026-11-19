@@ -1,10 +1,12 @@
 import { sha256 } from '#lib/server/shared/hash.ts';
+import { UNSETTLED } from '@rupea/shared/account-tree.ts';
 import { byCodeUnit } from '@rupea/shared/text.ts';
 import {
 	GroupRole,
 	type LinkEdit,
 	type RupeaTransaction,
 	formatQuantity,
+	isBalance,
 	linksOf,
 } from '#services/ledger/application/language.ts';
 
@@ -59,7 +61,14 @@ export const suggest = (options: SuggestOptions): Suggestion[] => {
 	});
 };
 
-type Scored = Omit<Suggestion, 'group' | 'links'>;
+type Scored = {
+	fingerprint: string;
+	confidence: Confidence;
+	ours: MatchedTransaction;
+	theirs: MatchedTransaction;
+	transfer: boolean;
+	settled: Settled;
+};
 
 const score = (
 	ours: MatchedTransaction | undefined,
@@ -67,13 +76,19 @@ const score = (
 ): Scored[] => {
 	if (!ours || !theirs) return [];
 
+	const settled = settlementOf(ours, theirs);
+	if (!settled) return [];
+
 	const same = normalise(ours.description) === normalise(theirs.description);
+	const transfer = settled.ours !== null;
 	return [
 		{
 			fingerprint: fingerprint(ours, theirs),
-			confidence: same ? Confidence.Duplicate : Confidence.Possible,
+			confidence: same && !transfer ? Confidence.Duplicate : Confidence.Possible,
 			ours,
 			theirs,
+			transfer,
+			settled,
 		},
 	];
 };
@@ -86,33 +101,84 @@ const strongestFirst = (a: Scored, b: Scored) =>
 
 // Joins an existing group when one side has it; otherwise the side with more
 // postings is the primary, and on a tie the one being refined, as the latest.
-const link = (c: Scored, ourGroups: Set<string>): Suggestion | null => {
+const link = ({ settled, transfer, ...c }: Scored, ourGroups: Set<string>): Suggestion | null => {
 	const ourLinks = linksOf(c.ours.metadata);
 	const theirLinks = linksOf(c.theirs.metadata);
 	if (ourLinks.length + theirLinks.length > 1) return null;
+	if (transfer && ourLinks.length + theirLinks.length > 0) return null;
+
+	const accountFor = (t: MatchedTransaction) => (t === c.ours ? settled.ours : settled.theirs);
 
 	const [ourLink] = ourLinks;
 	const [theirLink] = theirLinks;
 	if (theirLink && ourGroups.has(theirLink.group)) return null;
 	if (theirLink)
-		return { ...c, group: theirLink.group, links: [target(c.ours, GroupRole.Evidence)] };
-	if (ourLink) return { ...c, group: ourLink.group, links: [target(c.theirs, GroupRole.Evidence)] };
+		return {
+			...c,
+			group: theirLink.group,
+			links: [target(c.ours, GroupRole.Evidence, accountFor(c.ours))],
+		};
+	if (ourLink)
+		return {
+			...c,
+			group: ourLink.group,
+			links: [target(c.theirs, GroupRole.Evidence, accountFor(c.theirs))],
+		};
 
 	const [primary, evidence] =
 		c.theirs.postings.length > c.ours.postings.length ? [c.theirs, c.ours] : [c.ours, c.theirs];
 	return {
 		...c,
 		group: null,
-		links: [target(primary, GroupRole.Primary), target(evidence, GroupRole.Evidence)],
+		links: [
+			target(primary, GroupRole.Primary, accountFor(primary)),
+			target(evidence, GroupRole.Evidence, accountFor(evidence)),
+		],
 	};
 };
 
-const target = (t: MatchedTransaction, role: GroupRole): LinkTarget => ({
+/**
+ * What each side's Unknown leg becomes. A transfer settles each side as the
+ * other's account, and the same movement booked alike on both has nothing to
+ * settle. Null for any other pair, as when a side splits across balance
+ * accounts.
+ */
+type Settled = { ours: string | null; theirs: string | null };
+
+const settlementOf = (ours: MatchedTransaction, theirs: MatchedTransaction): Settled | null => {
+	const ourHeld = heldBy(ours);
+	const theirHeld = heldBy(theirs);
+	const shared = ourHeld.some((o) =>
+		theirHeld.some(
+			(t) => t.account === o.account && t.commodity === o.commodity && t.amount === o.amount,
+		),
+	);
+	if (shared) return { ours: null, theirs: null };
+
+	const [ourAccount, ...ourOthers] = ourHeld.map((p) => p.account);
+	const [theirAccount, ...theirOthers] = theirHeld.map((p) => p.account);
+	if (!ourAccount || !theirAccount || ourOthers.length > 0 || theirOthers.length > 0) return null;
+	if (ourAccount === theirAccount) return null;
+	if (!offsets(ours) || !offsets(theirs)) return null;
+
+	return { ours: theirAccount, theirs: ourAccount };
+};
+
+const offsets = (t: MatchedTransaction) => {
+	const [held] = heldBy(t);
+	const open = t.postings.filter((p) => UNSETTLED.test(p.account));
+	return open.length === 1 && open[0]?.amount === -(held?.amount ?? 0n);
+};
+
+const heldBy = (t: MatchedTransaction) => t.postings.filter((p) => isBalance(p.account));
+
+const target = (t: MatchedTransaction, role: GroupRole, settledAs: string | null): LinkTarget => ({
 	file: t.location.file,
 	line: t.location.line,
 	date: t.date.toString(),
 	description: t.description,
 	role,
+	settledAs,
 });
 
 // Changes when either side does, so a dismissal lapses with an edit. The

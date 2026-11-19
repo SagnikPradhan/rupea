@@ -24,6 +24,7 @@ const edit = (line: number, description: string, date: string, role: GroupRole):
 	description,
 	role,
 	group: `e${line}`,
+	settledAs: null,
 });
 
 const insert = (e: LinkEdit[], text = content) =>
@@ -72,6 +73,37 @@ describe('inserting links', () => {
 
 		expect(insert([tea], linked).isErr()).toBe(true);
 		expect(insert([tea, tea]).isErr()).toBe(true);
+	});
+});
+
+describe('settling a transfer', () => {
+	const transfer = (text: string) => ['2026-10-01 MOVE', '\tAssets:HDFC -5', text].join('\n');
+	const settle = (text: string) =>
+		insert(
+			[{ ...edit(1, 'MOVE', '2026-10-01', GroupRole.Primary), settledAs: 'Assets:SBI' }],
+			text,
+		);
+
+	it('names the account where the transaction says Unknown', () => {
+		expect(settle(transfer('\tExpenses:Unknown'))._unsafeUnwrap()).toBe(
+			['2026-10-01 MOVE', '\t- group: e1', '\tAssets:HDFC -5', '\tAssets:SBI'].join('\n'),
+		);
+		expect(settle(`${transfer('\tIncome:Unknown 5')}\n\n`)._unsafeUnwrap()).toContain(
+			'\tAssets:SBI 5',
+		);
+	});
+
+	it('writes the account as given, even with replacement patterns in it', () => {
+		const hostile = { ...edit(1, 'MOVE', '2026-10-01', GroupRole.Primary), settledAs: 'A$&B' };
+
+		expect(insert([hostile], transfer('\tExpenses:Unknown'))._unsafeUnwrap()).toContain('\tA$&B');
+	});
+
+	it('refuses a transaction with no Unknown leg left', () => {
+		expect(settle(transfer('\tExpenses:Food'))._unsafeUnwrapErr()).toEqual({
+			type: 'GroupStale',
+			location: 'a.rupea:1',
+		});
 	});
 });
 

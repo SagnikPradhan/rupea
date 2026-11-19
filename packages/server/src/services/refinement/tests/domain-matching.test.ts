@@ -139,6 +139,63 @@ describe('suggesting groups', () => {
 	});
 });
 
+describe('suggesting transfers', () => {
+	const side = (id: string, held: string, amount: string, other = 'Expenses:Unknown') =>
+		transaction(id, 'TRANSFER', [
+			[held, amount],
+			[other, amount.startsWith('-') ? amount.slice(1) : `-${amount}`],
+		]);
+
+	const settled = (a: MatchedTransaction, b: MatchedTransaction) =>
+		run([a, b], [[a.id, b.id]]).flatMap((s) => s.links.map((l) => [l.file, l.settledAs]));
+
+	it('settles each side as the other account, and only ever as possible', () => {
+		const out = side('hdfc/1', 'Assets:HDFC', '-100');
+		const into = side('sbi/1', 'Assets:SBI', '100', 'Income:Unknown');
+
+		expect(settled(out, into)).toEqual([
+			['hdfc.rupea', 'Assets:SBI'],
+			['sbi.rupea', 'Assets:HDFC'],
+		]);
+		expect(run([out, into], [['hdfc/1', 'sbi/1']]).map((s) => s.confidence)).toEqual([
+			Confidence.Possible,
+		]);
+	});
+
+	it.each([
+		[
+			'both sides on the same account',
+			side('a/1', 'Assets:HDFC', '-100'),
+			side('b/1', 'Assets:HDFC', '100'),
+		],
+		[
+			'a side split across two balance accounts',
+			transaction('a/1', 'TRANSFER', [
+				['Assets:HDFC', '-100'],
+				['Assets:SBI', '60'],
+				['Expenses:Unknown', '40'],
+			]),
+			side('b/1', 'Assets:SBI', '100'),
+		],
+		[
+			'an Unknown leg that is not the moved amount',
+			transaction('a/1', 'TRANSFER', [
+				['Assets:HDFC', '-100'],
+				['Expenses:Unknown', '60'],
+				['Expenses:Food', '40'],
+			]),
+			side('b/1', 'Assets:SBI', '100'),
+		],
+		[
+			'a side already in a group',
+			transaction('a/1', 'TRANSFER', undefined, { group: ['e1'] }),
+			side('b/1', 'Assets:SBI', '100'),
+		],
+	])('suggests nothing for %s', (_, a, b) => {
+		expect(settled(a, b)).toEqual([]);
+	});
+});
+
 describe('fingerprinting a pair', () => {
 	it('ignores which side is which, and changes with either', () => {
 		const a = transaction('a/1', 'TEA');

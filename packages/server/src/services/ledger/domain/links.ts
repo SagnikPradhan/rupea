@@ -1,4 +1,5 @@
 import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
+import { UNSETTLED } from '@rupea/shared/account-tree.ts';
 import { fault } from '@rupea/shared/errors.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
 import { GROUP_KEY, GROUP_KEYS, linksOf, type GroupLink, type GroupRole } from './groups';
@@ -13,10 +14,14 @@ export type LinkEdit = {
 	description: string;
 	role: GroupRole;
 	group: string;
+	settledAs: string | null;
 };
 
-// A link goes right under its header, so it is transaction metadata. Each
-// header must still be the one suggested, with no link of its own.
+/**
+ * A link goes right under its header, so it is transaction metadata. Each
+ * header must still be the one suggested, with no link of its own. An edit that
+ * names an account puts it where the transaction still says Unknown.
+ */
 export const insertLinks = (
 	config: LedgerConfiguration,
 	file: Pick<RupeaFile, 'key' | 'content'>,
@@ -39,14 +44,39 @@ export const insertLinks = (
 	});
 	if (stale) return err(fault('GroupStale', { location: `${stale.file}:${stale.line}` }));
 
+	const renamed = edits.reduce<string[] | undefined>(
+		(l, e) => (l && e.settledAs ? renameUnknownLeg(l, e.line, e.settledAs) : l),
+		file.content.split('\n'),
+	);
+	const noLeg = edits.find((e) => e.settledAs && !renamed);
+	if (!renamed || noLeg)
+		return err(fault('GroupStale', { location: `${file.key}:${noLeg?.line ?? 0}` }));
+
 	// Bottom up, so earlier insertions do not move later lines.
 	const lines = [...edits]
 		.sort((a, b) => b.line - a.line)
-		.reduce(
-			(l, e) => l.toSpliced(e.line, 0, `\t- ${GROUP_KEY[e.role]}: ${e.group}`),
-			file.content.split('\n'),
-		);
+		.reduce((l, e) => l.toSpliced(e.line, 0, `\t- ${GROUP_KEY[e.role]}: ${e.group}`), renamed);
 	return ok(lines.join('\n'));
+};
+
+/** Names the account where the transaction under the header says Unknown. */
+const renameUnknownLeg = (
+	lines: string[],
+	header: number,
+	account: string,
+): string[] | undefined => {
+	const end = lines.findIndex((l, i) => i >= header && l.trim() === '');
+	const at = lines
+		.slice(header, end < 0 ? lines.length : end)
+		.findIndex((l) => UNSETTLED.test(l.trim().split(/\s+/)[0] ?? ''));
+	if (at < 0) return undefined;
+
+	const line = lines[header + at] ?? '';
+	const old = line.trim().split(/\s+/)[0] ?? '';
+	return lines.with(
+		header + at,
+		line.replace(old, () => account),
+	);
 };
 
 export type Relink = (t: RupeaTransaction, l: GroupLink) => GroupLink;

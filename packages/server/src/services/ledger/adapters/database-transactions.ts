@@ -6,6 +6,7 @@ import { atomically } from '#lib/server/db/atomically.ts';
 import { chunks } from '#lib/server/shared/arrays.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { attempt, okAsync, ResultAsync } from '#lib/server/shared/result/result.ts';
+import { UNSETTLED } from '@rupea/shared/account-tree.ts';
 import { sql, type Expression, type ExpressionBuilder, type SqlBool } from 'kysely';
 import type { Amount } from '../domain/amounts';
 import { GROUP_KEYS } from '../domain/groups';
@@ -164,35 +165,109 @@ export const recount = (ledgerId: string, uncounted: string[]): ResultAsync<Touc
 
 export type CandidatePair = { ours: string; theirs: string };
 
-// Same date, amount and balance account, in another file; the other side goes
-// through the `(account_id, commodity, amount)` index.
-export const listCandidates = (ledgerId: string, key: string): ResultAsync<CandidatePair[]> =>
+/** Days either side of a transfer's date that its other half may be booked. */
+const TRANSFER_DAYS = 2;
+
+/**
+ * Partners kept for each posting, nearest first, so a round amount cannot fan
+ * out.
+ */
+const TRANSFER_PARTNERS = 3;
+
+export const listCandidates = (ledgerId: string, key: string): ResultAsync<CandidatePair[]> => {
+	const duplicates = listDuplicates(ledgerId, key);
+	const transfers = listTransfers(ledgerId, key);
+
+	return ResultAsync.combine([duplicates, transfers]).map((p) => p.flat());
+};
+
+/** Same date, amount and balance account, in another file. */
+const listDuplicates = (ledgerId: string, key: string): ResultAsync<CandidatePair[]> =>
 	withContext('db')((db) =>
 		attempt(() =>
 			db
-				.selectFrom('ledgerFiles as ourFile')
-				.innerJoin('transactions as ourTransaction', 'ourTransaction.fileId', 'ourFile.id')
-				.innerJoin('postings as ourPosting', 'ourPosting.transactionId', 'ourTransaction.id')
-				.innerJoin('postings as theirPosting', (join) =>
-					join
-						.onRef('theirPosting.accountId', '=', 'ourPosting.accountId')
-						.onRef('theirPosting.commodity', '=', 'ourPosting.commodity')
-						.onRef('theirPosting.amount', '=', 'ourPosting.amount'),
+				.selectFrom('ledgerFiles as f')
+				.innerJoin('transactions as t', 't.fileId', 'f.id')
+				.innerJoin('postings as p', 'p.transactionId', 't.id')
+				.innerJoin('postings as q', (j) =>
+					j
+						.onRef('q.accountId', '=', 'p.accountId')
+						.onRef('q.commodity', '=', 'p.commodity')
+						.onRef('q.amount', '=', 'p.amount'),
 				)
-				.innerJoin('transactions as theirTransaction', (join) =>
-					join
-						.onRef('theirTransaction.id', '=', 'theirPosting.transactionId')
-						.onRef('theirTransaction.date', '=', 'ourTransaction.date')
-						.onRef('theirTransaction.fileId', '!=', 'ourFile.id'),
+				.innerJoin('transactions as u', (j) =>
+					j
+						.onRef('u.id', '=', 'q.transactionId')
+						.onRef('u.date', '=', 't.date')
+						.onRef('u.fileId', '!=', 'f.id'),
 				)
-				.where('ourFile.ledgerId', '=', ledgerId)
-				.where('ourFile.key', '=', key)
-				.where('ourPosting.accountType', 'in', BALANCE_TYPES)
-				.select(['ourTransaction.id as ours', 'theirTransaction.id as theirs'])
+				.where('f.ledgerId', '=', ledgerId)
+				.where('f.key', '=', key)
+				.where('p.accountType', 'in', BALANCE_TYPES)
+				.select(['t.id as ours', 'u.id as theirs'])
 				.distinct()
 				.execute(),
 		),
 	);
+
+/**
+ * The opposite amount on another balance account a few days either side, where
+ * each file only knew its own side. Each balance account is looked up through
+ * the account, commodity and amount index.
+ */
+const listTransfers = (ledgerId: string, key: string): ResultAsync<CandidatePair[]> =>
+	withContext('db')((db) =>
+		attempt(() => {
+			const pairs = db
+				.selectFrom('ledgerFiles as f')
+				.innerJoin('transactions as t', 't.fileId', 'f.id')
+				.innerJoin('postings as p', 'p.transactionId', 't.id')
+				.innerJoin('accounts as a', (j) =>
+					j
+						.onRef('a.ledgerId', '=', 'p.ledgerId')
+						.onRef('a.id', '!=', 'p.accountId')
+						.on('a.type', 'in', BALANCE_TYPES),
+				)
+				.innerJoin('postings as q', (j) =>
+					j
+						.onRef('q.accountId', '=', 'a.id')
+						.onRef('q.commodity', '=', 'p.commodity')
+						.on(sql<SqlBool>`q.amount = -p.amount`)
+						.on(
+							sql<SqlBool>`q.date between p.date - ${TRANSFER_DAYS}::int and p.date + ${TRANSFER_DAYS}::int`,
+						),
+				)
+				.innerJoin('transactions as u', (j) =>
+					j.onRef('u.id', '=', 'q.transactionId').onRef('u.fileId', '!=', 'f.id'),
+				)
+				.where('f.ledgerId', '=', ledgerId)
+				.where('f.key', '=', key)
+				.where('p.accountType', 'in', BALANCE_TYPES)
+				.where(unsettled('t.id'))
+				.where(unsettled('u.id'))
+				.select([
+					't.id as ours',
+					'u.id as theirs',
+					sql<number>`row_number() over (partition by p.id order by abs(q.date - p.date), u.id)`.as(
+						'rank',
+					),
+				]);
+
+			return db
+				.selectFrom(pairs.as('r'))
+				.where('r.rank', '<=', TRANSFER_PARTNERS)
+				.select(['r.ours', 'r.theirs'])
+				.distinct()
+				.execute();
+		}),
+	);
+
+/** A transaction with a leg on an account still named Unknown or Uncategorized. */
+const unsettled = (transaction: string) =>
+	sql<SqlBool>`exists (
+		select 1 from postings l join accounts n on n.id = l.account_id
+		where l.transaction_id = ${sql.ref(transaction)} and n.name ~ ${UNSETTLED.source}
+	)`;
 
 // Only transactions in a group, through the metadata `(ledger_id, key, value)` index.
 export const listGroupTransactions = (ledgerId: string): ResultAsync<IndexedTransaction[]> =>

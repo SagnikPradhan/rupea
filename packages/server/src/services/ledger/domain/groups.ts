@@ -1,7 +1,7 @@
 import { fault, type RupeaError } from '@rupea/shared/errors.ts';
 import { formatQuantity, sum } from './amounts';
 import { displayLocation } from './parser';
-import { accountType, BALANCE_TYPES } from './taxonomy';
+import { isBalance } from './taxonomy';
 import { type RupeaMetadata, type RupeaParseLocation, type RupeaPosting } from './types';
 
 export enum GroupRole {
@@ -138,7 +138,7 @@ const disagreements = (
 };
 
 const balances = (t: GroupMember) => {
-	const held = t.postings.filter((p) => BALANCE_TYPES.some((b) => b === accountType(p.account)));
+	const held = t.postings.filter((p) => isBalance(p.account));
 	const groups = Object.values(Object.groupBy(held, (p) => `${p.account} ${p.commodity}`));
 
 	return groups.flatMap((same = []) => {

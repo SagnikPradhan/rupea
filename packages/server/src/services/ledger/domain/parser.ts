@@ -18,7 +18,7 @@ import {
 	type Quantity,
 } from './amounts';
 import { movesInKind } from './lots';
-import { accountOf, linkOf, priceOf, toMetadata, transactionOf } from './nodes';
+import { accountOf, budgetOf, linkOf, priceOf, toMetadata, transactionOf } from './nodes';
 import { accountType } from './taxonomy';
 import {
 	Feed,
@@ -27,6 +27,7 @@ import {
 	type LotCost,
 	type Price,
 	type RupeaAccount,
+	type RupeaBudget,
 	type RupeaEntries,
 	type RupeaEntryNode,
 	type RupeaFailedNode,
@@ -57,6 +58,7 @@ type RupeaParsedFile = Batch<RupeaTransaction> & {
 	prices: RupeaMarketPrice[];
 	links: RupeaLink[];
 	accounts: RupeaAccount[];
+	budgets: RupeaBudget[];
 };
 
 /** What a file holds for the ledger, read from its tree. */
@@ -107,6 +109,7 @@ const parsedFrom = (tree: RupeaFileNode): RupeaParsedFile => {
 		prices: entries.flatMap((e) => (e.kind === NodeKind.Price ? [priceOf(e)] : [])),
 		links: entries.flatMap((e) => (e.kind === NodeKind.Link ? [linkOf(e)] : [])),
 		accounts: entries.flatMap((e) => (e.kind === NodeKind.Account ? [accountOf(e)] : [])),
+		budgets: entries.flatMap((e) => (e.kind === NodeKind.Budget ? [budgetOf(e)] : [])),
 		succeeded: entries.flatMap((e) => (e.kind === NodeKind.Transaction ? [transactionOf(e)] : [])),
 		failed: entries.flatMap((e) => (e.kind === NodeKind.Failed ? e.errors : [])),
 	};
@@ -202,6 +205,7 @@ const readNode = (
 ): RupeaEntryNode[] => {
 	if (isPLine(line)) return [readPLine(c, line, commentsUnder(rest))];
 	if (isALine(line)) return [readALine(c, line, takeWhile(rest, isMetadata), commentsUnder(rest))];
+	if (isBLine(line)) return [readBLine(c, line, takeWhile(rest, isMetadata), commentsUnder(rest))];
 	if (isMetadata(line)) return [failed([line], commentsUnder(rest), [detached(line)])];
 
 	const body = bodyOf(rest);
@@ -217,7 +221,7 @@ const readNode = (
 };
 
 /**
- * After a bad header only P and A lines are read; the lines between them are
+ * After a bad header only P, A and B lines are read; the lines between them are
  * kept as written.
  */
 const unread = (
@@ -230,15 +234,22 @@ const unread = (
 		failed(trimBlank([line, ...takeWhile(input, (l) => !isDirective(l))]), [], [error]),
 	];
 	for (const line of drain(input)) {
-		entries.push(
-			isALine(line)
-				? readALine(c, line, takeWhile(input, isMetadata), commentsUnder(input))
-				: readPLine(c, line, []),
-		);
+		entries.push(readDirective(c, line, input));
 		const between = trimBlank(takeWhile(input, (l) => !isDirective(l)));
 		if (between.length > 0) entries.push(failed(between, [], []));
 	}
 	return entries;
+};
+
+const readDirective = (
+	c: LedgerConfiguration,
+	line: RupeaLine,
+	input: Cursor<RupeaLine>,
+): RupeaEntryNode => {
+	if (isALine(line)) return readALine(c, line, takeWhile(input, isMetadata), commentsUnder(input));
+	if (isBLine(line)) return readBLine(c, line, takeWhile(input, isMetadata), commentsUnder(input));
+
+	return readPLine(c, line, []);
 };
 
 /** The postings, metadata and comments under a header. */
@@ -390,7 +401,7 @@ const readPLine = (c: LedgerConfiguration, l: RupeaLine, comments: string[]): Ru
 
 /** An A line sets an account up, with the dash lines under it as its terms. */
 const isALine = ({ content }: RupeaLine) => /^A\s/.test(content);
-const isDirective = (l: RupeaLine) => isPLine(l) || isALine(l);
+const isDirective = (l: RupeaLine) => isPLine(l) || isALine(l) || isBLine(l);
 
 const readALine = (
 	c: LedgerConfiguration,
@@ -410,10 +421,17 @@ const readALine = (
 	);
 };
 
-const parseAccountLine = (
+const parseAccountLine = (c: LedgerConfiguration, l: RupeaLine) =>
+	parseSubjectLine(c, l, (l) => fault('ParseInvalidAccountLine', { location: l }));
+
+type Subject = { location: RupeaParseLocation; since: Temporal.PlainDate | null; account: string };
+
+/** A directive's date or star, then one account under a root. */
+const parseSubjectLine = (
 	{ dateFormats }: LedgerConfiguration,
 	{ location, content }: RupeaLine,
-): Result<{ location: RupeaParseLocation; since: Temporal.PlainDate | null; account: string }> => {
+	invalid: (location: string) => RupeaError,
+): Result<Subject> => {
 	const at = { location: displayLocation(location) };
 	const words = content.trim().split(/\s+/).slice(1);
 	const since =
@@ -421,11 +439,68 @@ const parseAccountLine = (
 			? { value: null, rest: words.slice(1) }
 			: readWords(dateFormats, words, parseDate);
 	const [account = '', ...extra] = since?.rest ?? [];
-	if (!since || account === '' || extra.length > 0)
-		return err(fault('ParseInvalidAccountLine', at));
+	if (!since || account === '' || extra.length > 0) return err(invalid(at.location));
 	if (!accountType(account)) return err(fault('ParseInvalidAccount', { ...at, account }));
 
 	return ok({ location, since: since.value, account });
+};
+
+/** A B line budgets an account, with the dash lines under it as its keys. */
+const isBLine = ({ content }: RupeaLine) => /^B\s/.test(content);
+
+const readBLine = (
+	c: LedgerConfiguration,
+	l: RupeaLine,
+	dashes: RupeaLine[],
+	comments: string[],
+): RupeaEntryNode => {
+	const unread = (e: RupeaError[]) => failed([l, ...dashes], comments, e);
+	const metadata = readMetadata(dashes);
+
+	return parseSubjectLine(c, l, (l) => fault('ParseInvalidBudgetLine', { location: l })).match(
+		(v) => {
+			const faults =
+				metadata.failed.length > 0 ? metadata.failed : budgetFaults(c, v, metadata.entries);
+			return faults.length > 0
+				? unread(faults)
+				: { kind: NodeKind.Budget, comments, ...v, metadata: metadata.entries, children: [] };
+		},
+		(e) => unread([e, ...metadata.failed]),
+	);
+};
+
+const PERIODS = ['month', 'year'];
+
+/**
+ * Each key a B line names must hold what it means; a B * line must give its
+ * limit.
+ */
+const budgetFaults = (
+	{ dateFormats }: LedgerConfiguration,
+	{ location, since }: Subject,
+	entries: RupeaEntries,
+): RupeaError[] => {
+	const first = (k: string) => entries.find(([x]) => x === k)?.[1];
+	const limit = first('limit');
+	const period = first('period');
+	const start = first('start');
+	const bad = (k: string) =>
+		fault('ParseInvalidBudget', { location: displayLocation(location), key: k });
+
+	const isLimit = (v: string) => {
+		const amount = parseAmount(v);
+		return amount !== null && amount >= 0n;
+	};
+	const isStart = (v: string) =>
+		readWords(dateFormats, v.split(/\s+/), parseDate)?.rest.length === 0;
+
+	const faults = {
+		limit: (limit === undefined && since === null) || (limit !== undefined && !isLimit(limit)),
+		period: period !== undefined && !PERIODS.includes(period),
+		start: start !== undefined && !isStart(start),
+	};
+
+	return Object.entries(faults).flatMap(([key, isBad]) => (isBad ? [bad(key)] : []));
 };
 
 type Written = { posting: WrittenPosting; metadata: RupeaEntries; comments: string[] };

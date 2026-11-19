@@ -99,7 +99,15 @@ const indexFile = ({ ledgerId, file, full }: IndexFileOptions): ResultAsync<Inde
 			const parsed = parseChanged(config.ledger, file, inLedger && !full ? held.hashCounts : {});
 			const found = inLedger
 				? parsed
-				: { ...parsed, succeeded: [], prices: [], links: [], accounts: [], failed: [] };
+				: {
+						...parsed,
+						succeeded: [],
+						prices: [],
+						links: [],
+						accounts: [],
+						budgets: [],
+						failed: [],
+					};
 
 			return DB.indexFile(ledgerId, {
 				key: file.key,
@@ -110,6 +118,7 @@ const indexFile = ({ ledgerId, file, full }: IndexFileOptions): ResultAsync<Inde
 					prices: found.prices,
 					links: found.links,
 					accounts: found.accounts,
+					budgets: found.budgets,
 				},
 				failed: found.failed,
 				held,

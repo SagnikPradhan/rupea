@@ -9,6 +9,7 @@ import {
 	type LotCost,
 	type Price,
 	type RupeaAccountNode,
+	type RupeaBudgetNode,
 	type RupeaEntries,
 	type RupeaEntryNode,
 	type RupeaFileNode,
@@ -43,6 +44,7 @@ const printEntry = (c: LedgerConfiguration, column: number, e: RupeaEntryNode): 
 		.with({ kind: NodeKind.Price }, (p) => printPrice(c, p) + printComments('', p.comments))
 		.with({ kind: NodeKind.Link }, (l) => printLink(c, l) + printComments('', l.comments))
 		.with({ kind: NodeKind.Account }, (a) => printAccount(c, a) + printComments('', a.comments))
+		.with({ kind: NodeKind.Budget }, (b) => printBudget(c, b) + printComments('', b.comments))
 		.with({ kind: NodeKind.Note }, (n) => printComments('', n.comments))
 		.with({ kind: NodeKind.Failed }, (f) => printLines(f.lines) + printComments('', f.comments))
 		.exhaustive();
@@ -123,6 +125,9 @@ const printLink = ({ dateFormats }: LedgerConfiguration, l: RupeaLink): string =
 
 const printAccount = ({ dateFormats }: LedgerConfiguration, a: RupeaAccountNode): string =>
 	`A ${a.since ? printDate(dateFormats[0], a.since) : '*'} ${a.account}\n${printMetadata('\t', a.metadata)}`;
+
+const printBudget = ({ dateFormats }: LedgerConfiguration, b: RupeaBudgetNode): string =>
+	`B ${b.since ? printDate(dateFormats[0], b.since) : '*'} ${b.account}\n${printMetadata('\t', b.metadata)}`;
 
 const printMetadata = (t: string, m: RupeaEntries): string =>
 	m.map(([key, value]) => `${t}- ${key}: ${value}\n`).join('');

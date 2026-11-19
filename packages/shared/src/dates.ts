@@ -8,7 +8,7 @@ const exists = (d: string) =>
 	!Number.isNaN(Date.parse(d)) && new Date(d).toISOString().startsWith(d);
 
 /** An ISO day that exists, kept as text. */
-const IsoDay = v.pipe(v.string(), v.isoDate(), v.check(exists));
+export const IsoDay = v.pipe(v.string(), v.isoDate(), v.check(exists));
 
 const DAY = 'A calendar day as an ISO date, such as 2026-10-21.';
 

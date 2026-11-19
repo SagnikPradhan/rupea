@@ -9,7 +9,7 @@ import {
 	Measure,
 } from '@rupea/shared/balances.ts';
 import { Day } from '@rupea/shared/dates.ts';
-import { TermsForm } from '@rupea/shared/forms.ts';
+import { BudgetForm, TermsForm } from '@rupea/shared/forms.ts';
 import { Handle } from '@rupea/shared/text.ts';
 import * as v from 'valibot';
 import { batchOf, errors } from './errors.ts';
@@ -17,6 +17,7 @@ import {
 	AccountRow,
 	Balances,
 	Bridge,
+	Budget,
 	Drops,
 	Held,
 	Lot,
@@ -196,6 +197,22 @@ const listTerms = oc
 	.errors(errors)
 	.output(v.array(Held));
 
+const listBudgets = oc
+	.route({
+		method: 'GET',
+		path: '/ledgers/{handle}/budgets',
+		operationId: 'accounts.listBudgets',
+		description: dedent`
+			Lists each account's budget on a day with what it and the accounts under it
+			spent in the budget's period, and what is left of the limit.
+
+			Fails with LedgerNotFound when the caller cannot open the ledger.
+		`,
+	})
+	.input(v.object({ handle: Handle, day: Day }))
+	.errors(errors)
+	.output(batchOf(Budget));
+
 const saveTerms = oc
 	.route({
 		method: 'PUT',
@@ -213,6 +230,23 @@ const saveTerms = oc
 	.errors(errors)
 	.output(v.object({ file: v.string() }));
 
+const saveBudget = oc
+	.route({
+		method: 'PUT',
+		path: '/ledgers/{handle}/budgets',
+		operationId: 'accounts.saveBudget',
+		description: dedent`
+			Writes an account's budget under its B * line and answers the file it
+			wrote and the block it wrote.
+
+			Fails with CannotWriteBudget when the budget cannot be written. Fails
+			with LedgerNotFound when the caller cannot open the ledger.
+		`,
+	})
+	.input(v.object({ handle: Handle, ...BudgetForm.entries }))
+	.errors(errors)
+	.output(v.object({ file: v.string(), written: v.string() }));
+
 export const accounts = {
 	list: listAccounts,
 	listDeltas,
@@ -222,5 +256,7 @@ export const accounts = {
 	listReturns,
 	listLots,
 	listTerms,
+	listBudgets,
 	saveTerms,
+	saveBudget,
 };

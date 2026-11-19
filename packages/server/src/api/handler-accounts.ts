@@ -1,4 +1,5 @@
 import * as Accounts from '#services/ledger/application/accounts.ts';
+import * as Budgets from '#services/ledger/application/budgets.ts';
 import * as Deltas from '#services/ledger/application/deltas.ts';
 import * as Terms from '#services/ledger/application/terms.ts';
 import { CLOSING_DAYS } from '@rupea/shared/balances.ts';
@@ -89,10 +90,24 @@ const listTerms = os.accounts.listTerms
 		inLedger({ handle, action: (l) => Terms.listTerms({ ledger: l, day: day.toString() }) }),
 	);
 
+const listBudgets = os.accounts.listBudgets
+	.use(signedIn)
+	.handler(async ({ input: { handle, day } }) =>
+		sanitiseBatch(
+			await inLedger({ handle, action: (l) => Budgets.listBudgets({ ledger: l, day }) }),
+		),
+	);
+
 const saveTerms = os.accounts.saveTerms
 	.use(signedIn)
 	.handler(({ input: { handle, account, entries } }) =>
 		inLedger({ handle, action: (l) => Terms.saveTerms({ ledger: l, account, entries }) }),
+	);
+
+const saveBudget = os.accounts.saveBudget
+	.use(signedIn)
+	.handler(({ input: { handle, account, entries } }) =>
+		inLedger({ handle, action: (l) => Budgets.saveBudget({ ledger: l, account, entries }) }),
 	);
 
 export const accounts = {
@@ -104,5 +119,7 @@ export const accounts = {
 	listReturns,
 	listLots,
 	listTerms,
+	listBudgets,
 	saveTerms,
+	saveBudget,
 };

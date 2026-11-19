@@ -81,6 +81,7 @@ const ledger = (t: RupeaTransaction[]): RupeaLedgerFile => ({
 	prices: [],
 	links: [],
 	accounts: [],
+	budgets: [],
 });
 
 const annotated: RupeaLedgerFile = {
@@ -130,6 +131,7 @@ const annotated: RupeaLedgerFile = {
 	prices: [],
 	links: [],
 	accounts: [],
+	budgets: [],
 };
 
 const printed = (t: RupeaLedgerFile) => print(defaultConfiguration.ledger, toNode(t));
@@ -198,6 +200,7 @@ describe('printing a ledger', () => {
 			prices: [],
 			links: [],
 			accounts: [],
+			budgets: [],
 			succeeded: transactions,
 			failed: [],
 		});
@@ -230,6 +233,7 @@ describe('printing a ledger', () => {
 			prices: [],
 			links: [],
 			accounts: [],
+			budgets: [],
 			succeeded: annotated.transactions,
 			failed: [],
 		});
@@ -352,6 +356,24 @@ describe('printing a ledger', () => {
 
 		expect(parsed.failed).toEqual([]);
 		expect(parsed.accounts).toHaveLength(2);
+		expect(reprinted(content)).toBe(content);
+	});
+
+	it('writes B lines with their keys where they were, and reads them back', () => {
+		const content = [
+			'B * Expenses:Food',
+			'\t- limit: 15000',
+			'\t- period: month',
+			'; a comment under a B line',
+			'',
+			'B 2027-04-01 Expenses:Food',
+			'\t- limit: 18000',
+			'',
+		].join('\n');
+		const parsed = parse(defaultConfiguration.ledger, { key: 'a.rupea', content });
+
+		expect(parsed.failed).toEqual([]);
+		expect(parsed.budgets).toHaveLength(2);
 		expect(reprinted(content)).toBe(content);
 	});
 

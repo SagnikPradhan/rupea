@@ -62,6 +62,10 @@ _Avoid_: Mapping, binding
 What an account is set up with by `A` lines: a loan's rate and EMI, a card's limit and due day. A dated line overrides the keys it names from its day on. Kept as written in the ledger's files, and read by the app according to the account's kind.
 _Avoid_: Settings, configuration, details
 
+**Budget**:
+What a `B` line sets for an account and everything under it: a `limit` for each `period`, a month or a year, counted from `start`. A dated line overrides the keys it names from its day on. Kept as written in the ledger's files.
+_Avoid_: Cap, allowance, envelope
+
 **Alias**:
 The commodity a link prices, as the ledger names it.
 _Avoid_: Local symbol

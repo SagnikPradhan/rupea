@@ -454,6 +454,7 @@ describe('market prices', () => {
 			],
 			links: [],
 			accounts: [],
+			budgets: [],
 			succeeded: [],
 			failed: [],
 		});
@@ -626,6 +627,113 @@ describe('account lines', () => {
 		const parsed = parseFile(['not a header', 'A * Liabilities:Card', '- limit: 50000']);
 
 		expect(parsed.accounts).toEqual([terms(2, null, 'Liabilities:Card', { limit: ['50000'] })]);
+	});
+});
+
+describe('B lines', () => {
+	const parseFile = (lines: string[]) =>
+		parse(defaultConfiguration.ledger, { key: file, content: `${lines.join('\n')}\n` });
+	const budget = (
+		line: number,
+		since: string | null,
+		account: string,
+		kept: Record<string, string[]>,
+	) => ({
+		location: { file, line },
+		since: since === null ? null : Temporal.PlainDate.from(since),
+		account,
+		metadata: kept,
+	});
+
+	it('reads B * and the dash lines under it as the budget of an account', () => {
+		const parsed = parseFile([
+			'B * Expenses:Food',
+			'- limit: ₹15,000',
+			'- period: month',
+			'',
+			'2026-10-01 Lunch',
+			'\tExpenses:Food 250',
+			'\tAssets:Bank',
+		]);
+
+		expect(parsed.failed).toEqual([]);
+		expect(parsed.budgets).toEqual([
+			budget(1, null, 'Expenses:Food', { limit: ['₹15,000'], period: ['month'] }),
+		]);
+		expect(parsed.succeeded).toHaveLength(1);
+	});
+
+	it('reads a dated line that names only the keys it changes', () => {
+		expect(parseFile(['B 2027-04-01 Expenses:Food', '- limit: 18000']).budgets).toEqual([
+			budget(1, '2027-04-01', 'Expenses:Food', { limit: ['18000'] }),
+		]);
+	});
+
+	it('reads a year that starts on a date, and keys it does not know', () => {
+		const parsed = parseFile([
+			'B * Expenses:Travel',
+			'- limit: 120000',
+			'- period: year',
+			'- start: 2026-04-01',
+			'- note: trips',
+		]);
+
+		expect(parsed.failed).toEqual([]);
+		expect(parsed.budgets).toHaveLength(1);
+	});
+
+	it.each([
+		['no account', 'B *'],
+		['no date', 'B Expenses:Food'],
+		['a date that is not one', 'B soon Expenses:Food'],
+		['two accounts', 'B * Expenses:Food Expenses:Fuel'],
+	])('reads a B line with %s as a bad one', (_, line) => {
+		expect(parseFile([line])).toMatchObject({
+			budgets: [],
+			failed: [{ type: 'ParseInvalidBudgetLine', location: at }],
+		});
+	});
+
+	it('rejects an account that is not under a root', () => {
+		expect(parseFile(['B * Food', '- limit: 100'])).toMatchObject({
+			budgets: [],
+			failed: [{ type: 'ParseInvalidAccount', location: at, account: 'Food' }],
+		});
+	});
+
+	it.each([
+		['a limit that is not an amount', 'limit', 'lots'],
+		['a negative limit', 'limit', '-5'],
+		['a period that is not month or year', 'period', 'week'],
+		['a start that is not a date', 'start', 'soon'],
+	])('rejects %s', (_, key, value) => {
+		const keys = key === 'limit' ? [] : ['- limit: 100'];
+
+		expect(parseFile(['B * Expenses:Food', ...keys, `- ${key}: ${value}`])).toMatchObject({
+			budgets: [],
+			failed: [{ type: 'ParseInvalidBudget', location: at, key }],
+		});
+	});
+
+	it('asks a B * line for a limit, and a dated one for none', () => {
+		expect(parseFile(['B * Expenses:Food', '- period: month'])).toMatchObject({
+			budgets: [],
+			failed: [{ type: 'ParseInvalidBudget', location: at, key: 'limit' }],
+		});
+		expect(parseFile(['B 2027-04-01 Expenses:Food', '- period: year']).failed).toEqual([]);
+	});
+
+	it('rejects a metadata line it cannot read', () => {
+		const parsed = parseFile(['B * Expenses:Food', '- limit']);
+
+		expect(parsed.budgets).toEqual([]);
+		expect(parsed.failed).toMatchObject([{ type: 'ParseInvalidMetadata', location: `${file}:2` }]);
+	});
+
+	it('still reads B lines after a bad transaction header', () => {
+		const parsed = parseFile(['not a header', 'B * Expenses:Food', '- limit: 15000']);
+
+		expect(parsed.budgets).toEqual([budget(2, null, 'Expenses:Food', { limit: ['15000'] })]);
 	});
 });
 

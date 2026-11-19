@@ -225,6 +225,7 @@ export const indexFile = (
 					.execute();
 				await tx.deleteFrom('symbolLinks').where('fileId', '=', fileId).execute();
 				await tx.deleteFrom('accountTerms').where('fileId', '=', fileId).execute();
+				await tx.deleteFrom('budgetLines').where('fileId', '=', fileId).execute();
 				await tx.deleteFrom('problems').where('fileId', '=', fileId).execute();
 				await deleteOwnedBy(tx, changes.stale);
 
@@ -234,6 +235,7 @@ export const indexFile = (
 				await insertAll(tx, 'prices', priceChanges.added);
 				await insertAll(tx, 'symbolLinks', links);
 				await insertAll(tx, 'accountTerms', rows.accounts);
+				await insertAll(tx, 'budgetLines', rows.budgets);
 				await insertAll(tx, 'metadata', changes.metadata);
 				await insertAll(tx, 'problems', rows.problems);
 				const stale = new Set(priceChanges.stale);

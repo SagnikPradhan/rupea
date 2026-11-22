@@ -111,10 +111,23 @@
 			'name actions'
 			'status .';
 		align-items: center;
+		padding-block: var(--size-2);
+	}
+
+	section :global(tbody tr) {
+		border: 0;
+	}
+
+	tr:has(+ .child) {
+		padding-bottom: 0;
+	}
+
+	tr.child {
+		padding-top: 0;
 	}
 
 	tr :is(th, td) {
-		padding: var(--size-0) 0;
+		padding: 0;
 	}
 
 	th.name {
@@ -124,6 +137,7 @@
 
 	td.status {
 		grid-area: status;
+		padding-top: var(--size-0);
 		color: var(--color-muted);
 	}
 
@@ -133,6 +147,7 @@
 
 	td.actions {
 		grid-area: actions;
+		margin-block: calc(var(--size-1) * -1);
 	}
 
 	tr.child td {

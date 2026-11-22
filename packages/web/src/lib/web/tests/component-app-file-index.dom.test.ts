@@ -2,7 +2,6 @@ import { fireEvent, render, screen, waitFor, within } from '@testing-library/sve
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { deleteFiles, listFiles, renameFiles } from '#lib/endpoints/files.remote.ts';
-import { listStatements } from '#lib/endpoints/import.remote.ts';
 import FileIndex from '#lib/web/components/app-file-index/app-file-index.svelte';
 import { answer } from '#tests/shared/queries.ts';
 
@@ -12,15 +11,12 @@ vi.mock('#lib/endpoints/files.remote.ts', () => ({
 	deleteFiles: vi.fn(),
 }));
 
-vi.mock('#lib/endpoints/import.remote.ts', () => ({ listStatements: vi.fn() }));
-
 afterEach(() => vi.clearAllMocks());
 
 const file = (key: string) => ({ key, modified: '2026-10-01T10:00:00Z', size: 2048 });
 
-const rendered = (keys: string[], statements: { key: string; file: string | null }[] = []) => {
+const rendered = (keys: string[]) => {
 	vi.mocked(listFiles).mockReturnValue(answer(keys.map(file)));
-	vi.mocked(listStatements).mockReturnValue(answer(statements));
 	vi.mocked(renameFiles).mockResolvedValue({ ok: true, data: [], errors: [] });
 	vi.mocked(deleteFiles).mockResolvedValue({ ok: true, data: [], errors: [] });
 	render(FileIndex, { handle: 'h' });
@@ -36,29 +32,35 @@ describe('the file index', () => {
 		expect(await screen.findByText('No files yet.')).toBeTruthy();
 	});
 
-	it('shows a statement and its draft as one row, which selects the draft', async () => {
-		const draft = '_/20261121/hdfc.xls.rupea';
-		const user = rendered(
-			['bank/a.rupea', draft],
-			[
-				{ key: '20261121/hdfc.xls', file: draft },
-				{ key: '20261121/odd.csv', file: null },
-			],
-		);
-		const link = await screen.findByRole('link', { name: 'hdfc.xls' });
+	it('never lists uploads or drafts, and selects only counted files', async () => {
+		const user = rendered([...keys, '_/20261121/hdfc.xls.rupea', '_/20261121/odd.csv']);
+		await screen.findByLabelText('Select bank/');
 
-		expect(link.getAttribute('href')).toBe('/l/h/files/_/20261121/hdfc.xls');
-		expect(screen.queryByRole('link', { name: 'hdfc.xls.rupea' })).toBeNull();
-		expect(screen.queryByLabelText('Select _/20261121/odd.csv')).toBeNull();
+		expect(screen.queryByText('_/')).toBeNull();
+		expect(screen.queryByLabelText('Select _/20261121/hdfc.xls.rupea')).toBeNull();
 
-		await user.click(screen.getByLabelText('Select _/20261121/hdfc.xls'));
+		await user.click(screen.getByLabelText('Select all files'));
+		expect(screen.getByText('4 selected')).toBeTruthy();
 		await user.click(screen.getByRole('button', { name: 'Delete' }));
 		await user.click(
 			within(screen.getByRole('group', { name: 'Confirm delete' })).getByRole('button', {
 				name: 'Delete',
 			}),
 		);
-		expect(deleteFiles).toHaveBeenCalledWith({ handle: 'h', keys: [draft] });
+		expect(deleteFiles).toHaveBeenCalledWith({ handle: 'h', keys });
+	});
+
+	it('says there are no files when only uploads exist', async () => {
+		rendered(['_/20261121/hdfc.xls.rupea']);
+
+		expect(await screen.findByText('No files yet.')).toBeTruthy();
+	});
+
+	it('selects only the counted files of a folder', async () => {
+		const user = rendered([...keys, '_/bank/draft.rupea']);
+		await user.click(await screen.findByLabelText('Select bank/'));
+
+		expect(screen.getByText('3 selected')).toBeTruthy();
 	});
 
 	it('moves the chosen files into a folder', async () => {

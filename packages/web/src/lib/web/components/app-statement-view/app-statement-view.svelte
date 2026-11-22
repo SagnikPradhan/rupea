@@ -73,6 +73,18 @@
 	const status = $derived(row ? statusOf(row, job) : null);
 	const file = $derived(row?.file ?? null);
 
+	$effect(() => {
+		if (status !== 'reading') return;
+
+		const timer = setInterval(() => {
+			if (!document.hidden) void listImports(handle).refresh();
+		}, 2000);
+		return () => {
+			clearInterval(timer);
+			void listStatements(handle).refresh();
+		};
+	});
+
 	const view = $state({
 		ticket: 0,
 		grid: [] as string[][],

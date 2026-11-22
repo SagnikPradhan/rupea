@@ -1,13 +1,12 @@
 <script lang="ts">
 	import { ICONS } from '#lib/web/shared/icons.ts';
 	import { deleteFiles, listFiles, renameFiles } from '#lib/endpoints/files.remote.ts';
-	import { listStatements } from '#lib/endpoints/import.remote.ts';
 	import type { RupeaError } from '@rupea/shared/errors.ts';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
 	import { formatsHere } from '#lib/web/shared/format.ts';
-	import { REVIEW } from '@rupea/shared/files.ts';
+	import { isCounted } from '@rupea/shared/files.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { keysUnder, movedTo, treeRows } from './file-tree';
@@ -24,22 +23,9 @@
 	const last = { key: null as string | null };
 
 	const response = $derived(await listFiles(handle));
-	const files = $derived(response.data ?? []);
-	const uploaded = $derived(await listStatements(handle));
-	const byKey = $derived(Object.fromEntries(files.map((f) => [f.key, f])));
-	const statements = $derived(
-		(uploaded.data ?? []).map((s) => {
-			const key = `${REVIEW}/${s.key}`;
-			const draft = byKey[`${key}.rupea`];
-			return { key, modified: draft?.modified, size: draft?.size, draft: draft?.key };
-		}),
-	);
-	const drafted = $derived(new Set(statements.map((s) => s.draft)));
-	const loose = $derived(
-		files.filter((f) => !drafted.has(f.key)).map((f) => ({ ...f, draft: f.key })),
-	);
-	const rows = $derived(treeRows([...loose, ...statements], [...collapsed]));
-	const chosen = $derived(files.map((f) => f.key).filter((k) => selected.has(k)));
+	const counted = $derived((response.data ?? []).filter((f) => isCounted(f.key)));
+	const rows = $derived(treeRows(counted, [...collapsed]));
+	const chosen = $derived(counted.map((f) => f.key).filter((k) => selected.has(k)));
 
 	const mark = (keys: string[], on: boolean) =>
 		keys.forEach(on ? (k) => selected.add(k) : (k) => selected.delete(k));
@@ -60,7 +46,7 @@
 	}
 
 	function shown(from: string | null, to: string) {
-		const keys = rows.flatMap((r) => (r.file?.draft ? [r.file.draft] : []));
+		const keys = rows.flatMap((r) => (r.file ? [r.file.key] : []));
 		const at = [keys.indexOf(from ?? to), keys.indexOf(to)];
 		const start = Math.min(...at);
 		return start === -1 ? [to] : keys.slice(start, Math.max(...at) + 1);
@@ -108,7 +94,7 @@
 			{#if step.now === 'choosing'}
 				<label class="grow">
 					{@render checkbox(
-						files.map((f) => f.key),
+						counted.map((f) => f.key),
 						'Select all files',
 						null,
 					)}
@@ -157,15 +143,11 @@
 						<th scope="row" class="truncate">
 							<span class="entry" style:--depth={row.depth}>
 								{#if row.file}
-									{#if row.file.draft}
-										{@render checkbox([row.file.draft], `Select ${row.path}`, row.file.draft)}
-									{:else}
-										<input class="blank" type="checkbox" disabled aria-hidden="true" />
-									{/if}
+									{@render checkbox([row.file.key], `Select ${row.path}`, row.file.key)}
 									<a href={fileHref(handle, row.path)}>{row.name}</a>
 								{:else}
 									{@const Chevron = collapsed.has(row.path) ? ICONS.collapsed : ICONS.expanded}
-									{@render checkbox(keysUnder(files, row.path), `Select ${row.path}`, null)}
+									{@render checkbox(keysUnder(counted, row.path), `Select ${row.path}`, null)}
 									<button
 										class="folder"
 										aria-expanded={!collapsed.has(row.path)}
@@ -221,10 +203,6 @@
 
 	input.grow {
 		min-width: 0;
-	}
-
-	.blank {
-		visibility: hidden;
 	}
 
 	p {

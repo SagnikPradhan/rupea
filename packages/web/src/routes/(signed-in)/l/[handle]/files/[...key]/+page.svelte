@@ -17,7 +17,6 @@
 	import FileTransactionAside from '#lib/web/components/app-file-transaction-aside/app-file-transaction-aside.svelte';
 	import FileTransactions from '#lib/web/components/app-file-transactions/app-file-transactions.svelte';
 	import FileMatches from '#lib/web/components/app-file-matches/app-file-matches.svelte';
-	import ImportPanel from '#lib/web/components/app-import-panel/app-import-panel.svelte';
 	import StatementView from '#lib/web/components/app-statement-view/app-statement-view.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import FilePath from '#lib/web/components/ui-file-path/ui-file-path.svelte';
@@ -26,7 +25,7 @@
 	import { isCounted, REVIEW } from '@rupea/shared/files.ts';
 	import type { Reply } from '@rupea/shared/errors.ts';
 	import { beforeNavigate, goto } from '$app/navigation';
-	import { fileHref, hrefWith, statementHref } from '#lib/web/shared/links.ts';
+	import { fileHref, hrefWith } from '#lib/web/shared/links.ts';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { untrack, type Snippet } from 'svelte';
@@ -173,11 +172,6 @@
 		locked: editor.dirty,
 		onchanged: editor.reload,
 	});
-
-	function uploaded(keys: string[]) {
-		const first = keys[0];
-		if (first !== undefined) void goto(statementHref(handle, first));
-	}
 </script>
 
 {#snippet fileEditor(next?: Snippet, below?: Snippet, sheet?: Snippet)}
@@ -190,6 +184,7 @@
 		{below}
 		original={sheet}
 		renamable={draft === null}
+		named={draft === null ? undefined : (statement ?? undefined)}
 		onopen={open}
 		onremoved={removed}
 	>
@@ -243,8 +238,6 @@
 				onclose={() => goto(hrefWith(page.url.searchParams, { edit: '' }), { reset: false })}
 			/>
 		{:else}
-			<ImportPanel {handle} onuploaded={uploaded} />
-
 			{#if target !== null}
 				<FileMatches {handle} file={target} {...found} />
 			{/if}

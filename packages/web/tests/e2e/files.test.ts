@@ -1,16 +1,12 @@
 import { expect, test } from './support/test.ts';
+import { startFile } from './support/files.ts';
 import { visit } from './support/visit.ts';
 
 test('creates a file, edits it, and saves with the keyboard', async ({
 	signedIn: page,
 	ledger,
 }) => {
-	await visit(page, `${ledger}/files`);
-	await page.getByRole('button', { name: 'New file' }).click();
-	await page.getByLabel('New file').fill('cash.rupea');
-	await page.getByRole('button', { name: 'Create' }).click();
-
-	await expect(page.locator('h1 + p', { hasText: 'cash.rupea' })).toBeVisible();
+	await startFile(page, ledger, 'cash.rupea');
 	await page.getByRole('link', { name: 'All files' }).click();
 	await page.getByRole('link', { name: 'cash.rupea' }).click();
 
@@ -29,11 +25,7 @@ test('creates a file, edits it, and saves with the keyboard', async ({
 });
 
 test('renames and deletes a file in place', async ({ signedIn: page, ledger }) => {
-	await visit(page, `${ledger}/files`);
-	await page.getByRole('button', { name: 'New file' }).click();
-	await page.getByLabel('New file').fill('old.rupea');
-	await page.getByRole('button', { name: 'Create' }).click();
-	await expect(page.locator('h1 + p', { hasText: 'old.rupea' })).toBeVisible();
+	await startFile(page, ledger, 'old.rupea');
 
 	await page.getByRole('button', { name: 'Rename' }).click();
 	await page.getByLabel('Rename to').fill('new.rupea');
@@ -49,10 +41,7 @@ test('renames and deletes a file in place', async ({ signedIn: page, ledger }) =
 });
 
 test('formats a file from the toolbar', async ({ signedIn: page, ledger }) => {
-	await visit(page, `${ledger}/files`);
-	await page.getByRole('button', { name: 'New file' }).click();
-	await page.getByLabel('New file').fill('messy.rupea');
-	await page.getByRole('button', { name: 'Create' }).click();
+	await startFile(page, ledger, 'messy.rupea');
 
 	await page.getByLabel('Ledger file').click();
 	await page.keyboard.type('2026-09-01 TEA\n Expenses:Food    20\n Assets:Cash\n\n\n');
@@ -65,10 +54,7 @@ test('formats a file from the toolbar', async ({ signedIn: page, ledger }) => {
 });
 
 test('finds and replaces text with the keyboard', async ({ signedIn: page, ledger }) => {
-	await visit(page, `${ledger}/files`);
-	await page.getByRole('button', { name: 'New file' }).click();
-	await page.getByLabel('New file').fill('tea.rupea');
-	await page.getByRole('button', { name: 'Create' }).click();
+	await startFile(page, ledger, 'tea.rupea');
 
 	await page.getByLabel('Ledger file').click();
 	await page.keyboard.type('2026-09-01 TEA\n\tExpenses:Food 20\n\tAssets:Cash\n');
@@ -85,11 +71,7 @@ test('asks before leaving unsaved changes, and stays when told to', async ({
 	signedIn: page,
 	ledger,
 }) => {
-	await visit(page, `${ledger}/files`);
-	await page.getByRole('button', { name: 'New file' }).click();
-	await page.getByLabel('New file').fill('draft.rupea');
-	await page.getByRole('button', { name: 'Create' }).click();
-	await expect(page.locator('h1 + p', { hasText: 'draft.rupea' })).toBeVisible();
+	await startFile(page, ledger, 'draft.rupea');
 	await page.getByLabel('Ledger file').click();
 	await page.keyboard.type('2026-09-01 TEA');
 
@@ -111,28 +93,21 @@ test('asks before leaving unsaved changes, and stays when told to', async ({
 });
 
 test('moves and deletes many files at once', async ({ signedIn: page, ledger }) => {
-	const create = async (key: string) => {
-		await visit(page, `${ledger}/files`);
-		await page.getByRole('button', { name: 'New file' }).click();
-		await page.getByLabel('New file').fill(key);
-		await page.getByRole('button', { name: 'Create' }).click();
-		await expect(page.locator('h1 + p', { hasText: key })).toBeVisible();
-	};
-	await create('_/a.rupea');
-	await create('_/b.rupea');
-	await create('c.rupea');
+	await startFile(page, ledger, 'in/a.rupea');
+	await startFile(page, ledger, 'in/b.rupea');
+	await startFile(page, ledger, 'c.rupea');
 
 	await visit(page, `${ledger}/files`);
 	const table = async () => (await page.getByRole('table').boundingBox())?.y;
 	const top = await table();
-	await page.getByLabel('Select _/', { exact: true }).check();
+	await page.getByLabel('Select in/', { exact: true }).check();
 	expect(await table()).toBe(top);
 	await page.getByRole('button', { name: 'Move' }).click();
 	expect(await table()).toBe(top);
 	await page.getByLabel('Move 2 files to').fill('bank');
 	await page.getByRole('button', { name: 'Move' }).click();
 	await expect(page.getByLabel('Select bank/a.rupea')).toBeVisible();
-	await expect(page.getByLabel('Select _/', { exact: true })).toBeHidden();
+	await expect(page.getByLabel('Select in/', { exact: true })).toBeHidden();
 
 	await page.getByRole('button', { name: 'bank/' }).click();
 	await expect(page.getByLabel('Select bank/a.rupea')).toBeHidden();

@@ -84,6 +84,7 @@ vi.mock('#lib/endpoints/schemas.remote.ts', () => ({
 }));
 
 afterEach(() => {
+	vi.useRealTimers();
 	vi.clearAllMocks();
 });
 
@@ -236,12 +237,14 @@ describe('the import panel', () => {
 	});
 
 	it('polls running imports, and lists what they made once done', async () => {
-		const { unmount } = showing('/l/h/files', [
-			{ id: '2', statement: 'b.ledger', status: 'running', error: null },
-		]);
+		const refresh = vi.fn(() => Promise.resolve());
+		const running = [{ id: '2', statement: 'b.ledger', status: 'running', error: null }];
+		const { unmount } = showing('/l/h/files', running, () =>
+			vi.mocked(listImports).mockReturnValue(Object.assign(answer(running), { refresh })),
+		);
 
 		expect((await rowOf(/b\.ledger/)).textContent).toContain('Reading…');
-		await waitFor(() => expect(listImports).toHaveBeenCalledTimes(2), { timeout: 3000 });
+		await waitFor(() => expect(refresh).toHaveBeenCalled(), { timeout: 3000 });
 		unmount();
 		expect(listFiles).toHaveBeenCalledWith('h');
 	});
@@ -364,6 +367,39 @@ describe('a statement Rupea knows', () => {
 	});
 });
 
+describe('a statement being read', () => {
+	it('checks its job again until the job is done', async () => {
+		vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+		const refresh = vi.fn(() => Promise.resolve());
+		const running = [{ id: '1', statement: 'hdfc.xls', status: 'running', error: null }];
+		showing('/l/h/files/_/hdfc.xls', running, () =>
+			vi.mocked(listImports).mockReturnValue(Object.assign(answer(running), { refresh })),
+		);
+
+		expect(await screen.findByText('Reading this file…')).toBeTruthy();
+		vi.advanceTimersByTime(2000);
+
+		expect(refresh).toHaveBeenCalled();
+	});
+
+	it('stops checking, and lists the statements once, when it is left', async () => {
+		vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+		const refresh = vi.fn(() => Promise.resolve());
+		const running = [{ id: '1', statement: 'hdfc.xls', status: 'running', error: null }];
+		const { unmount } = showing('/l/h/files/_/hdfc.xls', running, () =>
+			vi.mocked(listImports).mockReturnValue(Object.assign(answer(running), { refresh })),
+		);
+		await screen.findByText('Reading this file…');
+		vi.mocked(listStatements).mockClear();
+		await unmount();
+		const calls = refresh.mock.calls.length;
+		vi.advanceTimersByTime(6000);
+
+		expect(refresh).toHaveBeenCalledTimes(calls);
+		expect(listStatements).toHaveBeenCalledTimes(1);
+	});
+});
+
 describe('a statement with a draft in review', () => {
 	it('shows the draft, which moves to the ledger as it is', async () => {
 		const { user } = showing('/l/h/files/_/sep.xls');
@@ -379,6 +415,20 @@ describe('a statement with a draft in review', () => {
 			}),
 		);
 		expect(importStatement).not.toHaveBeenCalled();
+	});
+
+	it('titles the draft by its statement, without the draft suffix', async () => {
+		showing('/l/h/files/_/sep.xls');
+
+		await waitFor(() => expect(document.querySelector('h1 + p')?.textContent).toContain('sep.xls'));
+		expect(document.querySelector('h1 + p')?.textContent).not.toContain('.rupea');
+	});
+
+	it('offers no import panel beside a statement', async () => {
+		showing('/l/h/files/_/sep.xls');
+
+		await screen.findByRole('button', { name: 'Add to ledger' });
+		expect(screen.queryByRole('heading', { name: 'Import statements' })).toBeNull();
 	});
 
 	it('shows the statement the draft was made from, without the text controls', async () => {

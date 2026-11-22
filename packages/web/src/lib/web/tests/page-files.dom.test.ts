@@ -217,10 +217,55 @@ describe('the files page', () => {
 		expect(screen.queryByRole('heading', { name: 'Matches' })).toBeNull();
 	});
 
-	it('offers the matches beside the import panel once a file is open', async () => {
+	it('offers the matches, not the import panel, once a file is open', async () => {
 		showing('/l/h/files/bank.rupea');
 
 		expect(await screen.findByRole('heading', { name: 'Matches' })).toBeTruthy();
-		expect(screen.getByRole('heading', { name: 'Import statements' })).toBeTruthy();
+		expect(screen.queryByRole('heading', { name: 'Import statements' })).toBeNull();
+	});
+
+	it('titles a counted file by its key', async () => {
+		showing('/l/h/files/bank.rupea');
+
+		await screen.findByRole('heading', { name: 'Matches' });
+		expect(document.querySelector('h1 + p')?.textContent).toContain('bank.rupea');
+	});
+
+	it('puts the import panel above the files while a statement waits', async () => {
+		showing('/l/h/files', () =>
+			vi.mocked(listStatements).mockReturnValue(answer([{ key: 'a.csv', file: null }])),
+		);
+
+		const panel = await screen.findByRole('heading', { name: 'Import statements' });
+		expect(panel.closest('.side')?.classList.contains('waiting')).toBe(true);
+	});
+
+	it('keeps the import panel beside the files when only failed or unrecognised statements are left', async () => {
+		showing('/l/h/files', () => {
+			vi.mocked(listStatements).mockReturnValue(
+				answer([
+					{ key: 'a.csv', file: null },
+					{ key: 'b.csv', file: null },
+				]),
+			);
+			vi.mocked(listImports).mockReturnValue(
+				answer([
+					{ id: '1', statement: 'a.csv', status: 'failed', error: null },
+					{ id: '2', statement: 'b.csv', status: 'succeeded', error: null },
+				]),
+			);
+		});
+
+		const panel = await screen.findByRole('heading', { name: 'Import statements' });
+		expect(panel.closest('.side')?.classList.contains('waiting')).toBe(false);
+	});
+
+	it('keeps the import panel beside the files when nothing waits', async () => {
+		showing('/l/h/files', () =>
+			vi.mocked(listStatements).mockReturnValue(answer([{ key: 'a.csv', file: 'bank.rupea' }])),
+		);
+
+		const panel = await screen.findByRole('heading', { name: 'Import statements' });
+		expect(panel.closest('.side')?.classList.contains('waiting')).toBe(false);
 	});
 });

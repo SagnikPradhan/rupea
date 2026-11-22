@@ -6,6 +6,8 @@
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
 	import { statementHref } from '#lib/web/shared/links.ts';
+	import { listImports, listStatements } from '#lib/endpoints/import.remote.ts';
+	import { isWaitingIn } from '#lib/web/shared/statements.ts';
 	import { goto } from '$app/navigation';
 	import { untrack } from 'svelte';
 
@@ -15,13 +17,17 @@
 
 	const response = $derived(await listFiles(handle));
 
-	function uploaded(keys: string[]) {
+	const uploaded = $derived(await listStatements(handle));
+	const imports = $derived(await listImports(handle));
+	const waiting = $derived(isWaitingIn(uploaded.data ?? [], imports.data ?? []));
+
+	function uploadedTo(keys: string[]) {
 		const first = keys[0];
 		if (first !== undefined) void goto(statementHref(handle, first));
 	}
 </script>
 
-<PanelGrid wide>
+<PanelGrid wide={!waiting} full={waiting}>
 	<div class="main">
 		<PageHeader>Files</PageHeader>
 
@@ -30,8 +36,8 @@
 		<FileIndex {handle} />
 	</div>
 
-	<div class="side">
-		<ImportPanel {handle} onuploaded={uploaded} />
+	<div class={{ side: true, waiting }}>
+		<ImportPanel {handle} onuploaded={uploadedTo} />
 	</div>
 </PanelGrid>
 
@@ -42,6 +48,10 @@
 		flex-direction: column;
 		gap: var(--size-3);
 		min-width: 0;
+	}
+
+	.waiting {
+		order: -1;
 	}
 
 	.side > :global(*) {

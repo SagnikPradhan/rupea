@@ -29,6 +29,8 @@
 		below?: Snippet | undefined;
 		/** False when something else points at the file's name. */
 		renamable?: boolean;
+		/** What the header calls the file when its key is not its name. */
+		named?: string | undefined;
 		/**
 		 * The file as text or as a list of its transactions, and the switch between
 		 * them.
@@ -52,6 +54,7 @@
 		next,
 		below,
 		renamable = true,
+		named,
 		view,
 		ui,
 		original,
@@ -101,7 +104,7 @@
 	{#if editor.dirty}<Tag>Unsaved</Tag>{/if}
 	{#snippet subtitle()}
 		{#if state.file}
-			<FilePath path={state.file.key} />
+			<FilePath path={named ?? state.file.key} />
 		{/if}
 	{/snippet}
 	{#snippet actions()}

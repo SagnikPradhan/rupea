@@ -48,6 +48,7 @@
 
 	const theme = EditorView.theme({
 		'&': {
+			maxHeight: 'var(--size-height-3)',
 			borderTop: 'var(--size-line-0) solid var(--color-border)',
 			color: 'var(--color-ink)',
 		},
@@ -58,6 +59,7 @@
 			caretColor: 'var(--color-ink)',
 		},
 		'.cm-scroller': {
+			overflow: 'auto',
 			fontFamily: 'var(--font-mono)',
 			fontSize: 'var(--font-size-1)',
 			lineHeight: '1.5',

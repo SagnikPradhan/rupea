@@ -24,7 +24,7 @@ test('shows what each account holds and what it is worth', async ({ signedIn: pa
 	await page.getByRole('button', { name: 'New file' }).click();
 	await page.getByLabel('New file').fill('shares.rupea');
 	await page.getByRole('button', { name: 'Create' }).click();
-	await expect(page.getByRole('heading', { name: 'shares.rupea' })).toBeVisible();
+	await expect(page.locator('h1 + p', { hasText: 'shares.rupea' })).toBeVisible();
 	await page.getByRole('link', { name: 'All files' }).click();
 	await page.getByRole('link', { name: 'shares.rupea' }).click();
 	await page.getByLabel('Ledger file').fill(ledgerFile);

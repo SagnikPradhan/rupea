@@ -17,7 +17,7 @@
 	const { title, onclose, closeBeside = true, children }: Props = $props();
 </script>
 
-<svelte:window onkeydown={(e) => e.key === 'Escape' && onclose()} />
+<svelte:window onkeydown={(e) => e.key === 'Escape' && !e.defaultPrevented && onclose()} />
 
 <aside aria-label={title}>
 	<header>

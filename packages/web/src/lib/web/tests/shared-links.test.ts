@@ -14,12 +14,12 @@ vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 describe('fileHref', () => {
 	it('opens a file, escaping its path', () => {
 		expect(fileHref('quiet-heron', 'bank/aug 26.rupea')).toBe(
-			'/l/quiet-heron/files?file=bank%2Faug+26.rupea',
+			'/l/quiet-heron/files/bank/aug%2026.rupea',
 		);
 	});
 
 	it('opens a file at a line', () => {
-		expect(fileHref('quiet-heron', 'a.rupea', 4)).toBe('/l/quiet-heron/files?file=a.rupea&line=4');
+		expect(fileHref('quiet-heron', 'a.rupea', 4)).toBe('/l/quiet-heron/files/a.rupea?line=4');
 	});
 });
 

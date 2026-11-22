@@ -13,8 +13,8 @@ const books = '2026-08-29 Tea\n\tExpenses:Food 10\n\tAssets:Cash\n';
  * format.
  */
 const describeStatement = async (page: Page, ledger: string) => {
-	await visit(page, `${ledger}/import`);
-	await page.getByLabel('Statements').setInputFiles(data('statement.csv'));
+	await visit(page, `${ledger}/files`);
+	await page.getByLabel('Statements', { exact: true }).setInputFiles(data('statement.csv'));
 	await expect(page.getByRole('heading', { name: 'Describe this statement' })).toBeVisible();
 	await expect(page.getByRole('table', { name: 'Statement' })).toContainText('UPI GROCER');
 
@@ -54,34 +54,45 @@ test('adds a later statement to the file its account went to, and undoes it', as
 	await expect(page.getByText(/^Added \d+ to/)).toBeVisible();
 
 	const again = (await readFile(data('statement.csv'), 'utf8')) + '\n';
-	await visit(page, `${ledger}/import`);
+	await visit(page, `${ledger}/files`);
 	await page
-		.getByLabel('Statements')
+		.getByLabel('Statements', { exact: true })
 		.setInputFiles({ name: 'later.csv', mimeType: 'text/csv', buffer: Buffer.from(again) });
 	await page.getByRole('button', { name: 'Add to ledger' }).click();
-	await expect(page.getByLabel('Add to file')).toHaveValue('bank.rupea');
+	await expect(page.getByRole('combobox', { name: 'Add to file' })).toHaveValue('bank.rupea');
 	await page.getByRole('button', { name: 'Add', exact: true }).click();
 	await expect(page.getByText('Added 0 to')).toContainText('already there');
 
 	await page.getByRole('button', { name: 'Undo' }).click();
 	await expect(page.getByRole('button', { name: 'Add to ledger' })).toBeVisible();
-	await visit(page, `${ledger}/import`);
+	await visit(page, `${ledger}/files`);
 	await expect(page.getByRole('row', { name: /later\.csv/ })).toContainText('Ready to add');
 });
 
 test('files a draft for review to edit its transactions', async ({ signedIn: page, ledger }) => {
 	await describeStatement(page, ledger);
 	await page.getByRole('button', { name: 'Edit transactions' }).click();
-	await page.waitForURL(/files\?file=_%2Fimports%2F\d{8}%2Fstatement\.rupea$/);
-	await expect(page.getByRole('heading', { level: 1 })).toContainText('Not counted');
+	await page.getByRole('link', { name: 'UPI GROCER' }).click();
+	await page.getByLabel(/^Description/).fill('Groceries');
+	await page.getByRole('button', { name: 'Save changes' }).click();
+	await expect(page.getByRole('link', { name: 'Groceries' })).toBeVisible();
+	await expect(page.getByRole('link', { name: 'UPI GROCER' })).toHaveCount(0);
 
-	await visit(page, `${ledger}/import`);
+	await page.getByRole('link', { name: 'Text', exact: true }).click();
+	await expect(page.getByLabel('Ledger file')).toContainText('Groceries');
+
+	const statement = new URL(page.url()).pathname.split('/files/')[1];
+	await visit(page, `${ledger}/files/${statement}.rupea`);
+	await expect(page.getByRole('button', { name: 'Add to ledger' })).toBeVisible();
+	await expect(page.getByRole('link', { name: 'Text', exact: true })).toBeVisible();
+
+	await visit(page, `${ledger}/files`);
 	await expect(page.getByRole('row', { name: /statement\.csv/ })).toContainText('Ready to add');
 });
 
 test('unlocks a statement with its password', async ({ signedIn: page, ledger }) => {
-	await visit(page, `${ledger}/import`);
-	await page.getByLabel('Statements').setInputFiles(data('locked.xls'));
+	await visit(page, `${ledger}/files`);
+	await page.getByLabel('Statements', { exact: true }).setInputFiles(data('locked.xls'));
 
 	await page.getByLabel('This file has a password').fill('secret');
 	await page.getByRole('button', { name: 'Unlock' }).click();
@@ -104,11 +115,11 @@ test('saves, opens and deletes formats', async ({ signedIn: page, ledger }) => {
 });
 
 test('imports a ledger file as written, naming its upload', async ({ signedIn: page, ledger }) => {
-	await visit(page, `${ledger}/import`);
+	await visit(page, `${ledger}/files`);
 	await page
-		.getByLabel('Statements')
+		.getByLabel('Statements', { exact: true })
 		.setInputFiles({ name: 'books.ledger', mimeType: 'text/plain', buffer: Buffer.from(books) });
-	await page.waitForURL(/\?statement=/);
+	await page.waitForURL(/\/files\/_\/statements\//);
 	await expect(page.getByRole('table', { name: 'Transactions found' })).toContainText('Tea');
 
 	await page.getByRole('button', { name: 'Add to ledger' }).click();

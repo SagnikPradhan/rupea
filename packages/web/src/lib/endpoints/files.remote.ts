@@ -1,7 +1,7 @@
 import { fault } from '@rupea/shared/errors.ts';
 import { Content, Draft, Key, Line, MOST_KEYS } from '@rupea/shared/files.ts';
 import { Handle } from '@rupea/shared/text.ts';
-import { TransactionForm } from '@rupea/shared/forms.ts';
+import { TransactionEdit, TransactionForm } from '@rupea/shared/forms.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
 import { api } from './api';
@@ -46,8 +46,13 @@ export const findTransaction = query(
 				}),
 );
 
+export const findTransactionAt = query(
+	v.object({ handle: Handle, file: Key, line: Line }),
+	({ handle, file, line }) => replyFromCall(api().transactions.findAt({ handle, file, line })),
+);
+
 export const saveTransaction = command(
-	v.object({ handle: Handle, file: Key, line: Line, version: v.string(), form: TransactionForm }),
+	v.object({ handle: Handle, file: Key, line: Line, version: v.string(), form: TransactionEdit }),
 	async ({ handle, file, line, version, form }) => {
 		const saved = await replyFromCall(
 			api().transactions.save({ handle, file, line, version, form }),

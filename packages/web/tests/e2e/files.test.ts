@@ -10,7 +10,7 @@ test('creates a file, edits it, and saves with the keyboard', async ({
 	await page.getByLabel('New file').fill('cash.rupea');
 	await page.getByRole('button', { name: 'Create' }).click();
 
-	await expect(page.getByRole('heading', { name: 'cash.rupea' })).toBeVisible();
+	await expect(page.locator('h1 + p', { hasText: 'cash.rupea' })).toBeVisible();
 	await page.getByRole('link', { name: 'All files' }).click();
 	await page.getByRole('link', { name: 'cash.rupea' }).click();
 
@@ -24,7 +24,7 @@ test('creates a file, edits it, and saves with the keyboard', async ({
 	const tea = page.getByRole('rowgroup').filter({ hasText: 'TEA' });
 	await expect(tea).toContainText('20');
 
-	await visit(page, `${ledger}/files?file=cash.rupea&line=1`);
+	await visit(page, `${ledger}/files/cash.rupea?line=1`);
 	await expect(page.locator('.cm-linked')).toHaveText('2026-09-01 TEA');
 });
 
@@ -33,12 +33,12 @@ test('renames and deletes a file in place', async ({ signedIn: page, ledger }) =
 	await page.getByRole('button', { name: 'New file' }).click();
 	await page.getByLabel('New file').fill('old.rupea');
 	await page.getByRole('button', { name: 'Create' }).click();
-	await expect(page.getByRole('heading', { name: 'old.rupea' })).toBeVisible();
+	await expect(page.locator('h1 + p', { hasText: 'old.rupea' })).toBeVisible();
 
 	await page.getByRole('button', { name: 'Rename' }).click();
 	await page.getByLabel('Rename to').fill('new.rupea');
 	await page.getByRole('button', { name: 'Rename' }).click();
-	await expect(page.getByRole('heading', { name: 'new.rupea' })).toBeVisible();
+	await expect(page.locator('h1 + p', { hasText: 'new.rupea' })).toBeVisible();
 
 	await page.getByRole('button', { name: 'Delete' }).click();
 	await page
@@ -89,16 +89,23 @@ test('asks before leaving unsaved changes, and stays when told to', async ({
 	await page.getByRole('button', { name: 'New file' }).click();
 	await page.getByLabel('New file').fill('draft.rupea');
 	await page.getByRole('button', { name: 'Create' }).click();
+	await expect(page.locator('h1 + p', { hasText: 'draft.rupea' })).toBeVisible();
 	await page.getByLabel('Ledger file').click();
 	await page.keyboard.type('2026-09-01 TEA');
 
 	const files = page.getByRole('link', { name: 'All files' });
 
-	const [stay] = await Promise.all([page.waitForEvent('dialog'), files.click()]);
+	const [stay] = await Promise.all([
+		page.waitForEvent('dialog'),
+		files.click({ noWaitAfter: true }),
+	]);
 	await stay.dismiss();
 	await expect(page.getByText('Unsaved')).toBeVisible();
 
-	const [leave] = await Promise.all([page.waitForEvent('dialog'), files.click()]);
+	const [leave] = await Promise.all([
+		page.waitForEvent('dialog'),
+		files.click({ noWaitAfter: true }),
+	]);
 	await leave.accept();
 	await expect(page.getByRole('link', { name: 'draft.rupea' })).toBeVisible();
 });
@@ -109,7 +116,7 @@ test('moves and deletes many files at once', async ({ signedIn: page, ledger }) 
 		await page.getByRole('button', { name: 'New file' }).click();
 		await page.getByLabel('New file').fill(key);
 		await page.getByRole('button', { name: 'Create' }).click();
-		await expect(page.getByRole('heading', { name: key })).toBeVisible();
+		await expect(page.locator('h1 + p', { hasText: key })).toBeVisible();
 	};
 	await create('_/a.rupea');
 	await create('_/b.rupea');

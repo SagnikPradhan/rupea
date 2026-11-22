@@ -12,9 +12,9 @@ const data = (name: string) => resolve('tests/e2e/data', name);
  */
 const upload = async (page: Page, ledger: string, name: string, copy: number) => {
 	const content = (await readFile(data('statement.csv'), 'utf8')) + '\n'.repeat(copy);
-	await visit(page, `${ledger}/import`);
+	await visit(page, `${ledger}/files`);
 	await page
-		.getByLabel('Statements')
+		.getByLabel('Statements', { exact: true })
 		.setInputFiles({ name, mimeType: 'text/csv', buffer: Buffer.from(content) });
 };
 
@@ -53,7 +53,7 @@ test('reviews the duplicates of a statement imported twice', async ({ signedIn: 
 	await expect(page.getByRole('rowgroup').filter({ hasText: 'UPI GROCER' })).toHaveCount(2);
 	await expect(page.getByRole('rowgroup').filter({ hasText: 'SALARY' })).toHaveCount(2);
 
-	await visit(page, `${ledger}/files?file=imports/aug.rupea`);
+	await visit(page, `${ledger}/files/imports/aug.rupea`);
 	const groups = page.getByRole('region', { name: 'Groups' });
 	await expect(groups.getByRole('article')).toHaveCount(2);
 	const salary = groups.getByRole('article').filter({ hasText: 'SALARY' });

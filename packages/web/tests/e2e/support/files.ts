@@ -7,7 +7,7 @@ export const createFile = async (page: Page, ledger: string, key: string, conten
 	await page.getByRole('button', { name: 'New file' }).click();
 	await page.getByLabel('New file').fill(key);
 	await page.getByRole('button', { name: 'Create' }).click();
-	await expect(page.getByRole('heading', { name: key })).toBeVisible();
+	await expect(page.locator('h1 + p', { hasText: key })).toBeVisible();
 	await page.getByRole('link', { name: 'All files' }).click();
 	await page.getByRole('link', { name: key }).click();
 	await page.getByLabel('Ledger file').fill(content);

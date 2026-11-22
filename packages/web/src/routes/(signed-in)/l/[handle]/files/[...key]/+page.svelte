@@ -223,7 +223,7 @@
 		{#if statement !== null}
 			{#key statement}
 				<StatementView {handle} {statement} revision={revision.count} dirty={editor.dirty}>
-					{#snippet filed(next, below, sheet)}
+					{#snippet filed(next: Snippet, below: Snippet, sheet: Snippet)}
 						{@render fileEditor(next, below, sheet)}
 					{/snippet}
 				</StatementView>

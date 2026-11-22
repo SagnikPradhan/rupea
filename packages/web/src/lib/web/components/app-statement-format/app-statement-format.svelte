@@ -9,7 +9,7 @@
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import Field from '#lib/web/components/ui-field/ui-field.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
-	import { formatColumn } from '#lib/web/shared/format.ts';
+	import Sheet from '#lib/web/components/app-statement-sheet/app-statement-sheet.svelte';
 
 	/**
 	 * A starting point: Rupea's built-in HDFC savings schema, which the manual
@@ -44,8 +44,6 @@ fields:
 
 	const schemas = $derived(await listSchemas(handle));
 	const stored = $derived((schemas.data ?? []).some((s) => s.key === schema.key));
-	const width = $derived(Math.max(0, ...grid.map((r) => r.length)));
-	const columns = $derived([...Array(width).keys()].map(formatColumn));
 
 	const state = $state({ saved: false, asking: false, errors: [] as RupeaError[] });
 
@@ -73,28 +71,7 @@ fields:
 
 <div class="setup">
 	{#if grid.length > 0}
-		<div class="sheet">
-			<table aria-label="Statement">
-				<thead>
-					<tr>
-						<th></th>
-						{#each columns as column (column)}
-							<th>{column}</th>
-						{/each}
-					</tr>
-				</thead>
-				<tbody>
-					{#each grid as row, index (index)}
-						<tr>
-							<th>{index + 1}</th>
-							{#each columns as column, at (column)}
-								<td>{row[at] ?? ''}</td>
-							{/each}
-						</tr>
-					{/each}
-				</tbody>
-			</table>
-		</div>
+		<Sheet {grid} />
 	{/if}
 
 	<div class="choices" role="group" aria-labelledby="start">
@@ -205,55 +182,5 @@ fields:
 	textarea:focus-visible {
 		border-top-color: var(--color-ink);
 		outline: none;
-	}
-
-	.sheet {
-		width: fit-content;
-		max-width: 100%;
-		max-height: 40vh;
-		border: var(--size-line-0) solid var(--color-border);
-		overflow: auto;
-	}
-
-	.sheet table {
-		font-size: var(--font-size-0);
-		font-family: var(--font-mono);
-		border-collapse: collapse;
-	}
-
-	.sheet th,
-	.sheet td {
-		padding: var(--size-0) var(--size-1);
-		text-align: left;
-		vertical-align: top;
-		border: var(--size-line-0) solid var(--color-border);
-	}
-
-	.sheet th {
-		position: sticky;
-		font-weight: 400;
-		background: var(--color-subtle);
-	}
-
-	.sheet thead th {
-		top: 0;
-	}
-
-	.sheet tbody th {
-		left: 0;
-		text-align: right;
-	}
-
-	.sheet td,
-	.sheet thead th:not(:first-child) {
-		width: 14ch;
-		min-width: 14ch;
-		max-width: 14ch;
-		overflow-wrap: anywhere;
-	}
-
-	.sheet thead th:first-child {
-		left: 0;
-		z-index: var(--layer-raised);
 	}
 </style>

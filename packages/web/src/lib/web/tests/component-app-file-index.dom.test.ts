@@ -1,7 +1,8 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { deleteFiles, listFiles, renameFiles } from '#lib/endpoints/files.remote.ts';
+import { listStatements } from '#lib/endpoints/import.remote.ts';
 import FileIndex from '#lib/web/components/app-file-index/app-file-index.svelte';
 import { answer } from '#tests/shared/queries.ts';
 
@@ -11,12 +12,15 @@ vi.mock('#lib/endpoints/files.remote.ts', () => ({
 	deleteFiles: vi.fn(),
 }));
 
+vi.mock('#lib/endpoints/import.remote.ts', () => ({ listStatements: vi.fn() }));
+
 afterEach(() => vi.clearAllMocks());
 
 const file = (key: string) => ({ key, modified: '2026-10-01T10:00:00Z', size: 2048 });
 
-const rendered = (keys: string[]) => {
+const rendered = (keys: string[], statements: { key: string; file: string | null }[] = []) => {
 	vi.mocked(listFiles).mockReturnValue(answer(keys.map(file)));
+	vi.mocked(listStatements).mockReturnValue(answer(statements));
 	vi.mocked(renameFiles).mockResolvedValue({ ok: true, data: [], errors: [] });
 	vi.mocked(deleteFiles).mockResolvedValue({ ok: true, data: [], errors: [] });
 	render(FileIndex, { handle: 'h' });
@@ -30,6 +34,31 @@ describe('the file index', () => {
 		rendered([]);
 
 		expect(await screen.findByText('No files yet.')).toBeTruthy();
+	});
+
+	it('shows a statement and its draft as one row, which selects the draft', async () => {
+		const draft = '_/20261121/hdfc.xls.rupea';
+		const user = rendered(
+			['bank/a.rupea', draft],
+			[
+				{ key: '20261121/hdfc.xls', file: draft },
+				{ key: '20261121/odd.csv', file: null },
+			],
+		);
+		const link = await screen.findByRole('link', { name: 'hdfc.xls' });
+
+		expect(link.getAttribute('href')).toBe('/l/h/files/_/20261121/hdfc.xls');
+		expect(screen.queryByRole('link', { name: 'hdfc.xls.rupea' })).toBeNull();
+		expect(screen.queryByLabelText('Select _/20261121/odd.csv')).toBeNull();
+
+		await user.click(screen.getByLabelText('Select _/20261121/hdfc.xls'));
+		await user.click(screen.getByRole('button', { name: 'Delete' }));
+		await user.click(
+			within(screen.getByRole('group', { name: 'Confirm delete' })).getByRole('button', {
+				name: 'Delete',
+			}),
+		);
+		expect(deleteFiles).toHaveBeenCalledWith({ handle: 'h', keys: [draft] });
 	});
 
 	it('moves the chosen files into a folder', async () => {

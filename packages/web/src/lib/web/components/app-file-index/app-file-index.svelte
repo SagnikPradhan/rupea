@@ -1,13 +1,13 @@
 <script lang="ts">
 	import { ICONS } from '#lib/web/shared/icons.ts';
 	import { deleteFiles, listFiles, renameFiles } from '#lib/endpoints/files.remote.ts';
+	import { listStatements } from '#lib/endpoints/import.remote.ts';
 	import type { RupeaError } from '@rupea/shared/errors.ts';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
-	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
 	import { formatsHere } from '#lib/web/shared/format.ts';
-	import { isCounted } from '@rupea/shared/files.ts';
+	import { REVIEW } from '@rupea/shared/files.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { keysUnder, movedTo, treeRows } from './file-tree';
@@ -25,7 +25,20 @@
 
 	const response = $derived(await listFiles(handle));
 	const files = $derived(response.data ?? []);
-	const rows = $derived(treeRows(files, [...collapsed]));
+	const uploaded = $derived(await listStatements(handle));
+	const byKey = $derived(Object.fromEntries(files.map((f) => [f.key, f])));
+	const statements = $derived(
+		(uploaded.data ?? []).map((s) => {
+			const key = `${REVIEW}/${s.key}`;
+			const draft = byKey[`${key}.rupea`];
+			return { key, modified: draft?.modified, size: draft?.size, draft: draft?.key };
+		}),
+	);
+	const drafted = $derived(new Set(statements.map((s) => s.draft)));
+	const loose = $derived(
+		files.filter((f) => !drafted.has(f.key)).map((f) => ({ ...f, draft: f.key })),
+	);
+	const rows = $derived(treeRows([...loose, ...statements], [...collapsed]));
 	const chosen = $derived(files.map((f) => f.key).filter((k) => selected.has(k)));
 
 	const mark = (keys: string[], on: boolean) =>
@@ -47,7 +60,7 @@
 	}
 
 	function shown(from: string | null, to: string) {
-		const keys = rows.flatMap((r) => (r.file ? [r.path] : []));
+		const keys = rows.flatMap((r) => (r.file?.draft ? [r.file.draft] : []));
 		const at = [keys.indexOf(from ?? to), keys.indexOf(to)];
 		const start = Math.min(...at);
 		return start === -1 ? [to] : keys.slice(start, Math.max(...at) + 1);
@@ -88,7 +101,7 @@
 <section>
 	<Issues {handle} errors={step.errors} />
 
-	{#if files.length === 0}
+	{#if rows.length === 0}
 		<p class="empty">No files yet.</p>
 	{:else}
 		<div class="toolbar">
@@ -144,7 +157,11 @@
 						<th scope="row" class="truncate">
 							<span class="entry" style:--depth={row.depth}>
 								{#if row.file}
-									{@render checkbox([row.path], `Select ${row.path}`, row.path)}
+									{#if row.file.draft}
+										{@render checkbox([row.file.draft], `Select ${row.path}`, row.file.draft)}
+									{:else}
+										<input class="blank" type="checkbox" disabled aria-hidden="true" />
+									{/if}
 									<a href={fileHref(handle, row.path)}>{row.name}</a>
 								{:else}
 									{@const Chevron = collapsed.has(row.path) ? ICONS.collapsed : ICONS.expanded}
@@ -158,11 +175,12 @@
 										{row.name}/
 									</button>
 								{/if}
-								{#if row.depth === 0 && !isCounted(row.path)}<Tag>not counted</Tag>{/if}
 							</span>
 						</th>
-						<td class="date">{row.file ? formats.moment(new Date(row.file.modified)) : ''}</td>
-						<td class="amount size">{row.file ? formats.size(row.file.size) : ''}</td>
+						<td class="date">
+							{row.file?.modified ? formats.moment(new Date(row.file.modified)) : ''}
+						</td>
+						<td class="amount size">{row.file?.size == null ? '' : formats.size(row.file.size)}</td>
 					</tr>
 				{/each}
 			</tbody>
@@ -203,6 +221,10 @@
 
 	input.grow {
 		min-width: 0;
+	}
+
+	.blank {
+		visibility: hidden;
 	}
 
 	p {

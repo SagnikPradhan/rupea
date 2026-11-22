@@ -2,7 +2,6 @@
 	import {
 		addFile,
 		createFile,
-		deleteFiles,
 		editFile,
 		findLatestFile,
 		listFiles,
@@ -22,19 +21,19 @@
 	import type { RupeaError, Reply } from '@rupea/shared/errors.ts';
 	import { isCounted } from '@rupea/shared/files.ts';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
+	import Original from '#lib/web/components/app-statement-original/app-statement-original.svelte';
+	import Dialog from '#lib/web/components/ui-dialog/ui-dialog.svelte';
+	import Combobox from '#lib/web/components/ui-combobox/ui-combobox.svelte';
 	import Field from '#lib/web/components/ui-field/ui-field.svelte';
 	import Combobox from '#lib/web/components/ui-combobox/ui-combobox.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import Account from '#lib/web/components/app-ledger-table/account.svelte';
-	import Amount from '#lib/web/components/app-ledger-table/amount.svelte';
-	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
+	import TransactionsFound from '#lib/web/components/app-transactions-found/app-transactions-found.svelte';
 	import StatementFormat from '#lib/web/components/app-statement-format/app-statement-format.svelte';
 	import type { TransactionView } from '#lib/endpoints/views.ts';
-	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';
 	import { accountOf, statusOf, suggestedFile } from '#lib/web/shared/statements.ts';
-	import { goto } from '$app/navigation';
-	import { untrack } from 'svelte';
+	import { untrack, type Snippet } from 'svelte';
 
 	const formats = formatsHere();
 
@@ -51,7 +50,21 @@
 		draft: string;
 	};
 
-	const { handle, statement }: { handle: string; statement: string } = $props();
+	type Props = {
+		handle: string;
+		statement: string;
+		/** Changes when a transaction of the draft was saved, to read it again. */
+		revision: number;
+		/** Whether the draft has edits not saved yet. */
+		dirty: boolean;
+		/**
+		 * Shows the draft like any file, given the button and the form for adding
+		 * it.
+		 */
+		filed: Snippet<[Snippet, Snippet, Snippet]>;
+	};
+
+	const { handle, statement, revision, dirty, filed }: Props = $props();
 
 	const uploaded = $derived(await listStatements(handle));
 	const imports = $derived(await listImports(handle));
@@ -68,7 +81,7 @@
 		found: null as Reply<TransactionView[]> | null,
 		errors: [] as RupeaError[],
 	});
-	const action = $state({ step: 'reading' as 'reading' | 'adding' | 'restarting', to: '' });
+	const action = $state({ step: 'reading' as 'reading' | 'adding', to: '' });
 	const done = $state({ addition: null as Addition | null });
 
 	const locked = $derived(
@@ -88,13 +101,16 @@
 	const counted = $derived((files.data ?? []).map((f) => f.key).filter(isCounted));
 	const addition = $derived(done.addition?.statement === statement ? done.addition : null);
 
+	const drafted = $derived(file !== null && !isCounted(file));
+
 	const sleep = (t: number) => new Promise<void>((r) => setTimeout(r, t));
 
 	// Untracked: the commands below update their own pending state, which would re-run this effect.
 	$effect(() => {
 		const key = statement;
-		const at = file;
-		untrack(() => void load(key, at));
+		const draftKey = file;
+		void revision;
+		untrack(() => void load(key, draftKey));
 	});
 
 	async function load(key: string, at: string | null) {
@@ -161,7 +177,8 @@
 	}
 
 	function startAdding() {
-		Object.assign(action, { step: 'adding', to: latest ?? suggestedFile(statement, found) });
+		const to = latest ?? suggestedFile(statement, found);
+		Object.assign(action, { step: 'adding', to });
 	}
 
 	async function add(event: SubmitEvent) {
@@ -204,166 +221,152 @@
 	}
 
 	async function edit() {
-		const key = await draft();
-		if (key !== null) await goto(fileHref(handle, key));
-	}
-
-	async function restart() {
-		if (file === null) return;
-
-		const deleted = await deleteFiles({ handle, keys: [file] });
-		view.errors = deleted.errors;
-		await listStatements(handle).refresh();
+		if ((await draft()) !== null) await listStatements(handle).refresh();
 	}
 </script>
 
-<section>
-	{#if row === undefined}
-		<p class="hint">This statement is no longer here.</p>
-	{:else if addition}
-		<div class="toolbar">
-			<p>
-				Added {addition.added} to <a href={fileHref(handle, addition.to)}>{addition.to}</a>.
-				{#if addition.skipped > 0}Left out {addition.skipped} already there.{/if}
-			</p>
-			<Button onclick={undo}>Undo</Button>
-		</div>
-	{:else if status === 'added' && file !== null}
-		<p>
-			Its transactions are in the ledger, in <a href={fileHref(handle, file)}>{file}</a>.
-		</p>
-	{:else if status === 'reading'}
-		<p class="hint">Reading this file…</p>
-	{:else}
-		<Issues {handle} errors={problems} detailed />
+{#snippet next()}
+	<Button primary disabled={dirty || found.length === 0} onclick={startAdding}>
+		Add to ledger
+	</Button>
+{/snippet}
 
-		{#if locked}
-			<form
-				class="toolbar"
-				{...unlockStatement.enhance(async (form) => {
-					await form.submit();
-					await opened(view.ticket, form.result);
-				})}
-			>
-				<input {...unlockStatement.fields.handle.as('hidden', handle)} />
-				<input {...unlockStatement.fields.statement.as('hidden', locked)} />
-				<Field label="This file has a password">
-					<input {...unlockStatement.fields.password.as('password')} autocomplete="off" required />
-				</Field>
-				<Button primary disabled={unlockStatement.pending > 0}>Unlock</Button>
-			</form>
-		{/if}
-
-		{#if view.setup && view.grid.length > 0}
-			<div class="group">
-				<h2>Describe this statement</h2>
-				<p class="hint">
-					Rupea doesn’t know this statement yet. Tell it which columns hold the date, description
-					and amount; the transactions it finds show below as you type.
-				</p>
-				<StatementFormat
-					{handle}
-					grid={view.grid}
-					schema={view.schema ?? { key: 'my-bank.yml', content: '' }}
-					onchange={change}
+{#snippet form()}
+	<Dialog
+		title="Add to ledger"
+		open={action.step === 'adding'}
+		onclose={() => (action.step = 'reading')}
+	>
+		<form onsubmit={add}>
+			<Field label="Add to file">
+				<Combobox
+					value={action.to}
+					options={counted}
+					onchange={(key: string) => (action.to = key)}
 				/>
-			</div>
-		{/if}
+			</Field>
 
-		{#if view.found}
-			<div class="group">
-				<div class="heading">
-					<h2>
-						{found.length}
-						{found.length === 1 ? 'transaction' : 'transactions'} found
-						{#if account}<span class="hint">for <Account {account} /></span>{/if}
-					</h2>
-					{#if action.step === 'reading'}
-						<div class="toolbar">
-							<Button primary disabled={found.length === 0} onclick={startAdding}>
-								Add to ledger
-							</Button>
-							<Button onclick={edit} disabled={found.length === 0}>Edit transactions</Button>
-							{#if status === 'ready'}
-								<Button onclick={() => (action.step = 'restarting')}>Start over</Button>
-							{/if}
-						</div>
+			<p class="hint">
+				{counted.includes(action.to.trim())
+					? 'Adds them to this file by date, leaving out any it holds already.'
+					: 'Makes a new file.'}
+			</p>
+
+			<footer>
+				<Button type="button" onclick={() => (action.step = 'reading')}>Cancel</Button>
+				<Button primary>Add</Button>
+			</footer>
+		</form>
+	</Dialog>
+{/snippet}
+
+{#snippet original()}
+	<Original {handle} {statement} />
+{/snippet}
+
+{#snippet below()}
+	<Issues {handle} errors={view.errors} detailed />
+	{@render form()}
+{/snippet}
+
+{#if drafted && !addition}
+	{@render filed(next, below, original)}
+{:else}
+	<section>
+		{#if row === undefined}
+			<p class="hint">This statement is no longer here.</p>
+		{:else if addition}
+			<div class="toolbar">
+				<p>
+					Added {addition.added} to <a href={fileHref(handle, addition.to)}>{addition.to}</a>.
+					{#if addition.skipped > 0}Left out {addition.skipped} already there.{/if}
+				</p>
+				<Button onclick={undo}>Undo</Button>
+			</div>
+		{:else if status === 'added' && file !== null}
+			<p>
+				Its transactions are in the ledger, in <a href={fileHref(handle, file)}>{file}</a>.
+			</p>
+		{:else if status === 'reading'}
+			<p class="hint">Reading this file…</p>
+		{:else}
+			<Issues {handle} errors={problems} detailed />
+
+			{#if locked}
+				<form
+					class="toolbar"
+					{...unlockStatement.enhance(async (form) => {
+						await form.submit();
+						await opened(view.ticket, form.result);
+					})}
+				>
+					<input {...unlockStatement.fields.handle.as('hidden', handle)} />
+					<input {...unlockStatement.fields.statement.as('hidden', locked)} />
+					<Field label="This file has a password">
+						<input
+							{...unlockStatement.fields.password.as('password')}
+							autocomplete="off"
+							required
+						/>
+					</Field>
+					<Button primary disabled={unlockStatement.pending > 0}>Unlock</Button>
+				</form>
+			{/if}
+
+			{#if view.setup && view.grid.length > 0}
+				<div class="group">
+					<h2>Describe this statement</h2>
+					<p class="hint">
+						Rupea doesn’t know this statement yet. Tell it which columns hold the date, description
+						and amount; the transactions it finds show below as you type.
+					</p>
+					<StatementFormat
+						{handle}
+						grid={view.grid}
+						schema={view.schema ?? { key: 'my-bank.yml', content: '' }}
+						onchange={change}
+					/>
+				</div>
+			{/if}
+
+			{#if view.found}
+				<div class="group">
+					<div class="heading">
+						<p class="found">
+							{found.length}
+							{found.length === 1 ? 'transaction' : 'transactions'} found
+							{#if account}for <Account {account} />{/if}
+						</p>
+						{#if action.step === 'reading'}
+							<div class="toolbar">
+								<Button primary disabled={found.length === 0} onclick={startAdding}>
+									Add to ledger
+								</Button>
+								<Button onclick={edit} disabled={found.length === 0}>Edit transactions</Button>
+							</div>
+						{/if}
+					</div>
+
+					{@render form()}
+					<Issues {handle} errors={view.found.errors} detailed />
+
+					{#if found.length > 0}
+						<TransactionsFound transactions={found} editable={false} chosen={null} />
+					{/if}
+
+					{#if view.grid.length > 0 && !view.setup}
+						<p class="hint">
+							Read as {view.schema?.key}.
+							<button class="link" onclick={() => (view.setup = true)}>
+								Read it with another schema
+							</button>
+						</p>
 					{/if}
 				</div>
-
-				{#if action.step === 'adding'}
-					<form class="toolbar" onsubmit={add}>
-						<label>
-							Add to file
-							<Combobox
-								value={action.to}
-								options={counted}
-								required
-								onchange={(key: string) => (action.to = key)}
-							/>
-						</label>
-						<Button primary>Add</Button>
-						<Button type="button" onclick={() => (action.step = 'reading')}>Cancel</Button>
-					</form>
-					<p class="hint">
-						{counted.includes(action.to.trim())
-							? 'Adds them to this file by date, leaving out any it holds already.'
-							: 'Makes a new file.'}
-					</p>
-				{/if}
-				{#if action.step === 'restarting'}
-					<div class="toolbar" role="group" aria-label="Confirm start over">
-						<p>Throw away this draft and its edits?</p>
-						<Button primary onclick={restart}>Start over</Button>
-						<Button onclick={() => (action.step = 'reading')}>Cancel</Button>
-					</div>
-				{/if}
-				<Issues {handle} errors={view.found.errors} detailed />
-
-				{#if found.length > 0}
-					<LedgerTable
-						label="Transactions found"
-						columns={[
-							{ label: 'Date', kind: 'date' },
-							{ label: 'Description' },
-							{ label: 'Amount', kind: 'amount' },
-						]}
-					>
-						{#each found as transaction (transaction.line)}
-							<tbody>
-								<tr>
-									<td class="date">
-										<time datetime={transaction.date}>{formats.date(transaction.date)}</time>
-									</td>
-									<th scope="row" class="truncate" title={transaction.description}>
-										{transaction.description}
-									</th>
-									<td></td>
-								</tr>
-								{#each transaction.postings as posting, index (index)}
-									<tr class="child">
-										<td></td>
-										<td><Account account={posting.account} /></td>
-										<Amount value={posting.quantity} />
-									</tr>
-								{/each}
-							</tbody>
-						{/each}
-					</LedgerTable>
-				{/if}
-
-				{#if file === null && view.grid.length > 0 && !view.setup}
-					<p class="hint">
-						Read as {view.schema?.key}.
-						<button class="link" onclick={() => (view.setup = true)}>
-							Read it with another schema
-						</button>
-					</p>
-				{/if}
-			</div>
+			{/if}
 		{/if}
-	{/if}
-</section>
+	</section>
+{/if}
 
 <style>
 	section,
@@ -401,6 +404,10 @@
 		gap: var(--size-1);
 	}
 
+	.found {
+		color: var(--color-muted);
+	}
+
 	.hint {
 		color: var(--color-muted);
 	}
@@ -412,17 +419,12 @@
 		gap: var(--size-1);
 	}
 
-	.toolbar p,
-	.toolbar label {
+	.toolbar p {
 		align-self: center;
 	}
 
-	.toolbar label {
-		display: flex;
-		flex: 1;
-		align-items: center;
-		gap: var(--size-1);
-		white-space: nowrap;
+	form input {
+		width: 100%;
 	}
 
 	.toolbar input {
@@ -437,5 +439,21 @@
 		text-decoration: underline;
 		background: none;
 		border: none;
+	}
+
+	form {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-2);
+	}
+
+	form > :global(*) {
+		margin: 0;
+	}
+
+	footer {
+		display: flex;
+		gap: var(--size-1);
+		justify-content: flex-end;
 	}
 </style>

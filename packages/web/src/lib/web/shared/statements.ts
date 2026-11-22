@@ -27,20 +27,6 @@ export function statusOf(
 	return 'new';
 }
 
-/** Whether any uploaded statement is still to be read or reviewed. */
-export const isWaitingIn = (
-	statements: { key: string; file: string | null }[],
-	jobs: { statement: string; status: string }[],
-) =>
-	statements.some((s) =>
-		['new', 'reading', 'ready'].includes(
-			statusOf(
-				s,
-				jobs.find((j) => j.statement === s.key),
-			),
-		),
-	);
-
 /** The account a statement's transactions came from; a ledger file names many. */
 export const accountOf = (s: string, f: { postings: { account: string }[] }[]) =>
 	isLedgerFile(s) ? undefined : f[0]?.postings[0]?.account;

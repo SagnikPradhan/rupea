@@ -46,7 +46,7 @@
 				{#each rows as row (row.key)}
 					{@const status = STATUSES[row.status]}
 					<tr>
-						<th scope="row" role="rowheader" class="truncate">
+						<th scope="row" role="rowheader" class="name">
 							<a href={statementHref(handle, row.key)}>
 								<FilePath path={row.key} />
 							</a>
@@ -98,6 +98,16 @@
 		color: var(--color-negative);
 	}
 
+	th.name {
+		width: 50%;
+		overflow-wrap: anywhere;
+	}
+
+	section :global(:is(th, td).date) {
+		width: 30%;
+		white-space: normal;
+	}
+
 	.actions {
 		width: 1%;
 		white-space: nowrap;
@@ -129,16 +139,17 @@
 			align-items: center;
 		}
 
-		th.truncate {
+		th.name {
 			grid-column: 1 / -1;
-			max-width: none;
-			overflow-wrap: anywhere;
-			white-space: normal;
+			width: auto;
 		}
 
-		td.date,
+		section :global(:is(th, td).date),
 		td.actions {
 			width: auto;
+		}
+
+		td.actions {
 			white-space: normal;
 		}
 

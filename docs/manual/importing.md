@@ -4,7 +4,7 @@ Importing turns a statement from your bank, card or broker into transactions in 
 
 ## What you can upload
 
-Open **Files**. In the **Import statements** panel at the right, drop your files on it or click it to choose them. You can add several files at once:
+Open **Files**. In the **Import statements** panel next to your files (below them on a narrow screen), drop your files on it or click it to choose them. You can add several files at once:
 
 - **Statements** as PDF, CSV, XLS or XLSX.
 - **Ledger files** you already keep, as `.rupea`, `.ledger`, `.journal`, `.dat` or `.txt`. They import as they are written, with no schema. They must be UTF-8, and `include` lines in them aren't followed.

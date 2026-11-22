@@ -1,12 +1,10 @@
 import { expect, type Page } from '@playwright/test';
 import { visit } from './visit.ts';
 
-/**
- * Creates an empty ledger file through the editor, which the files list no
- * longer offers.
- */
+/** Creates an empty ledger file from the New file button of the files list. */
 export const startFile = async (page: Page, ledger: string, key: string) => {
-	await visit(page, `${ledger}/files/new.rupea`);
+	await visit(page, `${ledger}/files`);
+	await page.getByRole('link', { name: 'New file' }).click();
 	await page.getByRole('button', { name: 'New file' }).click();
 	await page.getByLabel('New file').fill(key);
 	await page.getByRole('button', { name: 'Create' }).click();

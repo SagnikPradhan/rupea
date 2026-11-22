@@ -25,5 +25,5 @@
 <Issues {handle} errors={read.found?.errors ?? []} detailed />
 
 {#if read.found?.data}
-	<Sheet grid={read.found.data.grid} tall />
+	<Sheet grid={read.found.data.grid} />
 {/if}

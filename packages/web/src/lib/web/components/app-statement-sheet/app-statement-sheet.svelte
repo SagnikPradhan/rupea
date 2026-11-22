@@ -3,17 +3,15 @@
 
 	type Props = {
 		grid: string[][];
-		/** Lets it fill most of the window, rather than a corner of it. */
-		tall?: boolean;
 	};
 
-	const { grid, tall = false }: Props = $props();
+	const { grid }: Props = $props();
 
 	const width = $derived(Math.max(0, ...grid.map((r) => r.length)));
 	const columns = $derived([...Array(width).keys()].map(formatColumn));
 </script>
 
-<div class={['sheet', { tall }]}>
+<div class="sheet">
 	<table aria-label="Statement">
 		<thead>
 			<tr>
@@ -39,8 +37,7 @@
 <style>
 	.sheet {
 		width: 100%;
-		max-height: var(--size-height-2);
-		overflow: auto;
+		overflow-x: auto;
 		border: var(--size-line-0) solid var(--color-border);
 		border-radius: var(--radius-1);
 	}
@@ -71,10 +68,6 @@
 		text-align: left;
 	}
 
-	thead th {
-		top: 0;
-	}
-
 	tbody th {
 		left: 0;
 	}
@@ -88,9 +81,5 @@
 	thead th:first-child {
 		left: 0;
 		z-index: 1;
-	}
-
-	.tall {
-		max-height: var(--size-height-3);
 	}
 </style>

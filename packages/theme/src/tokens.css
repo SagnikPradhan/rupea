@@ -39,7 +39,6 @@
 	/* Heights */
 	--size-height-0: clamp(calc(var(--size-2) * 8), 20svh, calc(var(--size-2) * 16));
 	--size-height-1: clamp(calc(var(--size-2) * 12), 30svh, calc(var(--size-2) * 24));
-	--size-height-2: clamp(calc(var(--size-2) * 16), 40svh, calc(var(--size-2) * 32));
 	--size-height-3: max(calc(var(--size-2) * 16), calc(100svh - var(--size-5) * 3 - var(--size-3)));
 
 	/* Corners */

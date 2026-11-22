@@ -13,15 +13,10 @@
 		 * them.
 		 */
 		fixed?: boolean;
-		/**
-		 * Keeps the table to the height of the window, scrolling its rows under the
-		 * headers.
-		 */
-		scroll?: boolean;
 		children: Snippet;
 	};
 
-	const { columns, label, fixed = false, scroll = false, children }: Props = $props();
+	const { columns, label, fixed = false, children }: Props = $props();
 
 	const tracks = (shown: Column[]) =>
 		shown
@@ -32,21 +27,9 @@
 				return column.kind === 'account' ? 'minmax(0, 2fr)' : 'minmax(min-content, auto)';
 			})
 			.join(' ');
-
-	const fitted = (box: HTMLElement) => {
-		if (!scroll) return;
-
-		const measure = () =>
-			box.style.setProperty('--top', `${box.getBoundingClientRect().top + window.scrollY}px`);
-		const watch = new ResizeObserver(measure);
-		watch.observe(document.body);
-		measure();
-
-		return () => watch.disconnect();
-	};
 </script>
 
-<div class={{ scroll }} {@attach fitted}>
+<div>
 	<table
 		aria-label={label}
 		style:--wide={tracks(columns)}
@@ -69,14 +52,6 @@
 		overflow-x: auto;
 	}
 
-	.scroll {
-		max-height: max(
-			calc(100svh - var(--top, calc(var(--size-0) * 0)) - var(--size-3)),
-			var(--size-5) * 8
-		);
-		overflow-y: auto;
-	}
-
 	table {
 		display: grid;
 		grid-template-columns: var(--wide);
@@ -96,13 +71,6 @@
 		color: var(--color-muted);
 		font: var(--text-label);
 		text-align: left;
-	}
-
-	.scroll thead th {
-		position: sticky;
-		inset-block-start: 0;
-		z-index: var(--layer-raised);
-		background: var(--color-surface);
 	}
 
 	thead {

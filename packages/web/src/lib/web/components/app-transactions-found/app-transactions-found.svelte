@@ -34,7 +34,6 @@
 	<LedgerTable
 		label="Transactions found"
 		fixed
-		scroll
 		columns={[
 			{ label: 'Date', kind: 'date' },
 			{ label: 'From / To', kind: 'account', optional: true },

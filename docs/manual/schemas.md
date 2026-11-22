@@ -14,7 +14,7 @@ Rupea ships schemas for some common banks, called built-in schemas. Check the [l
 
 Schemas belong to a ledger, in its `schemas/` folder. Everyone who shares the ledger imports with the same schemas.
 
-To write one, open **Files** in your ledger and drop a statement on the **Import statements** panel. When Rupea doesn't know a statement, it asks you to **Describe this statement**. Start from **The example**, Rupea's built-in schema for HDFC savings accounts, which this page walks through. Edit it under **Schema**, give it a **Name** like `axis-savings.yml` and press **Save schema**. The transactions it finds show below as you type, so you can see straight away what your schema reads.
+To write one, open **Files** in your ledger and drop a statement on the **Import statements** panel. When Rupea doesn't know a statement, it asks you to **Describe this statement**. Under **Starters**, pick **The example**, Rupea's built-in schema for HDFC savings accounts, which this page walks through. Edit it under **Schema**, give it a **Name** like `axis-savings.yml` and press **Save schema**. The transactions it finds show below as you type, so you can see straight away what your schema reads.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="/screenshots/import-format-dark.png">

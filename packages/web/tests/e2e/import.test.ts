@@ -58,6 +58,7 @@ test('adds a later statement to the file its account went to, and undoes it', as
 	await page
 		.getByLabel('Statements', { exact: true })
 		.setInputFiles({ name: 'later.csv', mimeType: 'text/csv', buffer: Buffer.from(again) });
+	await page.waitForURL(/\/files\/_\/\d+\/later\.csv/);
 	await page.getByRole('button', { name: 'Add to ledger' }).click();
 	await expect(page.getByRole('combobox', { name: 'Add to file' })).toHaveValue('bank.rupea');
 	await page.getByRole('button', { name: 'Add', exact: true }).click();
@@ -66,7 +67,9 @@ test('adds a later statement to the file its account went to, and undoes it', as
 	await page.getByRole('button', { name: 'Undo' }).click();
 	await expect(page.getByRole('button', { name: 'Add to ledger' })).toBeVisible();
 	await visit(page, `${ledger}/files`);
-	await expect(page.getByRole('row', { name: /later\.csv/ })).toContainText('Ready to add');
+	await expect(page.getByRole('row', { name: /^\d+\/later\.csv/ })).toContainText(
+		'Ready to review',
+	);
 });
 
 test('files a draft for review to edit its transactions', async ({ signedIn: page, ledger }) => {
@@ -87,7 +90,9 @@ test('files a draft for review to edit its transactions', async ({ signedIn: pag
 	await expect(page.getByRole('link', { name: 'Text', exact: true })).toBeVisible();
 
 	await visit(page, `${ledger}/files`);
-	await expect(page.getByRole('row', { name: /statement\.csv/ })).toContainText('Ready to add');
+	await expect(page.getByRole('row', { name: /^\d+\/statement\.csv/ })).toContainText(
+		'Ready to review',
+	);
 });
 
 test('unlocks a statement with its password', async ({ signedIn: page, ledger }) => {
@@ -119,7 +124,7 @@ test('imports a ledger file as written, naming its upload', async ({ signedIn: p
 	await page
 		.getByLabel('Statements', { exact: true })
 		.setInputFiles({ name: 'books.ledger', mimeType: 'text/plain', buffer: Buffer.from(books) });
-	await page.waitForURL(/\/files\/_\/statements\//);
+	await page.waitForURL(/\/files\/_\/\d+\/books\.ledger/);
 	await expect(page.getByRole('table', { name: 'Transactions found' })).toContainText('Tea');
 
 	await page.getByRole('button', { name: 'Add to ledger' }).click();

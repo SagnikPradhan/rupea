@@ -177,12 +177,42 @@ describe('the import panel', () => {
 	it('lists each statement with where it stands, and why one failed', async () => {
 		showing();
 
-		expect((await rowOf(/hdfc\.xls/)).textContent).toContain('New');
-		expect((await rowOf(/sep\.xls/)).textContent).toContain('Ready to add');
-		expect((await rowOf(/aug\.xls/)).textContent).toContain('Added');
+		expect((await rowOf(/hdfc\.xls/)).textContent).toContain('Just uploaded');
+		expect((await rowOf(/sep\.xls/)).textContent).toContain('Ready to review');
+		expect((await rowOf(/aug\.xls/)).textContent).toContain('Added to your ledger');
 		expect((await rowOf(/b\.ledger/)).textContent).toContain('Failed');
-		expect((await rowOf(/odd\.csv/)).textContent).toContain('Needs setup');
+		expect((await rowOf(/odd\.csv/)).textContent).toContain(
+			'Rupea doesn’t recognise this bank yet',
+		);
 		expect(screen.getByText('CannotReadFile : bad')).toBeTruthy();
+	});
+
+	it('offers Review on a ready statement, Set up on an unrecognised one and Open on a failed one, and nothing else', async () => {
+		showing();
+		const review = within(await rowOf(/sep\.xls/)).getByRole('link', { name: 'Review' });
+		const setup = within(await rowOf(/odd\.csv/)).getByRole('link', { name: 'Set up' });
+
+		expect(review.getAttribute('href')).toContain('sep.xls');
+		const open = within(await rowOf(/b\.ledger/)).getByRole('link', { name: 'Open' });
+
+		expect(setup.getAttribute('href')).toContain('odd.csv');
+		expect(open.getAttribute('href')).toContain('b.ledger');
+		expect(
+			within(await rowOf(/aug\.xls/)).queryByRole('link', { name: /Review|Set up|Open/ }),
+		).toBeNull();
+		expect(
+			within(await rowOf(/hdfc\.xls/)).queryByRole('link', { name: /Review|Set up|Open/ }),
+		).toBeNull();
+	});
+
+	it('hides the Review button while a statement asks to be deleted', async () => {
+		const { user } = showing();
+		const row = await rowOf(/sep\.xls/);
+		expect(within(row).getByRole('link', { name: 'Review' })).toBeTruthy();
+
+		await user.click(within(row).getByRole('button', { name: 'Delete sep.xls' }));
+
+		expect(within(await rowOf(/sep\.xls/)).queryByRole('link', { name: 'Review' })).toBeNull();
 	});
 
 	it('opens a statement uploaded alone', async () => {

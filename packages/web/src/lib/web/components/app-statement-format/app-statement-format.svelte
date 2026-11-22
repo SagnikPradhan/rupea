@@ -74,8 +74,13 @@ fields:
 		<Sheet {grid} />
 	{/if}
 
+	<p class="hint">
+		A starter is a ready-made setup for one bank’s sheet. Pick the closest one, then adjust its
+		columns.
+	</p>
+
 	<div class="choices" role="group" aria-labelledby="start">
-		<span id="start">Start from</span>
+		<span id="start">Starters</span>
 		{#each schemas.data ?? [] as saved (saved.key)}
 			<button
 				class="choice"
@@ -138,6 +143,10 @@ fields:
 
 	.toolbar p {
 		align-self: center;
+	}
+
+	.hint {
+		color: var(--color-muted);
 	}
 
 	.choices {

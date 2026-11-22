@@ -2,13 +2,13 @@ import { isCounted, isLedgerFile } from '@rupea/shared/files.ts';
 
 export type Status = 'added' | 'ready' | 'reading' | 'setup' | 'failed' | 'new';
 
-export const STATUS_LABELS: Record<Status, string> = {
-	added: 'Added',
-	ready: 'Ready to add',
-	reading: 'Reading…',
-	setup: 'Needs setup',
-	failed: 'Failed',
-	new: 'New',
+export const STATUSES: Record<Status, { label: string; action?: string }> = {
+	added: { label: 'Added to your ledger' },
+	ready: { label: 'Ready to review', action: 'Review' },
+	reading: { label: 'Reading…' },
+	setup: { label: 'Rupea doesn’t recognise this bank yet', action: 'Set up' },
+	failed: { label: 'Failed', action: 'Open' },
+	new: { label: 'Just uploaded' },
 };
 
 /**

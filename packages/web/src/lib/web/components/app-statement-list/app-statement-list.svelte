@@ -9,7 +9,7 @@
 	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
 	import { detail } from '#lib/web/shared/errors.ts';
 	import { statementHref } from '#lib/web/shared/links.ts';
-	import { STATUS_LABELS, statusOf } from '#lib/web/shared/statements.ts';
+	import { STATUSES, statusOf } from '#lib/web/shared/statements.ts';
 
 	const { handle }: { handle: string } = $props();
 
@@ -44,31 +44,37 @@
 		>
 			<tbody>
 				{#each rows as row (row.key)}
+					{@const status = STATUSES[row.status]}
 					<tr>
-						<th scope="row" class="truncate">
+						<th scope="row" role="rowheader" class="truncate">
 							<a href={statementHref(handle, row.key)}>
 								<FilePath path={row.key} />
 							</a>
 						</th>
-						<td class={['date', row.status]}>{STATUS_LABELS[row.status]}</td>
-						<td class="actions">
+						<td role="cell" class={['date', row.status]}>{status.label}</td>
+						<td role="cell" class="actions">
 							{#if asking.key === row.key}
-								<div class="confirm" role="group" aria-label="Confirm delete">
+								<div class="buttons" role="group" aria-label="Confirm delete">
 									<Button primary onclick={() => remove(row.key)}>Delete</Button>
 									<Button onclick={() => (asking.key = '')}>Cancel</Button>
 								</div>
 							{:else}
-								<IconButton
-									label="Delete {row.key}"
-									icon={ICONS.delete}
-									onclick={() => (asking.key = row.key)}
-								/>
+								<div class="buttons">
+									{#if status.action}
+										<Button href={statementHref(handle, row.key)}>{status.action}</Button>
+									{/if}
+									<IconButton
+										label="Delete {row.key}"
+										icon={ICONS.delete}
+										onclick={() => (asking.key = row.key)}
+									/>
+								</div>
 							{/if}
 						</td>
 					</tr>
 					{#if row.job?.error && row.status === 'failed'}
 						<tr class="child">
-							<td colspan="3"><span class="negative">{detail(row.job.error)}</span></td>
+							<td role="cell" colspan="3"><span class="negative">{detail(row.job.error)}</span></td>
 						</tr>
 					{/if}
 				{/each}
@@ -98,10 +104,51 @@
 		vertical-align: middle;
 	}
 
-	.confirm {
+	.buttons {
 		display: flex;
 		justify-content: end;
 		gap: var(--size-1);
+	}
+
+	@media (width < 48rem) {
+		section :global(tbody) {
+			display: block;
+		}
+
+		section :global(thead) {
+			position: absolute;
+			width: var(--size-line-0);
+			height: var(--size-line-0);
+			overflow: hidden;
+			clip-path: inset(50%);
+		}
+
+		tr {
+			display: grid;
+			grid-template-columns: minmax(0, 1fr) auto;
+			align-items: center;
+		}
+
+		th.truncate {
+			grid-column: 1 / -1;
+			max-width: none;
+			overflow-wrap: anywhere;
+			white-space: normal;
+		}
+
+		td.date,
+		td.actions {
+			width: auto;
+			white-space: normal;
+		}
+
+		tr :is(th, td) {
+			padding: var(--size-1) 0;
+		}
+
+		tr.child td {
+			grid-column: 1 / -1;
+		}
 	}
 
 	.negative {

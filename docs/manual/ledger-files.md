@@ -1,5 +1,7 @@
 # Ledger files
 
+A file opens as text. The Transactions switch under the title shows its transactions as a list instead, and choosing one edits it in a form.
+
 Your ledger is plain text files. Rupea reads them, and everything you see is worked out from them: change a file, and the app follows. You can edit them under **Files** in Rupea, or in any text editor.
 
 Rupea's files end in `.rupea`. They are close to the format of [ledger](https://ledger-cli.org) and [hledger](https://hledger.org), so most of what you know from those carries over.

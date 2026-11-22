@@ -4,7 +4,7 @@ Importing turns a statement from your bank, card or broker into transactions in 
 
 ## What you can upload
 
-Open **Files**, then **Import**, and press **Upload statements**. You can pick several files at once:
+Open **Files**. In the **Import statements** panel at the right, drop your files on it or click it to choose them. You can add several files at once:
 
 - **Statements** as PDF, CSV, XLS or XLSX.
 - **Ledger files** you already keep, as `.rupea`, `.ledger`, `.journal`, `.dat` or `.txt`. They import as they are written, with no schema. They must be UTF-8, and `include` lines in them aren't followed.
@@ -41,9 +41,9 @@ The transactions Rupea finds show in a list, with the account they belong to. Ea
   <img class="frame" src="/screenshots/import-draft-light.png" alt="Ten transactions read from a savings statement, each with an account" width="2880" height="1800">
 </picture>
 
-- **Edit transactions** opens the draft as text, to fix an account or a description.
-- **Start over** throws the draft and your edits away, and reads the statement again.
-- **Add to ledger** asks for a file to add the transactions to.
+- **Edit transactions** files the draft, when it isn't already. Choose any transaction in the list to fix its account or description in a form beside it, or switch the draft to Text to edit it as written. Statement shows the sheet you uploaded, as Rupea read it, to check the draft against.
+- **Delete** throws the draft and your edits away, and reads the statement again. A draft is a file marked Not counted, so it has the same buttons as any file (All files, Save and Format in Text, Delete) and **Add to ledger** besides.
+- **Add to ledger** opens a dialog that asks for a file to add the transactions to. Type a new name, or choose a file already in the ledger from the list.
 
 Adding to a file you already have puts the transactions in by date. It leaves out any the file already holds with the same date, description, account and amount, so adding an overlapping statement only adds what's new. A new name makes a new file.
 
@@ -51,8 +51,8 @@ Adding to a file you already have puts the transactions in by date. It leaves ou
 
 Until you add them to the ledger, uploads and drafts wait in the review area, the `_/` folder of your files:
 
-- a statement under the day you uploaded it, as `_/statements/20261028/savings-oct-2026.pdf`, and
-- its draft beside it, as `_/imports/20261028/savings-oct-2026.rupea`.
+- a statement under the day you uploaded it, as `_/20261028/savings-oct-2026.pdf`, and
+- its draft beside it, with `.rupea` added, as `_/20261028/savings-oct-2026.pdf.rupea`.
 
 Nothing under `_/` counts: its transactions don't show in your accounts, and its balances aren't checked.
 

@@ -14,7 +14,7 @@ Rupea ships schemas for some common banks, called built-in schemas. Check the [l
 
 Schemas belong to a ledger, in its `schemas/` folder. Everyone who shares the ledger imports with the same schemas.
 
-To write one, open **Import** in your ledger and press **Upload statements**. When Rupea doesn't know a statement, it asks you to **Describe this statement**. Start from **The example**, Rupea's built-in schema for HDFC savings accounts, which this page walks through. Edit it under **Schema**, give it a **Name** like `axis-savings.yml` and press **Save schema**. The transactions it finds show below as you type, so you can see straight away what your schema reads.
+To write one, open **Files** in your ledger and drop a statement on the **Import statements** panel. When Rupea doesn't know a statement, it asks you to **Describe this statement**. Start from **The example**, Rupea's built-in schema for HDFC savings accounts, which this page walks through. Edit it under **Schema**, give it a **Name** like `axis-savings.yml` and press **Save schema**. The transactions it finds show below as you type, so you can see straight away what your schema reads.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="/screenshots/import-format-dark.png">
@@ -25,7 +25,7 @@ Schemas are written in [YAML](https://learnxinyminutes.com/yaml/), a plain text 
 
 ## How Rupea sees a statement
 
-Rupea first turns any statement, whether CSV, Excel or PDF, into a **grid**: rows and columns of text, like a spreadsheet. The import page shows this grid under your statement. Columns are lettered A, B, C and rows are numbered, just like a spreadsheet.
+Rupea first turns any statement, whether CSV, Excel or PDF, into a **grid**: rows and columns of text, like a spreadsheet. The import window shows this grid under your statement. Columns are lettered A, B, C and rows are numbered, just like a spreadsheet.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="/screenshots/import-grid-dark.png">
@@ -197,7 +197,7 @@ On a withdrawal row the first path reads, and the amount goes out. On a deposit 
 
 ## PDF statements
 
-A PDF has no real columns, so Rupea finds the tables on each page and lines their words up into a grid. Check the grid on the import page before you write the fields. The columns may not be where the printed page suggests.
+A PDF has no real columns, so Rupea finds the tables on each page and lines their words up into a grid. Check the grid in the import window before you write the fields. The columns may not be where the printed page suggests.
 
 PDFs often mark an amount with `DR` or `CR` in the next cell instead of using two columns. The built-in schema for IDFC FIRST Bank credit cards reads them with locators that move:
 

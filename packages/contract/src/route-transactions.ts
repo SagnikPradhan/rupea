@@ -1,7 +1,7 @@
 import { oc } from '@orpc/contract';
 import dedent from 'dedent';
 import { Key, Line } from '@rupea/shared/files.ts';
-import { TransactionForm, TransactionFormOut } from '@rupea/shared/forms.ts';
+import { TransactionEdit, TransactionForm, TransactionFormOut } from '@rupea/shared/forms.ts';
 import { Handle } from '@rupea/shared/text.ts';
 import * as v from 'valibot';
 import { errors } from './errors.ts';
@@ -100,6 +100,30 @@ const findTransaction = oc
 	.errors(errors)
 	.output(v.object({ ...Location.entries, version: Version, form: TransactionFormOut }));
 
+const findTransactionAt = oc
+	.route({
+		method: 'GET',
+		path: '/ledgers/{handle}/transactions/at',
+		operationId: 'transactions.findAt',
+		description: dedent`
+			Answers the form of the transaction at a line of a file, with the version
+			of the file it was read from. A query string carries the line as text.
+
+			Fails with TransactionNotFound when no transaction starts at that line.
+			Fails with StorageNotFound when there is no such file. Fails with
+			LedgerNotFound when the caller cannot open the ledger.
+		`,
+	})
+	.input(
+		v.object({
+			handle: Handle,
+			file: Key,
+			line: v.union([Line, v.pipe(v.string(), v.regex(/^\d+$/), v.transform(Number), Line)]),
+		}),
+	)
+	.errors(errors)
+	.output(v.object({ ...Location.entries, version: Version, form: TransactionFormOut }));
+
 const saveTransaction = oc
 	.route({
 		method: 'PUT',
@@ -114,7 +138,7 @@ const saveTransaction = oc
 		`,
 	})
 	.input(
-		v.object({ handle: Handle, file: Key, line: Line, version: Version, form: TransactionForm }),
+		v.object({ handle: Handle, file: Key, line: Line, version: Version, form: TransactionEdit }),
 	)
 	.errors(errors)
 	.output(Location);
@@ -141,6 +165,7 @@ export const transactions = {
 	listPostings,
 	create: createTransaction,
 	find: findTransaction,
+	findAt: findTransactionAt,
 	save: saveTransaction,
 	delete: deleteTransaction,
 	findFiles: findTransactionFiles,

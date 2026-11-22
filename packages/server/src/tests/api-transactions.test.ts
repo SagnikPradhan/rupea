@@ -132,6 +132,66 @@ describe('the transactions api', () => {
 			expect(reply.json().rows.map((r: { position: number }) => r.position)).toEqual([1]);
 		}));
 
+	it('answers the form of the transaction at a line, which a query carries as text', ({
+		context,
+	}) =>
+		provide(context, async () => {
+			const { api, url, headers } = await seeded(context);
+
+			const found = await api.inject({
+				url: `${url}/transactions/at?file=a.rupea&line=5`,
+				headers,
+			});
+			const missing = await api.inject({
+				url: `${url}/transactions/at?file=a.rupea&line=4`,
+				headers,
+			});
+
+			expect(found.statusCode).toBe(200);
+			expect(found.json()).toMatchObject({
+				file: 'a.rupea',
+				line: 5,
+				form: { description: 'Dinner' },
+			});
+			expect(missing.statusCode).toBe(404);
+		}));
+
+	it('rewrites a transaction in a draft of the review area, where a new one may not go', ({
+		context,
+	}) =>
+		provide(context, async () => {
+			const { api, url, headers } = await seeded(context);
+			const draft = '_/imports/a.rupea';
+			const ledger = await api.inject({ url: `${url}/files/content?key=a.rupea`, headers });
+			await api.inject({
+				method: 'POST',
+				url: `${url}/files`,
+				headers,
+				payload: { key: draft, content: ledger.json().content },
+			});
+			const found = await api.inject({
+				url: `${url}/transactions/at?file=${draft}&line=5`,
+				headers,
+			});
+			const form = { ...found.json().form, description: 'Supper' };
+
+			const saved = await api.inject({
+				method: 'PUT',
+				url: `${url}/transactions`,
+				headers,
+				payload: { file: draft, line: 5, version: found.json().version, form },
+			});
+			const added = await api.inject({
+				method: 'POST',
+				url: `${url}/transactions`,
+				headers,
+				payload: { form: { ...form, file: draft } },
+			});
+
+			expect(saved.statusCode).toBe(200);
+			expect(added.statusCode).toBe(400);
+		}));
+
 	it('pages transactions by the cursor it answers', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);

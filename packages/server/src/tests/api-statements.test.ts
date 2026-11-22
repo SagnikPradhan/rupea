@@ -77,7 +77,7 @@ describe('uploading statements', () => {
 				payload: sent.payload,
 				headers: { ...headers, ...sent.headers },
 			});
-			const stored = await storage.read(`${folder(ledger)}/files/_/statements/${day()}/card.pdf`);
+			const stored = await storage.read(`${folder(ledger)}/files/_/${day()}/card.pdf`);
 
 			expect(reply.statusCode).toBe(200);
 			expect(reply.json()).toEqual({
@@ -100,7 +100,7 @@ describe('uploading statements', () => {
 				handle: ledger.handle,
 				files: [new File([statement], 'aug.csv'), new File(['x,y'], 'sep.csv')],
 			});
-			const stored = await storage.read(`${folder(ledger)}/files/_/statements/${day()}/sep.csv`);
+			const stored = await storage.read(`${folder(ledger)}/files/_/${day()}/sep.csv`);
 
 			expect(uploaded).toEqual({
 				succeeded: [`${day()}/aug.csv`, `${day()}/sep.csv`],
@@ -182,7 +182,7 @@ describe('uploading statements', () => {
 				});
 
 			const replies = await Promise.all([send(many), send(large)]);
-			const stored = await storage.list(`${folder(ledger)}/files/_/statements/`);
+			const stored = await storage.list(`${folder(ledger)}/files/_/`);
 
 			expect(replies.map((r) => r.statusCode)).toEqual([400, 400]);
 			expect(stored._unsafeUnwrap()).toEqual([]);
@@ -224,7 +224,7 @@ describe('uploading statements', () => {
 				send(sent.payload, sent.headers['content-type'], { authorization: 'Bearer nope' }),
 			]);
 			const signedIn = await send(`{${padding}`, 'application/json', headers);
-			const stored = await storage.list(`${folder(ledger)}/files/_/statements/`);
+			const stored = await storage.list(`${folder(ledger)}/files/_/`);
 
 			expect(replies.map((r) => r.statusCode)).toEqual([401, 401, 401, 401]);
 			expect(replies[0]?.json()).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });

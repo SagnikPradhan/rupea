@@ -73,6 +73,12 @@ const findTransaction = os.transactions.find
 		inLedger({ handle, action: (l) => Files.findTransaction({ ledger: l, id }) }),
 	);
 
+const findTransactionAt = os.transactions.findAt
+	.use(signedIn)
+	.handler(({ input: { handle, file, line } }) =>
+		inLedger({ handle, action: (l) => Files.findTransactionAt({ ledger: l, file, line }) }),
+	);
+
 const saveTransaction = os.transactions.save
 	.use(signedIn)
 	.handler(({ input: { handle, file, line, version, form } }) =>
@@ -96,6 +102,7 @@ export const transactions = {
 	listPostings,
 	create: createTransaction,
 	find: findTransaction,
+	findAt: findTransactionAt,
 	save: saveTransaction,
 	delete: deleteTransaction,
 	findFiles: findTransactionFiles,

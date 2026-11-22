@@ -303,6 +303,20 @@ describe('changing a transaction from a form', () => {
 			});
 		}));
 
+	it('finds the form of the transaction at a line, indexed or not', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'a.rupea', content: salary + '\n' + groceries });
+
+			const found = await Files.findTransactionAt({ ledger, file: 'a.rupea', line: 5 });
+			const missing = await Files.findTransactionAt({ ledger, file: 'a.rupea', line: 2 });
+
+			expect(found).toMatchObject({
+				value: { file: 'a.rupea', line: 5, form: { description: 'Groceries' } },
+			});
+			expect(missing).toMatchObject({ error: { type: 'TransactionNotFound' } });
+		}));
+
 	it('rewrites it and indexes the change', ({ context, db }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);

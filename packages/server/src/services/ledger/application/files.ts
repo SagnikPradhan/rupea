@@ -148,6 +148,30 @@ export const createTransaction = ({
 
 type TransactionAt = { ledger: Ledger; file: string; line: number };
 
+type FoundTransaction = {
+	file: string;
+	line: number;
+	form: TransactionForm;
+	version: string;
+};
+
+/**
+ * The form of the transaction at a line, with the version of the file it was
+ * read from.
+ */
+export const findTransactionAt = ({
+	ledger,
+	file,
+	line,
+}: TransactionAt): ResultAsync<FoundTransaction> =>
+	openFolder({ ledger, folder: 'files' }).andThen((s) =>
+		readText(s, file).andThen((f) =>
+			withContext('config')((c) => find(readingOf(c, ledger), { file: f, line })).asyncAndThen(
+				(t) => okAsync({ file, line, form: t, version: f.version }),
+			),
+		),
+	);
+
 type FindTransactionOptions = { ledger: Ledger; id: string };
 
 /**
@@ -157,23 +181,11 @@ type FindTransactionOptions = { ledger: Ledger; id: string };
 export const findTransaction = ({
 	ledger,
 	id,
-}: FindTransactionOptions): ResultAsync<{
-	file: string;
-	line: number;
-	form: TransactionForm;
-	version: string;
-}> =>
+}: FindTransactionOptions): ResultAsync<FoundTransaction> =>
 	DB.findTransactions(ledger.id, [id]).andThen(([indexed]) => {
 		if (!indexed) return errAsync(fault('TransactionNotFound', { path: id, line: 0 }));
 
-		const { file, line } = indexed.location;
-		return openFolder({ ledger, folder: 'files' }).andThen((s) =>
-			readText(s, file).andThen((f) =>
-				withContext('config')((c) => find(readingOf(c, ledger), { file: f, line })).asyncAndThen(
-					(t) => okAsync({ file, line, form: t, version: f.version }),
-				),
-			),
-		);
+		return findTransactionAt({ ledger, ...indexed.location });
 	});
 
 type SaveTransactionOptions = TransactionAt & { version: string; form: TransactionForm };

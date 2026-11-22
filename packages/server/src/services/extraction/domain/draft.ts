@@ -1,6 +1,6 @@
 import type { LedgerReading } from '#lib/server/shared/context/config.ts';
 import type { RupeaError } from '@rupea/shared/errors.ts';
-import { IMPORTS } from '@rupea/shared/files.ts';
+import { REVIEW } from '@rupea/shared/files.ts';
 import {
 	type Amount,
 	type RupeaTransaction,
@@ -82,7 +82,7 @@ export const copy = ({ config, statement, text }: CopyOptions): Draft => ({
 	failed: [],
 });
 
-const draftKey = (s: Source) => `${IMPORTS}/${s.key.replace(/\.[^.]*$/, '')}.rupea`;
+const draftKey = (s: Source) => `${REVIEW}/${s.key}.rupea`;
 
 // The checksum finds the statement wherever it has moved; the path is only what it was called.
 const sourceMetadata = (statement: Source) => ({

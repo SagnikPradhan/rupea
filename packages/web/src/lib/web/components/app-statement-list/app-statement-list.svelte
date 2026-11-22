@@ -39,9 +39,7 @@
 			transactions to this ledger.
 		</p>
 	{:else}
-		<LedgerTable
-			columns={[{ label: 'Statement' }, { label: 'Status', kind: 'date' }, { label: '' }]}
-		>
+		<LedgerTable columns={[{ label: 'Statement' }, { label: 'Status' }, { label: '' }]}>
 			<tbody>
 				{#each rows as row (row.key)}
 					{@const status = STATUSES[row.status]}
@@ -51,7 +49,7 @@
 								<FilePath path={row.key} />
 							</a>
 						</th>
-						<td role="cell" class={['date', row.status]}>{status.label}</td>
+						<td role="cell" class={['status', row.status]}>{status.label}</td>
 						<td role="cell" class="actions">
 							{#if asking.key === row.key}
 								<div class="buttons" role="group" aria-label="Confirm delete">
@@ -94,72 +92,57 @@
 		color: var(--color-muted);
 	}
 
+	section :global(tbody) {
+		display: block;
+	}
+
+	section :global(thead) {
+		position: absolute;
+		width: var(--size-line-0);
+		height: var(--size-line-0);
+		overflow: hidden;
+		clip-path: inset(50%);
+	}
+
+	tr {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr) auto;
+		grid-template-areas:
+			'name actions'
+			'status .';
+		align-items: center;
+	}
+
+	tr :is(th, td) {
+		padding: var(--size-0) 0;
+	}
+
+	th.name {
+		grid-area: name;
+		overflow-wrap: anywhere;
+	}
+
+	td.status {
+		grid-area: status;
+		color: var(--color-muted);
+	}
+
 	td.failed {
 		color: var(--color-negative);
 	}
 
-	th.name {
-		width: 50%;
-		overflow-wrap: anywhere;
+	td.actions {
+		grid-area: actions;
 	}
 
-	section :global(:is(th, td).date) {
-		width: 30%;
-		white-space: normal;
-	}
-
-	.actions {
-		width: 1%;
-		white-space: nowrap;
-		vertical-align: middle;
+	tr.child td {
+		grid-column: 1 / -1;
 	}
 
 	.buttons {
 		display: flex;
 		justify-content: end;
 		gap: var(--size-1);
-	}
-
-	@media (width < 48rem) {
-		section :global(tbody) {
-			display: block;
-		}
-
-		section :global(thead) {
-			position: absolute;
-			width: var(--size-line-0);
-			height: var(--size-line-0);
-			overflow: hidden;
-			clip-path: inset(50%);
-		}
-
-		tr {
-			display: grid;
-			grid-template-columns: minmax(0, 1fr) auto;
-			align-items: center;
-		}
-
-		th.name {
-			grid-column: 1 / -1;
-			width: auto;
-		}
-
-		section :global(:is(th, td).date),
-		td.actions {
-			width: auto;
-		}
-
-		td.actions {
-			white-space: normal;
-		}
-
-		tr :is(th, td) {
-			padding: var(--size-1) 0;
-		}
-
-		tr.child td {
-			grid-column: 1 / -1;
-		}
 	}
 
 	.negative {

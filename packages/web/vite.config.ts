@@ -8,7 +8,6 @@ export default defineConfig({
 	plugins: [
 		sveltekit({
 			compilerOptions: {
-				// Force runes mode for the project, except for libraries. Can be removed in svelte 6.
 				runes: (x) => (x.filename.split(/[/\\]/).includes('node_modules') ? undefined : true),
 				experimental: { async: true },
 			},
@@ -18,11 +17,7 @@ export default defineConfig({
 	],
 	builder: {},
 	server: { watch: { ignored: ['**/.claude/worktrees/**'] } },
-	// Coverage of the built app, as under mcr, maps back to src through the source map. Minifying
-	// rewrites ternaries and chains into branches the unit run does not have, so they do not merge.
-	build: process.env['NODE_V8_COVERAGE']
-		? { sourcemap: 'inline', minify: false }
-		: { sourcemap: false },
+	build: process.env['NODE_V8_COVERAGE'] ? { sourcemap: 'inline', minify: false } : {},
 	test: {
 		projects: [
 			{
@@ -34,7 +29,6 @@ export default defineConfig({
 				},
 			},
 			{
-				// Components render in a DOM; `svelteTesting` resolves Svelte's browser build.
 				extends: true,
 				plugins: [svelteTesting()],
 				test: {
@@ -42,7 +36,6 @@ export default defineConfig({
 					include: ['src/lib/web/tests/*.test.ts'],
 					benchmark: { include: ['src/lib/web/tests/*.bench.ts'] },
 					environment: 'happy-dom',
-					// Creates the DOM once per worker, not per file. Sharing it with isolate: false lets one file's URL leak into the next.
 					pool: 'vmThreads',
 				},
 			},

@@ -87,7 +87,7 @@ const wasm = createRequire(import.meta.url).resolve('@embedpdf/pdfium/pdfium.was
 
 ### Comments
 
-Avoid comments. Names and structure should explain the code, so when something seems to need a comment, rename or restructure it first. The only exception is a fact the code cannot show: an outside constraint (a model's input size), a library bug, a protocol quirk. No file headers.
+Avoid comments. Comments and explanations are worth far less than good code, so make the code good first. Names and structure should explain the code, so when something seems to need a comment, rename or restructure it first. The only exception is a fact the code cannot show: an outside constraint (a model's input size), a library bug, a protocol quirk. No file headers.
 
 A short JSDoc on a public interface is welcome, since it shows on hover. Keep it to one line, and don't restate what the name and types already say.
 

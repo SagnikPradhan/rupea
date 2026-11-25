@@ -21,7 +21,7 @@ Use the role, never the value. A theme is a swap of the colour table, so a scree
 
 Ink and negative each have a scale, `-1` to `-6`, the colour at 6, 12, 24, 36, 50 and 70% over the surface. A scale is for things that rank, such as the parts of a chart and the heat of a calendar.
 
-The ten chart colours, `--color-chart-1` to `--color-chart-10`, are the one place colour carries identity rather than money: they tell the parts of a chart apart, in this order, the largest part first. They are blue, amber, teal, magenta, olive, violet, sky, brown, slate and pink, chosen at one lightness and chroma, with no red or green so a part is never read as a loss or a gain. Each passes 3:1 against the surface in both themes, as a chart mark must. Nothing else uses them.
+The ten chart colours, `--color-chart-1` to `--color-chart-10`, are the one place colour carries identity rather than money: they tell the parts of a chart apart, in this order, the largest part first. They are blue, orange, orchid, cyan, gold, violet, copper, aqua, lime and ink, warm and cool alternating so neighbouring parts contrast. The nine hues share one lightness and a mid chroma, saturated enough to read as modern and not as pastel; the tenth is a near-black, the part least worth a hue. None is red, and the one green is a yellow-green, so a part is never read as a loss or a gain. Each passes 3:1 against the surface in both themes, as a chart mark must. Nothing else uses them.
 
 The semantic roles are built from the base colours and carry no hex of their own.
 
@@ -33,7 +33,7 @@ The semantic roles are built from the base colours and carry no hex of their own
 
 Muted sits off the scale at 56% because secondary text needs a contrast of 4.5:1 on the surface in both themes, and 50% falls short.
 
-**Type.** Eight styles on three families: Poppins for text (`--font-body`), Geist Mono for money, dates and code (`--font-mono`), Google Sans for display and the brand (`--font-heading`). Every size is a multiple of `--font-size-1`, so changing it scales the whole page together. It is fluid: 18px at 768px wide down to 16px at 1920px, in between by viewport width.
+**Type.** Eight styles on three families: Poppins for text (`--font-body`), Geist Mono for money, dates and code (`--font-mono`), Google Sans for display and the brand (`--font-heading`). Every size is a multiple of `--font-size-1`, so changing it scales the whole page together. It is fluid: 18px at 768px wide down to 16px at 1440px, in between by viewport width.
 
 | Token              | Face        | Size            | Weight | Line height |
 | ------------------ | ----------- | --------------- | ------ | ----------- |
@@ -58,9 +58,9 @@ Every page is built from the same components, in the same order: the navigation 
 
 - **Navigation.** The brand at the left; Home, Accounts, Income, Expenses, Liabilities, Transactions and Files in the centre; the theme toggle, the username and log out at the right. The current page is in ink and the rest are muted. At narrow widths the bar becomes a menu button that opens a drawer: an outlined card at the top right with the brand, the theme toggle and a close button over plain lists of the pages and the account.
 - **Page header.** The title in `text-heading-1`, one muted line saying what the page answers, then at the right the filters and the one primary action.
-- **Panel.** A `--color-subtle` outline, `--radius-1`, and `--size-3` of padding and gap. It starts with a panel heading: a `text-title` and one muted line saying what it shows. A panel is the only box; nothing else is boxed.
+- **Panel.** A `--color-subtle` outline, `--radius-1`, and `--size-3` of padding and gap. It starts with a panel heading: a `text-title` and one muted line saying what it shows. A panel is the only box; nothing else is boxed. A panel that holds only a table or statement is plain: no outline or padding, the heading and the grid alone, since the grid already frames it.
 - **Figures.** A `text-figure` over a muted `text-label` name over a muted `text-label` line of context, both in the body font. Four figures sit in one panel, stacked, beside the top chart of a page. That chart has no box or heading, since its hero figure names it. Green and red appear in the context line only when a figure means a gain or a loss.
-- **Statements and tables.** A name at the left and amounts right-aligned in mono, with `--size-1` above and below each row. A total sits under a line in `--color-border`. Column names are muted `text-label`.
+- **Statements and tables.** A name at the left and amounts right-aligned in mono, laid out on a grid: a `--color-subtle` rule between columns, `--size-1` above and below each row. A total sits under a line in `--color-border`. Column names are muted `text-label`.
 - **Graphs.** No frame and no grid. Context goes in a legend of mono names and amounts, and the value under the cursor in a tooltip. A hover is a small panel.
 
 Boards exist at 1920, 1280 and 768 wide, in light and dark, and the page follows them.

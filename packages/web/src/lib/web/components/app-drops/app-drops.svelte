@@ -1,5 +1,5 @@
 <script lang="ts">
-	import BarRow from '#lib/web/components/ui-bar-row/ui-bar-row.svelte';
+	import AccountChips from '#lib/web/components/app-account-chips/app-account-chips.svelte';
 	import ChartSummary from '#lib/web/components/ui-chart-summary/ui-chart-summary.svelte';
 	import LineChart from '#lib/web/components/ui-chart-line/ui-chart-line.svelte';
 	import { nameOf } from '#lib/web/shared/accounts.ts';
@@ -10,13 +10,22 @@
 		lows: { account: string; depth: number; day: string }[];
 	};
 
-	const { drops }: { drops: Drops } = $props();
+	type Props = { drops: Drops; account?: string | null };
+
+	const { drops, account = null }: Props = $props();
 
 	const first = $derived(drops.underwater[0]);
 	const last = $derived(drops.underwater.at(-1));
 	const lowest = $derived(drops.underwater.toSorted((a, b) => a.depth - b.depth)[0]);
-	const fell = $derived(drops.lows.filter((l) => l.depth < 0));
-	const worst = $derived(fell[0]?.depth ?? -1);
+	const fell = $derived(
+		drops.lows
+			.filter((l) => l.depth < 0)
+			.map((l) => ({
+				account: l.account,
+				name: nameOf(l.account),
+				figure: `low ${formatBucket.month(l.day)} ${formatPercent(l.depth)}`,
+			})),
+	);
 </script>
 
 {#if first && last && lowest}
@@ -33,17 +42,7 @@
 			summary={depthOn}
 		/>
 
-		<ul role="list">
-			{#each fell as low (low.account)}
-				<BarRow
-					name={nameOf(low.account)}
-					detail="low {formatBucket.month(low.day)}"
-					figure={formatPercent(low.depth)}
-					tone="negative"
-					share={low.depth / worst}
-				/>
-			{/each}
-		</ul>
+		<AccountChips chips={fell} {account} tone="negative" />
 	</section>
 {/if}
 
@@ -64,14 +63,6 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--size-3);
-	}
-
-	ul {
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-2);
-		margin: 0;
-		padding: 0;
 	}
 
 	.negative {

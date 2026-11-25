@@ -53,4 +53,14 @@ describe('the chart key', () => {
 		expect(screen.getByText('Rent').closest('li')?.classList.contains('faded')).toBe(true);
 		expect(screen.getByText('Net worth').closest('li')?.classList.contains('faded')).toBe(false);
 	});
+
+	it('links an entry that has somewhere to lead', () => {
+		render(Key, {
+			entries: [{ label: 'Food', part: 0, href: '/?account=food' }],
+			focus: null,
+			onfocus: vi.fn(),
+		});
+
+		expect(screen.getByRole('link', { name: 'Food' }).getAttribute('href')).toBe('/?account=food');
+	});
 });

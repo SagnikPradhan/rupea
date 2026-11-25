@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { ResolvedPathname } from '$app/types';
 	import Swatch from '#lib/web/components/ui-swatch/ui-swatch.svelte';
 
 	type Entry = {
@@ -11,6 +12,8 @@
 		mark?: 'primary' | 'context' | 'band' | 'negative' | 'reference';
 		/** The place of a part in its chart, which hovering the entry focuses. */
 		part?: number;
+		/** Where the entry leads when clicked, such as the account it names. */
+		href?: ResolvedPathname;
 	};
 
 	type Props = {
@@ -19,11 +22,11 @@
 		 * The part the pointer is on, in the key or in the chart; the other parts
 		 * fade.
 		 */
-		focus: number | null;
-		onfocus: (part: number | null) => void;
+		focus?: number | null;
+		onfocus?: (part: number | null) => void;
 	};
 
-	const { entries, focus, onfocus }: Props = $props();
+	const { entries, focus = null, onfocus }: Props = $props();
 
 	const longest = $derived(Math.max(...entries.map((e) => e.label.length)));
 </script>
@@ -33,11 +36,15 @@
 		{@const part = entry.part}
 		<li
 			class={[entry.mark, { faded: focus !== null && part !== undefined && focus !== part }]}
-			onpointerenter={() => part !== undefined && onfocus(part)}
-			onpointerleave={() => part !== undefined && onfocus(null)}
+			onpointerenter={() => part !== undefined && onfocus?.(part)}
+			onpointerleave={() => part !== undefined && onfocus?.(null)}
 		>
 			{#if entry.shade}<Swatch shade={entry.shade} />{/if}
-			<span title={entry.label}>{entry.label}</span>
+			{#if entry.href}
+				<a href={entry.href} title={entry.label}>{entry.label}</a>
+			{:else}
+				<span title={entry.label}>{entry.label}</span>
+			{/if}
 			{#if entry.amount !== undefined}<data>{entry.amount}</data>{/if}
 		</li>
 	{/each}
@@ -55,6 +62,7 @@
 		);
 		gap: var(--size-1) var(--size-0);
 		width: 100%;
+		font: var(--text-label);
 		list-style: none;
 	}
 
@@ -64,10 +72,20 @@
 		align-items: center;
 	}
 
-	span {
+	span,
+	a {
 		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+	}
+
+	a {
+		color: inherit;
+		text-decoration: none;
+	}
+
+	a:hover {
+		text-decoration: underline;
 	}
 
 	data {

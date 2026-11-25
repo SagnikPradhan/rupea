@@ -1,50 +1,80 @@
 <script lang="ts">
-	import { printAmount } from '@rupea/shared/money.ts';
+	import { printAmount, type Amount } from '@rupea/shared/money.ts';
 	import { page } from '$app/state';
-	import BarRow from '#lib/web/components/ui-bar-row/ui-bar-row.svelte';
+	import HorizontalBars from '#lib/web/components/ui-chart-hbar/ui-chart-hbar.svelte';
+	import Totals from '#lib/web/components/ui-chart-totals/ui-chart-totals.svelte';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import { nameOf } from '#lib/web/shared/accounts.ts';
-	import { subtitleOf, type BudgetRow } from '#lib/web/shared/budgets.ts';
-	import { formatWhole } from '#lib/web/shared/format.ts';
+	import { subtitleOf, totalOf, watchOf, type BudgetRow } from '#lib/web/shared/budgets.ts';
+	import { formatCompact, formatWhole } from '#lib/web/shared/format.ts';
 	import { hrefWith } from '#lib/web/shared/links.ts';
 
-	type Props = { rows: BudgetRow[] };
+	type Props = { rows: BudgetRow[]; today: Temporal.PlainDate };
 
-	const { rows }: Props = $props();
+	const { rows, today }: Props = $props();
+
+	const total = $derived(totalOf(rows));
+
+	const used = $derived(
+		total.limit > 0n ? Math.round(Number((total.spent * 1000n) / total.limit) / 10) : 0,
+	);
+
+	const bars = $derived(
+		watchOf(rows, today).map(({ row, pace, close }) => ({
+			prefix: '',
+			name: nameOf(row.budget.account),
+			value: row.bar.share,
+			detail: `${compact(row.budget.spent)} of ${compact(row.budget.limit)}`,
+			href: hrefWith(page.url.searchParams, { budget: row.budget.account }),
+			note: leftOf(row.budget, compact),
+			pace,
+			warn: close,
+		})),
+	);
+
+	const compact = (a: Amount) => formatCompact(Number(printAmount(a)));
+
+	const whole = (a: Amount) => formatWhole(printAmount(a));
+
+	const leftOf = (
+		{ spent, limit }: { spent: Amount; limit: Amount },
+		show: (a: Amount) => string,
+	) =>
+		spent > limit
+			? `${show((spent - limit) as Amount)} over`
+			: `${show((limit - spent) as Amount)} left`;
 </script>
 
 <Panel title="Budgets" subtitle={subtitleOf(rows)}>
 	{#if rows.length > 0}
-		<ul role="list">
-			{#each rows as row (row.budget.account)}
-				<BarRow
-					name={nameOf(row.budget.account)}
-					href={hrefWith(page.url.searchParams, { budget: row.budget.account })}
-					detail="{formatWhole(printAmount(row.budget.spent))} of {formatWhole(
-						printAmount(row.budget.limit),
-					)}"
-					figure={row.percent === null ? '–' : `${row.percent}%`}
-					tone={row.over ? 'negative' : undefined}
-					share={row.bar.share}
-					limit={row.bar.limit}
-				/>
-			{/each}
-		</ul>
+		<Totals
+			totals={[
+				{
+					label: 'Spent',
+					figure: whole(total.spent),
+					detail: `of ${whole(total.limit)} allowed`,
+				},
+				{
+					label: total.spent > total.limit ? 'Over' : 'Left',
+					figure: whole(total.gap),
+					detail: `${used}% of limits used`,
+				},
+			]}
+		/>
+
+		<HorizontalBars
+			{bars}
+			limit={1}
+			label="Spent of each budget"
+			format={(n: number) => `${Math.round(n * 100)}%`}
+		/>
 	{:else}
-		<p>No budgets yet. Add one to see what is left.</p>
+		<p class="empty">No budgets yet. Add one to see what is left.</p>
 	{/if}
 </Panel>
 
 <style>
-	ul {
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-2);
-		margin: 0;
-		padding: 0;
-	}
-
-	p {
+	.empty {
 		color: var(--color-muted);
 	}
 </style>

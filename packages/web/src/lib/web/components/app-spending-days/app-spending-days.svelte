@@ -1,27 +1,43 @@
 <script lang="ts">
 	import { nameOf } from '#lib/web/shared/accounts.ts';
 	import Calendar from '#lib/web/components/ui-chart-calendar/ui-chart-calendar.svelte';
+	import ChartSummary from '#lib/web/components/ui-chart-summary/ui-chart-summary.svelte';
+	import { formatAmount, formatDate } from '#lib/web/shared/format.ts';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 
 	type Props = {
-		daily: { day: number; amount: string }[];
+		daily: { day: string; amount: string }[];
 		account: string;
 	};
 
 	const { daily, account }: Props = $props();
 
-	const averages = $derived(
-		daily.map((d) => ({ day: `2000-01-${String(d.day).padStart(2, '0')}`, total: d.amount })),
+	const busiest = $derived(
+		daily.reduce(
+			(a, b) => (Math.abs(Number(b.amount)) > Math.abs(Number(a?.amount ?? 0)) ? b : a),
+			daily[0],
+		),
 	);
 </script>
 
-<Panel title="Day of the month" subtitle="what {nameOf(account)} averaged on each day">
+{#snippet summary(index: number | null)}
+	{@const shown = index === null ? busiest : daily[index]}
+	{#if shown}
+		<ChartSummary id="days" label="Spent in a day" figure={formatAmount(shown.amount)}>
+			{index === null ? 'Most, on' : 'On'}
+			{formatDate(shown.day)}
+		</ChartSummary>
+	{/if}
+{/snippet}
+
+<Panel title="Day by day" subtitle="what {nameOf(account)} came to on each day">
 	<Calendar
-		rows={averages}
+		rows={daily}
 		x="day"
-		y="total"
-		weekly={false}
-		squircles
-		label="Average spending on each day of the month, over the period"
+		y="amount"
+		across
+		labelled={false}
+		label="Spending on each day of the period"
+		{summary}
 	/>
 </Panel>

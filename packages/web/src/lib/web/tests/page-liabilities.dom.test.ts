@@ -206,16 +206,16 @@ describe('the liabilities page', () => {
 		await screen.findByTitle('Liabilities:Loans:Home');
 		expect(screen.getByText('about 1,771')).toBeTruthy();
 		expect(screen.getByText('Loan interest a month')).toBeTruthy();
-		expect(screen.getByText('Loans paid off by').previousElementSibling?.textContent).not.toBe('–');
-		expect(screen.getAllByText('Coming soon').length).toBeGreaterThanOrEqual(2);
+		expect(screen.getByText('Loans paid off by').nextElementSibling?.textContent).not.toBe('–');
+		expect(screen.getAllByText(/^Coming soon · /).length).toBeGreaterThanOrEqual(2);
 	});
 
 	it('shows a dash for the estimates while a debt has no terms', async () => {
 		open('/l/h/liabilities');
 
 		await screen.findByTitle('Liabilities:Loans:Home');
-		expect(screen.getByText('Loan interest a month').previousElementSibling?.textContent).toBe('–');
-		expect(screen.getByText('Loans paid off by').previousElementSibling?.textContent).toBe('–');
+		expect(screen.getByText('Loan interest a month').nextElementSibling?.textContent).toBe('–');
+		expect(screen.getByText('Loans paid off by').nextElementSibling?.textContent).toBe('–');
 	});
 
 	it('follows the account picked for the estimates', async () => {
@@ -229,7 +229,7 @@ describe('the liabilities page', () => {
 		open('/l/h/liabilities', [moved], []);
 
 		await screen.findByTitle('Liabilities:Loans:Home');
-		expect(screen.getByText('Loans paid off by').previousElementSibling?.textContent).toBe('–');
+		expect(screen.getByText('Loans paid off by').nextElementSibling?.textContent).toBe('–');
 	});
 
 	it('shows the rate, monthly payment and due day an A line sets, and offers to set up the rest', async () => {

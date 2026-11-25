@@ -29,6 +29,8 @@
 		role: 'part' | 'reference';
 		/** Which chart colour a part takes; the next free one without. */
 		colour?: number;
+		/** Where its key entry leads when clicked. */
+		href?: string | undefined;
 	};
 
 	type Props = {
@@ -46,6 +48,8 @@
 		whole: Row;
 		label: string;
 		scale?: Scale;
+		/** The bar still filling, drawn lighter, or none. */
+		partial?: number | null;
 		/** Drawn above the plot with the row under the cursor, or none. */
 		summary?: Snippet<[number | null]>;
 		/** Drawn at the end of the key, such as a choice of scale. */
@@ -60,6 +64,7 @@
 		whole,
 		label,
 		scale = 'linear',
+		partial = null,
 		summary,
 		controls,
 	}: Props = $props();
@@ -121,6 +126,7 @@
 			amount: formatCompact(Number(shown[p.key] ?? 0)),
 			shade: seriesOf(p.colour ?? k),
 			part: k,
+			href: p.href,
 		})),
 		...references.map((r) => ({
 			label: r.label,
@@ -183,7 +189,13 @@
 					>
 						{#each rows, i}
 							{@const bar = barOf(k, i)}
-							<rect x={bar.left} y={bar.top} {width} height={bar.height} />
+							<rect
+								class:partial={i === partial}
+								x={bar.left}
+								y={bar.top}
+								{width}
+								height={bar.height}
+							/>
 						{/each}
 					</g>
 				{/each}
@@ -206,7 +218,7 @@
 			{/if}
 		</div>
 	</div>
-	<figcaption>
+	<figcaption data-sveltekit-reset="false">
 		<Key {entries} focus={hovered.part} onfocus={(part: number | null) => (hovered.part = part)} />
 		{#if controls}<div class="controls">{@render controls()}</div>{/if}
 	</figcaption>
@@ -276,6 +288,11 @@
 		fill: var(--shade);
 		stroke: var(--edge);
 		stroke-width: var(--size-line-0);
+	}
+
+	rect.partial {
+		fill-opacity: 0.4;
+		stroke-dasharray: var(--size-0);
 	}
 
 	g.faded {

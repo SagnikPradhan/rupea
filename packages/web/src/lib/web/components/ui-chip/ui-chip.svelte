@@ -1,5 +1,5 @@
 <script lang="ts">
-	import IconCheck from '@tabler/icons-svelte-runes/icons/check';
+	import { ICONS } from '#lib/web/shared/icons.ts';
 	import type { ResolvedPathname } from '$app/types';
 	import type { Snippet } from 'svelte';
 
@@ -9,15 +9,17 @@
 		onclick?: () => void;
 		on?: boolean;
 		toggle?: boolean;
+		/** Drops the padding and border, leaving the box and label. */
+		bare?: boolean;
 		children: Snippet;
 	};
 
-	const { href, onclick, on = false, toggle = false, children }: Props = $props();
+	const { href, onclick, on = false, toggle = false, bare = false, children }: Props = $props();
 </script>
 
 <svelte:element
 	this={href === undefined ? 'button' : 'a'}
-	class={['chip', { on }]}
+	class={['chip', { on, bare }]}
 	{href}
 	{onclick}
 	type={href === undefined ? 'button' : undefined}
@@ -25,7 +27,7 @@
 	aria-pressed={toggle || href === undefined ? on : undefined}
 >
 	<span class="box" aria-hidden="true">
-		{#if on}<IconCheck size={14} />{/if}
+		{#if on}<ICONS.check size={14} />{/if}
 	</span>
 	{@render children()}
 </svelte:element>
@@ -46,6 +48,12 @@
 
 	.chip:hover {
 		text-decoration: none;
+	}
+
+	.bare {
+		padding: 0;
+		border: 0;
+		background: none;
 	}
 
 	.on {

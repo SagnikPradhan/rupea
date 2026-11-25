@@ -105,6 +105,7 @@
 <div class="statements">
 	<div class="column">
 		<Panel
+			plain
 			title="Balance sheet"
 			subtitle="what you own, and how it is paid for, on {formatDayMonth(day)}"
 		>
@@ -146,7 +147,7 @@
 		<Panel title="Needs attention" subtitle="what to look at this week" soon />
 	</div>
 
-	<Panel title="Income statement" subtitle="{month} against {before}">
+	<Panel plain title="Income statement" subtitle="{month} against {before}">
 		<Statement head="In rupees" columns={[month, before, 'Change']}>
 			{#each income.rows as row (row.account)}
 				<StatementRow

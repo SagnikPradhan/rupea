@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ICONS } from '#lib/web/shared/icons.ts';
 	import { listAccounts } from '#lib/endpoints/accounts.remote.ts';
 	import { findFirstDay, listProblems } from '#lib/endpoints/ledger.remote.ts';
 	import { listPostings } from '#lib/endpoints/transactions.remote.ts';
@@ -57,12 +58,12 @@
 			today={day}
 			first={earliest}
 		/>
-		<Button primary href={hrefWith(params, { add: '1' })}>Add transaction</Button>
+		<Button primary icon={ICONS.add} href={hrefWith(params, { add: '1' })}>Add transaction</Button>
 	{/snippet}
 </PageHeader>
 
 <PanelGrid wide>
-	<Panel title="Postings" subtitle="newest first">
+	<Panel plain title="Postings" subtitle="newest first">
 		<ListViews {handle} chosen="postings"><ListSearch {filter} /></ListViews>
 
 		<Issues {handle} errors={[...issues.errors, ...list.errors]} />

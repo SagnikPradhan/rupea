@@ -41,6 +41,43 @@ export type BudgetRow = {
 	bar: { share: number; limit: number };
 };
 
+/**
+ * A budget row, where today stands on its bar, and whether it is spending ahead
+ * of its period.
+ */
+export type WatchedRow = { row: BudgetRow; pace: number; close: boolean };
+
+/**
+ * The rows with those over first, then those spending faster than their period
+ * or past nine tenths, then the rest, each group as the rows came.
+ */
+export const watchOf = (rows: BudgetRow[], today: Temporal.PlainDate): WatchedRow[] =>
+	rows
+		.map((row) => {
+			const spent = row.percent === null ? 0 : row.percent / 100;
+			const elapsed = elapsedOf(row.budget, today);
+			const ahead = spent >= 0.9 || spent > elapsed + 0.1;
+
+			return {
+				row,
+				pace: elapsed * row.bar.limit,
+				close: !row.over && row.percent !== null && ahead,
+			};
+		})
+		.toSorted((a, b) => rankOf(a) - rankOf(b));
+
+/** What the budgets spent of what they allow, counting each posting once. */
+export const totalOf = (rows: BudgetRow[]) => {
+	const top = rows.filter(
+		(r) => !rows.some((o) => o !== r && isUnder(r.budget.account, o.budget.account)),
+	);
+
+	const spent = top.reduce((t, r) => t + r.budget.spent, 0n) as Amount;
+	const limit = top.reduce((t, r) => t + r.budget.limit, 0n) as Amount;
+
+	return { spent, limit, gap: (spent > limit ? spent - limit : limit - spent) as Amount };
+};
+
 /** The line under the title, like 6 budgets · 2 over. */
 export const subtitleOf = (rows: BudgetRow[]) => {
 	if (rows.length === 0) return 'No budgets';
@@ -91,14 +128,28 @@ export const startsOnOf = (current: Record<string, string>) => {
 	return { on: (period === 'year' ? day?.month : day?.day) ?? 1 };
 };
 
+const rankOf = ({ row, close }: WatchedRow) => {
+	if (row.over) return 0;
+	if (close) return 1;
+
+	return 2;
+};
+
+/** The share of a budget's period gone by the end of today, from 0 to 1. */
+const elapsedOf = (b: BudgetView, today: Temporal.PlainDate) => {
+	const days = b.from.until(b.to).days + 1;
+	const gone = b.from.until(today).days + 1;
+
+	return Math.min(Math.max(gone / days, 0), 1);
+};
+
 const percentOf = (b: BudgetView) =>
 	b.limit === ZERO ? null : Number((b.spent * 200n + b.limit) / (b.limit * 2n));
 
 const barOf = (b: BudgetView) => {
-	const scale = b.spent > b.limit ? b.spent : b.limit;
-	const share = (a: Amount) => (scale > ZERO ? Number((a * SCALE) / scale) / Number(SCALE) : 0);
+	if (b.limit === ZERO) return { share: b.spent > ZERO ? 2 : 0, limit: 0 };
 
-	return { share: share(b.spent), limit: share(b.limit) };
+	return { share: Number((b.spent * SCALE) / b.limit) / Number(SCALE), limit: 1 };
 };
 
 const namedIn = (names: string[]) => {

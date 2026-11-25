@@ -1,5 +1,11 @@
 <script lang="ts" generics="Row extends Record<string, unknown>">
-	import { formatAmount, formatBucket, formatCompact } from '#lib/web/shared/format.ts';
+	import {
+		formatAmount,
+		formatBucket,
+		formatCompact,
+		formatDate,
+		formatMonth,
+	} from '#lib/web/shared/format.ts';
 	import type { ResolvedPathname } from '$app/types';
 	import type { Snippet } from 'svelte';
 
@@ -21,11 +27,13 @@
 		 * that stand for a day in every month.
 		 */
 		weekly?: boolean;
+		/** False leaves each day unnamed, its name and amount shown on hover. */
+		labelled?: boolean;
 		/**
-		 * Draws each day as a rounded square whose area is its amount, on a tile,
-		 * instead of shading its cell.
+		 * True runs each week down a column, as a year of days does, with no
+		 * weekday names.
 		 */
-		squircles?: boolean;
+		across?: boolean;
 		/** Drawn above the calendar with the row under the cursor, or none. */
 		summary?: Snippet<[number | null]>;
 		/** Drawn below the calendar, such as a choice of chart. */
@@ -39,7 +47,8 @@
 		label,
 		href,
 		weekly = true,
-		squircles = false,
+		labelled = true,
+		across = false,
 		summary,
 		controls,
 	}: Props = $props();
@@ -70,6 +79,24 @@
 	 */
 	const shadeOf = (amount: number) => (amount > 0 ? Math.ceil((amount / most) * SHADES) : 0);
 
+	const lines = $derived(
+		across ? Array.from({ length: 7 }, (_, d) => weeks.map((w) => w[d] ?? null)) : weeks,
+	);
+
+	/**
+	 * The month a week column starts, named over the column its 1st falls in,
+	 * unless the next name is too near for it.
+	 */
+	const months = $derived.by(() => {
+		const names = weeks.map((week) => {
+			const first = week.find((i) => i !== null && String(rows[i]?.[x]).endsWith('-01'));
+			return first === undefined || first === null ? '' : formatMonth(String(rows[first]?.[x]));
+		});
+		const crowded = names[0] !== '' && names.slice(1, 3).some((n) => n !== '');
+
+		return crowded ? ['', ...names.slice(1)] : names;
+	});
+
 	/** The first of a month, and the first day shown, also name their month. */
 	const nameOf = (day: string, i: number) =>
 		weekly && (i === 0 || day.endsWith('-01'))
@@ -81,8 +108,19 @@
 
 <figure>
 	{@render summary?.(hovered.index)}
-	<table aria-label={label} class={{ squircles }}>
-		{#if weekly}
+	<table aria-label={label} class={{ across }}>
+		{#if across}
+			<colgroup>
+				<col class="head" />
+			</colgroup>
+			<thead>
+				<tr>
+					<th scope="col"></th>
+					{#each months as month, m (m)}<th scope="col">{month}</th>{/each}
+				</tr>
+			</thead>
+		{/if}
+		{#if weekly && !across}
 			<thead>
 				<tr>
 					{#each WEEKDAYS as weekday (weekday)}<th scope="col">{weekday}</th>{/each}
@@ -90,8 +128,9 @@
 			</thead>
 		{/if}
 		<tbody onpointerleave={() => (hovered.index = null)}>
-			{#each weeks as week, w (w)}
+			{#each lines as week, w (w)}
 				<tr>
+					{#if across}<th scope="row">{w % 2 === 0 && w < 5 ? WEEKDAYS[w] : ''}</th>{/if}
 					{#each week as i, k (k)}
 						{#if i === null}
 							<td></td>
@@ -100,24 +139,22 @@
 							{@const amount = amounts[i] ?? 0}
 							<td
 								class={{ negative: amount < 0 }}
-								data-shade={squircles ? 0 : shadeOf(amount)}
+								data-shade={shadeOf(amount)}
 								onpointerenter={() => (hovered.index = i)}
 							>
 								<a
 									href={href?.(day)}
 									title={formatAmount(String(rows[i]?.[y] ?? '0'))}
+									aria-label="{formatDate(day)}, {formatAmount(String(rows[i]?.[y] ?? '0'))}"
+									tabindex={href ? undefined : 0}
 									onfocus={() => (hovered.index = i)}
 									onblur={() => (hovered.index = null)}
 								>
-									{#if squircles}
-										<span
-											class="squircle"
-											style:--share={Math.sqrt(Math.max(amount, 0) / (most || 1))}
-										></span>
-									{/if}
-									<span class="day">{nameOf(day, i)}</span>
+									{#if labelled}
+										<span class="day">{nameOf(day, i)}</span>
 
-									<data value={amount}>{amount === 0 ? '' : formatCompact(amount)}</data>
+										<data value={amount}>{amount === 0 ? '' : formatCompact(amount)}</data>
+									{/if}
 								</a>
 							</td>
 						{/if}
@@ -170,41 +207,42 @@
 		text-decoration: none;
 	}
 
+	.across .head {
+		width: var(--size-4);
+	}
+
+	.across th {
+		overflow: visible;
+		padding: 0;
+		white-space: nowrap;
+		text-transform: none;
+	}
+
+	.across tbody th {
+		line-height: 0;
+	}
+
+	.across {
+		border-spacing: var(--size-line-1);
+	}
+
+	.across td[data-shade='0']:has(a) {
+		background: var(--color-subtle);
+	}
+
+	.across a {
+		aspect-ratio: 1;
+		min-height: 0;
+		padding: 0;
+	}
+
 	a:hover {
 		text-decoration: underline;
-	}
-
-	.squircles td {
-		border: var(--size-line-0) solid var(--color-subtle);
-		border-radius: var(--radius-1);
-	}
-
-	.squircles a {
-		position: relative;
-		justify-content: space-between;
-		aspect-ratio: 1;
-		padding: var(--size-1);
-	}
-
-	.squircle {
-		position: absolute;
-		inset: 0;
-		width: calc(var(--share) * 50%);
-		aspect-ratio: 1;
-		margin: auto;
-		border-radius: 35%;
-		corner-shape: squircle;
-		background: var(--color-ink-3);
 	}
 
 	data {
 		font-family: var(--font-mono);
 		text-align: right;
-	}
-
-	.squircles .day,
-	.squircles data {
-		position: relative;
 	}
 
 	[data-shade='1'] {

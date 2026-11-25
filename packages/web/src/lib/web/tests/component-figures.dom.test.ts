@@ -15,13 +15,11 @@ describe('a kpi', () => {
 		expect(screen.getByText('in 2 groups').className).not.toContain('positive');
 	});
 
-	it('writes Coming soon in body text, not mono', () => {
+	it('shows nothing for a figure that is coming soon', () => {
 		render(Kpi, { label: 'Cash cushion', soon: true });
 
-		const soon = screen.getByText('Coming soon').className;
-
-		expect(soon).toContain('soon');
-		expect(soon).not.toContain('figure');
+		expect(screen.queryByText('Cash cushion')).toBeNull();
+		expect(screen.queryByText('Coming soon')).toBeNull();
 	});
 
 	it('colours the context only when told it is a gain', () => {

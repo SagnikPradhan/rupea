@@ -44,12 +44,19 @@
 			grid-column: span 12;
 		}
 
-		.narrow > :global(:first-child) {
-			grid-column: span 9;
+		.narrow {
+			display: flex;
+			column-gap: var(--size-4);
+		}
+
+		.narrow > :global(:first-child:not(:last-child)) {
+			flex: 1;
+			min-width: 0;
 		}
 
 		.narrow > :global(:last-child) {
-			grid-column: span 3;
+			flex: none;
+			margin-inline-start: auto;
 		}
 	}
 </style>

@@ -6,6 +6,8 @@ import {
 	startOf,
 	startsOnOf,
 	subtitleOf,
+	totalOf,
+	watchOf,
 	type BudgetView,
 } from '#lib/web/shared/budgets.ts';
 
@@ -64,16 +66,16 @@ describe('rowsFor', () => {
 		expect(none).toMatchObject({ percent: null, over: false });
 	});
 
-	it('draws the bar on the larger of the spent and the limit', () => {
+	it('draws the bar as the spent over the limit, with a limit of zero all over', () => {
 		const [under, over, zero] = rows(
 			['Expenses:C', '100', '50'],
 			['Expenses:B', '100', '200'],
-			['Expenses:A', '0', '0'],
+			['Expenses:A', '0', '5'],
 		).toSorted((a, b) => b.budget.account.localeCompare(a.budget.account));
 
 		expect(under?.bar).toEqual({ share: 0.5, limit: 1 });
-		expect(over?.bar).toEqual({ share: 1, limit: 0.5 });
-		expect(zero?.bar).toEqual({ share: 0, limit: 0 });
+		expect(over?.bar).toEqual({ share: 2, limit: 1 });
+		expect(zero?.bar).toEqual({ share: 2, limit: 0 });
 	});
 
 	it('sorts by percent, a limit of zero first, ties by account', () => {
@@ -198,5 +200,57 @@ describe('startsOnOf', () => {
 	it('is 1 without a start', () => {
 		expect(startsOnOf({})).toEqual({ on: 1 });
 		expect(startsOnOf({ period: 'year' })).toEqual({ on: 1 });
+	});
+});
+
+describe('watchOf', () => {
+	const day = (d: string) => Temporal.PlainDate.from(d);
+	const watched = (today: string, ...b: [string, string, string][]) =>
+		watchOf(rows(...b), day(today));
+
+	it('orders over, then spending ahead of the period or past nine tenths, then the rest', () => {
+		const order = watched(
+			'2026-11-15',
+			['Expenses:Fine', '100', '40'],
+			['Expenses:Ahead', '100', '70'],
+			['Expenses:Over', '100', '150'],
+			['Expenses:Nearly', '100', '95'],
+		).map((w) => [w.row.budget.account, w.close]);
+
+		expect(order).toEqual([
+			['Expenses:Over', false],
+			['Expenses:Nearly', true],
+			['Expenses:Ahead', true],
+			['Expenses:Fine', false],
+		]);
+	});
+
+	it('puts today on the bar by how much of the period has gone', () => {
+		const [half] = watched('2026-11-15', ['Expenses:A', '100', '10']);
+
+		expect(half?.pace).toBeCloseTo((15 / 30) * (half?.row.bar.limit ?? 0));
+	});
+
+	it('holds today at the ends of the period before it starts and after it ends', () => {
+		expect(watched('2026-10-01', ['Expenses:A', '100', '0'])[0]?.pace).toBe(0);
+		expect(watched('2026-12-31', ['Expenses:A', '100', '0'])[0]?.pace).toBeCloseTo(1);
+	});
+
+	it('is not close when the limit is zero', () => {
+		expect(watched('2026-11-15', ['Expenses:A', '0', '0'])[0]?.close).toBe(false);
+	});
+});
+
+describe('the total of budgets', () => {
+	it('adds the budgets with no budgeted parent, so a posting counts once', () => {
+		const total = totalOf(
+			rows(
+				['Expenses:Food', '100', '60'],
+				['Expenses:Food:Out', '40', '30'],
+				['Expenses:Fun', '50', '70'],
+			),
+		);
+
+		expect(total).toEqual({ spent: amount('130'), limit: amount('150'), gap: amount('20') });
 	});
 });

@@ -4,7 +4,7 @@ import {
 	BalanceQuery,
 	groupsInvested,
 	investedOf,
-	nestedOf,
+	byDepthOf,
 	totalsOf,
 } from '#lib/web/shared/invested.ts';
 import { type Amount, parseAmount } from '@rupea/shared/money.ts';
@@ -88,28 +88,16 @@ describe('the invested accounts', () => {
 	});
 });
 
-describe('nesting accounts', () => {
-	it('puts each account before the ones under it and keeps sibling order', () => {
-		const order = [
-			'Assets:Equity',
-			'Assets:Debt',
-			'Assets:Equity:Stocks',
-			'Assets:Debt:Bonds',
-			'Assets:Equity:Funds',
-		];
-		const nested = nestedOf(order.map((account) => ({ account })));
+describe('ordering accounts', () => {
+	it('puts shallower accounts first and sorts a depth by name', () => {
+		const order = ['Assets:Equity:Stocks', 'Assets:Gold', 'Assets:Debt', 'Assets:Equity:Funds'];
 
-		expect(nested.map((a) => a.account)).toEqual([
-			'Assets:Equity',
-			'Assets:Equity:Stocks',
-			'Assets:Equity:Funds',
+		expect(byDepthOf(order.map((account) => ({ account }))).map((a) => a.account)).toEqual([
 			'Assets:Debt',
-			'Assets:Debt:Bonds',
+			'Assets:Gold',
+			'Assets:Equity:Funds',
+			'Assets:Equity:Stocks',
 		]);
-	});
-
-	it('keeps an account whose parent is not listed', () => {
-		expect(nestedOf([{ account: 'Assets:Gold:Coins' }]).length).toBe(1);
 	});
 });
 

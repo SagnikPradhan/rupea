@@ -1,4 +1,4 @@
-import { render, screen, within } from '@testing-library/svelte';
+import { render, screen } from '@testing-library/svelte';
 import { describe, expect, it } from 'vitest';
 import Drops from '#lib/web/components/app-drops/app-drops.svelte';
 
@@ -32,9 +32,20 @@ describe('the drops chart', () => {
 	it('lists each account that fell with its low, and none that did not', () => {
 		render(Drops, { drops: DROPS });
 
-		const rows = within(screen.getAllByRole('list').at(-1)!)
-			.getAllByRole('listitem')
+		const names = screen
+			.getAllByRole('link')
 			.map((l) => l.textContent?.replace(/\s+/g, ' ').trim());
-		expect(rows).toEqual(['Gold low Feb 2026 -20%', 'Equity low Feb 2026 -10%']);
+		expect(names).toEqual(['Gold low Feb 2026 -20%', 'Equity low Feb 2026 -10%']);
+	});
+
+	it('links each account to its filter, and the chosen one to none', () => {
+		render(Drops, { drops: DROPS, account: 'Assets:Gold' });
+
+		const gold = screen.getByText('Gold').closest('a')!;
+		expect(gold.classList.contains('on')).toBe(true);
+		expect(gold.getAttribute('href')).not.toContain('account');
+		expect(screen.getByRole('link', { name: /^Equity/ }).getAttribute('href')).toContain(
+			'account=Assets%3AEquity',
+		);
 	});
 });

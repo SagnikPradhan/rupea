@@ -17,10 +17,24 @@
 	};
 
 	const { columns, label, fixed = false, children }: Props = $props();
+
+	const tracks = (shown: Column[]) =>
+		shown
+			.map((column, i) => {
+				if (column.kind === 'date') return fixed ? 'calc(var(--size-5) * 1.25)' : 'max-content';
+				if (column.kind === 'amount') return 'minmax(min-content, var(--size-5))';
+				if (i === 0 || fixed) return 'minmax(calc(var(--size-5) * 3), 1fr)';
+				return column.kind === 'account' ? 'minmax(0, 2fr)' : 'minmax(min-content, auto)';
+			})
+			.join(' ');
 </script>
 
 <div>
-	<table aria-label={label} class={{ fixed }}>
+	<table
+		aria-label={label}
+		style:--wide={tracks(columns)}
+		style:--narrow={tracks(columns.filter((c) => !c.optional))}
+	>
 		<thead>
 			<tr>
 				{#each columns as column (column.label)}
@@ -39,26 +53,50 @@
 	}
 
 	table {
-		width: 100%;
-		border-collapse: collapse;
+		display: grid;
+		grid-template-columns: var(--wide);
 		font-size: var(--font-size-1);
-		line-height: 1.3;
+		line-height: 1.2;
+	}
+
+	thead,
+	thead tr,
+	table :global(:is(tbody, tfoot, tr)) {
+		display: grid;
+		grid-template-columns: subgrid;
+		grid-column: 1 / -1;
 	}
 
 	thead th {
-		border-bottom: var(--size-line-0) solid var(--color-border);
 		color: var(--color-muted);
 		font: var(--text-label);
 		text-align: left;
 	}
 
+	thead {
+		border-bottom: var(--size-line-0) solid var(--color-border);
+	}
+
 	table :global(:is(th, td)) {
-		padding: var(--size-2) 0 var(--size-2) var(--size-3);
-		vertical-align: baseline;
+		align-content: center;
+		min-width: 0;
+		padding: var(--size-1) var(--size-2);
 	}
 
 	table :global(:is(th, td):first-child) {
 		padding-left: 0;
+	}
+
+	table :global(:is(th, td):last-child) {
+		padding-right: 0;
+	}
+
+	table :global(:is(th, td) + :is(th, td)) {
+		border-left: var(--size-line-0) solid var(--color-subtle);
+	}
+
+	table :global(td[colspan]) {
+		grid-column: 1 / -1;
 	}
 
 	table :global(th[scope='row']) {
@@ -68,12 +106,10 @@
 	}
 
 	table :global(:is(.date, .amount)) {
-		width: 1%;
 		white-space: nowrap;
 	}
 
 	table :global(.amount) {
-		width: calc(var(--size-5) * 1.5);
 		font-family: var(--font-mono);
 		text-align: right;
 	}
@@ -82,28 +118,11 @@
 		font-family: var(--font-body);
 	}
 
-	table.fixed {
-		table-layout: fixed;
-	}
-
-	table.fixed :global(th.date) {
-		width: calc(var(--size-5) * 1.25);
-	}
-
-	table.fixed :global(th.account) {
-		width: calc(var(--size-5) * 3);
-	}
-
-	table.fixed :global(th.amount) {
-		width: calc(var(--size-5) * 1.5);
-	}
-
 	table :global(td.date) {
 		color: var(--color-muted);
 	}
 
 	table :global(.truncate) {
-		max-width: 0;
 		overflow: hidden;
 		white-space: nowrap;
 		text-overflow: ellipsis;
@@ -114,7 +133,7 @@
 	}
 
 	table :global(tbody tr) {
-		border-bottom: var(--size-line-0) solid var(--color-border);
+		border-bottom: var(--size-line-0) solid var(--color-subtle);
 	}
 
 	table :global(tr:has(+ .child)) {
@@ -142,8 +161,8 @@
 	}
 
 	@container (width < 48rem) {
-		table :global(:is(th, td)) {
-			padding-left: var(--size-2);
+		table {
+			grid-template-columns: var(--narrow);
 		}
 
 		table :global(.optional) {

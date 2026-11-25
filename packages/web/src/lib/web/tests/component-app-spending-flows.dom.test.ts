@@ -16,34 +16,22 @@ const SPENDING = {
 	deltas: [],
 };
 
-const INCOME = {
-	buckets: [on('2026-01-01')],
-	totals: [
-		{ account: 'Income', parent: null, amount: amount('-3000'), unpriced: 0 },
-		{ account: 'Income:Salary', parent: 'Income', amount: amount('-3000'), unpriced: 0 },
-	],
-	deltas: [],
-};
-
 const PROPS = {
 	spending: SPENDING,
-	income: undefined,
 	account: 'Expenses',
 	parts: ['Expenses:Food', 'Expenses:Rent'],
 	colours: { 'Expenses:Food': 0, 'Expenses:Rent': 1 },
 };
 
 describe('the spending flows', () => {
-	it('words the panel as kept when income came in', () => {
-		render(SpendingFlows, { ...PROPS, income: INCOME });
-
-		expect(screen.getByText('what came in, then what was spent and what was kept')).toBeTruthy();
-	});
-
-	it('words the panel as a division without income', () => {
+	it('draws the division of the account', () => {
 		render(SpendingFlows, PROPS);
 
-		expect(screen.getByText('what Expenses divides into, two levels deep')).toBeTruthy();
+		expect(
+			screen.getByRole('img', {
+				name: 'How Expenses divides into the accounts under it, two levels deep',
+			}),
+		).toBeTruthy();
 	});
 
 	it('says nothing is under an account with no rows under it', () => {

@@ -1,5 +1,6 @@
 import * as v from 'valibot';
 import { ASSETS, BalanceAccount, type Amount, ZERO, toNumber } from '@rupea/shared/money.ts';
+import { byCodeUnit } from '@rupea/shared/text.ts';
 import { periodIn } from './filter';
 import { depthOf, isDirectlyUnder, isUnder, nameOf } from './accounts';
 
@@ -89,18 +90,6 @@ export const totalsOf = (groups: Grown[]) => {
 	};
 };
 
-/**
- * Each account followed by the accounts under it, siblings keeping the order
- * they came in.
- */
-export const nestedOf = <T extends { account: string }>(i: T[]) => {
-	const accounts = new Set(i.map((a) => a.account));
-	const under = (p: string): T[] =>
-		i.filter((a) => parentOf(a.account) === p).flatMap((a) => [a, ...under(a.account)]);
-
-	return i
-		.filter((a) => !accounts.has(parentOf(a.account)))
-		.flatMap((a) => [a, ...under(a.account)]);
-};
-
-const parentOf = (a: string) => a.slice(0, a.lastIndexOf(':'));
+/** The accounts shallowest first, and by name within a depth. */
+export const byDepthOf = <T extends { account: string }>(i: T[]) =>
+	i.toSorted((a, b) => depthOf(a.account) - depthOf(b.account) || byCodeUnit(a.account, b.account));

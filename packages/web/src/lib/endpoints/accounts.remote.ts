@@ -185,18 +185,23 @@ export const listDeltas = query(
 );
 
 /**
- * What an Expenses, Income or Liabilities account averaged on each day of the
- * month over a period.
+ * What an Expenses, Income or Liabilities account moved on each day of a
+ * period, the last year of it when longer.
  */
 export const listDailyDeltas = query(
 	v.object({ handle: Handle, day: Day, period: Period, account: FlowAccount }),
 	({ handle, day, period, account }) => {
-		const span = writtenSpan(spansOf(period, day).current);
+		const { from, to } = spansOf(period, day).current;
+		const yearStart = to.subtract({ years: 1 }).add({ days: 1 });
+		const span = { from: Temporal.PlainDate.compare(from, yearStart) < 0 ? yearStart : from, to };
 
 		return replyFromBatchCall(
 			api()
-				.accounts.listDeltas({ handle, ...span, account, bucket: 'day', aggregate: 'average' })
-				.then((b) => ({ ...b, succeeded: viewDaily(b.succeeded[0], account) })),
+				.accounts.listDeltas({ handle, ...writtenSpan(span), account, bucket: bucketFor.day })
+				.then((b) => ({
+					...b,
+					succeeded: viewDaily({ deltas: b.succeeded[0], account, span }),
+				})),
 		);
 	},
 );

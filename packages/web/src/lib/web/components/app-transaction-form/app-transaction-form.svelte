@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ICONS } from '#lib/web/shared/icons.ts';
 	import { listAccounts } from '#lib/endpoints/accounts.remote.ts';
 	import {
 		createTransaction,
@@ -8,7 +9,6 @@
 	import type { RupeaError } from '@rupea/shared/errors.ts';
 	import { TransactionForm } from '@rupea/shared/forms.ts';
 	import { KINDS, simpleOf, type Kind } from '#lib/web/shared/transaction-simple.ts';
-	import IconRemove from '@tabler/icons-svelte-runes/icons/trash';
 	import IconButton from '#lib/web/components/ui-button-icon/ui-button-icon.svelte';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import Field from '#lib/web/components/ui-field/ui-field.svelte';
@@ -230,7 +230,7 @@
 			<Field label="Value" issues={issuesAt(`${path}.${index}.value`)}>
 				<input bind:value={entry.value} placeholder="e.g. INV-402" />
 			</Field>
-			<IconButton label="Remove detail" icon={IconRemove} onclick={() => list.splice(index, 1)} />
+			<IconButton label="Remove detail" icon={ICONS.delete} onclick={() => list.splice(index, 1)} />
 		</div>
 	{/each}
 	<div class="more">
@@ -414,7 +414,9 @@
 				</div>
 			{/each}
 		</section>
-		<Button type="button" onclick={() => form.postings.push(blank())}>Add a line</Button>
+		<Button type="button" icon={ICONS.add} onclick={() => form.postings.push(blank())}>
+			Add a line
+		</Button>
 
 		<Field label="Comment" hint="A note kept with it.">
 			<textarea bind:value={form.comment} rows="2"></textarea>
@@ -438,11 +440,21 @@
 	{/each}
 
 	<div class="buttons">
-		<Button primary disabled={createTransaction.pending + saveTransaction.pending > 0}>
+		<Button
+			primary
+			icon={ICONS.check}
+			disabled={createTransaction.pending + saveTransaction.pending > 0}
+		>
 			{edit ? 'Save changes' : 'Save'}
 		</Button>
 		{#if edit}
-			<Button type="button" destructive disabled={deleteTransaction.pending > 0} onclick={remove}>
+			<Button
+				type="button"
+				destructive
+				icon={ICONS.delete}
+				disabled={deleteTransaction.pending > 0}
+				onclick={remove}
+			>
 				Delete
 			</Button>
 		{/if}

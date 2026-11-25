@@ -7,6 +7,7 @@ vi.mock('$app/state', async () => {
 	state.visit('https://rupee.test/?ledger=a&span=5');
 	return state;
 });
+import { ICONS } from '#lib/web/shared/icons.ts';
 import Button from '#lib/web/components/ui-button/ui-button.svelte';
 import ChoiceChips from '#lib/web/components/ui-chip-choices/ui-chip-choices.svelte';
 import FilterModal from '#lib/web/components/ui-filter-modal/ui-filter-modal.svelte';
@@ -29,6 +30,21 @@ describe('a button', () => {
 	});
 });
 
+describe('a button with an icon', () => {
+	it('shows the icon beside its label and keeps its name', () => {
+		render(Button, { icon: ICONS.add, children: label });
+
+		const button = screen.getByRole('button', { name: 'Last 2 years' });
+		expect(button.querySelector('svg')?.getAttribute('aria-hidden')).toBe('true');
+	});
+
+	it('shows the icon on a link too', () => {
+		render(Button, { href: '/files', icon: ICONS.add, children: label });
+
+		expect(screen.getByRole('link', { name: 'Last 2 years' }).querySelector('svg')).not.toBeNull();
+	});
+});
+
 describe('a chip', () => {
 	it('is an outlined link with an empty box when it is off', () => {
 		render(Chip, { href: '?span=5', children: label });
@@ -44,6 +60,14 @@ describe('a chip', () => {
 
 		const link = screen.getByRole('link', { name: 'Last 2 years' });
 		expect(link.className).toContain('on');
+		expect(link.querySelector('svg')).toBeTruthy();
+	});
+
+	it('can drop its padding and border and keep its box', () => {
+		render(Chip, { href: '?', on: true, bare: true, children: label });
+
+		const link = screen.getByRole('link', { name: 'Last 2 years' });
+		expect(link.className).toContain('bare');
 		expect(link.querySelector('svg')).toBeTruthy();
 	});
 

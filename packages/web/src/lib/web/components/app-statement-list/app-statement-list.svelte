@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ICONS } from '#lib/web/shared/icons.ts';
 	import { deleteStatements, listImports, listStatements } from '#lib/endpoints/import.remote.ts';
 	import type { RupeaError } from '@rupea/shared/errors.ts';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
@@ -9,7 +10,6 @@
 	import { detail } from '#lib/web/shared/errors.ts';
 	import { hrefOnly } from '#lib/web/shared/links.ts';
 	import { STATUS_LABELS, statusOf } from '#lib/web/shared/statements.ts';
-	import IconDelete from '@tabler/icons-svelte-runes/icons/trash';
 
 	const { handle }: { handle: string } = $props();
 
@@ -60,7 +60,7 @@
 							{:else}
 								<IconButton
 									label="Delete {row.key}"
-									icon={IconDelete}
+									icon={ICONS.delete}
 									onclick={() => (asking.key = row.key)}
 								/>
 							{/if}

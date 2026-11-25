@@ -1,43 +1,66 @@
 <script lang="ts">
-	import BarRow from '#lib/web/components/ui-bar-row/ui-bar-row.svelte';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
+	import HorizontalBars from '#lib/web/components/ui-chart-hbar/ui-chart-hbar.svelte';
+	import SegmentedControl from '#lib/web/components/ui-segmented-control/ui-segmented-control.svelte';
+	import Totals from '#lib/web/components/ui-chart-totals/ui-chart-totals.svelte';
 	import { prefixOf } from '#lib/web/shared/accounts.ts';
-	import { formatCompact, formatPercent, formatReturn, toneOf } from '#lib/web/shared/format.ts';
-	import { type Invested, nestedOf } from '#lib/web/shared/invested.ts';
-
-	const BASE_GROWTH = 0.12;
+	import {
+		formatCompact,
+		formatPercent,
+		formatReturn,
+		formatWhole,
+	} from '#lib/web/shared/format.ts';
+	import { type Invested, byDepthOf, groupsInvested, totalsOf } from '#lib/web/shared/invested.ts';
 
 	type Props = { invested: Invested[] };
 
 	const { invested }: Props = $props();
 
-	const nested = $derived(nestedOf(invested));
-	const bestRate = $derived(Math.max(...nested.map((a) => a.gainRate), BASE_GROWTH));
+	const shown = $state({ measure: 'total' });
+
+	const groups = $derived(groupsInvested(invested));
+	const totals = $derived(totalsOf(groups));
+	const count = $derived(`${groups.length} ${groups.length === 1 ? 'account' : 'accounts'}`);
+
+	const bars = $derived(
+		byDepthOf(invested).map((a) => ({
+			prefix: prefixOf(a.account),
+			name: a.name,
+			detail: `${formatCompact(a.gain)} on ${formatCompact(a.cost)}`,
+			value: shown.measure === 'xirr' ? a.xirr : a.gainRate,
+		})),
+	);
 </script>
 
 <Panel title="Returns" subtitle="how much each account has grown on what went in">
-	<ul role="list">
-		{#each nested as a (a.account)}
-			<BarRow
-				name={a.name}
-				prefix={prefixOf(a.account)}
-				detail={[
-					`gained ${formatCompact(a.gain)}`,
-					a.xirr === null ? '' : `${formatPercent(a.xirr)} a year`,
-				].join(' · ')}
-				figure={formatReturn(String(a.gain), String(a.cost)) ?? '0%'}
-				tone={toneOf(a.gain)}
-				share={a.gainRate / bestRate}
-			/>
-		{/each}
-	</ul>
-</Panel>
+	{#snippet actions()}
+		<SegmentedControl
+			label="Return measure"
+			segments={[
+				{
+					name: 'Total',
+					chosen: shown.measure === 'total',
+					onclick: () => (shown.measure = 'total'),
+				},
+				{ name: 'XIRR', chosen: shown.measure === 'xirr', onclick: () => (shown.measure = 'xirr') },
+			]}
+		/>
+	{/snippet}
 
-<style>
-	ul {
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-2);
-		padding: 0;
-	}
-</style>
+	<Totals
+		totals={[
+			{
+				label: 'Cost',
+				figure: formatWhole(String(totals.cost)),
+				detail: `across ${count}`,
+			},
+			{
+				label: 'Gain',
+				figure: formatWhole(String(totals.gain)),
+				detail: `${formatReturn(String(totals.gain), String(totals.cost)) ?? '0%'} on cost`,
+			},
+		]}
+	/>
+
+	<HorizontalBars {bars} label="Return of each account" format={formatPercent} />
+</Panel>

@@ -115,6 +115,11 @@
 			.y0((v, i) => values.y(Math.min(v, primary[i] ?? 0)))
 			.y1((v) => values.y(v)),
 	);
+	const top = $derived(
+		line<SeriesPoint<Record<string, unknown>>>()
+			.x((_, i) => xs[i] ?? 0)
+			.y(([, to]) => values.y(to)),
+	);
 	const pile = $derived(
 		area<SeriesPoint<Record<string, unknown>>>()
 			.x((_, i) => xs[i] ?? 0)
@@ -193,13 +198,32 @@
 						<stop offset="0" />
 						<stop offset="1" />
 					</linearGradient>
+					{#each parts as part, k (k)}
+						<linearGradient
+							class="tint"
+							id="{id}-part-{k}"
+							x2="0"
+							y2="1"
+							style:--shade="var({part.shade ?? '--color-muted'})"
+						>
+							<stop offset="0" />
+							<stop offset="1" />
+						</linearGradient>
+					{/each}
 				</defs>
 				{#each piles as points, k (k)}
 					<path
 						class="part"
 						class:faded={hovered.part !== null && hovered.part !== k}
 						style:--shade="var({parts[k]?.shade ?? '--color-muted'})"
+						fill="url(#{id}-part-{k})"
 						d={pile(points)}
+					/>
+					<path
+						class="edge"
+						class:faded={hovered.part !== null && hovered.part !== k}
+						style:--shade="var({parts[k]?.shade ?? '--color-muted'})"
+						d={top(points)}
 					/>
 				{/each}
 				{#if parts.length === 0 && lines[0]}<path
@@ -303,8 +327,23 @@
 		stop-opacity: 0;
 	}
 
-	.part {
-		fill: var(--shade);
+	.falling stop {
+		stop-color: var(--color-negative-2);
+	}
+
+	.tint stop {
+		stop-color: var(--shade);
+		stop-opacity: 0.8;
+	}
+
+	.tint stop + stop {
+		stop-opacity: 0.3;
+	}
+
+	.edge {
+		fill: none;
+		stroke: var(--shade);
+		stroke-width: var(--size-line-1);
 	}
 
 	path.faded {
@@ -340,7 +379,7 @@
 		stroke: var(--color-negative);
 	}
 
-	.falling stop {
+	.falling .tint stop {
 		stop-color: var(--color-negative-2);
 	}
 

@@ -8,7 +8,7 @@
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 	import { spansOf } from '@rupea/shared/dates.ts';
-	import { ZERO, printAmount, EXPENSES, INCOME } from '@rupea/shared/money.ts';
+	import { ZERO, printAmount, EXPENSES } from '@rupea/shared/money.ts';
 	import { isUnder, nameOf } from '#lib/web/shared/accounts.ts';
 	import { PERIOD_PARAMS } from '#lib/web/shared/filter.ts';
 	import { coloursOf, distinctOf } from '#lib/web/shared/chart.ts';
@@ -20,16 +20,14 @@
 	import FilterModal from '#lib/web/components/ui-filter-modal/ui-filter-modal.svelte';
 	import FilterSection from '#lib/web/components/ui-filter-section/ui-filter-section.svelte';
 	import SpendingBudgets from '#lib/web/components/app-spending-budgets/app-spending-budgets.svelte';
-	import SpendingFlows from '#lib/web/components/app-spending-flows/app-spending-flows.svelte';
-	import SpendingAccounts from '#lib/web/components/app-spending-accounts/app-spending-accounts.svelte';
+	import SpendingBreakdown from '#lib/web/components/app-spending-breakdown/app-spending-breakdown.svelte';
 	import SpendingDays from '#lib/web/components/app-spending-days/app-spending-days.svelte';
 	import SpendingBars from '#lib/web/components/app-spending-bars/app-spending-bars.svelte';
 	import SpendingKpis from '#lib/web/components/app-spending-kpis/app-spending-kpis.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
-	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
-	import { formatChange, formatIsoDate } from '#lib/web/shared/format.ts';
+	import { formatChange, formatIsoDate, formatWhole } from '#lib/web/shared/format.ts';
 	import { MONTHS_BRIEF } from '#lib/web/shared/home.ts';
 	import { rowsFor } from '#lib/web/shared/budgets.ts';
 	import { hrefWith } from '#lib/web/shared/links.ts';
@@ -47,12 +45,9 @@
 
 	const adding = $derived(page.url.searchParams.has('add'));
 
-	const [response, earned, daily, budgets, accounts] = $derived(
+	const [response, daily, budgets, accounts] = $derived(
 		await Promise.all([
 			listDeltas({ handle, day, period: url.query.period, account: url.query.account }),
-			url.query.account === EXPENSES
-				? listDeltas({ handle, day, period: url.query.period, account: INCOME })
-				: undefined,
 			listDailyDeltas({ handle, day, period: url.query.period, account: url.query.account }),
 			listBudgets({ handle, from: span.from, day: span.to }),
 			adding ? listAccounts(handle) : undefined,
@@ -89,9 +84,14 @@
 				)
 			: null,
 	);
+	const headline = $derived(
+		moved?.percent
+			? `${formatWhole(printAmount(Spending.totalOf(spending, url.query.account) ?? ZERO))} spent, ${moved.percent} on the period before`
+			: 'Where the money went, month by month',
+	);
 </script>
 
-<PageHeader subtitle="Where the money went, month by month">
+<PageHeader subtitle={headline}>
 	Expenses
 	{#snippet actions()}
 		<FilterModal params={['span', ...PERIOD_PARAMS, 'account']}>
@@ -118,12 +118,7 @@
 
 <Issues
 	{handle}
-	errors={[
-		...(response.errors ?? []),
-		...(earned?.errors ?? []),
-		...(daily.errors ?? []),
-		...(budgets.errors ?? []),
-	]}
+	errors={[...(response.errors ?? []), ...(daily.errors ?? []), ...(budgets.errors ?? [])]}
 />
 
 <PanelGrid narrow>
@@ -145,7 +140,7 @@
 </PanelGrid>
 
 {#snippet budgetsPanel()}
-	<SpendingBudgets {rows} />
+	<SpendingBudgets {rows} {today} />
 {/snippet}
 
 {#if adding || budget}
@@ -174,32 +169,23 @@
 {/if}
 
 <PanelGrid>
-	<SpendingFlows
-		{spending}
-		income={earned?.data?.[0]}
-		account={url.query.account}
-		{parts}
-		{colours}
-	/>
+	<div class="column">
+		<SpendingBreakdown
+			{spending}
+			account={url.query.account}
+			{parts}
+			{colours}
+			{bucket}
+			{first}
+			{last}
+			{handle}
+			period={url.query.period}
+		/>
+	</div>
 	<div class="column">
 		{#if !adding && !budget}{@render budgetsPanel()}{/if}
-		<Panel title="Repeating payments" subtitle="rent, SIPs and subscriptions" soon />
+		<SpendingDays daily={daily.data ?? []} account={url.query.account} />
 	</div>
-</PanelGrid>
-
-<PanelGrid>
-	<SpendingDays daily={daily.data ?? []} account={url.query.account} />
-	<SpendingAccounts
-		{spending}
-		account={url.query.account}
-		{parts}
-		{colours}
-		{bucket}
-		{first}
-		{last}
-		{handle}
-		period={url.query.period}
-	/>
 </PanelGrid>
 
 <style>

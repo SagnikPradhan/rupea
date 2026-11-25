@@ -18,7 +18,7 @@
 	const sources = $derived(Income.sourcesOf(month, range));
 </script>
 
-<Panel title="Income by source" subtitle="{name}, and {period.toLowerCase()}">
+<Panel plain title="Income by source" subtitle="{name}, and {period.toLowerCase()}">
 	<Statement head="In rupees" columns={[name, period]}>
 		{#each sources.rows as row (row.account)}
 			<StatementRow name={row.name} values={[printAmount(row.month), printAmount(row.range)]} />

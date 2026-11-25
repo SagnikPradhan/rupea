@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ICONS } from '#lib/web/shared/icons.ts';
 	import { deleteFiles, listFiles, renameFiles } from '#lib/endpoints/files.remote.ts';
 	import type { RupeaError } from '@rupea/shared/errors.ts';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
@@ -8,8 +9,6 @@
 	import { formatMoment, formatSize } from '#lib/web/shared/format.ts';
 	import { isCounted } from '@rupea/shared/files.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';
-	import IconCollapsed from '@tabler/icons-svelte-runes/icons/chevron-right';
-	import IconExpanded from '@tabler/icons-svelte-runes/icons/chevron-down';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { keysUnder, movedTo, treeRows } from './file-tree';
 
@@ -101,7 +100,11 @@
 					{chosen.length === 0 ? 'Select all' : `${chosen.length} selected`}
 				</label>
 				<Button disabled={chosen.length === 0} onclick={() => (step.now = 'moving')}>Move</Button>
-				<Button disabled={chosen.length === 0} onclick={() => (step.now = 'deleting')}>
+				<Button
+					icon={ICONS.delete}
+					disabled={chosen.length === 0}
+					onclick={() => (step.now = 'deleting')}
+				>
 					Delete
 				</Button>
 			{/if}
@@ -142,7 +145,7 @@
 									{@render checkbox([row.path], `Select ${row.path}`, row.path)}
 									<a href={fileHref(handle, row.path)}>{row.name}</a>
 								{:else}
-									{@const Chevron = collapsed.has(row.path) ? IconCollapsed : IconExpanded}
+									{@const Chevron = collapsed.has(row.path) ? ICONS.collapsed : ICONS.expanded}
 									{@render checkbox(keysUnder(files, row.path), `Select ${row.path}`, null)}
 									<button
 										class="folder"

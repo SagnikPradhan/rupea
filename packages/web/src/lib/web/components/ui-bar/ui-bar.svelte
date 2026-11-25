@@ -4,16 +4,18 @@
 		share: number;
 		/** Where a limit sits on the track, from 0 to 1; past it the fill is over. */
 		limit?: number;
+		/** A negative bar is red, as a fall is. */
+		negative?: boolean;
 	};
 
-	const { share, limit }: Props = $props();
+	const { share, limit, negative = false }: Props = $props();
 
 	const filled = $derived(Math.min(Math.max(share, 0), 1));
 	const within = $derived(limit === undefined ? filled : Math.min(filled, limit));
 </script>
 
 <div class="track" role="presentation">
-	<div class="fill" style:width="{within * 100}%"></div>
+	<div class={['fill', { negative }]} style:width="{within * 100}%"></div>
 	{#if limit !== undefined}
 		{@const over = Math.max(filled - limit, 0)}
 		<div class="over" style:left="{limit * 100}%" style:width="{over * 100}%"></div>
@@ -32,7 +34,12 @@
 
 	.fill {
 		height: 100%;
-		background: var(--color-ink);
+		border-radius: var(--radius-1);
+		background: var(--color-chart-1);
+	}
+
+	.negative {
+		background: var(--color-negative);
 	}
 
 	.over,
@@ -48,6 +55,6 @@
 
 	.tick {
 		width: var(--size-line-1);
-		background: var(--color-ink);
+		background: var(--color-surface);
 	}
 </style>

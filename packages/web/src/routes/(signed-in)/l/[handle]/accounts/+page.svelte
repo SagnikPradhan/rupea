@@ -92,7 +92,7 @@
 
 		<Panel title="Biggest drops" subtitle="how far investments fell from their high">
 			{#if fallen.data?.[0]}
-				<Drops drops={fallen.data[0]} />
+				<Drops drops={fallen.data[0]} account={url.query.account} />
 			{:else}
 				<p>Needs price history.</p>
 			{/if}
@@ -102,7 +102,12 @@
 	<div class="column">
 		<AssetsRings {rings} account={url.query.account} />
 
-		<InvestedRisk {invested} swings={fallen.data?.[0]?.swings ?? []} arcs={rings.arcs} />
+		<InvestedRisk
+			{invested}
+			swings={fallen.data?.[0]?.swings ?? []}
+			arcs={rings.arcs}
+			account={url.query.account}
+		/>
 	</div>
 </PanelGrid>
 

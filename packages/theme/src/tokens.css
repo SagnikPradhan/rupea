@@ -2,8 +2,8 @@
 	color-scheme: light dark;
 
 	/* Type scale */
-	/* The base every other step is a multiple of: 18px at 768px wide down to 16px at 1920px, in between by viewport width (utopia.fyi/blog/clamp) */
-	--font-size-1: clamp(1rem, 1.2083rem - 0.1736vw, 1.125rem);
+	/* The base every other step is a multiple of: 18px at 768px wide down to 16px at 1440px, in between by viewport width (utopia.fyi/blog/clamp) */
+	--font-size-1: clamp(1rem, 1.2679rem - 0.2976vw, 1.125rem);
 	--font-size-0: calc(var(--font-size-1) * 0.8);
 	--font-size-2: calc(var(--font-size-1) * 1.5);
 	--font-size-3: calc(var(--font-size-1) * 2.5);
@@ -71,16 +71,16 @@
 	--color-negative-6: color-mix(in srgb, var(--color-negative) 70%, transparent);
 
 	/* Chart colours */
-	--color-chart-1: light-dark(#3a6aa7, #85b4f0); /* blue */
-	--color-chart-2: light-dark(#a76c12, #ebb25f); /* amber */
-	--color-chart-3: light-dark(#007b70, #68c4b8); /* teal */
-	--color-chart-4: light-dark(#924b84, #d690c6); /* magenta */
-	--color-chart-5: light-dark(#726c19, #c1bb6d); /* olive */
-	--color-chart-6: light-dark(#6355a2, #aa9fec); /* violet */
-	--color-chart-7: light-dark(#3a99ba, #8ad0eb); /* sky */
-	--color-chart-8: light-dark(#66442c, #bc957b); /* brown */
-	--color-chart-9: light-dark(#77818c, #95a0ab); /* slate */
-	--color-chart-10: light-dark(#c97e9b, #eda6c1); /* pink */
+	--color-chart-1: light-dark(#5e8de4, #78a1ec); /* blue */
+	--color-chart-2: light-dark(#d0793e, #e68a4e); /* orange */
+	--color-chart-3: light-dark(#a66ab9, #b97dcc); /* orchid */
+	--color-chart-4: light-dark(#299cb3, #3dafc7); /* cyan */
+	--color-chart-5: light-dark(#a88c31, #bc9f42); /* gold */
+	--color-chart-6: light-dark(#9a7de2, #aa94ea); /* violet */
+	--color-chart-7: light-dark(#b77354, #c58263); /* copper */
+	--color-chart-8: light-dark(#2b9d89, #40b49e); /* aqua */
+	--color-chart-9: light-dark(#79993b, #8aad4b); /* lime */
+	--color-chart-10: light-dark(#2b2b2e, #e2e2e6); /* ink */
 
 	/* Roles */
 	--color-subtle: var(--color-ink-1);

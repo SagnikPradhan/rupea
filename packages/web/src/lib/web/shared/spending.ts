@@ -8,6 +8,7 @@ import {
 	printAmount,
 	sum,
 } from '@rupea/shared/money.ts';
+import type { Grain } from '@rupea/shared/dates.ts';
 import { ALL_ACCOUNTS, Compare, Scale } from './choices';
 import { PERIOD_PARAMS, periodIn } from './filter';
 import { MONTHS, spanOf } from './home';
@@ -142,6 +143,16 @@ export const barsOf = ({ spending, previous, account, parts }: ChartOptions) => 
 			[PREVIOUS]: before === undefined ? null : printAmount(earlier[before.toString()] ?? ZERO),
 		};
 	});
+};
+
+/** The last bar when the range ends before the bar does, so it is still filling. */
+export const partialOf = (s: Spent | undefined, bucket: Grain, last: Temporal.PlainDate) => {
+	const from = s?.buckets.at(-1);
+	return from &&
+		s &&
+		Temporal.PlainDate.compare(from.add({ [`${bucket}s`]: 1 }).subtract({ days: 1 }), last) > 0
+		? s.buckets.length - 1
+		: null;
 };
 
 /** The whole range as one bar, against the whole range before it. */

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ICONS } from '#lib/web/shared/icons.ts';
 	import { saveBudget } from '#lib/endpoints/accounts.remote.ts';
 	import type { RupeaError } from '@rupea/shared/errors.ts';
 	import { BudgetForm } from '@rupea/shared/forms.ts';
@@ -162,7 +163,7 @@
 	{/each}
 
 	<div class="buttons">
-		<Button primary disabled={saveBudget.pending > 0}>Save</Button>
+		<Button primary icon={ICONS.check} disabled={saveBudget.pending > 0}>Save</Button>
 	</div>
 
 	{#if status.saved}

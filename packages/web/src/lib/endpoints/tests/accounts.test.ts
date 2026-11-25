@@ -212,7 +212,7 @@ describe('accounts', () => {
 			span,
 			{ ...span, account: null },
 			span,
-			{ ...span, account: 'Expenses', bucket: 'day', aggregate: 'average' },
+			{ ...span, account: 'Expenses', bucket: 'date' },
 		]);
 	});
 

@@ -10,6 +10,7 @@ import {
 	largestFirst,
 	dailyAverageOver,
 	monthlyAverageOver,
+	partialOf,
 	partsOf,
 	PREVIOUS,
 	rowsOf,
@@ -264,5 +265,18 @@ describe('SpendingQuery', () => {
 			'2026-11-11',
 		);
 		expect(v.is(schema, {})).toBe(true);
+	});
+});
+
+describe('the bar still filling', () => {
+	const month = { buckets: [on('2026-01-01'), on('2026-02-01')] } as Spent;
+
+	it('is the last bar when the range ends inside it', () => {
+		expect(partialOf(month, 'month', on('2026-02-10'))).toBe(1);
+	});
+
+	it('is none when the range ends with its last bar, or has no bars', () => {
+		expect(partialOf(month, 'month', on('2026-02-28'))).toBeNull();
+		expect(partialOf(undefined, 'month', on('2026-02-28'))).toBeNull();
 	});
 });

@@ -1,14 +1,10 @@
 <script lang="ts">
-	import IconContrast from '@tabler/icons-svelte-runes/icons/contrast';
-	import IconMoon from '@tabler/icons-svelte-runes/icons/moon';
-	import IconSun from '@tabler/icons-svelte-runes/icons/sun';
+	import { ICONS } from '#lib/web/shared/icons.ts';
 	import { toggleTheme } from '#lib/endpoints/theme.remote.ts';
 	import type { Theme } from '#lib/web/shared/theme.ts';
 	import IconButton from '#lib/web/components/ui-button-icon/ui-button-icon.svelte';
 
 	const { theme }: { theme: Theme } = $props();
-
-	const ICONS = { system: IconContrast, light: IconSun, dark: IconMoon };
 
 	const shown = $derived(toggleTheme.result ?? theme);
 

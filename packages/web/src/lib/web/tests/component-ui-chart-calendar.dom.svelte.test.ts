@@ -95,4 +95,28 @@ describe('the calendar', () => {
 		expect(cellOf('1')).toBeDefined();
 		expect(document.querySelector('a')?.getAttribute('href')).toBeNull();
 	});
+
+	it('runs each week down a column across seven rows, named by month and weekday', () => {
+		render(Calendar, {
+			rows: Array.from({ length: 40 }, (_, i) => ({
+				day: Temporal.PlainDate.from('2026-01-26').add({ days: i }).toString(),
+				total: '10',
+			})),
+			x: 'day',
+			y: 'total',
+			label: 'Days',
+			across: true,
+			labelled: false,
+		});
+
+		const table = screen.getByRole('table', { name: 'Days' });
+		expect(table.querySelectorAll('tbody tr')).toHaveLength(7);
+		expect(
+			[...table.querySelectorAll('thead th')].map((t) => t.textContent).filter(Boolean),
+		).toEqual(['Feb', 'Mar']);
+		expect(
+			[...table.querySelectorAll('tbody th')].map((t) => t.textContent).filter(Boolean),
+		).toEqual(['Mon', 'Wed', 'Fri']);
+		expect(table.querySelectorAll('td a')).toHaveLength(40);
+	});
 });

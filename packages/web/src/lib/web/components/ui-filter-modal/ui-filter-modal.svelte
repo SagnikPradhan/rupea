@@ -1,5 +1,5 @@
 <script lang="ts">
-	import IconClose from '@tabler/icons-svelte-runes/icons/x';
+	import { ICONS } from '#lib/web/shared/icons.ts';
 	import { Popover } from 'bits-ui';
 	import type { Snippet } from 'svelte';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
@@ -21,7 +21,7 @@
 
 <Popover.Root>
 	<Popover.Trigger>
-		{#snippet child({ props })}<Button {...props}>Filter</Button>{/snippet}
+		{#snippet child({ props })}<Button {...props} icon={ICONS.filter}>Filter</Button>{/snippet}
 	</Popover.Trigger>
 	<Popover.Portal>
 		<Popover.Content align="end" sideOffset={8} collisionPadding={8}>
@@ -32,7 +32,7 @@
 							<h2>Filter</h2>
 							<Popover.Close>
 								{#snippet child({ props })}
-									<IconButton {...props} label="Close" icon={IconClose} />
+									<IconButton {...props} label="Close" icon={ICONS.close} />
 								{/snippet}
 							</Popover.Close>
 						</header>

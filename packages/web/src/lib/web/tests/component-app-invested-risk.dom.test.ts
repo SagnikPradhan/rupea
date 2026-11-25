@@ -31,6 +31,7 @@ describe('the invested risk', () => {
 			invested: [row('Assets:Stocks', 0.1)],
 			swings: [{ account: 'Assets:Stocks', swing: 0.2 }],
 			arcs: [arc],
+			account: null,
 		});
 
 		expect(
@@ -39,8 +40,26 @@ describe('the invested risk', () => {
 		expect(screen.queryByText('Needs price history.')).toBeNull();
 	});
 
+	it('lists each plotted account as a chip with its return, the chosen one marked', () => {
+		render(InvestedRisk, {
+			invested: [row('Assets:Stocks', 0.1)],
+			swings: [{ account: 'Assets:Stocks', swing: 0.2 }],
+			arcs: [arc],
+			account: 'Assets:Stocks',
+		});
+
+		const chip = screen.getByText('Stocks').closest('a')!;
+		expect(chip.textContent?.replace(/\s+/g, ' ').trim()).toBe('Stocks +10% a year, swings +20%');
+		expect(chip.classList.contains('on')).toBe(true);
+	});
+
 	it('says it needs price history when no swing is known', () => {
-		render(InvestedRisk, { invested: [row('Assets:Stocks', 0.1)], swings: [], arcs: [arc] });
+		render(InvestedRisk, {
+			invested: [row('Assets:Stocks', 0.1)],
+			swings: [],
+			arcs: [arc],
+			account: null,
+		});
 
 		expect(screen.getByText('Needs price history.')).toBeTruthy();
 	});
@@ -50,6 +69,7 @@ describe('the invested risk', () => {
 			invested: [row('Assets:Stocks', null)],
 			swings: [{ account: 'Assets:Stocks', swing: 0.2 }],
 			arcs: [arc],
+			account: null,
 		});
 
 		expect(screen.getByText('Needs price history.')).toBeTruthy();

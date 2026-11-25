@@ -1,9 +1,7 @@
 <script lang="ts">
+	import { ICONS } from '#lib/web/shared/icons.ts';
 	import { Dialog, LinkPreview } from 'bits-ui';
 	import { signOut } from '#lib/endpoints/auth.remote.ts';
-	import IconClose from '@tabler/icons-svelte-runes/icons/x';
-	import IconLogout from '@tabler/icons-svelte-runes/icons/logout';
-	import IconMenu from '@tabler/icons-svelte-runes/icons/menu-2';
 	import type { Theme } from '#lib/web/shared/theme.ts';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import IconButton from '#lib/web/components/ui-button-icon/ui-button-icon.svelte';
@@ -101,7 +99,7 @@
 				<Dialog.Trigger>
 					{#snippet child({ props })}
 						<span class="menu">
-							<IconButton {...props} label="Menu" icon={IconMenu} outlined />
+							<IconButton {...props} label="Menu" icon={ICONS.menu} outlined />
 						</span>
 					{/snippet}
 				</Dialog.Trigger>
@@ -114,7 +112,7 @@
 									{@render tools()}
 									<Dialog.Close>
 										{#snippet child({ props })}
-											<IconButton {...props} label="Close" icon={IconClose} outlined />
+											<IconButton {...props} label="Close" icon={ICONS.close} outlined />
 										{/snippet}
 									</Dialog.Close>
 								</div>
@@ -126,7 +124,7 @@
 									<strong>Hello, {username}</strong>
 									<span>You are signed in.</span>
 								</div>
-								<IconButton form="log-out" label="Sign out" icon={IconLogout} outlined />
+								<IconButton form="log-out" label="Sign out" icon={ICONS.signOut} outlined />
 							</div>
 						</div>
 					{/snippet}

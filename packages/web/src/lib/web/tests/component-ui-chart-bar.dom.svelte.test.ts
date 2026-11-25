@@ -208,4 +208,20 @@ describe('the bar chart', () => {
 		await fireEvent.pointerLeave(plot);
 		expect(screen.getByTestId('summary').textContent).toBe('null');
 	});
+
+	it('draws the bar still filling lighter, and links its parts when they have a link', () => {
+		const { container } = render(BarChart, {
+			rows: ROWS,
+			x: 'bucket',
+			bucket: 'month',
+			whole: WHOLE,
+			label: 'Spending',
+			partial: 2,
+			series: [{ ...PARTS[0], href: '/?account=food' }, PARTS[1]],
+		});
+
+		expect(container.querySelectorAll('rect.partial')).toHaveLength(2);
+		expect(screen.getByRole('link', { name: 'Food' }).getAttribute('href')).toBe('/?account=food');
+		expect(screen.queryByRole('link', { name: 'Other' })).toBeNull();
+	});
 });

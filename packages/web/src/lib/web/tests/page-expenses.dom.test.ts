@@ -70,16 +70,22 @@ const spending = {
 const previous = { ...spending, from: on('2025-01-01'), buckets: [on('2025-01-01')] };
 
 describe('the expenses page', () => {
-	it('draws a calendar of what was averaged on each day of the month', async () => {
+	it('draws a calendar of what was spent on each day', async () => {
 		visit('/l/h/expenses?at=2026');
 		vi.mocked(listDeltas).mockReturnValue(answer([spending, previous]));
 		vi.mocked(listDailyDeltas).mockReturnValue(
-			answer(Array.from({ length: 31 }, (_, i) => ({ day: i + 1, amount: '10', unpriced: 0 }))),
+			answer(
+				Array.from({ length: 31 }, (_, i) => ({
+					day: `2026-01-${String(i + 1).padStart(2, '0')}`,
+					amount: '10',
+					unpriced: 0,
+				})),
+			),
 		);
 		render(Page, { data });
 
 		const calendar = await screen.findByRole('table', {
-			name: 'Average spending on each day of the month, over the period',
+			name: 'Spending on each day of the period',
 		});
 		expect(within(calendar).getAllByRole('cell')).toHaveLength(35);
 	});
@@ -95,38 +101,13 @@ describe('the expenses page', () => {
 		expect(screen.getAllByText('1 unpriced')).toHaveLength(2);
 	});
 
-	it('draws what came in flowing into what was spent and what was kept, over all expenses', async () => {
+	it('draws how the expenses divide, and never asks for income', async () => {
 		visit('/l/h/expenses?at=2026');
-		const income = {
-			...spending,
-			totals: [
-				{
-					account: 'Income',
-					parent: null,
-					first: '2026-01-03',
-					amount: amount('-3000'),
-					unpriced: 0,
-				},
-				{
-					account: 'Income:Salary',
-					parent: 'Income',
-					first: '2026-01-03',
-					amount: amount('-3000'),
-					unpriced: 0,
-				},
-			],
-		};
-		vi.mocked(listDeltas).mockImplementation(({ account }) =>
-			answer(account === 'Income' ? [income] : [spending, previous]),
-		);
+		vi.mocked(listDeltas).mockImplementation(() => answer([spending, previous]));
 		render(Page, { data });
 
-		expect(
-			await screen.findByRole('img', {
-				name: 'How what came in divides into what was spent and what was kept',
-			}),
-		).toBeTruthy();
-		expect(vi.mocked(listDeltas)).toHaveBeenCalledWith(
+		expect(await screen.findByRole('img', { name: /How Expenses divides into/ })).toBeTruthy();
+		expect(vi.mocked(listDeltas)).not.toHaveBeenCalledWith(
 			expect.objectContaining({ account: 'Income' }),
 		);
 	});
@@ -296,19 +277,6 @@ describe('the expenses page', () => {
 		expect(await screen.findByText(/This posting can’t be read\./)).toBeTruthy();
 	});
 
-	it('shows what went wrong reading what came in', async () => {
-		visit('/l/h/expenses?at=2026');
-		vi.mocked(listDailyDeltas).mockReturnValue(answer([]));
-		vi.mocked(listDeltas).mockImplementation(({ account }) =>
-			account === 'Income'
-				? answer(undefined, [{ type: 'ParseMissingTransactionBody', location: 'main.ledger:5' }])
-				: answer([spending, previous]),
-		);
-		render(Page, { data });
-
-		expect(await screen.findByText(/This transaction has no postings\./)).toBeTruthy();
-	});
-
 	it('says so when nothing lies under the account', async () => {
 		visit('/l/h/expenses?account=Expenses:Rent');
 		vi.mocked(listDeltas).mockReturnValue(answer([spending]));
@@ -338,8 +306,9 @@ describe('the expenses page', () => {
 			);
 			render(Page, { data });
 
-			expect(await screen.findByText('150 of 100')).toBeTruthy();
-			expect(screen.getByText('100 of 500')).toBeTruthy();
+			expect(await screen.findByText('50 over')).toBeTruthy();
+			expect(screen.getByText('150 of 100')).toBeTruthy();
+			expect(screen.getByText('400 left')).toBeTruthy();
 			expect(screen.getByText('1 of 2')).toBeTruthy();
 		});
 

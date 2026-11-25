@@ -334,20 +334,34 @@ describe('viewing what flowed', () => {
 		expect(rows.map((d) => d.bucket.toString())).toEqual(['2026-09-03']);
 	});
 
-	it('gives each day of the month, with none spent where there is no row', () => {
-		const daily = viewDaily(
-			{
-				from: '2026-01-01',
-				to: '2026-01-31',
+	it('gives each day of the span, with none spent where there is no row', () => {
+		const span = {
+			from: Temporal.PlainDate.from('2026-01-30'),
+			to: Temporal.PlainDate.from('2026-02-02'),
+		};
+		const daily = viewDaily({
+			deltas: {
+				from: '2026-01-30',
+				to: '2026-02-02',
 				base: 'INR',
-				rows: [{ account: 'Expenses', bucket: '5', ...flow }],
+				rows: [{ account: 'Expenses', bucket: '2026-01-31', ...flow }],
 			},
-			'Expenses',
-		);
-		expect(daily).toHaveLength(31);
-		expect(daily[4]).toEqual({ day: 5, amount: '-50.00', unpriced: 0 });
-		expect(daily[5]).toEqual({ day: 6, amount: '0', unpriced: 0 });
-		expect(viewDaily(undefined, 'Expenses')[0]).toEqual({ day: 1, amount: '0', unpriced: 0 });
+			account: 'Expenses',
+			span,
+		});
+		expect(daily.map((d) => d.day)).toEqual([
+			'2026-01-30',
+			'2026-01-31',
+			'2026-02-01',
+			'2026-02-02',
+		]);
+		expect(daily[0]).toEqual({ day: '2026-01-30', amount: '0', unpriced: 0 });
+		expect(daily[1]).toEqual({ day: '2026-01-31', amount: '-50.00', unpriced: 0 });
+		expect(viewDaily({ deltas: undefined, account: 'Expenses', span })[0]).toEqual({
+			day: '2026-01-30',
+			amount: '0',
+			unpriced: 0,
+		});
 	});
 });
 

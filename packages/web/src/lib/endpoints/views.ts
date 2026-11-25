@@ -10,7 +10,7 @@ import {
 } from '@rupea/contract/shape-ledger.ts';
 import { parentsIn, partsIn, type AccountRow } from '@rupea/shared/account-tree.ts';
 import { bucketFor, bucketKeyOf } from '@rupea/shared/balances.ts';
-import { bucketsIn, Day, type Grain } from '@rupea/shared/dates.ts';
+import { bucketsIn, Day, type Grain, type Span } from '@rupea/shared/dates.ts';
 import {
 	Amount,
 	DEFAULT_COMMODITY,
@@ -322,15 +322,25 @@ const viewed = (r: RowOut) => ({
 	unpriced: r.unpriced,
 });
 
-/**
- * What an account averaged on each day of the month, one row for each day from
- * the 1st to the 31st.
- */
-export const viewDaily = (deltas: DeltasOut | undefined, account: string) =>
-	Array.from({ length: 31 }, (_, i) => {
-		const row = deltas?.rows.find((r) => r.account === account && r.bucket === String(i + 1));
-		return { day: i + 1, amount: row?.value ?? '0', unpriced: row?.unpriced ?? 0 };
+/** What an account spent on each day of a span, none where there is no row. */
+export const viewDaily = ({
+	deltas,
+	account,
+	span,
+}: {
+	deltas: DeltasOut | undefined;
+	account: string;
+	span: Span;
+}) => {
+	const rows = (deltas?.rows ?? []).filter((r) => r.account === account);
+	const byDay = Object.fromEntries(rows.map((r) => [r.bucket, r]));
+
+	return bucketsIn(span, 'day').map((day) => {
+		const row = byDay[day.toString()];
+
+		return { day: day.toString(), amount: row?.value ?? '0', unpriced: row?.unpriced ?? 0 };
 	});
+};
 
 type LotOut = v.InferOutput<typeof Lot>;
 

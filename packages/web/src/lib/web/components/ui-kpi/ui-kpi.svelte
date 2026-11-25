@@ -10,29 +10,26 @@
 	const { label, figure = '', soon = false, detail, tone }: Props = $props();
 </script>
 
-<div class="kpi">
-	{#if soon}
-		<p class="soon">Coming soon</p>
-	{:else}
+{#if !soon}
+	<div class="kpi">
+		<p class="label">{label}</p>
 		<p class="figure">{figure}</p>
-	{/if}
-
-	<p class="label">
-		{label}
-		{#if detail}<span class={tone}>{detail}</span>{/if}
-	</p>
-</div>
+		{#if detail}<p class={['detail', tone]}>{detail}</p>{/if}
+	</div>
+{/if}
 
 <style>
 	.kpi {
 		display: flex;
 		flex-direction: column;
+		align-items: start;
 		gap: var(--size-0);
 	}
 
-	.soon {
+	.label,
+	.detail {
 		color: var(--color-muted);
-		font: var(--text-base);
+		font: var(--text-label);
 	}
 
 	.figure {
@@ -40,20 +37,19 @@
 		color: var(--color-ink);
 	}
 
-	.label {
-		color: var(--color-muted);
-		font: var(--text-label);
-	}
-
-	.label span {
-		display: block;
+	.positive,
+	.negative {
+		padding-inline: var(--size-1);
+		border-radius: var(--radius-1);
 	}
 
 	.positive {
+		background: color-mix(in srgb, var(--color-positive) 12%, transparent);
 		color: var(--color-positive);
 	}
 
 	.negative {
+		background: color-mix(in srgb, var(--color-negative) 12%, transparent);
 		color: var(--color-negative);
 	}
 </style>

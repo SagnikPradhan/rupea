@@ -13,9 +13,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--size-3);
-		align-self: end;
-		padding: var(--size-3);
-		border: var(--size-line-0) solid var(--color-subtle);
-		border-radius: var(--radius-1);
+		align-self: center;
+		min-width: calc(var(--size-5) * 3);
 	}
 </style>

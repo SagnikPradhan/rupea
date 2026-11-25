@@ -161,9 +161,8 @@ describe('the home page', () => {
 		render(Page, { data: { ...data, ledgers: [ledgers[0]!] } });
 		await screen.findByText('Balance sheet');
 
-		expect(screen.getByText('Coming soon')).toBeTruthy();
 		expect(screen.getAllByText(/^Coming soon · /)).toHaveLength(1);
-		expect(screen.getByText('Cash cushion')).toBeTruthy();
+		expect(screen.queryByText('Cash cushion')).toBeNull();
 	});
 
 	it('draws what moved net worth, and says so when nothing was held', async () => {

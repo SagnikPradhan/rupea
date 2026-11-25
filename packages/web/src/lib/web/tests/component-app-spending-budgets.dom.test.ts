@@ -18,38 +18,59 @@ const budget = (account: string, limit: string, spent: string) =>
 		current: {},
 	}) as BudgetView;
 
+const TODAY = on('2026-01-16');
+
 const BUDGETS = [
 	budget('Expenses:Rent', '10000', '5000'),
 	budget('Expenses:Food', '8000', '12000'),
+	budget('Expenses:Fuel', '4000', '3800'),
+	budget('Expenses:Fun', '4000', '400'),
 ];
 
-const props = (budgets: BudgetView[]) => ({ rows: rowsFor(budgets, 'Expenses') });
+const props = (budgets: BudgetView[]) => ({
+	rows: rowsFor(budgets, 'Expenses'),
+	today: TODAY,
+});
 
 describe('the budgets panel', () => {
 	it('titles itself and says how many are over', () => {
 		render(SpendingBudgets, props(BUDGETS));
 
 		expect(screen.getByText('Budgets')).toBeTruthy();
-		expect(screen.getByText('2 budgets · 1 over')).toBeTruthy();
+		expect(screen.getByText('4 budgets · 1 over')).toBeTruthy();
 	});
 
-	it('lists the rows in order with spent of limit and the percent', () => {
+	it('leads with what is left, over budgets first, then those spending ahead, then the rest', () => {
 		render(SpendingBudgets, props(BUDGETS));
 
 		const items = screen.getAllByRole('listitem');
 
-		expect(items.map((i) => i.querySelector('.name')?.textContent)).toEqual(['Food', 'Rent']);
-		expect(screen.getByText('12,000 of 8,000')).toBeTruthy();
-		expect(screen.getByText('5,000 of 10,000')).toBeTruthy();
-		expect(screen.getByText('150%')).toBeTruthy();
-		expect(screen.getByText('50%')).toBeTruthy();
+		expect(items.map((i) => i.querySelector('a')?.textContent?.trim())).toEqual([
+			'Food',
+			'Fuel',
+			'Rent',
+			'Fun',
+		]);
+		expect(screen.getByText('4K over')).toBeTruthy();
+		expect(screen.getByText('200 left')).toBeTruthy();
+		expect(screen.getByText('5K left')).toBeTruthy();
+		expect(screen.getByText('12K of 8K')).toBeTruthy();
 	});
 
 	it('marks only the over row negative', () => {
 		render(SpendingBudgets, props(BUDGETS));
 
-		expect(screen.getByText('150%').className).toContain('negative');
-		expect(screen.getByText('50%').className).not.toContain('negative');
+		expect(screen.getByText('4K over').className).toContain('negative');
+		expect(screen.getByText('200 left').className).not.toContain('negative');
+	});
+
+	it('totals what was spent of the limits, and what is left or over', () => {
+		render(SpendingBudgets, props(BUDGETS));
+
+		expect(screen.getByText('Spent').nextElementSibling?.textContent).toBe('21,200');
+		expect(screen.getByText('of 26,000 allowed')).toBeTruthy();
+		expect(screen.getByText('Left').nextElementSibling?.textContent).toBe('4,800');
+		expect(screen.getByText('82% of limits used')).toBeTruthy();
 	});
 
 	it('links each name to its budget', () => {
@@ -60,10 +81,13 @@ describe('the budgets panel', () => {
 		);
 	});
 
-	it('draws a limit tick on each bar', () => {
+	it('draws a bar for each budget, amber when ahead of pace and red past the limit', () => {
 		const { container } = render(SpendingBudgets, props(BUDGETS));
 
-		expect(container.querySelectorAll('.tick')).toHaveLength(2);
+		expect(container.querySelectorAll('.track')).toHaveLength(4);
+		expect(container.querySelectorAll('.bar.warn')).toHaveLength(1);
+		expect(container.querySelectorAll('.bar.negative')).toHaveLength(1);
+		expect(container.querySelectorAll('.today')).toHaveLength(4);
 	});
 
 	it('says there are none without rows', () => {
@@ -71,11 +95,5 @@ describe('the budgets panel', () => {
 
 		expect(screen.getByText('No budgets yet. Add one to see what is left.')).toBeTruthy();
 		expect(screen.queryAllByRole('listitem')).toHaveLength(0);
-	});
-
-	it('shows an en dash when the limit is zero', () => {
-		render(SpendingBudgets, props([budget('Expenses:Food', '0', '100')]));
-
-		expect(screen.getByText('–')).toBeTruthy();
 	});
 });

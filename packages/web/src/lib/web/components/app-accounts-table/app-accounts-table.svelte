@@ -1,15 +1,15 @@
 <script lang="ts">
-	import { type Amount as Money, printAmount, sum, toNumber, ASSETS } from '@rupea/shared/money.ts';
+	import { type Amount as Money, printAmount, sum, ASSETS } from '@rupea/shared/money.ts';
 	import AccountName from '#lib/web/components/app-account-name/app-account-name.svelte';
 	import Amount from '#lib/web/components/app-ledger-table/amount.svelte';
 	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
-	import Bar from '#lib/web/components/ui-bar/ui-bar.svelte';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
 	import { depthOf, isUnder } from '#lib/web/shared/accounts.ts';
 	import {
 		formatAmount,
 		formatPercent,
+		formatShare,
 		formatReturn,
 		formatWhole,
 		toneOf,
@@ -93,8 +93,8 @@
 {/snippet}
 
 {#snippet shareOf(value: string | null)}
-	<td class="share optional">
-		<Bar share={value === null || assets === 0n ? 0 : Number(value) / toNumber(assets)} />
+	<td class="amount optional">
+		{value !== null && Number(value) > 0 ? formatShare(value, printAmount(assets)) : null}
 	</td>
 {/snippet}
 
@@ -127,6 +127,7 @@
 {/snippet}
 
 <Panel
+	plain
 	title="All accounts"
 	subtitle="{trees.length} {trees.length === 1 ? 'group' : 'groups'} · {formatWhole(
 		printAmount(assets),
@@ -142,7 +143,7 @@
 			{ label: 'Return', kind: 'amount' },
 			{ label: 'Net in', kind: 'amount', optional: true },
 			{ label: 'XIRR', kind: 'amount' },
-			{ label: 'Share', optional: true },
+			{ label: 'Share', kind: 'amount', optional: true },
 		]}
 	>
 		{#each trees as tree (tree?.[0]?.account)}
@@ -179,10 +180,6 @@
 <style>
 	tr.held > :global(:not(.amount)) {
 		color: var(--color-muted);
-	}
-
-	.share {
-		width: calc(var(--size-5) * 1.5);
 	}
 
 	.name {

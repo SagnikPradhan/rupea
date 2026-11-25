@@ -21,7 +21,8 @@
 		formatDate,
 		formatExact,
 	} from '#lib/web/shared/format.ts';
-	import { postingsHref } from '#lib/web/shared/links.ts';
+	import { hrefWith, postingsHref } from '#lib/web/shared/links.ts';
+	import { page } from '$app/state';
 	import * as Spending from '#lib/web/shared/spending.ts';
 
 	type Props = {
@@ -57,6 +58,7 @@
 	const bars = $derived(Spending.barsOf({ spending, previous, account, parts }));
 	const whole = $derived(Spending.wholeOf({ spending, previous, account, parts }));
 	const other = $derived([whole, ...bars].some((b) => b[OTHER] !== '0'));
+	const partial = $derived(Spending.partialOf(spending, bucket, last));
 	const total = $derived(Spending.totalOf(spending, account) ?? ZERO);
 	const row = $derived(Spending.rowsOf(spending, account).find((t) => t.account === account));
 	const label = $derived(
@@ -79,6 +81,7 @@
 					label: nameOf(p),
 					role: 'part' as const,
 					colour: colours[p] ?? k,
+					href: hrefWith(page.url.searchParams, { account: p }),
 				})),
 				...(other ? [{ key: OTHER, label: OTHER, role: 'part' as const, colour: PARTS - 1 }] : []),
 				...(previous && compare === 'with'
@@ -88,6 +91,7 @@
 			{whole}
 			{label}
 			{scale}
+			{partial}
 			{summary}
 		>
 			{#snippet controls()}

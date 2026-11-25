@@ -30,7 +30,7 @@
 		{#if detail}<span class="detail">{detail}</span>{/if}
 		<span class={['figure', tone]}>{figure}</span>
 	</p>
-	<Bar {share} {limit} />
+	<Bar {share} {limit} negative={tone === 'negative' && limit === undefined} />
 </li>
 
 <style>
@@ -52,7 +52,8 @@
 
 	.detail,
 	.figure {
-		font: var(--text-data);
+		font: var(--text-label);
+		font-family: var(--font-mono);
 	}
 
 	.prefix,
@@ -62,17 +63,26 @@
 
 	.figure {
 		margin-left: auto;
+		padding-inline: var(--size-1);
+		border-radius: var(--radius-1);
 	}
 
 	a {
 		color: inherit;
+		text-decoration: none;
+	}
+
+	a:hover {
+		text-decoration: underline;
 	}
 
 	.positive {
+		background: color-mix(in srgb, var(--color-positive) 12%, transparent);
 		color: var(--color-positive);
 	}
 
 	.negative {
+		background: color-mix(in srgb, var(--color-negative) 12%, transparent);
 		color: var(--color-negative);
 	}
 </style>

@@ -1,5 +1,5 @@
 <script lang="ts">
-	import IconClose from '@tabler/icons-svelte-runes/icons/x';
+	import { ICONS } from '#lib/web/shared/icons.ts';
 	import type { Snippet } from 'svelte';
 	import IconButton from '#lib/web/components/ui-button-icon/ui-button-icon.svelte';
 
@@ -23,7 +23,7 @@
 	<header>
 		<h2>{title}</h2>
 		<span class={{ close: true, covered: !closeBeside }}>
-			<IconButton label="Close" icon={IconClose} onclick={onclose} />
+			<IconButton label="Close" icon={ICONS.close} onclick={onclose} />
 		</span>
 	</header>
 

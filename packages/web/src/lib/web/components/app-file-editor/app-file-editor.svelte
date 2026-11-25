@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { ICONS } from '#lib/web/shared/icons.ts';
 	import type { Snippet } from 'svelte';
 	import type { Editor } from '#lib/web/components/app-file-editor/app-file-editor.svelte.ts';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
@@ -72,16 +73,21 @@
 					<Button href="/l/{handle}/files">All files</Button>
 					<Button
 						primary={editor.dirty}
+						icon={ICONS.check}
 						onclick={editor.save}
 						disabled={!editor.dirty || state.saving}
 					>
 						Save
 					</Button>
 					<Button title="Format (Shift+Alt+F)" onclick={editor.format}>Format</Button>
-					<Button onclick={() => begin('renaming', state.file?.key)}>Rename</Button>
-					<Button onclick={() => begin('deleting')}>Delete</Button>
+					<Button icon={ICONS.edit} onclick={() => begin('renaming', state.file?.key)}>
+						Rename
+					</Button>
+					<Button icon={ICONS.delete} onclick={() => begin('deleting')}>Delete</Button>
 				{:else}
-					<Button primary onclick={() => begin('creating', 'new.rupea')}>New file</Button>
+					<Button primary icon={ICONS.add} onclick={() => begin('creating', 'new.rupea')}>
+						New file
+					</Button>
 				{/if}
 				<span>{@render links?.()}</span>
 			</div>

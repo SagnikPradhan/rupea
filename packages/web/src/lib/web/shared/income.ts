@@ -140,7 +140,12 @@ export const sourcesOf = (month: Spent | undefined, range: Spent | undefined) =>
 	const statement = statementOf('Income', month, range);
 
 	return {
-		rows: statement.rows.map((r) => ({ name: r.name, month: r.amount, range: r.before })),
+		rows: statement.rows.map((r) => ({
+			account: r.account,
+			name: r.name,
+			month: r.amount,
+			range: r.before,
+		})),
 		total: { month: statement.total.amount, range: statement.total.before },
 	};
 };

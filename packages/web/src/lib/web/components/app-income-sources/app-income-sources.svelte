@@ -20,7 +20,7 @@
 
 <Panel title="Income by source" subtitle="{name}, and {period.toLowerCase()}">
 	<Statement head="In rupees" columns={[name, period]}>
-		{#each sources.rows as row (row.name)}
+		{#each sources.rows as row (row.account)}
 			<StatementRow name={row.name} values={[printAmount(row.month), printAmount(row.range)]} />
 		{/each}
 		<StatementRow

@@ -94,8 +94,13 @@ describe('sourcesOf', () => {
 
 		expect(sourcesOf(month, income)).toEqual({
 			rows: [
-				{ name: 'Salary', month: amount('1000'), range: amount('2700') },
-				{ name: 'Dividends', month: amount('100'), range: amount('300') },
+				{ account: 'Income:Salary', name: 'Salary', month: amount('1000'), range: amount('2700') },
+				{
+					account: 'Income:Dividends',
+					name: 'Dividends',
+					month: amount('100'),
+					range: amount('300'),
+				},
 			],
 			total: { month: amount('1100'), range: amount('3000') },
 		});

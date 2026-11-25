@@ -106,6 +106,16 @@ describe('the income statement', () => {
 		expect(rows.at(-1)?.before).toBe(amount('0'));
 	});
 
+	it('keeps the full account of groups that share a name', () => {
+		const { rows } = statementOf(
+			'Expenses',
+			month({ Expenses: '30', 'Expenses:Refund': '10', 'Expenses:Work:Refund': '20' }),
+			undefined,
+		);
+
+		expect(rows.map((r) => r.account)).toEqual(['Expenses:Work:Refund', 'Expenses:Refund']);
+	});
+
 	it('reads Income as sizes, though it is credited as negative amounts', () => {
 		const pay = (n: string, m: string) => ({
 			buckets: [],

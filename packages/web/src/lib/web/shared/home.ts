@@ -114,7 +114,12 @@ export const statementOf = (
 		.filter((t) => t.parent === top)
 		.map((t) => t.account);
 	const groups = [...new Set(accounts)]
-		.map((a) => ({ name: nameOf(a), amount: now[a] ?? ZERO, before: before[a] ?? ZERO }))
+		.map((a) => ({
+			account: a,
+			name: nameOf(a),
+			amount: now[a] ?? ZERO,
+			before: before[a] ?? ZERO,
+		}))
 		.toSorted((a, b) => byAmount(b.amount, a.amount));
 
 	const named = groups.slice(0, NAMED);
@@ -123,7 +128,15 @@ export const statementOf = (
 
 	const rows =
 		rest.length > 0
-			? [...named, { name: 'Everything else', amount: restOf('amount'), before: restOf('before') }]
+			? [
+					...named,
+					{
+						account: '',
+						name: 'Everything else',
+						amount: restOf('amount'),
+						before: restOf('before'),
+					},
+				]
 			: named;
 	const total = {
 		amount: now[top] ?? ZERO,

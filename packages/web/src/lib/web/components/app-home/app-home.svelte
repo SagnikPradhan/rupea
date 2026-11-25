@@ -148,7 +148,7 @@
 
 	<Panel title="Income statement" subtitle="{month} against {before}">
 		<Statement head="In rupees" columns={[month, before, 'Change']}>
-			{#each income.rows as row (row.name)}
+			{#each income.rows as row (row.account)}
 				<StatementRow
 					name={row.name}
 					values={[printAmount(row.amount), printAmount(row.before)]}
@@ -161,7 +161,7 @@
 				values={[printAmount(income.total.amount), printAmount(income.total.before)]}
 				change={income.total.change.amount}
 			/>
-			{#each spent.rows as row (row.name)}
+			{#each spent.rows as row (row.account)}
 				<StatementRow
 					name={row.name}
 					values={[printAmount(row.amount), printAmount(row.before)]}

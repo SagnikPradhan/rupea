@@ -1,3 +1,4 @@
+import type { Page } from '@playwright/test';
 import { createFile } from './support/files.ts';
 import { expect, test } from './support/test.ts';
 import { visit } from './support/visit.ts';
@@ -23,35 +24,35 @@ const spending = [
 	'',
 ].join('\n');
 
+const panelOf = (page: Page, title: string) =>
+	page.locator('section').filter({ has: page.getByRole('heading', { name: title, exact: true }) });
+
 test('adds up spending by account over a period, net of refunds', async ({
 	signedIn: page,
 	ledger,
 }) => {
 	await createFile(page, ledger, 'bank.rupea', spending);
-	const chart = page
-		.getByRole('figure')
-		.filter({ has: page.getByRole('heading', { name: 'Spent', exact: true }) });
+	const figures = page.getByRole('region', { name: 'Spending figures' });
+	const went = panelOf(page, 'Where the money went');
 
 	await visit(page, `${ledger}/spending?at=${year}`);
-	await expect(chart.locator('.figure')).toHaveText('10,000');
-	await expect(chart.locator('.summary')).toContainText('+5,000 (+100%) vs previous');
-	const groceries = page.getByRole('row').filter({ hasText: 'Groceries' });
+	await expect(figures.locator('.figure').first()).toHaveText('10,000');
+	await expect(figures).toContainText('+100% on the period before');
+	const groceries = went.getByRole('row').filter({ hasText: 'Groceries' });
 	await expect(groceries).toContainText('2,000');
 	await expect(groceries).toContainText('20%');
-	await expect(chart.locator('figcaption')).toContainText('Housing 8K');
-	await page.getByRole('img', { name: /^Spending/ }).hover({ position: { x: 105, y: 50 } });
-	await expect(chart.locator('.figure')).toHaveText('8,000');
+	await expect(panelOf(page, 'By category')).toContainText('Housing');
 
 	await page.getByRole('button', { name: 'Filter' }).click();
 	const accounts = page.getByRole('navigation', { name: 'Accounts' });
 	await accounts.getByRole('link', { name: 'Housing' }).click();
 	await expect(page).toHaveURL(/account=Expenses%3AHousing/);
-	await expect(chart.locator('.figure')).toHaveText('8,000');
+	await expect(figures.locator('.figure').first()).toHaveText('8,000');
 
 	await visit(page, `${ledger}/spending?span=all&account=Expenses:Housing`);
-	await expect(chart.locator('.figure')).toHaveText('13,000');
+	await expect(figures.locator('.figure').first()).toHaveText('13,000');
 
-	await page.getByRole('table').getByRole('link', { name: 'Housing' }).click();
+	await went.getByRole('table').getByRole('link', { name: 'Housing' }).click();
 	await expect(page).toHaveURL(/postings\?account=Expenses%3AHousing&range=all/);
 	await expect(page.getByRole('rowgroup').filter({ hasText: 'Rent' })).toBeVisible();
 });
@@ -69,14 +70,11 @@ test('lays a month of spending out as a calendar, each day leading to its postin
 	);
 
 	await visit(page, `${ledger}/spending?at=${day.toPlainYearMonth()}`);
-	const chart = page
-		.getByRole('figure')
-		.filter({ has: page.getByRole('heading', { name: 'Spent', exact: true }) });
-	const cell = chart.getByRole('link', { name: /1,200/ });
-	await cell.hover();
-	await expect(chart.locator('.figure')).toHaveText('1,200');
+	const days = panelOf(page, 'Day by day');
+	await expect(days.getByRole('heading', { name: 'Most in a day' })).toBeVisible();
+	await expect(days.locator('.figure')).toHaveText('1,200');
 
-	await cell.click();
+	await panelOf(page, 'By category').getByRole('link', { name: /1,200/ }).click();
 	await expect(page).toHaveURL(new RegExp(`postings\\?account=Expenses&from=${day}&to=${day}`));
 	await expect(page.getByRole('rowgroup').filter({ hasText: 'Dinner' })).toBeVisible();
 });

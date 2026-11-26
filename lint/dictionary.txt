@@ -66,6 +66,7 @@ IDFC
 IFSC
 ImageNet
 INFY
+INR
 IRR
 ivm
 js
@@ -186,6 +187,7 @@ upload's
 uPlot
 uPlot's
 UTF
+USD
 uuid
 uuidv7
 V1

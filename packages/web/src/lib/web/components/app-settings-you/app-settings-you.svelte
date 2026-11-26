@@ -1,5 +1,5 @@
 <script lang="ts">
-	import { requestEmailCode, saveEmail, saveUsername } from '#lib/endpoints/auth.remote.ts';
+	import { saveUser, sendCode } from '#lib/endpoints/auth.remote.ts';
 	import type { RupeaError } from '@rupea/shared/errors.ts';
 	import { Email, Username } from '@rupea/shared/text.ts';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
@@ -40,7 +40,7 @@
 		named.issues = checked.success ? [] : [{ message: checked.issues[0].message }];
 		if (!checked.success) return;
 
-		const saved = await saveUsername({ username: checked.output });
+		const saved = await saveUser({ username: checked.output });
 		named.errors = saved.errors;
 		named.saved = saved.data !== null;
 		if (saved.data) await refreshAll();
@@ -55,13 +55,13 @@
 
 		if (local || mailed.sent) return saveAddress(checked.output);
 
-		const sent = await requestEmailCode({ email: checked.output });
+		const sent = await sendCode({ email: checked.output });
 		mailed.errors = sent.errors;
 		mailed.sent = sent.errors.length === 0;
 	}
 
 	async function saveAddress(address: string) {
-		const saved = await saveEmail({ email: address, code: mailed.code });
+		const saved = await saveUser({ email: address, code: mailed.code });
 		mailed.errors = saved.errors;
 		mailed.saved = saved.data !== null;
 		mailed.sent = mailed.sent && !mailed.saved;

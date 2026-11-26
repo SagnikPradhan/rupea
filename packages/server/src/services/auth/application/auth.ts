@@ -26,18 +26,22 @@ const TRIES = 5;
 /** The address of the user local mode makes, which no mail ever reaches. */
 const LOCAL_EMAIL = 'me@localhost';
 
-// Succeeds either way, so callers cannot tell which addresses have accounts.
+/**
+ * Mails a code that signs the address in, or confirms it for the user signed
+ * in. Succeeds either way, so callers cannot tell which addresses have
+ * accounts.
+ */
 export const requestCode = (email: string): ResultAsync<void> =>
 	withContext('mailer')((mailer) =>
-		canSignIn(email).andThen((allowed) => {
+		mayMail(email).andThen((allowed) => {
 			if (!allowed) return okAsync();
 
 			const fresh = newCode(Date.now());
 			return DB.saveEmailCode({ email, ...fresh.stored }).andThen(() =>
 				mailer.send({
 					to: email,
-					subject: `Your Rupea sign-in code: ${fresh.code}`,
-					text: `Your sign-in code is ${fresh.code}. It expires in 10 minutes.`,
+					subject: `Your Rupea code: ${fresh.code}`,
+					text: `Your code is ${fresh.code}. It expires in 10 minutes.`,
 				}),
 			);
 		}),
@@ -118,46 +122,36 @@ export const withCurrentUser = <T>(
 	return user ? okAsync(user).andThen(use) : errAsync(fault('AuthUnauthenticated'));
 };
 
-export const saveUsername = (n: string): ResultAsync<User> =>
-	withCurrentUser((u) => DB.saveUser(u.id, { username: n }));
+type SaveUserOptions = {
+	username?: string | undefined;
+	email?: string | undefined;
+	code?: string | undefined;
+};
 
 /**
- * Fails before mailing an address another user has, as it could not be moved
- * to.
+ * Changes what is given of the user signed in. A new address needs the code
+ * mailed to it, except with sign-in off, when no mail reaches anyone.
  */
-export const requestEmailCode = (email: string): ResultAsync<void> =>
-	withContext('mailer')((mailer) =>
-		withCurrentUser(() =>
-			DB.findUserByEmail(email).andThen((taken) => {
-				if (taken) return errAsync(fault('EmailTaken', { email }));
-
-				const fresh = newCode(Date.now());
-				return DB.saveEmailCode({ email, ...fresh.stored }).andThen(() =>
-					mailer.send({
-						to: email,
-						subject: `Your Rupea code to change your email: ${fresh.code}`,
-						text: `Your code is ${fresh.code}. It expires in 10 minutes.`,
-					}),
-				);
+export const saveUser = ({ username, email, code = '' }: SaveUserOptions): ResultAsync<User> =>
+	withCurrentUser((u) =>
+		confirmed({ email: email === u.email ? undefined : email, code }).andThen(() =>
+			DB.saveUser(u.id, {
+				...(username === undefined ? {} : { username }),
+				...(email === undefined ? {} : { email }),
 			}),
 		),
 	);
 
-type SaveEmailOptions = { email: string; code: string };
+const confirmed = ({ email, code }: { email: string | undefined; code: string }) =>
+	withContext('config')((c) => {
+		if (email === undefined || c.accounts.signin === 'none') return okAsync();
 
-/** With sign-in off no mail reaches anyone, so the address is taken as given. */
-export const saveEmail = ({ email, code }: SaveEmailOptions): ResultAsync<User> =>
-	withContext('config')((c) =>
-		withCurrentUser((u) => {
-			const checked =
-				c.accounts.signin === 'none'
-					? okAsync()
-					: DB.takeEmailCode(email).andThen((s) =>
-							codeMatches(s, code, Date.now()) ? ok() : err(fault('AuthInvalidCode')),
-						);
-			return checked.andThen(() => DB.saveUser(u.id, { email }));
-		}),
-	);
+		return DB.takeEmailCode(email).andThen((s) =>
+			codeMatches(s, code, Date.now()) ? ok() : err(fault('AuthInvalidCode')),
+		);
+	});
+
+const mayMail = (e: string): ResultAsync<boolean> => (requestUser() ? okAsync(true) : canSignIn(e));
 
 const canSignIn = (email: string): ResultAsync<boolean> =>
 	withContext('config')((c) => {

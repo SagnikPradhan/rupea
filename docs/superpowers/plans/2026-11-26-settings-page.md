@@ -47,7 +47,7 @@
 
 **Files:**
 
-- Create: `packages/web/src/lib/web/components/app-settings-ledger/app-settings-ledger.svelte`
+- Create: `app-settings-ledger.svelte`, composing `app-settings-accounts.svelte` and `app-settings-budgets.svelte`
 - Create: `packages/web/src/lib/web/shared/settings.ts` (pure: `debtGroupsOf(debts)`)
 - Test: `packages/web/src/lib/web/tests/shared-settings.test.ts`, `packages/web/src/lib/web/tests/component-app-settings-ledger.dom.test.ts`
 
@@ -91,9 +91,8 @@
 
 **Interfaces:**
 
-- `auth.saveUsername({ username })` → `User`. Username: trimmed, 3–32 of `[a-z0-9-]`. Taken → `NameTaken`.
-- `auth.requestEmailCode({ email })` → void. Mails a code to the new address, subject `Your Rupea code to change your email: <code>`, stored in `email_codes` under that address. Fails with `EmailTaken` (409, `{ email }`) when another user has it.
-- `auth.saveEmail({ email, code })` → `User`. `code` is optional in the input; with sign-in by code it must match (`AuthInvalidCode` otherwise); with sign-in off it is ignored. Taken → `EmailTaken`.
+- `auth.requestCode({ email })` → void, reused: for a bearer it mails any address, so the code confirms a new email.
+- `auth.saveUser({ username?, email?, code? })` → `User`. Username: trimmed, 3–32 of `[a-z0-9-]`. A new email needs the mailed code (`AuthInvalidCode` otherwise), except with sign-in off. Taken → `NameTaken` or `EmailTaken` (409).
 - DB: `saveUser(id, { username?, email? })` → `User`, mapping the unique violations to `NameTaken` and `EmailTaken`.
 
 - [ ] Tests: rename; rename to a taken name; request then save email with the mailed code; wrong code; taken email; sign-in off saves without a code; unauthenticated calls fail.

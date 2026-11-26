@@ -15,9 +15,8 @@ vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
 }));
 
 vi.mock('#lib/endpoints/auth.remote.ts', () => ({
-	saveUsername: vi.fn(),
-	requestEmailCode: vi.fn(),
-	saveEmail: vi.fn(),
+	saveUser: vi.fn(),
+	sendCode: vi.fn(),
 }));
 
 const ledgers = [

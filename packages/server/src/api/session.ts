@@ -47,6 +47,18 @@ export const signedIn = requireSession(Auth.findSession);
 /** Answers as above, and renews a session that is past half its life. */
 export const signedInRenewing = requireSession(Auth.validateSession);
 
+/**
+ * Runs the call for the bearer's user when there is one, and for nobody when
+ * not.
+ */
+export const signedInOrNot = os.middleware(async ({ context, next }) => {
+	const found = await sessionOf(Auth.findSession, context);
+	const session = found.isOk() ? found.value : null;
+	if (!session) return next();
+
+	return Auth.runAs(session.user, () => next());
+});
+
 type InLedgerOptions<T> = {
 	handle: string;
 	action: (ledger: Ledger.Ledger) => ResultAsync<T>;

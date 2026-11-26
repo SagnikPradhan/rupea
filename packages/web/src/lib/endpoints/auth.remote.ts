@@ -45,16 +45,16 @@ export const signOut = form(async () => {
 	redirect(303, '/sign-in');
 });
 
-export const saveUsername = command(v.object({ username: Username }), ({ username }) =>
-	replyFromCall(api().auth.saveUsername({ username })),
+/** Mails a code to an address the signed-in user is moving to. */
+export const sendCode = command(v.object({ email: Email }), ({ email }) =>
+	replyFromCall(api().auth.requestCode({ email })),
 );
 
-/** Mails a code to the new address, to confirm the change with. */
-export const requestEmailCode = command(v.object({ email: Email }), ({ email }) =>
-	replyFromCall(api().auth.requestEmailCode({ email })),
-);
-
-export const saveEmail = command(
-	v.object({ email: Email, code: v.optional(v.string()) }),
-	({ email, code }) => replyFromCall(api().auth.saveEmail({ email, code })),
+export const saveUser = command(
+	v.object({
+		username: v.optional(Username),
+		email: v.optional(Email),
+		code: v.optional(v.string()),
+	}),
+	(c) => replyFromCall(api().auth.saveUser(c)),
 );

@@ -15,8 +15,9 @@ const requestCode = oc
 		path: '/auth/code',
 		operationId: 'auth.requestCode',
 		description: dedent`
-			Mails a six-digit sign-in code to the address and answers the same whether
-			or not it has an account, so the call does not reveal who has one.
+			Mails a six-digit code to the address and answers the same whether or not
+			it has an account, so the call does not reveal who has one. The code signs
+			the address in, or, for a bearer, confirms it for saveUser.
 		`,
 	})
 	.errors(errors)
@@ -66,51 +67,28 @@ const findUser = oc
 	.errors(errors)
 	.output(v.object({ user: User, expiresAt: v.nullable(InstantOut) }));
 
-const saveUsername = oc
+const saveUser = oc
 	.route({
-		method: 'PUT',
-		path: '/auth/user/username',
-		operationId: 'auth.saveUsername',
+		method: 'PATCH',
+		path: '/auth/user',
+		operationId: 'auth.saveUser',
 		description: dedent`
-			Renames the bearer and answers who they are now.
+			Changes what is given of the bearer and answers who they are now. A new
+			email needs the code requestCode mailed to it, except while sign-in is
+			off.
 
-			Fails with NameTaken when another user has the name.
+			Fails with NameTaken or EmailTaken when another user has the name or
+			address, and with AuthInvalidCode when the code is wrong or has expired.
 		`,
 	})
 	.errors(errors)
-	.input(v.object({ username: Username }))
-	.output(User);
-
-const requestEmailCode = oc
-	.route({
-		method: 'POST',
-		path: '/auth/user/email-code',
-		operationId: 'auth.requestEmailCode',
-		description: dedent`
-			Mails a six-digit code to a new address for the bearer, which saveEmail
-			takes to move them to it.
-
-			Fails with EmailTaken when another user has the address.
-		`,
-	})
-	.errors(errors)
-	.input(v.object({ email: Email }));
-
-const saveEmail = oc
-	.route({
-		method: 'PUT',
-		path: '/auth/user/email',
-		operationId: 'auth.saveEmail',
-		description: dedent`
-			Moves the bearer to a new address with the code mailed to it, or without
-			one while sign-in is off, and answers who they are now.
-
-			Fails with AuthInvalidCode when the code is wrong or has expired, and with
-			EmailTaken when another user has the address.
-		`,
-	})
-	.errors(errors)
-	.input(v.object({ email: Email, code: v.optional(v.pipe(v.string(), v.trim())) }))
+	.input(
+		v.object({
+			username: v.optional(Username),
+			email: v.optional(Email),
+			code: v.optional(v.pipe(v.string(), v.trim())),
+		}),
+	)
 	.output(User);
 
 export const auth = {
@@ -118,7 +96,5 @@ export const auth = {
 	signIn,
 	signOut,
 	findUser,
-	saveUsername,
-	requestEmailCode,
-	saveEmail,
+	saveUser,
 };

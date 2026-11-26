@@ -1,8 +1,8 @@
 import * as Auth from '#services/auth/application/auth.ts';
 import { answer } from './answer.ts';
-import { os, signedIn, signedInRenewing } from './session.ts';
+import { os, signedIn, signedInOrNot, signedInRenewing } from './session.ts';
 
-const requestCode = os.auth.requestCode.handler(async ({ input }) => {
+const requestCode = os.auth.requestCode.use(signedInOrNot).handler(async ({ input }) => {
 	await answer(Auth.requestCode(input.email));
 });
 
@@ -20,24 +20,14 @@ const findUser = os.auth.findUser.use(signedInRenewing).handler(({ context }) =>
 	return { user, expiresAt: extended && expiresAt ? expiresAt.toTemporalInstant() : null };
 });
 
-const saveUsername = os.auth.saveUsername
+const saveUser = os.auth.saveUser
 	.use(signedIn)
-	.handler(({ input }) => answer(Auth.saveUsername(input.username)));
-
-const requestEmailCode = os.auth.requestEmailCode.use(signedIn).handler(async ({ input }) => {
-	await answer(Auth.requestEmailCode(input.email));
-});
-
-const saveEmail = os.auth.saveEmail
-	.use(signedIn)
-	.handler(({ input }) => answer(Auth.saveEmail({ email: input.email, code: input.code ?? '' })));
+	.handler(({ input }) => answer(Auth.saveUser(input)));
 
 export const auth = {
 	requestCode,
 	signIn,
 	signOut,
 	findUser,
-	saveUsername,
-	requestEmailCode,
-	saveEmail,
+	saveUser,
 };

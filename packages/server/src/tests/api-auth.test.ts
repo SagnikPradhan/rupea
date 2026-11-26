@@ -9,6 +9,7 @@ import * as Auth from '#services/auth/application/auth.ts';
 import { createApi } from '../api/api.ts';
 
 const EMAIL = 'ada@example.com';
+const GRACE = 'grace@example.com';
 const DAY = 24 * 60 * 60 * 1000;
 
 const codeIn = (mail: Mail | undefined) => mail?.subject.match(/(\d{6})$/)?.[1] ?? '';
@@ -513,8 +514,8 @@ describe('changing who you are', () => {
 			const { token } = (await signIn(api, mail.sent)).json();
 
 			const out = await api.inject({
-				method: 'PUT',
-				url: '/api/auth/user/username',
+				method: 'PATCH',
+				url: '/api/auth/user',
 				headers: bearer(token),
 				payload: { username: ' Countess ' },
 			});
@@ -531,8 +532,8 @@ describe('changing who you are', () => {
 			const { token } = (await signIn(api, mail.sent)).json();
 
 			const out = await api.inject({
-				method: 'PUT',
-				url: '/api/auth/user/username',
+				method: 'PATCH',
+				url: '/api/auth/user',
 				headers: bearer(token),
 				payload: { username: 'ada lovelace' },
 			});
@@ -549,13 +550,13 @@ describe('changing who you are', () => {
 
 			await api.inject({
 				method: 'POST',
-				url: '/api/auth/user/email-code',
+				url: '/api/auth/code',
 				headers: bearer(token),
 				payload: { email: 'Lovelace@Example.com' },
 			});
 			const out = await api.inject({
-				method: 'PUT',
-				url: '/api/auth/user/email',
+				method: 'PATCH',
+				url: '/api/auth/user',
 				headers: bearer(token),
 				payload: { email: 'lovelace@example.com', code: codeIn(mail.sent[1]) },
 			});
@@ -570,16 +571,25 @@ describe('changing who you are', () => {
 		return provide(mail.context, async () => {
 			const api = await createApi(mail.context);
 			const { token } = (await signIn(api, mail.sent)).json();
+			await Auth.requestCode(GRACE).andThen(() =>
+				Auth.signIn({ email: GRACE, code: codeIn(mail.sent.at(-1)) }),
+			);
 
-			const out = await api.inject({
+			await api.inject({
 				method: 'POST',
-				url: '/api/auth/user/email-code',
+				url: '/api/auth/code',
 				headers: bearer(token),
-				payload: { email: EMAIL },
+				payload: { email: GRACE },
+			});
+			const out = await api.inject({
+				method: 'PATCH',
+				url: '/api/auth/user',
+				headers: bearer(token),
+				payload: { email: GRACE, code: codeIn(mail.sent.at(-1)) },
 			});
 
 			expect(out.statusCode).toBe(409);
-			expect(out.json()).toMatchObject({ data: { type: 'EmailTaken', email: EMAIL } });
+			expect(out.json()).toMatchObject({ data: { type: 'EmailTaken', email: GRACE } });
 		});
 	});
 
@@ -589,8 +599,8 @@ describe('changing who you are', () => {
 			const api = await createApi(mail.context);
 
 			const out = await api.inject({
-				method: 'PUT',
-				url: '/api/auth/user/username',
+				method: 'PATCH',
+				url: '/api/auth/user',
 				payload: { username: 'nobody' },
 			});
 

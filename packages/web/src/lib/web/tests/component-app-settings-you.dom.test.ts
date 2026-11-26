@@ -1,14 +1,13 @@
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
-import { requestEmailCode, saveEmail, saveUsername } from '#lib/endpoints/auth.remote.ts';
+import { saveUser, sendCode } from '#lib/endpoints/auth.remote.ts';
 import { refreshAll } from '$app/navigation';
 import SettingsYou from '#lib/web/components/app-settings-you/app-settings-you.svelte';
 
 vi.mock('$app/navigation', () => ({ refreshAll: vi.fn() }));
 vi.mock('#lib/endpoints/auth.remote.ts', () => ({
-	saveUsername: vi.fn(),
-	requestEmailCode: vi.fn(),
-	saveEmail: vi.fn(),
+	saveUser: vi.fn(),
+	sendCode: vi.fn(),
 }));
 
 const user = { id: 'u1', email: 'ada@example.com', username: 'ada' };
@@ -21,30 +20,30 @@ const type = (label: RegExp, value: string) =>
 
 describe('changing your username', () => {
 	it('saves the name as typed and refreshes the bar', async () => {
-		vi.mocked(saveUsername).mockResolvedValue({ data: user, errors: [] } as never);
+		vi.mocked(saveUser).mockResolvedValue({ data: user, errors: [] } as never);
 		open();
 
 		await type(/Username/, 'Countess');
 		await fireEvent.click(screen.getByRole('button', { name: 'Save username' }));
 
 		expect(await screen.findByText('Saved.')).toBeTruthy();
-		expect(saveUsername).toHaveBeenCalledWith({ username: 'countess' });
+		expect(saveUser).toHaveBeenCalledWith({ username: 'countess' });
 		expect(refreshAll).toHaveBeenCalled();
 	});
 
 	it('asks again for a name with spaces, without saving it', async () => {
-		vi.mocked(saveUsername).mockClear();
+		vi.mocked(saveUser).mockClear();
 		open();
 
 		await type(/Username/, 'ada lovelace');
 		await fireEvent.click(screen.getByRole('button', { name: 'Save username' }));
 
 		expect(await screen.findByText('Use 3 to 32 letters, digits or dashes.')).toBeTruthy();
-		expect(saveUsername).not.toHaveBeenCalled();
+		expect(saveUser).not.toHaveBeenCalled();
 	});
 
 	it('says when someone already has the name', async () => {
-		vi.mocked(saveUsername).mockResolvedValue({
+		vi.mocked(saveUser).mockResolvedValue({
 			data: null,
 			errors: [{ type: 'NameTaken', name: 'grace' }],
 		} as never);
@@ -59,8 +58,8 @@ describe('changing your username', () => {
 
 describe('changing your email', () => {
 	it('mails a code to the new address, then confirms with it', async () => {
-		vi.mocked(requestEmailCode).mockResolvedValue({ data: null, errors: [] } as never);
-		vi.mocked(saveEmail).mockResolvedValue({ data: user, errors: [] } as never);
+		vi.mocked(sendCode).mockResolvedValue({ data: null, errors: [] } as never);
+		vi.mocked(saveUser).mockResolvedValue({ data: user, errors: [] } as never);
 		open();
 
 		await type(/Email/, 'lovelace@example.com');
@@ -69,12 +68,13 @@ describe('changing your email', () => {
 		await fireEvent.click(await screen.findByRole('button', { name: 'Confirm email' }));
 
 		expect(await screen.findByText('Saved.')).toBeTruthy();
-		expect(requestEmailCode).toHaveBeenCalledWith({ email: 'lovelace@example.com' });
-		expect(saveEmail).toHaveBeenCalledWith({ email: 'lovelace@example.com', code: '123456' });
+		expect(sendCode).toHaveBeenCalledWith({ email: 'lovelace@example.com' });
+		expect(saveUser).toHaveBeenCalledWith({ email: 'lovelace@example.com', code: '123456' });
 	});
 
-	it('says when another account uses the address, and asks for no code', async () => {
-		vi.mocked(requestEmailCode).mockResolvedValue({
+	it('says when another account uses the address', async () => {
+		vi.mocked(sendCode).mockResolvedValue({ data: null, errors: [] } as never);
+		vi.mocked(saveUser).mockResolvedValue({
 			data: null,
 			errors: [{ type: 'EmailTaken', email: 'grace@example.com' }],
 		} as never);
@@ -82,13 +82,14 @@ describe('changing your email', () => {
 
 		await type(/Email/, 'grace@example.com');
 		await fireEvent.click(screen.getByRole('button', { name: 'Email me a code' }));
+		await type(/Code/, '123456');
+		await fireEvent.click(await screen.findByRole('button', { name: 'Confirm email' }));
 
 		expect(await screen.findByText('Another account already uses grace@example.com.')).toBeTruthy();
-		expect(screen.queryByLabelText(/Code/)).toBeNull();
 	});
 
 	it('goes back to the address when asked for another', async () => {
-		vi.mocked(requestEmailCode).mockResolvedValue({ data: null, errors: [] } as never);
+		vi.mocked(sendCode).mockResolvedValue({ data: null, errors: [] } as never);
 		open();
 
 		await type(/Email/, 'lovelace@example.com');
@@ -100,15 +101,15 @@ describe('changing your email', () => {
 	});
 
 	it('saves the address without a code while sign-in is off', async () => {
-		vi.mocked(requestEmailCode).mockClear();
-		vi.mocked(saveEmail).mockResolvedValue({ data: user, errors: [] } as never);
+		vi.mocked(sendCode).mockClear();
+		vi.mocked(saveUser).mockResolvedValue({ data: user, errors: [] } as never);
 		open(true);
 
 		await type(/Email/, 'lovelace@example.com');
 		await fireEvent.click(screen.getByRole('button', { name: 'Save email' }));
 
 		expect(await screen.findByText('Saved.')).toBeTruthy();
-		expect(requestEmailCode).not.toHaveBeenCalled();
-		expect(saveEmail).toHaveBeenCalledWith({ email: 'lovelace@example.com', code: '' });
+		expect(sendCode).not.toHaveBeenCalled();
+		expect(saveUser).toHaveBeenCalledWith({ email: 'lovelace@example.com', code: '' });
 	});
 });

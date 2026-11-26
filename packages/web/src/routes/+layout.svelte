@@ -6,7 +6,7 @@
 
 	const { data, children } = $props();
 
-	const ledgers: { handle: string }[] = $derived(page.data['ledgers'] ?? []);
+	const ledgers: { handle: string; name: string }[] = $derived(page.data['ledgers'] ?? []);
 	const asked = $derived(page.params.handle ?? page.url.searchParams.get('ledger'));
 	const handle = $derived((ledgers.find((l) => l.handle === asked) ?? ledgers[0])?.handle ?? null);
 
@@ -17,6 +17,7 @@
 <div>
 	<Navigation
 		{handle}
+		{ledgers}
 		username={data.user?.username ?? null}
 		local={data.user?.local ?? false}
 		theme={data.theme}

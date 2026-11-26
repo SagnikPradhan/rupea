@@ -7,19 +7,16 @@ export const PAGES = [
 		path: 'spending',
 		icon: 'spending',
 		label: 'Spending',
-		about: 'What came in, and where it went',
-		sections: [
-			{ id: 'spent', label: 'Spent' },
-			{ id: 'earned', label: 'Earned' },
-		],
+		about: 'Where your income went',
+		sections: [],
 	},
 	{
 		path: 'net-worth',
 		icon: 'worth',
 		label: 'Net worth',
-		about: 'What you own, what you owe, and how it has grown',
+		about: 'What you are worth, and how it has grown',
 		sections: [
-			{ id: 'owned', label: 'Invested' },
+			{ id: 'owned', label: 'Owned' },
 			{ id: 'owed', label: 'Owed' },
 		],
 	},

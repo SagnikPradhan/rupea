@@ -13,16 +13,18 @@
 	import { afterNavigate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { ledgerHref } from '#lib/web/shared/links.ts';
 
 	type Props = {
 		handle: string | null;
+		ledgers?: { handle: string; name: string }[];
 		username: string | null;
 		/** Whether sign-in is off, so there is no signing out. */
 		local: boolean;
 		theme: Theme;
 	};
 
-	const { handle, username, local, theme }: Props = $props();
+	const { handle, ledgers = [], username, local, theme }: Props = $props();
 	const status = $derived(local ? 'Sign-in is off on this computer.' : 'You are signed in.');
 
 	const drawer = $state({ open: false });
@@ -107,9 +109,24 @@
 	</div>
 	<strong><Avatar name={username ?? ''} />Hello, {username}</strong>
 	<span>{status}</span>
+	{@render ledgerLinks()}
 	{#if !local}
 		<ul role="list">
 			<li><button form="log-out">Sign out</button></li>
+		</ul>
+	{/if}
+{/snippet}
+
+{#snippet ledgerLinks()}
+	{#if ledgers.length > 1}
+		<ul role="list" aria-label="Ledgers">
+			{#each ledgers as l (l.handle)}
+				<li>
+					<a href={ledgerHref(l.handle)} aria-current={l.handle === handle ? 'page' : undefined}>
+						{l.name}
+					</a>
+				</li>
+			{/each}
 		</ul>
 	{/if}
 {/snippet}
@@ -179,6 +196,7 @@
 									<IconButton form="log-out" label="Sign out" icon={ICONS.signOut} outlined />
 								{/if}
 							</div>
+							{@render ledgerLinks()}
 						</div>
 					{/snippet}
 				</Dialog.Content>

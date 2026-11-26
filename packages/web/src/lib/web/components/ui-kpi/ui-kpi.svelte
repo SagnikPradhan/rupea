@@ -1,18 +1,26 @@
 <script lang="ts">
+	import type { ResolvedPathname } from '$app/types';
+
 	type Props = {
 		label: string;
 		figure?: string;
 		soon?: boolean;
 		detail?: string;
 		tone?: 'positive' | 'negative';
+		/** Where the figure is explained at length. */
+		href?: ResolvedPathname;
 	};
 
-	const { label, figure = '', soon = false, detail, tone }: Props = $props();
+	const { label, figure = '', soon = false, detail, tone, href }: Props = $props();
 </script>
 
 {#if !soon}
 	<div class="kpi">
-		<p class="label">{label}</p>
+		{#if href}
+			<a class="label" {href}>{label}</a>
+		{:else}
+			<p class="label">{label}</p>
+		{/if}
 		<p class="figure">{figure}</p>
 		{#if detail}<p class={['detail', tone]}>{detail}</p>{/if}
 	</div>

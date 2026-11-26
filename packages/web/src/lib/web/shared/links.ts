@@ -19,6 +19,12 @@ export const lotsHref = (h: string, q: Record<string, string>) =>
 		new URLSearchParams(q),
 	);
 
+/** The current page on another ledger; home, which holds no ledger, asks for it. */
+export const ledgerHref = (h: string) =>
+	page.params.handle === undefined || page.route.id === null
+		? hrefOnly({ ledger: h })
+		: resolve(...([page.route.id, { ...page.params, handle: h }] as Parameters<typeof resolve>));
+
 /** The current page with exactly this query. */
 export const hrefOnly = (q: Record<string, string>) => withQuery(here(), new URLSearchParams(q));
 

@@ -29,11 +29,13 @@
 	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
 	import StatementFormat from '#lib/web/components/app-statement-format/app-statement-format.svelte';
 	import type { TransactionView } from '#lib/endpoints/views.ts';
-	import { formatDate } from '#lib/web/shared/format.ts';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';
 	import { accountOf, statusOf, suggestedFile } from '#lib/web/shared/statements.ts';
 	import { goto } from '$app/navigation';
 	import { untrack } from 'svelte';
+
+	const formats = formatsHere();
 
 	type Schema = { key: string; content: string };
 
@@ -328,7 +330,7 @@
 							<tbody>
 								<tr>
 									<td class="date">
-										<time datetime={transaction.date}>{formatDate(transaction.date)}</time>
+										<time datetime={transaction.date}>{formats.date(transaction.date)}</time>
 									</td>
 									<th scope="row" class="truncate" title={transaction.description}>
 										{transaction.description}

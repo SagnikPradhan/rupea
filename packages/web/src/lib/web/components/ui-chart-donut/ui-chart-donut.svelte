@@ -3,9 +3,11 @@
 	import Swatch from '#lib/web/components/ui-swatch/ui-swatch.svelte';
 	import Tooltip from '#lib/web/components/ui-tooltip/ui-tooltip.svelte';
 	import { seriesOf, tintOf, VIEW } from '#lib/web/shared/chart.ts';
-	import { formatAmount, formatShare } from '#lib/web/shared/format.ts';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import type { Arc } from '#lib/web/shared/rings.ts';
 	import { arc } from 'd3-shape';
+
+	const formats = formatsHere();
 
 	type Props = {
 		/** The arcs of every ring, as ringsOf lays them out. */
@@ -63,7 +65,7 @@
 				{@const tip = centre(hovered.arc)}
 				<Tooltip left={tip.left} top={tip.top}>
 					{hovered.arc.label}
-					<data>{formatAmount(String(hovered.arc.value))}</data>
+					<data>{formats.whole(String(hovered.arc.value))}</data>
 				</Tooltip>
 			{/if}
 		</div>
@@ -75,7 +77,7 @@
 						{#if a.level > 1}<AccountName account={a.key} />{:else}{a.label}{/if}
 					</span>
 					<data>
-						{formatShare(String(a.share), '1')}
+						{formats.share(String(a.share), '1')}
 					</data>
 				</li>
 			{/each}

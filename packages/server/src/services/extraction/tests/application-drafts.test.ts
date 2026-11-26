@@ -57,7 +57,9 @@ describe('extracting a statement', () => {
 				}),
 			);
 			if (draft.isErr()) return;
-			expect(Files.parseFile({ key: 'aug.rupea', content: draft.value.content })).toMatchObject({
+			expect(
+				Files.parseFile({ ledger, key: 'aug.rupea', content: draft.value.content }),
+			).toMatchObject({
 				metadata: { statement: [`${day()}/aug.csv`], checksum: [checksum] },
 				failed: [],
 			});
@@ -230,7 +232,7 @@ describe('a statement a built-in schema reads', () => {
 				const draft = (
 					await Drafts.extract({ ledger, statement: key, schema: recognised })
 				)._unsafeUnwrap();
-				const checked = Files.parseFile({ key: draft.key, content: draft.content });
+				const checked = Files.parseFile({ ledger, key: draft.key, content: draft.content });
 
 				expect(recognised).toMatchObject({ key: schema, builtin: true });
 				expect(draft.failed).toEqual([]);

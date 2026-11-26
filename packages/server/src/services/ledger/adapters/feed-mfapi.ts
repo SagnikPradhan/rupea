@@ -1,12 +1,15 @@
 import { fault } from '@rupea/shared/errors.ts';
 import { errAsync, okAsync } from '#lib/server/shared/result/result.ts';
 import * as v from 'valibot';
-import { DEFAULT_COMMODITY, parseAmount } from '../domain/amounts';
+import { parseAmount } from '../domain/amounts';
 import { Feed } from '../domain/types';
 import { readJson, type ListQuotes, type Quote } from './feed';
 
 /** https://www.mfapi.in documents the scheme endpoint and its startDate. */
 const URL = 'https://api.mfapi.in/mf';
+
+/** Mfapi quotes every scheme in rupees, whatever a ledger's base. */
+const QUOTED_IN = 'INR';
 
 const History = v.object({
 	meta: v.object({ scheme_code: v.number() }),
@@ -37,7 +40,7 @@ const toQuote = (row: { date: string; nav: string }): Quote[] => {
 	return [
 		{
 			date: Temporal.PlainDate.from({ year: year ?? 0, month: month ?? 0, day: day ?? 0 }),
-			price: { amount, commodity: DEFAULT_COMMODITY },
+			price: { amount, commodity: QUOTED_IN },
 		},
 	];
 };

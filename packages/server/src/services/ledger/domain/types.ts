@@ -56,7 +56,14 @@ export enum DisposalKind {
 }
 
 /** The owner is the user whose storage holds the ledger. */
-export type Ledger = { id: string; handle: string; name: string; owner: string };
+export type Ledger = {
+	id: string;
+	handle: string;
+	name: string;
+	owner: string;
+	/** The currency a bare amount is in. */
+	base: string;
+};
 
 export type RupeaFile = {
 	key: string;

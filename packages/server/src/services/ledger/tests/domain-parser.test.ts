@@ -1,13 +1,13 @@
-import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
+import { READING } from '@rupea/server/tests/shared/reading.ts';
 import { parseAmount, printAmount, type Amount } from '#services/ledger/domain/amounts.ts';
-import { displayLocation, parse, parseChanged } from '#services/ledger/domain/parser.ts';
+import { baseOf, displayLocation, parse, parseChanged } from '#services/ledger/domain/parser.ts';
 import { Feed, PriceKind, type RupeaPosting } from '#services/ledger/domain/types.ts';
 import { describe, expect, it } from 'vitest';
 
 const file = 'random.rupea';
 const at = displayLocation({ file, line: 1 });
 const run = (n: string[]) => {
-	const { succeeded, failed } = parse(defaultConfiguration.ledger, {
+	const { succeeded, failed } = parse(READING, {
 		key: file,
 		content: `${n.join('\n')}\n`,
 	});
@@ -91,7 +91,13 @@ describe('parse transactions', () => {
 
 	it('reports amounts that do not sum to zero', () => {
 		expect(run(['2026-08-29 Oops', '\tExpenses:Food 100', '\tAssets:Bank -99.5'])).toEqual({
-			failed: [{ type: 'ParseUnbalancedTransaction', location: at, residual: '0.50' }],
+			failed: [
+				{
+					type: 'ParseUnbalancedTransaction',
+					location: at,
+					residual: [{ amount: '0.50', commodity: 'INR' }],
+				},
+			],
 			succeeded: [],
 		});
 	});
@@ -202,8 +208,7 @@ describe('metadata', () => {
 		location: displayLocation({ file, line }),
 	});
 
-	const parseFile = (n: string[]) =>
-		parse(defaultConfiguration.ledger, { key: file, content: `${n.join('\n')}\n` });
+	const parseFile = (n: string[]) => parse(READING, { key: file, content: `${n.join('\n')}\n` });
 
 	it('belongs to the nearest line above it, whatever its indentation', () => {
 		const { succeeded, failed } = run([
@@ -404,12 +409,23 @@ describe('commodities', () => {
 			{
 				type: 'ParseUnbalancedTransaction',
 				location: at,
-				residual: '10.00 AAPL, -1802.50 USD',
+				residual: [
+					{ amount: '10.00', commodity: 'AAPL' },
+					{ amount: '-1802.50', commodity: 'USD' },
+				],
 			},
 		]);
 		expect(
 			buy(['\tAssets:IBKR 10 AAPL', '\tAssets:IBKR:Cash 5 USD', '\tEquity:Conversion']).failed,
-		).toMatchObject([{ type: 'ParseUnbalancedTransaction', residual: '10.00 AAPL, 5.00 USD' }]);
+		).toMatchObject([
+			{
+				type: 'ParseUnbalancedTransaction',
+				residual: [
+					{ amount: '10.00', commodity: 'AAPL' },
+					{ amount: '5.00', commodity: 'USD' },
+				],
+			},
+		]);
 	});
 
 	it('asserts a balance in the posting commodity', () => {
@@ -436,8 +452,7 @@ describe('commodities', () => {
 });
 
 describe('market prices', () => {
-	const parseFile = (n: string[]) =>
-		parse(defaultConfiguration.ledger, { key: file, content: `${n.join('\n')}\n` });
+	const parseFile = (n: string[]) => parse(READING, { key: file, content: `${n.join('\n')}\n` });
 	const price = (line: number, date: string, commodity: string, amount: string, of = 'INR') => ({
 		location: { file, line },
 		date: Temporal.PlainDate.from(date),
@@ -489,8 +504,7 @@ describe('market prices', () => {
 });
 
 describe('links', () => {
-	const parseFile = (n: string[]) =>
-		parse(defaultConfiguration.ledger, { key: file, content: `${n.join('\n')}\n` });
+	const parseFile = (n: string[]) => parse(READING, { key: file, content: `${n.join('\n')}\n` });
 	const link = (
 		line: number,
 		since: string | null,
@@ -559,7 +573,7 @@ describe('links', () => {
 
 describe('account lines', () => {
 	const parseFile = (lines: string[]) =>
-		parse(defaultConfiguration.ledger, { key: file, content: `${lines.join('\n')}\n` });
+		parse(READING, { key: file, content: `${lines.join('\n')}\n` });
 	const terms = (
 		line: number,
 		since: string | null,
@@ -632,7 +646,7 @@ describe('account lines', () => {
 
 describe('B lines', () => {
 	const parseFile = (lines: string[]) =>
-		parse(defaultConfiguration.ledger, { key: file, content: `${lines.join('\n')}\n` });
+		parse(READING, { key: file, content: `${lines.join('\n')}\n` });
 	const budget = (
 		line: number,
 		since: string | null,
@@ -772,7 +786,11 @@ describe('lot costs', () => {
 
 	it('leaves the gain unbalanced when it is missing', () => {
 		expect(sell(['\tAssets:Zerodha -4 INFY {1500} @ 1700', '\tAssets:Bank 6800']).failed).toEqual([
-			{ type: 'ParseUnbalancedTransaction', location: at, residual: '800.00' },
+			{
+				type: 'ParseUnbalancedTransaction',
+				location: at,
+				residual: [{ amount: '800.00', commodity: 'INR' }],
+			},
 		]);
 	});
 
@@ -985,10 +1003,10 @@ describe('reading a transaction header', () => {
 describe('parseChanged', () => {
 	const tea = '2026-08-29 Tea\n\tExpenses:Food 1\n\tAssets:Bank\n';
 	const milk = '2026-08-30 Milk\n\tExpenses:Food 2\n\tAssets:Bank\n';
-	const config = defaultConfiguration.ledger;
+	const config = READING;
 
 	const read = (content: string, held: Record<string, number> = {}, c = config) =>
-		parseChanged(c, { key: file, content }, held);
+		parseChanged({ reading: c, file: { key: file, content }, known: held });
 	const hashOf = (content: string, c = config) => read(content, {}, c).lineHashes[1] ?? '';
 
 	it('reads everything when nothing is held, and hashes each transaction by its line', () => {
@@ -1038,6 +1056,10 @@ describe('parseChanged', () => {
 		expect(hashOf(tea, us)).not.toBe(hashOf(tea));
 	});
 
+	it('reads it again when the base changes, since a bare amount changes with it', () => {
+		expect(hashOf(tea, { ...config, base: 'USD' })).not.toBe(hashOf(tea));
+	});
+
 	it('keeps nothing after a bad header, which stops the transactions being read', () => {
 		const parsed = read(`nonsense\n\n${tea}`, { [hashOf(tea)]: 1 });
 
@@ -1060,5 +1082,45 @@ describe('parseChanged', () => {
 
 		expect(parsed.metadata).toEqual({ statement: ['a.pdf'] });
 		expect(parsed.prices).toHaveLength(1);
+	});
+});
+
+describe('a bare amount', () => {
+	const dollars = (n: string[]) =>
+		parse({ ...READING, base: 'USD' }, { key: file, content: `${n.join('\n')}\n` });
+
+	it('is in the base, as is the amount a posting leaves out', () => {
+		const parsed = dollars(['2026-08-29 Lunch', '\tExpenses:Food 12', '\tAssets:Bank']);
+
+		expect(parsed.succeeded[0]?.postings.map((p) => p.commodity)).toEqual(['USD', 'USD']);
+	});
+
+	it('leaves a written currency as written', () => {
+		const parsed = dollars(['2026-08-29 Chai', '\tExpenses:Food 20 INR', '\tAssets:Cash -20 inr']);
+
+		expect(parsed.succeeded[0]?.postings.map((p) => p.commodity)).toEqual(['INR', 'INR']);
+	});
+
+	it('prices in the base too', () => {
+		expect(dollars(['P 2026-08-29 AAPL 200']).prices[0]?.price.commodity).toBe('USD');
+	});
+});
+
+describe('the base a file names', () => {
+	it('is the code under base, in capitals', () => {
+		const parsed = run(['- base: usd', '']);
+
+		expect(parsed.failed).toEqual([]);
+		expect(baseOf(parse(READING, { key: file, content: '- base: usd\n' }).metadata)).toBe('USD');
+	});
+
+	it('is none when the file names none', () => {
+		expect(baseOf({ statement: ['a.pdf'] })).toBeNull();
+	});
+
+	it('fails on a line that names no currency code', () => {
+		expect(run(['- base: dollars', '']).failed).toEqual([
+			{ type: 'ParseInvalidBase', location: at, base: 'dollars' },
+		]);
 	});
 });

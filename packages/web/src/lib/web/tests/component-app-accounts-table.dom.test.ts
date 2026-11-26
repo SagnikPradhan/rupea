@@ -8,7 +8,7 @@ const amount = (text: string) => parseAmount(text) as Amount;
 const rupees = (value: string) => ({
 	commodity: 'INR',
 	hasLots: false,
-	units: null,
+	units: { amount: value, commodity: 'INR' },
 	cost: null,
 	price: null,
 	value,
@@ -18,9 +18,9 @@ const rupees = (value: string) => ({
 const infosys = {
 	commodity: 'INFY',
 	hasLots: true,
-	units: '1 INFY',
+	units: { amount: '1', commodity: 'INFY' },
 	cost: '1500',
-	price: '2000',
+	price: { amount: '2000', commodity: 'INR' },
 	value: '2000',
 	gain: '500',
 };

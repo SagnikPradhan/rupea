@@ -4,7 +4,7 @@ import { fault } from '@rupea/shared/errors.ts';
 import { err, errAsync, ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { isLedgerFile } from '@rupea/shared/files.ts';
 import { findImported, importFile, parseFile } from '#services/ledger/application/files.ts';
-import type { Ledger } from '#services/ledger/application/ledger.ts';
+import { readingOf, type Ledger } from '#services/ledger/application/ledger.ts';
 import type { RupeaTransaction } from '#services/ledger/application/language.ts';
 import { predictAccounts } from '#services/ledger/application/prediction.ts';
 import { categorised, copy, draft, uncategorised, type Draft } from '../domain/draft';
@@ -38,7 +38,7 @@ export const extract = ({ ledger, statement, schema }: ExtractOptions): ResultAs
 /** A draft checked as the ledger would read it, with the errors of both steps. */
 export const previewStatement = (options: ExtractOptions): ResultAsync<Batch<RupeaTransaction>> =>
 	extract(options).map((d) => {
-		const checked = parseFile({ key: d.key, content: d.content });
+		const checked = parseFile({ ledger: options.ledger, key: d.key, content: d.content });
 		return { succeeded: checked.succeeded, failed: [...d.failed, ...checked.failed] };
 	});
 
@@ -68,7 +68,9 @@ const fileDraft = (ledger: Ledger, s: Statement): ResultAsync<void> => {
 			.andThen((r) => importStatement({ ledger, statement: s.key, schema: r }))
 			.map(() => undefined);
 
-	const d = withContext('config')((c) => copy({ config: c.ledger, statement: s, text: s.text }));
+	const d = withContext('config')((c) =>
+		copy({ config: readingOf(c, ledger), statement: s, text: s.text }),
+	);
 	return importFile({ ledger, key: d.key, content: d.content }).map(() => undefined);
 };
 
@@ -90,7 +92,7 @@ const drafted = ({ ledger, statement, account, records }: DraftedOptions): Resul
 	predictAccounts({ ledger, account, lines: uncategorised(records.succeeded) }).map((p) =>
 		withContext('config')((c) =>
 			draft({
-				config: c.ledger,
+				config: readingOf(c, ledger),
 				statement,
 				account,
 				records: [...categorised(records.succeeded), ...p],

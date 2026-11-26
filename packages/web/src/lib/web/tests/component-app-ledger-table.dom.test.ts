@@ -33,7 +33,7 @@ describe('an amount', () => {
 	});
 
 	it('tones a commodity amount by its number', () => {
-		render(Amount, { value: '10 INFY', signed: true });
+		render(Amount, { value: { amount: '10', commodity: 'INFY' }, signed: true });
 		expect(cell().classList.contains('positive')).toBe(true);
 	});
 
@@ -43,7 +43,7 @@ describe('an amount', () => {
 	});
 
 	it('mutes the commodity after the number', () => {
-		render(Amount, { value: '16.53391 CSPX' });
+		render(Amount, { value: { amount: '16.53391', commodity: 'CSPX' } });
 		expect(textOf(cell())).toBe('16.5339 CSPX');
 		expect(cell().querySelector('.commodity')?.textContent).toBe('CSPX');
 	});

@@ -1,10 +1,10 @@
-import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
+import { READING } from '@rupea/server/tests/shared/reading.ts';
 import { type Amount, parse, parseAmount } from '#services/ledger/application/language.ts';
 import { describe, expect, it } from 'vitest';
 import { categorised, copy, draft, uncategorised } from '#services/extraction/domain/draft.ts';
 import type { RupeaRecord } from '#services/extraction/domain/types.ts';
 
-const config = defaultConfiguration.ledger;
+const config = READING;
 
 const record = (description: string, amount: string, category: string | null = null) =>
 	({

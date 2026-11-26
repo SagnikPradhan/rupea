@@ -165,7 +165,10 @@ describe('a statement', () => {
 
 		expect(previewed).toHaveBeenCalledWith({ handle: 'home', statement, schema });
 		expect(preview.data).toMatchObject([
-			{ time: '09:30', postings: [{ account: 'Expenses:Food', quantity: '100.00' }] },
+			{
+				time: '09:30',
+				postings: [{ account: 'Expenses:Food', quantity: { amount: '100.00', commodity: 'INR' } }],
+			},
 		]);
 	});
 

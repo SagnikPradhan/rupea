@@ -1,4 +1,4 @@
-import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
+import { READING } from '@rupea/server/tests/shared/reading.ts';
 import {
 	budgetsIn,
 	budgetsOn,
@@ -10,7 +10,7 @@ import { fault } from '@rupea/shared/errors.ts';
 import { parseAmount } from '#services/ledger/domain/amounts.ts';
 import { describe, expect, it } from 'vitest';
 
-const dateFormats = defaultConfiguration.ledger.dateFormats;
+const dateFormats = READING.dateFormats;
 const day = (s: string) => Temporal.PlainDate.from(s);
 const amount = (s: string) => parseAmount(s);
 
@@ -48,7 +48,7 @@ const across = (lines: BudgetLine[], from: string, to: string, first?: string) =
 	}));
 
 const set = (content: string, keys: [string, string][], account = 'Expenses:Food') =>
-	setBudget(defaultConfiguration.ledger, { file: { key: 'main.rupea', content }, account, keys });
+	setBudget(READING, { file: { key: 'main.rupea', content }, account, keys });
 
 describe('setting the budget of an account', () => {
 	it('starts a file with the B line when the file is empty', () => {
@@ -144,7 +144,7 @@ describe('writing the entries of a budget in the formats of a ledger', () => {
 	});
 
 	it('reads back a start in a ledger that has only that format', () => {
-		const c = { ...defaultConfiguration.ledger, dateFormats: ['dd/MM/yyyy'] };
+		const c = { ...READING, dateFormats: ['dd/MM/yyyy'] };
 
 		const written = setBudget(c, {
 			file: { key: 'main.rupea', content: '' },

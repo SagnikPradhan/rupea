@@ -1,16 +1,12 @@
 <script lang="ts">
 	import BarChart from '#lib/web/components/ui-chart-bar/ui-chart-bar.svelte';
 	import ChartSummary from '#lib/web/components/ui-chart-summary/ui-chart-summary.svelte';
-	import {
-		formatAmount,
-		formatBucket,
-		formatDate,
-		formatExact,
-		formatShare,
-	} from '#lib/web/shared/format.ts';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import type { Grain } from '@rupea/shared/dates.ts';
 	import * as Income from '#lib/web/shared/income.ts';
 	import * as Spending from '#lib/web/shared/spending.ts';
+
+	const formats = formatsHere();
 
 	type Props = {
 		bucket: Grain;
@@ -26,7 +22,7 @@
 	const bars = $derived(Income.monthsOf({ income, spending, paid }));
 	const whole = $derived(Income.wholeOf({ income, spending, paid }));
 	const label = $derived(
-		`Income from ${formatDate(first.toString())} to ${formatDate(last.toString())}, ${formatAmount(whole.total)} in all, ${formatAmount(whole[Income.SPENT])} spent, ${formatAmount(whole[Income.INVESTED])} invested, ${formatAmount(whole[Income.KEPT])} kept`,
+		`Income from ${formats.date(first.toString())} to ${formats.date(last.toString())}, ${formats.whole(whole.total)} in all, ${formats.whole(whole[Income.SPENT])} spent, ${formats.whole(whole[Income.INVESTED])} invested, ${formats.whole(whole[Income.KEPT])} kept`,
 	);
 </script>
 
@@ -60,14 +56,14 @@
 		id="income"
 		label="Earned"
 		lead
-		figure={formatAmount(figure)}
-		exact={formatExact(figure)}
+		figure={formats.whole(figure)}
+		exact={formats.exact(figure)}
 	>
-		{formatShare(Income.savedOf(shown), figure) ?? '0%'} saved:
-		{formatShare(shown[Income.INVESTED], figure) ?? '0%'} invested,
-		{formatShare(shown[Income.KEPT], figure) ?? '0%'} kept ·
+		{formats.share(Income.savedOf(shown), figure) ?? '0%'} saved:
+		{formats.share(shown[Income.INVESTED], figure) ?? '0%'} invested,
+		{formats.share(shown[Income.KEPT], figure) ?? '0%'} kept ·
 		{bar
-			? formatBucket[bucket](bar.bucket)
-			: `${formatDate(first.toString())} – ${formatDate(last.toString())}`}
+			? formats.bucket[bucket](bar.bucket)
+			: `${formats.date(first.toString())} – ${formats.date(last.toString())}`}
 	</ChartSummary>
 {/snippet}

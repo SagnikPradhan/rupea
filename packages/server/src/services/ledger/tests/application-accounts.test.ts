@@ -1179,10 +1179,14 @@ describe('returns', () => {
 					})
 				)._unsafeUnwrap().succeeded[0]?.rows ?? [];
 
-			const flows = flowsOf(await read({ account: 'Assets', bucket: 'date' }), [
-				...(await read({ account: 'Assets', bucket: 'posting', filter: EARNING })),
-				...(await read({ account: 'Expenses:Fees', bucket: 'posting' })),
-			]);
+			const flows = flowsOf({
+				deltas: await read({ account: 'Assets', bucket: 'date' }),
+				earning: [
+					...(await read({ account: 'Assets', bucket: 'posting', filter: EARNING })),
+					...(await read({ account: 'Expenses:Fees', bucket: 'posting' })),
+				],
+				base: 'INR',
+			});
 			expect(flows.map((f) => [f.account, f.amount])).toEqual([
 				['Assets', 0n],
 				['Assets:Bank', -3n],

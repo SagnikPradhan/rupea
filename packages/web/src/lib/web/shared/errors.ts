@@ -1,5 +1,6 @@
 import { match } from 'ts-pattern';
 import type { RupeaError } from '@rupea/shared/errors.ts';
+import type { Formats } from './format.ts';
 
 export type Place = { file: string; line: string | null };
 
@@ -7,7 +8,7 @@ export type Place = { file: string; line: string | null };
  * Says what went wrong in a sentence; where it went wrong is left to
  * `placesOf`.
  */
-export const explain = (error: RupeaError): string =>
+export const explain = (error: RupeaError, formats: Formats): string =>
 	match(error)
 		.with(
 			{ type: 'ParseInvalidTransactionHeader' },
@@ -18,7 +19,7 @@ export const explain = (error: RupeaError): string =>
 		.with({ type: 'ParseInvalidAccount' }, (e) => `“${e.account}” isn’t a valid account name.`)
 		.with(
 			{ type: 'ParseUnbalancedTransaction' },
-			(e) => `This transaction is off by ${e.residual}.`,
+			(e) => `This transaction is off by ${e.residual.map(formats.quantity).join(' and ')}.`,
 		)
 		.with(
 			{ type: 'ParseMultipleImplicitPostings' },
@@ -31,6 +32,10 @@ export const explain = (error: RupeaError): string =>
 			() => 'This P line should give a date, a commodity, and a price or feed:symbol.',
 		)
 		.with({ type: 'ParseUnknownFeed' }, (e) => `“${e.feed}” isn’t a feed. Link to mfapi or yahoo.`)
+		.with(
+			{ type: 'ParseInvalidBase' },
+			(e) => `“${e.base}” isn’t a currency code. Write one like INR or USD.`,
+		)
 		.with(
 			{ type: 'ParseInvalidAccountLine' },
 			() => 'This A line should give a date or *, then an account.',
@@ -67,11 +72,13 @@ export const explain = (error: RupeaError): string =>
 		)
 		.with(
 			{ type: 'GroupDisagreement' },
-			(e) => `Group ${e.group} disagrees on ${e.account}: expected ${e.expected}, got ${e.actual}.`,
+			(e) =>
+				`Group ${e.group} disagrees on ${e.account}: expected ${formats.quantity(e.expected)}, got ${formats.quantity(e.actual)}.`,
 		)
 		.with(
 			{ type: 'BalanceAssertionFailed' },
-			(e) => `${e.account} should be ${e.expected} here, but is ${e.actual}.`,
+			(e) =>
+				`${e.account} should be ${formats.quantity(e.expected)} here, but is ${formats.quantity(e.actual)}.`,
 		)
 		.with(
 			{ type: 'BalanceAssertionAmbiguous' },
@@ -127,6 +134,10 @@ export const explain = (error: RupeaError): string =>
 		.with(
 			{ type: 'CannotWriteBudget' },
 			() => 'This budget wouldn’t read back as written. Check it for a line break.',
+		)
+		.with(
+			{ type: 'CannotWriteBase' },
+			(e) => `The currency wouldn’t read back from ${e.path}. Check the lines at its top.`,
 		)
 		.with({ type: 'NameTaken' }, (e) => `Someone already has the name ${e.name}.`)
 		.with({ type: 'EmailTaken' }, (e) => `Another account already uses ${e.email}.`)

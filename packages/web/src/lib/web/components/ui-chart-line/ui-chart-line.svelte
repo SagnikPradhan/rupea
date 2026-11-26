@@ -11,16 +11,13 @@
 		valuesOf,
 		VIEW,
 	} from '#lib/web/shared/chart.ts';
-	import {
-		formatAmount,
-		formatCompact,
-		formatPercent,
-		formatBucket,
-	} from '#lib/web/shared/format.ts';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { scaleUtc } from 'd3-scale';
 	import { area, line, type SeriesPoint } from 'd3-shape';
 	import type { Snippet } from 'svelte';
 	import type { Grain } from '@rupea/shared/dates.ts';
+
+	const formats = formatsHere();
 
 	type Series = {
 		key: keyof Row & string;
@@ -53,14 +50,14 @@
 
 	const FORMATS = {
 		amount: {
-			tick: formatCompact,
-			value: formatAmount,
-			short: (v: string) => formatCompact(Number(v)),
+			tick: formats.compact,
+			value: formats.whole,
+			short: (v: string) => formats.compact(Number(v)),
 		},
 		percent: {
-			tick: formatPercent,
-			value: (v: string) => formatPercent(Number(v)),
-			short: (v: string) => formatPercent(Number(v)),
+			tick: formats.percent,
+			value: (v: string) => formats.percent(Number(v)),
+			short: (v: string) => formats.percent(Number(v)),
 		},
 	};
 
@@ -130,7 +127,7 @@
 	const across = $derived.by(() => {
 		const fit = labelsIn(box.width, 'across');
 		const ticks = dates.ticks(Math.min(fit, rows.length - 1));
-		const name = formatBucket[bucketOf(ticks)];
+		const name = formats.bucket[bucketOf(ticks)];
 		const gap = dates(ticks[1] ?? 0) - dates(ticks[0] ?? 0);
 		const stride = gap > 0 ? Math.ceil(VIEW / fit / gap) : 1;
 

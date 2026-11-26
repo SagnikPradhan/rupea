@@ -5,6 +5,7 @@ import { sql, type Expression, type ExpressionBuilder, type QueryCreator } from 
 import { AMOUNT_UNIT, type Amount, type Quantity } from '../domain/amounts';
 import type { RateThen } from '../domain/cost';
 import { Feed, PriceSource } from '../domain/types';
+import { CURRENCIES } from '@rupea/shared/money.ts';
 import { multiply } from './database-queries';
 
 export const findLatestPrices = (
@@ -268,3 +269,19 @@ const linksOf = (db: Database, ledgerId: string, commodity: Expression<string>) 
 		})
 		.where('l.ledgerId', '=', ledgerId)
 		.where('l.alias', '=', commodity);
+
+/** The currencies a ledger's own prices convert between, each pair once. */
+export const listCurrencyPairs = (ledgerId: string): ResultAsync<[string, string][]> =>
+	withContext('db')((db) =>
+		attempt(() =>
+			db
+				.with('own', ownSymbols(db, ledgerId))
+				.selectFrom('own as s')
+				.innerJoin('priceYears as y', 'y.symbolId', 's.id')
+				.where('s.symbol', '=', sql<string>`any(${CURRENCIES}::text[])`)
+				.where('y.priceCommodity', '=', sql<string>`any(${CURRENCIES}::text[])`)
+				.select(['s.symbol', 'y.priceCommodity'])
+				.distinct()
+				.execute(),
+		).map((r) => r.map((p): [string, string] => [p.symbol, p.priceCommodity])),
+	);

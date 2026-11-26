@@ -8,8 +8,11 @@
 	import SegmentedControl from '#lib/web/components/ui-segmented-control/ui-segmented-control.svelte';
 	import { startOf, startsOnOf } from '#lib/web/shared/budgets.ts';
 	import { explain } from '#lib/web/shared/errors.ts';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { untrack } from 'svelte';
 	import * as v from 'valibot';
+
+	const formats = formatsHere();
 
 	const MONTHS = [
 		'January',
@@ -159,7 +162,7 @@
 		<p role="alert">{issue.message}</p>
 	{/each}
 	{#each status.errors as error, index (index)}
-		<p role="alert">{explain(error)}</p>
+		<p role="alert">{explain(error, formats)}</p>
 	{/each}
 
 	<div class="buttons">

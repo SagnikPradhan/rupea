@@ -13,18 +13,21 @@ vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
 	saveTerms: Object.assign(vi.fn(), { pending: 0 }),
 	saveBudget: Object.assign(vi.fn(), { pending: 0 }),
 }));
-
+vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
+	listCurrencies: vi.fn(() => answer(['INR'])),
+	saveBase: vi.fn(),
+}));
 vi.mock('#lib/endpoints/auth.remote.ts', () => ({
 	saveUser: vi.fn(),
 	sendCode: vi.fn(),
 }));
 
 const ledgers = [
-	{ handle: 'a', name: 'Personal' },
-	{ handle: 'b', name: 'Family' },
+	{ handle: 'a', name: 'Personal', base: 'INR' },
+	{ handle: 'b', name: 'Family', base: 'USD' },
 ];
 
-const open = (shown: { handle: string; name: string }[]) => {
+const open = (shown: typeof ledgers) => {
 	visit('/settings');
 	const user = { username: 'asha', email: 'asha@example.com', local: false };
 	render(Page, { data: { user, theme: 'system', ledgers: shown } as never });
@@ -52,6 +55,7 @@ describe('the settings page', () => {
 		const family = within(await screen.findByRole('list', { name: 'Family' }));
 		expect(family.getByText('Family')).toBeTruthy();
 		expect(family.getByRole('link', { name: 'Budgets' }).getAttribute('href')).toBe('#b-budgets');
+		expect(family.getByRole('link', { name: 'Currency' }).getAttribute('href')).toBe('#b-currency');
 	});
 
 	it('leaves out the name of a ledger that is the only one', async () => {

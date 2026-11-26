@@ -40,18 +40,8 @@ describe('viewing a transaction', () => {
 		],
 	};
 
-	it('prints the quantities and cuts the time to the minute', () => {
-		expect(viewTransaction(transaction)).toEqual({
-			...transaction,
-			time: '18:45',
-			postings: [
-				{
-					account: 'Assets:Broker',
-					quantity: '10.00 INFY {1400.00, 2026-08-01} @ 1500.125',
-				},
-				{ account: 'Assets:Bank', quantity: '-15001.25' },
-			],
-		});
+	it('keeps the quantities for the page to print, and cuts the time to the minute', () => {
+		expect(viewTransaction(transaction)).toEqual({ ...transaction, time: '18:45' });
 	});
 
 	it('leaves an untimed transaction without a time', () => {
@@ -107,7 +97,7 @@ describe('viewing a transaction', () => {
 			date: '2026-08-29',
 			description: 'Groceries',
 			account: 'Expenses:Food',
-			quantity: '100.50',
+			quantity: { amount: '100.50', commodity: 'INR', price: null, cost: null },
 		});
 	});
 });
@@ -145,9 +135,9 @@ describe('viewing what accounts held', () => {
 					{
 						commodity: 'INFY',
 						hasLots: true,
-						units: '7.00 INFY',
+						units: { amount: '7.00', commodity: 'INFY' },
 						cost: '10900.00',
-						price: '1800.00',
+						price: { amount: '1800.00', commodity: 'INR' },
 						value: '12600.00',
 						gain: '1700.00',
 					},
@@ -173,7 +163,7 @@ describe('viewing what accounts held', () => {
 			{
 				commodity: 'INR',
 				hasLots: false,
-				units: null,
+				units: { amount: '500.00', commodity: 'INR' },
 				cost: null,
 				price: null,
 				value: '500.00',
@@ -250,7 +240,7 @@ describe('viewing a lot', () => {
 			from: null,
 			units: '10.00',
 			remaining: '7.00',
-			cost: '1700.00',
+			cost: { amount: '1700.00', commodity: 'INR' },
 			disposals: [
 				{
 					file: 'bank.rupea',
@@ -258,8 +248,8 @@ describe('viewing a lot', () => {
 					date: '2026-09-01',
 					kind: 'sale' as const,
 					units: '3.00',
-					price: '1800.00',
-					gain: '300.00',
+					price: { amount: '1800.00', commodity: 'INR' },
+					gain: { amount: '300.00', commodity: 'INR' },
 				},
 			],
 		});
@@ -270,11 +260,6 @@ describe('viewing a lot', () => {
 		expect(viewLot({ ...lot, disposals: [gift] }).disposals).toMatchObject([
 			{ kind: 'gift', price: null, gain: null },
 		]);
-	});
-
-	it('prints a price in another commodity beside it', () => {
-		const dollars = { ...sale, price: { amount: '20.00', commodity: 'USD' } };
-		expect(viewLot({ ...lot, disposals: [dollars] }).disposals[0]?.price).toBe('20.00 USD');
 	});
 });
 

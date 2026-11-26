@@ -6,21 +6,19 @@
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
 	import { depthOf, isUnder } from '#lib/web/shared/accounts.ts';
-	import {
-		formatAmount,
-		formatPercent,
-		formatShare,
-		formatReturn,
-		toneOf,
-	} from '#lib/web/shared/format.ts';
+	import { formatsHere, toneOf } from '#lib/web/shared/format.ts';
 	import { lotsHref } from '#lib/web/shared/links.ts';
+
+	const formats = formatsHere();
+
+	type Quantity = { amount: string; commodity: string };
 
 	type Holding = {
 		commodity: string;
 		hasLots: boolean;
-		units: string | null;
+		units: Quantity;
 		cost: string | null;
-		price: string | null;
+		price: Quantity | null;
 		value: string | null;
 		gain: string | null;
 	};
@@ -60,8 +58,10 @@
 		),
 	);
 
-	/** A commodity's row is named by it, so its units need no code after them. */
-	const numberOf = (quantity: string | null) => quantity?.split(' ')[0] ?? null;
+	const unitsOf = (u: Quantity, child: boolean) => {
+		if (u.commodity === formats.base) return null;
+		return child ? u.amount : u;
+	};
 
 	/**
 	 * A group adds up sub-accounts or several holdings; any other account reads
@@ -72,7 +72,7 @@
 </script>
 
 {#snippet returnOf(gain: string | null, cost: string | null)}
-	{@const percent = formatReturn(gain, cost)}
+	{@const percent = formats.gain(gain, cost)}
 	{@const tone = percent === null ? undefined : toneOf(Number(gain))}
 	<td class={['amount', tone]}>{percent}</td>
 {/snippet}
@@ -85,7 +85,7 @@
 		class={['amount', tone]}
 		title={r?.xirr == null ? undefined : r.yearly ? 'XIRR, per year' : 'Return over the period'}
 	>
-		{#if r?.xirr != null}{formatPercent(r.xirr)}{#if r.yearly}&nbsp;<span class="unit">
+		{#if r?.xirr != null}{formats.percent(r.xirr)}{#if r.yearly}&nbsp;<span class="unit">
 					p.a.
 				</span>{/if}{/if}
 	</td>
@@ -93,7 +93,7 @@
 
 {#snippet shareOf(value: string | null)}
 	<td class="amount optional">
-		{value !== null && Number(value) > 0 ? formatShare(value, printAmount(assets)) : null}
+		{value !== null && Number(value) > 0 ? formats.share(value, printAmount(assets)) : null}
 	</td>
 {/snippet}
 
@@ -113,9 +113,9 @@
 				{@render label()}
 			{/if}
 		</td>
-		<Amount value={child ? numberOf(holding.units) : holding.units} units optional />
+		<Amount value={unitsOf(holding.units, child)} units optional />
 		<Amount value={holding.cost} optional />
-		<Amount value={holding.value} note={holding.price && `@ ${formatAmount(holding.price, true)}`}>
+		<Amount value={holding.value} note={holding.price && `@ ${formats.quantity(holding.price)}`}>
 			<span class="unpriced">unpriced</span>
 		</Amount>
 		<Amount value={holding.gain} signed />

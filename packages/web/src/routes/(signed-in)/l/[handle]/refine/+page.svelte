@@ -10,6 +10,7 @@
 	import type { RupeaError } from '@rupea/shared/errors.ts';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import { detail } from '#lib/web/shared/errors.ts';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { fileHref, hrefOnly } from '#lib/web/shared/links.ts';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
@@ -17,6 +18,8 @@
 	const KEYS: Record<string, string> = { primary: 'group', evidence: 'same-as' };
 
 	const { data } = $props();
+
+	const formats = formatsHere();
 
 	const handle = $derived(data.ledger.handle);
 	const file = $derived(page.url.searchParams.get('file'));
@@ -69,8 +72,8 @@
 				...(role ? [`\t- ${KEYS[role]}: ${group}   ← added`] : []),
 				...t.postings.map((p) =>
 					settledAs && p === t.postings.find((x) => UNSETTLED.test(x.account))
-						? `\t${settledAs} ${p.quantity}   ← was ${p.account}`
-						: `\t${p.account} ${p.quantity}`,
+						? `\t${settledAs} ${formats.quantity(p.quantity)}   ← was ${p.account}`
+						: `\t${p.account} ${formats.quantity(p.quantity)}`,
 				),
 			].join('\n')}</pre>
 	</div>

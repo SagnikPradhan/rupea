@@ -63,7 +63,8 @@ export const signIn = (user: User | null) => {
 
 /** Answers the calls of the remote functions under test with these procedures. */
 export const useApi = (api: Record<string, Record<string, unknown>>) => {
-	request.locals.api = api as unknown as Client;
+	const ledger = { list: () => Promise.resolve([]) };
+	request.locals.api = (api['ledger'] ? api : { ...api, ledger }) as unknown as Client;
 	request.refreshed.length = 0;
 };
 

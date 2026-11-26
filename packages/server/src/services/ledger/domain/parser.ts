@@ -1,4 +1,4 @@
-import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
+import type { LedgerReading } from '#lib/server/shared/context/config.ts';
 import { cursorOf, drain, putBack, takeWhile, type Cursor } from '#lib/server/shared/cursor.ts';
 import { parseDate, parseTime, type ReadOptions } from '#lib/server/shared/dates.ts';
 import { sha256 } from '#lib/server/shared/hash.ts';
@@ -10,15 +10,7 @@ import { fault, type RupeaError } from '@rupea/shared/errors.ts';
 import { BudgetLength } from '@rupea/shared/forms.ts';
 import * as v from 'valibot';
 import { match, P } from 'ts-pattern';
-import {
-	DEFAULT_COMMODITY,
-	formatQuantity,
-	multiply,
-	parseAmount,
-	sum,
-	type Amount,
-	type Quantity,
-} from './amounts';
+import { multiply, parseAmount, quantityOutOf, sum, type Amount, type Quantity } from './amounts';
 import { movesInKind } from './lots';
 import { accountOf, budgetOf, linkOf, priceOf, toMetadata, transactionOf } from './nodes';
 import { accountType } from './taxonomy';
@@ -46,6 +38,10 @@ import {
 
 const COMMODITY = /^[A-Za-z][A-Za-z0-9._-]*$/;
 const LINK = /\s(?<feed>[A-Za-z]+):(?<symbol>\S+)\s*$/;
+const CURRENCY = /^[A-Za-z]{3}$/;
+
+/** The file metadata in main.rupea that names the ledger's base. */
+const BASE = 'base';
 
 /**
  * The feeds a link can name; a ledger's own symbols are priced by its files,
@@ -64,10 +60,8 @@ type RupeaParsedFile = Batch<RupeaTransaction> & {
 };
 
 /** What a file holds for the ledger, read from its tree. */
-export const parse = (
-	c: LedgerConfiguration,
-	f: Pick<RupeaFile, 'key' | 'content'>,
-): RupeaParsedFile => parsedFrom(parseTree(c, f));
+export const parse = (c: LedgerReading, f: Pick<RupeaFile, 'key' | 'content'>): RupeaParsedFile =>
+	parsedFrom(parseTree(c, f));
 
 export type UnchangedEntry = { hash: string; line: number };
 
@@ -75,13 +69,19 @@ export type UnchangedEntry = { hash: string; line: number };
  * As parse, leaving out each transaction whose lines hash to one held, so only
  * what changed is read.
  */
-export const parseChanged = (
-	c: LedgerConfiguration,
-	f: Pick<RupeaFile, 'key' | 'content'>,
-	hashCounts: Record<string, number>,
-) => {
-	const formats = JSON.stringify([c.dateFormats, c.timeFormats]);
-	const left = { ...hashCounts };
+type ParseChangedOptions = {
+	reading: LedgerReading;
+	file: Pick<RupeaFile, 'key' | 'content'>;
+	/**
+	 * How many times each entry hash the file held before, which are read no
+	 * more.
+	 */
+	known: Record<string, number>;
+};
+
+export const parseChanged = ({ reading, file, known }: ParseChangedOptions) => {
+	const formats = JSON.stringify([reading.dateFormats, reading.timeFormats, reading.base]);
+	const left = { ...known };
 	const unchanged: UnchangedEntry[] = [];
 	const lineHashes: Record<number, string> = {};
 
@@ -96,10 +96,10 @@ export const parseChanged = (
 		return true;
 	};
 
-	return { ...parsedFrom(readTree(c, f, isUnchanged)), unchanged, lineHashes };
+	return { ...parsedFrom(readTree(reading, file, isUnchanged)), unchanged, lineHashes };
 };
 
-/** Formats go in the hash, as they decide what the same lines mean. */
+/** Formats and the base go in the hash, as they decide what the same lines mean. */
 const entryHash = (f: string, e: RupeaLine[]) =>
 	sha256(`${f}\n${e.map((l) => l.content).join('\n')}`);
 
@@ -121,10 +121,8 @@ const parsedFrom = (tree: RupeaFileNode): RupeaParsedFile => {
  * Metadata above the first entry belongs to the file, and a comment to what
  * sits right above it.
  */
-export const parseTree = (
-	c: LedgerConfiguration,
-	f: Pick<RupeaFile, 'key' | 'content'>,
-): RupeaFileNode => readTree(c, f, () => false);
+export const parseTree = (c: LedgerReading, f: Pick<RupeaFile, 'key' | 'content'>): RupeaFileNode =>
+	readTree(c, f, () => false);
 
 /**
  * Whether a transaction's lines match what is already stored, so it needs no
@@ -133,7 +131,7 @@ export const parseTree = (
 type IsUnchanged = (entry: RupeaLine[]) => boolean;
 
 const readTree = (
-	c: LedgerConfiguration,
+	c: LedgerReading,
 	{ key, content }: Pick<RupeaFile, 'key' | 'content'>,
 	isUnchanged: IsUnchanged,
 ): RupeaFileNode => {
@@ -173,7 +171,9 @@ const readPreamble = (input: Cursor<RupeaLine>) => {
 	const head = taken.slice(0, end < 0 ? taken.length : end);
 	putBack(input, taken.length - head.length);
 
-	const metadata = head.filter(isMetadata).map((l) => ({ line: l, entry: parseMetadata(l) }));
+	const metadata = head
+		.filter(isMetadata)
+		.map((l) => ({ line: l, entry: parseMetadata(l).andThen((e) => checkBase(l, e)) }));
 	return {
 		comments: head.filter(isComment).map(commentOf),
 		metadata: metadata.flatMap(({ entry }) => (entry.isOk() ? [entry.value] : [])),
@@ -185,7 +185,7 @@ const readPreamble = (input: Cursor<RupeaLine>) => {
 
 /** Comments that nothing above holds stand as a note. */
 const readEntries = (
-	c: LedgerConfiguration,
+	c: LedgerReading,
 	input: Cursor<RupeaLine>,
 	isUnchanged: IsUnchanged,
 ): RupeaEntryNode[] => {
@@ -200,7 +200,7 @@ const readEntries = (
 
 /** A bad header ends the transactions, as the next one can't be found. */
 const readNode = (
-	c: LedgerConfiguration,
+	c: LedgerReading,
 	line: RupeaLine,
 	rest: Cursor<RupeaLine>,
 	isUnchanged: IsUnchanged,
@@ -227,7 +227,7 @@ const readNode = (
  * kept as written.
  */
 const unread = (
-	c: LedgerConfiguration,
+	c: LedgerReading,
 	line: RupeaLine,
 	input: Cursor<RupeaLine>,
 	error: RupeaError,
@@ -244,7 +244,7 @@ const unread = (
 };
 
 const readDirective = (
-	c: LedgerConfiguration,
+	c: LedgerReading,
 	line: RupeaLine,
 	input: Cursor<RupeaLine>,
 ): RupeaEntryNode => {
@@ -264,7 +264,7 @@ type TransactionLines = { line: RupeaLine; header: Header; body: RupeaLine[] };
 
 /** A bad line fails its whole transaction, which is kept as written. */
 const readTransaction = (
-	c: LedgerConfiguration,
+	c: LedgerReading,
 	{ line, header, body }: TransactionLines,
 ): RupeaEntryNode => {
 	const [own, ...owners] = ownersOf(line, body);
@@ -287,7 +287,7 @@ const readTransaction = (
 	const written = postings.flatMap(({ posting, metadata, comments }) =>
 		posting.isOk() ? [{ posting: posting.value, metadata: metadata.entries, comments }] : [],
 	);
-	return balance(line.location, written).match(
+	return balance({ location: line.location, written, base: c.base }).match(
 		(children) => ({
 			kind: NodeKind.Transaction,
 			location: line.location,
@@ -359,6 +359,17 @@ const parseMetadata = ({ location, content }: RupeaLine): Result<[string, string
 		: err(fault('ParseInvalidMetadata', { location: displayLocation(location) }));
 };
 
+/** A file's base is a three-letter currency code, as ISO 4217 writes them. */
+const checkBase = ({ location }: RupeaLine, entry: [string, string]): Result<[string, string]> => {
+	const [key, value] = entry;
+	if (key !== BASE || CURRENCY.test(value)) return ok(entry);
+
+	return err(fault('ParseInvalidBase', { location: displayLocation(location), base: value }));
+};
+
+/** The currency a file's metadata names as the base, or null when it names none. */
+export const baseOf = (m: RupeaMetadata): string | null => m[BASE]?.at(-1)?.toUpperCase() ?? null;
+
 /** A metadata line, `- key: value`, with the indent before its dash. */
 export const readEntry = (content: string) => {
 	const body = content.trimStart();
@@ -389,7 +400,7 @@ export const isPosting = (l: RupeaLine) =>
 
 /** A P line prices a commodity, or links it to a feed. */
 const isPLine = ({ content }: RupeaLine) => /^P\s/.test(content);
-const readPLine = (c: LedgerConfiguration, l: RupeaLine, comments: string[]): RupeaEntryNode => {
+const readPLine = (c: LedgerReading, l: RupeaLine, comments: string[]): RupeaEntryNode => {
 	const unread = (e: RupeaError) => failed([l], comments, [e]);
 	const link = readLink(c, l);
 	if (link)
@@ -406,7 +417,7 @@ const isALine = ({ content }: RupeaLine) => /^A\s/.test(content);
 const isDirective = (l: RupeaLine) => isPLine(l) || isALine(l) || isBLine(l);
 
 const readALine = (
-	c: LedgerConfiguration,
+	c: LedgerReading,
 	l: RupeaLine,
 	dashes: RupeaLine[],
 	comments: string[],
@@ -423,14 +434,14 @@ const readALine = (
 	);
 };
 
-const parseAccountLine = (c: LedgerConfiguration, l: RupeaLine) =>
+const parseAccountLine = (c: LedgerReading, l: RupeaLine) =>
 	parseSubjectLine(c, l, (l) => fault('ParseInvalidAccountLine', { location: l }));
 
 type Subject = { location: RupeaParseLocation; since: Temporal.PlainDate | null; account: string };
 
 /** A directive's date or star, then one account under a root. */
 const parseSubjectLine = (
-	{ dateFormats }: LedgerConfiguration,
+	{ dateFormats }: LedgerReading,
 	{ location, content }: RupeaLine,
 	invalid: (location: string) => RupeaError,
 ): Result<Subject> => {
@@ -451,7 +462,7 @@ const parseSubjectLine = (
 const isBLine = ({ content }: RupeaLine) => /^B\s/.test(content);
 
 const readBLine = (
-	c: LedgerConfiguration,
+	c: LedgerReading,
 	l: RupeaLine,
 	dashes: RupeaLine[],
 	comments: string[],
@@ -476,7 +487,7 @@ const readBLine = (
  * limit.
  */
 const budgetFaults = (
-	{ dateFormats }: LedgerConfiguration,
+	{ dateFormats }: LedgerReading,
 	{ location, since }: Subject,
 	entries: RupeaEntries,
 ): RupeaError[] => {
@@ -505,11 +516,13 @@ const budgetFaults = (
 
 type Written = { posting: WrittenPosting; metadata: RupeaEntries; comments: string[] };
 
+type BalanceOptions = { location: RupeaParseLocation; written: Written[]; base: string };
+
 /**
  * Each commodity nets to zero by weight; a posting without an amount takes what
  * is left.
  */
-const balance = (location: RupeaParseLocation, written: Written[]): Result<RupeaPostingNode[]> => {
+const balance = ({ location, written, base }: BalanceOptions): Result<RupeaPostingNode[]> => {
 	const at = { location: displayLocation(location) };
 	if (written.length < 2) return err(fault('ParseMissingTransactionBody', at));
 
@@ -523,11 +536,11 @@ const balance = (location: RupeaParseLocation, written: Written[]): Result<Rupea
 	const leftover = Object.entries(Object.groupBy(weights, (w) => w.commodity))
 		.map(([commodity, group = []]) => ({ commodity, amount: sum(group.map((w) => w.amount)) }))
 		.filter((q) => q.amount !== 0n);
-	const residual = leftover.map(formatQuantity).join(', ');
+	const residual = leftover.map(quantityOutOf);
 	const balanced = leftover.length === 0 || (implicit && leftover.length === 1);
 	if (!balanced) return err(fault('ParseUnbalancedTransaction', { ...at, residual }));
 
-	const left = leftover[0] ?? { amount: 0n as Amount, commodity: DEFAULT_COMMODITY };
+	const left = leftover[0] ?? { amount: 0n as Amount, commodity: base };
 	const implied = { ...left, amount: -left.amount as Amount };
 	const asserted = implicit?.posting.balance?.commodity;
 	if (asserted && asserted !== implied.commodity) return err(fault('ParseInvalidPosting', at));
@@ -569,7 +582,7 @@ const weight = (p: Weighed, transaction: Weighed[]): Quantity => {
 type Header = { date: Temporal.PlainDate; time: Temporal.PlainTime | null; description: string };
 
 const parseHeader = (
-	{ dateFormats, timeFormats }: LedgerConfiguration,
+	{ dateFormats, timeFormats }: LedgerReading,
 	{ location, content }: RupeaLine,
 ): Result<Header> => {
 	const words = content.trim().split(/\s+/);
@@ -597,7 +610,7 @@ const readWords = <T>(
 
 /** P date commodity price [commodity], as ledger writes it. */
 const parsePriceLine = (
-	{ dateFormats }: LedgerConfiguration,
+	{ dateFormats, base }: LedgerReading,
 	{ location, content }: RupeaLine,
 ): Result<RupeaMarketPrice> => {
 	const date = readWords(dateFormats, content.trim().split(/\s+/).slice(1), parseDate);
@@ -610,7 +623,7 @@ const parsePriceLine = (
 		location,
 		date: date.value,
 		commodity: commodity.toUpperCase(),
-		price: withDefaultCommodity(quantity),
+		price: withBase(quantity, base),
 	});
 };
 
@@ -620,7 +633,7 @@ const parsePriceLine = (
  * price. Feeds spell symbols in capitals.
  */
 const readLink = (
-	{ dateFormats }: LedgerConfiguration,
+	{ dateFormats }: LedgerReading,
 	{ location, content }: RupeaLine,
 ): Result<RupeaLink> | null => {
 	const { feed = '', symbol = '' } = LINK.exec(content)?.groups ?? {};
@@ -655,7 +668,7 @@ type WrittenPosting = {
 
 /** Account [amount [commodity] [{lot cost}] [@ price | @@ total]] [= balance] */
 const readPosting = (
-	{ dateFormats }: LedgerConfiguration,
+	c: LedgerReading,
 	{ location, content }: RupeaLine,
 ): Result<WrittenPosting> => {
 	const invalid = err(fault('ParseInvalidPosting', { location: displayLocation(location) }));
@@ -663,14 +676,14 @@ const readPosting = (
 	if (!parts) return invalid;
 
 	const units = readQuantity(parts.amount);
-	const cost = readLotCost(dateFormats, parts.lot);
+	const cost = readLotCost(c, parts.lot);
 	const paid = readQuantity(parts.price);
 	const asserted = readQuantity(parts.balance);
 	if (units === undefined || cost === undefined || paid === undefined || asserted === undefined)
 		return invalid;
 	if (paid && paid.amount < 0n) return invalid;
 
-	const quantity = units ? withDefaultCommodity(units) : null;
+	const quantity = units ? withBase(units, c.base) : null;
 	const assertsOther =
 		quantity !== null && (asserted?.commodity ?? quantity.commodity) !== quantity.commodity;
 	if (assertsOther) return invalid;
@@ -680,7 +693,7 @@ const readPosting = (
 		quantity,
 		price: paid
 			? {
-					...withDefaultCommodity(paid),
+					...withBase(paid, c.base),
 					kind: parts.total ? PriceKind.Total : PriceKind.Unit,
 				}
 			: null,
@@ -735,7 +748,7 @@ const checkAccount = (
 };
 
 /** Cost [commodity][, date], the date in a configured format. */
-const readLotCost = (formats: string[], text: string | undefined): LotCost | null | undefined => {
+const readLotCost = (c: LedgerReading, text: string | undefined): LotCost | null | undefined => {
 	if (text === undefined) return null;
 
 	const trimmed = text.trim();
@@ -743,10 +756,10 @@ const readLotCost = (formats: string[], text: string | undefined): LotCost | nul
 	const written = at < 0 ? trimmed : trimmed.slice(0, at);
 	const day = at < 0 ? undefined : trimmed.slice(at + 1);
 	const cost = readQuantity(written);
-	const date = readDate(formats, day);
+	const date = readDate(c.dateFormats, day);
 	if (!cost || cost.amount < 0n || date === undefined) return undefined;
 
-	return { ...withDefaultCommodity(cost), date };
+	return { ...withBase(cost, c.base), date };
 };
 
 const readDate = (
@@ -781,7 +794,7 @@ const readQuantity = (text: string | undefined): WrittenQuantity | null | undefi
 		.otherwise(() => undefined);
 };
 
-const withDefaultCommodity = (q: WrittenQuantity): Quantity => ({
+const withBase = (q: WrittenQuantity, base: string): Quantity => ({
 	amount: q.amount,
-	commodity: q.commodity ?? DEFAULT_COMMODITY,
+	commodity: q.commodity ?? base,
 });

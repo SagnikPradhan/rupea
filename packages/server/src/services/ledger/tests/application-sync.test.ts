@@ -1445,8 +1445,8 @@ describe('balance assertions', () => {
 				type: 'BalanceAssertionFailed',
 				location: 'hdfc.rupea:5',
 				account: 'Assets:Bank',
-				expected: '800.00',
-				actual: '850.00',
+				expected: { amount: '800.00', commodity: 'INR' },
+				actual: { amount: '850.00', commodity: 'INR' },
 			};
 			expect(await issues(ledger)).toEqual(ok([problem]));
 			expect(await issues(ledger)).toEqual(ok([problem]));
@@ -1527,8 +1527,8 @@ describe('balance assertions', () => {
 						type: 'BalanceAssertionFailed',
 						location: 'ibkr.rupea:5',
 						account: 'Assets:IBKR',
-						expected: '3.00 AAPL',
-						actual: '2.00 AAPL',
+						expected: { amount: '3.00', commodity: 'AAPL' },
+						actual: { amount: '2.00', commodity: 'AAPL' },
 					},
 				]),
 			);
@@ -1706,11 +1706,15 @@ describe('balance assertions', () => {
 			await Files.createFile({ ledger, key: 'hdfc.rupea', content });
 
 			expect((await issues(ledger))._unsafeUnwrap()).toEqual([
-				expect.objectContaining({ location: 'hdfc.rupea:1', expected: '900.00', actual: '850.00' }),
+				expect.objectContaining({
+					location: 'hdfc.rupea:1',
+					expected: { amount: '900.00', commodity: 'INR' },
+					actual: { amount: '850.00', commodity: 'INR' },
+				}),
 				expect.objectContaining({
 					location: 'hdfc.rupea:9',
-					expected: '1100.00',
-					actual: '1000.00',
+					expected: { amount: '1100.00', commodity: 'INR' },
+					actual: { amount: '1000.00', commodity: 'INR' },
 				}),
 			]);
 		}));
@@ -1752,7 +1756,11 @@ describe('balance assertions', () => {
 				version: created._unsafeUnwrap().version,
 			});
 			expect((await issues(ledger))._unsafeUnwrap()).toEqual([
-				expect.objectContaining({ location: 'hdfc.rupea:1', expected: '900.00', actual: '800.00' }),
+				expect.objectContaining({
+					location: 'hdfc.rupea:1',
+					expected: { amount: '900.00', commodity: 'INR' },
+					actual: { amount: '800.00', commodity: 'INR' },
+				}),
 				expect.objectContaining({ location: 'june.rupea:1' }),
 			]);
 		}));
@@ -1837,7 +1845,7 @@ describe('lots', () => {
 						type: 'LotNotOpen',
 						location: 'b.rupea:1',
 						account: 'Assets:Zerodha',
-						units: '4.00 INFY',
+						units: { amount: '4.00', commodity: 'INFY' },
 					},
 				]),
 			);
@@ -1870,7 +1878,7 @@ describe('lots', () => {
 					type: 'LotNotOpen',
 					location: 'c.rupea:1',
 					account: 'Assets:Zerodha',
-					units: '4.00 INFY',
+					units: { amount: '4.00', commodity: 'INFY' },
 				},
 			]);
 		}));
@@ -2187,3 +2195,70 @@ const checkedThrough = (db: Database, id: string) =>
 		.where('id', '=', id)
 		.executeTakeFirstOrThrow()
 		.then((r) => r.checkedThrough);
+
+describe("the ledger's base", () => {
+	const spent = (amount: string) =>
+		['2026-08-29 Groceries', `\tExpenses:Food ${amount}`, '\tAssets:Bank', ''].join('\n');
+
+	const commodities = async (db: Database, ledgerId: string) =>
+		(
+			await db
+				.selectFrom('postings')
+				.select('commodity')
+				.where('ledgerId', '=', ledgerId)
+				.orderBy('commodity')
+				.execute()
+		).map((p) => p.commodity);
+
+	const baseOf = async (db: Database, ledgerId: string) =>
+		(await db.selectFrom('ledgers').select('base').where('id', '=', ledgerId).executeTakeFirst())
+			?.base;
+
+	it('reads a bare amount in rupees when main.rupea names no base', ({ context, db, storage }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await put(storage, ledger, 'a.rupea', spent('100'));
+
+			expect(await issues(ledger)).toEqual(ok([]));
+			expect(await commodities(db, ledger.id)).toEqual(['INR', 'INR']);
+			expect(await baseOf(db, ledger.id)).toBe('INR');
+		}));
+
+	it('reads every file again when the base changes, and keeps a written currency', ({
+		context,
+		db,
+		storage,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await put(storage, ledger, 'a.rupea', spent('100'));
+			await put(storage, ledger, 'b.rupea', spent('50 INR'));
+			await Sync.syncIndex(ledger);
+
+			await put(storage, ledger, 'main.rupea', '- base: usd\n');
+			expect(await issues(ledger)).toEqual(ok([]));
+			expect(await baseOf(db, ledger.id)).toBe('USD');
+			expect(await commodities(db, ledger.id)).toEqual(['INR', 'INR', 'USD', 'USD']);
+
+			await put(storage, ledger, 'main.rupea', '; no base now\n');
+			await Sync.syncIndex(ledger);
+			expect(await baseOf(db, ledger.id)).toBe('INR');
+			expect(await commodities(db, ledger.id)).toEqual(['INR', 'INR', 'INR', 'INR']);
+		}));
+
+	it('keeps the base when main.rupea names something that is not a currency', ({
+		context,
+		db,
+		storage,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await put(storage, ledger, 'a.rupea', spent('100'));
+			await put(storage, ledger, 'main.rupea', '- base: dollars\n');
+
+			expect(await issues(ledger)).toEqual(
+				ok([{ type: 'ParseInvalidBase', location: 'main.rupea:1', base: 'dollars' }]),
+			);
+			expect(await baseOf(db, ledger.id)).toBe('INR');
+		}));
+});

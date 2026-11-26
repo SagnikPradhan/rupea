@@ -74,7 +74,12 @@ describe('transactions', () => {
 
 		expect(listed.data?.rows[0]).toMatchObject({
 			time: '18:45',
-			postings: [{ account: 'Expenses:Food', quantity: '100.00' }],
+			postings: [
+				{
+					account: 'Expenses:Food',
+					quantity: { amount: '100.00', commodity: 'INR', price: null, cost: null },
+				},
+			],
 		});
 	});
 
@@ -95,7 +100,7 @@ describe('transactions', () => {
 
 		const listed = await listPostings({ handle: 'home', day, filter, after: null });
 
-		expect(listed.data?.rows[0]).toMatchObject({ key: 't1:1', quantity: '100.00' });
+		expect(listed.data?.rows[0]).toMatchObject({ key: 't1:1', quantity: { amount: '100.00' } });
 	});
 
 	it('answer a failure of the server as the reply', async () => {

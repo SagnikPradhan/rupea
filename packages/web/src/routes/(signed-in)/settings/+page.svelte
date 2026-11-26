@@ -19,6 +19,7 @@
 			{#if data.ledgers.length > 1}<li class="name">{l.name}</li>{/if}
 			<li><a href="#{l.handle}-accounts">Accounts</a></li>
 			<li><a href="#{l.handle}-budgets">Budgets</a></li>
+			<li><a href="#{l.handle}-currency">Currency</a></li>
 		</ul>
 	{/each}
 </nav>
@@ -31,7 +32,7 @@
 	</PageSection>
 {/if}
 
-{#each data.ledgers as l (l.handle)}
+{#each data.ledgers as l (`${l.handle} ${l.base}`)}
 	<SettingsLedger ledger={l} />
 {:else}
 	<p>You have no ledgers yet.</p>

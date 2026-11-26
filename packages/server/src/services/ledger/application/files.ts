@@ -1,4 +1,4 @@
-import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
+import type { LedgerReading } from '#lib/server/shared/context/config.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { batchInOrder } from '#lib/server/shared/result/batch.ts';
 import {
@@ -27,7 +27,7 @@ import { parse, parseTree } from '../domain/parser';
 import { print } from '../domain/printer';
 import { find, insert, remove, replace } from '../domain/transactions';
 import type { Ledger, RupeaFile, RupeaTransaction } from '../domain/types';
-import { openFolder } from './ledger';
+import { openFolder, readingOf } from './ledger';
 import { reindex } from './sync';
 import { listLedgerFiles, type Move } from './sync-index';
 
@@ -80,20 +80,23 @@ export const findTransactionFiles = (
 		})),
 	);
 
-type ParseFileOptions = { key: string; content: string };
+type ParseFileOptions = { ledger: Ledger; key: string; content: string };
 
 /** What a file would hold, without storing it. */
-export const parseFile = ({ key, content }: ParseFileOptions): Batch<RupeaTransaction> =>
-	withContext('config')((c) => parse(c.ledger, { key, content }));
+export const parseFile = ({ ledger, key, content }: ParseFileOptions): Batch<RupeaTransaction> =>
+	withContext('config')((c) => parse(readingOf(c, ledger), { key, content }));
 
-type FormatFileOptions = { content: string };
+type FormatFileOptions = { ledger: Ledger; content: string };
 
 /**
  * Writes a file as Rupea prints it, without saving it; lines that do not read
  * stay as written.
  */
-export const formatFile = ({ content }: FormatFileOptions): string =>
-	withContext('config')((c) => print(c.ledger, parseTree(c.ledger, { key: '', content })));
+export const formatFile = ({ ledger, content }: FormatFileOptions): string =>
+	withContext('config')((c) => {
+		const reading = readingOf(c, ledger);
+		return print(reading, parseTree(reading, { key: '', content }));
+	});
 
 type CreateFileOptions = { ledger: Ledger; key: string; content: string };
 
@@ -134,7 +137,7 @@ export const createTransaction = ({
 	openFolder({ ledger, folder: 'files' }).andThen((s) =>
 		findText(s, form.file).andThen((f) =>
 			withContext('config')((c) =>
-				insert(c.ledger, { file: { key: form.file, content: f?.content ?? '' }, form }),
+				insert(readingOf(c, ledger), { file: { key: form.file, content: f?.content ?? '' }, form }),
 			).asyncAndThen(({ content, line }) =>
 				writeText(s, { key: form.file, content, ifVersion: f?.version ?? null })
 					.andTee((w) => reindex({ ledgerId: ledger.id, storage: s, changed: [w.key] }))
@@ -166,8 +169,8 @@ export const findTransaction = ({
 		const { file, line } = indexed.location;
 		return openFolder({ ledger, folder: 'files' }).andThen((s) =>
 			readText(s, file).andThen((f) =>
-				withContext('config')((c) => find(c.ledger, { file: f, line })).asyncAndThen((t) =>
-					okAsync({ file, line, form: t, version: f.version }),
+				withContext('config')((c) => find(readingOf(c, ledger), { file: f, line })).asyncAndThen(
+					(t) => okAsync({ file, line, form: t, version: f.version }),
 				),
 			),
 		);
@@ -242,7 +245,7 @@ export const addFile = ({ ledger, from, to }: AddFileOptions): ResultAsync<Addit
 		: openFolder({ ledger, folder: 'files' }).andThen((s) =>
 				readText(s, from).andThen((d) =>
 					findText(s, to).andThen((f) =>
-						f ? mergeFile(s, ledger.id, d, f) : moveDraft(s, ledger.id, d, to),
+						f ? mergeFile(s, ledger, d, f) : moveDraft(s, ledger, d, to),
 					),
 				),
 			);
@@ -279,15 +282,15 @@ const moveFile = (storage: Storage, move: Move) =>
 
 const moveDraft = (
 	s: Storage,
-	ledgerId: string,
+	ledger: Ledger,
 	draft: RupeaFile,
 	to: string,
 ): ResultAsync<Addition> =>
 	moveFile(s, { from: draft.key, to })
-		.andTee((d) => reindex({ ledgerId, storage: s, moved: [d.move] }))
+		.andTee((d) => reindex({ ledgerId: ledger.id, storage: s, moved: [d.move] }))
 		.map((d) => ({
 			file: d.file,
-			added: parseFile(draft).succeeded.length,
+			added: parseFile({ ledger, ...draft }).succeeded.length,
 			skipped: 0,
 			before: null,
 			draft: draft.content,
@@ -296,14 +299,16 @@ const moveDraft = (
 // Written only if the file is unchanged since it was read.
 const mergeFile = (
 	s: Storage,
-	ledgerId: string,
+	ledger: Ledger,
 	draft: RupeaFile,
 	file: RupeaFile,
 ): ResultAsync<Addition> =>
-	withContext('config')((c) => merge(c.ledger, { draft, file })).asyncAndThen((m) =>
+	withContext('config')((c) => merge(readingOf(c, ledger), { draft, file })).asyncAndThen((m) =>
 		writeText(s, { key: file.key, content: m.content, ifVersion: file.version })
 			.andThrough(() => s.delete(draft.key))
-			.andTee(() => reindex({ ledgerId, storage: s, changed: [file.key], gone: [draft.key] }))
+			.andTee(() =>
+				reindex({ ledgerId: ledger.id, storage: s, changed: [file.key], gone: [draft.key] }),
+			)
 			.map((written) => ({
 				file: written,
 				added: m.added,
@@ -322,15 +327,16 @@ type ChangeTransactionOptions = { ledger: Ledger; file: string; version: string 
 
 const changeTransaction = (
 	{ ledger, file, version }: ChangeTransactionOptions,
-	change: (c: LedgerConfiguration, f: RupeaFile) => Result<{ content: string; line: number }>,
+	change: (c: LedgerReading, f: RupeaFile) => Result<{ content: string; line: number }>,
 ): ResultAsync<{ line: number }> =>
 	openFolder({ ledger, folder: 'files' }).andThen((s) =>
 		readText(s, file).andThen((f) =>
 			f.version === version
-				? withContext('config')((c) => change(c.ledger, f)).asyncAndThen(({ content, line }) =>
-						writeText(s, { key: file, content, ifVersion: version })
-							.andTee((w) => reindex({ ledgerId: ledger.id, storage: s, changed: [w.key] }))
-							.map(() => ({ line })),
+				? withContext('config')((c) => change(readingOf(c, ledger), f)).asyncAndThen(
+						({ content, line }) =>
+							writeText(s, { key: file, content, ifVersion: version })
+								.andTee((w) => reindex({ ledgerId: ledger.id, storage: s, changed: [w.key] }))
+								.map(() => ({ line })),
 					)
 				: errAsync(fault('StorageConflict', { key: file, expected: version, actual: f.version })),
 		),

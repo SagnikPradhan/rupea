@@ -1,5 +1,5 @@
 import { dayNumberOf } from '#lib/server/shared/dates.ts';
-import { AMOUNT_UNIT, DEFAULT_COMMODITY, multiply, type Amount, type Quantity } from './amounts';
+import { AMOUNT_UNIT, multiply, type Amount, type Quantity } from './amounts';
 import { lengthOf, NO_AMOUNT, readDay, readSeries } from './series';
 
 /**
@@ -37,14 +37,16 @@ type RatesOnOptions = {
 	prices: PriceYear[];
 	sources: PriceSources;
 	opening: Record<string, Quantity>;
+	/** The currency every rate is in. */
+	base: string;
 };
 
 /**
- * What a unit of a commodity is worth in rupees on each of these days, counted
- * from the first, in step with them and priced as the day by day walk prices
- * it, or null with no price. The days are where the valuation happens, so they
- * need not be bucket ends. Many days are read from every day's rate at once,
- * and a few from the quotes alone.
+ * What a unit of a commodity is worth in the base on each of these days,
+ * counted from the first, in step with them and priced as the day by day walk
+ * prices it, or null with no price. The days are where the valuation happens,
+ * so they need not be bucket ends. Many days are read from every day's rate at
+ * once, and a few from the quotes alone.
  */
 export const ratesOn = (o: RatesOnOptions, days: number[]) => {
 	const layout = layoutOf(o);
@@ -69,6 +71,8 @@ type RatesEveryOptions = {
 	prices: PriceYear[];
 	sources: PriceSources;
 	opening: Record<string, Quantity>;
+	/** The currency every rate is in. */
+	base: string;
 };
 
 type Timeline = { amounts: bigint[]; quoted: Int16Array };
@@ -79,12 +83,12 @@ export const HOPS = 2;
 const NOT_QUOTED = -1;
 
 /**
- * Each commodity's rupees per unit on every day of a span, read straight from
- * the price years without a date for each day. A day with no quote carries the
- * latest one forward from the opening price, and rupees are reached by the same
- * hops as rateAt, rounding each step as multiply does.
+ * What a unit of each commodity is worth in the base on every day of a span,
+ * read straight from the price years without a date for each day. A day with no
+ * quote carries the latest one forward from the opening price, and the base is
+ * reached by the same hops as rateAt, rounding each step as multiply does.
  */
-const ratesEvery = ({ prices, sources, opening, from, count }: RatesEveryOptions) => {
+const ratesEvery = ({ prices, sources, opening, from, count, base }: RatesEveryOptions) => {
 	const first = dayNumberOf(from);
 	const offsetOf = (y: number) => dayNumberOf({ year: y, month: 1, day: 1 }) - first;
 	const indexOf = (date: string | null, none: number) => {
@@ -156,7 +160,7 @@ const ratesEvery = ({ prices, sources, opening, from, count }: RatesEveryOptions
 	const series = new Map<string, (bigint | null)[]>();
 	const rateThrough = (commodity: string, hops: number): (bigint | null)[] =>
 		series.getOrInsertComputed(`${commodity} ${hops}`, () => {
-			if (commodity === DEFAULT_COMMODITY) return new Array(count).fill(AMOUNT_UNIT);
+			if (commodity === base) return new Array(count).fill(AMOUNT_UNIT);
 			if (hops === 0) return new Array(count).fill(null);
 
 			const { amounts, quoted } = timelineOf(commodity);
@@ -196,8 +200,8 @@ const ratesEvery = ({ prices, sources, opening, from, count }: RatesEveryOptions
 };
 
 /**
- * What an amount quoted in a currency comes to in rupees, with the rate of the
- * currency; a quote in rupees needs no multiplying.
+ * What an amount quoted in a currency comes to in the base, with the rate of
+ * the currency; a quote in the base needs no multiplying.
  */
 const rateOf = (amount: bigint, onward: bigint | null) => {
 	if (onward === null) return null;
@@ -218,6 +222,8 @@ type RatesOptions = {
 	prices: PriceYear[];
 	sources: PriceSources;
 	opening: Record<string, Quantity>;
+	/** The currency every rate is in. */
+	base: string;
 };
 
 type QuoteRow = {
@@ -231,10 +237,10 @@ type QuoteRow = {
 type Quote = (commodity: string, i: number) => Quantity | null | undefined;
 
 /**
- * Each commodity's rupees per unit on one day, carrying the latest quote
- * forward and reaching rupees by the hops.
+ * What a unit of each commodity is worth in the base on one day, carrying the
+ * latest quote forward and reaching the base by the hops.
  */
-const ratesOf = ({ prices, sources, opening, count, offsetOf }: RatesOptions) => {
+const ratesOf = ({ prices, sources, opening, count, offsetOf, base }: RatesOptions) => {
 	const bySymbol = Map.groupBy(prices, (p) => p.symbolId);
 	const ownOf = new Map(sources.own.map((s) => [s.symbol, s.id]));
 	const linksOf = Map.groupBy(sources.links, (l) => l.alias);
@@ -288,16 +294,16 @@ const ratesOf = ({ prices, sources, opening, count, offsetOf }: RatesOptions) =>
 			: (opening[commodity] ?? null);
 	};
 
-	return { rateAt: rateThrough(quoteAt) };
+	return { rateAt: rateThrough(quoteAt, base) };
 };
 
 /**
- * Rupees per unit through at most HOPS quotes, rounding each step as multiply
+ * The base per unit through at most HOPS quotes, rounding each step as multiply
  * does, or null when a commodity has no quote on the day.
  */
-const rateThrough = (quote: Quote) => {
+const rateThrough = (quote: Quote, base: string) => {
 	const rateOn = (i: number, commodity: string, rate: bigint, hops: number): bigint | null => {
-		if (commodity === DEFAULT_COMMODITY) return rate;
+		if (commodity === base) return rate;
 		if (hops === HOPS) return null;
 
 		const price = quote(commodity, i);

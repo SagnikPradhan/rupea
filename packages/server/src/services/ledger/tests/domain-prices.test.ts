@@ -1,4 +1,4 @@
-import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
+import { READING } from '@rupea/server/tests/shared/reading.ts';
 import { parseAmount, type Amount } from '#services/ledger/domain/amounts.ts';
 import { parse } from '#services/ledger/domain/parser.ts';
 import { marketPrices } from '#services/ledger/domain/prices.ts';
@@ -6,7 +6,7 @@ import { PriceSource } from '#services/ledger/domain/types.ts';
 import { describe, expect, it } from 'vitest';
 
 const pricesIn = (lines: string[]) => {
-	const parsed = parse(defaultConfiguration.ledger, {
+	const parsed = parse(READING, {
 		key: 'a.rupea',
 		content: `${lines.join('\n')}\n`,
 	});

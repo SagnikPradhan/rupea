@@ -3,8 +3,10 @@
 	import Tooltip from '#lib/web/components/ui-tooltip/ui-tooltip.svelte';
 	import { labelsIn, seriesOf, VIEW } from '#lib/web/shared/chart.ts';
 	import type { Dot } from '#lib/web/shared/dots.ts';
-	import { formatPercent } from '#lib/web/shared/format.ts';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { scaleLinear, scaleSqrt } from 'd3-scale';
+
+	const formats = formatsHere();
 
 	type Props = {
 		dots: Dot[];
@@ -40,10 +42,10 @@
 			.range([NARROWEST, WIDEST]),
 	);
 	const bottom = $derived(
-		xs.ticks(labelsIn(box.width, 'across')).map((n) => ({ at: xs(n), label: formatPercent(n) })),
+		xs.ticks(labelsIn(box.width, 'across')).map((n) => ({ at: xs(n), label: formats.percent(n) })),
 	);
 	const side = $derived(
-		ys.ticks(labelsIn(box.height, 'up')).map((n) => ({ at: ys(n), label: formatPercent(n) })),
+		ys.ticks(labelsIn(box.height, 'up')).map((n) => ({ at: ys(n), label: formats.percent(n) })),
 	);
 </script>
 
@@ -72,8 +74,8 @@
 			{#if hovered.dot}
 				<Tooltip left={xs(hovered.dot.across)} top={ys(hovered.dot.up)}>
 					{hovered.dot.label}
-					<data>{formatPercent(hovered.dot.up)} a year</data>
-					<data>swings {formatPercent(hovered.dot.across)}</data>
+					<data>{formats.percent(hovered.dot.up)} a year</data>
+					<data>swings {formats.percent(hovered.dot.across)}</data>
 				</Tooltip>
 			{/if}
 		</div>

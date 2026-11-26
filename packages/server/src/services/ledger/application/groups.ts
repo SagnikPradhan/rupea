@@ -1,4 +1,4 @@
-import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
+import type { LedgerReading } from '#lib/server/shared/context/config.ts';
 import { withContext } from '#lib/server/shared/context/context.ts';
 import { batchInOrder } from '#lib/server/shared/result/batch.ts';
 import { fault, type RupeaError } from '@rupea/shared/errors.ts';
@@ -15,6 +15,7 @@ import { counted, GroupRole, linksOf } from '../domain/groups';
 import { insertLinks, rewriteLinks, type LinkEdit, type Relink } from '../domain/links';
 import type { Ledger, RupeaFile, RupeaTransaction } from '../domain/types';
 import { editFile, readFile } from './files';
+import { readingOf } from './ledger';
 
 type Candidates = { pairs: DB.CandidatePair[]; transactions: DB.IndexedTransaction[] };
 
@@ -113,7 +114,7 @@ const relinkFiles = (ledger: Ledger, o: RelinkOptions): ResultAsync<RupeaError[]
 type Rewrite = {
 	key: string;
 	primary: boolean;
-	write: (c: LedgerConfiguration, f: RupeaFile) => Result<string>;
+	write: (c: LedgerReading, f: RupeaFile) => Result<string>;
 };
 
 type Prepared = { file: RupeaFile; content: string; primary: boolean };
@@ -129,7 +130,7 @@ const rewriteFiles = (l: Ledger, rs: Rewrite[]): ResultAsync<RupeaError[]> =>
 
 const prepare = (ledger: Ledger, r: Rewrite): ResultAsync<Prepared> =>
 	readFile({ ledger, key: r.key }).andThen((file) =>
-		withContext('config')((c) => r.write(c.ledger, file)).map((content) => ({
+		withContext('config')((c) => r.write(readingOf(c, ledger), file)).map((content) => ({
 			file,
 			content,
 			primary: r.primary,

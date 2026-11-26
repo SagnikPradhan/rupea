@@ -190,7 +190,11 @@ const returnsOver = ({ ledger, shared, span }: ReturnsOverOptions) => {
 		ResultAsync.combine(earned),
 	]).map(([start, end, moved, alongside, earned]) => {
 		const rowsOf = (b: Batch<Balances>) => b.succeeded[0]?.rows ?? [];
-		const flows = flowsOf(rowsOf(moved), [...rowsOf(alongside), ...earned.flatMap(rowsOf)]);
+		const flows = flowsOf({
+			deltas: rowsOf(moved),
+			earning: [...rowsOf(alongside), ...earned.flatMap(rowsOf)],
+			base: ledger.base,
+		});
 		const accounts = Object.keys(parentsIn(tree));
 		const returns = returnsOf({
 			accounts,

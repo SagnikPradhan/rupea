@@ -10,7 +10,7 @@
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import { isUnder, nameOf } from '#lib/web/shared/accounts.ts';
-	import { formatIsoDate, formatWhole } from '#lib/web/shared/format.ts';
+	import { formatsHere, formatIsoDate } from '#lib/web/shared/format.ts';
 	import { settingsHref } from '#lib/web/shared/links.ts';
 	import { askedIn } from '#lib/web/shared/settings.ts';
 	import { goto } from '$app/navigation';
@@ -19,6 +19,8 @@
 	type Props = { ledger: { handle: string; name: string } };
 
 	const { ledger }: Props = $props();
+
+	const formats = formatsHere();
 
 	const handle = $derived(ledger.handle);
 	const day = formatIsoDate(new Date());
@@ -68,7 +70,7 @@
 						{#each budgets.data ?? [] as b (b.account)}
 							<tr>
 								<th scope="row" title={b.account}>{b.account}</th>
-								<td class="amount">{formatWhole(printAmount(b.limit))}</td>
+								<td class="amount">{formats.whole(printAmount(b.limit))}</td>
 								<td>{b.length === 'year' ? 'Each year' : 'Each month'}</td>
 								<td>
 									<a

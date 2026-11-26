@@ -12,7 +12,9 @@
 <PageHeader subtitle="What changed last month">Home</PageHeader>
 
 {#if ledger}
-	<Home handle={ledger.handle} />
+	{#key `${ledger.handle} ${ledger.base}`}
+		<Home handle={ledger.handle} base={ledger.base} />
+	{/key}
 {:else}
 	<p>You have no ledgers yet.</p>
 {/if}

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { fault, type RupeaError } from '@rupea/shared/errors.ts';
 import { detail, explain, isWarning, placesOf } from '#lib/web/shared/errors.ts';
+import { formatsIn } from '#lib/web/shared/format.ts';
 
 const at = 'a.rupea:4';
 
@@ -33,8 +34,14 @@ describe('explain', () => {
 			'“bad” isn’t a valid account name.',
 		],
 		[
-			fault('ParseUnbalancedTransaction', { location: at, residual: '20 INR' }),
-			'This transaction is off by 20 INR.',
+			fault('ParseUnbalancedTransaction', {
+				location: at,
+				residual: [
+					{ amount: '1250.50', commodity: 'INR' },
+					{ amount: '10.00', commodity: 'AAPL' },
+				],
+			}),
+			'This transaction is off by 1,250.5 and 10 AAPL.',
 		],
 		[
 			fault('ParseMultipleImplicitPostings', { location: at }),
@@ -63,6 +70,10 @@ describe('explain', () => {
 			'“google” isn’t a feed. Link to mfapi or yahoo.',
 		],
 		[
+			fault('ParseInvalidBase', { location: at, base: 'dollars' }),
+			'“dollars” isn’t a currency code. Write one like INR or USD.',
+		],
+		[
 			fault('ParseInvalidAccountLine', { location: at }),
 			'This A line should give a date or *, then an account.',
 		],
@@ -85,6 +96,10 @@ describe('explain', () => {
 		[
 			fault('CannotWriteBudget', { path: 'main.rupea' }),
 			'This budget wouldn’t read back as written. Check it for a line break.',
+		],
+		[
+			fault('CannotWriteBase', { path: 'main.rupea' }),
+			'The currency wouldn’t read back from main.rupea. Check the lines at its top.',
 		],
 		[
 			fault('AccountRepeated', { location: at, account: 'Liabilities:Card' }),
@@ -115,8 +130,8 @@ describe('explain', () => {
 				group: 'rent',
 				location: at,
 				account: 'Assets:Bank',
-				expected: '-100',
-				actual: '-90',
+				expected: { amount: '-100.00', commodity: 'INR' },
+				actual: { amount: '-90.00', commodity: 'INR' },
 			}),
 			'Group rent disagrees on Assets:Bank: expected -100, got -90.',
 		],
@@ -124,10 +139,10 @@ describe('explain', () => {
 			fault('BalanceAssertionFailed', {
 				location: at,
 				account: 'Assets:Bank',
-				expected: '100',
-				actual: '90',
+				expected: { amount: '100000.00', commodity: 'INR' },
+				actual: { amount: '90.00', commodity: 'USD' },
 			}),
-			'Assets:Bank should be 100 here, but is 90.',
+			'Assets:Bank should be 1,00,000 here, but is 90 USD.',
 		],
 		[
 			fault('BalanceAssertionAmbiguous', {
@@ -154,7 +169,7 @@ describe('explain', () => {
 		[fault('AuthManyLocalUsers', { count: 2 }), 'Something went wrong (AuthManyLocalUsers).'],
 		[fault('UnknownError', { message: 'fetch failed' }), 'Something went wrong: fetch failed'],
 	])('explains %o', (error, sentence) => {
-		expect(explain(error)).toBe(sentence);
+		expect(explain(error, formatsIn('INR'))).toBe(sentence);
 	});
 });
 

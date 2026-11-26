@@ -29,7 +29,12 @@ const side = (file: string, description: string) => ({
 	date: '2026-10-03',
 	time: null,
 	description,
-	postings: [{ account: 'Assets:IBKR', quantity: '1000.00' }],
+	postings: [
+		{
+			account: 'Assets:IBKR',
+			quantity: { amount: '1000.00', commodity: 'INR', price: null, cost: null },
+		},
+	],
 });
 
 const transfer = {

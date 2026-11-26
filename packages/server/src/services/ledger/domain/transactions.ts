@@ -1,15 +1,8 @@
-import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
+import type { LedgerReading } from '#lib/server/shared/context/config.ts';
 import { fault } from '@rupea/shared/errors.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
 import type { TransactionForm } from '@rupea/shared/forms.ts';
-import {
-	DEFAULT_COMMODITY,
-	printAmount,
-	formatQuantity,
-	parseAmount,
-	type Amount,
-	type Quantity,
-} from './amounts';
+import { printAmount, formatQuantity, parseAmount, type Amount, type Quantity } from './amounts';
 import { parseTree } from './parser';
 import { print } from './printer';
 import {
@@ -29,7 +22,7 @@ type InsertOptions = { file: Pick<RupeaFile, 'key' | 'content'>; form: Transacti
  * back as meant.
  */
 export const insert = (
-	c: LedgerConfiguration,
+	c: LedgerReading,
 	{ file, form }: InsertOptions,
 ): Result<{ content: string; line: number }> => {
 	const tree = parseTree(c, file);
@@ -45,7 +38,7 @@ type ReplaceOptions = {
 
 /** Swaps the transaction at a line for a form's, which moves if its date did. */
 export const replace = (
-	c: LedgerConfiguration,
+	c: LedgerReading,
 	{ file, line, form }: ReplaceOptions,
 ): Result<{ content: string; line: number }> => {
 	const tree = parseTree(c, file);
@@ -59,7 +52,7 @@ export const replace = (
 
 /** Takes the transaction at a line out of a file. */
 export const remove = (
-	c: LedgerConfiguration,
+	c: LedgerReading,
 	{ file, line }: Pick<ReplaceOptions, 'file' | 'line'>,
 ): Result<{ content: string }> => {
 	const tree = parseTree(c, file);
@@ -70,8 +63,8 @@ export const remove = (
 };
 
 /** The form that would write a transaction as it is. */
-export const formOf = (file: string, t: RupeaTransactionNode): TransactionForm => ({
-	file,
+export const formOf = (t: RupeaTransactionNode, base: string): TransactionForm => ({
+	file: t.location.file,
 	date: t.date.toString(),
 	time: t.time?.toString() ?? '',
 	description: t.description,
@@ -80,10 +73,10 @@ export const formOf = (file: string, t: RupeaTransactionNode): TransactionForm =
 	postings: t.children.map((p) => ({
 		account: p.account,
 		amount: p.elided ? '' : printAmount(p.amount),
-		commodity: p.elided || p.commodity === DEFAULT_COMMODITY ? '' : p.commodity,
-		price: p.price === null ? '' : formatQuantity(p.price),
+		commodity: p.elided || p.commodity === base ? '' : p.commodity,
+		price: p.price === null ? '' : formatQuantity(p.price, base),
 		total: p.price?.kind === PriceKind.Total,
-		cost: p.cost === null ? '' : formatQuantity(p.cost),
+		cost: p.cost === null ? '' : formatQuantity(p.cost, base),
 		costDate: p.cost?.date?.toString() ?? '',
 		balance: p.balance === null ? '' : printAmount(p.balance),
 		comment: p.comments.join('\n'),
@@ -93,10 +86,10 @@ export const formOf = (file: string, t: RupeaTransactionNode): TransactionForm =
 
 /** The transaction that starts at a line, and the entries around it. */
 export const find = (
-	c: LedgerConfiguration,
+	c: LedgerReading,
 	{ file, line }: Pick<ReplaceOptions, 'file' | 'line'>,
 ): Result<TransactionForm> =>
-	found(parseTree(c, file), file.key, line).map(({ old }) => formOf(file.key, old));
+	found(parseTree(c, file), file.key, line).map(({ old }) => formOf(old, c.base));
 
 const found = (
 	tree: RupeaFileNode,
@@ -113,13 +106,13 @@ const found = (
 
 /** A form's transaction as the entry a file would read it back as. */
 const entryOf = (
-	c: LedgerConfiguration,
+	c: LedgerReading,
 	key: string,
 	form: TransactionForm,
 ): Result<RupeaTransactionNode> => {
 	const cannot = err(fault('CannotWriteTransaction', { path: key }));
 
-	const node = nodeOf(key, form);
+	const node = nodeOf(form, { file: key, base: c.base });
 	const alone = print(c, { kind: NodeKind.File, comments: [], metadata: [], children: [node] });
 	const [entry, ...rest] = parseTree(c, { key, content: alone }).children;
 	if (entry?.kind === NodeKind.Failed && entry.errors[0]) return err(entry.errors[0]);
@@ -134,7 +127,7 @@ const entryOf = (
  * and prints the file.
  */
 const placed = (
-	c: LedgerConfiguration,
+	c: LedgerReading,
 	key: string,
 	tree: RupeaFileNode,
 	others: RupeaEntryNode[],
@@ -155,7 +148,7 @@ const placed = (
  * else.
  */
 const written = (
-	c: LedgerConfiguration,
+	c: LedgerReading,
 	key: string,
 	tree: RupeaFileNode,
 ): Result<{ content: string; read: RupeaFileNode }> => {
@@ -192,7 +185,9 @@ const shapeOf = (node: RupeaFileNode | RupeaEntryNode) =>
 const isElided = (x: unknown): x is RupeaPostingNode =>
 	typeof x === 'object' && x !== null && 'elided' in x && x.elided === true;
 
-const nodeOf = (file: string, form: TransactionForm): RupeaTransactionNode => ({
+type NodeOfOptions = { file: string; base: string };
+
+const nodeOf = (form: TransactionForm, { file, base }: NodeOfOptions): RupeaTransactionNode => ({
 	kind: NodeKind.Transaction,
 	location: { file, line: 1 },
 	comments: commentsOf(form.comment),
@@ -200,25 +195,25 @@ const nodeOf = (file: string, form: TransactionForm): RupeaTransactionNode => ({
 	time: form.time === '' ? null : Temporal.PlainTime.from(form.time),
 	description: form.description.replaceAll(/\s+/g, ' '),
 	metadata: form.metadata.map((m) => [m.key, m.value]),
-	children: form.postings.map(postingOf),
+	children: form.postings.map((p) => postingOf(p, base)),
 });
 
-const postingOf = (p: TransactionForm['postings'][number]): RupeaPostingNode => ({
+const postingOf = (p: TransactionForm['postings'][number], base: string): RupeaPostingNode => ({
 	kind: NodeKind.Posting,
 	comments: commentsOf(p.comment),
 	account: p.account,
 	amount: p.amount === '' ? (0n as Amount) : amountOf(p.amount),
 	elided: p.amount === '',
-	commodity: p.commodity === '' ? DEFAULT_COMMODITY : p.commodity.toUpperCase(),
+	commodity: p.commodity === '' ? base : p.commodity.toUpperCase(),
 	price:
 		p.price === ''
 			? null
-			: { ...quantityOf(p.price), kind: p.total ? PriceKind.Total : PriceKind.Unit },
+			: { ...quantityOf(p.price, base), kind: p.total ? PriceKind.Total : PriceKind.Unit },
 	cost:
 		p.cost === ''
 			? null
 			: {
-					...quantityOf(p.cost),
+					...quantityOf(p.cost, base),
 					date: p.costDate === '' ? null : Temporal.PlainDate.from(p.costDate),
 				},
 	balance: p.balance === '' ? null : amountOf(p.balance),
@@ -236,7 +231,7 @@ const commentsOf = (t: string) =>
 /** The form's schema has checked every amount by now. */
 const amountOf = (t: string) => parseAmount(t) as Amount;
 
-const quantityOf = (text: string): Quantity => {
-	const [amount = '', commodity = DEFAULT_COMMODITY] = text.split(/\s+/);
+const quantityOf = (text: string, base: string): Quantity => {
+	const [amount = '', commodity = base] = text.split(/\s+/);
 	return { amount: amountOf(amount), commodity: commodity.toUpperCase() };
 };

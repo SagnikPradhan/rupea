@@ -53,7 +53,7 @@ describe('listing transactions', () => {
 			await Files.createFile({ ledger, key: 'a.rupea', content });
 
 			expect(await listed(ledger)).toMatchObject(
-				Files.parseFile({ key: 'a.rupea', content }).succeeded.toReversed(),
+				Files.parseFile({ ledger, key: 'a.rupea', content }).succeeded.toReversed(),
 			);
 		}));
 });

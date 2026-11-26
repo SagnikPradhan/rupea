@@ -1,4 +1,4 @@
-import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
+import { READING } from '@rupea/server/tests/shared/reading.ts';
 import {
 	parseAmount,
 	printAmount,
@@ -13,7 +13,7 @@ import { describe, expect, it } from 'vitest';
 
 const booked = (lines: string[], commodity = 'INFY') => {
 	const content = `${lines.join('\n')}\n`;
-	const parsed = parse(defaultConfiguration.ledger, { key: 'a.rupea', content });
+	const parsed = parse(READING, { key: 'a.rupea', content });
 	if (parsed.failed.length > 0) throw new Error(JSON.stringify(parsed.failed));
 
 	const postings: BookedPosting[] = parsed.succeeded.flatMap((t) =>
@@ -34,17 +34,17 @@ const booked = (lines: string[], commodity = 'INFY') => {
 				: [],
 		),
 	);
-	const { lots, disposals } = book(postings);
+	const { lots, disposals } = book(postings, 'INR');
 	const position = (id: string | null) => (id === null ? null : lots.findIndex((l) => l.id === id));
 
 	return {
 		lots: lots.map(
 			(l, i) =>
-				`${i} ${l.accountId} ${printAmount(l.units)} {${formatQuantity(l.cost)}, ${l.date.toString()}} ${l.origin} left ${printAmount(l.remaining)}${l.source === null ? '' : ` from ${position(l.source)}`}`,
+				`${i} ${l.accountId} ${printAmount(l.units)} {${formatQuantity(l.cost, 'INR')}, ${l.date.toString()}} ${l.origin} left ${printAmount(l.remaining)}${l.source === null ? '' : ` from ${position(l.source)}`}`,
 		),
 		disposals: disposals.map(
 			(d) =>
-				`${d.posting} ${d.kind} ${printAmount(d.units)} from ${position(d.lot) ?? 'nothing'}${d.price ? ` @ ${formatQuantity(d.price)}` : ''}`,
+				`${d.posting} ${d.kind} ${printAmount(d.units)} from ${position(d.lot) ?? 'nothing'}${d.price ? ` @ ${formatQuantity(d.price, 'INR')}` : ''}`,
 		),
 	};
 };
@@ -71,6 +71,21 @@ describe('buying', () => {
 			'1 Assets:Zerodha 10.00 {1500.00, 2024-06-03} buy left 10.00',
 			'2 Assets:Zerodha 5.00 {1800.00, 2024-07-01} buy left 5.00',
 		]);
+	});
+
+	it('opens a lot nothing priced at nothing in the base', () => {
+		const posting: BookedPosting = {
+			id: 'p',
+			transaction: 't',
+			accountId: 'Assets:Broker',
+			held: true,
+			date: Temporal.PlainDate.from('2024-01-02'),
+			amount: parseAmount('10') as Amount,
+			price: null,
+			cost: null,
+		};
+
+		expect(book([posting], 'USD').lots[0]?.cost).toEqual({ amount: 0n, commodity: 'USD' });
 	});
 
 	it('opens nothing for an account that is a category', () => {

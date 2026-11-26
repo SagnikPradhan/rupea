@@ -39,6 +39,7 @@ export const ledgers = PG.pgTable(
 			.references(() => users.id, { onDelete: 'cascade' }),
 		handle: t.text().notNull().unique('ledgers_handle_unique'),
 		name: t.text().notNull(),
+		base: t.text().notNull().default('INR'), // the currency a bare amount is in, copied from main.rupea
 		checkedThrough: t.date(), // the last day monthly deltas were rebuilt to, or none to start again
 	}),
 	(t) => [PG.index('ledgers_owner_id').on(t.ownerId)],
@@ -189,7 +190,7 @@ export const postings = PG.pgTable(
 		PG.index('postings_ledger_id_commodity').on(t.ledgerId, t.commodity), // lots are booked per commodity
 		PG.index('postings_account_id_date_other')
 			.on(t.accountId, t.date)
-			.where(sql`${t.commodity} <> 'INR' and ${t.counted}`), // held in another commodity than the base
+			.where(sql`${t.commodity} <> 'INR' and ${t.counted}`), // held in another commodity than an INR base; other bases read the index above
 		PG.index('postings_ledger_id_balance')
 			.on(t.ledgerId, t.accountId, t.commodity)
 			.where(sql`${t.balance} IS NOT NULL`),

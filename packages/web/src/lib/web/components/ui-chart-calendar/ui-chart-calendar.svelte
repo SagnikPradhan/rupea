@@ -1,13 +1,9 @@
 <script lang="ts" generics="Row extends Record<string, unknown>">
-	import {
-		formatAmount,
-		formatBucket,
-		formatCompact,
-		formatDate,
-		formatMonth,
-	} from '#lib/web/shared/format.ts';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import type { ResolvedPathname } from '$app/types';
 	import type { Snippet } from 'svelte';
+
+	const formats = formatsHere();
 
 	type Props = {
 		/**
@@ -91,7 +87,7 @@
 	const months = $derived.by(() => {
 		const names = weeks.map((week) => {
 			const first = week.find((i) => i !== null && String(rows[i]?.[x]).endsWith('-01'));
-			return first === undefined || first === null ? '' : formatMonth(String(rows[first]?.[x]));
+			return first === undefined || first === null ? '' : formats.month(String(rows[first]?.[x]));
 		});
 		const crowded = names[0] !== '' && names.slice(1, 3).some((n) => n !== '');
 
@@ -101,7 +97,7 @@
 	/** The first of a month, and the first day shown, also name their month. */
 	const nameOf = (day: string, i: number) =>
 		weekly && (i === 0 || day.endsWith('-01'))
-			? formatBucket.day(day)
+			? formats.bucket.day(day)
 			: String(Number(day.slice(8)));
 
 	const weekdayOf = (day: string) => (new Date(day).getUTCDay() + 6) % 7;
@@ -145,8 +141,8 @@
 							>
 								<a
 									href={href?.(day)}
-									title={formatAmount(String(rows[i]?.[y] ?? '0'))}
-									aria-label="{formatDate(day)}, {formatAmount(String(rows[i]?.[y] ?? '0'))}"
+									title={formats.whole(String(rows[i]?.[y] ?? '0'))}
+									aria-label="{formats.date(day)}, {formats.whole(String(rows[i]?.[y] ?? '0'))}"
 									tabindex={href ? undefined : 0}
 									onfocus={() => (hovered.index = i)}
 									onblur={() => (hovered.index = null)}
@@ -154,7 +150,7 @@
 									{#if labelled}
 										<span class="day">{nameOf(day, i)}</span>
 
-										<data value={amount}>{amount === 0 ? '' : formatCompact(amount)}</data>
+										<data value={amount}>{amount === 0 ? '' : formats.compact(amount)}</data>
 									{/if}
 								</a>
 							</td>

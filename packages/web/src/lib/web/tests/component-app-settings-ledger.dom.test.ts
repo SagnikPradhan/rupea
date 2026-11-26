@@ -16,6 +16,10 @@ vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
 	saveTerms: Object.assign(vi.fn(), { pending: 0 }),
 	saveBudget: Object.assign(vi.fn(), { pending: 0 }),
 }));
+vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
+	listCurrencies: vi.fn(() => answer(['INR', 'USD'])),
+	saveBase: vi.fn(),
+}));
 
 const amount = (t: string) => parseAmount(t) as Amount;
 const account = (a: string, parent: string | null) => ({ account: a, parent, posted: true });
@@ -54,14 +58,14 @@ const food = {
 	current: { limit: '10000' },
 };
 
-const ledger = { handle: 'h', name: 'Personal' };
+const ledger = { handle: 'h', name: 'Personal', base: 'INR' };
 
-const open = (path: string) => {
+const open = (path: string, base = 'INR') => {
 	visit(path);
 	vi.mocked(listAccounts).mockReturnValue(answer(accounts));
 	vi.mocked(listTerms).mockReturnValue(answer(terms));
 	vi.mocked(listBudgets).mockReturnValue(answer([food]));
-	render(SettingsLedger, { ledger });
+	render(SettingsLedger, { ledger: { ...ledger, base } });
 };
 
 describe('the accounts of a ledger in settings', () => {
@@ -75,6 +79,13 @@ describe('the accounts of a ledger in settings', () => {
 		expect(within(loans).getByText('8.5%')).toBeTruthy();
 		const unset = screen.getByRole('table', { name: 'Not set up in Personal' });
 		expect(within(unset).getByText('Liabilities:Friend')).toBeTruthy();
+	});
+
+	it('writes amounts the way the base currency does', async () => {
+		open('/settings', 'USD');
+
+		const cards = await screen.findByRole('table', { name: 'Cards in Personal' });
+		expect(within(cards).getByText('200,000')).toBeTruthy();
 	});
 
 	it('links each account to its terms, naming the ledger', async () => {

@@ -19,11 +19,13 @@
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
 	import * as Accounts from '#lib/web/shared/accounts.ts';
-	import { formatDate, formatIsoDate } from '#lib/web/shared/format.ts';
+	import { formatsHere, formatIsoDate } from '#lib/web/shared/format.ts';
 	import { editHref, hrefWith } from '#lib/web/shared/links.ts';
 	import { rowOf } from '#lib/web/shared/transaction-row.ts';
 	import { paged } from '#lib/web/shared/paged.svelte.ts';
 	import { page } from '$app/state';
+
+	const formats = formatsHere();
 
 	const { data } = $props();
 
@@ -87,7 +89,7 @@
 					{@const { from, to, more, amount } = rowOf(transaction.postings)}
 					<tr class:evidence={!transaction.counted}>
 						<td class="date">
-							<time datetime={transaction.date}>{formatDate(transaction.date)}</time>
+							<time datetime={transaction.date}>{formats.date(transaction.date)}</time>
 							{#if transaction.time}<span>{transaction.time}</span>{/if}
 						</td>
 						<td class="optional truncate">

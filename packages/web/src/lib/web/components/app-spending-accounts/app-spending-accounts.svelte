@@ -9,10 +9,12 @@
 	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
 	import Swatch from '#lib/web/components/ui-swatch/ui-swatch.svelte';
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
-	import { formatShare } from '#lib/web/shared/format.ts';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { postingsHref } from '#lib/web/shared/links.ts';
 	import * as Spending from '#lib/web/shared/spending.ts';
 	import { SvelteSet } from 'svelte/reactivity';
+
+	const formats = formatsHere();
 
 	type Props = {
 		label: string;
@@ -88,7 +90,7 @@
 					</th>
 					<Amount value={printAmount(row.amount)} />
 					<td class="amount share optional">
-						{#if row.account !== account}{formatShare(
+						{#if row.account !== account}{formats.share(
 								printAmount(row.amount),
 								printAmount(total),
 							)}{/if}

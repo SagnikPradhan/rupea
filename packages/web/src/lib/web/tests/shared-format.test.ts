@@ -1,76 +1,100 @@
 import { describe, expect, it } from 'vitest';
-import {
-	formatAmount,
-	formatWhole,
-	formatChange,
-	formatColumn,
-	formatBucket,
-	formatCompact,
-	formatDate,
-	formatExact,
-	formatIsoDate,
-	formatMoment,
-	formatReturn,
-	formatSize,
-	toneOf,
-} from '#lib/web/shared/format.ts';
+import { formatColumn, formatIsoDate, formatsIn, toneOf } from '#lib/web/shared/format.ts';
 
-describe('formatAmount', () => {
+const rupees = formatsIn('INR');
+
+describe('formatsIn(INR).whole', () => {
 	it('groups digits the Indian way, with no paise', () => {
-		expect(formatAmount('1250000')).toBe('12,50,000');
-		expect(formatAmount('-1250.5')).toBe('-1,251');
-	});
-
-	it('rounds rupees to whole ones, and units to four places', () => {
-		expect(formatAmount('1250.5678')).toBe('1,251');
-		expect(formatAmount('0.123456789 USD')).toBe('0.1235 USD');
-		expect(formatAmount('7.123456', true)).toBe('7.1235');
-	});
-
-	it('keeps the commodity after the number', () => {
-		expect(formatAmount('10 INFY')).toBe('10 INFY');
+		expect(rupees.whole('1250000')).toBe('12,50,000');
+		expect(rupees.whole('-1250.5')).toBe('-1,251');
 	});
 
 	it('drops the minus of an amount that rounds to nothing', () => {
-		expect(formatAmount('-0.4')).toBe('0');
-		expect(formatWhole('-0.3')).toBe('0');
+		expect(rupees.whole('-0.4')).toBe('0');
 	});
 });
 
-describe('formatExact', () => {
-	it('gives every digit only when formatAmount rounds some away', () => {
-		expect(formatExact('1250.5678')).toBe('1,250.5678');
-		expect(formatExact('0.123456789 USD')).toBe('0.123456789 USD');
-		expect(formatExact('1250.5')).toBe('1,250.5');
-		expect(formatExact('1250', '1,250')).toBeUndefined();
+describe('formatsIn(INR).units', () => {
+	it('rounds to four places', () => {
+		expect(rupees.units('7.123456')).toBe('7.1235');
+		expect(rupees.units('1250000.5')).toBe('12,50,000.5');
 	});
 });
 
-describe('formatReturn', () => {
+describe('formatsIn(INR).quantity', () => {
+	it('leaves rupees bare, and names any other commodity', () => {
+		expect(rupees.quantity({ amount: '-1250.50', commodity: 'INR' })).toBe('-1,250.5');
+		expect(rupees.quantity({ amount: '0.123456789', commodity: 'USD' })).toBe('0.1235 USD');
+	});
+
+	it('shows a unit price with @ and a total price with @@', () => {
+		const posted = { amount: '10.00', commodity: 'INFY', cost: null };
+		const price = { amount: '1500.125', commodity: 'INR' };
+		expect(rupees.quantity({ ...posted, price: { ...price, kind: 'unit' } })).toBe(
+			'10 INFY @ 1,500.125',
+		);
+		expect(rupees.quantity({ ...posted, price: { ...price, kind: 'total' } })).toBe(
+			'10 INFY @@ 1,500.125',
+		);
+	});
+
+	it('shows a lot cost with its date, and before a price', () => {
+		const posted = {
+			amount: '-5.00',
+			commodity: 'INFY',
+			price: { amount: '1500.00', commodity: 'INR', kind: 'unit' as const },
+		};
+		const cost = { amount: '1400.00', commodity: 'INR' };
+		expect(rupees.quantity({ ...posted, cost: { ...cost, date: '2026-01-02' } })).toBe(
+			'-5 INFY {1,400, 2026-01-02} @ 1,500',
+		);
+		expect(rupees.quantity({ ...posted, cost: { ...cost, date: null } })).toBe(
+			'-5 INFY {1,400} @ 1,500',
+		);
+	});
+});
+
+describe('formatsIn(INR).suffix', () => {
+	it('is what follows the number, and nothing for rupees', () => {
+		expect(rupees.suffix({ amount: '10.00', commodity: 'INFY' })).toBe('INFY');
+		expect(rupees.suffix({ amount: '10.00', commodity: 'INR' })).toBe('');
+	});
+});
+
+describe('formatsIn(INR).exact', () => {
+	it('gives every digit only when rupees.whole rounds some away', () => {
+		expect(rupees.exact('1250.5678')).toBe('1,250.5678');
+		expect(rupees.exact('0.123456789', '0.1235')).toBe('0.123456789');
+		expect(rupees.exact('1250.5')).toBe('1,250.5');
+		expect(rupees.exact('1250', '1,250')).toBeUndefined();
+	});
+});
+
+describe('formatsIn(INR).gain', () => {
 	it('gives a gain as a share of its cost', () => {
-		expect(formatReturn('250', '1000')).toBe('+25%');
-		expect(formatReturn('-74.58', '399972.56')).toBe('0%');
+		expect(rupees.gain('250', '1000')).toBe('+25%');
+		expect(rupees.gain('-74.58', '399972.56')).toBe('0%');
 	});
 
 	it('gives nothing without a gain or a positive cost', () => {
-		expect(formatReturn(null, '1000')).toBeNull();
-		expect(formatReturn('10', '0')).toBeNull();
+		expect(rupees.gain(null, '1000')).toBeNull();
+		expect(rupees.gain('10', '0')).toBeNull();
 	});
 });
 
-describe('formatDate', () => {
+describe('rupees.date', () => {
 	it('reads an ISO date as the same day, whatever the time zone', () => {
-		expect(formatDate('2026-01-02')).toBe('2 Jan 2026');
+		expect(rupees.date('2026-01-02')).toBe('2 Jan 2026');
 	});
 });
 
-describe('formatMoment', () => {
+describe('rupees.moment', () => {
 	it('names the day of a moment', () => {
-		expect(formatMoment(new Date(2026, 7, 29, 12))).toBe('29 Aug 2026');
+		expect(rupees.moment(new Date(2026, 7, 29, 12))).toBe('29 Aug 2026');
 	});
 });
 
-describe('formatSize', () => {
+describe('rupees.size', () => {
 	it.each([
 		[0, '0 B'],
 		[999, '999 B'],
@@ -78,7 +102,7 @@ describe('formatSize', () => {
 		[3_400_000, '3.4 MB'],
 		[5_000_000_000, '5,000 MB'],
 	])('formats %i bytes as %s', (bytes, text) => {
-		expect(formatSize(bytes)).toBe(text);
+		expect(rupees.size(bytes)).toBe(text);
 	});
 });
 
@@ -88,23 +112,23 @@ describe('formatIsoDate', () => {
 	});
 });
 
-describe('formatBucket', () => {
+describe('rupees.bucket', () => {
 	it('names the day, month or year an ISO day starts', () => {
-		expect(formatBucket.day('2026-10-21')).toBe('21 Oct');
-		expect(formatBucket.month('2026-10-01')).toBe('Oct 2026');
-		expect(formatBucket.year('2026-01-01')).toBe('2026');
+		expect(rupees.bucket.day('2026-10-21')).toBe('21 Oct');
+		expect(rupees.bucket.month('2026-10-01')).toBe('Oct 2026');
+		expect(rupees.bucket.year('2026-01-01')).toBe('2026');
 	});
 });
 
-describe('formatCompact', () => {
+describe('formatsIn(INR).compact', () => {
 	it('shortens large numbers the Indian way', () => {
-		expect(formatCompact(1_200_000)).toBe('12L');
+		expect(rupees.compact(1_200_000)).toBe('12L');
 	});
 });
 
-describe('formatChange', () => {
+describe('formatsIn(INR).change', () => {
 	it('signs a gain and gives it as a share of the start', () => {
-		expect(formatChange('1000', '1250.5')).toEqual({
+		expect(rupees.change('1000', '1250.5')).toEqual({
 			amount: '+251',
 			percent: '+25.1%',
 			negative: false,
@@ -112,7 +136,7 @@ describe('formatChange', () => {
 	});
 
 	it('marks a loss as negative', () => {
-		expect(formatChange('200000', '150000')).toEqual({
+		expect(rupees.change('200000', '150000')).toEqual({
 			amount: '-50,000',
 			percent: '-25%',
 			negative: true,
@@ -120,11 +144,11 @@ describe('formatChange', () => {
 	});
 
 	it('shows no sign when nothing moved', () => {
-		expect(formatChange('10', '10')).toEqual({ amount: '0', percent: '0%', negative: false });
+		expect(rupees.change('10', '10')).toEqual({ amount: '0', percent: '0%', negative: false });
 	});
 
 	it.each(['0', '-500'])('gives no percent from a start of %s', (start) => {
-		expect(formatChange(start, '100').percent).toBeNull();
+		expect(rupees.change(start, '100').percent).toBeNull();
 	});
 });
 
@@ -147,5 +171,40 @@ describe('toneOf', () => {
 		[0, undefined],
 	])('tones %i as %s', (n, tone) => {
 		expect(toneOf(n)).toBe(tone);
+	});
+});
+
+describe('formatsIn', () => {
+	it('groups the way the base currency’s country does', () => {
+		expect(formatsIn('INR').whole('1234567')).toBe('12,34,567');
+		expect(formatsIn('USD').whole('1234567')).toBe('1,234,567');
+		expect(formatsIn('EUR').whole('1234567')).toBe('1,234,567');
+	});
+
+	it('writes rupees without a base, and a currency it has no country for as dollars do', () => {
+		expect(formatsIn(undefined).whole('1234567')).toBe('12,34,567');
+		expect(formatsIn('JPY').whole('1234567')).toBe('1,234,567');
+	});
+});
+
+describe('formatsIn(USD)', () => {
+	const dollars = formatsIn('USD');
+
+	it('writes dates the way the base currency country does', () => {
+		expect(dollars.date('2026-01-02')).toBe('Jan 2, 2026');
+		expect(dollars.bucket.day('2026-10-21')).toBe('Oct 21');
+	});
+
+	it('names every commodity but the base', () => {
+		expect(dollars.quantity({ amount: '20.00', commodity: 'USD' })).toBe('20');
+		expect(dollars.quantity({ amount: '100000.00', commodity: 'INR' })).toBe('100,000 INR');
+		expect(
+			dollars.quantity({
+				amount: '2.00',
+				commodity: 'AAPL',
+				price: { amount: '150.00', commodity: 'USD', kind: 'unit' },
+				cost: null,
+			}),
+		).toBe('2 AAPL @ 150');
 	});
 });

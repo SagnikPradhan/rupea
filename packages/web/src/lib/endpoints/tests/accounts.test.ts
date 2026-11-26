@@ -63,7 +63,10 @@ describe('accounts', () => {
 			measures: ['value', 'units', 'price', 'cost'],
 		});
 		expect(accounts.ok).toBe(true);
-		expect(accounts.data?.[0]?.holdings[0]).toMatchObject({ units: '2.00 INFY', price: '1500.00' });
+		expect(accounts.data?.[0]?.holdings[0]).toMatchObject({
+			units: { amount: '2.00', commodity: 'INFY' },
+			price: { amount: '1500.00', commodity: 'INR' },
+		});
 	});
 
 	it('lists worth over the period, narrowed to an account only when one is given', async () => {

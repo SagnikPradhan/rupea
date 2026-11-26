@@ -2,7 +2,9 @@
 	import Tooltip from '#lib/web/components/ui-tooltip/ui-tooltip.svelte';
 	import { AMOUNT_UNIT, type Amount, printAmount, toNumber } from '@rupea/shared/money.ts';
 	import { type Grain, bucketOf, bucketsIn } from '@rupea/shared/dates.ts';
-	import { formatAmount, formatBucket, formatMonth } from '#lib/web/shared/format.ts';
+	import { formatsHere } from '#lib/web/shared/format.ts';
+
+	const formats = formatsHere();
 
 	type Datum = {
 		at: Temporal.PlainDate;
@@ -66,7 +68,7 @@
 				<span
 					class={{ pin: true, past: p.past }}
 					role="listitem"
-					aria-label="{line.label}, {formatAmount(printAmount(p.amount))}, {formatBucket[bucket](
+					aria-label="{line.label}, {formats.whole(printAmount(p.amount))}, {formats.bucket[bucket](
 						p.at.toString(),
 					)}"
 					style:left="{leftOf(p.at, bucket)}%"
@@ -87,15 +89,15 @@
 					{#if hovered.pin === id}
 						<Tooltip left={50} top={0}>
 							{line.label}
-							<data value={printAmount(p.amount)}>{formatAmount(printAmount(p.amount))}</data>
+							<data value={printAmount(p.amount)}>{formats.whole(printAmount(p.amount))}</data>
 							{#if split}
 								<small>
 									about <data value={printAmount(p.interest)}>
-										{formatAmount(printAmount(p.interest))}
+										{formats.whole(printAmount(p.interest))}
 									</data> interest
 								</small>
 							{/if}
-							<time datetime={p.at.toString()}>{formatBucket[bucket](p.at.toString())}</time>
+							<time datetime={p.at.toString()}>{formats.bucket[bucket](p.at.toString())}</time>
 						</Tooltip>
 					{/if}
 				</span>
@@ -105,7 +107,7 @@
 	<div class="ticks" aria-hidden="true">
 		{#each ticks as t (t.toString())}
 			<time datetime={t.toString()} style:left="{leftOf(t, unit)}%">
-				{yearly ? formatBucket.year(t.toString()) : formatMonth(t.toString())}
+				{yearly ? formats.bucket.year(t.toString()) : formats.month(t.toString())}
 			</time>
 		{/each}
 	</div>

@@ -98,6 +98,8 @@ export const AmountOut = v.pipe(
 /** An amount of a commodity going out. */
 export const QuantityOut = v.object({ amount: AmountOut, commodity: v.string() });
 
+export type QuantityOut = v.InferOutput<typeof QuantityOut>;
+
 /** What a bare amount is in. */
 export const DEFAULT_COMMODITY = 'INR';
 
@@ -105,8 +107,6 @@ export const DEFAULT_COMMODITY = 'INR';
 export const CURRENCIES = Intl.supportedValuesOf('currency');
 
 export const hasLots = (c: string) => !CURRENCIES.includes(c);
-
-const SIGN = { unit: '@', total: '@@' };
 
 /**
  * What a posting moves, going out: an amount with its price and lot cost, if
@@ -119,18 +119,6 @@ export const PostedOut = v.object({
 });
 
 export type PostedOut = v.InferOutput<typeof PostedOut>;
-
-/** An amount and its commodity, which a bare rupee amount leaves out. */
-export const printQuantity = ({ amount, commodity }: v.InferOutput<typeof QuantityOut>): string =>
-	commodity === DEFAULT_COMMODITY ? amount : `${amount} ${commodity}`;
-
-/** A posting's amount with its lot cost and price, as the page shows it. */
-export const printPosted = ({ price, cost, ...quantity }: PostedOut): string =>
-	[
-		printQuantity(quantity),
-		...(cost ? [`{${[printQuantity(cost), ...(cost.date ? [cost.date] : [])].join(', ')}}`] : []),
-		...(price ? [SIGN[price.kind], printQuantity(price)] : []),
-	].join(' ');
 
 export const EXPENSES = 'Expenses';
 export const ASSETS = 'Assets';

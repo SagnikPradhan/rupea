@@ -1,5 +1,5 @@
 import { fault, type RupeaError } from '@rupea/shared/errors.ts';
-import { formatQuantity, sum } from './amounts';
+import { quantityOutOf, sum } from './amounts';
 import { displayLocation } from './parser';
 import { isBalance } from './taxonomy';
 import { type RupeaMetadata, type RupeaParseLocation, type RupeaPosting } from './types';
@@ -130,8 +130,8 @@ const disagreements = (
 				group,
 				location: displayLocations([evidence]),
 				account: actual.account,
-				expected: formatQuantity(differs),
-				actual: formatQuantity(actual),
+				expected: quantityOutOf(differs),
+				actual: quantityOutOf(actual),
 			}),
 		];
 	});

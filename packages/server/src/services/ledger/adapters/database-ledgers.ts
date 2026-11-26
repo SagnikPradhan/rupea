@@ -28,9 +28,9 @@ export const createLedger = ({ owner, handle, name }: CreateLedgerOptions): Resu
 			db
 				.insertInto('ledgers')
 				.values({ ownerId: owner, handle, name })
-				.returning('id')
+				.returning(['id', 'base'])
 				.executeTakeFirstOrThrow()
-				.then((i) => ({ id: i.id, handle, name, owner })),
+				.then((i) => ({ id: i.id, handle, name, owner, base: i.base })),
 		).mapErr((e) =>
 			violates(e, 'ledgers_handle_unique') ? fault('NameTaken', { name: handle }) : e,
 		),
@@ -47,6 +47,26 @@ export const lockLedger = (ledgerId: string): ResultAsync<void> =>
 		}),
 	);
 
+/** The ledger's base, as its files last said. */
+export const findBase = (ledgerId: string): ResultAsync<string> =>
+	withContext('db')((db) =>
+		attempt(() =>
+			db
+				.selectFrom('ledgers')
+				.select('base')
+				.where('id', '=', ledgerId)
+				.executeTakeFirstOrThrow()
+				.then((l) => l.base),
+		),
+	);
+
+export const saveBase = (ledgerId: string, base: string): ResultAsync<void> =>
+	withContext('db')((db) =>
+		attempt(async () => {
+			await db.updateTable('ledgers').set({ base }).where('id', '=', ledgerId).execute();
+		}),
+	);
+
 // A user reaches the ledgers they own and those they are a member of.
 const reachable = (db: Database, userId: string) =>
 	db
@@ -55,5 +75,11 @@ const reachable = (db: Database, userId: string) =>
 			j.onRef('memberships.ledgerId', '=', 'ledgers.id').on('memberships.userId', '=', userId),
 		)
 		.where((w) => w.or([w('ledgers.ownerId', '=', userId), w('memberships.id', 'is not', null)]))
-		.select(['ledgers.id', 'ledgers.handle', 'ledgers.name', 'ledgers.ownerId as owner'])
+		.select([
+			'ledgers.id',
+			'ledgers.handle',
+			'ledgers.name',
+			'ledgers.ownerId as owner',
+			'ledgers.base',
+		])
 		.orderBy('ledgers.createdAt');

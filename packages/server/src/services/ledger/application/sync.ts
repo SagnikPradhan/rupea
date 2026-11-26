@@ -10,7 +10,7 @@ import type { Ledger } from '../domain/types';
 import { syncLedger as syncJob } from './jobs';
 import { openFolder } from './ledger';
 import { addProblems, checkLedger, embed, queueFetches } from './sync-after';
-import { indexEach, listLedgerFiles, type ReindexOptions } from './sync-index';
+import { indexEach, listLedgerFiles, type Indexed, type ReindexOptions } from './sync-index';
 import { settle, settleAll } from './sync-settle';
 
 /**
@@ -96,7 +96,30 @@ const exclusively = <T>(id: string, f: () => ResultAsync<T>): ResultAsync<T> =>
 	atomically(() => DB.lockLedger(id).andThen(f));
 
 const indexAndSettle = (o: ReindexOptions): ResultAsync<RupeaError[]> =>
-	indexEach(o).andThen((i) => settle({ ledgerId: o.ledgerId, indexed: i }));
+	indexInBase(o).andThen(({ indexed, rebased }) =>
+		rebased
+			? settleAll(o.ledgerId).map(() => indexed.failed)
+			: settle({ ledgerId: o.ledgerId, indexed }),
+	);
+
+/**
+ * Indexes in the base the ledger holds. When main.rupea names another, it is
+ * saved and every file is read again, since each bare amount changed meaning.
+ */
+const indexInBase = (o: ReindexOptions): ResultAsync<{ indexed: Indexed; rebased: boolean }> =>
+	DB.findBase(o.ledgerId).andThen((held) =>
+		indexEach({ ...o, base: held }).andThen((i) => {
+			const base = i.base ?? held;
+			if (base === held) return okAsync({ indexed: i, rebased: false });
+
+			return DB.saveBase(o.ledgerId, base)
+				.andThen(() => listLedgerFiles(o.storage))
+				.andThen((f) =>
+					indexEach({ ...o, changed: f.map((e) => e.key), moved: [], gone: [], full: true, base }),
+				)
+				.map((a) => ({ indexed: a, rebased: true }));
+		}),
+	);
 
 // Storage is listed under the lock, so a file a writer indexed meanwhile is
 // listed too and never taken for gone. Most syncs find nothing changed, and
@@ -119,7 +142,7 @@ const update = (s: Storage, id: string, stored: Entry[]): ResultAsync<RupeaError
 const rebuild = (s: Storage, id: string, stored: Entry[]): ResultAsync<RupeaError[]> =>
 	DB.listIndexedFiles(id)
 		.andThen((indexed) =>
-			indexEach({
+			indexInBase({
 				ledgerId: id,
 				storage: s,
 				changed: stored.map((f) => f.key),
@@ -127,4 +150,4 @@ const rebuild = (s: Storage, id: string, stored: Entry[]): ResultAsync<RupeaErro
 				full: true,
 			}),
 		)
-		.andThen((i) => settleAll(id).map(() => i.failed));
+		.andThen(({ indexed }) => settleAll(id).map(() => indexed.failed));

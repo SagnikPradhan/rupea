@@ -1,8 +1,10 @@
 <script lang="ts">
 	import Calendar from '#lib/web/components/ui-chart-calendar/ui-chart-calendar.svelte';
 	import ChartSummary from '#lib/web/components/ui-chart-summary/ui-chart-summary.svelte';
-	import { formatAmount, formatDate } from '#lib/web/shared/format.ts';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
+
+	const formats = formatsHere();
 
 	type Props = {
 		daily: { day: string; amount: string }[];
@@ -23,9 +25,9 @@
 		<ChartSummary
 			id="days"
 			label={index === null ? 'Most in a day' : 'Spent'}
-			figure={formatAmount(shown.amount)}
+			figure={formats.whole(shown.amount)}
 		>
-			{formatDate(shown.day)}
+			{formats.date(shown.day)}
 		</ChartSummary>
 	{/if}
 {/snippet}

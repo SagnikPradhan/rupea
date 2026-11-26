@@ -15,9 +15,11 @@
 		VIEW,
 	} from '#lib/web/shared/chart.ts';
 	import type { Scale } from '#lib/web/shared/choices.ts';
-	import { formatAmount, formatBucket, formatCompact } from '#lib/web/shared/format.ts';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { curveMonotoneX, line } from 'd3-shape';
 	import type { Snippet } from 'svelte';
+
+	const formats = formatsHere();
 
 	/**
 	 * A field of the rows to plot: a part piled into every bar, in order from
@@ -113,13 +115,13 @@
 	const across = $derived.by(() => {
 		const room = VIEW / labelsIn(box.width, 'across');
 		const stride = STRIDES.find((s) => s * step >= room) ?? STRIDES.length;
-		const name = formatBucket[bucket];
+		const name = formats.bucket[bucket];
 
 		return rows
 			.map((r, i) => ({ at: centreOf(i), label: name(String(r[x])) }))
 			.filter((t, i) => i % stride === 0 && t.at >= EDGE);
 	});
-	const up = $derived(values.ticks.map((n) => ({ at: values.y(n), label: formatCompact(n) })));
+	const up = $derived(values.ticks.map((n) => ({ at: values.y(n), label: formats.compact(n) })));
 
 	const shown = $derived((hovered.index === null ? undefined : rows[hovered.index]) ?? whole);
 
@@ -127,7 +129,7 @@
 		...parts
 			.map((p, k) => ({
 				label: p.label,
-				amount: formatCompact(Number(shown[p.key] ?? 0)),
+				amount: formats.compact(Number(shown[p.key] ?? 0)),
 				shade: shadeOf(k),
 				part: k,
 				href: p.href,
@@ -135,7 +137,7 @@
 			.filter((e) => [whole, ...rows].some((r) => Number(r[parts[e.part]?.key ?? ''] ?? 0) !== 0)),
 		...references.map((r) => ({
 			label: r.label,
-			amount: shown[r.key] == null ? undefined : formatCompact(Number(shown[r.key])),
+			amount: shown[r.key] == null ? undefined : formats.compact(Number(shown[r.key])),
 			mark: 'reference' as const,
 		})),
 	]);
@@ -218,7 +220,7 @@
 				{@const bar = barOf(hovered.part, hovered.index)}
 				<Tooltip left={bar.left + width / 2} top={bar.top}>
 					{part?.label}
-					<data>{formatAmount(String(rows[hovered.index]?.[part?.key ?? ''] ?? '0'))}</data>
+					<data>{formats.whole(String(rows[hovered.index]?.[part?.key ?? ''] ?? '0'))}</data>
 				</Tooltip>
 			{/if}
 		</div>

@@ -35,7 +35,7 @@ vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
 const rupees = (total: string) => ({
 	commodity: 'INR',
 	hasLots: false,
-	units: null,
+	units: { amount: '500', commodity: 'INR' },
 	cost: null,
 	price: null,
 	value: total,
@@ -73,9 +73,9 @@ const accounts = [
 			{
 				commodity: 'INFY',
 				hasLots: true,
-				units: '1 INFY',
+				units: { amount: '1', commodity: 'INFY' },
 				cost: '1500',
-				price: '2000',
+				price: { amount: '2000', commodity: 'INR' },
 				value: '2000',
 				gain: '500',
 			},

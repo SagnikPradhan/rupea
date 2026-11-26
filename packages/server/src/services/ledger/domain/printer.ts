@@ -1,4 +1,4 @@
-import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
+import type { LedgerReading } from '#lib/server/shared/context/config.ts';
 import { parseTime } from '#lib/server/shared/dates.ts';
 import * as dateFns from 'date-fns';
 import { formatQuantity } from './amounts';
@@ -28,7 +28,7 @@ export const PRICE_SIGN: Record<PriceKind, string> = {
  * One blank line between entries, except between P lines; amounts aligned
  * across the file.
  */
-export const print = (c: LedgerConfiguration, file: RupeaFileNode): string => {
+export const print = (c: LedgerReading, file: RupeaFileNode): string => {
 	const column = columnOf(file);
 	const top = printMetadata('', file.metadata) + printComments('', file.comments);
 	const blocks = blocksOf(file.children).map((b) =>
@@ -38,7 +38,7 @@ export const print = (c: LedgerConfiguration, file: RupeaFileNode): string => {
 	return [top, ...blocks].filter(Boolean).join('\n');
 };
 
-const printEntry = (c: LedgerConfiguration, column: number, e: RupeaEntryNode): string =>
+const printEntry = (c: LedgerReading, column: number, e: RupeaEntryNode): string =>
 	match(e)
 		.with({ kind: NodeKind.Transaction }, (t) => printTransaction(c, column, t))
 		.with({ kind: NodeKind.Price }, (p) => printPrice(c, p) + printComments('', p.comments))
@@ -49,14 +49,10 @@ const printEntry = (c: LedgerConfiguration, column: number, e: RupeaEntryNode): 
 		.with({ kind: NodeKind.Failed }, (f) => printLines(f.lines) + printComments('', f.comments))
 		.exhaustive();
 
-const printTransaction = (
-	{ dateFormats, timeFormats }: LedgerConfiguration,
-	column: number,
-	t: RupeaTransactionNode,
-): string => {
+const printTransaction = (c: LedgerReading, column: number, t: RupeaTransactionNode): string => {
 	const header = [
-		printDate(dateFormats[0], t.date),
-		...(t.time ? [printTime(timeFormats, t.time)] : []),
+		printDate(c.dateFormats[0], t.date),
+		...(t.time ? [printTime(c.timeFormats, t.time)] : []),
 		t.description,
 	].join(' ');
 
@@ -64,18 +60,18 @@ const printTransaction = (
 		`${header}\n`,
 		printComments('\t', t.comments),
 		printMetadata('\t', t.metadata),
-		...t.children.map((p) => printPosting(dateFormats[0], column, p)),
+		...t.children.map((p) => printPosting(c, column, p)),
 	].join('');
 };
 
 // Posting metadata sits a level deeper only for the reader; the parser ignores indentation.
-const printPosting = (f: string | undefined, column: number, p: RupeaPostingNode): string => {
+const printPosting = (c: LedgerReading, column: number, p: RupeaPostingNode): string => {
 	const terms = [
-		...(p.elided ? [] : [formatQuantity(p)]),
-		...printTerms(f, p),
+		...(p.elided ? [] : [formatQuantity(p, c.base)]),
+		...printTerms(c, p),
 		...(p.balance === null
 			? []
-			: ['=', formatQuantity({ amount: p.balance, commodity: p.commodity })]),
+			: ['=', formatQuantity({ amount: p.balance, commodity: p.commodity }, c.base)]),
 	].join(' ');
 	const line = terms === '' ? p.account : `${p.account.padEnd(column)}${terms}`;
 
@@ -107,26 +103,28 @@ const columnOf = (file: RupeaFileNode) =>
 	) + 2;
 
 const printTerms = (
-	f: string | undefined,
+	c: LedgerReading,
 	p: { price: Price | null; cost: LotCost | null },
 ): string[] => [
-	...(p.cost === null ? [] : [printCost(f, p.cost)]),
-	...(p.price === null ? [] : [PRICE_SIGN[p.price.kind], formatQuantity(p.price)]),
+	...(p.cost === null ? [] : [printCost(c, p.cost)]),
+	...(p.price === null ? [] : [PRICE_SIGN[p.price.kind], formatQuantity(p.price, c.base)]),
 ];
 
-const printCost = (f: string | undefined, c: LotCost): string =>
-	`{${[formatQuantity(c), ...(c.date ? [printDate(f, c.date)] : [])].join(', ')}}`;
+const printCost = (c: LedgerReading, l: LotCost): string => {
+	const dated = l.date ? [printDate(c.dateFormats[0], l.date)] : [];
+	return `{${[formatQuantity(l, c.base), ...dated].join(', ')}}`;
+};
 
-const printPrice = ({ dateFormats }: LedgerConfiguration, p: RupeaMarketPrice): string =>
-	`P ${printDate(dateFormats[0], p.date)} ${p.commodity} ${formatQuantity(p.price)}\n`;
+const printPrice = ({ dateFormats, base }: LedgerReading, p: RupeaMarketPrice): string =>
+	`P ${printDate(dateFormats[0], p.date)} ${p.commodity} ${formatQuantity(p.price, base)}\n`;
 
-const printLink = ({ dateFormats }: LedgerConfiguration, l: RupeaLink): string =>
+const printLink = ({ dateFormats }: LedgerReading, l: RupeaLink): string =>
 	`P ${l.since ? printDate(dateFormats[0], l.since) : '*'} ${l.commodity} ${l.feed}:${l.symbol}\n`;
 
-const printAccount = ({ dateFormats }: LedgerConfiguration, a: RupeaAccountNode): string =>
+const printAccount = ({ dateFormats }: LedgerReading, a: RupeaAccountNode): string =>
 	`A ${a.since ? printDate(dateFormats[0], a.since) : '*'} ${a.account}\n${printMetadata('\t', a.metadata)}`;
 
-const printBudget = ({ dateFormats }: LedgerConfiguration, b: RupeaBudgetNode): string =>
+const printBudget = ({ dateFormats }: LedgerReading, b: RupeaBudgetNode): string =>
 	`B ${b.since ? printDate(dateFormats[0], b.since) : '*'} ${b.account}\n${printMetadata('\t', b.metadata)}`;
 
 const printMetadata = (t: string, m: RupeaEntries): string =>

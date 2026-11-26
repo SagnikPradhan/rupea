@@ -4,6 +4,7 @@ import { scoped, type Storage } from '#lib/server/shared/storage/storage.ts';
 import { withStorage } from '#services/storage/application/storage.ts';
 import { STATEMENTS } from '@rupea/shared/files.ts';
 import * as DB from '../adapters/database';
+import type { LedgerReading, RupeaConfiguration } from '#lib/server/shared/context/config.ts';
 import type { Ledger } from '../domain/types';
 
 export type { Ledger };
@@ -46,6 +47,12 @@ export const createLedger = ({ user, name }: CreateLedgerOptions): ResultAsync<L
 
 /** The file terms and budgets are written to when no line sets them yet. */
 export const MAIN = 'main.rupea';
+
+/** How the ledger's files are read: the server's formats, and its base. */
+export const readingOf = (c: RupeaConfiguration, l: Ledger): LedgerReading => ({
+	...c.ledger,
+	base: l.base,
+});
 
 type OpenFolderOptions = {
 	ledger: Ledger;

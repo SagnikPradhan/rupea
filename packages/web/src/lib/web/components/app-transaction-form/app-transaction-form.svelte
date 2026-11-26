@@ -15,10 +15,12 @@
 	import SegmentedControl from '#lib/web/components/ui-segmented-control/ui-segmented-control.svelte';
 	import * as Accounts from '#lib/web/shared/accounts.ts';
 	import { explain } from '#lib/web/shared/errors.ts';
-	import { formatIsoDate } from '#lib/web/shared/format.ts';
+	import { formatIsoDate, formatsHere } from '#lib/web/shared/format.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';
 	import { untrack } from 'svelte';
 	import * as v from 'valibot';
+
+	const formats = formatsHere();
 
 	/** A ledger with no files yet starts this one. */
 	const FIRST_FILE = 'transactions.rupea';
@@ -436,7 +438,7 @@
 	{/if}
 
 	{#each status.errors as error, index (index)}
-		<p role="alert">{explain(error)}</p>
+		<p role="alert">{explain(error, formats)}</p>
 	{/each}
 
 	<div class="buttons">

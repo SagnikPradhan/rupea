@@ -1,6 +1,7 @@
 import { oc } from '@orpc/contract';
 import dedent from 'dedent';
 import { DayOut } from '@rupea/shared/dates.ts';
+import { CURRENCIES } from '@rupea/shared/money.ts';
 import { Handle } from '@rupea/shared/text.ts';
 import * as v from 'valibot';
 import { batchOf, errors } from './errors.ts';
@@ -11,12 +12,16 @@ const listLedgers = oc
 		path: '/ledgers',
 		operationId: 'ledger.list',
 		description: dedent`
-			Lists the ledgers the caller may open, each with its handle and name, and
-			whether the caller owns it.
+			Lists the ledgers the caller may open, each with its handle, its name, the
+			currency a bare amount is in, and whether the caller owns it.
 		`,
 	})
 	.errors(errors)
-	.output(v.array(v.object({ handle: v.string(), name: v.string(), owned: v.boolean() })));
+	.output(
+		v.array(
+			v.object({ handle: v.string(), name: v.string(), base: v.string(), owned: v.boolean() }),
+		),
+	);
 
 const findFirstDay = oc
 	.route({
@@ -81,10 +86,44 @@ const resync = oc
 	.input(v.object({ handle: Handle }))
 	.errors(errors);
 
+const listCurrencies = oc
+	.route({
+		method: 'GET',
+		path: '/ledgers/{handle}/currencies',
+		operationId: 'ledger.listCurrencies',
+		description: dedent`
+			Lists the currencies the ledger's prices can value it in, its base among
+			them, in order.
+
+			Fails with LedgerNotFound when the caller cannot open the ledger.
+		`,
+	})
+	.input(v.object({ handle: Handle }))
+	.errors(errors)
+	.output(v.array(v.string()));
+
+const saveBase = oc
+	.route({
+		method: 'PUT',
+		path: '/ledgers/{handle}/base',
+		operationId: 'ledger.saveBase',
+		description: dedent`
+			Writes the currency a bare amount is in atop main.rupea, and reads the
+			ledger again in it. Amounts are relabelled, not converted.
+
+			Fails with CannotWriteBase when the base cannot be written. Fails with
+			LedgerNotFound when the caller cannot open the ledger.
+		`,
+	})
+	.input(v.object({ handle: Handle, base: v.picklist(CURRENCIES) }))
+	.errors(errors);
+
 export const ledger = {
 	list: listLedgers,
 	findFirstDay,
 	listProblems,
 	findSync,
 	resync,
+	listCurrencies,
+	saveBase,
 };

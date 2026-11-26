@@ -1,6 +1,7 @@
 import { faker } from '@faker-js/faker';
 import { readConfiguration } from '#lib/server/shared/context/config.ts';
 import { parse } from '#services/ledger/domain/parser.ts';
+import { DEFAULT_COMMODITY } from '@rupea/shared/money.ts';
 import { mkdir, rm, writeFile } from 'node:fs/promises';
 import { join, resolve } from 'node:path';
 
@@ -75,7 +76,9 @@ const write = async (name: string, { opening, files }: Built) => {
 	await writeFile(join(directory, 'opening.rupea'), opening);
 	await Promise.all(files.map((f) => writeFile(join(directory, f.key), `${f.content}\n`)));
 
-	const failed = files.flatMap((f) => parse(config.ledger, f).failed);
+	const failed = files.flatMap(
+		(f) => parse({ ...config.ledger, base: DEFAULT_COMMODITY }, f).failed,
+	);
 	console.info(`${name}: ${files.length + 1} files, ${failed.length} that do not parse`);
 	for (const f of failed.slice(0, 5)) console.error(f);
 };

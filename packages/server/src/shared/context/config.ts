@@ -9,6 +9,12 @@ const QUARTER_OF_CORES = Math.max(1, Math.floor(availableParallelism() / 4));
 export type RupeaConfiguration = v.InferOutput<typeof configuration>;
 export type LedgerConfiguration = RupeaConfiguration['ledger'];
 
+/**
+ * How one ledger's files are read: the server's formats, and the currency a
+ * bare amount is in.
+ */
+export type LedgerReading = { dateFormats: string[]; timeFormats: string[]; base: string };
+
 export const defaultConfiguration: RupeaConfiguration = {
 	server: { host: '127.0.0.1', port: 3001 },
 	storage: { database: null, files: 'data' },

@@ -18,19 +18,22 @@ import {
 	type UnmatchedDisposal,
 } from '../domain/lots';
 import { BALANCE_TYPES } from '../domain/taxonomy';
+import { findBase } from './database-ledgers';
 import { KEYS } from './database-deltas';
 import { ledgerOrder, multiply, toCost, toPrice, toQuantity } from './database-queries';
 
 /** Books each commodity's lots again from its counted postings. */
 export const rebook = (ledgerId: string, commodities: string[]): ResultAsync<void> =>
 	atomically(() =>
-		withContext('db')((tx) =>
-			attempt(async () => {
-				for (const commodity of commodities)
-					await bookedPostings(tx, { ledgerId, commodity }) // NOSONAR -- one transaction's connection runs one statement at a time
-						.then(book)
-						.then((b) => replaceLots(tx, { ledgerId, commodity, booking: b }));
-			}),
+		findBase(ledgerId).andThen((base) =>
+			withContext('db')((tx) =>
+				attempt(async () => {
+					for (const commodity of commodities)
+						await bookedPostings(tx, { ledgerId, commodity }) // NOSONAR -- one transaction's connection runs one statement at a time
+							.then((p) => book(p, base))
+							.then((b) => replaceLots(tx, { ledgerId, commodity, booking: b }));
+				}),
+			),
 		),
 	);
 

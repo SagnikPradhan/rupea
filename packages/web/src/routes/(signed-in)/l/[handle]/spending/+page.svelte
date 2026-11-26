@@ -22,12 +22,14 @@
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
-	import { formatChange, formatIsoDate } from '#lib/web/shared/format.ts';
+	import { formatsHere, formatIsoDate } from '#lib/web/shared/format.ts';
 	import { MONTHS_BRIEF } from '#lib/web/shared/home.ts';
 	import { rowsFor } from '#lib/web/shared/budgets.ts';
 	import { readQuery } from '#lib/web/shared/query.svelte.ts';
 	import * as Income from '#lib/web/shared/income.ts';
 	import * as Spending from '#lib/web/shared/spending.ts';
+
+	const formats = formatsHere();
 
 	const { data } = $props();
 
@@ -72,7 +74,7 @@
 	const last = $derived(spending?.to ?? today);
 	const moved = $derived(
 		previous
-			? formatChange(
+			? formats.change(
 					printAmount(Spending.totalOf(previous, url.query.account) ?? ZERO),
 					printAmount(Spending.totalOf(spending, url.query.account) ?? ZERO),
 				)

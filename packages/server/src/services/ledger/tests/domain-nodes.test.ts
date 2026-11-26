@@ -1,11 +1,11 @@
-import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
+import { READING } from '@rupea/server/tests/shared/reading.ts';
 import { parseAmount } from '#services/ledger/domain/amounts.ts';
 import { parse, parseTree } from '#services/ledger/domain/parser.ts';
 import { print } from '#services/ledger/domain/printer.ts';
 import { NodeKind, type RupeaNode } from '#services/ledger/domain/types.ts';
 import { describe, expect, it } from 'vitest';
 
-const c = defaultConfiguration.ledger;
+const c = READING;
 const tree = (n: string[]) => parseTree(c, { key: 'a.rupea', content: `${n.join('\n')}\n` });
 const format = (content: string) => print(c, parseTree(c, { key: 'a.rupea', content }));
 

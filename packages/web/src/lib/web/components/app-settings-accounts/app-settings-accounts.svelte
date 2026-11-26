@@ -11,7 +11,7 @@
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import { isUnder, nameOf } from '#lib/web/shared/accounts.ts';
-	import { formatIsoDate, formatWhole } from '#lib/web/shared/format.ts';
+	import { formatsHere, formatIsoDate } from '#lib/web/shared/format.ts';
 	import { settingsHref } from '#lib/web/shared/links.ts';
 	import { askedIn, liabilitiesOf, type Liability } from '#lib/web/shared/settings.ts';
 	import { goto } from '$app/navigation';
@@ -21,6 +21,8 @@
 	type Props = { ledger: { handle: string; name: string } };
 
 	const { ledger }: Props = $props();
+
+	const formats = formatsHere();
 
 	const handle = $derived(ledger.handle);
 	const day = formatIsoDate(new Date());
@@ -48,7 +50,7 @@
 
 	const whole = (written: string | undefined) => {
 		const parsed = written === undefined ? null : parseAmount(written);
-		return parsed === null ? (written ?? '') : formatWhole(printAmount(parsed));
+		return parsed === null ? (written ?? '') : formats.whole(printAmount(parsed));
 	};
 	const dayOf = (d: number | undefined) => (d === undefined ? '' : String(d));
 	const rateOf = (r: number | undefined) => (r === undefined ? '' : `${r}%`);

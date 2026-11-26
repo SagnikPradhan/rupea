@@ -845,3 +845,41 @@ describe('balances of a list of accounts', () => {
 			expect(usd?.prices).toEqual(Float64Array.from([80, 90]));
 		}));
 });
+
+describe('valuing in the base', () => {
+	it('values a ledger based in dollars in dollars, and rupees by their price', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'main.rupea', content: '- base: USD\n' });
+			await Files.createFile({
+				ledger,
+				key: 'a.rupea',
+				content: [
+					'P 2026-01-01 INR 0.012',
+					'',
+					'2026-01-02 Pay',
+					'\tAssets:Bank 1000',
+					'\tIncome:Salary',
+					'',
+					'2026-01-03 Savings at home',
+					'\tAssets:India 8300 INR',
+					'\tEquity:Opening',
+					'',
+				].join('\n'),
+			});
+
+			const balances = await Deltas.listBalances({
+				ledger: { ...ledger, base: 'USD' },
+				from: Temporal.PlainDate.from('2026-01-05'),
+				to: Temporal.PlainDate.from('2026-01-05'),
+				bucket: 'date',
+				accounts: ['Assets:Bank', 'Assets:India'],
+			});
+
+			expect(balances._unsafeUnwrap().succeeded[0]?.rows).toMatchObject([
+				{ account: 'Assets', value: 1099_6000000000n, unpriced: 0 },
+				{ account: 'Assets:Bank', value: 1000_0000000000n },
+				{ account: 'Assets:India', value: 99_6000000000n },
+			]);
+		}));
+});

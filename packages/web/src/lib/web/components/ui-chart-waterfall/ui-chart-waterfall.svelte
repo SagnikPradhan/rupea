@@ -2,8 +2,10 @@
 	import Axes from '#lib/web/components/ui-chart-axes/ui-chart-axes.svelte';
 	import { labelsIn, VIEW } from '#lib/web/shared/chart.ts';
 	import type { Step } from '#lib/web/shared/bridge.ts';
-	import { formatChange, formatCompact, formatWhole } from '#lib/web/shared/format.ts';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { scaleLinear } from 'd3-scale';
+
+	const formats = formatsHere();
 
 	type Props = {
 		steps: Step[];
@@ -47,14 +49,14 @@
 				tone: s.kind === 'total' ? 'total' : s.to >= s.from ? 'up' : 'down',
 				figure:
 					s.kind === 'total'
-						? formatWhole(String(s.to))
-						: formatChange('0', String(s.to - s.from)).amount,
+						? formats.whole(String(s.to))
+						: formats.change('0', String(s.to - s.from)).amount,
 			};
 		}),
 	);
 	const across = $derived(bars.map((b) => ({ at: b.left + b.width / 2, label: b.label })));
 	const up = $derived(
-		y.ticks(labelsIn(height, 'up')).map((n) => ({ at: y(n), label: formatCompact(n) })),
+		y.ticks(labelsIn(height, 'up')).map((n) => ({ at: y(n), label: formats.compact(n) })),
 	);
 </script>
 

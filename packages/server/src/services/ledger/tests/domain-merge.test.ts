@@ -1,11 +1,11 @@
-import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
+import { READING } from '@rupea/server/tests/shared/reading.ts';
 import { fault } from '@rupea/shared/errors.ts';
 import { err } from '#lib/server/shared/result/result.ts';
 import { merge } from '#services/ledger/domain/merge.ts';
 import { describe, expect, it } from 'vitest';
 
 const merged = (file: string, draft: string) =>
-	merge(defaultConfiguration.ledger, {
+	merge(READING, {
 		draft: { key: '_/imports/sep.rupea', content: draft },
 		file: { key: 'hdfc.rupea', content: file },
 	});

@@ -1,9 +1,12 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { formatAmount, formatExact, toneOf } from '#lib/web/shared/format.ts';
+	import type { PostedOut, QuantityOut } from '@rupea/shared/money.ts';
+	import { formatsHere, toneOf } from '#lib/web/shared/format.ts';
+
+	const formats = formatsHere();
 
 	type Props = {
-		value: string | null;
+		value: string | QuantityOut | PostedOut | null;
 		signed?: boolean;
 		units?: boolean;
 		note?: string | null;
@@ -20,11 +23,18 @@
 		children,
 	}: Props = $props();
 
-	const tone = $derived(value === null ? undefined : toneOf(Number(value.split(' ')[0])));
+	const quantity = $derived(
+		typeof value === 'string' ? { amount: value, commodity: formats.base } : value,
+	);
+	const whole = $derived(!units && quantity?.commodity === formats.base);
+
+	const tone = $derived(quantity ? toneOf(Number(quantity.amount)) : undefined);
 	const negative = $derived(tone === 'negative');
 	const positive = $derived(signed && tone === 'positive');
-	const shown = $derived(value === null ? null : formatAmount(value, units));
-	const exact = $derived(value === null || shown === null ? null : formatExact(value, shown));
+
+	const shown = $derived(quantity && (whole ? formats.whole : formats.units)(quantity.amount));
+	const suffix = $derived(quantity && formats.suffix(quantity));
+	const exact = $derived(quantity && shown && formats.exact(quantity.amount, shown));
 	const title = $derived([exact, note].filter(Boolean).join(' '));
 </script>
 
@@ -32,10 +42,7 @@
 	{#if shown === null}
 		{@render children?.()}
 	{:else}
-		{@const [number, ...commodity] = shown.split(' ')}
-		{number}{#if commodity.length > 0}&nbsp;<span class="commodity">
-				{commodity.join(' ')}
-			</span>{/if}
+		{shown}{#if suffix}&nbsp;<span class="commodity">{suffix}</span>{/if}
 	{/if}
 </td>
 

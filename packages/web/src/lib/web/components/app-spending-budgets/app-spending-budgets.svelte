@@ -6,8 +6,10 @@
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import { nameOf } from '#lib/web/shared/accounts.ts';
 	import { totalOf, watchOf, type BudgetRow } from '#lib/web/shared/budgets.ts';
-	import { formatCompact, formatWhole } from '#lib/web/shared/format.ts';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { settingsHref } from '#lib/web/shared/links.ts';
+
+	const formats = formatsHere();
 
 	type Props = { rows: BudgetRow[]; today: Temporal.PlainDate; handle: string };
 
@@ -32,9 +34,9 @@
 		})),
 	);
 
-	const compact = (a: Amount) => formatCompact(Number(printAmount(a)));
+	const compact = (a: Amount) => formats.compact(Number(printAmount(a)));
 
-	const whole = (a: Amount) => formatWhole(printAmount(a));
+	const whole = (a: Amount) => formats.whole(printAmount(a));
 
 	const leftOf = (
 		{ spent, limit }: { spent: Amount; limit: Amount },

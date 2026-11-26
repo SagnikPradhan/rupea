@@ -5,7 +5,7 @@ import { errAsync, type ResultAsync } from '#lib/server/shared/result/result.ts'
 import * as DB from '../adapters/database';
 import { setTerms, termsOn } from '../domain/terms';
 import type { Ledger } from '../domain/types';
-import { MAIN, openFolder } from './ledger';
+import { MAIN, openFolder, readingOf } from './ledger';
 import { reindex } from './sync';
 
 type ListTermsOptions = { ledger: Ledger; day: string };
@@ -45,7 +45,11 @@ export const saveTerms = ({
 		return openFolder({ ledger, folder: 'files' }).andThen((s) =>
 			findText(s, key).andThen((f) =>
 				withContext('config')((c) =>
-					setTerms(c.ledger, { file: { key, content: f?.content ?? '' }, account, terms: entries }),
+					setTerms(readingOf(c, ledger), {
+						file: { key, content: f?.content ?? '' },
+						account,
+						terms: entries,
+					}),
 				).asyncAndThen((t) =>
 					writeText(s, { key, content: t, ifVersion: f?.version ?? null })
 						.andTee((w) => reindex({ ledgerId: ledger.id, storage: s, changed: [w.key] }))

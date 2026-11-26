@@ -13,12 +13,10 @@ import { bucketFor, bucketKeyOf } from '@rupea/shared/balances.ts';
 import { bucketsIn, Day, type Grain, type Span } from '@rupea/shared/dates.ts';
 import {
 	Amount,
-	DEFAULT_COMMODITY,
 	hasLots,
 	parseAmount,
+	type PostedOut,
 	printAmount,
-	printPosted,
-	printQuantity,
 	sum,
 	ZERO,
 } from '@rupea/shared/money.ts';
@@ -33,7 +31,7 @@ export type TransactionView = {
 	time: string | null;
 	description: string;
 	comment: string | null;
-	postings: { account: string; quantity: string }[];
+	postings: { account: string; quantity: PostedOut }[];
 };
 
 export type SuggestionView = {
@@ -45,7 +43,7 @@ export type SuggestionView = {
 	theirs: TransactionView;
 };
 
-/** For reading, not for writing back: amounts as text, the time to the minute. */
+/** For reading, not for writing back: the time to the minute. */
 export const viewTransaction = (transaction: Transaction): TransactionView => ({
 	file: transaction.file,
 	line: transaction.line,
@@ -55,7 +53,7 @@ export const viewTransaction = (transaction: Transaction): TransactionView => ({
 	comment: transaction.comment,
 	postings: transaction.postings.map((p) => ({
 		account: p.account,
-		quantity: printPosted(p.quantity),
+		quantity: p.quantity,
 	})),
 });
 
@@ -79,7 +77,7 @@ export const viewPosting = (posting: PostingOut) => ({
 	date: posting.date,
 	description: posting.description,
 	account: posting.account,
-	quantity: printPosted(posting.quantity),
+	quantity: posting.quantity,
 });
 
 type SuggestionOut = v.InferOutput<typeof Suggestion>;
@@ -143,7 +141,7 @@ export const worthFrom = (deltas: DeltasOut, { tree, account }: ViewWorthOptions
 			const own = rows.map((r) => ({
 				part: partOf[r.account] ?? r.account,
 				asset: /^assets(:|$)/i.test(r.account),
-				commodity: r.commodity ?? DEFAULT_COMMODITY,
+				commodity: r.commodity,
 				...ownValueOf(r, kids[r.account] ?? []),
 			}));
 			const shares = Object.values(
@@ -241,7 +239,7 @@ const ownOf = (r: RowOut, under: RowOut[]) => {
 	const units = amountOf(r.units) - sum(kids.map((k) => amountOf(k.units)));
 	if (units === 0n) return [];
 
-	const commodity = r.commodity ?? DEFAULT_COMMODITY;
+	const commodity = r.commodity ?? '';
 	const unpriced = r.unpriced - kids.reduce((n, k) => n + k.unpriced, 0);
 	const value = unpriced > 0 ? null : amountOf(r.value) - sum(kids.map((k) => amountOf(k.value)));
 	const paid = hasLots(commodity)
@@ -252,12 +250,9 @@ const ownOf = (r: RowOut, under: RowOut[]) => {
 		{
 			commodity,
 			hasLots: hasLots(commodity),
-			units:
-				commodity === DEFAULT_COMMODITY
-					? null
-					: printQuantity({ amount: printAmount(units as Amount), commodity }),
+			units: { amount: printAmount(units as Amount), commodity },
 			cost: paid === null ? null : printAmount(paid as Amount),
-			price: r.price ? printQuantity(r.price) : null,
+			price: r.price ?? null,
 			value: value === null ? null : printAmount(value as Amount),
 			gain: value === null || paid === null ? null : printAmount((value - paid) as Amount),
 		},
@@ -352,15 +347,15 @@ export const viewLot = (lot: LotOut) => ({
 	from: lot.from,
 	units: lot.units,
 	remaining: lot.remaining,
-	cost: printQuantity(lot.cost),
+	cost: lot.cost,
 	disposals: lot.disposals.map((disposal) => ({
 		file: disposal.location.file,
 		line: disposal.location.line,
 		date: disposal.date,
 		kind: disposal.kind,
 		units: disposal.units,
-		price: disposal.price && printQuantity(disposal.price),
-		gain: disposal.gain && printQuantity(disposal.gain),
+		price: disposal.price,
+		gain: disposal.gain,
 	})),
 });
 

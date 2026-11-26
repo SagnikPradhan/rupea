@@ -1,9 +1,11 @@
 <script lang="ts">
 	import type { Filter } from '#lib/web/shared/filter.ts';
 	import Chip from '#lib/web/components/ui-chip/ui-chip.svelte';
-	import { formatBucket, formatDate } from '#lib/web/shared/format.ts';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { hrefWith } from '#lib/web/shared/links.ts';
 	import { page } from '$app/state';
+
+	const formats = formatsHere();
 
 	type Props = { filter: Filter };
 
@@ -13,9 +15,9 @@
 
 	const period = $derived.by(() => {
 		const p = filter.period;
-		if (p.kind === 'month') return formatBucket.month(`${p.at}-01`);
+		if (p.kind === 'month') return formats.bucket.month(`${p.at}-01`);
 		if (p.kind === 'year') return p.at;
-		if (p.kind === 'custom') return `${formatDate(p.from)} – ${formatDate(p.to)}`;
+		if (p.kind === 'custom') return `${formats.date(p.from)} – ${formats.date(p.to)}`;
 		return 'All time';
 	});
 </script>

@@ -4,10 +4,12 @@
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import FilterSection from '#lib/web/components/ui-filter-section/ui-filter-section.svelte';
 	import SegmentedControl from '#lib/web/components/ui-segmented-control/ui-segmented-control.svelte';
-	import { formatMonth } from '#lib/web/shared/format.ts';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { hrefWith } from '#lib/web/shared/links.ts';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
+
+	const formats = formatsHere();
 
 	type Props = {
 		current: Period;
@@ -89,7 +91,7 @@
 			{#each MONTHS as m (m)}
 				{@const month = `${at.slice(0, 4)}-${m}`}
 				{#if !isOutside(month)}
-					<Chip href={hrefOf({ at: month })} on={month === at}>{formatMonth(`${month}-01`)}</Chip>
+					<Chip href={hrefOf({ at: month })} on={month === at}>{formats.month(`${month}-01`)}</Chip>
 				{/if}
 			{/each}
 		</nav>

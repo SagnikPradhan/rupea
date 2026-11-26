@@ -1,4 +1,4 @@
-import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
+import { READING } from '@rupea/server/tests/shared/reading.ts';
 import { parseAmount, type Amount } from '#services/ledger/domain/amounts.ts';
 import { parse, parseTree } from '#services/ledger/domain/parser.ts';
 import { toNode } from '#services/ledger/domain/nodes.ts';
@@ -134,14 +134,25 @@ const annotated: RupeaLedgerFile = {
 	budgets: [],
 };
 
-const printed = (t: RupeaLedgerFile) => print(defaultConfiguration.ledger, toNode(t));
+const printed = (t: RupeaLedgerFile) => print(READING, toNode(t));
 const reprinted = (content: string) =>
-	print(
-		defaultConfiguration.ledger,
-		parseTree(defaultConfiguration.ledger, { key: 'a.rupea', content }),
-	);
+	print(READING, parseTree(READING, { key: 'a.rupea', content }));
 
 describe('printing a ledger', () => {
+	it('leaves out the base, and writes every other currency', () => {
+		const dollars = { ...READING, base: 'USD' };
+		const content = [
+			'2026-08-29 Chai',
+			'\tExpenses:Food  20.00 INR',
+			'\tExpenses:Tips  1.00',
+			'\tAssets:Cash    -1.00',
+			'\tAssets:Cash    -20.00 INR',
+			'',
+		].join('\n');
+
+		expect(print(dollars, parseTree(dollars, { key: 'a.rupea', content }))).toBe(content);
+	});
+
 	it('writes .rupea text in the first configured formats, amounts aligned', () => {
 		expect(printed(ledger(transactions))).toBe(
 			[
@@ -195,7 +206,7 @@ describe('printing a ledger', () => {
 
 	it('reads back as what it wrote', () => {
 		const content = printed(ledger(transactions));
-		expect(parse(defaultConfiguration.ledger, { key: 'a.rupea', content })).toEqual({
+		expect(parse(READING, { key: 'a.rupea', content })).toEqual({
 			metadata: {},
 			prices: [],
 			links: [],
@@ -228,7 +239,7 @@ describe('printing a ledger', () => {
 
 	it('reads metadata and comments back as what it wrote', () => {
 		const content = printed(annotated);
-		expect(parse(defaultConfiguration.ledger, { key: 'a.rupea', content })).toEqual({
+		expect(parse(READING, { key: 'a.rupea', content })).toEqual({
 			metadata: annotated.metadata,
 			prices: [],
 			links: [],
@@ -254,9 +265,7 @@ describe('printing a ledger', () => {
 			'\tExpenses:Food  100.50 = 1899.50',
 			'\tAssets:Bank    = 1899.50',
 		]);
-		expect(parse(defaultConfiguration.ledger, { key: 'a.rupea', content }).succeeded).toEqual(
-			asserted.transactions,
-		);
+		expect(parse(READING, { key: 'a.rupea', content }).succeeded).toEqual(asserted.transactions);
 	});
 
 	it('writes a lot cost between the amount and the price, and reads it back', () => {
@@ -269,7 +278,7 @@ describe('printing a ledger', () => {
 			'',
 		].join('\n');
 
-		expect(parse(defaultConfiguration.ledger, { key: 'a.rupea', content }).failed).toEqual([]);
+		expect(parse(READING, { key: 'a.rupea', content }).failed).toEqual([]);
 		expect(reprinted(content)).toBe(content);
 	});
 
@@ -285,7 +294,7 @@ describe('printing a ledger', () => {
 			'',
 		].join('\n');
 
-		expect(parse(defaultConfiguration.ledger, { key: 'a.rupea', content }).failed).toEqual([]);
+		expect(parse(READING, { key: 'a.rupea', content }).failed).toEqual([]);
 		expect(reprinted(content)).toBe(content);
 	});
 
@@ -303,7 +312,7 @@ describe('printing a ledger', () => {
 			'P 2026-01-01 HNFI yahoo:HDFCNIFTY.NS',
 			'',
 		].join('\n');
-		const parsed = parse(defaultConfiguration.ledger, { key: 'a.rupea', content });
+		const parsed = parse(READING, { key: 'a.rupea', content });
 
 		expect(parsed.failed).toEqual([]);
 		expect(parsed.prices).toHaveLength(2);
@@ -352,7 +361,7 @@ describe('printing a ledger', () => {
 			'A 2026-01-01 Liabilities:Card',
 			'',
 		].join('\n');
-		const parsed = parse(defaultConfiguration.ledger, { key: 'a.rupea', content });
+		const parsed = parse(READING, { key: 'a.rupea', content });
 
 		expect(parsed.failed).toEqual([]);
 		expect(parsed.accounts).toHaveLength(2);
@@ -370,7 +379,7 @@ describe('printing a ledger', () => {
 			'\t- limit: 18000',
 			'',
 		].join('\n');
-		const parsed = parse(defaultConfiguration.ledger, { key: 'a.rupea', content });
+		const parsed = parse(READING, { key: 'a.rupea', content });
 
 		expect(parsed.failed).toEqual([]);
 		expect(parsed.budgets).toHaveLength(2);
@@ -424,7 +433,7 @@ describe('printing a ledger', () => {
 	});
 
 	it('follows the configuration', () => {
-		const cfg = { dateFormats: ['d MMM yyyy'], timeFormats: ['h:mm a'] };
+		const cfg = { dateFormats: ['d MMM yyyy'], timeFormats: ['h:mm a'], base: 'INR' };
 		expect(print(cfg, toNode(ledger(transactions.slice(0, 1))))).toMatch(
 			/^29 Aug 2026 6:45 PM Groceries\n/,
 		);

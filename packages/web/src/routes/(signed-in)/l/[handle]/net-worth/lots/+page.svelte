@@ -6,9 +6,11 @@
 	import Source from '#lib/web/components/app-ledger-table/source.svelte';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
-	import { formatAmount, formatDate, formatExact } from '#lib/web/shared/format.ts';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';
 	import { page } from '$app/state';
+
+	const formats = formatsHere();
 
 	const { data } = $props();
 
@@ -37,11 +39,11 @@
 		{#each response.data ?? [] as lot (`${lot.file}:${lot.line}`)}
 			<tbody>
 				<tr>
-					<td class="date">{formatDate(lot.date)}</td>
+					<td class="date">{formats.date(lot.date)}</td>
 					<th scope="row" class="truncate">
 						{lot.origin}{lot.from ? ` from ${lot.from}` : ''}
-						<Tag title={formatExact(lot.remaining, formatAmount(lot.remaining, true))}>
-							{formatAmount(lot.remaining, true)} left
+						<Tag title={formats.exact(lot.remaining, formats.units(lot.remaining))}>
+							{formats.units(lot.remaining)} left
 						</Tag>
 					</th>
 					<Amount value={lot.units} units />
@@ -50,7 +52,7 @@
 				</tr>
 				{#each lot.disposals as disposal, i (i)}
 					<tr class="child">
-						<td class="date">{formatDate(disposal.date)}</td>
+						<td class="date">{formats.date(disposal.date)}</td>
 						<td>
 							<a href={fileHref(handle, disposal.file, disposal.line)}>{disposal.kind}</a>
 						</td>

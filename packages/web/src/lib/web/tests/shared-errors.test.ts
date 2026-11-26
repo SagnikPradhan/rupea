@@ -91,6 +91,10 @@ describe('explain', () => {
 			'This budget wouldn’t read back as written. Check it for a line break.',
 		],
 		[
+			fault('CannotWriteBase', { path: 'main.rupea' }),
+			'The currency wouldn’t read back from main.rupea. Check the lines at its top.',
+		],
+		[
 			fault('AccountRepeated', { location: at, account: 'Liabilities:Card' }),
 			'Liabilities:Card is set up more than once from the same day.',
 		],

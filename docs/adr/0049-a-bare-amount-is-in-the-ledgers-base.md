@@ -20,6 +20,14 @@ Postings store the commodity the parser resolved, so queries compare to a value 
 
 The printer leaves out the base and writes every other currency, so a file Rupea writes reads back the same.
 
+## Valuing and showing
+
+Net worth, costs, lots and returns are reached in the base, so a ledger based in dollars values rupees by their price. A price feed still quotes in its own currency, so mfapi's NAVs stay rupees.
+
+Settings writes the base line into `main.rupea` like any edit. It offers only the currencies a chain of the ledger's own prices links to the base, so the ledger can still be valued after the switch. The file may name any other, and then what has no price shows as unpriced.
+
+Numbers are written the way the base currency's country writes them: 12,34,567 for INR, 1,234,567 for USD, EUR and GBP, and as in the US for a currency with no country set. Dates do not change with the base.
+
 ## Considered Options
 
 - **A bare amount is always INR**: nothing is ever read again, but a ledger kept abroad writes its currency on every line.

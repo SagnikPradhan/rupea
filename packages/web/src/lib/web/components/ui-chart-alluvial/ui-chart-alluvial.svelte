@@ -1,9 +1,12 @@
 <script lang="ts">
 	import Tooltip from '#lib/web/components/ui-tooltip/ui-tooltip.svelte';
 	import { seriesOf, tintOf, VIEW } from '#lib/web/shared/chart.ts';
-	import { formatAmount } from '#lib/web/shared/format.ts';
+	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
+	import { getContext } from 'svelte';
 	import { sankey, type SankeyLink, type SankeyNode } from 'd3-sankey';
 	import type { Snippet } from 'svelte';
+
+	const formats = formatsIn(getContext<() => string>(BASE)?.());
 
 	/**
 	 * A bar in a column, the part whose shade it takes, and the bar before it
@@ -167,7 +170,7 @@
 		{#if hovered.node}
 			<Tooltip left={hovered.node.x0 + NODE / 2} top={hovered.node.y0}>
 				{hovered.node.flow.label}
-				<data>{formatAmount(String(hovered.node.flow.amount))}</data>
+				<data>{formats.amount(String(hovered.node.flow.amount))}</data>
 			</Tooltip>
 		{/if}
 	</div>

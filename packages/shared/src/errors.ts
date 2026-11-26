@@ -10,6 +10,7 @@ const Plain = v.variant('type', [
 	v.object({ type: v.literal('CannotWriteTransaction'), path: str }),
 	v.object({ type: v.literal('CannotWriteTerms'), path: str }),
 	v.object({ type: v.literal('CannotWriteBudget'), path: str }),
+	v.object({ type: v.literal('CannotWriteBase'), path: str }),
 	v.object({ type: v.literal('TransactionNotFound'), path: str, line: num }),
 	v.object({ type: v.literal('StorageInvalidKey'), key: str }),
 	v.object({ type: v.literal('StorageNotFound'), key: str }),

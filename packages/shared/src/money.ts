@@ -120,16 +120,20 @@ export const PostedOut = v.object({
 
 export type PostedOut = v.InferOutput<typeof PostedOut>;
 
-/** An amount and its commodity, which a bare rupee amount leaves out. */
-export const printQuantity = ({ amount, commodity }: v.InferOutput<typeof QuantityOut>): string =>
-	commodity === DEFAULT_COMMODITY ? amount : `${amount} ${commodity}`;
+/** An amount and its commodity, which an amount in the ledger's base leaves out. */
+export const printQuantity = (
+	{ amount, commodity }: v.InferOutput<typeof QuantityOut>,
+	b: string,
+): string => (commodity === b ? amount : `${amount} ${commodity}`);
 
 /** A posting's amount with its lot cost and price, as the page shows it. */
-export const printPosted = ({ price, cost, ...quantity }: PostedOut): string =>
+export const printPosted = ({ price, cost, ...quantity }: PostedOut, base: string): string =>
 	[
-		printQuantity(quantity),
-		...(cost ? [`{${[printQuantity(cost), ...(cost.date ? [cost.date] : [])].join(', ')}}`] : []),
-		...(price ? [SIGN[price.kind], printQuantity(price)] : []),
+		printQuantity(quantity, base),
+		...(cost
+			? [`{${[printQuantity(cost, base), ...(cost.date ? [cost.date] : [])].join(', ')}}`]
+			: []),
+		...(price ? [SIGN[price.kind], printQuantity(price, base)] : []),
 	].join(' ');
 
 export const EXPENSES = 'Expenses';

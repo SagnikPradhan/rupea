@@ -1,60 +1,57 @@
 import { describe, expect, it } from 'vitest';
 import {
-	formatAmount,
-	formatWhole,
-	formatChange,
 	formatColumn,
 	formatBucket,
-	formatCompact,
 	formatDate,
-	formatExact,
 	formatIsoDate,
 	formatMoment,
-	formatReturn,
 	formatSize,
+	formatsIn,
 	toneOf,
 } from '#lib/web/shared/format.ts';
 
-describe('formatAmount', () => {
+const rupees = formatsIn('INR');
+
+describe('formatsIn(INR).amount', () => {
 	it('groups digits the Indian way, with no paise', () => {
-		expect(formatAmount('1250000')).toBe('12,50,000');
-		expect(formatAmount('-1250.5')).toBe('-1,251');
+		expect(rupees.amount('1250000')).toBe('12,50,000');
+		expect(rupees.amount('-1250.5')).toBe('-1,251');
 	});
 
 	it('rounds rupees to whole ones, and units to four places', () => {
-		expect(formatAmount('1250.5678')).toBe('1,251');
-		expect(formatAmount('0.123456789 USD')).toBe('0.1235 USD');
-		expect(formatAmount('7.123456', true)).toBe('7.1235');
+		expect(rupees.amount('1250.5678')).toBe('1,251');
+		expect(rupees.amount('0.123456789 USD')).toBe('0.1235 USD');
+		expect(rupees.amount('7.123456', true)).toBe('7.1235');
 	});
 
 	it('keeps the commodity after the number', () => {
-		expect(formatAmount('10 INFY')).toBe('10 INFY');
+		expect(rupees.amount('10 INFY')).toBe('10 INFY');
 	});
 
 	it('drops the minus of an amount that rounds to nothing', () => {
-		expect(formatAmount('-0.4')).toBe('0');
-		expect(formatWhole('-0.3')).toBe('0');
+		expect(rupees.amount('-0.4')).toBe('0');
+		expect(rupees.whole('-0.3')).toBe('0');
 	});
 });
 
-describe('formatExact', () => {
-	it('gives every digit only when formatAmount rounds some away', () => {
-		expect(formatExact('1250.5678')).toBe('1,250.5678');
-		expect(formatExact('0.123456789 USD')).toBe('0.123456789 USD');
-		expect(formatExact('1250.5')).toBe('1,250.5');
-		expect(formatExact('1250', '1,250')).toBeUndefined();
+describe('formatsIn(INR).exact', () => {
+	it('gives every digit only when rupees.amount rounds some away', () => {
+		expect(rupees.exact('1250.5678')).toBe('1,250.5678');
+		expect(rupees.exact('0.123456789 USD')).toBe('0.123456789 USD');
+		expect(rupees.exact('1250.5')).toBe('1,250.5');
+		expect(rupees.exact('1250', '1,250')).toBeUndefined();
 	});
 });
 
-describe('formatReturn', () => {
+describe('formatsIn(INR).gain', () => {
 	it('gives a gain as a share of its cost', () => {
-		expect(formatReturn('250', '1000')).toBe('+25%');
-		expect(formatReturn('-74.58', '399972.56')).toBe('0%');
+		expect(rupees.gain('250', '1000')).toBe('+25%');
+		expect(rupees.gain('-74.58', '399972.56')).toBe('0%');
 	});
 
 	it('gives nothing without a gain or a positive cost', () => {
-		expect(formatReturn(null, '1000')).toBeNull();
-		expect(formatReturn('10', '0')).toBeNull();
+		expect(rupees.gain(null, '1000')).toBeNull();
+		expect(rupees.gain('10', '0')).toBeNull();
 	});
 });
 
@@ -96,15 +93,15 @@ describe('formatBucket', () => {
 	});
 });
 
-describe('formatCompact', () => {
+describe('formatsIn(INR).compact', () => {
 	it('shortens large numbers the Indian way', () => {
-		expect(formatCompact(1_200_000)).toBe('12L');
+		expect(rupees.compact(1_200_000)).toBe('12L');
 	});
 });
 
-describe('formatChange', () => {
+describe('formatsIn(INR).change', () => {
 	it('signs a gain and gives it as a share of the start', () => {
-		expect(formatChange('1000', '1250.5')).toEqual({
+		expect(rupees.change('1000', '1250.5')).toEqual({
 			amount: '+251',
 			percent: '+25.1%',
 			negative: false,
@@ -112,7 +109,7 @@ describe('formatChange', () => {
 	});
 
 	it('marks a loss as negative', () => {
-		expect(formatChange('200000', '150000')).toEqual({
+		expect(rupees.change('200000', '150000')).toEqual({
 			amount: '-50,000',
 			percent: '-25%',
 			negative: true,
@@ -120,11 +117,11 @@ describe('formatChange', () => {
 	});
 
 	it('shows no sign when nothing moved', () => {
-		expect(formatChange('10', '10')).toEqual({ amount: '0', percent: '0%', negative: false });
+		expect(rupees.change('10', '10')).toEqual({ amount: '0', percent: '0%', negative: false });
 	});
 
 	it.each(['0', '-500'])('gives no percent from a start of %s', (start) => {
-		expect(formatChange(start, '100').percent).toBeNull();
+		expect(rupees.change(start, '100').percent).toBeNull();
 	});
 });
 
@@ -147,5 +144,18 @@ describe('toneOf', () => {
 		[0, undefined],
 	])('tones %i as %s', (n, tone) => {
 		expect(toneOf(n)).toBe(tone);
+	});
+});
+
+describe('formatsIn', () => {
+	it('groups the way the base currency’s country does', () => {
+		expect(formatsIn('INR').whole('1234567')).toBe('12,34,567');
+		expect(formatsIn('USD').whole('1234567')).toBe('1,234,567');
+		expect(formatsIn('EUR').whole('1234567')).toBe('1,234,567');
+	});
+
+	it('writes rupees without a base, and a currency it has no country for as dollars do', () => {
+		expect(formatsIn(undefined).whole('1234567')).toBe('12,34,567');
+		expect(formatsIn('JPY').whole('1234567')).toBe('1,234,567');
 	});
 });

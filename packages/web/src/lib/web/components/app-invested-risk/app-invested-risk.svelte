@@ -3,9 +3,12 @@
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import Scatter from '#lib/web/components/ui-chart-scatter/ui-chart-scatter.svelte';
 	import { dotsOf } from '#lib/web/shared/dots.ts';
-	import { formatPercent } from '#lib/web/shared/format.ts';
+	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
+	import { getContext } from 'svelte';
 	import type { Invested } from '#lib/web/shared/invested.ts';
 	import type { Arc } from '#lib/web/shared/rings.ts';
+
+	const formats = formatsIn(getContext<() => string>(BASE)?.());
 
 	type Props = {
 		invested: Invested[];
@@ -21,7 +24,7 @@
 		dots.map((d) => ({
 			account: d.key,
 			name: d.label,
-			figure: `${formatPercent(d.up)} a year, swings ${formatPercent(d.across)}`,
+			figure: `${formats.percent(d.up)} a year, swings ${formats.percent(d.across)}`,
 		})),
 	);
 </script>

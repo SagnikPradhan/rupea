@@ -19,6 +19,7 @@
 			{#if data.ledgers.length > 1}<li class="name">{l.name}</li>{/if}
 			<li><a href="#{l.handle}-accounts">Accounts</a></li>
 			<li><a href="#{l.handle}-budgets">Budgets</a></li>
+			<li><a href="#{l.handle}-currency">Currency</a></li>
 		</ul>
 	{/each}
 </nav>

@@ -56,12 +56,11 @@ describe('the income statement', () => {
 
 		const { rows, total: spent } = statementOf('Expenses', now, then);
 
-		expect(rows.map((r) => [r.name, r.amount, r.before, r.change.amount])).toEqual([
-			['Rent', amount('200'), amount('200'), '0'],
-			['Food', amount('100'), amount('50'), '+50'],
+		expect(rows.map((r) => [r.name, r.amount, r.before])).toEqual([
+			['Rent', amount('200'), amount('200')],
+			['Food', amount('100'), amount('50')],
 		]);
-		expect(spent.amount).toBe(amount('300'));
-		expect(spent.change.amount).toBe('+50');
+		expect([spent.amount, spent.before]).toEqual([amount('300'), amount('250')]);
 	});
 
 	it('keeps a group that spent only in the month before', () => {
@@ -126,11 +125,7 @@ describe('the income statement', () => {
 			{ amount: amount('500'), before: amount('400') },
 			{ amount: amount('300'), before: amount('350') },
 		);
-		expect([saved.amount, saved.before, saved.change.amount]).toEqual([
-			amount('200'),
-			amount('50'),
-			'+150',
-		]);
+		expect(saved).toEqual({ amount: amount('200'), before: amount('50') });
 	});
 
 	it('is empty without spending', () => {

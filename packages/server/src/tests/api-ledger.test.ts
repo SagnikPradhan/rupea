@@ -20,7 +20,67 @@ describe('the ledger api', () => {
 			});
 
 			expect(reply.statusCode).toBe(200);
-			expect(reply.json()).toEqual([{ handle: ledger.handle, name: 'Test', owned: true }]);
+			expect(reply.json()).toEqual([
+				{ handle: ledger.handle, name: 'Test', base: 'INR', owned: true },
+			]);
+		}));
+
+	it('lists the currencies a chain of prices links to the base, and no other', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({
+				ledger,
+				key: 'a.rupea',
+				content: [
+					'P 2026-01-01 USD 83',
+					'P 2026-01-01 EUR 1.1 USD',
+					'P 2026-01-01 INFY 1500',
+					'P 2026-01-01 GBP 1.1 CHF',
+					'',
+				].join('\n'),
+			});
+			const api = await createApi(context);
+
+			const reply = await api.inject({
+				url: `/api/ledgers/${ledger.handle}/currencies`,
+				headers: await bearerOf(ledger.owner),
+			});
+
+			expect(reply.json()).toEqual(['EUR', 'INR', 'USD']);
+		}));
+
+	it('saves the base atop main.rupea, and lists the ledger in it', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			await Files.createFile({ ledger, key: 'main.rupea', content: '; mine\n' });
+			const headers = await bearerOf(ledger.owner);
+			const api = await createApi(context);
+
+			const saved = await api.inject({
+				method: 'PUT',
+				url: `/api/ledgers/${ledger.handle}/base`,
+				headers,
+				payload: { base: 'USD' },
+			});
+			const listed = await api.inject({ url: '/api/ledgers', headers });
+
+			expect(saved.statusCode).toBe(200);
+			expect(listed.json()).toMatchObject([{ base: 'USD' }]);
+		}));
+
+	it('refuses a base that is not a currency', ({ context, db }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const api = await createApi(context);
+
+			const reply = await api.inject({
+				method: 'PUT',
+				url: `/api/ledgers/${ledger.handle}/base`,
+				headers: await bearerOf(ledger.owner),
+				payload: { base: 'FUND' },
+			});
+
+			expect(reply.statusCode).toBe(400);
 		}));
 
 	it('answers the day of the first transaction, or null before one', ({ context, db }) =>

@@ -1,7 +1,6 @@
-import { type Amount, ZERO, byAmount, printAmount, sum } from '@rupea/shared/money.ts';
+import { type Amount, ZERO, byAmount, sum } from '@rupea/shared/money.ts';
 import { nameOf } from './accounts';
 import type { Period } from '@rupea/shared/dates.ts';
-import { formatChange } from './format';
 import type { Spent } from './spending';
 
 /** The most expense groups the income statement names before the rest. */
@@ -97,25 +96,13 @@ export const statementOf = (
 					},
 				]
 			: named;
-	const total = {
-		amount: now[top] ?? ZERO,
-		before: before[top] ?? ZERO,
-	};
+	const total = { amount: now[top] ?? ZERO, before: before[top] ?? ZERO };
 
-	return {
-		rows: rows.map(changed),
-		total: changed(total),
-	};
+	return { rows, total };
 };
 
-const changed = <Row extends { amount: Amount; before: Amount }>(r: Row) => ({
-	...r,
-	change: formatChange(printAmount(r.before), printAmount(r.amount)),
-});
-
 /** What income left after spending over a month and the one before. */
-export const savedOf = (income: { amount: Amount; before: Amount }, spent: typeof income) =>
-	changed({
-		amount: (income.amount - spent.amount) as Amount,
-		before: (income.before - spent.before) as Amount,
-	});
+export const savedOf = (income: { amount: Amount; before: Amount }, spent: typeof income) => ({
+	amount: (income.amount - spent.amount) as Amount,
+	before: (income.before - spent.before) as Amount,
+});

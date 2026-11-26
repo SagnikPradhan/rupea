@@ -1,6 +1,9 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { formatAmount, formatExact, toneOf } from '#lib/web/shared/format.ts';
+	import { BASE, formatsIn, toneOf } from '#lib/web/shared/format.ts';
+	import { getContext } from 'svelte';
+
+	const formats = formatsIn(getContext<() => string>(BASE)?.());
 
 	type Props = {
 		value: string | null;
@@ -23,8 +26,8 @@
 	const tone = $derived(value === null ? undefined : toneOf(Number(value.split(' ')[0])));
 	const negative = $derived(tone === 'negative');
 	const positive = $derived(signed && tone === 'positive');
-	const shown = $derived(value === null ? null : formatAmount(value, units));
-	const exact = $derived(value === null || shown === null ? null : formatExact(value, shown));
+	const shown = $derived(value === null ? null : formats.amount(value, units));
+	const exact = $derived(value === null || shown === null ? null : formats.exact(value, shown));
 	const title = $derived([exact, note].filter(Boolean).join(' '));
 </script>
 

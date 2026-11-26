@@ -11,16 +11,14 @@
 		valuesOf,
 		VIEW,
 	} from '#lib/web/shared/chart.ts';
-	import {
-		formatAmount,
-		formatCompact,
-		formatPercent,
-		formatBucket,
-	} from '#lib/web/shared/format.ts';
+	import { BASE, formatsIn, formatBucket } from '#lib/web/shared/format.ts';
+	import { getContext } from 'svelte';
 	import { scaleUtc } from 'd3-scale';
 	import { area, line, type SeriesPoint } from 'd3-shape';
 	import type { Snippet } from 'svelte';
 	import type { Grain } from '@rupea/shared/dates.ts';
+
+	const formats = formatsIn(getContext<() => string>(BASE)?.());
 
 	type Series = {
 		key: keyof Row & string;
@@ -53,14 +51,14 @@
 
 	const FORMATS = {
 		amount: {
-			tick: formatCompact,
-			value: formatAmount,
-			short: (v: string) => formatCompact(Number(v)),
+			tick: formats.compact,
+			value: formats.amount,
+			short: (v: string) => formats.compact(Number(v)),
 		},
 		percent: {
-			tick: formatPercent,
-			value: (v: string) => formatPercent(Number(v)),
-			short: (v: string) => formatPercent(Number(v)),
+			tick: formats.percent,
+			value: (v: string) => formats.percent(Number(v)),
+			short: (v: string) => formats.percent(Number(v)),
 		},
 	};
 

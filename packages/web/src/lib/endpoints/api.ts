@@ -1,6 +1,7 @@
 import { createORPCClient } from '@orpc/client';
 import { OpenAPILink } from '@orpc/openapi-client/fetch';
 import { type Client, contract } from '@rupea/contract/contract.ts';
+import { DEFAULT_COMMODITY } from '@rupea/shared/money.ts';
 import { getRequestEvent } from '$app/server';
 
 type Options = {
@@ -27,3 +28,9 @@ export const createClient = ({ url, token, fetch = globalThis.fetch }: Options):
  * token.
  */
 export const api = (): Client => getRequestEvent().locals.api;
+
+/** The currency a bare amount is in, in the ledger the handle names. */
+export const findBase = (h: string) =>
+	api()
+		.ledger.list()
+		.then((l) => l.find((x) => x.handle === h)?.base ?? DEFAULT_COMMODITY);

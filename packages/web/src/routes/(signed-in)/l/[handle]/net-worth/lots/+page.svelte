@@ -6,9 +6,12 @@
 	import Source from '#lib/web/components/app-ledger-table/source.svelte';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
-	import { formatAmount, formatDate, formatExact } from '#lib/web/shared/format.ts';
+	import { BASE, formatsIn, formatDate } from '#lib/web/shared/format.ts';
+	import { getContext } from 'svelte';
 	import { fileHref } from '#lib/web/shared/links.ts';
 	import { page } from '$app/state';
+
+	const formats = formatsIn(getContext<() => string>(BASE)?.());
 
 	const { data } = $props();
 
@@ -40,8 +43,8 @@
 					<td class="date">{formatDate(lot.date)}</td>
 					<th scope="row" class="truncate">
 						{lot.origin}{lot.from ? ` from ${lot.from}` : ''}
-						<Tag title={formatExact(lot.remaining, formatAmount(lot.remaining, true))}>
-							{formatAmount(lot.remaining, true)} left
+						<Tag title={formats.exact(lot.remaining, formats.amount(lot.remaining, true))}>
+							{formats.amount(lot.remaining, true)} left
 						</Tag>
 					</th>
 					<Amount value={lot.units} units />

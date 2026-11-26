@@ -1,13 +1,16 @@
 <script lang="ts" generics="Row extends Record<string, unknown>">
 	import {
-		formatAmount,
+		BASE,
+		formatsIn,
 		formatBucket,
-		formatCompact,
 		formatDate,
 		formatMonth,
 	} from '#lib/web/shared/format.ts';
+	import { getContext } from 'svelte';
 	import type { ResolvedPathname } from '$app/types';
 	import type { Snippet } from 'svelte';
+
+	const formats = formatsIn(getContext<() => string>(BASE)?.());
 
 	type Props = {
 		/**
@@ -145,8 +148,8 @@
 							>
 								<a
 									href={href?.(day)}
-									title={formatAmount(String(rows[i]?.[y] ?? '0'))}
-									aria-label="{formatDate(day)}, {formatAmount(String(rows[i]?.[y] ?? '0'))}"
+									title={formats.amount(String(rows[i]?.[y] ?? '0'))}
+									aria-label="{formatDate(day)}, {formats.amount(String(rows[i]?.[y] ?? '0'))}"
 									tabindex={href ? undefined : 0}
 									onfocus={() => (hovered.index = i)}
 									onblur={() => (hovered.index = null)}
@@ -154,7 +157,7 @@
 									{#if labelled}
 										<span class="day">{nameOf(day, i)}</span>
 
-										<data value={amount}>{amount === 0 ? '' : formatCompact(amount)}</data>
+										<data value={amount}>{amount === 0 ? '' : formats.compact(amount)}</data>
 									{/if}
 								</a>
 							</td>

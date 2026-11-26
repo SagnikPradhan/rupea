@@ -98,6 +98,25 @@ describe('transactions', () => {
 		expect(listed.data?.rows[0]).toMatchObject({ key: 't1:1', quantity: '100.00' });
 	});
 
+	it('name rupees in a ledger whose base is another currency', async () => {
+		const quantity = { amount: '100.00', commodity: 'INR', price: null, cost: null };
+		const posting = { transaction: 't1', position: 1, file: 'a.rupea', line: 1, quantity };
+		useApi({
+			ledger: { list: () => Promise.resolve([{ handle: 'home', base: 'USD' }]) },
+			transactions: {
+				listPostings: () =>
+					Promise.resolve({
+						rows: [{ ...posting, date: '2026-08-29', description: 'Tea', account: 'Expenses' }],
+						next: null,
+					}),
+			},
+		});
+
+		const listed = await listPostings({ handle: 'home', day, filter, after: null });
+
+		expect(listed.data?.rows[0]?.quantity).toBe('100.00 INR');
+	});
+
 	it('answer a failure of the server as the reply', async () => {
 		useApi({ transactions: { list: () => Promise.reject(new Error('down')) } });
 

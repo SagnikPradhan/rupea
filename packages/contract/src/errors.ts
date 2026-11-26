@@ -26,6 +26,7 @@ export const STATUS: Record<RupeaError['type'], 401 | 404 | 409 | 422 | 500 | 50
 	CannotWriteTransaction: 500,
 	CannotWriteTerms: 500,
 	CannotWriteBudget: 500,
+	CannotWriteBase: 500,
 	FeedSymbolUnknown: 500,
 	ExtractionMissingModel: 500,
 	ModelDownloadFailed: 500,

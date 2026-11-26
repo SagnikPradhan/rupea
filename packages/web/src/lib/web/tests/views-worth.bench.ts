@@ -43,10 +43,10 @@ it(
 	`shapes worth over ${DAYS} days of ${BANKS} accounts`,
 	{ timeout: 600_000 },
 	async ({ bench }) => {
-		const worth = worthFrom(deltas, { tree, account: null });
+		const worth = worthFrom(deltas, { tree, account: null, base: 'INR' });
 
 		await bench.compare(
-			bench('worthFrom', () => worthFrom(deltas, { tree, account: null })),
+			bench('worthFrom', () => worthFrom(deltas, { tree, account: null, base: 'INR' })),
 			bench('stringify', () => JSON.stringify(worth)),
 		);
 	},

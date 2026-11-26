@@ -3,7 +3,10 @@
 	import ChartSummary from '#lib/web/components/ui-chart-summary/ui-chart-summary.svelte';
 	import LineChart from '#lib/web/components/ui-chart-line/ui-chart-line.svelte';
 	import { nameOf } from '#lib/web/shared/accounts.ts';
-	import { formatBucket, formatDate, formatPercent } from '#lib/web/shared/format.ts';
+	import { BASE, formatsIn, formatBucket, formatDate } from '#lib/web/shared/format.ts';
+	import { getContext } from 'svelte';
+
+	const formats = formatsIn(getContext<() => string>(BASE)?.());
 
 	type Drops = {
 		underwater: { day: string; depth: number }[];
@@ -23,7 +26,7 @@
 			.map((l) => ({
 				account: l.account,
 				name: nameOf(l.account),
-				figure: `low ${formatBucket.month(l.day)} ${formatPercent(l.depth)}`,
+				figure: `low ${formatBucket.month(l.day)} ${formats.percent(l.depth)}`,
 			})),
 	);
 </script>
@@ -38,7 +41,7 @@
 			series={[{ key: 'depth', label: 'Below its high', role: 'primary' }]}
 			label="How far investments stood below their high from {formatDate(first.day)} to {formatDate(
 				last.day,
-			)}, lowest {formatPercent(lowest.depth)} on {formatDate(lowest.day)}"
+			)}, lowest {formats.percent(lowest.depth)} on {formatDate(lowest.day)}"
 			summary={depthOn}
 		/>
 
@@ -49,9 +52,9 @@
 {#snippet depthOn(index: number)}
 	{@const shown = drops.underwater[index] ?? last}
 	{#if shown && lowest}
-		<ChartSummary id="drops" label="Below its high" figure={formatPercent(shown.depth)}>
+		<ChartSummary id="drops" label="Below its high" figure={formats.percent(shown.depth)}>
 			<span class="negative">
-				Lowest {formatPercent(lowest.depth)}, {formatBucket.month(lowest.day)}
+				Lowest {formats.percent(lowest.depth)}, {formatBucket.month(lowest.day)}
 			</span>
 			{formatDate(shown.day)}
 		</ChartSummary>

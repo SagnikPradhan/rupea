@@ -14,17 +14,14 @@
 	import { paramsOf } from '#lib/web/shared/filter.ts';
 	import { depthOf, isUnder, nameOf } from '#lib/web/shared/accounts.ts';
 	import {
-		formatAmount,
+		BASE,
+		formatsIn,
 		formatBucket,
 		formatDayMonth,
-		formatExact,
 		formatIsoDate,
-		formatPercent,
-		formatReturn,
-		formatShare,
-		formatWhole,
 		toneOf,
 	} from '#lib/web/shared/format.ts';
+	import { getContext } from 'svelte';
 	import { owedOf } from '#lib/web/shared/home.ts';
 	import * as Cards from '#lib/web/shared/cards.ts';
 	import * as Liabilities from '#lib/web/shared/liabilities.ts';
@@ -59,6 +56,8 @@
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
 	import { postingsHref, settingsHref } from '#lib/web/shared/links.ts';
 	import { page } from '$app/state';
+
+	const formats = formatsIn(getContext<() => string>(BASE)?.());
 
 	const SETTLED = { '': 'Including settled', no: 'Open only' };
 
@@ -164,7 +163,7 @@
 	const postingsOf = (a: string) => postingsHref(handle, { account: a, ...paramsOf(period) });
 
 	const usedOf = (c: Cards.Cycle) =>
-		c.limit === null ? '' : (formatShare(printAmount(c.owed), printAmount(c.limit)) ?? '');
+		c.limit === null ? '' : (formats.share(printAmount(c.owed), printAmount(c.limit)) ?? '');
 </script>
 
 <PageHeader subtitle="What are you worth, and how has it grown?">
@@ -196,22 +195,22 @@
 	</div>
 
 	<KpiStrip label="Net worth figures">
-		<Kpi label="Owned" figure={formatWhole(latest?.assets ?? '0')} />
+		<Kpi label="Owned" figure={formats.whole(latest?.assets ?? '0')} />
 		<Kpi
 			label="Owed"
-			figure={formatWhole(owedOf(latest?.liabilities ?? '0'))}
-			detail="{formatShare(owedOf(latest?.liabilities ?? '0'), latest?.assets ?? '0') ??
+			figure={formats.whole(owedOf(latest?.liabilities ?? '0'))}
+			detail="{formats.share(owedOf(latest?.liabilities ?? '0'), latest?.assets ?? '0') ??
 				'0%'} of what you own"
 		/>
 		<Kpi
 			label="Gain"
-			figure={formatWhole(String(totals.gain))}
-			detail="{formatReturn(String(totals.gain), String(totals.cost)) ?? '0%'} on cost"
+			figure={formats.whole(String(totals.gain))}
+			detail="{formats.gain(String(totals.gain), String(totals.cost)) ?? '0%'} on cost"
 			tone={toneOf(totals.gain)}
 		/>
 		<Kpi
 			label="Return a year"
-			figure={totals.xirr === null ? '0%' : formatPercent(totals.xirr)}
+			figure={totals.xirr === null ? '0%' : formats.percent(totals.xirr)}
 			detail="on what is invested"
 		/>
 	</KpiStrip>
@@ -280,8 +279,8 @@
 			<ChartSummary
 				id="payments"
 				label="Owed"
-				figure={formatAmount(printAmount(total))}
-				exact={formatExact(printAmount(total))}
+				figure={formats.amount(printAmount(total))}
+				exact={formats.exact(printAmount(total))}
 			>
 				{payments.made}
 				{payments.made === 1 ? 'payment' : 'payments'} made · {payments.due} still to fall due
@@ -312,10 +311,10 @@
 			{/if}
 		</Panel>
 		<KpiStrip label="Debt figures">
-			<Kpi label="Due in 30 days" figure={formatWhole(printAmount(dueSoon))} />
+			<Kpi label="Due in 30 days" figure={formats.whole(printAmount(dueSoon))} />
 			<Kpi
 				label="Loan interest a month"
-				figure={interest === null ? '–' : `about ${formatWhole(printAmount(interest))}`}
+				figure={interest === null ? '–' : `about ${formats.whole(printAmount(interest))}`}
 			/>
 			<Kpi
 				label="Loans paid off by"

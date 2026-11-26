@@ -3,9 +3,12 @@
 	import Kpi from '#lib/web/components/ui-kpi/ui-kpi.svelte';
 	import KpiStrip from '#lib/web/components/ui-kpi-strip/ui-kpi-strip.svelte';
 	import { overOf, type BudgetRow } from '#lib/web/shared/budgets.ts';
-	import { type Change, formatShare, formatWhole } from '#lib/web/shared/format.ts';
+	import { BASE, formatsIn, type Change } from '#lib/web/shared/format.ts';
+	import { getContext } from 'svelte';
 	import * as Income from '#lib/web/shared/income.ts';
 	import * as Spending from '#lib/web/shared/spending.ts';
+
+	const formats = formatsIn(getContext<() => string>(BASE)?.());
 
 	type Props = {
 		spending: Spending.Spent | undefined;
@@ -33,7 +36,7 @@
 <KpiStrip label="Spending figures">
 	<Kpi
 		label="Spent"
-		figure={formatWhole(printAmount(total))}
+		figure={formats.whole(printAmount(total))}
 		detail={[
 			moved?.percent ? `${moved.percent} on the period before` : '',
 			unpriced > 0 ? `excludes ${unpriced} unpriced` : '',
@@ -43,13 +46,13 @@
 	/>
 	<Kpi
 		label="A day"
-		figure={formatWhole(printAmount(Spending.dailyAverageOver(total, days)))}
+		figure={formats.whole(printAmount(Spending.dailyAverageOver(total, days)))}
 		detail="{days} {days === 1 ? 'day' : 'days'}"
 	/>
 	<Kpi
 		label="Saved"
-		figure={formatWhole(printAmount(saved))}
-		detail="{formatShare(printAmount(saved), printAmount(earned)) ?? '0%'} of income"
+		figure={formats.whole(printAmount(saved))}
+		detail="{formats.share(printAmount(saved), printAmount(earned)) ?? '0%'} of income"
 		tone={saved > 0n ? 'positive' : undefined}
 	/>
 	{#if budgets.length > 0}

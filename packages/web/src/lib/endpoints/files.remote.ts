@@ -4,7 +4,7 @@ import { Handle } from '@rupea/shared/text.ts';
 import { TransactionForm } from '@rupea/shared/forms.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
-import { api } from './api';
+import { api, findBase } from './api';
 import { listProblems } from './ledger.remote';
 import { NOTHING, replyFromBatchCall, replyFromCall } from './reply';
 import { viewTransaction } from './views';
@@ -86,9 +86,9 @@ export const parseFile = command(
 	v.object({ handle: Handle, key: Key, content: Draft }),
 	({ handle, key, content }) =>
 		replyFromBatchCall(
-			api()
-				.files.parse({ handle, key, content })
-				.then((b) => ({ ...b, succeeded: b.succeeded.map(viewTransaction) })),
+			Promise.all([api().files.parse({ handle, key, content }), findBase(handle)]).then(
+				([b, base]) => ({ ...b, succeeded: b.succeeded.map((t) => viewTransaction(t, base)) }),
+			),
 		),
 );
 

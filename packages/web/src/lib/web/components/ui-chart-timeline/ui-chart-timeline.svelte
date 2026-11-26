@@ -2,7 +2,10 @@
 	import Tooltip from '#lib/web/components/ui-tooltip/ui-tooltip.svelte';
 	import { AMOUNT_UNIT, type Amount, printAmount, toNumber } from '@rupea/shared/money.ts';
 	import { type Grain, bucketOf, bucketsIn } from '@rupea/shared/dates.ts';
-	import { formatAmount, formatBucket, formatMonth } from '#lib/web/shared/format.ts';
+	import { BASE, formatsIn, formatBucket, formatMonth } from '#lib/web/shared/format.ts';
+	import { getContext } from 'svelte';
+
+	const formats = formatsIn(getContext<() => string>(BASE)?.());
 
 	type Datum = {
 		at: Temporal.PlainDate;
@@ -66,7 +69,7 @@
 				<span
 					class={{ pin: true, past: p.past }}
 					role="listitem"
-					aria-label="{line.label}, {formatAmount(printAmount(p.amount))}, {formatBucket[bucket](
+					aria-label="{line.label}, {formats.amount(printAmount(p.amount))}, {formatBucket[bucket](
 						p.at.toString(),
 					)}"
 					style:left="{leftOf(p.at, bucket)}%"
@@ -87,11 +90,11 @@
 					{#if hovered.pin === id}
 						<Tooltip left={50} top={0}>
 							{line.label}
-							<data value={printAmount(p.amount)}>{formatAmount(printAmount(p.amount))}</data>
+							<data value={printAmount(p.amount)}>{formats.amount(printAmount(p.amount))}</data>
 							{#if split}
 								<small>
 									about <data value={printAmount(p.interest)}>
-										{formatAmount(printAmount(p.interest))}
+										{formats.amount(printAmount(p.interest))}
 									</data> interest
 								</small>
 							{/if}

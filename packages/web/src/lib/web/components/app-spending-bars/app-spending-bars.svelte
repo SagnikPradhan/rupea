@@ -13,10 +13,13 @@
 	import BarChart from '#lib/web/components/ui-chart-bar/ui-chart-bar.svelte';
 	import Calendar from '#lib/web/components/ui-chart-calendar/ui-chart-calendar.svelte';
 	import ChoicePicker from '#lib/web/components/ui-picker-choice/ui-picker-choice.svelte';
-	import { formatAmount, formatDate } from '#lib/web/shared/format.ts';
+	import { BASE, formatsIn, formatDate } from '#lib/web/shared/format.ts';
+	import { getContext } from 'svelte';
 	import { hrefWith, postingsHref } from '#lib/web/shared/links.ts';
 	import { page } from '$app/state';
 	import * as Spending from '#lib/web/shared/spending.ts';
+
+	const formats = formatsIn(getContext<() => string>(BASE)?.());
 
 	type Props = {
 		spending: Spending.Spent | undefined;
@@ -52,7 +55,7 @@
 	const partial = $derived(Spending.partialOf(spending, bucket, last));
 	const total = $derived(Spending.totalOf(spending, account) ?? ZERO);
 	const label = $derived(
-		`Spending from ${formatDate(first.toString())} to ${formatDate(last.toString())}, ${formatAmount(printAmount(total))} in all`,
+		`Spending from ${formatDate(first.toString())} to ${formatDate(last.toString())}, ${formats.amount(printAmount(total))} in all`,
 	);
 	const postingsOn = (day: string) => postingsHref(handle, { account, from: day, to: day });
 </script>

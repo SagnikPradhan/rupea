@@ -1,8 +1,11 @@
 <script lang="ts">
 	import ChartSummary from '#lib/web/components/ui-chart-summary/ui-chart-summary.svelte';
 	import LineChart from '#lib/web/components/ui-chart-line/ui-chart-line.svelte';
-	import { formatAmount, formatChange, formatDate, formatExact } from '#lib/web/shared/format.ts';
+	import { BASE, formatsIn, formatDate } from '#lib/web/shared/format.ts';
+	import { getContext } from 'svelte';
 	import { areasOf, withAreas } from '#lib/web/shared/worth.ts';
+
+	const formats = formatsIn(getContext<() => string>(BASE)?.());
 
 	type Worth = {
 		day: string;
@@ -37,9 +40,9 @@
 				})),
 				...(owing ? [{ key: 'liabilities', label: 'Owed', role: 'negative' as const }] : []),
 			]}
-			label="Net worth from {formatDate(first.day)} to {formatDate(last.day)}, {formatAmount(
+			label="Net worth from {formatDate(first.day)} to {formatDate(last.day)}, {formats.amount(
 				first.worth,
-			)} to {formatAmount(last.worth)}"
+			)} to {formats.amount(last.worth)}"
 			summary={worthOn}
 		/>
 	</section>
@@ -48,13 +51,13 @@
 {#snippet worthOn(index: number)}
 	{@const shown = worth[index] ?? last}
 	{#if first && shown}
-		{@const change = formatChange(first.worth, shown.worth)}
+		{@const change = formats.change(first.worth, shown.worth)}
 		<ChartSummary
 			id="worth"
 			label="Net worth"
 			lead
-			figure={formatAmount(shown.worth)}
-			exact={formatExact(shown.worth)}
+			figure={formats.amount(shown.worth)}
+			exact={formats.exact(shown.worth)}
 		>
 			<span class={change.negative ? 'negative' : 'positive'}>
 				{change.amount}{#if change.percent !== null}&nbsp;({change.percent}){/if}

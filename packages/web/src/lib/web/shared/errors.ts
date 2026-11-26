@@ -132,6 +132,10 @@ export const explain = (error: RupeaError): string =>
 			{ type: 'CannotWriteBudget' },
 			() => 'This budget wouldn’t read back as written. Check it for a line break.',
 		)
+		.with(
+			{ type: 'CannotWriteBase' },
+			(e) => `The currency wouldn’t read back from ${e.path}. Check the lines at its top.`,
+		)
 		.with({ type: 'NameTaken' }, (e) => `Someone already has the name ${e.name}.`)
 		.with({ type: 'EmailTaken' }, (e) => `Another account already uses ${e.email}.`)
 		.with({ type: 'AuthInvalidCode' }, () => 'That code is wrong or has expired.')

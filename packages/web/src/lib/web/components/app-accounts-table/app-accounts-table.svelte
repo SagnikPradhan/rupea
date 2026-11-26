@@ -6,14 +6,11 @@
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
 	import { depthOf, isUnder } from '#lib/web/shared/accounts.ts';
-	import {
-		formatAmount,
-		formatPercent,
-		formatShare,
-		formatReturn,
-		toneOf,
-	} from '#lib/web/shared/format.ts';
+	import { BASE, formatsIn, toneOf } from '#lib/web/shared/format.ts';
+	import { getContext } from 'svelte';
 	import { lotsHref } from '#lib/web/shared/links.ts';
+
+	const formats = formatsIn(getContext<() => string>(BASE)?.());
 
 	type Holding = {
 		commodity: string;
@@ -72,7 +69,7 @@
 </script>
 
 {#snippet returnOf(gain: string | null, cost: string | null)}
-	{@const percent = formatReturn(gain, cost)}
+	{@const percent = formats.gain(gain, cost)}
 	{@const tone = percent === null ? undefined : toneOf(Number(gain))}
 	<td class={['amount', tone]}>{percent}</td>
 {/snippet}
@@ -85,7 +82,7 @@
 		class={['amount', tone]}
 		title={r?.xirr == null ? undefined : r.yearly ? 'XIRR, per year' : 'Return over the period'}
 	>
-		{#if r?.xirr != null}{formatPercent(r.xirr)}{#if r.yearly}&nbsp;<span class="unit">
+		{#if r?.xirr != null}{formats.percent(r.xirr)}{#if r.yearly}&nbsp;<span class="unit">
 					p.a.
 				</span>{/if}{/if}
 	</td>
@@ -93,7 +90,7 @@
 
 {#snippet shareOf(value: string | null)}
 	<td class="amount optional">
-		{value !== null && Number(value) > 0 ? formatShare(value, printAmount(assets)) : null}
+		{value !== null && Number(value) > 0 ? formats.share(value, printAmount(assets)) : null}
 	</td>
 {/snippet}
 
@@ -115,7 +112,10 @@
 		</td>
 		<Amount value={child ? numberOf(holding.units) : holding.units} units optional />
 		<Amount value={holding.cost} optional />
-		<Amount value={holding.value} note={holding.price && `@ ${formatAmount(holding.price, true)}`}>
+		<Amount
+			value={holding.value}
+			note={holding.price && `@ ${formats.amount(holding.price, true)}`}
+		>
 			<span class="unpriced">unpriced</span>
 		</Amount>
 		<Amount value={holding.gain} signed />

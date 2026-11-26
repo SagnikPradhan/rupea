@@ -1,12 +1,14 @@
 import type { Grain } from '@rupea/shared/dates.ts';
+import { DEFAULT_COMMODITY } from '@rupea/shared/money.ts';
 
 const LOCALE = 'en-IN';
 
-const quantities = new Intl.NumberFormat(LOCALE, {
-	signDisplay: 'negative',
-	maximumFractionDigits: 4,
-});
-const exacts = new Intl.NumberFormat(LOCALE, { maximumFractionDigits: 20 });
+/** How the country of each base currency groups and writes its numbers. */
+const LOCALES: Record<string, string> = { INR: 'en-IN', USD: 'en-US', EUR: 'en-IE', GBP: 'en-GB' };
+
+/** The context key under which a ledger's pages hold its base. */
+export const BASE = Symbol('base');
+
 const days = new Intl.DateTimeFormat(LOCALE, {
 	day: 'numeric',
 	month: 'short',
@@ -37,43 +39,7 @@ const longDays = new Intl.DateTimeFormat(LOCALE, {
 	timeZone: 'UTC',
 });
 const isoDays = new Intl.DateTimeFormat('en-CA');
-const compacts = new Intl.NumberFormat(LOCALE, { notation: 'compact' });
-const wholes = new Intl.NumberFormat(LOCALE, { signDisplay: 'negative', maximumFractionDigits: 0 });
-const signedWholes = new Intl.NumberFormat(LOCALE, {
-	signDisplay: 'exceptZero',
-	maximumFractionDigits: 0,
-});
-const shares = new Intl.NumberFormat(LOCALE, { style: 'percent', maximumFractionDigits: 1 });
-const percents = new Intl.NumberFormat(LOCALE, {
-	style: 'percent',
-	signDisplay: 'exceptZero',
-	maximumFractionDigits: 1,
-});
-
 const UNITS = ['B', 'kB', 'MB'];
-
-/** Groups an amount in whole rupees, like 1,250. */
-export const formatWhole = (t: string) => wholes.format(t as Intl.StringNumericLiteral);
-
-/**
- * Groups an amount like -1250.50 or 10 AAPL, rounding rupees to whole ones and
- * units, as any amount naming a commodity counts, to four places.
- */
-export const formatAmount = (text: string, units = false) => {
-	const [amount = '', ...commodity] = text.split(' ');
-	const format = units || commodity.length > 0 ? quantities : wholes;
-	return [format.format(amount as Intl.StringNumericLiteral), ...commodity].join(' ');
-};
-
-/**
- * An amount with every digit, for a tooltip, or nothing when what is shown
- * already has them all.
- */
-export const formatExact = (text: string, shown = formatAmount(text)) => {
-	const [amount = '', ...commodity] = text.split(' ');
-	const exact = [exacts.format(amount as Intl.StringNumericLiteral), ...commodity].join(' ');
-	return exact === shown ? undefined : exact;
-};
 
 /** Formats an ISO date like `2026-08-29`. */
 export const formatDate = (d: string) => days.format(new Date(d));
@@ -119,9 +85,6 @@ export const formatMonthName = (d: string) => longMonths.format(new Date(d));
 /** Spells out an ISO day without its year, like 31 October. */
 export const formatDayMonth = (d: string) => longDays.format(new Date(d));
 
-/** Formats a number in a few characters, like `12L`, for chart axes. */
-export const formatCompact = (n: number) => compacts.format(n);
-
 /** The tone of a number: positive above zero, negative below, none at zero. */
 export const toneOf = (n: number) => {
 	if (n > 0) return 'positive';
@@ -129,34 +92,94 @@ export const toneOf = (n: number) => {
 	return undefined;
 };
 
-/** Formats a ratio like `0.251` as a signed percent, `+25.1%`. */
-export const formatPercent = (r: number) => percents.format(r);
-
-/** A part of a whole, like 12.5%, or nothing without a positive whole. */
-export const formatShare = (p: string, w: string) =>
-	Number(w) > 0 ? shares.format(Number(p) / Number(w)) : null;
-
-/**
- * A gain as a signed share of what it cost, like +25.1%, or nothing without a
- * positive cost.
- */
-export const formatReturn = (g: string | null, c: string | null) =>
-	g === null || c === null || Number(c) <= 0 ? null : formatPercent(Number(g) / Number(c));
-
 /**
  * How far an amount moved: signed amount, percent of the start, and its
  * direction.
  */
 export type Change = { amount: string; percent: string | null; negative: boolean };
 
-/** How far an amount moved from a start; no percent without a positive start. */
-export const formatChange = (start: string, end: string): Change => {
-	const from = Number(start);
-	const change = Number(end) - from;
+/**
+ * Number formats in the style of a base currency's country, such as 12,34,567
+ * for INR and 1,234,567 for USD; rupees without a base.
+ */
+export const formatsIn = (b: string | undefined) => FORMATS[b ?? DEFAULT_COMMODITY] ?? OTHER;
 
-	return {
-		amount: signedWholes.format(change),
-		percent: from > 0 ? formatPercent(change / from) : null,
-		negative: change < 0,
+const FORMATS = Object.fromEntries(Object.entries(LOCALES).map(([c, l]) => [c, formatsOf(l)]));
+const OTHER = formatsOf('en-US');
+
+function formatsOf(locale: string) {
+	const quantities = new Intl.NumberFormat(locale, {
+		signDisplay: 'negative',
+		maximumFractionDigits: 4,
+	});
+	const exacts = new Intl.NumberFormat(locale, { maximumFractionDigits: 20 });
+	const wholes = new Intl.NumberFormat(locale, {
+		signDisplay: 'negative',
+		maximumFractionDigits: 0,
+	});
+	const signedWholes = new Intl.NumberFormat(locale, {
+		signDisplay: 'exceptZero',
+		maximumFractionDigits: 0,
+	});
+	const compacts = new Intl.NumberFormat(locale, { notation: 'compact' });
+	const shares = new Intl.NumberFormat(locale, { style: 'percent', maximumFractionDigits: 1 });
+	const percents = new Intl.NumberFormat(locale, {
+		style: 'percent',
+		signDisplay: 'exceptZero',
+		maximumFractionDigits: 1,
+	});
+
+	/** Groups an amount in whole units of the base, like 1,250. */
+	const whole = (t: string) => wholes.format(t as Intl.StringNumericLiteral);
+
+	/**
+	 * Groups an amount like -1250.50 or 10 AAPL, rounding the base to whole units
+	 * and units, as any amount naming a commodity counts, to four places.
+	 */
+	const amount = (text: string, units = false) => {
+		const [figure = '', ...commodity] = text.split(' ');
+		const format = units || commodity.length > 0 ? quantities : wholes;
+		return [format.format(figure as Intl.StringNumericLiteral), ...commodity].join(' ');
 	};
-};
+
+	/**
+	 * An amount with every digit, for a tooltip, or nothing when what is shown
+	 * already has them all.
+	 */
+	const exact = (text: string, shown = amount(text)) => {
+		const [figure = '', ...commodity] = text.split(' ');
+		const all = [exacts.format(figure as Intl.StringNumericLiteral), ...commodity].join(' ');
+		return all === shown ? undefined : all;
+	};
+
+	/** Formats a number in a few characters, like 12L, for chart axes. */
+	const compact = (n: number) => compacts.format(n);
+
+	/** Formats a ratio like 0.251 as a signed percent, +25.1%. */
+	const percent = (r: number) => percents.format(r);
+
+	/** A part of a whole, like 12.5%, or nothing without a positive whole. */
+	const share = (p: string, w: string) =>
+		Number(w) > 0 ? shares.format(Number(p) / Number(w)) : null;
+
+	/**
+	 * A gain as a signed share of what it cost, like +25.1%, or nothing without a
+	 * positive cost.
+	 */
+	const gain = (g: string | null, c: string | null) =>
+		g === null || c === null || Number(c) <= 0 ? null : percent(Number(g) / Number(c));
+
+	/** How far an amount moved from a start; no percent without a positive start. */
+	const change = (start: string, end: string): Change => {
+		const from = Number(start);
+		const moved = Number(end) - from;
+
+		return {
+			amount: signedWholes.format(moved),
+			percent: from > 0 ? percent(moved / from) : null,
+			negative: moved < 0,
+		};
+	};
+
+	return { whole, amount, exact, compact, percent, share, gain, change };
+}

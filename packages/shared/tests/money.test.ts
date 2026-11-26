@@ -60,24 +60,29 @@ const wire = (posted: {
 	});
 
 describe('printing a posting', () => {
+	it('leaves the base out, and names it in a ledger based elsewhere', () => {
+		expect(printPosted(wire({ amount: '20', commodity: 'USD' }), 'USD')).toBe('20.00');
+		expect(printPosted(wire({ amount: '20', commodity: 'INR' }), 'USD')).toBe('20.00 INR');
+	});
+
 	it('leaves the rupee out of a plain amount', () => {
-		expect(printPosted(wire({ amount: '2000.5', commodity: 'INR' }))).toBe('2000.50');
+		expect(printPosted(wire({ amount: '2000.5', commodity: 'INR' }), 'INR')).toBe('2000.50');
 	});
 
 	it('keeps a sign', () => {
-		expect(printPosted(wire({ amount: '-15001.25', commodity: 'INR' }))).toBe('-15001.25');
+		expect(printPosted(wire({ amount: '-15001.25', commodity: 'INR' }), 'INR')).toBe('-15001.25');
 	});
 
 	it('names another commodity', () => {
-		expect(printPosted(wire({ amount: '10', commodity: 'INFY' }))).toBe('10.00 INFY');
+		expect(printPosted(wire({ amount: '10', commodity: 'INFY' }), 'INR')).toBe('10.00 INFY');
 	});
 
 	it('shows a unit price with @ and a total price with @@', () => {
 		const price = { amount: '1500.125', commodity: 'INR' };
 		const unit = wire({ amount: '10', commodity: 'INFY', price: { ...price, kind: 'unit' } });
 		const total = wire({ amount: '10', commodity: 'INFY', price: { ...price, kind: 'total' } });
-		expect(printPosted(unit)).toBe('10.00 INFY @ 1500.125');
-		expect(printPosted(total)).toBe('10.00 INFY @@ 1500.125');
+		expect(printPosted(unit, 'INR')).toBe('10.00 INFY @ 1500.125');
+		expect(printPosted(total, 'INR')).toBe('10.00 INFY @@ 1500.125');
 	});
 
 	it('shows a lot cost with its date, and before a price', () => {
@@ -88,10 +93,10 @@ describe('printing a posting', () => {
 			price: { amount: '1500', commodity: 'INR', kind: 'unit' as const },
 		};
 		const dated = { ...cost, date: Temporal.PlainDate.from('2026-01-02') };
-		expect(printPosted(wire({ ...posted, cost: dated }))).toBe(
+		expect(printPosted(wire({ ...posted, cost: dated }), 'INR')).toBe(
 			'-5.00 INFY {1400.00, 2026-01-02} @ 1500.00',
 		);
-		expect(printPosted(wire({ ...posted, cost: { ...cost, date: null } }))).toBe(
+		expect(printPosted(wire({ ...posted, cost: { ...cost, date: null } }), 'INR')).toBe(
 			'-5.00 INFY {1400.00} @ 1500.00',
 		);
 	});

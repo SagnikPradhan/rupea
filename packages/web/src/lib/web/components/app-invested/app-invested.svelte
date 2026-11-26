@@ -2,7 +2,10 @@
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import ChartSummary from '#lib/web/components/ui-chart-summary/ui-chart-summary.svelte';
 	import LineChart from '#lib/web/components/ui-chart-line/ui-chart-line.svelte';
-	import { formatAmount, formatChange, formatDate, formatExact } from '#lib/web/shared/format.ts';
+	import { BASE, formatsIn, formatDate } from '#lib/web/shared/format.ts';
+	import { getContext } from 'svelte';
+
+	const formats = formatsIn(getContext<() => string>(BASE)?.());
 
 	type Invested = { day: string; value: string; cost: string };
 
@@ -23,7 +26,7 @@
 			]}
 			label="Value against cost from {formatDate(first.day)} to {formatDate(
 				last.day,
-			)}, value {formatAmount(last.value)} on cost {formatAmount(last.cost)}"
+			)}, value {formats.amount(last.value)} on cost {formats.amount(last.cost)}"
 			summary={valueOn}
 		/>
 	</Panel>
@@ -32,12 +35,12 @@
 {#snippet valueOn(index: number)}
 	{@const shown = invested[index] ?? last}
 	{#if shown}
-		{@const gain = formatChange(shown.cost, shown.value)}
+		{@const gain = formats.change(shown.cost, shown.value)}
 		<ChartSummary
 			id="invested"
 			label="Value"
-			figure={formatAmount(shown.value)}
-			exact={formatExact(shown.value)}
+			figure={formats.amount(shown.value)}
+			exact={formats.exact(shown.value)}
 		>
 			<span class={gain.negative ? 'negative' : 'positive'}>
 				Gain {gain.amount}{#if gain.percent !== null}&nbsp;({gain.percent}){/if}

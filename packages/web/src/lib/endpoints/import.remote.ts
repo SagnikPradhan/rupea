@@ -9,7 +9,7 @@ import {
 import { Handle } from '@rupea/shared/text.ts';
 import { command, form, query } from '$app/server';
 import * as v from 'valibot';
-import { api } from './api';
+import { api, findBase } from './api';
 import { listFiles } from './files.remote';
 import { NOTHING, replyFromBatchCall, replyFromCall } from './reply';
 import { listSchemas } from './schemas.remote';
@@ -86,9 +86,9 @@ export const previewStatement = command(
 	v.object({ handle: Handle, statement: StatementKey, schema: Schema }),
 	({ handle, statement, schema }) =>
 		replyFromBatchCall(
-			api()
-				.statements.preview({ handle, statement, schema })
-				.then((b) => ({ ...b, succeeded: b.succeeded.map(viewTransaction) })),
+			Promise.all([api().statements.preview({ handle, statement, schema }), findBase(handle)]).then(
+				([b, base]) => ({ ...b, succeeded: b.succeeded.map((t) => viewTransaction(t, base)) }),
+			),
 		),
 );
 

@@ -25,7 +25,10 @@ vi.mock('$app/server', () => import('#tests/shared/app-server.ts'));
 const day = '2026-09-01';
 const month = { kind: 'month', at: '2026-09' } as const;
 const empty = { succeeded: [], failed: [] };
-const never = { findFirstDay: vi.fn().mockResolvedValue(null) };
+const never = {
+	findFirstDay: vi.fn().mockResolvedValue(null),
+	list: vi.fn().mockResolvedValue([]),
+};
 
 describe('accounts', () => {
 	it('lists what accounts held at the end of the period, printing holdings for the page', async () => {
@@ -190,7 +193,10 @@ describe('accounts', () => {
 	])('counts all time from the ledger first day %s, drawing by the %s', async ([first, bucket]) => {
 		const listed = vi.fn().mockResolvedValue(empty);
 		useApi({
-			ledger: { findFirstDay: vi.fn().mockResolvedValue(first) },
+			ledger: {
+				findFirstDay: vi.fn().mockResolvedValue(first),
+				list: vi.fn().mockResolvedValue([]),
+			},
 			accounts: { listBalances: listed, list: vi.fn().mockResolvedValue([]) },
 		});
 

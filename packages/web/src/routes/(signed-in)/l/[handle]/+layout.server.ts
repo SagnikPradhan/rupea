@@ -8,5 +8,5 @@ export const load: LayoutServerLoad = async ({ params, parent }) => {
 	const ledger = ledgers.find((l) => l.handle === params.handle);
 	if (!ledger) error(404, 'No such ledger');
 
-	return { ledger: { handle: ledger.handle, name: ledger.name } };
+	return { ledger: { handle: ledger.handle, name: ledger.name, base: ledger.base } };
 };

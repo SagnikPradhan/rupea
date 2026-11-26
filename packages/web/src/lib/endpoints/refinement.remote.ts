@@ -3,7 +3,7 @@ import { Fingerprint, GroupId, LinkEdit, MOST_EDITS } from '@rupea/contract/shap
 import { Handle } from '@rupea/shared/text.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
-import { api } from './api';
+import { api, findBase } from './api';
 import { listFiles } from './files.remote';
 import { listProblems } from './ledger.remote';
 import { replyFromBatchCall, replyFromCall } from './reply';
@@ -11,9 +11,9 @@ import { viewGroup, viewSuggestion } from './views';
 
 export const listSuggestions = query(v.object({ handle: Handle, file: Key }), ({ handle, file }) =>
 	replyFromCall(
-		api()
-			.refinement.listSuggestions({ handle, file })
-			.then((s) => s.map(viewSuggestion)),
+		Promise.all([api().refinement.listSuggestions({ handle, file }), findBase(handle)]).then(
+			([s, base]) => s.map((x) => viewSuggestion(x, base)),
+		),
 	),
 );
 
@@ -46,9 +46,9 @@ export const dismissSuggestion = command(
 
 export const listGroups = query(v.object({ handle: Handle, file: Key }), ({ handle, file }) =>
 	replyFromCall(
-		api()
-			.refinement.listGroups({ handle, file })
-			.then((g) => g.map(viewGroup)),
+		Promise.all([api().refinement.listGroups({ handle, file }), findBase(handle)]).then(
+			([g, base]) => g.map((x) => viewGroup(x, base)),
+		),
 	),
 );
 

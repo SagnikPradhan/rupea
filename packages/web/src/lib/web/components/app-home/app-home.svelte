@@ -16,18 +16,20 @@
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
 	import { stepsOf } from '#lib/web/shared/bridge.ts';
 	import {
-		formatAmount,
-		formatChange,
+		BASE,
+		formatsIn,
 		formatDate,
 		formatIsoDate,
 		formatMonthName,
-		formatShare,
-		formatWhole,
 	} from '#lib/web/shared/format.ts';
+	import { setContext } from 'svelte';
 	import { lastMonthOf, savedOf, statementOf } from '#lib/web/shared/home.ts';
 	import * as Liabilities from '#lib/web/shared/liabilities.ts';
 
-	const { handle }: { handle: string } = $props();
+	const { handle, base }: { handle: string; base: string } = $props();
+
+	const formats = $derived(formatsIn(base));
+	setContext(BASE, () => base);
 
 	const day = formatIsoDate(new Date());
 	const today = Temporal.PlainDate.from(day);
@@ -49,6 +51,9 @@
 	const spent = $derived(statementOf(EXPENSES, spending.data?.[0], spending.data?.[1]));
 	const income = $derived(statementOf(INCOME, earning.data?.[0], earning.data?.[1]));
 	const saved = $derived(savedOf(income.total, spent.total));
+	const spentChange = $derived(
+		formats.change(printAmount(spent.total.before), printAmount(spent.total.amount)),
+	);
 	const month = $derived(formatMonthName(lastMonth.at + '-01'));
 	const before = $derived(formatMonthName(lastMonthOf(lastMonth.at + '-01') + '-01'));
 
@@ -79,14 +84,14 @@
 <PanelGrid narrow>
 	<div>
 		{#if bridge}
-			{@const change = formatChange(bridge.start, bridge.end)}
+			{@const change = formats.change(bridge.start, bridge.end)}
 			<ChartSummary id="moved" label="Net worth in {month}" lead figure={change.amount}>
-				from {formatAmount(bridge.start)} to {formatAmount(bridge.end)} ·
+				from {formats.amount(bridge.start)} to {formats.amount(bridge.end)} ·
 				{formatDate(bridge.from)} – {formatDate(bridge.to)}
 			</ChartSummary>
 			<Waterfall
 				steps={stepsOf(bridge)}
-				label="Net worth from {formatWhole(bridge.start)} to {formatWhole(
+				label="Net worth from {formats.whole(bridge.start)} to {formats.whole(
 					bridge.end,
 				)}, by income, expenses and what prices did"
 			/>
@@ -98,29 +103,27 @@
 	<KpiStrip label="Last month">
 		<Kpi
 			label="Net worth"
-			figure={formatWhole(bridge?.end ?? '0')}
+			figure={formats.whole(bridge?.end ?? '0')}
 			detail="on {formatDate(bridge?.to ?? day)}"
 			href={worth}
 		/>
 		<Kpi
 			label="Saved in {month}"
-			figure={formatWhole(printAmount(saved.amount))}
-			detail="{formatShare(printAmount(saved.amount), printAmount(income.total.amount)) ??
+			figure={formats.whole(printAmount(saved.amount))}
+			detail="{formats.share(printAmount(saved.amount), printAmount(income.total.amount)) ??
 				'0%'} of income"
 			tone={saved.amount > 0n ? 'positive' : undefined}
 			href={spentIn}
 		/>
 		<Kpi
 			label="Spent in {month}"
-			figure={formatWhole(printAmount(spent.total.amount))}
-			detail={spent.total.change.percent
-				? `${spent.total.change.percent} on ${before}`
-				: `as in ${before}`}
+			figure={formats.whole(printAmount(spent.total.amount))}
+			detail={spentChange.percent ? `${spentChange.percent} on ${before}` : `as in ${before}`}
 			href={spentIn}
 		/>
 		<Kpi
 			label="Due in 7 days"
-			figure={formatWhole(printAmount(due))}
+			figure={formats.whole(printAmount(due))}
 			detail="{dues.length} {dues.length === 1 ? 'payment' : 'payments'}"
 			href="{worth}#owed"
 		/>

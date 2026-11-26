@@ -59,8 +59,10 @@
 	const dues = $derived(debts.flatMap((d) => Liabilities.duesOn(d, week)));
 	const due = $derived(sum(dues.map((d) => d.amount)) as Amount);
 
-	const ledger = (path: 'spending' | 'net-worth') =>
-		resolve(`/(signed-in)/l/[handle]/${path}`, { handle });
+	const worth = $derived(resolve('/(signed-in)/l/[handle]/net-worth', { handle }));
+	const spentIn = $derived(
+		`${resolve('/(signed-in)/l/[handle]/spending', { handle })}?at=${lastMonth.at}`,
+	);
 </script>
 
 <Issues
@@ -98,7 +100,7 @@
 			label="Net worth"
 			figure={formatWhole(bridge?.end ?? '0')}
 			detail="on {formatDate(bridge?.to ?? day)}"
-			href={ledger('net-worth')}
+			href={worth}
 		/>
 		<Kpi
 			label="Saved in {month}"
@@ -106,7 +108,7 @@
 			detail="{formatShare(printAmount(saved.amount), printAmount(income.total.amount)) ??
 				'0%'} of income"
 			tone={saved.amount > 0n ? 'positive' : undefined}
-			href={ledger('spending')}
+			href={spentIn}
 		/>
 		<Kpi
 			label="Spent in {month}"
@@ -114,13 +116,13 @@
 			detail={spent.total.change.percent
 				? `${spent.total.change.percent} on ${before}`
 				: `as in ${before}`}
-			href={ledger('spending')}
+			href={spentIn}
 		/>
 		<Kpi
 			label="Due in 7 days"
 			figure={formatWhole(printAmount(due))}
 			detail="{dues.length} {dues.length === 1 ? 'payment' : 'payments'}"
-			href={ledger('net-worth')}
+			href="{worth}#owed"
 		/>
 	</KpiStrip>
 </PanelGrid>

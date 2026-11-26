@@ -18,6 +18,7 @@ const SPENDING = {
 };
 
 const PROPS = {
+	label: 'Spent',
 	spending: SPENDING,
 	account: 'Expenses',
 	parts: ['Expenses:Food'],
@@ -70,5 +71,11 @@ describe('the spending by account', () => {
 		render(SpendingAccounts, { ...PROPS, spending: undefined });
 
 		expect(screen.getByText('Nothing spent in this period.')).toBeTruthy();
+	});
+
+	it('heads the amounts with its label, as income does with Earned', () => {
+		render(SpendingAccounts, { ...PROPS, label: 'Earned', spending: undefined });
+
+		expect(screen.getByText('Nothing earned in this period.')).toBeTruthy();
 	});
 });

@@ -6,6 +6,9 @@
 	import * as Spending from '#lib/web/shared/spending.ts';
 
 	type Props = {
+		title: string;
+		subtitle: string;
+		label: string;
 		spending: Spending.Spent | undefined;
 		account: string;
 		parts: string[];
@@ -20,7 +23,7 @@
 	const props: Props = $props();
 </script>
 
-<Panel title="Where the money went" subtitle="Which accounts took the most?">
+<Panel title={props.title} subtitle={props.subtitle}>
 	<div>
 		<SpendingFlows
 			spending={props.spending}

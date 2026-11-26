@@ -7,6 +7,9 @@ const on = (d: string) => Temporal.PlainDate.from(d);
 const amount = (t: string) => parseAmount(t) as Amount;
 
 const PROPS = {
+	title: 'Where the money went',
+	subtitle: 'Which accounts took the most?',
+	label: 'Spent',
 	spending: {
 		buckets: [on('2026-01-01')],
 		totals: [

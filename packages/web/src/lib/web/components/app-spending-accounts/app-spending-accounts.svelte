@@ -15,6 +15,7 @@
 	import { SvelteSet } from 'svelte/reactivity';
 
 	type Props = {
+		label: string;
 		spending: Spending.Spent | undefined;
 		account: string;
 		parts: string[];
@@ -26,7 +27,7 @@
 		period: Period;
 	};
 
-	const { spending, account, parts, colours, bucket, first, last, handle, period }: Props =
+	const { label, spending, account, parts, colours, bucket, first, last, handle, period }: Props =
 		$props();
 
 	const rows = $derived(Spending.rowsOf(spending, account));
@@ -50,7 +51,7 @@
 	<LedgerTable
 		columns={[
 			{ label: 'Account' },
-			{ label: 'Spent', kind: 'amount' },
+			{ label, kind: 'amount' },
 			{ label: 'Share', kind: 'amount', optional: true },
 			...(bucket === 'day'
 				? []
@@ -100,7 +101,7 @@
 		</tbody>
 	</LedgerTable>
 {:else}
-	<p>Nothing spent in this period.</p>
+	<p>Nothing {label.toLowerCase()} in this period.</p>
 {/if}
 
 <style>

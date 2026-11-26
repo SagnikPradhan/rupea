@@ -25,15 +25,15 @@
 	import SpendingBars from '#lib/web/components/app-spending-bars/app-spending-bars.svelte';
 	import SpendingKpis from '#lib/web/components/app-spending-kpis/app-spending-kpis.svelte';
 	import IncomeCash from '#lib/web/components/app-income-cash/app-income-cash.svelte';
-	import IncomeSources from '#lib/web/components/app-income-sources/app-income-sources.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import { formatChange, formatIsoDate } from '#lib/web/shared/format.ts';
-	import { MONTHS, MONTHS_BRIEF } from '#lib/web/shared/home.ts';
+	import { MONTHS_BRIEF } from '#lib/web/shared/home.ts';
 	import { rowsFor } from '#lib/web/shared/budgets.ts';
 	import { hrefWith } from '#lib/web/shared/links.ts';
 	import { readQuery } from '#lib/web/shared/query.svelte.ts';
+	import * as Income from '#lib/web/shared/income.ts';
 	import * as Spending from '#lib/web/shared/spending.ts';
 
 	const { data } = $props();
@@ -86,8 +86,10 @@
 	const previous = $derived(response.data?.[1]);
 	const bucket = $derived(spending?.bucket ?? 'month');
 
+	const income = $derived(Income.earnedOf(earned.data?.[0]));
 	const parts = $derived(Spending.partsOf(spending, url.query.account));
-	const colours = $derived(distinctOf(parts, coloursOf(parts)));
+	const sources = $derived(Spending.partsOf(income, INCOME));
+	const colours = $derived(distinctOf([...parts, ...sources], coloursOf([...parts, ...sources])));
 
 	const first = $derived(spending?.from ?? today);
 	const last = $derived(spending?.to ?? today);
@@ -153,44 +155,6 @@
 	/>
 </PanelGrid>
 
-<PanelGrid>
-	<IncomeSources
-		now={earned.data?.[0]}
-		before={earned.data?.[1]}
-		period={MONTHS[picked] ?? 'Period'}
-	/>
-	{#if !adding && !budget}{@render budgetsPanel()}{/if}
-</PanelGrid>
-
-{#snippet budgetsPanel()}
-	<SpendingBudgets {rows} {today} add={hrefWith(params, { add: '1' })} />
-{/snippet}
-
-{#if adding || budget}
-	<PanelGrid wide>
-		{@render budgetsPanel()}
-		{#if budget}
-			<Aside title="Budget for {nameOf(budget.account)}" onclose={() => goto(closeHref)}>
-				{#key budget.account}
-					<BudgetAside
-						{handle}
-						{day}
-						shown={span}
-						account={budget.account}
-						accounts={[]}
-						current={budget.current}
-					/>
-				{/key}
-			</Aside>
-		{/if}
-		{#if !budget}
-			<Aside title="Add budget" onclose={() => goto(closeHref)}>
-				<BudgetAside {handle} {day} shown={span} account="" accounts={expenses} current={{}} />
-			</Aside>
-		{/if}
-	</PanelGrid>
-{/if}
-
 <PanelGrid full>
 	<SpendingBars
 		{spending}
@@ -207,8 +171,49 @@
 	/>
 </PanelGrid>
 
-<PanelGrid full>
+<PanelGrid>
+	<SpendingBudgets {rows} {today} add={hrefWith(params, { add: '1' })} />
+	{#if budget}
+		<Aside title="Budget for {nameOf(budget.account)}" onclose={() => goto(closeHref)}>
+			{#key budget.account}
+				<BudgetAside
+					{handle}
+					{day}
+					shown={span}
+					account={budget.account}
+					accounts={[]}
+					current={budget.current}
+				/>
+			{/key}
+		</Aside>
+	{/if}
+	{#if adding && !budget}
+		<Aside title="Add budget" onclose={() => goto(closeHref)}>
+			<BudgetAside {handle} {day} shown={span} account="" accounts={expenses} current={{}} />
+		</Aside>
+	{/if}
+	{#if !adding && !budget}<SpendingDays daily={daily.data ?? []} />{/if}
+</PanelGrid>
+
+<PanelGrid>
 	<SpendingBreakdown
+		title="Where the money came from"
+		subtitle="Which accounts brought in the most?"
+		label="Earned"
+		spending={income}
+		account={INCOME}
+		parts={sources}
+		{colours}
+		bucket={income?.bucket ?? 'month'}
+		first={income?.from ?? today}
+		last={income?.to ?? today}
+		{handle}
+		period={url.query.period}
+	/>
+	<SpendingBreakdown
+		title="Where the money went"
+		subtitle="Which accounts took the most?"
+		label="Spent"
 		{spending}
 		account={url.query.account}
 		{parts}
@@ -219,8 +224,4 @@
 		{handle}
 		period={url.query.period}
 	/>
-</PanelGrid>
-
-<PanelGrid full>
-	<SpendingDays daily={daily.data ?? []} />
 </PanelGrid>

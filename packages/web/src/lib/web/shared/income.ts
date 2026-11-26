@@ -1,6 +1,5 @@
 import * as v from 'valibot';
 import { Amount, EXPENSES, INCOME, ZERO, max, min, printAmount, sum } from '@rupea/shared/money.ts';
-import { statementOf } from './home';
 import { totalOf, type Spent } from './spending';
 
 export const SPENT = 'Spent';
@@ -106,19 +105,12 @@ const amountsOn = (s: Spent | undefined, a: string, by: bigint) =>
 	);
 
 /**
- * The accounts under Income as the table lists them, what each earned in a
- * period and in the one before, the largest now first.
+ * Income as earned, without the minus it is credited with, so it reads as
+ * spending does.
  */
-export const sourcesOf = (now: Spent | undefined, before: Spent | undefined) => {
-	const statement = statementOf('Income', now, before);
-
-	return {
-		rows: statement.rows.map((r) => ({
-			account: r.account,
-			name: r.name,
-			now: r.amount,
-			before: r.before,
-		})),
-		total: { now: statement.total.amount, before: statement.total.before },
+export const earnedOf = <S extends Spent>(s: S | undefined) =>
+	s && {
+		...s,
+		totals: s.totals.map((t) => ({ ...t, amount: -t.amount as Amount })),
+		deltas: s.deltas.map((d) => ({ ...d, amount: -d.amount as Amount })),
 	};
-};

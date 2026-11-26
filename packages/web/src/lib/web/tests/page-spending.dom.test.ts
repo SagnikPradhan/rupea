@@ -490,7 +490,7 @@ describe('the income on the spending page', () => {
 
 	it('reads income over the period only', async () => {
 		render(Page, { data });
-		await screen.findByRole('heading', { name: 'Income by source' });
+		await screen.findByRole('heading', { name: 'Where the money came from' });
 
 		expect(listDeltas).not.toHaveBeenCalledWith(
 			expect.objectContaining({ period: { kind: 'month', at: '2026-10' } }),
@@ -513,26 +513,25 @@ describe('the income on the spending page', () => {
 		).toBeTruthy();
 	});
 
-	it('lists each source over the period and the one before, with the total', async () => {
+	it('lists each source as the spending is listed, by what it earned', async () => {
 		render(Page, { data });
 
-		const heading = await screen.findByRole('heading', { name: 'Income by source' });
+		const heading = await screen.findByRole('heading', { name: 'Where the money came from' });
 		const table = within(heading.closest('section') as HTMLElement);
-		expect(table.getByText('Salary')).toBeTruthy();
-		expect(table.getByText('Dividends')).toBeTruthy();
-		expect(table.getByText('Last 12 months')).toBeTruthy();
-		expect(table.getByText('Before')).toBeTruthy();
+		expect(table.getByRole('link', { name: 'Salary' })).toBeTruthy();
+		expect(table.getByRole('link', { name: 'Dividends' })).toBeTruthy();
+		expect(table.getByText('Earned')).toBeTruthy();
+		expect(table.getByRole('img', { name: /How Income divides/ })).toBeTruthy();
 	});
 
 	it('names a period of its own', async () => {
 		visit('/l/h/spending?at=2026-03');
 		render(Page, { data });
 
-		await screen.findByRole('heading', { name: 'Income by source' });
+		await screen.findByRole('heading', { name: 'Where the money came from' });
 		expect(listDeltas).toHaveBeenCalledWith(
 			expect.objectContaining({ account: 'Income', period: { kind: 'month', at: '2026-03' } }),
 		);
-		expect(screen.getByText('Period')).toBeTruthy();
 	});
 
 	it('offers the periods to read in the filter, with the one picked marked', async () => {
@@ -559,7 +558,7 @@ describe('the income on the spending page', () => {
 
 	it('reads what was paid for lots from the day before the period', async () => {
 		render(Page, { data });
-		await screen.findByRole('heading', { name: 'Income by source' });
+		await screen.findByRole('heading', { name: 'Where the money came from' });
 
 		expect(listInvested).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -572,7 +571,7 @@ describe('the income on the spending page', () => {
 	it('reads all of time as it is, with nothing paid before it', async () => {
 		visit('/l/h/spending?range=all');
 		render(Page, { data });
-		await screen.findByRole('heading', { name: 'Income by source' });
+		await screen.findByRole('heading', { name: 'Where the money came from' });
 
 		expect(listInvested).toHaveBeenCalledWith(
 			expect.objectContaining({ period: { kind: 'all' }, account: 'Assets' }),

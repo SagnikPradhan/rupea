@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { incomeOf, monthsOf, savedOf, sourcesOf, wholeOf } from '#lib/web/shared/income.ts';
+import { incomeOf, monthsOf, savedOf, earnedOf, wholeOf } from '#lib/web/shared/income.ts';
 import type { Spent } from '#lib/web/shared/spending.ts';
 import { type Amount, parseAmount } from '@rupea/shared/money.ts';
 
@@ -153,29 +153,24 @@ describe('wholeOf', () => {
 	});
 });
 
-describe('sourcesOf', () => {
-	it('lists each account under Income for a period and the one before, the largest now first', () => {
-		const month: Spent = {
-			...income,
-			totals: [
-				{ account: 'Income', parent: null, amount: amount('-1100'), unpriced: 0 },
-				{ account: 'Income:Salary', parent: 'Income', amount: amount('-1000'), unpriced: 0 },
-				{ account: 'Income:Dividends', parent: 'Income', amount: amount('-100'), unpriced: 0 },
-			],
-		};
+describe('earnedOf', () => {
+	it('drops the minus income is credited with, from totals and deltas', () => {
+		const earned = earnedOf(income);
 
-		expect(sourcesOf(month, income)).toEqual({
-			rows: [
-				{ account: 'Income:Salary', name: 'Salary', now: amount('1000'), before: amount('2700') },
-				{
-					account: 'Income:Dividends',
-					name: 'Dividends',
-					now: amount('100'),
-					before: amount('300'),
-				},
-			],
-			total: { now: amount('1100'), before: amount('3000') },
-		});
+		expect(earned?.totals.map((t) => t.amount)).toEqual([
+			amount('3000'),
+			amount('2700'),
+			amount('300'),
+		]);
+		expect(earned?.deltas.map((d) => d.amount)).toEqual([
+			amount('1000'),
+			amount('2000'),
+			amount('2000'),
+		]);
+	});
+
+	it('leaves nothing as nothing', () => {
+		expect(earnedOf(undefined)).toBeUndefined();
 	});
 });
 

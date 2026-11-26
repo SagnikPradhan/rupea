@@ -123,8 +123,14 @@ describe('the home page', () => {
 		expect(strip.getByRole('link', { name: 'Net worth' }).getAttribute('href')).toBe(
 			'/l/a/net-worth',
 		);
-		expect(strip.getByRole('link', { name: /^Saved in/ }).getAttribute('href')).toBe(
-			'/l/a/spending',
+		expect(strip.getByRole('link', { name: /^Saved in/ }).getAttribute('href')).toMatch(
+			/^\/l\/a\/spending\?at=\d{4}-\d{2}$/,
+		);
+		expect(strip.getByRole('link', { name: /^Spent in/ }).getAttribute('href')).toMatch(
+			/^\/l\/a\/spending\?at=\d{4}-\d{2}$/,
+		);
+		expect(strip.getByRole('link', { name: /^Due in/ }).getAttribute('href')).toBe(
+			'/l/a/net-worth#owed',
 		);
 	});
 

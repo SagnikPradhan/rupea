@@ -16,7 +16,6 @@ import SignOut from '@tabler/icons-svelte-runes/icons/logout';
 import Sync from '@tabler/icons-svelte-runes/icons/refresh';
 import System from '@tabler/icons-svelte-runes/icons/contrast';
 import Transactions from '@tabler/icons-svelte-runes/icons/list-details';
-import User from '@tabler/icons-svelte-runes/icons/user';
 import Worth from '@tabler/icons-svelte-runes/icons/chart-line';
 
 /** One icon per meaning, so the same idea looks the same on every page. */
@@ -39,6 +38,5 @@ export const ICONS = {
 	sync: Sync,
 	system: System,
 	transactions: Transactions,
-	user: User,
 	worth: Worth,
 };

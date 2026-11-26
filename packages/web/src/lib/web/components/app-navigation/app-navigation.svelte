@@ -105,7 +105,7 @@
 	<div class="banner" style:--tint="var(--color-chart-{tint})">
 		<Avatar name={username ?? ''} />
 	</div>
-	<strong><ICONS.user />Hello, {username}</strong>
+	<strong><Avatar name={username ?? ''} />Hello, {username}</strong>
 	<span>{status}</span>
 	{#if !local}
 		<ul role="list">

@@ -607,6 +607,20 @@ describe('what you owe on the net worth page', () => {
 		expect(within(row).queryByRole('link', { name: 'Set a statement day' })).toBeNull();
 	});
 
+	it("reads a card's cycle up to the end of a past period, and not the one before it", async () => {
+		vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-08') });
+		open('/l/h/net-worth?at=2025');
+
+		await screen.findByTitle('Liabilities:Loans:Home');
+		expect(listDeltas).toHaveBeenCalledWith(
+			expect.objectContaining({
+				period: { kind: 'custom', from: '2025-12-02', to: '2025-12-31' },
+				before: false,
+			}),
+		);
+		vi.useRealTimers();
+	});
+
 	it('asks for a statement day when a card has none', async () => {
 		const card = { account: 'Liabilities:Card', current: { kind: 'card' }, held: { kind: 'card' } };
 		open('/l/h/net-worth', [moved], [...terms, card]);

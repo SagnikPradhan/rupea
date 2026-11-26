@@ -110,20 +110,3 @@ describe('the liabilities that are neither', () => {
 		expect(Cards.unknownIn(card('100'))).toEqual([]);
 	});
 });
-
-describe('the card limits', () => {
-	it('adds up what the cards with a limit owe, and their limits', () => {
-		const l = Cards.limitsOf(card('12500', { limit: '50000' }));
-
-		expect([num(l.owed), num(l.limit)]).toEqual([12500, 50000]);
-	});
-
-	it('leaves out a card with no limit, and a liability that is no card', () => {
-		const none = [Cards.limitsOf(card('12500')), Cards.limitsOf(card('12500', null))];
-
-		expect(none.map((l) => [num(l.owed), num(l.limit)])).toEqual([
-			[0, 0],
-			[0, 0],
-		]);
-	});
-});

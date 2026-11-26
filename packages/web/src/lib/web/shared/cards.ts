@@ -39,12 +39,6 @@ export const cyclesFor = (d: Debt[], { moved, today }: CyclesForOptions) =>
 		.filter((c) => c.leaf && c.kind === 'card')
 		.map((c) => cycleOf(c, { moved: moved.filter((m) => m.account === c.account), today }));
 
-/** What the cards with a limit owe, and their limits added up. */
-export const limitsOf = (debts: Debt[]) => {
-	const cards = debts.filter((d) => d.leaf && d.kind === 'card' && d.limit !== null);
-	return { owed: sum(cards.map((d) => d.owed)), limit: sum(cards.map((d) => d.limit ?? ZERO)) };
-};
-
 /** The leaf liabilities that do not say whether they are a card or a loan. */
 export const unknownIn = (d: Debt[]) => d.filter((x) => x.leaf && x.kind === null);
 

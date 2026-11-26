@@ -97,16 +97,18 @@
 			listWorth({ handle, day, period, account: picked }),
 		]),
 	);
+	const end = $derived(spansOf(period, today).current.to);
+	const asOf = $derived(Temporal.PlainDate.compare(end, today) < 0 ? end : today);
 	const cycle = $derived({
 		kind: 'custom',
-		from: today.subtract({ days: Cards.DAYS_READ - 1 }).toString(),
-		to: day,
+		from: asOf.subtract({ days: Cards.DAYS_READ - 1 }).toString(),
+		to: asOf.toString(),
 	} as const);
 	const [flowed, termed, carded] = $derived(
 		await Promise.all([
 			listDeltas({ handle, day, period, account: LIABILITIES }),
 			listTerms({ handle, day }),
-			listDeltas({ handle, day, period: cycle, account: LIABILITIES }),
+			listDeltas({ handle, day, period: cycle, account: LIABILITIES, before: false }),
 		]),
 	);
 	const accounts = $derived(response.data ?? []);
@@ -130,7 +132,7 @@
 	const rows = $derived(Liabilities.rowsFor(shown, moved?.totals ?? [], settled));
 	const cycles = $derived(
 		Object.fromEntries(
-			Cards.cyclesFor(shown, { moved: carded.data?.[0]?.deltas ?? [], today }).map((c) => [
+			Cards.cyclesFor(shown, { moved: carded.data?.[0]?.deltas ?? [], today: asOf }).map((c) => [
 				c.account,
 				c,
 			]),
@@ -142,7 +144,6 @@
 	const to = $derived(moved?.to ?? today.with({ month: 12, day: 31 }));
 	const dues = $derived(shown.flatMap((d) => Liabilities.duesOn(d, { from: today, to })));
 	const lines = $derived(Liabilities.linesFor(shown, moved?.deltas ?? [], dues, bucket));
-	const end = $derived(spansOf(period, today).current.to);
 	const soon = $derived(today.add({ days: 30 }));
 	const upcoming = $derived(shown.map((d) => Liabilities.duesOn(d, { from: today, to: soon })));
 	const dueSoon = $derived(sum(upcoming.flat().map((d) => d.amount)));

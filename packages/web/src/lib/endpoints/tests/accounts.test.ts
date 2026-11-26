@@ -162,6 +162,15 @@ describe('accounts', () => {
 		]);
 	});
 
+	it('reads the period alone when the one before is not asked for', async () => {
+		const listed = vi.fn().mockResolvedValue(empty);
+		useApi({ accounts: { listDeltas: listed, list: vi.fn().mockResolvedValue([]) } });
+
+		await listDeltas({ handle: 'home', day, period: month, account: 'Expenses', before: false });
+
+		expect(listed.mock.calls.map(([input]) => input.from)).toEqual(['2026-09-01']);
+	});
+
 	it('keeps the failures of the period and of the one before it', async () => {
 		const bad = (location: string) => fault('ParseInvalidPosting', { location });
 		const listed = vi

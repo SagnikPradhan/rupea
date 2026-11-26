@@ -86,9 +86,19 @@ describe('the spending KPIs', () => {
 		expect(screen.getByText('Food')).toBeTruthy();
 	});
 
-	it('shows a dash and none set without budgets', () => {
+	it('leaves out the budgets figure when none are set', () => {
 		render(SpendingKpis, PROPS);
 
-		expect(screen.getByText('None set')).toBeTruthy();
+		expect(screen.queryByText('Budgets over')).toBeNull();
+	});
+
+	it('notes the unpriced postings of the account beside what was spent', () => {
+		const unpriced = {
+			...SPENDING,
+			totals: [{ account: 'Expenses', parent: null, amount: amount('1000'), unpriced: 3 }],
+		};
+		render(SpendingKpis, { ...PROPS, spending: unpriced });
+
+		expect(screen.getByText('excludes 3 unpriced')).toBeTruthy();
 	});
 });

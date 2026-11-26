@@ -5,7 +5,6 @@
 	import { paramsOf } from '#lib/web/shared/filter.ts';
 	import { depthOf, nameOf } from '#lib/web/shared/accounts.ts';
 	import { seriesOf, tintOf } from '#lib/web/shared/chart.ts';
-	import AccountName from '#lib/web/components/app-account-name/app-account-name.svelte';
 	import Amount from '#lib/web/components/app-ledger-table/amount.svelte';
 	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
 	import Swatch from '#lib/web/components/ui-swatch/ui-swatch.svelte';
@@ -73,7 +72,9 @@
 							>
 								<Chevron size={16} />
 							</button>{/if}<a href={postingsOf(row.account)} title={row.account}>
-							<AccountName account={row.account} depth={folds ? depth - 1 : depth} />
+							<span class="name" style:--depth={folds ? depth - 1 : depth}>
+								{nameOf(row.account)}
+							</span>
 						</a>
 						{#if partOf(row.account)}
 							{@const under = partOf(row.account)}
@@ -103,6 +104,11 @@
 {/if}
 
 <style>
+	.name {
+		display: inline-block;
+		padding-left: calc(var(--depth) * var(--size-2));
+	}
+
 	.share {
 		color: var(--color-muted);
 	}

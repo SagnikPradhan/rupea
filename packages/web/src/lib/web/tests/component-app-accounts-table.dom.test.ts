@@ -91,18 +91,10 @@ describe('the accounts table', () => {
 		expect(screen.getByTitle('Assets:Broker')).toBeTruthy();
 	});
 
-	it('counts the groups, one or many', () => {
-		const { unmount } = render(AccountsTable, props);
+	it('asks what each account holds', () => {
+		render(AccountsTable, props);
 
-		expect(screen.getByText(/^1 group ·/)).toBeTruthy();
-		unmount();
-
-		render(AccountsTable, {
-			...props,
-			accounts: [...props.accounts, { ...bank, account: 'Liabilities:Card', parent: null }],
-		});
-
-		expect(screen.getByText(/^2 groups ·/)).toBeTruthy();
+		expect(screen.getByText('What does each account hold?')).toBeTruthy();
 	});
 
 	it('tones a zero gain and a zero xirr neither way', () => {

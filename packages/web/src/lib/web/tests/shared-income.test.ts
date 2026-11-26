@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { incomeOf, monthsOf, sourcesOf, wholeOf } from '#lib/web/shared/income.ts';
+import { incomeOf, monthsOf, savedOf, sourcesOf, wholeOf } from '#lib/web/shared/income.ts';
 import type { Spent } from '#lib/web/shared/spending.ts';
 import { type Amount, parseAmount } from '@rupea/shared/money.ts';
 
@@ -154,7 +154,7 @@ describe('wholeOf', () => {
 });
 
 describe('sourcesOf', () => {
-	it('lists each account under Income for a month and for the range, the largest first', () => {
+	it('lists each account under Income for a period and the one before, the largest now first', () => {
 		const month: Spent = {
 			...income,
 			totals: [
@@ -166,15 +166,21 @@ describe('sourcesOf', () => {
 
 		expect(sourcesOf(month, income)).toEqual({
 			rows: [
-				{ account: 'Income:Salary', name: 'Salary', month: amount('1000'), range: amount('2700') },
+				{ account: 'Income:Salary', name: 'Salary', now: amount('1000'), before: amount('2700') },
 				{
 					account: 'Income:Dividends',
 					name: 'Dividends',
-					month: amount('100'),
-					range: amount('300'),
+					now: amount('100'),
+					before: amount('300'),
 				},
 			],
-			total: { month: amount('1100'), range: amount('3000') },
+			total: { now: amount('1100'), before: amount('3000') },
 		});
+	});
+});
+
+describe('savedOf', () => {
+	it('adds what was invested to what was kept', () => {
+		expect(savedOf({ Invested: '200.50', Kept: '300.25' })).toBe('500.75');
 	});
 });

@@ -29,8 +29,8 @@
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
-	import { formatChange, formatIsoDate, formatMonthName } from '#lib/web/shared/format.ts';
-	import { MONTHS, MONTHS_BRIEF, lastMonthOf } from '#lib/web/shared/home.ts';
+	import { formatChange, formatIsoDate } from '#lib/web/shared/format.ts';
+	import { MONTHS, MONTHS_BRIEF } from '#lib/web/shared/home.ts';
 	import { rowsFor } from '#lib/web/shared/budgets.ts';
 	import { hrefWith } from '#lib/web/shared/links.ts';
 	import { readQuery } from '#lib/web/shared/query.svelte.ts';
@@ -41,18 +41,16 @@
 	const handle = $derived(data.ledger.handle);
 	const day = formatIsoDate(new Date());
 	const today = Temporal.PlainDate.from(day);
-	const lastMonth = { kind: 'month', at: lastMonthOf(day) } as const;
 	const url = readQuery(Spending.SpendingQuery(day));
 	const shown = $derived(spansOf(url.query.period, today).current);
 	const span = $derived({ from: shown.from.toString(), to: shown.to.toString() });
 
 	const adding = $derived(page.url.searchParams.has('add'));
 
-	const [earned, spent, earnedLast, invested] = $derived(
+	const [earned, spent, invested] = $derived(
 		await Promise.all([
 			listDeltas({ handle, day, period: url.query.period, account: INCOME }),
 			listDeltas({ handle, day, period: url.query.period, account: EXPENSES }),
-			listDeltas({ handle, day, period: lastMonth, account: INCOME }),
 			listInvested({
 				handle,
 				day,
@@ -70,9 +68,6 @@
 		]),
 	);
 	const picked = $derived(url.query.span || (url.query.dated ? '' : '12'));
-	const month = $derived(
-		formatMonthName(earnedLast.data?.[0]?.from.toString() ?? lastMonth.at + '-01'),
-	);
 	const rows = $derived(rowsFor(budgets.data ?? [], url.query.account));
 	const params = $derived([...page.url.searchParams]);
 	const editing = $derived(page.url.searchParams.get('budget'));
@@ -106,7 +101,7 @@
 	);
 </script>
 
-<PageHeader subtitle="Where your income went">
+<PageHeader subtitle="Where did your income go?">
 	Spending
 	{#snippet actions()}
 		<FilterModal params={['span', ...PERIOD_PARAMS, 'account']}>
@@ -130,7 +125,6 @@
 	errors={[
 		...(earned.errors ?? []),
 		...(spent.errors ?? []),
-		...(earnedLast.errors ?? []),
 		...(invested.errors ?? []),
 		...(response.errors ?? []),
 		...(daily.errors ?? []),
@@ -159,21 +153,13 @@
 	/>
 </PanelGrid>
 
-<PanelGrid full>
-	<SpendingBars
-		{spending}
-		{previous}
-		account={url.query.account}
-		{parts}
-		{colours}
-		{bucket}
-		compare={url.query.compare}
-		scale={url.query.scale}
-		{handle}
-		{first}
-		{last}
-		{moved}
+<PanelGrid>
+	<IncomeSources
+		now={earned.data?.[0]}
+		before={earned.data?.[1]}
+		period={MONTHS[picked] ?? 'Period'}
 	/>
+	{#if !adding && !budget}{@render budgetsPanel()}{/if}
 </PanelGrid>
 
 {#snippet budgetsPanel()}
@@ -205,7 +191,23 @@
 	</PanelGrid>
 {/if}
 
-<PanelGrid>
+<PanelGrid full>
+	<SpendingBars
+		{spending}
+		{previous}
+		account={url.query.account}
+		{parts}
+		{colours}
+		{bucket}
+		compare={url.query.compare}
+		scale={url.query.scale}
+		{handle}
+		{first}
+		{last}
+	/>
+</PanelGrid>
+
+<PanelGrid full>
 	<SpendingBreakdown
 		{spending}
 		account={url.query.account}
@@ -217,25 +219,8 @@
 		{handle}
 		period={url.query.period}
 	/>
-	<div class="column">
-		{#if !adding && !budget}{@render budgetsPanel()}{/if}
-		<IncomeSources
-			month={earnedLast.data?.[0]}
-			range={earned.data?.[0]}
-			name={month}
-			period={MONTHS[picked] ?? 'Period'}
-		/>
-	</div>
 </PanelGrid>
 
 <PanelGrid full>
-	<SpendingDays daily={daily.data ?? []} account={url.query.account} />
+	<SpendingDays daily={daily.data ?? []} />
 </PanelGrid>
-
-<style>
-	.column {
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-4);
-	}
-</style>

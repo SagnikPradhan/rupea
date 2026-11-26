@@ -103,7 +103,8 @@
 	const worth = $derived(worthy.data ?? []);
 	const latest = $derived(worth.at(-1));
 	const totals = $derived(totalsOf(groupsInvested(invested)));
-	const sheetOn = $derived(`on ${formatDayMonth(day)}, the inner ring the groups`);
+	const ownOn = $derived(`Where is it held, on ${formatDayMonth(day)}?`);
+	const oweOn = $derived(`Who is it owed to, on ${formatDayMonth(day)}?`);
 
 	const moved = $derived(flowed.data?.[0]);
 	const owed = $derived(Liabilities.accountsIn(accounts));
@@ -146,7 +147,7 @@
 	const postingsOf = (a: string) => postingsHref(handle, { account: a, ...paramsOf(period) });
 </script>
 
-<PageHeader subtitle="What you are worth, and how it has grown">
+<PageHeader subtitle="What are you worth, and how has it grown?">
 	Net worth
 	{#snippet actions()}
 		<ListFilter {period} account={picked} {accounts} today={day} first={first.data ?? null} />
@@ -197,7 +198,7 @@
 </PanelGrid>
 
 <PanelGrid>
-	<AssetsRings rings={heldRings} account={picked} subtitle={sheetOn}>
+	<AssetsRings rings={heldRings} account={picked} subtitle={ownOn}>
 		<Statement head="Assets">
 			{#each heldRings.arcs.filter((a) => a.own) as part (part.key)}
 				<StatementRow name={part.label} values={[String(part.value)]} />
@@ -205,7 +206,7 @@
 			<StatementRow total name="Total owned" values={[latest?.assets ?? '0']} />
 		</Statement>
 	</AssetsRings>
-	<Panel title="What you owe" subtitle={sheetOn}>
+	<Panel title="What you owe" subtitle={oweOn}>
 		{#if owedRings.arcs.length > 0}
 			<Donut
 				arcs={owedRings.arcs}
@@ -231,7 +232,7 @@
 		{#if (owned.data ?? []).length > 0}
 			<Invested invested={owned.data ?? []} />
 		{/if}
-		<Panel title="Biggest drops" subtitle="how far investments fell from their high">
+		<Panel title="Biggest drops" subtitle="How far did investments fall from their high?">
 			{#if fallen.data?.[0]}
 				<Drops drops={fallen.data[0]} account={picked} />
 			{:else}
@@ -255,7 +256,7 @@
 
 <PageSection id="owed" title="Owed">
 	<PanelGrid narrow>
-		<Panel title="Payments" subtitle="made and due on each account">
+		<Panel title="Payments" subtitle="What has been paid, and what is due?">
 			<ChartSummary
 				id="payments"
 				label="Owed"
@@ -292,12 +293,7 @@
 	</PanelGrid>
 
 	<PanelGrid wide>
-		<Panel
-			title="All liabilities"
-			subtitle="{rows.length} {rows.length === 1 ? 'account' : 'accounts'} · {formatWhole(
-				printAmount(total),
-			)} owed"
-		>
+		<Panel title="All liabilities" subtitle="What is owed on each account?">
 			{#snippet actions()}
 				<ChoiceChips
 					param="settled"

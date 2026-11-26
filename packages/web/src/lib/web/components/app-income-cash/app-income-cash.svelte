@@ -36,10 +36,15 @@
 		x="bucket"
 		{bucket}
 		series={[
-			{ key: Income.SPENT, label: Income.SPENT, role: 'part', colour: 0 },
-			{ key: Income.INVESTED, label: Income.INVESTED, role: 'part', colour: 1 },
-			{ key: Income.KEPT, label: Income.KEPT, role: 'part', colour: 2 },
-			{ key: Income.FROM_SAVINGS, label: Income.FROM_SAVINGS, role: 'part', colour: 3 },
+			{ key: Income.SPENT, label: Income.SPENT, role: 'part', shade: '--color-ink-6' },
+			{ key: Income.INVESTED, label: Income.INVESTED, role: 'part', shade: '--color-ink-4' },
+			{ key: Income.KEPT, label: Income.KEPT, role: 'part', shade: '--color-ink-2' },
+			{
+				key: Income.FROM_SAVINGS,
+				label: Income.FROM_SAVINGS,
+				role: 'part',
+				shade: '--color-negative-4',
+			},
 		]}
 		{whole}
 		{label}
@@ -58,7 +63,8 @@
 		figure={formatAmount(figure)}
 		exact={formatExact(figure)}
 	>
-		{formatShare(shown[Income.INVESTED], figure) ?? '0%'} invested ·
+		{formatShare(Income.savedOf(shown), figure) ?? '0%'} saved:
+		{formatShare(shown[Income.INVESTED], figure) ?? '0%'} invested,
 		{formatShare(shown[Income.KEPT], figure) ?? '0%'} kept ·
 		{bar
 			? formatBucket[bucket](bar.bucket)

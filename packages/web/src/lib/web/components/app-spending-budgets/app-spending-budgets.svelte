@@ -6,7 +6,7 @@
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import { nameOf } from '#lib/web/shared/accounts.ts';
-	import { subtitleOf, totalOf, watchOf, type BudgetRow } from '#lib/web/shared/budgets.ts';
+	import { totalOf, watchOf, type BudgetRow } from '#lib/web/shared/budgets.ts';
 	import { formatCompact, formatWhole } from '#lib/web/shared/format.ts';
 	import { hrefWith } from '#lib/web/shared/links.ts';
 
@@ -46,7 +46,7 @@
 			: `${show((limit - spent) as Amount)} left`;
 </script>
 
-<Panel title="Budgets" subtitle={subtitleOf(rows)}>
+<Panel title="Budgets" subtitle="Which budgets are running out?">
 	{#snippet actions()}
 		<Button href={add}>Add budget</Button>
 	{/snippet}

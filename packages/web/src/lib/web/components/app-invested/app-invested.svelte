@@ -13,7 +13,7 @@
 </script>
 
 {#if first && last}
-	<Panel title="Invested" subtitle="what it is worth, against what went in">
+	<Panel title="Invested" subtitle="Is it worth more than what went in?">
 		<LineChart
 			rows={invested}
 			x="day"

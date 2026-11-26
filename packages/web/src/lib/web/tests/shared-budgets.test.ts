@@ -5,7 +5,6 @@ import {
 	rowsFor,
 	startOf,
 	startsOnOf,
-	subtitleOf,
 	totalOf,
 	watchOf,
 	type BudgetView,
@@ -95,27 +94,6 @@ describe('rowsFor', () => {
 	});
 });
 
-describe('subtitleOf', () => {
-	it('counts the budgets and those over', () => {
-		const listed = rows(
-			['Expenses:A', '10', '20'],
-			['Expenses:B', '10', '30'],
-			['Expenses:C', '10', '1'],
-		);
-
-		expect(subtitleOf(listed)).toBe('3 budgets · 2 over');
-	});
-
-	it('says none over, and 1 budget in the singular', () => {
-		expect(subtitleOf(rows(['Expenses:A', '10', '1']))).toBe('1 budget · none over');
-		expect(subtitleOf(rows(['Expenses:A', '10', '11']))).toBe('1 budget · 1 over');
-	});
-
-	it('says there are none when no budget is listed', () => {
-		expect(subtitleOf([])).toBe('No budgets');
-	});
-});
-
 describe('overOf', () => {
 	const over = (name: string) => ['Expenses:' + name, '1', '2'] as [string, string, string];
 
@@ -141,10 +119,6 @@ describe('overOf', () => {
 			figure: '0 of 1',
 			detail: 'None over',
 		});
-	});
-
-	it('shows a dash when no budget is set', () => {
-		expect(overOf([])).toEqual({ figure: '–', detail: 'None set' });
 	});
 });
 

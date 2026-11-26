@@ -31,7 +31,6 @@ const PROPS = {
 	handle: 'h',
 	first: on('2026-01-01'),
 	last: on('2026-02-28'),
-	moved: null,
 };
 
 describe('the spending bars', () => {
@@ -51,26 +50,5 @@ describe('the spending bars', () => {
 
 		render(SpendingBars, { ...PROPS, previous: PREVIOUS });
 		expect(screen.getByRole('link', { name: 'Compare' })).toBeTruthy();
-	});
-
-	it('sums up the whole range and the change moved when no bar is under the cursor', () => {
-		render(SpendingBars, {
-			...PROPS,
-			previous: PREVIOUS,
-			moved: { amount: '+250', percent: '+25%', negative: false },
-		});
-
-		expect(screen.getByText(/\+250/).textContent).toContain('(+25%) vs previous');
-		expect(screen.getByText(/1 Jan 2026 – 28 Feb 2026/)).toBeTruthy();
-	});
-
-	it('notes the unpriced postings of the account', () => {
-		const unpriced = {
-			...SPENDING,
-			totals: [{ account: 'Expenses', parent: null, amount: amount('1000'), unpriced: 3 }],
-		};
-		render(SpendingBars, { ...PROPS, spending: unpriced });
-
-		expect(screen.getByText('· excludes 3 unpriced')).toBeTruthy();
 	});
 });

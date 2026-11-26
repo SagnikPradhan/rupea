@@ -32,7 +32,7 @@
 	);
 </script>
 
-<Panel title="Returns" subtitle="how much each account has grown on what went in">
+<Panel title="Returns" subtitle="Which accounts have grown most on what went in?">
 	{#snippet actions()}
 		<SegmentedControl
 			label="Return measure"

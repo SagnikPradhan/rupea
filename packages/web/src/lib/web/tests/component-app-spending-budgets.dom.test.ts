@@ -34,11 +34,11 @@ const props = (budgets: BudgetView[]) => ({
 });
 
 describe('the budgets panel', () => {
-	it('titles itself and says how many are over', () => {
+	it('titles itself and asks which are running out', () => {
 		render(SpendingBudgets, props(BUDGETS));
 
 		expect(screen.getByText('Budgets')).toBeTruthy();
-		expect(screen.getByText('4 budgets · 1 over')).toBeTruthy();
+		expect(screen.getByText('Which budgets are running out?')).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Add budget' }).getAttribute('href')).toBe(
 			'/l/h/spending?add=1',
 		);

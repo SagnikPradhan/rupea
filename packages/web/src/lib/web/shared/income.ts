@@ -1,5 +1,5 @@
 import * as v from 'valibot';
-import { Amount, EXPENSES, INCOME, ZERO, max, min, printAmount } from '@rupea/shared/money.ts';
+import { Amount, EXPENSES, INCOME, ZERO, max, min, printAmount, sum } from '@rupea/shared/money.ts';
 import { statementOf } from './home';
 import { totalOf, type Spent } from './spending';
 
@@ -16,6 +16,10 @@ const LAST_DAY = '9999-12-31';
  */
 export const incomeOf = (s: Spent | undefined, a: string) =>
 	-(s?.totals.find((t) => t.account === a)?.amount ?? ZERO) as Amount;
+
+/** What a split of income saved: what was invested and what was kept. */
+export const savedOf = (s: { [INVESTED]: string; [KEPT]: string }) =>
+	printAmount(sum([v.parse(Amount, s[INVESTED]), v.parse(Amount, s[KEPT])]));
 
 export type Paid = { day: string; cost: string };
 
@@ -103,18 +107,18 @@ const amountsOn = (s: Spent | undefined, a: string, by: bigint) =>
 
 /**
  * The accounts under Income as the table lists them, what each earned in a
- * month and over the range, the largest in the month first.
+ * period and in the one before, the largest now first.
  */
-export const sourcesOf = (month: Spent | undefined, range: Spent | undefined) => {
-	const statement = statementOf('Income', month, range);
+export const sourcesOf = (now: Spent | undefined, before: Spent | undefined) => {
+	const statement = statementOf('Income', now, before);
 
 	return {
 		rows: statement.rows.map((r) => ({
 			account: r.account,
 			name: r.name,
-			month: r.amount,
-			range: r.before,
+			now: r.amount,
+			before: r.before,
 		})),
-		total: { month: statement.total.amount, range: statement.total.before },
+		total: { now: statement.total.amount, before: statement.total.before },
 	};
 };

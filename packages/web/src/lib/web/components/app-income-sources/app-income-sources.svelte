@@ -7,26 +7,25 @@
 	import * as Spending from '#lib/web/shared/spending.ts';
 
 	type Props = {
-		month: Spending.Spent | undefined;
-		range: Spending.Spent | undefined;
-		name: string;
+		now: Spending.Spent | undefined;
+		before: Spending.Spent | undefined;
 		period: string;
 	};
 
-	const { month, range, name, period }: Props = $props();
+	const { now, before, period }: Props = $props();
 
-	const sources = $derived(Income.sourcesOf(month, range));
+	const sources = $derived(Income.sourcesOf(now, before));
 </script>
 
-<Panel plain title="Income by source" subtitle="{name}, and {period.toLowerCase()}">
-	<Statement head="In rupees" columns={[name, period]}>
+<Panel plain title="Income by source" subtitle="Where did the income come from?">
+	<Statement head="In rupees" columns={[period, 'Before']}>
 		{#each sources.rows as row (row.account)}
-			<StatementRow name={row.name} values={[printAmount(row.month), printAmount(row.range)]} />
+			<StatementRow name={row.name} values={[printAmount(row.now), printAmount(row.before)]} />
 		{/each}
 		<StatementRow
 			total
 			name="Income"
-			values={[printAmount(sources.total.month), printAmount(sources.total.range)]}
+			values={[printAmount(sources.total.now), printAmount(sources.total.before)]}
 		/>
 	</Statement>
 </Panel>

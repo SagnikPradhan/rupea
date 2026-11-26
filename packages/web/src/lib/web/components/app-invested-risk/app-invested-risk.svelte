@@ -26,7 +26,7 @@
 	);
 </script>
 
-<Panel title="Return and risk" subtitle="each dot is an account, bigger dot, more money in it">
+<Panel title="Return and risk" subtitle="Does more risk bring more return?">
 	{#if dots.length > 0}
 		<Scatter
 			{dots}

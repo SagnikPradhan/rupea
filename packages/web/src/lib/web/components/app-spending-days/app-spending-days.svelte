@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { nameOf } from '#lib/web/shared/accounts.ts';
 	import Calendar from '#lib/web/components/ui-chart-calendar/ui-chart-calendar.svelte';
 	import ChartSummary from '#lib/web/components/ui-chart-summary/ui-chart-summary.svelte';
 	import { formatAmount, formatDate } from '#lib/web/shared/format.ts';
@@ -7,10 +6,9 @@
 
 	type Props = {
 		daily: { day: string; amount: string }[];
-		account: string;
 	};
 
-	const { daily, account }: Props = $props();
+	const { daily }: Props = $props();
 
 	const busiest = $derived(
 		daily.reduce(
@@ -23,14 +21,17 @@
 {#snippet summary(index: number | null)}
 	{@const shown = index === null ? busiest : daily[index]}
 	{#if shown}
-		<ChartSummary id="days" label="Spent in a day" figure={formatAmount(shown.amount)}>
-			{index === null ? 'Most, on' : 'On'}
+		<ChartSummary
+			id="days"
+			label={index === null ? 'Most in a day' : 'Spent'}
+			figure={formatAmount(shown.amount)}
+		>
 			{formatDate(shown.day)}
 		</ChartSummary>
 	{/if}
 {/snippet}
 
-<Panel title="Day by day" subtitle="what {nameOf(account)} came to on each day">
+<Panel title="Day by day" subtitle="Which days cost the most?">
 	<Calendar
 		rows={daily}
 		x="day"

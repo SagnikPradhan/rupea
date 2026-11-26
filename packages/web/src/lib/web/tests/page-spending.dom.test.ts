@@ -191,25 +191,13 @@ describe('the spending page', () => {
 		expect(screen.getByRole('img', { name: /^Spending from/ })).toBeTruthy();
 	});
 
-	it('sums up the month under the pointer against the same month before', async () => {
-		Element.prototype.getBoundingClientRect = () => DOMRect.fromRect({ width: 100, height: 100 });
-		visit('/l/h/spending?at=2026');
-		vi.mocked(listDeltas).mockReturnValue(answer([spending, previous]));
-		render(Page, { data });
-
-		const plot = await screen.findByRole('img', { name: /^Spending from/ });
-		await fireEvent.pointerMove(plot, { clientX: 25, clientY: 0 });
-		const line = screen.getByText(/vs previous/).parentElement;
-		expect(line?.textContent).toContain('Jan 2026');
-	});
-
-	it('rises from nothing, with no percent, when the period before spent nothing there', async () => {
+	it('gives no percent when the period before spent nothing', async () => {
 		visit('/l/h/spending?at=2026');
 		vi.mocked(listDeltas).mockReturnValue(answer([spending, { ...previous, totals: [] }]));
 		render(Page, { data });
 
-		const change = await screen.findByText(/vs previous/);
-		expect(change.textContent).not.toContain('(');
+		await screen.findByRole('region', { name: 'Spending figures' });
+		expect(screen.queryByText(/on the period before/)).toBeNull();
 	});
 
 	it('offers an account deeper than the groups as a choice of its own', async () => {
@@ -323,7 +311,7 @@ describe('the spending page', () => {
 			render(Page, { data });
 
 			expect(await screen.findByText('No budgets yet. Add one to see what is left.')).toBeTruthy();
-			expect(screen.getByText('None set')).toBeTruthy();
+			expect(screen.queryByText('Budgets over')).toBeNull();
 		});
 
 		it('links Add budget with add set, keeping the other params', async () => {
@@ -497,18 +485,15 @@ describe('the income on the spending page', () => {
 		render(Page, { data });
 
 		expect(await screen.findByRole('heading', { level: 1, name: 'Spending' })).toBeTruthy();
-		expect(screen.getByText('Where your income went')).toBeTruthy();
+		expect(screen.getByText('Where did your income go?')).toBeTruthy();
 	});
 
-	it('reads income over the period and over last month', async () => {
+	it('reads income over the period only', async () => {
 		render(Page, { data });
 		await screen.findByRole('heading', { name: 'Income by source' });
 
-		expect(listDeltas).toHaveBeenCalledWith(
-			expect.objectContaining({ account: 'Income', period: { kind: 'month', at: '2026-10' } }),
-		);
 		expect(listDeltas).not.toHaveBeenCalledWith(
-			expect.objectContaining({ account: 'Expenses', period: { kind: 'month', at: '2026-10' } }),
+			expect.objectContaining({ period: { kind: 'month', at: '2026-10' } }),
 		);
 		expect(listDeltas).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -528,7 +513,7 @@ describe('the income on the spending page', () => {
 		).toBeTruthy();
 	});
 
-	it('lists each source for last month and over the period, with the total', async () => {
+	it('lists each source over the period and the one before, with the total', async () => {
 		render(Page, { data });
 
 		const heading = await screen.findByRole('heading', { name: 'Income by source' });
@@ -536,6 +521,7 @@ describe('the income on the spending page', () => {
 		expect(table.getByText('Salary')).toBeTruthy();
 		expect(table.getByText('Dividends')).toBeTruthy();
 		expect(table.getByText('Last 12 months')).toBeTruthy();
+		expect(table.getByText('Before')).toBeTruthy();
 	});
 
 	it('names a period of its own', async () => {
@@ -558,14 +544,16 @@ describe('the income on the spending page', () => {
 		expect(dialog.getByRole('link', { name: '3M' }).getAttribute('aria-current')).toBeTruthy();
 	});
 
-	it('sums up the month under the pointer as income and the shares invested and kept', async () => {
+	it('sums up the month under the pointer as income and the shares saved, invested and kept', async () => {
 		Element.prototype.getBoundingClientRect = () => DOMRect.fromRect({ width: 100, height: 100 });
 		render(Page, { data });
 
 		const plot = await screen.findByRole('img', { name: /^Income from .*kept$/ });
 		await fireEvent.pointerMove(plot, { clientX: 25, clientY: 0 });
 
-		expect(screen.getByText(/kept ·/).textContent).toMatch(/20% invested ·\s+30% kept ·/);
+		expect(screen.getByText(/kept ·/).textContent).toMatch(
+			/50% saved:\s+20% invested,\s+30% kept ·/,
+		);
 		expect(screen.getByText(/kept ·/).textContent).toContain('Sept 2026');
 	});
 

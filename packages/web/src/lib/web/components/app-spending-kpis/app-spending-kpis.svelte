@@ -25,13 +25,21 @@
 	const saved = $derived((earned - (Spending.totalOf(expenses, EXPENSES) ?? ZERO)) as Amount);
 	const days = $derived(Spending.daysIn(first, last));
 	const over = $derived(overOf(budgets));
+	const unpriced = $derived(
+		Spending.rowsOf(spending, account).find((r) => r.account === account)?.unpriced ?? 0,
+	);
 </script>
 
 <KpiStrip label="Spending figures">
 	<Kpi
 		label="Spent"
 		figure={formatWhole(printAmount(total))}
-		detail={moved?.percent ? `${moved.percent} on the period before` : undefined}
+		detail={[
+			moved?.percent ? `${moved.percent} on the period before` : '',
+			unpriced > 0 ? `excludes ${unpriced} unpriced` : '',
+		]
+			.filter(Boolean)
+			.join(' · ') || undefined}
 	/>
 	<Kpi
 		label="A day"
@@ -44,10 +52,12 @@
 		detail="{formatShare(printAmount(saved), printAmount(earned)) ?? '0%'} of income"
 		tone={saved > 0n ? 'positive' : undefined}
 	/>
-	<Kpi
-		label="Budgets over"
-		figure={over.figure}
-		detail={over.detail}
-		tone={budgets.some((r) => r.over) ? 'negative' : undefined}
-	/>
+	{#if budgets.length > 0}
+		<Kpi
+			label="Budgets over"
+			figure={over.figure}
+			detail={over.detail}
+			tone={budgets.some((r) => r.over) ? 'negative' : undefined}
+		/>
+	{/if}
 </KpiStrip>

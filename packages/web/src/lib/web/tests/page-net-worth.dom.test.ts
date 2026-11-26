@@ -301,10 +301,9 @@ describe('what you own on the net worth page', () => {
 		expect(strip.getByText('0% on cost')).toBeTruthy();
 		expect(strip.getByText('0%')).toBeTruthy();
 		expect(strip.getByText('0% of what you own')).toBeTruthy();
-		expect(screen.getByText(/^0 groups/)).toBeTruthy();
 	});
 
-	it('tones a loss as negative, and names a lone account and group in the singular', async () => {
+	it('tones a loss as negative', async () => {
 		const lost = { cost: '1500', gain: '-500' };
 		visit('/l/h/net-worth');
 		vi.mocked(listHoldings).mockReturnValue(
@@ -317,7 +316,6 @@ describe('what you own on the net worth page', () => {
 
 		const strip = within(await screen.findByRole('region', { name: 'Net worth figures' }));
 		expect(strip.getByText(/on cost$/).classList.contains('negative')).toBe(true);
-		expect(screen.getByText(/^1 group ·/)).toBeTruthy();
 	});
 
 	it('shows what flowed into each Assets account and its XIRR, per year only over a year', async () => {
@@ -432,7 +430,7 @@ describe('what you owe on the net worth page', () => {
 		open('/l/h/net-worth');
 
 		expect((await screen.findByRole('heading', { level: 1 })).textContent).toContain('Net worth');
-		expect(screen.getByText('What you are worth, and how it has grown')).toBeTruthy();
+		expect(screen.getByText('What are you worth, and how has it grown?')).toBeTruthy();
 	});
 
 	it('lists what is owed in its own table, not with what you own', async () => {
@@ -450,7 +448,6 @@ describe('what you owe on the net worth page', () => {
 		expect(screen.queryByTitle('Liabilities')).toBeNull();
 		expect(screen.getByTitle('Liabilities:Old')).toBeTruthy();
 		expect(screen.queryByTitle('Assets')).toBeNull();
-		expect(screen.getByText(/3,25,000 owed/)).toBeTruthy();
 		expect(screen.getByRole('columnheader', { name: 'Drawn' })).toBeTruthy();
 		expect(screen.getByRole('columnheader', { name: 'Paid' })).toBeTruthy();
 	});
@@ -480,7 +477,6 @@ describe('what you owe on the net worth page', () => {
 
 		await screen.findByTitle('Liabilities:Loans:Home');
 		expect(screen.queryByTitle('Liabilities:Card')).toBeNull();
-		expect(screen.getByText(/3,00,000 owed/)).toBeTruthy();
 	});
 
 	it('stands a pin for each payment made and each one still due, a line to each account', async () => {

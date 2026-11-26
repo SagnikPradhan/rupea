@@ -27,6 +27,19 @@ export const findUserByEmail = (email: string): ResultAsync<User | null> =>
 		),
 	);
 
+export const findFirstUser = (): ResultAsync<User | null> =>
+	withContext('db')((db) =>
+		attempt(() =>
+			db
+				.selectFrom('users')
+				.select(userColumns)
+				.orderBy('createdAt')
+				.limit(1)
+				.executeTakeFirst()
+				.then((f) => f ?? null),
+		),
+	);
+
 export const countUsers = (): ResultAsync<number> =>
 	withContext('db')((db) =>
 		attempt(() =>

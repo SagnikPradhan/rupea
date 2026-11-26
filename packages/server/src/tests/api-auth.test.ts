@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, onTestFinished, vi } from 'vit
 import { provide, type RupeaContext } from '#lib/server/shared/context/context.ts';
 import type { Mail } from '#lib/server/shared/context/mailer.ts';
 import { okAsync } from '#lib/server/shared/result/result.ts';
+import { createTemporaryDatabase } from '@rupea/server/tests/shared/database.ts';
 import { it } from '@rupea/server/tests/shared/vitest.ts';
 import * as Auth from '#services/auth/application/auth.ts';
 import { createApi } from '../api/api.ts';
@@ -20,7 +21,10 @@ const inbox = (context: RupeaContext) => {
 			return okAsync();
 		},
 	};
-	const config = { ...context.config, accounts: { signup: 'open' as const } };
+	const config = {
+		...context.config,
+		accounts: { ...context.config.accounts, signup: 'open' as const },
+	};
 	return { sent, context: { ...context, mailer, config } };
 };
 
@@ -220,6 +224,62 @@ describe('the auth routes', () => {
 
 			expect(reply.statusCode).toBe(401);
 		}));
+});
+
+describe('with sign-in off', () => {
+	const withLocal = it.extend<{ local: RupeaContext }>({
+		local: async ({ context }, use) => {
+			const empty = await createTemporaryDatabase();
+			const accounts = { ...context.config.accounts, signin: 'none' as const };
+			await use({ ...context, db: empty.db, config: { ...context.config, accounts } });
+			await empty.close();
+		},
+	});
+
+	withLocal('answers a call from this computer as its one user', ({ local }) =>
+		provide(local, async () => {
+			await Auth.createLocalUser();
+			const api = await createApi(local);
+
+			const found = await api.inject({ url: '/api/auth/user' });
+
+			expect(found.statusCode).toBe(200);
+			expect(found.json()).toMatchObject({ user: { email: 'me@localhost' }, expiresAt: null });
+		}),
+	);
+
+	withLocal('refuses another computer, a page of some site and a rebound name', ({ local }) =>
+		provide(local, async () => {
+			await Auth.createLocalUser();
+			const api = await createApi(local);
+			const calls = [
+				{ remoteAddress: '192.168.1.20' },
+				{ headers: { origin: 'https://example.com' } },
+				{ headers: { host: 'rebound.example.com' } },
+			];
+
+			const replies = await Promise.all(
+				calls.map((c) => api.inject({ url: '/api/auth/user', ...c })),
+			);
+
+			expect(replies.map((r) => r.statusCode)).toEqual([401, 401, 401]);
+		}),
+	);
+
+	withLocal('takes a large body from this computer without a bearer', ({ local }) =>
+		provide(local, async () => {
+			await Auth.createLocalUser();
+			const api = await createApi(local);
+
+			const reply = await api.inject({
+				method: 'POST',
+				url: '/api/auth/code',
+				payload: { email: 'a'.repeat(2 * 1024 * 1024) },
+			});
+
+			expect(reply.statusCode).toBe(400);
+		}),
+	);
 });
 
 describe('caching', () => {

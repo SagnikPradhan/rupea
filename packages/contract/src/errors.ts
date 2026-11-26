@@ -18,6 +18,7 @@ export const STATUS: Record<RupeaError['type'], 401 | 404 | 409 | 422 | 500 | 50
 
 	UnknownError: 500,
 	StorageMissing: 500,
+	AuthManyLocalUsers: 500,
 	CannotReadDirectory: 500,
 	CannotReadFile: 500,
 	CannotMergeFile: 500,

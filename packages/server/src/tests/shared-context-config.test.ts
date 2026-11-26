@@ -14,6 +14,7 @@ describe('the configuration', () => {
 			RUPEA_JOBS_WORKERS: '0',
 			RUPEA_LEDGER_DATE_FORMATS: 'yyyy-MM-dd | d MMM yyyy',
 			RUPEA_ACCOUNTS_SIGNUP: 'open',
+			RUPEA_ACCOUNTS_SIGNIN: 'none',
 		};
 
 		expect(readConfiguration(env)).toMatchObject({
@@ -21,7 +22,7 @@ describe('the configuration', () => {
 			models: { threads: 3 },
 			jobs: { workers: 0 },
 			ledger: { dateFormats: ['yyyy-MM-dd', 'd MMM yyyy'] },
-			accounts: { signup: 'open' },
+			accounts: { signup: 'open', signin: 'none' },
 		});
 	});
 

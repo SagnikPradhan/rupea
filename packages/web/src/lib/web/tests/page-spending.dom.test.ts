@@ -522,14 +522,14 @@ describe('the income on the spending page', () => {
 		expect(screen.getByText('What came in, and where it went')).toBeTruthy();
 	});
 
-	it('reads income and spending over the period and over last month', async () => {
+	it('reads income over the period and over last month', async () => {
 		render(Page, { data });
-		await screen.findByText('Income in October');
+		await screen.findByRole('heading', { name: 'Income by source' });
 
 		expect(listDeltas).toHaveBeenCalledWith(
 			expect.objectContaining({ account: 'Income', period: { kind: 'month', at: '2026-10' } }),
 		);
-		expect(listDeltas).toHaveBeenCalledWith(
+		expect(listDeltas).not.toHaveBeenCalledWith(
 			expect.objectContaining({ account: 'Expenses', period: { kind: 'month', at: '2026-10' } }),
 		);
 		expect(listDeltas).toHaveBeenCalledWith(
@@ -538,20 +538,6 @@ describe('the income on the spending page', () => {
 				period: { kind: 'custom', from: '2025-11-16', to: '2026-11-16' },
 			}),
 		);
-	});
-
-	it('shows last month as what came in, what was saved, what investments paid and what they cover', async () => {
-		render(Page, { data });
-
-		const figures = within(await screen.findByLabelText('Income figures'));
-		expect(figures.getByText('Income in October')).toBeTruthy();
-		expect(figures.getByText('2,000')).toBeTruthy();
-		expect(figures.getByText('50%')).toBeTruthy();
-		expect(figures.getByText('1,000 saved')).toBeTruthy();
-		expect(figures.getByText('From investments')).toBeTruthy();
-		expect(figures.getByText('10% of income')).toBeTruthy();
-		expect(figures.getByText('20%')).toBeTruthy();
-		expect(figures.getByText('200 of 1,000')).toBeTruthy();
 	});
 
 	it('draws income by month, split into what was spent, invested and kept', async () => {
@@ -574,31 +560,11 @@ describe('the income on the spending page', () => {
 		expect(table.getByText('Last 12 months')).toBeTruthy();
 	});
 
-	it('shows no saving rate or cover while the spending cannot be read', async () => {
-		vi.mocked(listDeltas).mockImplementation(({ account }) =>
-			answer(account === 'Income' ? [earned, earned] : undefined),
-		);
-		render(Page, { data });
-
-		const figures = within(await screen.findByLabelText('Income figures'));
-		expect(figures.getAllByText('–')).toHaveLength(2);
-		expect(figures.queryByText('100%')).toBeNull();
-	});
-
-	it('says when income fell against the month before, and names a period of its own', async () => {
+	it('names a period of its own', async () => {
 		visit('/l/h/spending?at=2026-03');
-		const larger = range('Income', [['Income', null, '-4000']]);
-		vi.mocked(listDeltas).mockImplementation(({ account, period }) =>
-			answer(
-				account === 'Income' && period.kind === 'month' && period.at === '2026-10'
-					? [dated(earned, '2026-10-01'), dated(larger, '2026-09-01')]
-					: [account === 'Income' ? earned : outgoing],
-			),
-		);
 		render(Page, { data });
 
-		const figures = within(await screen.findByLabelText('Income figures'));
-		expect(figures.getByText(/50% on September/)).toBeTruthy();
+		await screen.findByRole('heading', { name: 'Income by source' });
 		expect(listDeltas).toHaveBeenCalledWith(
 			expect.objectContaining({ account: 'Income', period: { kind: 'month', at: '2026-03' } }),
 		);
@@ -627,7 +593,7 @@ describe('the income on the spending page', () => {
 
 	it('reads what was paid for lots from the day before the period', async () => {
 		render(Page, { data });
-		await screen.findByText('Income in October');
+		await screen.findByRole('heading', { name: 'Income by source' });
 
 		expect(listInvested).toHaveBeenCalledWith(
 			expect.objectContaining({
@@ -640,7 +606,7 @@ describe('the income on the spending page', () => {
 	it('reads all of time as it is, with nothing paid before it', async () => {
 		visit('/l/h/spending?range=all');
 		render(Page, { data });
-		await screen.findByText('Income in October');
+		await screen.findByRole('heading', { name: 'Income by source' });
 
 		expect(listInvested).toHaveBeenCalledWith(
 			expect.objectContaining({ period: { kind: 'all' }, account: 'Assets' }),

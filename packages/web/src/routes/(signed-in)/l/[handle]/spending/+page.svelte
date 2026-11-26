@@ -15,7 +15,6 @@
 	import { coloursOf, distinctOf } from '#lib/web/shared/chart.ts';
 	import Aside from '#lib/web/components/ui-aside/ui-aside.svelte';
 	import BudgetAside from '#lib/web/components/app-budget-form/app-budget-form.svelte';
-	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import ChoiceChips from '#lib/web/components/ui-chip-choices/ui-chip-choices.svelte';
 	import ChoicePicker from '#lib/web/components/ui-picker-choice/ui-picker-choice.svelte';
 	import FilterModal from '#lib/web/components/ui-filter-modal/ui-filter-modal.svelte';
@@ -26,7 +25,6 @@
 	import SpendingBars from '#lib/web/components/app-spending-bars/app-spending-bars.svelte';
 	import SpendingKpis from '#lib/web/components/app-spending-kpis/app-spending-kpis.svelte';
 	import IncomeCash from '#lib/web/components/app-income-cash/app-income-cash.svelte';
-	import IncomeKpis from '#lib/web/components/app-income-kpis/app-income-kpis.svelte';
 	import IncomeSources from '#lib/web/components/app-income-sources/app-income-sources.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
@@ -55,12 +53,11 @@
 
 	const adding = $derived(page.url.searchParams.has('add'));
 
-	const [earned, spent, earnedLast, spentLast, invested] = $derived(
+	const [earned, spent, earnedLast, invested] = $derived(
 		await Promise.all([
 			listDeltas({ handle, day, period: url.query.period, account: INCOME }),
 			listDeltas({ handle, day, period: url.query.period, account: EXPENSES }),
 			listDeltas({ handle, day, period: lastMonth, account: INCOME }),
-			listDeltas({ handle, day, period: lastMonth, account: EXPENSES }),
 			listInvested({
 				handle,
 				day,
@@ -80,11 +77,6 @@
 	const picked = $derived(url.query.span || (url.query.dated ? '' : '12'));
 	const month = $derived(
 		formatMonthName(earnedLast.data?.[0]?.from.toString() ?? lastMonth.at + '-01'),
-	);
-	const before = $derived(
-		formatMonthName(
-			earnedLast.data?.[1]?.from.toString() ?? lastMonthOf(lastMonth.at + '-01') + '-01',
-		),
 	);
 	const rows = $derived(rowsFor(budgets.data ?? [], url.query.account));
 	const params = $derived([...page.url.searchParams]);
@@ -140,7 +132,6 @@
 				/>
 			</FilterSection>
 		</FilterModal>
-		<Button primary href={hrefWith(params, { add: '1' })}>Add budget</Button>
 	{/snippet}
 </PageHeader>
 
@@ -150,40 +141,12 @@
 		...(earned.errors ?? []),
 		...(spent.errors ?? []),
 		...(earnedLast.errors ?? []),
-		...(spentLast.errors ?? []),
 		...(invested.errors ?? []),
 		...(response.errors ?? []),
 		...(daily.errors ?? []),
 		...(budgets.errors ?? []),
 	]}
 />
-
-<PanelGrid narrow>
-	<IncomeCash
-		bucket={earned.data?.[0]?.bucket ?? 'month'}
-		income={earned.data?.[0]}
-		spending={spent.data?.[0]}
-		paid={invested.data ?? []}
-		first={earned.data?.[0]?.from ?? today}
-		last={earned.data?.[0]?.to ?? today}
-	/>
-	<IncomeKpis
-		income={earnedLast.data?.[0]}
-		previous={earnedLast.data?.[1]}
-		spending={spentLast.data?.[0]}
-		{month}
-		{before}
-	/>
-</PanelGrid>
-
-<PanelGrid>
-	<IncomeSources
-		month={earnedLast.data?.[0]}
-		range={earned.data?.[0]}
-		name={month}
-		period={MONTHS[picked] ?? 'Period'}
-	/>
-</PanelGrid>
 
 <PanelGrid narrow>
 	<SpendingBars
@@ -204,7 +167,7 @@
 </PanelGrid>
 
 {#snippet budgetsPanel()}
-	<SpendingBudgets {rows} {today} />
+	<SpendingBudgets {rows} {today} add={hrefWith(params, { add: '1' })} />
 {/snippet}
 
 {#if adding || budget}
@@ -250,6 +213,23 @@
 		{#if !adding && !budget}{@render budgetsPanel()}{/if}
 		<SpendingDays daily={daily.data ?? []} account={url.query.account} />
 	</div>
+</PanelGrid>
+
+<PanelGrid wide>
+	<IncomeCash
+		bucket={earned.data?.[0]?.bucket ?? 'month'}
+		income={earned.data?.[0]}
+		spending={spent.data?.[0]}
+		paid={invested.data ?? []}
+		first={earned.data?.[0]?.from ?? today}
+		last={earned.data?.[0]?.to ?? today}
+	/>
+	<IncomeSources
+		month={earnedLast.data?.[0]}
+		range={earned.data?.[0]}
+		name={month}
+		period={MONTHS[picked] ?? 'Period'}
+	/>
 </PanelGrid>
 
 <style>

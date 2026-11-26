@@ -1,11 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-	incomeOf,
-	investmentIncomeOf,
-	monthsOf,
-	sourcesOf,
-	wholeOf,
-} from '#lib/web/shared/income.ts';
+import { incomeOf, monthsOf, sourcesOf, wholeOf } from '#lib/web/shared/income.ts';
 import type { Spent } from '#lib/web/shared/spending.ts';
 import { type Amount, parseAmount } from '@rupea/shared/money.ts';
 
@@ -44,12 +38,6 @@ describe('incomeOf', () => {
 	it('is nothing for an account the range has none of, or no range', () => {
 		expect(incomeOf(income, 'Income:Interest')).toBe(amount('0'));
 		expect(incomeOf(undefined, 'Income')).toBe(amount('0'));
-	});
-});
-
-describe('investmentIncomeOf', () => {
-	it('adds the interest and dividends accounts that are there', () => {
-		expect(investmentIncomeOf(income)).toBe(amount('300'));
 	});
 });
 

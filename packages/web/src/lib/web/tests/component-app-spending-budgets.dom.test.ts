@@ -30,6 +30,7 @@ const BUDGETS = [
 const props = (budgets: BudgetView[]) => ({
 	rows: rowsFor(budgets, 'Expenses'),
 	today: TODAY,
+	add: '/l/h/spending?add=1',
 });
 
 describe('the budgets panel', () => {
@@ -38,6 +39,9 @@ describe('the budgets panel', () => {
 
 		expect(screen.getByText('Budgets')).toBeTruthy();
 		expect(screen.getByText('4 budgets · 1 over')).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Add budget' }).getAttribute('href')).toBe(
+			'/l/h/spending?add=1',
+		);
 	});
 
 	it('leads with what is left, over budgets first, then those spending ahead, then the rest', () => {

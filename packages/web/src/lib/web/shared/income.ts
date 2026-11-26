@@ -1,5 +1,5 @@
 import * as v from 'valibot';
-import { Amount, EXPENSES, INCOME, ZERO, max, min, printAmount, sum } from '@rupea/shared/money.ts';
+import { Amount, EXPENSES, INCOME, ZERO, max, min, printAmount } from '@rupea/shared/money.ts';
 import { statementOf } from './home';
 import { totalOf, type Spent } from './spending';
 
@@ -10,18 +10,12 @@ export const FROM_SAVINGS = 'From savings';
 
 const LAST_DAY = '9999-12-31';
 
-const INVESTMENTS = ['Income:Interest', 'Income:Dividends'];
-
 /**
  * What an account and those under it earned, without the minus income is
  * credited with.
  */
 export const incomeOf = (s: Spent | undefined, a: string) =>
 	-(s?.totals.find((t) => t.account === a)?.amount ?? ZERO) as Amount;
-
-/** What the accounts under Income:Interest and Income:Dividends earned. */
-export const investmentIncomeOf = (s: Spent | undefined) =>
-	sum(INVESTMENTS.map((a) => incomeOf(s, a)));
 
 export type Paid = { day: string; cost: string };
 

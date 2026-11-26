@@ -26,6 +26,7 @@
 		toneOf,
 	} from '#lib/web/shared/format.ts';
 	import { owedOf } from '#lib/web/shared/home.ts';
+	import * as Cards from '#lib/web/shared/cards.ts';
 	import * as Liabilities from '#lib/web/shared/liabilities.ts';
 	import { ringsOf } from '#lib/web/shared/rings.ts';
 	import AccountsTable from '#lib/web/components/app-accounts-table/app-accounts-table.svelte';
@@ -51,6 +52,7 @@
 	import Kpi from '#lib/web/components/ui-kpi/ui-kpi.svelte';
 	import KpiStrip from '#lib/web/components/ui-kpi-strip/ui-kpi-strip.svelte';
 	import Aside from '#lib/web/components/ui-aside/ui-aside.svelte';
+	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import PageSection from '#lib/web/components/ui-page-section/ui-page-section.svelte';
 	import ChartSummary from '#lib/web/components/ui-chart-summary/ui-chart-summary.svelte';
@@ -64,6 +66,15 @@
 	import * as v from 'valibot';
 
 	const SETTLED = { '': 'Including settled', no: 'Open only' };
+
+	const PAID: Record<Cards.Paid, string> = {
+		full: 'In full',
+		late: 'Late',
+		part: 'In part',
+		unpaid: 'Not paid',
+		open: 'Not yet',
+		none: 'Nothing due',
+	};
 
 	const { data } = $props();
 
@@ -86,10 +97,16 @@
 			listWorth({ handle, day, period, account: picked }),
 		]),
 	);
-	const [flowed, termed] = $derived(
+	const cycle = $derived({
+		kind: 'custom',
+		from: today.subtract({ days: Cards.DAYS_READ - 1 }).toString(),
+		to: day,
+	} as const);
+	const [flowed, termed, carded] = $derived(
 		await Promise.all([
 			listDeltas({ handle, day, period, account: LIABILITIES }),
 			listTerms({ handle, day }),
+			listDeltas({ handle, day, period: cycle, account: LIABILITIES }),
 		]),
 	);
 	const accounts = $derived(response.data ?? []);
@@ -111,6 +128,15 @@
 	const debts = $derived(Liabilities.debtsFrom(owed, termed.data ?? []));
 	const shown = $derived(debts.filter((d) => isUnder(d.account, account)));
 	const rows = $derived(Liabilities.rowsFor(shown, moved?.totals ?? [], settled));
+	const cycles = $derived(
+		Object.fromEntries(
+			Cards.cyclesFor(shown, { moved: carded.data?.[0]?.deltas ?? [], today }).map((c) => [
+				c.account,
+				c,
+			]),
+		),
+	);
+	const unknown = $derived(Cards.unknownIn(shown));
 	const from = $derived(moved?.from ?? today.with({ month: 1, day: 1 }));
 	const bucket = $derived(moved?.bucket ?? 'month');
 	const to = $derived(moved?.to ?? today.with({ month: 12, day: 31 }));
@@ -141,10 +167,16 @@
 	const current = $derived(
 		termed.data?.find((t) => t.account.toLowerCase() === setup?.toLowerCase())?.current ?? {},
 	);
+	const adding = $derived(page.url.searchParams.has('add'));
 	const fresh = $state({ name: '' });
-	const setupHref = (a: string | null) => hrefWith(page.url.searchParams, { setup: a ?? '' });
+	const setupHref = (a: string | null) =>
+		hrefWith(page.url.searchParams, { setup: a ?? '', add: '' });
+	const addHref = $derived(hrefWith(page.url.searchParams, { setup: '', add: '1' }));
 
 	const postingsOf = (a: string) => postingsHref(handle, { account: a, ...paramsOf(period) });
+
+	const usedOf = (c: Cards.Cycle) =>
+		c.limit === null ? '' : (formatShare(printAmount(c.owed), printAmount(c.limit)) ?? '');
 </script>
 
 <PageHeader subtitle="What are you worth, and how has it grown?">
@@ -292,7 +324,7 @@
 		</KpiStrip>
 	</PanelGrid>
 
-	<PanelGrid wide>
+	<PanelGrid wide={setup !== null || adding} full={setup === null && !adding}>
 		<Panel title="All liabilities" subtitle="What is owed on each account?">
 			{#snippet actions()}
 				<ChoiceChips
@@ -301,6 +333,7 @@
 					choices={SETTLED}
 					current={settled ? '' : 'no'}
 				/>
+				<Button href={addHref}>Add a card or loan</Button>
 			{/snippet}
 			{#if rows.length > 0}
 				<LedgerTable
@@ -312,11 +345,15 @@
 						{ label: 'Rate', kind: 'amount' },
 						{ label: 'Monthly', kind: 'amount' },
 						{ label: 'Due', kind: 'amount' },
+						{ label: 'Last bill', kind: 'amount' },
+						{ label: 'Bill paid' },
+						{ label: 'Limit used', kind: 'amount', optional: true },
 						{ label: 'Terms' },
 					]}
 				>
 					<tbody>
 						{#each rows as row (row.account)}
+							{@const card = cycles[row.account]}
 							<tr>
 								<th scope="row">
 									<a href={postingsOf(row.account)} title={row.account}>
@@ -330,6 +367,14 @@
 								<td class="amount">{row.rate === null ? '' : `${row.rate}%`}</td>
 								<Amount value={printAmount(row.payment)} />
 								<td class="amount">{row.due ?? ''}</td>
+								<Amount value={card?.bill ? printAmount(card.bill) : null} />
+								<td class="nowrap">
+									{#if card?.paid}{PAID[card.paid]}{/if}
+									{#if card && card.paid === null}
+										<a href={setupHref(row.account)}>Set a statement day</a>
+									{/if}
+								</td>
+								<td class="amount optional">{card ? usedOf(card) : ''}</td>
 								<td class="nowrap">
 									{#if row.leaf}<a href={setupHref(row.account)}>
 											{row.setUp ? 'Edit' : 'Set up'}
@@ -350,6 +395,15 @@
 			{:else}
 				<p>Nothing owed.</p>
 			{/if}
+			{#if unknown.length > 0}
+				<p class="ask">
+					Card or loan? Set up
+					{#each unknown as debt, i (debt.account)}
+						{i === 0 ? '' : ', '}<a href={setupHref(debt.account)}>{nameOf(debt.account)}</a>
+					{/each}
+					to say which.
+				</p>
+			{/if}
 		</Panel>
 		{#if setup}
 			<Aside title="Set up {nameOf(setup)}" onclose={() => goto(setupHref(null))}>
@@ -362,8 +416,9 @@
 					/>
 				{/key}
 			</Aside>
-		{:else}
-			<Aside title="Add a liability" closeBeside={false} onclose={() => {}}>
+		{/if}
+		{#if !setup && adding}
+			<Aside title="Add a card or loan" onclose={() => goto(setupHref(null))}>
 				<div class="add">
 					<Field label="Name" hint="Under Liabilities, like Loans:Car or Cards:Regalia.">
 						<input bind:value={fresh.name} />
@@ -391,6 +446,10 @@
 		width: 100%;
 	}
 
+	.ask {
+		margin-top: var(--size-3);
+	}
+
 	.nowrap {
 		white-space: nowrap;
 	}
@@ -398,6 +457,10 @@
 	a {
 		color: inherit;
 		text-decoration: none;
+	}
+
+	.ask a {
+		text-decoration: underline;
 	}
 
 	a:hover {

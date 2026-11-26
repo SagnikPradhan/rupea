@@ -1,10 +1,12 @@
 /**
  * A ledger's pages in the bar, in the order the design draws them, with what
- * each holds.
+ * each holds. A page is current on any path under it, and its sections are
+ * paths in the ledger.
  */
 export const PAGES = [
 	{
 		path: 'spending',
+		under: ['spending'],
 		icon: 'spending',
 		label: 'Spending',
 		about: 'Where your income went',
@@ -12,26 +14,26 @@ export const PAGES = [
 	},
 	{
 		path: 'net-worth',
+		under: ['net-worth'],
 		icon: 'worth',
 		label: 'Net worth',
 		about: 'What you are worth, and how it has grown',
 		sections: [
-			{ id: 'owned', label: 'Owned' },
-			{ id: 'owed', label: 'Owed' },
+			{ path: 'net-worth#owned', label: 'Owned' },
+			{ path: 'net-worth#owed', label: 'Owed' },
 		],
 	},
 	{
 		path: 'transactions',
-		icon: 'transactions',
-		label: 'Transactions',
-		about: 'Everything in your ledger, newest first',
-		sections: [],
-	},
-	{
-		path: 'files',
-		icon: 'files',
-		label: 'Files',
-		about: 'The files your ledger is kept in',
-		sections: [],
+		under: ['transactions', 'postings', 'files', 'import', 'refine'],
+		icon: 'ledger',
+		label: 'Ledger',
+		about: 'Every transaction, and the files they are kept in',
+		sections: [
+			{ path: 'transactions', label: 'Transactions' },
+			{ path: 'postings', label: 'Postings' },
+			{ path: 'files', label: 'Files' },
+			{ path: 'import', label: 'Import' },
+		],
 	},
 ] as const;

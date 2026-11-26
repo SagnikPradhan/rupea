@@ -35,14 +35,14 @@
 		current: page.route.id === '/(signed-in)',
 		icon: 'home' as const,
 		about: 'What you own, what you owe, and how last month went',
-		sections: [] as readonly { id: string; label: string }[],
+		sections: [],
 	});
 	const ledger = $derived(
 		handle
 			? PAGES.map((p) => ({
 					label: p.label,
 					href: resolve(`/(signed-in)/l/[handle]/${p.path}`, { handle }),
-					current: page.params.handle !== undefined && p.path === section,
+					current: page.params.handle !== undefined && p.under.some((u) => u === section),
 					icon: p.icon,
 					about: p.about,
 					sections: p.sections,
@@ -85,8 +85,16 @@
 										<span>{link.about}</span>
 										{#if link.sections.length > 0}
 											<ul role="list" aria-label="Sections of {link.label}">
-												{#each link.sections as part (part.id)}
-													<li><a href="{link.href}#{part.id}">{part.label}</a></li>
+												{#each link.sections as part (part.path)}
+													<li>
+														<a
+															href={resolve(`/(signed-in)/l/[handle]/${part.path}`, {
+																handle: handle ?? '',
+															})}
+														>
+															{part.label}
+														</a>
+													</li>
 												{/each}
 											</ul>
 										{/if}
@@ -97,6 +105,19 @@
 					</LinkPreview.Root>
 				{:else}
 					<a href={link.href} aria-current={link.current ? 'page' : undefined}>{link.label}</a>
+					{#if link.sections.length > 0}
+						<ul role="list" class="sections" aria-label="Sections of {link.label}">
+							{#each link.sections as part (part.path)}
+								<li>
+									<a
+										href={resolve(`/(signed-in)/l/[handle]/${part.path}`, { handle: handle ?? '' })}
+									>
+										{part.label}
+									</a>
+								</li>
+							{/each}
+						</ul>
+					{/if}
 				{/if}
 			</li>
 		{/each}
@@ -398,6 +419,13 @@
 	.drawer ul {
 		flex-direction: column;
 		gap: var(--size-2);
+	}
+
+	.drawer .sections {
+		gap: var(--size-1);
+		margin-top: var(--size-1);
+		padding-left: var(--size-2);
+		font: var(--text-label);
 	}
 
 	@media (width < 48rem) {

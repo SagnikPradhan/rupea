@@ -115,8 +115,7 @@ describe('the navigation', () => {
 			['Home', '/'],
 			['Spending', '/l/h/spending'],
 			['Net worth', '/l/h/net-worth'],
-			['Transactions', '/l/h/transactions'],
-			['Files', '/l/h/files'],
+			['Ledger', '/l/h/transactions'],
 		]);
 		expect(bar().getByRole('link', { name: 'Home' }).getAttribute('aria-current')).toBe('page');
 		expect(bar().getByRole('link', { name: 'Spending' }).getAttribute('aria-current')).toBeNull();
@@ -140,16 +139,32 @@ describe('the navigation', () => {
 		]);
 	});
 
-	it('marks no page current on a page the bar does not list', async () => {
+	it('marks Ledger current on any page under it', async () => {
 		at('/l/h/postings', { handle: 'h' });
 		render(Navigation, { handle: 'h', username: 'asha', local: false, theme: 'system' });
 		await fireEvent.click(await screen.findByRole('button', { name: 'Menu' }));
 		await screen.findAllByRole('button', { name: 'Sync now' });
 
-		expect(
-			bar().getByRole('link', { name: 'Transactions' }).getAttribute('aria-current'),
-		).toBeNull();
+		expect(bar().getByRole('link', { name: 'Ledger' }).getAttribute('aria-current')).toBe('page');
 		expect(bar().getByRole('link', { name: 'Home' }).getAttribute('aria-current')).toBeNull();
+	});
+
+	it('lists the pages under Ledger in the menu', async () => {
+		at('/l/h/spending', { handle: 'h' });
+		render(Navigation, { handle: 'h', username: 'asha', theme: 'system' });
+		await fireEvent.click(await screen.findByRole('button', { name: 'Menu' }));
+		const menu = within(await screen.findByRole('dialog', { name: 'Menu' }));
+
+		expect(
+			within(menu.getByRole('list', { name: 'Sections of Ledger' }))
+				.getAllByRole('link')
+				.map((a) => [a.textContent, a.getAttribute('href')]),
+		).toEqual([
+			['Transactions', '/l/h/transactions'],
+			['Postings', '/l/h/postings'],
+			['Files', '/l/h/files'],
+			['Import', '/l/h/import'],
+		]);
 	});
 
 	it('offers syncing on a ledger page only', async () => {

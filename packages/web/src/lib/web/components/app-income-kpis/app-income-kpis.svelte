@@ -18,7 +18,7 @@
 
 	const earned = $derived(Income.incomeOf(income, INCOME));
 	const spent = $derived(Spending.totalOf(spending, EXPENSES) ?? ZERO);
-	const kept = $derived((earned - spent) as Amount);
+	const saved = $derived((earned - spent) as Amount);
 	const investments = $derived(Income.investmentIncomeOf(income));
 	const moved = $derived(
 		formatChange(printAmount(Income.incomeOf(previous, INCOME)), printAmount(earned)),
@@ -34,8 +34,8 @@
 	/>
 	<Kpi
 		label="Saving rate"
-		figure={spending ? (formatShare(printAmount(kept), printAmount(earned)) ?? '–') : '–'}
-		detail={spending ? `${formatWhole(printAmount(kept))} kept` : undefined}
+		figure={spending ? (formatShare(printAmount(saved), printAmount(earned)) ?? '–') : '–'}
+		detail={spending ? `${formatWhole(printAmount(saved))} saved` : undefined}
 	/>
 	<Kpi
 		label="From investments"

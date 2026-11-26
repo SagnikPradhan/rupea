@@ -94,25 +94,27 @@ describe('the income page', () => {
 		);
 	});
 
-	it('shows last month as what came in, what was kept, what investments paid and what they cover', async () => {
+	it('shows last month as what came in, what was saved, what investments paid and what they cover', async () => {
 		render(Page, { data });
 
 		const figures = within(await screen.findByLabelText('Figures'));
 		expect(figures.getByText('Income in October')).toBeTruthy();
 		expect(figures.getByText('2,000')).toBeTruthy();
 		expect(figures.getByText('50%')).toBeTruthy();
-		expect(figures.getByText('1,000 kept')).toBeTruthy();
+		expect(figures.getByText('1,000 saved')).toBeTruthy();
 		expect(figures.getByText('From investments')).toBeTruthy();
 		expect(figures.getByText('10% of income')).toBeTruthy();
 		expect(figures.getByText('20%')).toBeTruthy();
 		expect(figures.getByText('200 of 1,000')).toBeTruthy();
 	});
 
-	it('draws income by month, split into what was spent and what was kept', async () => {
+	it('draws income by month, split into what was spent, invested and kept', async () => {
 		render(Page, { data });
 
 		expect(
-			await screen.findByRole('img', { name: /^Income from .*, 2,000 in all, 1,000 kept$/ }),
+			await screen.findByRole('img', {
+				name: /^Income from .*, 2,000 in all, 1,000 spent, 1,000 invested, 0 kept$/,
+			}),
 		).toBeTruthy();
 	});
 
@@ -165,13 +167,14 @@ describe('the income page', () => {
 		expect(dialog.getByRole('link', { name: '3M' }).getAttribute('aria-current')).toBeTruthy();
 	});
 
-	it('sums up the month under the pointer as income and the share of it that was kept', async () => {
+	it('sums up the month under the pointer as income and the shares invested and kept', async () => {
 		Element.prototype.getBoundingClientRect = () => DOMRect.fromRect({ width: 100, height: 100 });
 		render(Page, { data });
 
 		const plot = await screen.findByRole('img', { name: /^Income from .*kept$/ });
 		await fireEvent.pointerMove(plot, { clientX: 25, clientY: 0 });
 
+		expect(screen.getByText(/kept ·/).textContent).toMatch(/20% invested ·\s+30% kept ·/);
 		expect(screen.getByText(/kept ·/).textContent).toContain('Sept 2026');
 	});
 
@@ -185,24 +188,6 @@ describe('the income page', () => {
 				period: { kind: 'custom', from: '2025-11-15', to: '2026-11-16' },
 			}),
 		);
-	});
-
-	it('draws income by month, split into what was invested and what was not', async () => {
-		render(Page, { data });
-
-		expect(
-			await screen.findByRole('img', { name: /^Income from .*, 4,000 in all, 2,400 invested$/ }),
-		).toBeTruthy();
-	});
-
-	it('sums up the month under the pointer as what went in of its income', async () => {
-		Element.prototype.getBoundingClientRect = () => DOMRect.fromRect({ width: 100, height: 100 });
-		render(Page, { data });
-
-		const plot = await screen.findByRole('img', { name: /^Income from .*invested$/ });
-		await fireEvent.pointerMove(plot, { clientX: 25, clientY: 0 });
-
-		expect(screen.getByText(/of .* income ·/).textContent).toContain('Sept 2026');
 	});
 
 	it('reads all of time as it is, with nothing paid before it', async () => {

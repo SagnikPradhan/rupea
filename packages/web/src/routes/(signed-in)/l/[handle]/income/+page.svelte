@@ -6,7 +6,6 @@
 	import FilterModal from '#lib/web/components/ui-filter-modal/ui-filter-modal.svelte';
 	import FilterSection from '#lib/web/components/ui-filter-section/ui-filter-section.svelte';
 	import IncomeCash from '#lib/web/components/app-income-cash/app-income-cash.svelte';
-	import IncomeInvested from '#lib/web/components/app-income-invested/app-income-invested.svelte';
 	import IncomeKpis from '#lib/web/components/app-income-kpis/app-income-kpis.svelte';
 	import IncomeSources from '#lib/web/components/app-income-sources/app-income-sources.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
@@ -79,6 +78,7 @@
 		bucket={earned.data?.[0]?.bucket ?? 'month'}
 		income={earned.data?.[0]}
 		spending={spent.data?.[0]}
+		paid={invested.data ?? []}
 		first={earned.data?.[0]?.from ?? today}
 		last={earned.data?.[0]?.to ?? today}
 	/>
@@ -93,15 +93,6 @@
 </PanelGrid>
 
 <PanelGrid>
-	{#if invested.data}
-		<IncomeInvested
-			bucket={earned.data?.[0]?.bucket ?? 'month'}
-			income={earned.data?.[0]}
-			paid={invested.data}
-			first={earned.data?.[0]?.from ?? today}
-			last={earned.data?.[0]?.to ?? today}
-		/>
-	{/if}
 	<IncomeSources
 		month={earnedLast.data?.[0]}
 		range={earned.data?.[0]}

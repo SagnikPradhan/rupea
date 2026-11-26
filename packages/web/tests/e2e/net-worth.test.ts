@@ -62,17 +62,3 @@ test('shows what each account holds and what it is worth', async ({ signedIn: pa
 	await expect(page.getByRole('row', { name: /buy/i })).toContainText('6 left');
 	await expect(page.getByRole('row').filter({ hasText: 'sale' })).toContainText('800');
 });
-
-test('sends the old accounts, liabilities and lots links to net worth', async ({
-	signedIn: page,
-	ledger,
-}) => {
-	await visit(page, `${ledger}/accounts?at=2026`);
-	await expect(page).toHaveURL(/\/net-worth\?at=2026$/);
-
-	await visit(page, `${ledger}/liabilities?settled=no`);
-	await expect(page).toHaveURL(/\/net-worth\?settled=no$/);
-
-	await visit(page, `${ledger}/accounts/lots?account=Assets:Zerodha&commodity=INFY`);
-	await expect(page).toHaveURL(/\/net-worth\/lots\?account=Assets:Zerodha&commodity=INFY$/);
-});

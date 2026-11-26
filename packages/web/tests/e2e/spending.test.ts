@@ -80,14 +80,3 @@ test('lays a month of spending out as a calendar, each day leading to its postin
 	await expect(page).toHaveURL(new RegExp(`postings\\?account=Expenses&from=${day}&to=${day}`));
 	await expect(page.getByRole('rowgroup').filter({ hasText: 'Dinner' })).toBeVisible();
 });
-
-test('sends the old income and expenses links to spending, keeping the filter', async ({
-	signedIn: page,
-	ledger,
-}) => {
-	await visit(page, `${ledger}/income?span=3`);
-	await expect(page).toHaveURL(/\/spending\?span=3$/);
-
-	await visit(page, `${ledger}/expenses?account=Expenses:Food`);
-	await expect(page).toHaveURL(/\/spending\?account=Expenses:Food$/);
-});

@@ -168,5 +168,9 @@
 		table :global(.optional) {
 			display: none;
 		}
+
+		table :global(:is(th, td):not(.optional, :has(~ :not(.optional)))) {
+			padding-right: 0;
+		}
 	}
 </style>

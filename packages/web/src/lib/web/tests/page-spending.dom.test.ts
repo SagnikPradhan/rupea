@@ -1,13 +1,11 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
-	listAccounts,
 	listBudgets,
 	listDailyDeltas,
 	listDeltas,
 	listInvested,
 } from '#lib/endpoints/accounts.remote.ts';
-import { goto } from '#tests/shared/app-navigation.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
 import { openFilter } from '#tests/shared/filter.ts';
@@ -20,9 +18,7 @@ const amount = (t: string) => parseAmount(t) as Amount;
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('$app/navigation', () => import('#tests/shared/app-navigation.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
-	listAccounts: vi.fn(() => answer([])),
 	listBudgets: vi.fn(() => answer([])),
-	saveBudget: Object.assign(vi.fn(), { pending: 0 }),
 	listDailyDeltas: vi.fn(),
 	listDeltas: vi.fn(),
 	listInvested: vi.fn(() => answer([])),
@@ -314,105 +310,13 @@ describe('the spending page', () => {
 			expect(screen.queryByText('Budgets over')).toBeNull();
 		});
 
-		it('links Add budget with add set, keeping the other params', async () => {
+		it('links Add budget to settings', async () => {
 			visit('/l/h/spending?at=2026');
-			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 			render(Page, { data });
 
 			const link = await screen.findByRole('link', { name: 'Add budget' });
-			expect(link.getAttribute('href')).toContain('add=1');
-			expect(link.getAttribute('href')).toContain('at=2026');
-		});
-
-		it('shows no aside when no budget is asked for', async () => {
-			visit('/l/h/spending');
-			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
-			render(Page, { data });
-
-			await screen.findByText('Budgets');
+			expect(link.getAttribute('href')).toBe('/settings?ledger=h&add=budget#h-budgets');
 			expect(screen.queryByRole('complementary')).toBeNull();
-		});
-
-		it('opens Add budget beside the budgets with the accounts under Expenses to pick from', async () => {
-			visit('/l/h/spending?add=1');
-			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
-			vi.mocked(listAccounts).mockReturnValue(
-				answer([
-					{ account: 'Assets:Bank', parent: null, posted: true },
-					{ account: 'Expenses', parent: null, posted: true },
-					{ account: 'Expenses:Food', parent: 'Expenses', posted: true },
-				]),
-			);
-			render(Page, { data });
-
-			const aside = await screen.findByRole('complementary', { name: 'Add budget' });
-			const options = within(within(aside).getByLabelText(/Account/)).getAllByRole('option');
-			expect(options.map((o) => o.getAttribute('value'))).toEqual(['', 'Expenses:Food']);
-		});
-
-		it('offers only the accounts that have no budget yet', async () => {
-			visit('/l/h/spending?add=1');
-			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
-			vi.mocked(listBudgets).mockReturnValue(answer([budget('expenses:food', '100', '10')]));
-			vi.mocked(listAccounts).mockReturnValue(
-				answer([
-					{ account: 'Expenses:Food', parent: 'Expenses', posted: true },
-					{ account: 'Expenses:Rent', parent: 'Expenses', posted: true },
-				]),
-			);
-			render(Page, { data });
-
-			const aside = await screen.findByRole('complementary', { name: 'Add budget' });
-			const options = within(within(aside).getByLabelText(/Account/)).getAllByRole('option');
-			expect(options.map((o) => o.getAttribute('value'))).toEqual(['', 'Expenses:Rent']);
-		});
-
-		it('lists the accounts only while adding', async () => {
-			visit('/l/h/spending');
-			vi.mocked(listAccounts).mockClear();
-			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
-			render(Page, { data });
-
-			await screen.findByText('Budgets');
-			expect(vi.mocked(listAccounts)).not.toHaveBeenCalled();
-		});
-
-		it('opens the budget asked for with its account and what it has now', async () => {
-			visit('/l/h/spending?budget=Expenses:Food');
-			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
-			vi.mocked(listBudgets).mockReturnValue(
-				answer([{ ...budget('Expenses:Food', '100', '150'), current: { limit: '100' } }]),
-			);
-			render(Page, { data });
-
-			const aside = await screen.findByRole('complementary', { name: 'Budget for Food' });
-			expect((within(aside).getByLabelText(/Limit/) as HTMLInputElement).value).toBe('100');
-			expect(within(aside).queryByLabelText(/Account/)).toBeNull();
-		});
-
-		it('closes Add budget back to the page without add', async () => {
-			visit('/l/h/spending?at=2026&add=1');
-			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
-			render(Page, { data });
-
-			const aside = await screen.findByRole('complementary', { name: 'Add budget' });
-			await fireEvent.click(within(aside).getByRole('button', { name: 'Close' }));
-
-			expect(goto).toHaveBeenLastCalledWith('/l/h/spending?at=2026');
-		});
-
-		it('closes a budget back to the page without budget', async () => {
-			visit('/l/h/spending?at=2026&budget=Expenses:Food');
-			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
-			vi.mocked(listBudgets).mockReturnValue(
-				answer([{ ...budget('Expenses:Food', '100', '150'), current: { limit: '100' } }]),
-			);
-			render(Page, { data });
-
-			const aside = await screen.findByRole('complementary', { name: 'Budget for Food' });
-			await fireEvent.click(within(aside).getByRole('button', { name: 'Close' }));
-
-			expect(goto).toHaveBeenLastCalledWith('/l/h/spending?at=2026');
 		});
 
 		it('shows what went wrong reading them', async () => {

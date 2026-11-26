@@ -131,11 +131,10 @@
 	<strong><Avatar name={username ?? ''} />Hello, {username}</strong>
 	<span>{status}</span>
 	{@render ledgerLinks()}
-	{#if !local}
-		<ul role="list">
-			<li><button form="log-out">Sign out</button></li>
-		</ul>
-	{/if}
+	<ul role="list">
+		<li><a href={resolve('/(signed-in)/settings')}>Settings</a></li>
+		{#if !local}<li><button form="log-out">Sign out</button></li>{/if}
+	</ul>
 {/snippet}
 
 {#snippet ledgerLinks()}
@@ -217,6 +216,9 @@
 									<IconButton form="log-out" label="Sign out" icon={ICONS.signOut} outlined />
 								{/if}
 							</div>
+							<ul role="list" aria-label="Your account">
+								<li><a href={resolve('/(signed-in)/settings')}>Settings</a></li>
+							</ul>
 							{@render ledgerLinks()}
 						</div>
 					{/snippet}

@@ -383,3 +383,120 @@ describe('local mode', () => {
 		});
 	});
 });
+
+describe('changing who you are', () => {
+	const ada = { email: 'ada@example.com', username: 'ada' };
+
+	withEmpty('renames the current user', ({ empty }) =>
+		provide(empty, async () => {
+			const user = (await DB.createUser(ada))._unsafeUnwrap();
+
+			const saved = await Auth.runAs(user, () => Auth.saveUser({ username: 'countess' }));
+
+			expect(saved._unsafeUnwrap()).toEqual({ ...user, username: 'countess' });
+		}),
+	);
+
+	withEmpty('refuses a name another user has', ({ empty }) =>
+		provide(empty, async () => {
+			const user = (await DB.createUser(ada))._unsafeUnwrap();
+			await DB.createUser({ email: 'grace@example.com', username: 'grace' });
+
+			const saved = await Auth.runAs(user, () => Auth.saveUser({ username: 'grace' }));
+
+			expect(saved._unsafeUnwrapErr()).toEqual({ type: 'NameTaken', name: 'grace' });
+		}),
+	);
+
+	withEmpty('moves the current user to a new address with the code mailed to it', ({ empty }) => {
+		const mail = inbox();
+		return provide({ ...empty, mailer: mail.mailer }, async () => {
+			const user = (await DB.createUser(ada))._unsafeUnwrap();
+
+			await Auth.runAs(user, () => Auth.requestCode('lovelace@example.com'));
+			const code = codeIn(mail.sent[0]);
+			const saved = await Auth.runAs(user, () =>
+				Auth.saveUser({ email: 'lovelace@example.com', code }),
+			);
+
+			expect(mail.sent[0]?.to).toBe('lovelace@example.com');
+			expect(saved._unsafeUnwrap().email).toBe('lovelace@example.com');
+		});
+	});
+
+	withEmpty('keeps the address when the code is wrong', ({ empty }) => {
+		const mail = inbox();
+		return provide({ ...empty, mailer: mail.mailer }, async () => {
+			const user = (await DB.createUser(ada))._unsafeUnwrap();
+
+			await Auth.runAs(user, () => Auth.requestCode('lovelace@example.com'));
+			const saved = await Auth.runAs(user, () =>
+				Auth.saveUser({ email: 'lovelace@example.com', code: '000000' }),
+			);
+
+			expect(saved._unsafeUnwrapErr().type).toBe('AuthInvalidCode');
+			expect((await DB.findUserByEmail('ada@example.com'))._unsafeUnwrap()).toEqual(user);
+		});
+	});
+
+	withEmpty('refuses an address another user has, even with its code', ({ empty }) => {
+		const mail = inbox();
+		return provide({ ...empty, mailer: mail.mailer }, async () => {
+			const user = (await DB.createUser(ada))._unsafeUnwrap();
+			await DB.createUser({ email: 'grace@example.com', username: 'grace' });
+
+			await Auth.runAs(user, () => Auth.requestCode('grace@example.com'));
+			const code = codeIn(mail.sent[0]);
+			const saved = await Auth.runAs(user, () =>
+				Auth.saveUser({ email: 'grace@example.com', code }),
+			);
+
+			expect(saved._unsafeUnwrapErr()).toEqual({ type: 'EmailTaken', email: 'grace@example.com' });
+		});
+	});
+
+	withEmpty('keeps the address it has without asking for a code', ({ empty }) =>
+		provide(empty, async () => {
+			const user = (await DB.createUser(ada))._unsafeUnwrap();
+
+			const saved = await Auth.runAs(user, () =>
+				Auth.saveUser({ username: 'countess', email: 'ada@example.com' }),
+			);
+
+			expect(saved._unsafeUnwrap()).toEqual({ ...user, username: 'countess' });
+		}),
+	);
+
+	withEmpty('takes a new address without a code while sign-in is off', ({ empty }) =>
+		provide(local(empty), async () => {
+			const user = (await DB.createUser(ada))._unsafeUnwrap();
+
+			const saved = await Auth.runAs(user, () =>
+				Auth.saveUser({ email: 'lovelace@example.com', code: '' }),
+			);
+
+			expect(saved._unsafeUnwrap().email).toBe('lovelace@example.com');
+		}),
+	);
+
+	withEmpty('refuses an address another user has, even while sign-in is off', ({ empty }) =>
+		provide(local(empty), async () => {
+			const user = (await DB.createUser(ada))._unsafeUnwrap();
+			await DB.createUser({ email: 'grace@example.com', username: 'grace' });
+
+			const saved = await Auth.runAs(user, () =>
+				Auth.saveUser({ email: 'grace@example.com', code: '' }),
+			);
+
+			expect(saved._unsafeUnwrapErr()).toEqual({ type: 'EmailTaken', email: 'grace@example.com' });
+		}),
+	);
+
+	withEmpty('changes nothing for a call nobody signed in to', ({ empty }) =>
+		provide(empty, async () => {
+			const saved = await Auth.saveUser({ username: 'nobody' });
+
+			expect(saved._unsafeUnwrapErr().type).toBe('AuthUnauthenticated');
+		}),
+	);
+});

@@ -26,18 +26,22 @@ const TRIES = 5;
 /** The address of the user local mode makes, which no mail ever reaches. */
 const LOCAL_EMAIL = 'me@localhost';
 
-// Succeeds either way, so callers cannot tell which addresses have accounts.
+/**
+ * Mails a code that signs the address in, or confirms it for the user signed
+ * in. Succeeds either way, so callers cannot tell which addresses have
+ * accounts.
+ */
 export const requestCode = (email: string): ResultAsync<void> =>
 	withContext('mailer')((mailer) =>
-		canSignIn(email).andThen((allowed) => {
+		mayMail(email).andThen((allowed) => {
 			if (!allowed) return okAsync();
 
 			const fresh = newCode(Date.now());
 			return DB.saveEmailCode({ email, ...fresh.stored }).andThen(() =>
 				mailer.send({
 					to: email,
-					subject: `Your Rupea sign-in code: ${fresh.code}`,
-					text: `Your sign-in code is ${fresh.code}. It expires in 10 minutes.`,
+					subject: `Your Rupea code: ${fresh.code}`,
+					text: `Your code is ${fresh.code}. It expires in 10 minutes.`,
 				}),
 			);
 		}),
@@ -117,6 +121,37 @@ export const withCurrentUser = <T>(
 	const user = requestUser();
 	return user ? okAsync(user).andThen(use) : errAsync(fault('AuthUnauthenticated'));
 };
+
+type SaveUserOptions = {
+	username?: string | undefined;
+	email?: string | undefined;
+	code?: string | undefined;
+};
+
+/**
+ * Changes what is given of the user signed in. A new address needs the code
+ * mailed to it, except with sign-in off, when no mail reaches anyone.
+ */
+export const saveUser = ({ username, email, code = '' }: SaveUserOptions): ResultAsync<User> =>
+	withCurrentUser((u) =>
+		confirmed({ email: email === u.email ? undefined : email, code }).andThen(() =>
+			DB.saveUser(u.id, {
+				...(username === undefined ? {} : { username }),
+				...(email === undefined ? {} : { email }),
+			}),
+		),
+	);
+
+const confirmed = ({ email, code }: { email: string | undefined; code: string }) =>
+	withContext('config')((c) => {
+		if (email === undefined || c.accounts.signin === 'none') return okAsync();
+
+		return DB.takeEmailCode(email).andThen((s) =>
+			codeMatches(s, code, Date.now()) ? ok() : err(fault('AuthInvalidCode')),
+		);
+	});
+
+const mayMail = (e: string): ResultAsync<boolean> => (requestUser() ? okAsync(true) : canSignIn(e));
 
 const canSignIn = (email: string): ResultAsync<boolean> =>
 	withContext('config')((c) => {

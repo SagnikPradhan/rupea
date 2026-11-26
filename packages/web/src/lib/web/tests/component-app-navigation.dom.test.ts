@@ -66,6 +66,23 @@ describe('the navigation', () => {
 		expect(menu.getByRole('button', { name: 'Sign out' })).toBeTruthy();
 	});
 
+	it('links Settings from the account card, even while sign-in is off', async () => {
+		render(Navigation, { handle: null, username: 'asha', local: true, theme: 'system' });
+
+		await fireEvent.pointerEnter(screen.getByRole('button', { name: 'Account' }));
+
+		const link = await screen.findByRole('link', { name: 'Settings' });
+		expect(link.getAttribute('href')).toBe('/settings');
+	});
+
+	it('links Settings in the menu', async () => {
+		render(Navigation, { handle: null, username: 'asha', local: false, theme: 'system' });
+		await fireEvent.click(screen.getByRole('button', { name: 'Menu' }));
+		const menu = within(await screen.findByRole('dialog', { name: 'Menu' }));
+
+		expect(menu.getByRole('link', { name: 'Settings' }).getAttribute('href')).toBe('/settings');
+	});
+
 	it('offers no Sign out while sign-in is off', async () => {
 		render(Navigation, { handle: null, username: 'asha', local: true, theme: 'system' });
 		await fireEvent.click(screen.getByRole('button', { name: 'Menu' }));

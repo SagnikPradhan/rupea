@@ -1,7 +1,7 @@
-import { Email } from '@rupea/shared/text.ts';
+import { Email, Username } from '@rupea/shared/text.ts';
 import * as v from 'valibot';
 import { invalid, redirect } from '@sveltejs/kit';
-import { form } from '$app/server';
+import { command, form } from '$app/server';
 import { api } from './api';
 import { replyFromCall } from './reply';
 import { deleteSessionCookie, readSessionCookie, setSessionCookie } from './session';
@@ -44,3 +44,17 @@ export const signOut = form(async () => {
 	deleteSessionCookie();
 	redirect(303, '/sign-in');
 });
+
+/** Mails a code to an address the signed-in user is moving to. */
+export const sendCode = command(v.object({ email: Email }), ({ email }) =>
+	replyFromCall(api().auth.requestCode({ email })),
+);
+
+export const saveUser = command(
+	v.object({
+		username: v.optional(Username),
+		email: v.optional(Email),
+		code: v.optional(v.string()),
+	}),
+	(c) => replyFromCall(api().auth.saveUser(c)),
+);

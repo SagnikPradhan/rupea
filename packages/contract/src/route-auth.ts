@@ -1,7 +1,7 @@
 import { oc } from '@orpc/contract';
 import dedent from 'dedent';
 import { InstantOut } from '@rupea/shared/dates.ts';
-import { Email } from '@rupea/shared/text.ts';
+import { Email, Username } from '@rupea/shared/text.ts';
 import * as v from 'valibot';
 import { errors } from './errors.ts';
 
@@ -15,8 +15,9 @@ const requestCode = oc
 		path: '/auth/code',
 		operationId: 'auth.requestCode',
 		description: dedent`
-			Mails a six-digit sign-in code to the address and answers the same whether
-			or not it has an account, so the call does not reveal who has one.
+			Mails a six-digit code to the address and answers the same whether or not
+			it has an account, so the call does not reveal who has one. The code signs
+			the address in, or, for a bearer, confirms it for saveUser.
 		`,
 	})
 	.errors(errors)
@@ -66,9 +67,34 @@ const findUser = oc
 	.errors(errors)
 	.output(v.object({ user: User, expiresAt: v.nullable(InstantOut) }));
 
+const saveUser = oc
+	.route({
+		method: 'PATCH',
+		path: '/auth/user',
+		operationId: 'auth.saveUser',
+		description: dedent`
+			Changes what is given of the bearer and answers who they are now. A new
+			email needs the code requestCode mailed to it, except while sign-in is
+			off.
+
+			Fails with NameTaken or EmailTaken when another user has the name or
+			address, and with AuthInvalidCode when the code is wrong or has expired.
+		`,
+	})
+	.errors(errors)
+	.input(
+		v.object({
+			username: v.optional(Username),
+			email: v.optional(Email),
+			code: v.optional(v.pipe(v.string(), v.trim())),
+		}),
+	)
+	.output(User);
+
 export const auth = {
 	requestCode,
 	signIn,
 	signOut,
 	findUser,
+	saveUser,
 };

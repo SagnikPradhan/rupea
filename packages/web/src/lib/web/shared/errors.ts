@@ -128,6 +128,9 @@ export const explain = (error: RupeaError): string =>
 			{ type: 'CannotWriteBudget' },
 			() => 'This budget wouldn’t read back as written. Check it for a line break.',
 		)
+		.with({ type: 'NameTaken' }, (e) => `Someone already has the name ${e.name}.`)
+		.with({ type: 'EmailTaken' }, (e) => `Another account already uses ${e.email}.`)
+		.with({ type: 'AuthInvalidCode' }, () => 'That code is wrong or has expired.')
 		.with({ type: 'StorageConflict' }, () => 'This file changed since you opened it.')
 		.with({ type: 'StorageNotFound' }, () => 'This file no longer exists.')
 		.with({ type: 'StorageInvalidKey' }, (e) => `“${e.key}” isn’t a valid file name.`)

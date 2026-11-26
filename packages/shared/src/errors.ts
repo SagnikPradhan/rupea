@@ -26,6 +26,7 @@ const Plain = v.variant('type', [
 	v.object({ type: v.literal('LedgerNotFound'), handle: str }),
 	v.object({ type: v.literal('AccountNotFound'), account: str }),
 	v.object({ type: v.literal('NameTaken'), name: str }),
+	v.object({ type: v.literal('EmailTaken'), email: str }),
 	v.object({ type: v.literal('UniqueViolation'), constraint: str }),
 	v.object({ type: v.literal('ParseInvalidTransactionHeader'), location: str }),
 	v.object({ type: v.literal('ParseMissingTransactionBody'), location: str }),

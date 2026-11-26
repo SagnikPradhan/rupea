@@ -9,6 +9,7 @@ import * as Auth from '#services/auth/application/auth.ts';
 import { createApi } from '../api/api.ts';
 
 const EMAIL = 'ada@example.com';
+const GRACE = 'grace@example.com';
 const DAY = 24 * 60 * 60 * 1000;
 
 const codeIn = (mail: Mail | undefined) => mail?.subject.match(/(\d{6})$/)?.[1] ?? '';
@@ -495,4 +496,115 @@ describe('logging', () => {
 			});
 		},
 	);
+});
+
+describe('changing who you are', () => {
+	const withFresh = it.extend<{ fresh: RupeaContext }>({
+		fresh: async ({ context }, use) => {
+			const empty = await createTemporaryDatabase();
+			await use({ ...context, db: empty.db });
+			await empty.close();
+		},
+	});
+
+	withFresh('renames the bearer, lower-casing the name', ({ fresh }) => {
+		const mail = inbox(fresh);
+		return provide(mail.context, async () => {
+			const api = await createApi(mail.context);
+			const { token } = (await signIn(api, mail.sent)).json();
+
+			const out = await api.inject({
+				method: 'PATCH',
+				url: '/api/auth/user',
+				headers: bearer(token),
+				payload: { username: ' Countess ' },
+			});
+
+			expect(out.statusCode).toBe(200);
+			expect(out.json()).toMatchObject({ email: EMAIL, username: 'countess' });
+		});
+	});
+
+	withFresh('refuses a name with spaces in it', ({ fresh }) => {
+		const mail = inbox(fresh);
+		return provide(mail.context, async () => {
+			const api = await createApi(mail.context);
+			const { token } = (await signIn(api, mail.sent)).json();
+
+			const out = await api.inject({
+				method: 'PATCH',
+				url: '/api/auth/user',
+				headers: bearer(token),
+				payload: { username: 'ada lovelace' },
+			});
+
+			expect(out.statusCode).toBe(400);
+		});
+	});
+
+	withFresh('moves the bearer to a new address with the mailed code', ({ fresh }) => {
+		const mail = inbox(fresh);
+		return provide(mail.context, async () => {
+			const api = await createApi(mail.context);
+			const { token } = (await signIn(api, mail.sent)).json();
+
+			await api.inject({
+				method: 'POST',
+				url: '/api/auth/code',
+				headers: bearer(token),
+				payload: { email: 'Lovelace@Example.com' },
+			});
+			const out = await api.inject({
+				method: 'PATCH',
+				url: '/api/auth/user',
+				headers: bearer(token),
+				payload: { email: 'lovelace@example.com', code: codeIn(mail.sent[1]) },
+			});
+
+			expect(out.statusCode).toBe(200);
+			expect(out.json()).toMatchObject({ email: 'lovelace@example.com' });
+		});
+	});
+
+	withFresh('answers a taken address with a 409', ({ fresh }) => {
+		const mail = inbox(fresh);
+		return provide(mail.context, async () => {
+			const api = await createApi(mail.context);
+			const { token } = (await signIn(api, mail.sent)).json();
+			await Auth.requestCode(GRACE).andThen(() =>
+				Auth.signIn({ email: GRACE, code: codeIn(mail.sent.at(-1)) }),
+			);
+
+			await api.inject({
+				method: 'POST',
+				url: '/api/auth/code',
+				headers: bearer(token),
+				payload: { email: GRACE },
+			});
+			const out = await api.inject({
+				method: 'PATCH',
+				url: '/api/auth/user',
+				headers: bearer(token),
+				payload: { email: GRACE, code: codeIn(mail.sent.at(-1)) },
+			});
+
+			expect(out.statusCode).toBe(409);
+			expect(out.json()).toMatchObject({ data: { type: 'EmailTaken', email: GRACE } });
+		});
+	});
+
+	withFresh('changes nothing without a bearer', ({ fresh }) => {
+		const mail = inbox(fresh);
+		return provide(mail.context, async () => {
+			const api = await createApi(mail.context);
+
+			const out = await api.inject({
+				method: 'PATCH',
+				url: '/api/auth/user',
+				payload: { username: 'nobody' },
+			});
+
+			expect(out.statusCode).toBe(401);
+		});
+	});
 });

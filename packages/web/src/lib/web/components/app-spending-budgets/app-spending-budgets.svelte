@@ -1,6 +1,5 @@
 <script lang="ts">
 	import { printAmount, type Amount } from '@rupea/shared/money.ts';
-	import { page } from '$app/state';
 	import HorizontalBars from '#lib/web/components/ui-chart-hbar/ui-chart-hbar.svelte';
 	import Totals from '#lib/web/components/ui-chart-totals/ui-chart-totals.svelte';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
@@ -8,11 +7,11 @@
 	import { nameOf } from '#lib/web/shared/accounts.ts';
 	import { totalOf, watchOf, type BudgetRow } from '#lib/web/shared/budgets.ts';
 	import { formatCompact, formatWhole } from '#lib/web/shared/format.ts';
-	import { hrefWith } from '#lib/web/shared/links.ts';
+	import { settingsHref } from '#lib/web/shared/links.ts';
 
-	type Props = { rows: BudgetRow[]; today: Temporal.PlainDate; add: string };
+	type Props = { rows: BudgetRow[]; today: Temporal.PlainDate; handle: string };
 
-	const { rows, today, add }: Props = $props();
+	const { rows, today, handle }: Props = $props();
 
 	const total = $derived(totalOf(rows));
 
@@ -26,7 +25,7 @@
 			name: nameOf(row.budget.account),
 			value: row.bar.share,
 			detail: `${compact(row.budget.spent)} of ${compact(row.budget.limit)}`,
-			href: hrefWith(page.url.searchParams, { budget: row.budget.account }),
+			href: settingsHref(handle, { budget: row.budget.account }),
 			note: leftOf(row.budget, compact),
 			pace,
 			warn: close,
@@ -48,7 +47,7 @@
 
 <Panel title="Budgets" subtitle="Which budgets are running out?">
 	{#snippet actions()}
-		<Button href={add}>Add budget</Button>
+		<Button href={settingsHref(handle, { add: 'budget' })}>Add budget</Button>
 	{/snippet}
 	{#if rows.length > 0}
 		<Totals

@@ -445,7 +445,7 @@ const range = (account: string, totals: [string, string | null, string][]) => ({
 	],
 });
 
-const dated = (r: ReturnType<typeof range>, from: string) => ({ ...r, from: on(from) });
+const dated = <R>(r: R, from: string) => ({ ...r, from: on(from) });
 
 const earned = range('Income', [
 	['Income', null, '-2000'],
@@ -581,7 +581,7 @@ describe('the income on the spending page', () => {
 	it('names a year bucket by its year, not as the January it starts on', async () => {
 		Element.prototype.getBoundingClientRect = () => DOMRect.fromRect({ width: 100, height: 100 });
 		visit('/l/h/spending?range=all');
-		const yearly = (r: ReturnType<typeof range>) => ({
+		const yearly = <R>(r: R) => ({
 			...r,
 			bucket: 'year',
 			buckets: [on('2025-01-01'), on('2026-01-01')],

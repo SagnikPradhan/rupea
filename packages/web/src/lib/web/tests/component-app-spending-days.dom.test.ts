@@ -27,4 +27,13 @@ describe('the spending days', () => {
 		expect(screen.getByText('Spent')).toBeTruthy();
 		expect(screen.getByText(/2 Jan 2026/)).toBeTruthy();
 	});
+
+	it('names the day that cost the most, not a refund', () => {
+		render(SpendingDays, {
+			daily: [...PROPS.daily, { day: '2026-01-03', amount: '-500' }],
+		});
+
+		expect(screen.getByText('1 Jan 2026')).toBeTruthy();
+		expect(screen.queryByText('3 Jan 2026')).toBeNull();
+	});
 });

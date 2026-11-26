@@ -11,10 +11,9 @@
 	const { daily }: Props = $props();
 
 	const busiest = $derived(
-		daily.reduce(
-			(a, b) => (Math.abs(Number(b.amount)) > Math.abs(Number(a?.amount ?? 0)) ? b : a),
-			daily[0],
-		),
+		daily
+			.filter((d) => Number(d.amount) > 0)
+			.toSorted((a, b) => Number(b.amount) - Number(a.amount))[0],
 	);
 </script>
 

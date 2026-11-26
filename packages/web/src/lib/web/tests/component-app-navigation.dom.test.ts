@@ -93,6 +93,23 @@ describe('the navigation', () => {
 		expect(bar().getByRole('link', { name: 'Spending' }).getAttribute('aria-current')).toBeNull();
 	});
 
+	it('shows what a page holds, with links to its sections, when its link is hovered', async () => {
+		at('/l/h/files', { handle: 'h' });
+		render(Navigation, { handle: 'h', username: 'asha', theme: 'system' });
+		await screen.findAllByRole('navigation', { name: 'Pages' });
+
+		await fireEvent.pointerEnter(bar().getByRole('link', { name: 'Spending' }));
+
+		expect(await screen.findByText('What came in, and where it went')).toBeTruthy();
+		const sections = within(screen.getByRole('list', { name: 'Sections of Spending' }));
+		expect(
+			sections.getAllByRole('link').map((a) => [a.textContent, a.getAttribute('href')]),
+		).toEqual([
+			['Spent', '/l/h/spending#spent'],
+			['Earned', '/l/h/spending#earned'],
+		]);
+	});
+
 	it('marks no page current on a page the bar does not list', async () => {
 		at('/l/h/postings', { handle: 'h' });
 		render(Navigation, { handle: 'h', username: 'asha', local: false, theme: 'system' });

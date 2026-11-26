@@ -31,6 +31,8 @@
 		label: 'Home',
 		href: resolve('/(signed-in)'),
 		current: page.route.id === '/(signed-in)',
+		about: 'What you own, what you owe, and how last month went',
+		sections: [] as readonly { id: string; label: string }[],
 	});
 	const ledger = $derived(
 		handle
@@ -38,6 +40,8 @@
 					label: p.label,
 					href: resolve(`/(signed-in)/l/[handle]/${p.path}`, { handle }),
 					current: page.params.handle !== undefined && p.path === section,
+					about: p.about,
+					sections: p.sections,
 				}))
 			: [],
 	);
@@ -47,10 +51,48 @@
 	afterNavigate(() => (drawer.open = false));
 </script>
 
-{#snippet pages()}
+{#snippet pages(previews: boolean)}
 	<ul role="list">
 		{#each links as link (link.href)}
-			<li><a href={link.href} aria-current={link.current ? 'page' : undefined}>{link.label}</a></li>
+			<li>
+				{#if previews}
+					<LinkPreview.Root openDelay={300} closeDelay={150}>
+						<LinkPreview.Trigger>
+							{#snippet child({ props })}
+								<a
+									{...props}
+									role={null}
+									aria-haspopup={null}
+									aria-expanded={null}
+									href={link.href}
+									aria-current={link.current ? 'page' : undefined}
+								>
+									{link.label}
+								</a>
+							{/snippet}
+						</LinkPreview.Trigger>
+						<LinkPreview.Content side="bottom" sideOffset={8}>
+							{#snippet child({ props, wrapperProps })}
+								<div {...wrapperProps}>
+									<div {...props} class="card preview">
+										<strong>{link.label}</strong>
+										<span>{link.about}</span>
+										{#if link.sections.length > 0}
+											<ul role="list" aria-label="Sections of {link.label}">
+												{#each link.sections as part (part.id)}
+													<li><a href="{link.href}#{part.id}">{part.label}</a></li>
+												{/each}
+											</ul>
+										{/if}
+									</div>
+								</div>
+							{/snippet}
+						</LinkPreview.Content>
+					</LinkPreview.Root>
+				{:else}
+					<a href={link.href} aria-current={link.current ? 'page' : undefined}>{link.label}</a>
+				{/if}
+			</li>
 		{/each}
 	</ul>
 {/snippet}
@@ -78,7 +120,7 @@
 
 	{#if username}
 		{#if !local}<form {...signOut} id="log-out" hidden></form>{/if}
-		<nav aria-label="Pages" class="wide">{@render pages()}</nav>
+		<nav aria-label="Pages" class="wide">{@render pages(true)}</nav>
 	{/if}
 
 	<div class="end">
@@ -120,7 +162,7 @@
 									</Dialog.Close>
 								</div>
 							</div>
-							<nav aria-label="Pages in the menu">{@render pages()}</nav>
+							<nav aria-label="Pages in the menu">{@render pages(false)}</nav>
 							<div class="account">
 								<Avatar name={username} />
 								<div class="who">
@@ -208,6 +250,30 @@
 		border-radius: var(--radius-2);
 		background: var(--color-surface);
 		color: var(--color-muted);
+	}
+
+	.preview {
+		gap: var(--size-0);
+		padding: var(--size-2);
+	}
+
+	.preview strong {
+		font: var(--text-base);
+		color: var(--color-ink);
+	}
+
+	.preview span {
+		font: var(--text-label);
+	}
+
+	.preview ul {
+		flex-direction: column;
+		gap: var(--size-1);
+		margin-top: var(--size-2);
+	}
+
+	.preview a {
+		color: var(--color-ink);
 	}
 
 	.banner {

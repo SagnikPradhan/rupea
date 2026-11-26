@@ -84,14 +84,13 @@ describe('the navigation', () => {
 				.map((a) => [a.textContent, a.getAttribute('href')]),
 		).toEqual([
 			['Home', '/'],
-			['Accounts', '/l/h/accounts'],
 			['Spending', '/l/h/spending'],
-			['Liabilities', '/l/h/liabilities'],
+			['Net worth', '/l/h/net-worth'],
 			['Transactions', '/l/h/transactions'],
 			['Files', '/l/h/files'],
 		]);
 		expect(bar().getByRole('link', { name: 'Home' }).getAttribute('aria-current')).toBe('page');
-		expect(bar().getByRole('link', { name: 'Accounts' }).getAttribute('aria-current')).toBeNull();
+		expect(bar().getByRole('link', { name: 'Spending' }).getAttribute('aria-current')).toBeNull();
 	});
 
 	it('marks no page current on a page the bar does not list', async () => {
@@ -107,7 +106,7 @@ describe('the navigation', () => {
 	});
 
 	it('offers syncing on a ledger page only', async () => {
-		at('/l/h/accounts', { handle: 'h' });
+		at('/l/h/net-worth', { handle: 'h' });
 		render(Navigation, { handle: 'h', username: 'asha', local: false, theme: 'system' });
 		await fireEvent.click(await screen.findByRole('button', { name: 'Menu' }));
 

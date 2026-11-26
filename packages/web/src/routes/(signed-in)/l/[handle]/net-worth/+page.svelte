@@ -1,13 +1,29 @@
 <script lang="ts">
-	import { listHoldings, listDeltas, listTerms } from '#lib/endpoints/accounts.remote.ts';
+	import {
+		listHoldings,
+		listDeltas,
+		listDrops,
+		listInvested,
+		listReturns,
+		listTerms,
+	} from '#lib/endpoints/accounts.remote.ts';
 	import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
-	import { printAmount, BalanceAccount, LIABILITIES } from '@rupea/shared/money.ts';
+	import { printAmount, ASSETS, BalanceAccount, LIABILITIES } from '@rupea/shared/money.ts';
 	import { spansOf } from '@rupea/shared/dates.ts';
-	import { paramsOf, periodOf } from '#lib/web/shared/filter.ts';
+	import { paramsOf } from '#lib/web/shared/filter.ts';
 	import { depthOf, isUnder, nameOf } from '#lib/web/shared/accounts.ts';
 	import { formatBucket, formatIsoDate, formatWhole } from '#lib/web/shared/format.ts';
 	import * as Liabilities from '#lib/web/shared/liabilities.ts';
 	import { ringsOf } from '#lib/web/shared/rings.ts';
+	import AccountsTable from '#lib/web/components/app-accounts-table/app-accounts-table.svelte';
+	import Drops from '#lib/web/components/app-drops/app-drops.svelte';
+	import AssetsRings from '#lib/web/components/app-assets-rings/app-assets-rings.svelte';
+	import InvestedKpis from '#lib/web/components/app-invested-kpis/app-invested-kpis.svelte';
+	import InvestedReturns from '#lib/web/components/app-invested-returns/app-invested-returns.svelte';
+	import InvestedRisk from '#lib/web/components/app-invested-risk/app-invested-risk.svelte';
+	import Invested from '#lib/web/components/app-invested/app-invested.svelte';
+	import { BalanceQuery, investedOf } from '#lib/web/shared/invested.ts';
+	import { readQuery } from '#lib/web/shared/query.svelte.ts';
 	import AccountName from '#lib/web/components/app-account-name/app-account-name.svelte';
 	import ListFilter from '#lib/web/components/app-list-filter/app-list-filter.svelte';
 	import TermsForm from '#lib/web/components/app-terms-form/app-terms-form.svelte';
@@ -38,22 +54,37 @@
 	const handle = $derived(data.ledger.handle);
 	const day = formatIsoDate(new Date());
 	const today = Temporal.PlainDate.from(day);
-	const thisYear = { kind: 'year', at: day.slice(0, 4) } as const;
-	const period = $derived(periodOf(page.url.searchParams, thisYear));
-	const picked = $derived(v.parse(BalanceAccount, page.url.searchParams.get('account')));
+	const url = readQuery(BalanceQuery(day));
+	const period = $derived(url.query.period);
+	const picked = $derived(url.query.account);
 	const account = $derived(picked !== null && isUnder(picked, LIABILITIES) ? picked : null);
 	const settled = $derived(page.url.searchParams.get('settled') !== 'no');
 
-	const [response, flowed, first, termed] = $derived(
+	const [response, earned, first, owned, fallen] = $derived(
 		await Promise.all([
 			listHoldings({ handle, day, period }),
-			listDeltas({ handle, day, period, account: LIABILITIES }),
+			listReturns({ handle, day, period }),
 			findFirstDay(handle),
+			listInvested({ handle, day, period, account: picked }),
+			listDrops({ handle, day, period, account: picked }),
+		]),
+	);
+	const [flowed, termed] = $derived(
+		await Promise.all([
+			listDeltas({ handle, day, period, account: LIABILITIES }),
 			listTerms({ handle, day }),
 		]),
 	);
+	const accounts = $derived(response.data ?? []);
+	const held = $derived(accounts.filter((a) => isUnder(a.account, ASSETS)));
+	const returns = $derived(Object.fromEntries((earned.data ?? []).map((r) => [r.account, r])));
+	const invested = $derived(investedOf(accounts, returns));
+	const heldRings = $derived(
+		ringsOf(accounts, picked !== null && isUnder(picked, ASSETS) ? picked : ASSETS),
+	);
+
 	const moved = $derived(flowed.data?.[0]);
-	const owed = $derived(Liabilities.accountsIn(response.data ?? []));
+	const owed = $derived(Liabilities.accountsIn(accounts));
 	const debts = $derived(Liabilities.debtsFrom(owed, termed.data ?? []));
 	const shown = $derived(debts.filter((d) => isUnder(d.account, account)));
 	const rows = $derived(Liabilities.rowsFor(shown, moved?.totals ?? [], settled));
@@ -67,11 +98,11 @@
 	const payoff = $derived(Liabilities.payoffOf(shown, end));
 	const payments = $derived(Liabilities.paymentsOn(lines));
 	const total = $derived(Liabilities.owedOn(shown, account ?? LIABILITIES));
-	const rings = $derived(ringsOf(owed, account ?? LIABILITIES));
+	const owedRings = $derived(ringsOf(owed, account ?? LIABILITIES));
 	const credit = $derived(
-		rings.skipped === 0
+		owedRings.skipped === 0
 			? undefined
-			: `${rings.skipped} ${rings.skipped === 1 ? 'account is' : 'accounts are'} in credit, so not drawn`,
+			: `${owedRings.skipped} ${owedRings.skipped === 1 ? 'account is' : 'accounts are'} in credit, so not drawn`,
 	);
 
 	const setup = $derived.by(() => {
@@ -87,13 +118,13 @@
 	const postingsOf = (a: string) => postingsHref(handle, { account: a, ...paramsOf(period) });
 </script>
 
-<PageHeader subtitle="What you owe, what is due, and when it ends">
-	Liabilities
+<PageHeader subtitle="What you own, what you owe, and how it has grown">
+	Net worth
 	{#snippet actions()}
 		<ListFilter
 			{period}
-			{account}
-			accounts={owed}
+			account={picked}
+			{accounts}
 			today={day}
 			first={first.data ?? null}
 			moreParams={['settled']}
@@ -112,7 +143,55 @@
 	{/snippet}
 </PageHeader>
 
-<Issues {handle} errors={[...(response.errors ?? []), ...(flowed.errors ?? [])]} />
+<Issues
+	{handle}
+	errors={[
+		...(response.errors ?? []),
+		...(earned.errors ?? []),
+		...(owned.errors ?? []),
+		...(fallen.errors ?? []),
+		...(flowed.errors ?? []),
+	]}
+/>
+
+<PanelGrid narrow>
+	<div>
+		{#if (owned.data ?? []).length > 0}
+			<Invested invested={owned.data ?? []} />
+		{:else}
+			<p>No investments with a cost in this period.</p>
+		{/if}
+	</div>
+
+	<InvestedKpis {invested} />
+</PanelGrid>
+
+<PanelGrid>
+	<div class="column">
+		<InvestedReturns {invested} />
+
+		<Panel title="Biggest drops" subtitle="how far investments fell from their high">
+			{#if fallen.data?.[0]}
+				<Drops drops={fallen.data[0]} account={picked} />
+			{:else}
+				<p>Needs price history.</p>
+			{/if}
+		</Panel>
+	</div>
+
+	<div class="column">
+		<AssetsRings rings={heldRings} account={picked} />
+
+		<InvestedRisk
+			{invested}
+			swings={fallen.data?.[0]?.swings ?? []}
+			arcs={heldRings.arcs}
+			account={picked}
+		/>
+	</div>
+</PanelGrid>
+
+<AccountsTable accounts={held} {returns} under={picked} {handle} />
 
 <PanelGrid narrow>
 	<Panel title="Payments" subtitle="{payments.made} made · {payments.due} still to fall due">
@@ -129,7 +208,7 @@
 			<p>No payments in this period.</p>
 		{/if}
 	</Panel>
-	<KpiStrip>
+	<KpiStrip label="Debt figures">
 		<Kpi label="Due in 30 days" soon />
 		<Kpi
 			label="Loan interest a month"
@@ -146,10 +225,10 @@
 <PanelGrid>
 	<div class="column">
 		<Panel title="What you owe" subtitle="owed by loan and card, the inner ring the groups">
-			{#if rings.arcs.length > 0}
+			{#if owedRings.arcs.length > 0}
 				<Donut
-					arcs={rings.arcs}
-					levels={rings.levels}
+					arcs={owedRings.arcs}
+					levels={owedRings.levels}
 					label="How what is owed divides across its accounts"
 					amounts
 					note={credit}

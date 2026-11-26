@@ -13,7 +13,7 @@
 	const count = $derived(`${groups.length} ${groups.length === 1 ? 'account' : 'accounts'}`);
 </script>
 
-<KpiStrip>
+<KpiStrip label="Investment figures">
 	<Kpi
 		label="Invested value"
 		figure={formatWhole(String(totals.value))}

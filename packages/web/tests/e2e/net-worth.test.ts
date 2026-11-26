@@ -31,7 +31,7 @@ test('shows what each account holds and what it is worth', async ({ signedIn: pa
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
 	await expect(page.getByText('Unsaved')).toBeHidden();
 
-	await visit(page, `${ledger}/accounts`);
+	await visit(page, `${ledger}/net-worth`);
 	const zerodha = page.getByRole('row').filter({ hasText: 'Zerodha' });
 	for (const cell of ['1 unpriced', '9,000', '10,800', '1,800', '+20%'])
 		await expect(zerodha).toContainText(cell);
@@ -61,4 +61,18 @@ test('shows what each account holds and what it is worth', async ({ signedIn: pa
 	await expect(page.getByRole('heading', { name: 'INFY in Assets:Zerodha' })).toBeVisible();
 	await expect(page.getByRole('row', { name: /buy/i })).toContainText('6 left');
 	await expect(page.getByRole('row').filter({ hasText: 'sale' })).toContainText('800');
+});
+
+test('sends the old accounts, liabilities and lots links to net worth', async ({
+	signedIn: page,
+	ledger,
+}) => {
+	await visit(page, `${ledger}/accounts?at=2026`);
+	await expect(page).toHaveURL(/\/net-worth\?at=2026$/);
+
+	await visit(page, `${ledger}/liabilities?settled=no`);
+	await expect(page).toHaveURL(/\/net-worth\?settled=no$/);
+
+	await visit(page, `${ledger}/accounts/lots?account=Assets:Zerodha&commodity=INFY`);
+	await expect(page).toHaveURL(/\/net-worth\/lots\?account=Assets:Zerodha&commodity=INFY$/);
 });

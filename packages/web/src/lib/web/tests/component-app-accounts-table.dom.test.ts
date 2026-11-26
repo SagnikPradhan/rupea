@@ -80,7 +80,7 @@ describe('the accounts table', () => {
 		render(AccountsTable, props);
 
 		expect(screen.getByRole('link', { name: 'INFY' }).getAttribute('href')).toBe(
-			'/l/h/accounts/lots?account=Assets%3ABroker&commodity=INFY',
+			'/l/h/net-worth/lots?account=Assets%3ABroker&commodity=INFY',
 		);
 	});
 

@@ -7,6 +7,7 @@ import {
 	listInvested,
 	listReturns,
 	listTerms,
+	listWorth,
 	saveTerms,
 } from '#lib/endpoints/accounts.remote.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
@@ -26,6 +27,7 @@ vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
 	listDrops: vi.fn(() => answer([])),
 	listDeltas: vi.fn(() => answer([])),
 	listTerms: vi.fn(() => answer([])),
+	listWorth: vi.fn(() => answer([])),
 	saveTerms: Object.assign(vi.fn(), { pending: 0 }),
 }));
 vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
@@ -128,7 +130,8 @@ describe('what you own on the net worth page', () => {
 		vi.mocked(listHoldings).mockReturnValue(answer(accounts));
 		render(Page, { data });
 
-		expect(await screen.findByText('No investments with a cost in this period.')).toBeTruthy();
+		await screen.findByRole('region', { name: 'Net worth figures' });
+		expect(screen.queryByRole('img', { name: /^Value against cost from/ })).toBeNull();
 
 		vi.mocked(listInvested).mockReturnValue(
 			answer([
@@ -252,15 +255,48 @@ describe('what you own on the net worth page', () => {
 		expect(await screen.findByText('Nothing to divide.')).toBeTruthy();
 	});
 
+	it('leads with net worth, what is owned and what is owed, and closes on a balance sheet', async () => {
+		visit('/l/h/net-worth');
+		vi.mocked(listWorth).mockReturnValue(
+			answer([
+				{
+					day: '2026-01-01',
+					assets: '200000',
+					liabilities: '-50000',
+					worth: '150000',
+					parts: [],
+					unpriced: 0,
+				},
+				{
+					day: '2026-02-01',
+					assets: '300000',
+					liabilities: '-75000',
+					worth: '225000',
+					parts: [],
+					unpriced: 0,
+				},
+			]),
+		);
+		render(Page, { data });
+
+		const strip = within(await screen.findByRole('region', { name: 'Net worth figures' }));
+		expect(strip.getByText('Owned').nextElementSibling?.textContent).toBe('3,00,000');
+		expect(strip.getByText('Owed').nextElementSibling?.textContent).toBe('75,000');
+		expect(strip.getByText('25% of what you own')).toBeTruthy();
+		expect(screen.getByRole('img', { name: /^Net worth from/ })).toBeTruthy();
+		expect(screen.getByText('Balance sheet')).toBeTruthy();
+	});
+
 	it('starts every figure at zero on a ledger with nothing in it yet', async () => {
 		visit('/l/h/net-worth');
 		vi.mocked(listHoldings).mockReturnValue(answer([]));
+		vi.mocked(listWorth).mockReturnValue(answer([]));
 		render(Page, { data });
 
-		const strip = within(await screen.findByRole('region', { name: 'Investment figures' }));
+		const strip = within(await screen.findByRole('region', { name: 'Net worth figures' }));
 		expect(strip.getByText('0% on cost')).toBeTruthy();
 		expect(strip.getByText('0%')).toBeTruthy();
-		expect(strip.getByText('across 0 accounts')).toBeTruthy();
+		expect(strip.getByText('0% of what you own')).toBeTruthy();
 		expect(screen.getByText(/^0 groups/)).toBeTruthy();
 	});
 
@@ -275,9 +311,8 @@ describe('what you own on the net worth page', () => {
 		);
 		render(Page, { data });
 
-		const strip = within(await screen.findByRole('region', { name: 'Investment figures' }));
+		const strip = within(await screen.findByRole('region', { name: 'Net worth figures' }));
 		expect(strip.getByText(/on cost$/).classList.contains('negative')).toBe(true);
-		expect(strip.getByText('across 1 account')).toBeTruthy();
 		expect(screen.getByText(/^1 group ·/)).toBeTruthy();
 	});
 
@@ -393,7 +428,7 @@ describe('what you owe on the net worth page', () => {
 		open('/l/h/net-worth');
 
 		expect((await screen.findByRole('heading', { level: 1 })).textContent).toContain('Net worth');
-		expect(screen.getByText('What you own, what you owe, and how it has grown')).toBeTruthy();
+		expect(screen.getByText('What you are worth, and how it has grown')).toBeTruthy();
 	});
 
 	it('lists what is owed in its own table, not with what you own', async () => {
@@ -416,9 +451,8 @@ describe('what you owe on the net worth page', () => {
 		expect(screen.getByRole('columnheader', { name: 'Paid' })).toBeTruthy();
 	});
 
-	it('leaves out settled accounts when the filter asks for open ones only', async () => {
+	it('leaves out settled accounts when the table asks for open ones only', async () => {
 		open('/l/h/net-worth?settled=no');
-		await openFilter();
 
 		expect(await screen.findByTitle('Liabilities:Loans:Home')).toBeTruthy();
 		expect(screen.queryByTitle('Liabilities:Old')).toBeNull();
@@ -503,7 +537,8 @@ describe('what you owe on the net worth page', () => {
 		expect(screen.getByText('about 1,771')).toBeTruthy();
 		expect(screen.getByText('Loan interest a month')).toBeTruthy();
 		expect(screen.getByText('Loans paid off by').nextElementSibling?.textContent).not.toBe('–');
-		expect(screen.getAllByText(/^Coming soon · /).length).toBeGreaterThanOrEqual(2);
+		expect(screen.queryByText(/^Coming soon/)).toBeNull();
+		expect(screen.getByText('Due in 30 days').nextElementSibling?.textContent).not.toBe('0');
 	});
 
 	it('shows a dash for the estimates while a debt has no terms', async () => {
@@ -557,7 +592,7 @@ describe('what you owe on the net worth page', () => {
 	it('ignores a setup request for an account that is not a liability', async () => {
 		open('/l/h/net-worth?setup=Assets:Bank');
 
-		expect(await screen.findByText('Card balance')).toBeTruthy();
+		expect(await screen.findByText('What you owe')).toBeTruthy();
 		expect(screen.queryByRole('complementary', { name: /^Set up/ })).toBeNull();
 	});
 

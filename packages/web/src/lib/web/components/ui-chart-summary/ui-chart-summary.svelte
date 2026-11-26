@@ -38,10 +38,14 @@
 	}
 
 	.figure {
-		font: var(--text-display);
-		font-size: min(var(--font-size-4), 12vw);
+		font: var(--text-figure);
 		font-variant-numeric: tabular-nums;
 		overflow-wrap: anywhere;
+	}
+
+	.lead .figure {
+		font: var(--text-display);
+		font-size: min(var(--font-size-4), 12vw);
 	}
 
 	.line {

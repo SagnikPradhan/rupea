@@ -52,6 +52,7 @@
 		<ChartSummary
 			id="worth"
 			label="Net worth"
+			lead
 			figure={formatAmount(shown.worth)}
 			exact={formatExact(shown.worth)}
 		>

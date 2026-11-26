@@ -35,7 +35,6 @@
 		<ChartSummary
 			id="invested"
 			label="Invested"
-			lead
 			figure={formatAmount(shown.value)}
 			exact={formatExact(shown.value)}
 		>

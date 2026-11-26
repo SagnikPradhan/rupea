@@ -541,6 +541,21 @@ describe('what you owe on the net worth page', () => {
 		expect(screen.getByText('Due in 30 days').nextElementSibling?.textContent).not.toBe('0');
 	});
 
+	it('lists the next payment due on each debt, soonest first', async () => {
+		open('/l/h/net-worth');
+
+		await screen.findByTitle('Liabilities:Loans:Home');
+		expect(screen.getByText('Due next')).toBeTruthy();
+		expect(screen.getByText(/^Home, \d+ \w+$/)).toBeTruthy();
+	});
+
+	it('says nothing falls due while no debt has a due day', async () => {
+		open('/l/h/net-worth', [moved], []);
+
+		await screen.findByTitle('Liabilities:Loans:Home');
+		expect(screen.getByText('Nothing falls due in the next 30 days.')).toBeTruthy();
+	});
+
 	it('shows a dash for the estimates while a debt has no terms', async () => {
 		open('/l/h/net-worth');
 

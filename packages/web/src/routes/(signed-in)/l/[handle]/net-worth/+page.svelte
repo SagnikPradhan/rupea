@@ -144,10 +144,12 @@
 	const lines = $derived(Liabilities.linesFor(shown, moved?.deltas ?? [], dues, bucket));
 	const end = $derived(spansOf(period, today).current.to);
 	const soon = $derived(today.add({ days: 30 }));
-	const dueSoon = $derived(
-		sum(
-			shown.flatMap((d) => Liabilities.duesOn(d, { from: today, to: soon })).map((d) => d.amount),
-		),
+	const upcoming = $derived(shown.map((d) => Liabilities.duesOn(d, { from: today, to: soon })));
+	const dueSoon = $derived(sum(upcoming.flat().map((d) => d.amount)));
+	const next = $derived(
+		upcoming
+			.flatMap((d) => d.slice(0, 1))
+			.toSorted((a, b) => Temporal.PlainDate.compare(a.on, b.on)),
 	);
 	const interest = $derived(Liabilities.monthlyInterestOn(shown));
 	const payoff = $derived(Liabilities.payoffOf(shown, end));
@@ -309,6 +311,18 @@
 				/>
 			{:else}
 				<p>No payments in this period.</p>
+			{/if}
+			{#if next.length > 0}
+				<Statement head="Due next" columns={['Amount']}>
+					{#each next as due (due.account)}
+						<StatementRow
+							name="{nameOf(due.account)}, {formatDayMonth(due.on.toString())}"
+							values={[printAmount(due.amount)]}
+						/>
+					{/each}
+				</Statement>
+			{:else}
+				<p>Nothing falls due in the next 30 days.</p>
 			{/if}
 		</Panel>
 		<KpiStrip label="Debt figures">

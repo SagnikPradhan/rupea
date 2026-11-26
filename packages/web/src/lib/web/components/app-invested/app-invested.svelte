@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import ChartSummary from '#lib/web/components/ui-chart-summary/ui-chart-summary.svelte';
 	import LineChart from '#lib/web/components/ui-chart-line/ui-chart-line.svelte';
 	import { formatAmount, formatChange, formatDate, formatExact } from '#lib/web/shared/format.ts';
@@ -12,7 +13,7 @@
 </script>
 
 {#if first && last}
-	<section aria-labelledby="invested">
+	<Panel title="Invested" subtitle="what it is worth, against what went in">
 		<LineChart
 			rows={invested}
 			x="day"
@@ -25,7 +26,7 @@
 			)}, value {formatAmount(last.value)} on cost {formatAmount(last.cost)}"
 			summary={valueOn}
 		/>
-	</section>
+	</Panel>
 {/if}
 
 {#snippet valueOn(index: number)}
@@ -34,7 +35,7 @@
 		{@const gain = formatChange(shown.cost, shown.value)}
 		<ChartSummary
 			id="invested"
-			label="Invested"
+			label="Value"
 			figure={formatAmount(shown.value)}
 			exact={formatExact(shown.value)}
 		>

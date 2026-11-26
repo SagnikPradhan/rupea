@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import { ZERO, printAmount } from '@rupea/shared/money.ts';
 	import type { Grain } from '@rupea/shared/dates.ts';
 	import { nameOf } from '#lib/web/shared/accounts.ts';
@@ -67,7 +68,7 @@
 	const postingsOn = (day: string) => postingsHref(handle, { account, from: day, to: day });
 </script>
 
-<div>
+<Panel title="By category" subtitle="what went on each, against the period before">
 	{#if bucket === 'day'}
 		<Calendar rows={bars} x="bucket" y="total" href={postingsOn} {label} {summary} />
 	{:else}
@@ -107,7 +108,7 @@
 			{/snippet}
 		</BarChart>
 	{/if}
-</div>
+</Panel>
 
 {#snippet summary(index: number | null)}
 	{@const bar = index === null ? undefined : bars[index]}

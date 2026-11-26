@@ -27,6 +27,8 @@ const PROPS = {
 	income: INCOME,
 	expenses: SPENDING,
 	account: 'Expenses',
+	first: on('2026-01-01'),
+	last: on('2026-01-31'),
 	moved: null,
 	budgets: [],
 };
@@ -57,10 +59,11 @@ describe('the spending KPIs', () => {
 		expect(screen.getByText('+25% on the period before')).toBeTruthy();
 	});
 
-	it('shows what was earned, and what was saved out of it', () => {
+	it('shows what was spent a day, and what was saved out of what was earned', () => {
 		render(SpendingKpis, PROPS);
 
-		expect(screen.getByText('Earned').nextElementSibling?.textContent).toBe('4,000');
+		expect(screen.getByText('A day').nextElementSibling?.textContent).toBe('32');
+		expect(screen.getByText('31 days')).toBeTruthy();
 		expect(screen.getByText('Saved').nextElementSibling?.textContent).toBe('3,000');
 		expect(screen.getByText('75% of income')).toBeTruthy();
 	});

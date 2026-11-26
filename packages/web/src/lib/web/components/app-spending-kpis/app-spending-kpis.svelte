@@ -12,15 +12,18 @@
 		income: Spending.Spent | undefined;
 		expenses: Spending.Spent | undefined;
 		account: string;
+		first: Temporal.PlainDate;
+		last: Temporal.PlainDate;
 		moved: Change | null;
 		budgets: BudgetRow[];
 	};
 
-	const { spending, income, expenses, account, moved, budgets }: Props = $props();
+	const { spending, income, expenses, account, first, last, moved, budgets }: Props = $props();
 
 	const total = $derived(Spending.totalOf(spending, account) ?? ZERO);
 	const earned = $derived(Income.incomeOf(income, INCOME));
 	const saved = $derived((earned - (Spending.totalOf(expenses, EXPENSES) ?? ZERO)) as Amount);
+	const days = $derived(Spending.daysIn(first, last));
 	const over = $derived(overOf(budgets));
 </script>
 
@@ -30,7 +33,11 @@
 		figure={formatWhole(printAmount(total))}
 		detail={moved?.percent ? `${moved.percent} on the period before` : undefined}
 	/>
-	<Kpi label="Earned" figure={formatWhole(printAmount(earned))} />
+	<Kpi
+		label="A day"
+		figure={formatWhole(printAmount(Spending.dailyAverageOver(total, days)))}
+		detail="{days} {days === 1 ? 'day' : 'days'}"
+	/>
 	<Kpi
 		label="Saved"
 		figure={formatWhole(printAmount(saved))}

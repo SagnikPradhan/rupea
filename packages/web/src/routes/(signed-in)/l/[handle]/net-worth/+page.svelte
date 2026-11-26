@@ -193,41 +193,55 @@
 	</KpiStrip>
 </PanelGrid>
 
-<PageSection id="owned">
-	<PanelGrid>
-		<div class="column">
-			{#if (owned.data ?? []).length > 0}
-				<Invested invested={owned.data ?? []} />
-			{/if}
-			<InvestedReturns {invested} />
-
-			<Panel title="Biggest drops" subtitle="how far investments fell from their high">
-				{#if fallen.data?.[0]}
-					<Drops drops={fallen.data[0]} account={picked} />
-				{:else}
-					<p>Needs price history.</p>
-				{/if}
-			</Panel>
-		</div>
-
-		<div class="column">
-			<AssetsRings rings={heldRings} account={picked} />
-
-			<InvestedRisk
-				{invested}
-				swings={fallen.data?.[0]?.swings ?? []}
-				arcs={heldRings.arcs}
-				account={picked}
+<PanelGrid>
+	<AssetsRings rings={heldRings} account={picked} />
+	<Panel title="What you owe" subtitle="owed by loan and card, the inner ring the groups">
+		{#if owedRings.arcs.length > 0}
+			<Donut
+				arcs={owedRings.arcs}
+				levels={owedRings.levels}
+				label="How what is owed divides across its accounts"
+				amounts
+				note={credit}
 			/>
-		</div>
+		{:else}
+			<p>Nothing owed.</p>
+		{/if}
+	</Panel>
+</PanelGrid>
+
+<BalanceSheet {accounts} worth={latest} {day} />
+
+<PageSection id="owned" title="Owned">
+	<PanelGrid>
+		{#if (owned.data ?? []).length > 0}
+			<Invested invested={owned.data ?? []} />
+		{/if}
+		<Panel title="Biggest drops" subtitle="how far investments fell from their high">
+			{#if fallen.data?.[0]}
+				<Drops drops={fallen.data[0]} account={picked} />
+			{:else}
+				<p>Needs price history.</p>
+			{/if}
+		</Panel>
+	</PanelGrid>
+
+	<PanelGrid>
+		<InvestedReturns {invested} />
+		<InvestedRisk
+			{invested}
+			swings={fallen.data?.[0]?.swings ?? []}
+			arcs={heldRings.arcs}
+			account={picked}
+		/>
 	</PanelGrid>
 
 	<AccountsTable accounts={held} {returns} under={picked} {handle} />
 </PageSection>
 
-<PageSection id="owed">
+<PageSection id="owed" title="Owed">
 	<PanelGrid narrow>
-		<div>
+		<Panel title="Payments" subtitle="made and due on each account">
 			<ChartSummary
 				id="payments"
 				label="Owed"
@@ -249,7 +263,7 @@
 			{:else}
 				<p>No payments in this period.</p>
 			{/if}
-		</div>
+		</Panel>
 		<KpiStrip label="Debt figures">
 			<Kpi label="Due in 30 days" figure={formatWhole(printAmount(dueSoon))} />
 			<Kpi
@@ -261,23 +275,6 @@
 				figure={payoff === null ? '–' : formatBucket.month(payoff.toString())}
 			/>
 		</KpiStrip>
-	</PanelGrid>
-
-	<PanelGrid>
-		<Panel title="What you owe" subtitle="owed by loan and card, the inner ring the groups">
-			{#if owedRings.arcs.length > 0}
-				<Donut
-					arcs={owedRings.arcs}
-					levels={owedRings.levels}
-					label="How what is owed divides across its accounts"
-					amounts
-					note={credit}
-				/>
-			{:else}
-				<p>Nothing owed.</p>
-			{/if}
-		</Panel>
-		<BalanceSheet {accounts} worth={latest} {day} />
 	</PanelGrid>
 
 	<PanelGrid wide>
@@ -374,12 +371,6 @@
 </PageSection>
 
 <style>
-	.column {
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-4);
-	}
-
 	.add {
 		display: flex;
 		flex-direction: column;

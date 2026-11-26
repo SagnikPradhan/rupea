@@ -497,7 +497,7 @@ describe('the income on the spending page', () => {
 		render(Page, { data });
 
 		expect(await screen.findByRole('heading', { level: 1, name: 'Spending' })).toBeTruthy();
-		expect(screen.getByText(/spent of .+ earned/)).toBeTruthy();
+		expect(screen.getByText('Where your income went')).toBeTruthy();
 	});
 
 	it('reads income over the period and over last month', async () => {

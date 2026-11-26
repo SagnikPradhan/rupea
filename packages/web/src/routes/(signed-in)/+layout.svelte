@@ -14,7 +14,7 @@
 	.content {
 		display: grid;
 		grid-template-columns: subgrid;
-		gap: var(--size-3) var(--size-4);
+		gap: var(--size-4);
 	}
 
 	.content > :global(*) {

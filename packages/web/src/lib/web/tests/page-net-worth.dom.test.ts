@@ -488,7 +488,7 @@ describe('what you owe on the net worth page', () => {
 		expect(pins.filter((p) => p.classList.contains('past'))).toHaveLength(3);
 		expect(pins).toHaveLength(4);
 		expect(screen.getByText(/3 payments made · 1 still to fall due/)).toBeTruthy();
-		expect(screen.getByRole('heading', { level: 2, name: 'Owed' })).toBeTruthy();
+		expect(screen.getByRole('region', { name: 'Owed' })).toBeTruthy();
 		vi.useRealTimers();
 	});
 

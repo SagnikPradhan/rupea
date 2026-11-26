@@ -13,7 +13,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--size-3);
-		align-self: center;
+		align-self: flex-start;
 		min-width: calc(var(--size-5) * 3);
 	}
 </style>

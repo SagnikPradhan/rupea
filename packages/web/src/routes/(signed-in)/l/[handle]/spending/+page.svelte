@@ -29,17 +29,11 @@
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
-	import {
-		formatChange,
-		formatIsoDate,
-		formatMonthName,
-		formatWhole,
-	} from '#lib/web/shared/format.ts';
+	import { formatChange, formatIsoDate, formatMonthName } from '#lib/web/shared/format.ts';
 	import { MONTHS, MONTHS_BRIEF, lastMonthOf } from '#lib/web/shared/home.ts';
 	import { rowsFor } from '#lib/web/shared/budgets.ts';
 	import { hrefWith } from '#lib/web/shared/links.ts';
 	import { readQuery } from '#lib/web/shared/query.svelte.ts';
-	import * as Income from '#lib/web/shared/income.ts';
 	import * as Spending from '#lib/web/shared/spending.ts';
 
 	const { data } = $props();
@@ -110,16 +104,9 @@
 				)
 			: null,
 	);
-	const headline = $derived.by(() => {
-		const total = formatWhole(printAmount(Spending.totalOf(spending, url.query.account) ?? ZERO));
-		const income = formatWhole(printAmount(Income.incomeOf(earned.data?.[0], INCOME)));
-		const change = moved?.percent ? `, ${moved.percent} on the period before` : '';
-
-		return `${total} spent of ${income} earned${change}`;
-	});
 </script>
 
-<PageHeader subtitle={headline}>
+<PageHeader subtitle="Where your income went">
 	Spending
 	{#snippet actions()}
 		<FilterModal params={['span', ...PERIOD_PARAMS, 'account']}>
@@ -165,6 +152,8 @@
 		income={earned.data?.[0]}
 		expenses={spent.data?.[0]}
 		account={url.query.account}
+		{first}
+		{last}
 		{moved}
 		budgets={rows}
 	/>
@@ -217,18 +206,19 @@
 {/if}
 
 <PanelGrid>
+	<SpendingBreakdown
+		{spending}
+		account={url.query.account}
+		{parts}
+		{colours}
+		{bucket}
+		{first}
+		{last}
+		{handle}
+		period={url.query.period}
+	/>
 	<div class="column">
-		<SpendingBreakdown
-			{spending}
-			account={url.query.account}
-			{parts}
-			{colours}
-			{bucket}
-			{first}
-			{last}
-			{handle}
-			period={url.query.period}
-		/>
+		{#if !adding && !budget}{@render budgetsPanel()}{/if}
 		<IncomeSources
 			month={earnedLast.data?.[0]}
 			range={earned.data?.[0]}
@@ -236,10 +226,10 @@
 			period={MONTHS[picked] ?? 'Period'}
 		/>
 	</div>
-	<div class="column">
-		{#if !adding && !budget}{@render budgetsPanel()}{/if}
-		<SpendingDays daily={daily.data ?? []} account={url.query.account} />
-	</div>
+</PanelGrid>
+
+<PanelGrid full>
+	<SpendingDays daily={daily.data ?? []} account={url.query.account} />
 </PanelGrid>
 
 <style>

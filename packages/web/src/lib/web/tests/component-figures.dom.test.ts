@@ -94,8 +94,9 @@ describe('a panel grid', () => {
 describe('a page section', () => {
 	it('holds one part of a page under an id the navigation links to', () => {
 		const children = createRawSnippet(() => ({ render: () => '<p>owed</p>' }));
-		const { container } = render(PageSection, { id: 'owed', children });
+		const { container } = render(PageSection, { id: 'owed', title: 'Owed', children });
 
-		expect(container.querySelector('section#owed')?.textContent).toBe('owed');
+		expect(screen.getByRole('region', { name: 'Owed' }).id).toBe('owed');
+		expect(container.querySelector('section#owed p')?.textContent).toBe('owed');
 	});
 });

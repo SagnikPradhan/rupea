@@ -5,6 +5,7 @@
 export const PAGES = [
 	{
 		path: 'spending',
+		icon: 'spending',
 		label: 'Spending',
 		about: 'What came in, and where it went',
 		sections: [
@@ -14,6 +15,7 @@ export const PAGES = [
 	},
 	{
 		path: 'net-worth',
+		icon: 'worth',
 		label: 'Net worth',
 		about: 'What you own, what you owe, and how it has grown',
 		sections: [
@@ -23,9 +25,16 @@ export const PAGES = [
 	},
 	{
 		path: 'transactions',
+		icon: 'transactions',
 		label: 'Transactions',
 		about: 'Everything in your ledger, newest first',
 		sections: [],
 	},
-	{ path: 'files', label: 'Files', about: 'The files your ledger is kept in', sections: [] },
+	{
+		path: 'files',
+		icon: 'files',
+		label: 'Files',
+		about: 'The files your ledger is kept in',
+		sections: [],
+	},
 ] as const;

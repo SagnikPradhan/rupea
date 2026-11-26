@@ -31,6 +31,7 @@
 		label: 'Home',
 		href: resolve('/(signed-in)'),
 		current: page.route.id === '/(signed-in)',
+		icon: 'home' as const,
 		about: 'What you own, what you owe, and how last month went',
 		sections: [] as readonly { id: string; label: string }[],
 	});
@@ -40,6 +41,7 @@
 					label: p.label,
 					href: resolve(`/(signed-in)/l/[handle]/${p.path}`, { handle }),
 					current: page.params.handle !== undefined && p.path === section,
+					icon: p.icon,
 					about: p.about,
 					sections: p.sections,
 				}))
@@ -73,9 +75,10 @@
 						</LinkPreview.Trigger>
 						<LinkPreview.Content side="bottom" sideOffset={8}>
 							{#snippet child({ props, wrapperProps })}
+								{@const Icon = ICONS[link.icon]}
 								<div {...wrapperProps}>
 									<div {...props} class="card preview">
-										<strong>{link.label}</strong>
+										<strong><Icon />{link.label}</strong>
 										<span>{link.about}</span>
 										{#if link.sections.length > 0}
 											<ul role="list" aria-label="Sections of {link.label}">
@@ -258,8 +261,17 @@
 	}
 
 	.preview strong {
+		display: flex;
+		align-items: center;
+		gap: var(--size-1);
+		margin-bottom: var(--size-0);
 		font: var(--text-base);
 		color: var(--color-ink);
+	}
+
+	.preview strong :global(svg) {
+		width: var(--size-2);
+		height: var(--size-2);
 	}
 
 	.preview span {

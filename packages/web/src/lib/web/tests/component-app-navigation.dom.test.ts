@@ -100,7 +100,8 @@ describe('the navigation', () => {
 
 		await fireEvent.pointerEnter(bar().getByRole('link', { name: 'Spending' }));
 
-		expect(await screen.findByText('What came in, and where it went')).toBeTruthy();
+		const about = await screen.findByText('What came in, and where it went');
+		expect(about.parentElement?.querySelector('strong svg')).toBeTruthy();
 		const sections = within(screen.getByRole('list', { name: 'Sections of Spending' }));
 		expect(
 			sections.getAllByRole('link').map((a) => [a.textContent, a.getAttribute('href')]),

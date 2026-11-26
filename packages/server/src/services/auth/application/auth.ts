@@ -23,6 +23,9 @@ export type User = DB.User;
 // A random username clashes rarely enough that a few tries settle it.
 const TRIES = 5;
 
+/** The address of the user local mode makes, which no mail ever reaches. */
+const LOCAL_EMAIL = 'me@localhost';
+
 // Succeeds either way, so callers cannot tell which addresses have accounts.
 export const requestCode = (email: string): ResultAsync<void> =>
 	withContext('mailer')((mailer) =>
@@ -58,7 +61,8 @@ export const signIn = ({
 			}).map(() => ({ token: session.token, expiresAt: session.expiresAt }));
 		});
 
-export type Session = { user: User; expiresAt: Date; extended: boolean };
+/** A local session never expires, so it has no expiry. */
+export type Session = { user: User; expiresAt: Date | null; extended: boolean };
 
 export const validateSession = (token: string): ResultAsync<Session | null> => {
 	const tokenHash = sha256(token);
@@ -89,6 +93,22 @@ export const findSession = (token: string): ResultAsync<Session | null> =>
 			: null;
 	});
 
+/** The session every call from this computer runs as when sign-in is off. */
+export const findLocalSession = (): ResultAsync<Session | null> =>
+	DB.findFirstUser().map((u) => u && { user: u, expiresAt: null, extended: false });
+
+/**
+ * Makes the one user local mode runs every call as, unless the database has it.
+ * Fails when the database holds several, as it cannot tell whose it is.
+ */
+export const createLocalUser = (): ResultAsync<void> =>
+	DB.countUsers().andThen((count) => {
+		if (count > 1) return errAsync(fault('AuthManyLocalUsers', { count }));
+		if (count === 1) return okAsync();
+
+		return signUp(LOCAL_EMAIL).map(() => undefined);
+	});
+
 export const signOut = (t: string): ResultAsync<void> => DB.deleteSession(sha256(t));
 
 export const withCurrentUser = <T>(
@@ -99,11 +119,13 @@ export const withCurrentUser = <T>(
 };
 
 const canSignIn = (email: string): ResultAsync<boolean> =>
-	withContext('config')((c) =>
-		DB.findUserByEmail(email).andThen((u) =>
+	withContext('config')((c) => {
+		if (c.accounts.signin === 'none') return okAsync(false);
+
+		return DB.findUserByEmail(email).andThen((u) =>
 			u || c.accounts.signup === 'open' ? okAsync(true) : DB.countUsers().map((n) => n === 0),
-		),
-	);
+		);
+	});
 
 const findOrCreateUser = (email: string): ResultAsync<User> =>
 	DB.findUserByEmail(email).andThen((u) =>

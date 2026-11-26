@@ -15,7 +15,12 @@
 </script>
 
 <div>
-	<Navigation {handle} username={data.user?.username ?? null} theme={data.theme} />
+	<Navigation
+		{handle}
+		username={data.user?.username ?? null}
+		local={data.user?.local ?? false}
+		theme={data.theme}
+	/>
 
 	<main>
 		{@render children()}

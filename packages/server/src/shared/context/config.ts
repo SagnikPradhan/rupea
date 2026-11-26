@@ -15,7 +15,7 @@ export const defaultConfiguration: RupeaConfiguration = {
 	models: { dir: 'data/models', mode: 'download', threads: QUARTER_OF_CORES },
 	jobs: { workers: 1 },
 	ledger: { dateFormats: DATE_FORMATS, timeFormats: TIME_FORMATS },
-	accounts: { signup: 'closed' },
+	accounts: { signup: 'closed', signin: 'code' },
 	log: { level: 'info' },
 };
 
@@ -44,7 +44,7 @@ const fromEnv = (env: NodeJS.ProcessEnv) => {
 			dateFormats: list('RUPEA_LEDGER_DATE_FORMATS'),
 			timeFormats: list('RUPEA_LEDGER_TIME_FORMATS'),
 		},
-		accounts: { signup: read('RUPEA_ACCOUNTS_SIGNUP') },
+		accounts: { signup: read('RUPEA_ACCOUNTS_SIGNUP'), signin: read('RUPEA_ACCOUNTS_SIGNIN') },
 		log: { level: read('RUPEA_LOG_LEVEL') },
 	};
 };
@@ -88,6 +88,9 @@ const configuration = v.object({
 		dateFormats: formats(isDateFormat, 'a year, month and day'),
 		timeFormats: formats(isTimeFormat, 'an hour and minute'),
 	}),
-	accounts: v.object({ signup: v.picklist(['open', 'closed']) }),
+	accounts: v.object({
+		signup: v.picklist(['open', 'closed']),
+		signin: v.picklist(['code', 'none']),
+	}),
 	log: v.object({ level: v.picklist(LOG_LEVELS) }),
 });

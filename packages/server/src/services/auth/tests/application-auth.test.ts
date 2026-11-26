@@ -27,7 +27,20 @@ const codeIn = (mail: Mail | undefined) => mail?.subject.match(/(\d{6})$/)?.[1] 
 
 const signup = (context: RupeaContext, signup: 'open' | 'closed') => ({
 	...context,
-	config: { ...context.config, accounts: { signup } },
+	config: { ...context.config, accounts: { ...context.config.accounts, signup } },
+});
+
+const local = (context: RupeaContext) => ({
+	...context,
+	config: { ...context.config, accounts: { ...context.config.accounts, signin: 'none' as const } },
+});
+
+const withEmpty = it.extend<{ empty: RupeaContext }>({
+	empty: async ({ context }, use) => {
+		const empty = await createTemporaryDatabase();
+		await use({ ...context, db: empty.db });
+		await empty.close();
+	},
 });
 
 const later = (ms: number) => vi.setSystemTime(Date.now() + ms);
@@ -321,4 +334,52 @@ describe('acting as the current user', () => {
 				'grace@example.com',
 			]);
 		}));
+});
+
+describe('local mode', () => {
+	withEmpty('makes one user with a ledger, and keeps it on a second start', ({ empty }) =>
+		provide(local(empty), async () => {
+			await Auth.createLocalUser();
+			await Auth.createLocalUser();
+
+			const session = (await Auth.findLocalSession())._unsafeUnwrap();
+			const ledgers = await Ledger.listLedgers({ user: session?.user.id ?? '' });
+
+			expect(await DB.countUsers()).toEqual(ok(1));
+			expect(session).toMatchObject({ user: { email: 'me@localhost' }, expiresAt: null });
+			expect(ledgers._unsafeUnwrap()).toHaveLength(1);
+		}),
+	);
+
+	withEmpty('keeps the user who signed in before sign-in was turned off', async ({ empty }) => {
+		await signIn(empty, 'ada@example.com');
+
+		return provide(local(empty), async () => {
+			await Auth.createLocalUser();
+
+			const session = (await Auth.findLocalSession())._unsafeUnwrap();
+
+			expect(session?.user.email).toBe('ada@example.com');
+		});
+	});
+
+	withEmpty('refuses to choose between several users', async ({ empty }) => {
+		await signIn(empty, 'ada@example.com');
+		await signIn(empty, 'grace@example.com');
+
+		const created = await provide(local(empty), () => Auth.createLocalUser());
+
+		expect(created._unsafeUnwrapErr()).toEqual({ type: 'AuthManyLocalUsers', count: 2 });
+	});
+
+	withEmpty('mails no code', ({ empty }) => {
+		const mail = inbox();
+		return provide({ ...local(empty), mailer: mail.mailer }, async () => {
+			await Auth.createLocalUser();
+
+			await Auth.requestCode('me@localhost');
+
+			expect(mail.sent).toEqual([]);
+		});
+	});
 });

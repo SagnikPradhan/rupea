@@ -1,5 +1,6 @@
 import { createApi } from '#lib/server/api/api.ts';
 import type { DatabaseHandle } from '#lib/server/db/index.ts';
+import * as Auth from '#services/auth/application/auth.ts';
 import type { Subscription } from '#services/events/application/events.ts';
 import { handlers as extraction } from '#services/extraction/adapters/jobs.ts';
 import type { Handler } from '#services/jobs/application/jobs.ts';
@@ -7,7 +8,7 @@ import { startWorkers } from '#services/jobs/application/orchestrator.ts';
 import { handlers as ledger } from '#services/ledger/adapters/jobs.ts';
 import { syncChanged } from '#services/ledger/adapters/subscriptions.ts';
 import { publishChanges } from '#services/storage/application/changes.ts';
-import type { RupeaContext } from './shared/context/context';
+import { provide, type RupeaContext } from './shared/context/context';
 import { startLoops, type Loop } from './shared/loops';
 
 /** Every job a server claims and a worker runs. */
@@ -46,6 +47,7 @@ export const startServer = (o: ServerOptions) => {
 /** Adds each step to `started` as it comes up, the last to stop first. */
 const start = async (o: ServerOptions, started: Step[]) => {
 	await o.database.migrate();
+	await createLocalUser(o.context);
 
 	const workers = startWorkers({
 		entry: o.worker,
@@ -75,6 +77,15 @@ const start = async (o: ServerOptions, started: Step[]) => {
 		/** Stops every step, logs those that fail, then rejects if any did. */
 		stop: () => stopAll(started, o.context),
 	};
+};
+
+/** Local mode needs its one user before the first call arrives. */
+const createLocalUser = async (c: RupeaContext) => {
+	if (c.config.accounts.signin !== 'none') return;
+
+	const created = await provide(c, () => Auth.createLocalUser());
+	if (created.isErr())
+		return Promise.reject(new Error('local mode failed', { cause: created.error }));
 };
 
 const stopAll = async (steps: Step[], c: RupeaContext) => {

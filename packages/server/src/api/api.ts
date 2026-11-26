@@ -41,6 +41,10 @@ const BODY_LIMIT = 64 * 1024 * 1024;
  */
 const SIGNED_OUT_BODY_LIMIT = 1024 * 1024;
 
+const LOOPBACK_ADDRESSES = ['127.0.0.1', '::1', '::ffff:127.0.0.1'];
+
+const LOOPBACK_HOST = /^(localhost|127\.0\.0\.1|\[::1\])(:\d+)?$/;
+
 type Issue = { expected: string | null; path?: { key: unknown }[] | undefined };
 
 const CLIENT_FAULT = { code: 'BAD_REQUEST', message: 'Invalid request' };
@@ -136,6 +140,17 @@ const hasSession = async (context: RupeaContext, req: FastifyRequest) => {
 	return found.value !== null;
 };
 
+/**
+ * Whether sign-in is off and the call comes from this computer. A browser adds
+ * an Origin to calls a page makes, and a rebound name keeps its own Host, so
+ * either means some site's page sent it.
+ */
+const isLocal = (context: RupeaContext, req: FastifyRequest) =>
+	context.config.accounts.signin === 'none' &&
+	LOOPBACK_ADDRESSES.includes(req.ip) &&
+	LOOPBACK_HOST.test(req.headers.host ?? '') &&
+	req.headers.origin === undefined;
+
 const hasBody = (req: FastifyRequest) =>
 	req.headers['content-length'] !== undefined || req.headers['transfer-encoding'] !== undefined;
 
@@ -190,7 +205,7 @@ export const createApi = async (context: RupeaContext) => {
 		const length = req.headers['content-length'];
 		if (length !== undefined && !/^\d+$/.test(length)) return res.code(400).send(refusal(400));
 		if (isTooLargeBody(req)) return res.code(413).send(refusal(413));
-		if (!hasBody(req) || !isLargeBody(req)) return;
+		if (!hasBody(req) || !isLargeBody(req) || isLocal(context, req)) return;
 
 		if (!(await hasSession(context, req))) return res.code(401).send(refusal(401));
 	});
@@ -204,7 +219,7 @@ export const createApi = async (context: RupeaContext) => {
 		provide(context, async () => {
 			const handled = await handler.handle(req, res, {
 				prefix: '/api',
-				context: { token: bearerOf(req), log: req.log },
+				context: { token: bearerOf(req), local: isLocal(context, req), log: req.log },
 			});
 			if (!handled.matched) res.code(404).send(refusal(404));
 		}),

@@ -6,6 +6,8 @@ declare global {
 		interface Locals {
 			api: Client;
 			user: User | null;
+			/** Whether sign-in is off and the user is the one local user. */
+			local: boolean;
 		}
 	}
 }

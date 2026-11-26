@@ -17,10 +17,13 @@
 	type Props = {
 		handle: string | null;
 		username: string | null;
+		/** Whether sign-in is off, so there is no signing out. */
+		local: boolean;
 		theme: Theme;
 	};
 
-	const { handle, username, theme }: Props = $props();
+	const { handle, username, local, theme }: Props = $props();
+	const status = $derived(local ? 'Sign-in is off on this computer.' : 'You are signed in.');
 
 	const drawer = $state({ open: false });
 	const section = $derived(page.url.pathname.split('/')[3]);
@@ -59,9 +62,9 @@
 	<div class="body">
 		<div class="who">
 			<strong>Hello, {username}</strong>
-			<span>You are signed in.</span>
+			<span>{status}</span>
 		</div>
-		<Button form="log-out">Sign out</Button>
+		{#if !local}<Button form="log-out">Sign out</Button>{/if}
 	</div>
 {/snippet}
 
@@ -74,7 +77,7 @@
 	<a class="brand" href={resolve('/(signed-in)')}>Rupea</a>
 
 	{#if username}
-		<form {...signOut} id="log-out" hidden></form>
+		{#if !local}<form {...signOut} id="log-out" hidden></form>{/if}
 		<nav aria-label="Pages" class="wide">{@render pages()}</nav>
 	{/if}
 
@@ -122,9 +125,11 @@
 								<Avatar name={username} />
 								<div class="who">
 									<strong>Hello, {username}</strong>
-									<span>You are signed in.</span>
+									<span>{status}</span>
 								</div>
-								<IconButton form="log-out" label="Sign out" icon={ICONS.signOut} outlined />
+								{#if !local}
+									<IconButton form="log-out" label="Sign out" icon={ICONS.signOut} outlined />
+								{/if}
 							</div>
 						</div>
 					{/snippet}

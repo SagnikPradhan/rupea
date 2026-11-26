@@ -36,7 +36,7 @@ beforeEach(() => at('/', {}, '/(signed-in)'));
 
 describe('the navigation', () => {
 	it('links Home alone without a ledger, and shows the user', () => {
-		render(Navigation, { handle: null, username: 'asha', theme: 'system' });
+		render(Navigation, { handle: null, username: 'asha', local: false, theme: 'system' });
 
 		expect(
 			bar()
@@ -48,7 +48,7 @@ describe('the navigation', () => {
 	});
 
 	it('greets the user, with Sign out, when the avatar is hovered', async () => {
-		render(Navigation, { handle: null, username: 'asha', theme: 'system' });
+		render(Navigation, { handle: null, username: 'asha', local: false, theme: 'system' });
 		expect(screen.queryByText('You are signed in.')).toBeNull();
 
 		await fireEvent.pointerEnter(screen.getByRole('button', { name: 'Account' }));
@@ -58,7 +58,7 @@ describe('the navigation', () => {
 	});
 
 	it('greets the user, with Sign out, in the menu', async () => {
-		render(Navigation, { handle: null, username: 'asha', theme: 'system' });
+		render(Navigation, { handle: null, username: 'asha', local: false, theme: 'system' });
 		await fireEvent.click(screen.getByRole('button', { name: 'Menu' }));
 		const menu = within(await screen.findByRole('dialog', { name: 'Menu' }));
 
@@ -66,8 +66,17 @@ describe('the navigation', () => {
 		expect(menu.getByRole('button', { name: 'Sign out' })).toBeTruthy();
 	});
 
+	it('offers no Sign out while sign-in is off', async () => {
+		render(Navigation, { handle: null, username: 'asha', local: true, theme: 'system' });
+		await fireEvent.click(screen.getByRole('button', { name: 'Menu' }));
+		const menu = within(await screen.findByRole('dialog', { name: 'Menu' }));
+
+		expect(menu.getByText('Sign-in is off on this computer.')).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Sign out' })).toBeNull();
+	});
+
 	it('links the ledger pages, and marks Home as the current page on the home page', () => {
-		render(Navigation, { handle: 'h', username: 'asha', theme: 'system' });
+		render(Navigation, { handle: 'h', username: 'asha', local: false, theme: 'system' });
 
 		expect(
 			bar()
@@ -88,7 +97,7 @@ describe('the navigation', () => {
 
 	it('marks no page current on a page the bar does not list', async () => {
 		at('/l/h/postings', { handle: 'h' });
-		render(Navigation, { handle: 'h', username: 'asha', theme: 'system' });
+		render(Navigation, { handle: 'h', username: 'asha', local: false, theme: 'system' });
 		await fireEvent.click(await screen.findByRole('button', { name: 'Menu' }));
 		await screen.findAllByRole('button', { name: 'Sync now' });
 
@@ -100,14 +109,14 @@ describe('the navigation', () => {
 
 	it('offers syncing on a ledger page only', async () => {
 		at('/l/h/accounts', { handle: 'h' });
-		render(Navigation, { handle: 'h', username: 'asha', theme: 'system' });
+		render(Navigation, { handle: 'h', username: 'asha', local: false, theme: 'system' });
 		await fireEvent.click(await screen.findByRole('button', { name: 'Menu' }));
 
 		expect((await screen.findAllByRole('button', { name: 'Sync now' })).length).toBeGreaterThan(0);
 	});
 
 	it('opens a menu with the theme toggle and a Close button that closes it', async () => {
-		render(Navigation, { handle: null, username: 'asha', theme: 'system' });
+		render(Navigation, { handle: null, username: 'asha', local: false, theme: 'system' });
 		expect(screen.queryByRole('dialog', { name: 'Menu' })).toBeNull();
 
 		await fireEvent.click(screen.getByRole('button', { name: 'Menu' }));
@@ -119,7 +128,7 @@ describe('the navigation', () => {
 	});
 
 	it('is the brand alone when signed out', () => {
-		render(Navigation, { handle: null, username: null, theme: 'system' });
+		render(Navigation, { handle: null, username: null, local: false, theme: 'system' });
 
 		expect(screen.getByRole('link', { name: 'Rupea' })).toBeTruthy();
 		expect(screen.queryByRole('navigation', { name: 'Pages' })).toBeNull();

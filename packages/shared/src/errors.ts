@@ -21,6 +21,7 @@ const Plain = v.variant('type', [
 	}),
 	v.object({ type: v.literal('AuthInvalidCode') }),
 	v.object({ type: v.literal('AuthUnauthenticated') }),
+	v.object({ type: v.literal('AuthManyLocalUsers'), count: num }),
 	v.object({ type: v.literal('StorageMissing'), userId: str }),
 	v.object({ type: v.literal('LedgerNotFound'), handle: str }),
 	v.object({ type: v.literal('AccountNotFound'), account: str }),

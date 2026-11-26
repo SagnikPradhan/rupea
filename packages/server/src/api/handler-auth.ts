@@ -12,12 +12,12 @@ const signIn = os.auth.signIn.handler(async ({ input }) => {
 });
 
 const signOut = os.auth.signOut.use(signedIn).handler(async ({ context }) => {
-	await answer(Auth.signOut(context.token));
+	if (context.token) await answer(Auth.signOut(context.token));
 });
 
 const findUser = os.auth.findUser.use(signedInRenewing).handler(({ context }) => {
 	const { user, expiresAt, extended } = context.session;
-	return { user, expiresAt: extended ? expiresAt.toTemporalInstant() : null };
+	return { user, expiresAt: extended && expiresAt ? expiresAt.toTemporalInstant() : null };
 });
 
 export const auth = {

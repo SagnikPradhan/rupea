@@ -16,6 +16,7 @@
 	import {
 		formatAmount,
 		formatBucket,
+		formatDayMonth,
 		formatExact,
 		formatIsoDate,
 		formatPercent,
@@ -24,13 +25,14 @@
 		formatWhole,
 		toneOf,
 	} from '#lib/web/shared/format.ts';
-	import { owedOf } from '#lib/web/shared/home.ts';
+	import { groupsOf, owedOf } from '#lib/web/shared/home.ts';
 	import * as Liabilities from '#lib/web/shared/liabilities.ts';
 	import { ringsOf } from '#lib/web/shared/rings.ts';
 	import AccountsTable from '#lib/web/components/app-accounts-table/app-accounts-table.svelte';
 	import Drops from '#lib/web/components/app-drops/app-drops.svelte';
 	import AssetsRings from '#lib/web/components/app-assets-rings/app-assets-rings.svelte';
-	import BalanceSheet from '#lib/web/components/app-balance-sheet/app-balance-sheet.svelte';
+	import Statement from '#lib/web/components/app-statement/app-statement.svelte';
+	import StatementRow from '#lib/web/components/app-statement/app-statement-row.svelte';
 	import NetWorth from '#lib/web/components/app-net-worth/app-net-worth.svelte';
 	import InvestedReturns from '#lib/web/components/app-invested-returns/app-invested-returns.svelte';
 	import InvestedRisk from '#lib/web/components/app-invested-risk/app-invested-risk.svelte';
@@ -101,6 +103,9 @@
 	const worth = $derived(worthy.data ?? []);
 	const latest = $derived(worth.at(-1));
 	const totals = $derived(totalsOf(groupsInvested(invested)));
+	const ownedGroups = $derived(groupsOf(accounts, ASSETS));
+	const owedGroups = $derived(groupsOf(accounts, LIABILITIES));
+	const sheetOn = $derived(`on ${formatDayMonth(day)}, the inner ring the groups`);
 
 	const moved = $derived(flowed.data?.[0]);
 	const owed = $derived(Liabilities.accountsIn(accounts));
@@ -194,8 +199,15 @@
 </PanelGrid>
 
 <PanelGrid>
-	<AssetsRings rings={heldRings} account={picked} />
-	<Panel title="What you owe" subtitle="owed by loan and card, the inner ring the groups">
+	<AssetsRings rings={heldRings} account={picked} subtitle={sheetOn}>
+		<Statement head="Assets">
+			{#each ownedGroups as group (group.name)}
+				<StatementRow name={group.name} values={[group.total]} />
+			{/each}
+			<StatementRow total name="Total owned" values={[latest?.assets ?? '0']} />
+		</Statement>
+	</AssetsRings>
+	<Panel title="What you owe" subtitle={sheetOn}>
 		{#if owedRings.arcs.length > 0}
 			<Donut
 				arcs={owedRings.arcs}
@@ -207,10 +219,15 @@
 		{:else}
 			<p>Nothing owed.</p>
 		{/if}
+		<Statement head="Liabilities">
+			{#each owedGroups as group (group.name)}
+				<StatementRow name={group.name} values={[group.total]} />
+			{/each}
+			<StatementRow total name="Total owed" values={[owedOf(latest?.liabilities ?? '0')]} />
+			<StatementRow total name="Net worth" values={[latest?.worth ?? '0']} />
+		</Statement>
 	</Panel>
 </PanelGrid>
-
-<BalanceSheet {accounts} worth={latest} {day} />
 
 <PageSection id="owned" title="Owned">
 	<PanelGrid>

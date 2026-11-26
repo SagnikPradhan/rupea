@@ -19,6 +19,7 @@ describe('the assets rings', () => {
 		render(AssetsRings, {
 			rings: { arcs: [arc], levels: 1, skipped: 0 },
 			account: 'Assets:Bank',
+			subtitle: '',
 		});
 
 		expect(
@@ -27,7 +28,11 @@ describe('the assets rings', () => {
 	});
 
 	it('names the assets when no account is picked', () => {
-		render(AssetsRings, { rings: { arcs: [arc], levels: 1, skipped: 0 }, account: null });
+		render(AssetsRings, {
+			rings: { arcs: [arc], levels: 1, skipped: 0 },
+			account: null,
+			subtitle: '',
+		});
 
 		expect(
 			screen.getByRole('img', { name: 'How Assets divides across its accounts' }),
@@ -35,25 +40,41 @@ describe('the assets rings', () => {
 	});
 
 	it('says one account is below zero in the singular', () => {
-		render(AssetsRings, { rings: { arcs: [arc], levels: 1, skipped: 1 }, account: null });
+		render(AssetsRings, {
+			rings: { arcs: [arc], levels: 1, skipped: 1 },
+			account: null,
+			subtitle: '',
+		});
 
 		expect(screen.getByText('1 account is below zero, so not drawn')).toBeTruthy();
 	});
 
 	it('says several accounts are below zero in the plural', () => {
-		render(AssetsRings, { rings: { arcs: [arc], levels: 1, skipped: 3 }, account: null });
+		render(AssetsRings, {
+			rings: { arcs: [arc], levels: 1, skipped: 3 },
+			account: null,
+			subtitle: '',
+		});
 
 		expect(screen.getByText('3 accounts are below zero, so not drawn')).toBeTruthy();
 	});
 
 	it('shows no note when nothing is below zero', () => {
-		render(AssetsRings, { rings: { arcs: [arc], levels: 1, skipped: 0 }, account: null });
+		render(AssetsRings, {
+			rings: { arcs: [arc], levels: 1, skipped: 0 },
+			account: null,
+			subtitle: '',
+		});
 
 		expect(screen.queryByText(/below zero/)).toBeNull();
 	});
 
 	it('says there is nothing to divide without arcs', () => {
-		render(AssetsRings, { rings: { arcs: [], levels: 0, skipped: 0 }, account: null });
+		render(AssetsRings, {
+			rings: { arcs: [], levels: 0, skipped: 0 },
+			account: null,
+			subtitle: '',
+		});
 
 		expect(screen.getByText('Nothing to divide.')).toBeTruthy();
 	});

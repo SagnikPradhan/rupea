@@ -48,15 +48,26 @@ export const lastMonthOf = (day: string) => {
 };
 
 /**
- * The accounts directly under a top account, the largest first; what is owed
- * counts as a size, not a sign.
+ * The groups directly under a top account, each the sum of the accounts under
+ * it, the largest first; what is owed counts as a size, not a sign. A group may
+ * be missing from the list when only its accounts are.
  */
-export const groupsOf = (accounts: { account: string; total: Amount }[], top: string) =>
-	accounts
-		.filter((a) => depthOf(a.account) === 1 && isUnder(a.account, top))
-		.map((a) => ({ name: nameOf(a.account), size: (a.total < 0n ? -a.total : a.total) as Amount }))
-		.toSorted((a, b) => byAmount(b.size, a.size))
-		.map((a) => ({ name: a.name, total: printAmount(a.size) }));
+export const groupsOf = (accounts: { account: string; total: Amount }[], top: string) => {
+	const under = accounts.filter((a) => depthOf(a.account) >= 1 && isUnder(a.account, top));
+	const leaves = under.filter((a) => !under.some((b) => b !== a && isUnder(b.account, a.account)));
+	const totals: Record<string, Amount> = {};
+	for (const leaf of leaves) {
+		const group = leaf.account.split(':').slice(0, 2).join(':');
+		totals[group] = sum([
+			totals[group] ?? ZERO,
+			leaf.total < 0n ? (-leaf.total as Amount) : leaf.total,
+		]);
+	}
+
+	return Object.entries(totals)
+		.toSorted(([, x], [, y]) => byAmount(y, x))
+		.map(([group, size]) => ({ name: nameOf(group), total: printAmount(size) }));
+};
 
 /** An amount of what is owed as a size, without the sign of a liability. */
 export const owedOf = (l: string) => String(Math.abs(Number(l)));

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import type { Snippet } from 'svelte';
 	import Donut from '#lib/web/components/ui-chart-donut/ui-chart-donut.svelte';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import { ASSETS } from '@rupea/shared/money.ts';
@@ -7,9 +8,11 @@
 	type Props = {
 		rings: { arcs: Arc[]; levels: number; skipped: number };
 		account: string | null;
+		subtitle: string;
+		children?: Snippet;
 	};
 
-	const { rings, account }: Props = $props();
+	const { rings, account, subtitle, children }: Props = $props();
 
 	const owing = $derived(
 		rings.skipped === 0
@@ -18,7 +21,7 @@
 	);
 </script>
 
-<Panel title="Where it sits" subtitle="each ring is a level of accounts, the inner ring the groups">
+<Panel title="What you own" {subtitle}>
 	{#if rings.arcs.length > 0}
 		<Donut
 			arcs={rings.arcs}
@@ -29,4 +32,5 @@
 	{:else}
 		<p>Nothing to divide.</p>
 	{/if}
+	{@render children?.()}
 </Panel>

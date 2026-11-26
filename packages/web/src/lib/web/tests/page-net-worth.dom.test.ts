@@ -255,7 +255,7 @@ describe('what you own on the net worth page', () => {
 		expect(await screen.findByText('Nothing to divide.')).toBeTruthy();
 	});
 
-	it('leads with net worth, what is owned and what is owed, and closes on a balance sheet', async () => {
+	it('leads with net worth, then lists what is owned and owed under their rings', async () => {
 		visit('/l/h/net-worth');
 		vi.mocked(listWorth).mockReturnValue(
 			answer([
@@ -284,7 +284,11 @@ describe('what you own on the net worth page', () => {
 		expect(strip.getByText('Owed').nextElementSibling?.textContent).toBe('75,000');
 		expect(strip.getByText('25% of what you own')).toBeTruthy();
 		expect(screen.getByRole('img', { name: /^Net worth from/ })).toBeTruthy();
-		expect(screen.getByText('Balance sheet')).toBeTruthy();
+		const own = within(screen.getByRole('heading', { name: 'What you own' }).closest('section')!);
+		expect(own.getByText('Total owned').nextElementSibling?.textContent).toBe('3,00,000');
+		const owe = within(screen.getByRole('heading', { name: 'What you owe' }).closest('section')!);
+		expect(owe.getByText('Total owed').nextElementSibling?.textContent).toBe('75,000');
+		expect(owe.getByText('Net worth').nextElementSibling?.textContent).toBe('2,25,000');
 	});
 
 	it('starts every figure at zero on a ledger with nothing in it yet', async () => {

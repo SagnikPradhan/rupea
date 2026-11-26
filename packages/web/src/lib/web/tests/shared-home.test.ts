@@ -49,6 +49,19 @@ describe('the balance sheet', () => {
 		]);
 	});
 
+	it('adds up a group that is listed only through its accounts', () => {
+		const owed = [
+			{ account: 'Liabilities', total: amount('-150') },
+			{ account: 'Liabilities:Loans:Home', total: amount('-100') },
+			{ account: 'Liabilities:Loans:Car', total: amount('-20') },
+			{ account: 'Liabilities:Cards:Axis', total: amount('-30') },
+		];
+		expect(groupsOf(owed, 'Liabilities')).toEqual([
+			{ name: 'Loans', total: '120.00' },
+			{ name: 'Cards', total: '30.00' },
+		]);
+	});
+
 	it('shows what is owed as a size', () => {
 		expect(groupsOf(accounts, 'Liabilities')).toEqual([{ name: 'Home loan', total: '90.00' }]);
 		expect(owedOf('-3543489')).toBe('3543489');

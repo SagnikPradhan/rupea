@@ -155,22 +155,6 @@
 	/>
 </PanelGrid>
 
-<PanelGrid full>
-	<SpendingBars
-		{spending}
-		{previous}
-		account={url.query.account}
-		{parts}
-		{colours}
-		{bucket}
-		compare={url.query.compare}
-		scale={url.query.scale}
-		{handle}
-		{first}
-		{last}
-	/>
-</PanelGrid>
-
 <PanelGrid>
 	<SpendingBudgets {rows} {today} add={hrefWith(params, { add: '1' })} />
 	{#if budget}
@@ -193,6 +177,22 @@
 		</Aside>
 	{/if}
 	{#if !adding && !budget}<SpendingDays daily={daily.data ?? []} />{/if}
+</PanelGrid>
+
+<PanelGrid full>
+	<SpendingBars
+		{spending}
+		{previous}
+		account={url.query.account}
+		{parts}
+		{colours}
+		{bucket}
+		compare={url.query.compare}
+		scale={url.query.scale}
+		{handle}
+		{first}
+		{last}
+	/>
 </PanelGrid>
 
 <PanelGrid>

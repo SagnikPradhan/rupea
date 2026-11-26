@@ -184,7 +184,7 @@
 
 	.plot {
 		position: relative;
-		height: var(--size-height-1);
+		height: var(--size-height-0);
 		touch-action: pan-y;
 	}
 

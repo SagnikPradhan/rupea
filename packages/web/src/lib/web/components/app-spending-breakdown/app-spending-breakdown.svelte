@@ -38,8 +38,6 @@
 <style>
 	div {
 		display: grid;
-		grid-template-columns: repeat(auto-fit, minmax(calc(var(--size-2) * 24), 1fr));
-		align-items: start;
-		gap: var(--size-3) var(--size-4);
+		gap: var(--size-3);
 	}
 </style>

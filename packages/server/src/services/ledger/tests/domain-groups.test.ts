@@ -114,8 +114,8 @@ describe('checking groups', () => {
 				group: ID,
 				location: 'ibkr.rupea:1',
 				account,
-				expected: account === 'Assets:IBKR' ? '1000.00 INR' : '-1000.00 INR',
-				actual: account === 'Assets:IBKR' ? '999.00 INR' : '-999.00 INR',
+				expected: { amount: account === 'Assets:IBKR' ? '1000.00' : '-1000.00', commodity: 'INR' },
+				actual: { amount: account === 'Assets:IBKR' ? '999.00' : '-999.00', commodity: 'INR' },
 			})),
 		});
 	});

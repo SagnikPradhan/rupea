@@ -1445,8 +1445,8 @@ describe('balance assertions', () => {
 				type: 'BalanceAssertionFailed',
 				location: 'hdfc.rupea:5',
 				account: 'Assets:Bank',
-				expected: '800.00 INR',
-				actual: '850.00 INR',
+				expected: { amount: '800.00', commodity: 'INR' },
+				actual: { amount: '850.00', commodity: 'INR' },
 			};
 			expect(await issues(ledger)).toEqual(ok([problem]));
 			expect(await issues(ledger)).toEqual(ok([problem]));
@@ -1527,8 +1527,8 @@ describe('balance assertions', () => {
 						type: 'BalanceAssertionFailed',
 						location: 'ibkr.rupea:5',
 						account: 'Assets:IBKR',
-						expected: '3.00 AAPL',
-						actual: '2.00 AAPL',
+						expected: { amount: '3.00', commodity: 'AAPL' },
+						actual: { amount: '2.00', commodity: 'AAPL' },
 					},
 				]),
 			);
@@ -1708,13 +1708,13 @@ describe('balance assertions', () => {
 			expect((await issues(ledger))._unsafeUnwrap()).toEqual([
 				expect.objectContaining({
 					location: 'hdfc.rupea:1',
-					expected: '900.00 INR',
-					actual: '850.00 INR',
+					expected: { amount: '900.00', commodity: 'INR' },
+					actual: { amount: '850.00', commodity: 'INR' },
 				}),
 				expect.objectContaining({
 					location: 'hdfc.rupea:9',
-					expected: '1100.00 INR',
-					actual: '1000.00 INR',
+					expected: { amount: '1100.00', commodity: 'INR' },
+					actual: { amount: '1000.00', commodity: 'INR' },
 				}),
 			]);
 		}));
@@ -1758,8 +1758,8 @@ describe('balance assertions', () => {
 			expect((await issues(ledger))._unsafeUnwrap()).toEqual([
 				expect.objectContaining({
 					location: 'hdfc.rupea:1',
-					expected: '900.00 INR',
-					actual: '800.00 INR',
+					expected: { amount: '900.00', commodity: 'INR' },
+					actual: { amount: '800.00', commodity: 'INR' },
 				}),
 				expect.objectContaining({ location: 'june.rupea:1' }),
 			]);
@@ -1845,7 +1845,7 @@ describe('lots', () => {
 						type: 'LotNotOpen',
 						location: 'b.rupea:1',
 						account: 'Assets:Zerodha',
-						units: '4.00 INFY',
+						units: { amount: '4.00', commodity: 'INFY' },
 					},
 				]),
 			);
@@ -1878,7 +1878,7 @@ describe('lots', () => {
 					type: 'LotNotOpen',
 					location: 'c.rupea:1',
 					account: 'Assets:Zerodha',
-					units: '4.00 INFY',
+					units: { amount: '4.00', commodity: 'INFY' },
 				},
 			]);
 		}));

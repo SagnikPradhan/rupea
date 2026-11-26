@@ -86,9 +86,7 @@
 			{#snippet row(index: number)}
 				{@const transaction = list.rows[index]}
 				{#if transaction}
-					{@const { from, to, more, amount } = rowOf(
-						transaction.postings.map((p) => ({ ...p, quantity: formats.posted(p.quantity) })),
-					)}
+					{@const { from, to, more, amount } = rowOf(transaction.postings)}
 					<tr class:evidence={!transaction.counted}>
 						<td class="date">
 							<time datetime={transaction.date}>{formats.date(transaction.date)}</time>

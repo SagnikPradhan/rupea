@@ -10,7 +10,7 @@ import { fault, type RupeaError } from '@rupea/shared/errors.ts';
 import { BudgetLength } from '@rupea/shared/forms.ts';
 import * as v from 'valibot';
 import { match, P } from 'ts-pattern';
-import { formatQuantity, multiply, parseAmount, sum, type Amount, type Quantity } from './amounts';
+import { multiply, parseAmount, quantityOutOf, sum, type Amount, type Quantity } from './amounts';
 import { movesInKind } from './lots';
 import { accountOf, budgetOf, linkOf, priceOf, toMetadata, transactionOf } from './nodes';
 import { accountType } from './taxonomy';
@@ -536,7 +536,7 @@ const balance = ({ location, written, base }: BalanceOptions): Result<RupeaPosti
 	const leftover = Object.entries(Object.groupBy(weights, (w) => w.commodity))
 		.map(([commodity, group = []]) => ({ commodity, amount: sum(group.map((w) => w.amount)) }))
 		.filter((q) => q.amount !== 0n);
-	const residual = leftover.map((q) => formatQuantity(q, base)).join(', ');
+	const residual = leftover.map(quantityOutOf);
 	const balanced = leftover.length === 0 || (implicit && leftover.length === 1);
 	if (!balanced) return err(fault('ParseUnbalancedTransaction', { ...at, residual }));
 

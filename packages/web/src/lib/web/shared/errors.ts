@@ -1,5 +1,6 @@
 import { match } from 'ts-pattern';
 import type { RupeaError } from '@rupea/shared/errors.ts';
+import type { Formats } from './format.ts';
 
 export type Place = { file: string; line: string | null };
 
@@ -7,7 +8,7 @@ export type Place = { file: string; line: string | null };
  * Says what went wrong in a sentence; where it went wrong is left to
  * `placesOf`.
  */
-export const explain = (error: RupeaError): string =>
+export const explain = (error: RupeaError, formats: Formats): string =>
 	match(error)
 		.with(
 			{ type: 'ParseInvalidTransactionHeader' },
@@ -18,7 +19,7 @@ export const explain = (error: RupeaError): string =>
 		.with({ type: 'ParseInvalidAccount' }, (e) => `“${e.account}” isn’t a valid account name.`)
 		.with(
 			{ type: 'ParseUnbalancedTransaction' },
-			(e) => `This transaction is off by ${e.residual}.`,
+			(e) => `This transaction is off by ${e.residual.map(formats.quantity).join(' and ')}.`,
 		)
 		.with(
 			{ type: 'ParseMultipleImplicitPostings' },
@@ -71,11 +72,13 @@ export const explain = (error: RupeaError): string =>
 		)
 		.with(
 			{ type: 'GroupDisagreement' },
-			(e) => `Group ${e.group} disagrees on ${e.account}: expected ${e.expected}, got ${e.actual}.`,
+			(e) =>
+				`Group ${e.group} disagrees on ${e.account}: expected ${formats.quantity(e.expected)}, got ${formats.quantity(e.actual)}.`,
 		)
 		.with(
 			{ type: 'BalanceAssertionFailed' },
-			(e) => `${e.account} should be ${e.expected} here, but is ${e.actual}.`,
+			(e) =>
+				`${e.account} should be ${formats.quantity(e.expected)} here, but is ${formats.quantity(e.actual)}.`,
 		)
 		.with(
 			{ type: 'BalanceAssertionAmbiguous' },

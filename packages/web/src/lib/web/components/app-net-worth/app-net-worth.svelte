@@ -39,9 +39,9 @@
 				})),
 				...(owing ? [{ key: 'liabilities', label: 'Owed', role: 'negative' as const }] : []),
 			]}
-			label="Net worth from {formats.date(first.day)} to {formats.date(last.day)}, {formats.amount(
+			label="Net worth from {formats.date(first.day)} to {formats.date(last.day)}, {formats.whole(
 				first.worth,
-			)} to {formats.amount(last.worth)}"
+			)} to {formats.whole(last.worth)}"
 			summary={worthOn}
 		/>
 	</section>
@@ -55,7 +55,7 @@
 			id="worth"
 			label="Net worth"
 			lead
-			figure={formats.amount(shown.worth)}
+			figure={formats.whole(shown.worth)}
 			exact={formats.exact(shown.worth)}
 		>
 			<span class={change.negative ? 'negative' : 'positive'}>

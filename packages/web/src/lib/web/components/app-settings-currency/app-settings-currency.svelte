@@ -4,8 +4,11 @@
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import Field from '#lib/web/components/ui-field/ui-field.svelte';
 	import { explain } from '#lib/web/shared/errors.ts';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { refreshAll } from '$app/navigation';
 	import { untrack } from 'svelte';
+
+	const formats = formatsHere();
 
 	type Props = { handle: string; base: string };
 
@@ -41,7 +44,7 @@
 	<p>Only currencies a price in this ledger links to are offered.</p>
 	<Button primary>Save currency</Button>
 	{#each [...(currencies.errors ?? []), ...chosen.errors] as error, i (i)}
-		<p role="alert">{explain(error)}</p>
+		<p role="alert">{explain(error, formats)}</p>
 	{/each}
 	{#if chosen.saved}<p role="status">Saved.</p>{/if}
 </form>

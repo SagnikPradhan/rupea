@@ -42,12 +42,12 @@
 					<td class="date">{formats.date(lot.date)}</td>
 					<th scope="row" class="truncate">
 						{lot.origin}{lot.from ? ` from ${lot.from}` : ''}
-						<Tag title={formats.exact(lot.remaining, formats.amount(lot.remaining, true))}>
-							{formats.amount(lot.remaining, true)} left
+						<Tag title={formats.exact(lot.remaining, formats.units(lot.remaining))}>
+							{formats.units(lot.remaining)} left
 						</Tag>
 					</th>
 					<Amount value={lot.units} units />
-					<Amount value={formats.quantity(lot.cost)} optional />
+					<Amount value={lot.cost} optional />
 					<Source {handle} file={lot.file} line={lot.line} />
 				</tr>
 				{#each lot.disposals as disposal, i (i)}
@@ -57,8 +57,8 @@
 							<a href={fileHref(handle, disposal.file, disposal.line)}>{disposal.kind}</a>
 						</td>
 						<Amount value={disposal.units} units />
-						<Amount value={disposal.price && formats.quantity(disposal.price)} units optional />
-						<Amount value={disposal.gain && formats.quantity(disposal.gain)} signed />
+						<Amount value={disposal.price} units optional />
+						<Amount value={disposal.gain} signed />
 					</tr>
 				{/each}
 			</tbody>

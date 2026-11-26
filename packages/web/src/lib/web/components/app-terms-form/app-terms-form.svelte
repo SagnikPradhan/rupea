@@ -7,8 +7,11 @@
 	import Field from '#lib/web/components/ui-field/ui-field.svelte';
 	import SegmentedControl from '#lib/web/components/ui-segmented-control/ui-segmented-control.svelte';
 	import { explain } from '#lib/web/shared/errors.ts';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { untrack } from 'svelte';
 	import * as v from 'valibot';
+
+	const formats = formatsHere();
 
 	const FIELDS: Record<'loan' | 'card', { key: string; label: string; hint: string }[]> = {
 		loan: [
@@ -143,7 +146,7 @@
 		<p role="alert">{issue.message}</p>
 	{/each}
 	{#each status.errors as error, index (index)}
-		<p role="alert">{explain(error)}</p>
+		<p role="alert">{explain(error, formats)}</p>
 	{/each}
 
 	<div class="buttons">

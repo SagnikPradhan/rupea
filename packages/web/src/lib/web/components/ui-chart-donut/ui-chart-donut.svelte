@@ -65,7 +65,7 @@
 				{@const tip = centre(hovered.arc)}
 				<Tooltip left={tip.left} top={tip.top}>
 					{hovered.arc.label}
-					<data>{formats.amount(String(hovered.arc.value))}</data>
+					<data>{formats.whole(String(hovered.arc.value))}</data>
 				</Tooltip>
 			{/if}
 		</div>

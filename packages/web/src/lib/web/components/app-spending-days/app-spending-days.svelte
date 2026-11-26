@@ -25,7 +25,7 @@
 		<ChartSummary
 			id="days"
 			label={index === null ? 'Most in a day' : 'Spent'}
-			figure={formats.amount(shown.amount)}
+			figure={formats.whole(shown.amount)}
 		>
 			{formats.date(shown.day)}
 		</ChartSummary>

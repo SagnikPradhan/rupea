@@ -220,7 +220,7 @@
 				{@const bar = barOf(hovered.part, hovered.index)}
 				<Tooltip left={bar.left + width / 2} top={bar.top}>
 					{part?.label}
-					<data>{formats.amount(String(rows[hovered.index]?.[part?.key ?? ''] ?? '0'))}</data>
+					<data>{formats.whole(String(rows[hovered.index]?.[part?.key ?? ''] ?? '0'))}</data>
 				</Tooltip>
 			{/if}
 		</div>

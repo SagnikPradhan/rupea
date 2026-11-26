@@ -54,7 +54,7 @@
 	const partial = $derived(Spending.partialOf(spending, bucket, last));
 	const total = $derived(Spending.totalOf(spending, account) ?? ZERO);
 	const label = $derived(
-		`Spending from ${formats.date(first.toString())} to ${formats.date(last.toString())}, ${formats.amount(printAmount(total))} in all`,
+		`Spending from ${formats.date(first.toString())} to ${formats.date(last.toString())}, ${formats.whole(printAmount(total))} in all`,
 	);
 	const postingsOn = (day: string) => postingsHref(handle, { account, from: day, to: day });
 </script>

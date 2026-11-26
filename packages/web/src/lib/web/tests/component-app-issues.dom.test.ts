@@ -5,7 +5,7 @@ import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 
 const unbalanced = fault('ParseUnbalancedTransaction', {
 	location: 'a.rupea:4, b.rupea',
-	residual: '20',
+	residual: [{ amount: '20.00', commodity: 'INR' }],
 });
 
 describe('issues', () => {
@@ -30,8 +30,8 @@ describe('issues', () => {
 		const assertion = fault('BalanceAssertionFailed', {
 			location: 'a.rupea:9',
 			account: 'Assets:Bank',
-			expected: '10',
-			actual: '20',
+			expected: { amount: '10.00', commodity: 'INR' },
+			actual: { amount: '20.00', commodity: 'INR' },
 		});
 		render(Issues, { handle: 'h', errors: [assertion, unbalanced] });
 
@@ -60,14 +60,14 @@ describe('issues', () => {
 		const bank = fault('BalanceAssertionFailed', {
 			location: 'a.rupea:9',
 			account: 'Assets:Bank',
-			expected: '10',
-			actual: '20',
+			expected: { amount: '10.00', commodity: 'INR' },
+			actual: { amount: '20.00', commodity: 'INR' },
 		});
 		const cash = fault('BalanceAssertionFailed', {
 			location: 'a.rupea:9',
 			account: 'Assets:Cash',
-			expected: '10',
-			actual: '20',
+			expected: { amount: '10.00', commodity: 'INR' },
+			actual: { amount: '20.00', commodity: 'INR' },
 		});
 		render(Issues, { handle: 'h', errors: [bank, cash] });
 
@@ -78,7 +78,7 @@ describe('issues', () => {
 		const invalid = fault('ParseInvalidPosting', { location: 'a.rupea:4' });
 		const unbalancedHere = fault('ParseUnbalancedTransaction', {
 			location: 'a.rupea:4',
-			residual: '20',
+			residual: [{ amount: '20.00', commodity: 'INR' }],
 		});
 		render(Issues, { handle: 'h', errors: [invalid, unbalancedHere] });
 

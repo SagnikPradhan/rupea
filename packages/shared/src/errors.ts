@@ -4,6 +4,7 @@ const str = v.string();
 const num = v.number();
 const strs = v.array(v.string());
 const causes = v.optional(v.array(v.lazy(() => RupeaError)));
+const quantity = v.object({ amount: str, commodity: str });
 
 const Plain = v.variant('type', [
 	v.object({ type: v.literal('CannotMergeFile'), path: str }),
@@ -33,7 +34,11 @@ const Plain = v.variant('type', [
 	v.object({ type: v.literal('ParseMissingTransactionBody'), location: str }),
 	v.object({ type: v.literal('ParseInvalidPosting'), location: str }),
 	v.object({ type: v.literal('ParseInvalidAccount'), location: str, account: str }),
-	v.object({ type: v.literal('ParseUnbalancedTransaction'), location: str, residual: str }),
+	v.object({
+		type: v.literal('ParseUnbalancedTransaction'),
+		location: str,
+		residual: v.array(quantity),
+	}),
 	v.object({ type: v.literal('ParseMultipleImplicitPostings'), location: str }),
 	v.object({ type: v.literal('ParseInvalidMetadata'), location: str }),
 	v.object({ type: v.literal('ParseDetachedMetadata'), location: str }),
@@ -58,15 +63,15 @@ const Plain = v.variant('type', [
 		group: str,
 		location: str,
 		account: str,
-		expected: str,
-		actual: str,
+		expected: quantity,
+		actual: quantity,
 	}),
 	v.object({
 		type: v.literal('BalanceAssertionFailed'),
 		location: str,
 		account: str,
-		expected: str,
-		actual: str,
+		expected: quantity,
+		actual: quantity,
 	}),
 	v.object({
 		type: v.literal('BalanceAssertionAmbiguous'),
@@ -75,7 +80,7 @@ const Plain = v.variant('type', [
 		unordered: str,
 	}),
 	v.object({ type: v.literal('LotCostMissing'), location: str, account: str }),
-	v.object({ type: v.literal('LotNotOpen'), location: str, account: str, units: str }),
+	v.object({ type: v.literal('LotNotOpen'), location: str, account: str, units: quantity }),
 	v.object({ type: v.literal('ReturnUnpriced'), account: str, unpriced: num }),
 	v.object({ type: v.literal('BalanceUnpriced'), account: str, unpriced: num }),
 	v.object({ type: v.literal('ReturnUnsolved'), account: str }),

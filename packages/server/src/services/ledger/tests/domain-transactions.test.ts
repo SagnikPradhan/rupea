@@ -201,7 +201,7 @@ describe('inserting a transaction', () => {
 
 		expect(off._unsafeUnwrapErr()).toMatchObject({
 			type: 'ParseUnbalancedTransaction',
-			residual: '10.00',
+			residual: [{ amount: '10.00', commodity: 'INR' }],
 		});
 	});
 

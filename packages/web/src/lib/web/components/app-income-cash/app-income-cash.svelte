@@ -22,7 +22,7 @@
 	const bars = $derived(Income.monthsOf({ income, spending, paid }));
 	const whole = $derived(Income.wholeOf({ income, spending, paid }));
 	const label = $derived(
-		`Income from ${formats.date(first.toString())} to ${formats.date(last.toString())}, ${formats.amount(whole.total)} in all, ${formats.amount(whole[Income.SPENT])} spent, ${formats.amount(whole[Income.INVESTED])} invested, ${formats.amount(whole[Income.KEPT])} kept`,
+		`Income from ${formats.date(first.toString())} to ${formats.date(last.toString())}, ${formats.whole(whole.total)} in all, ${formats.whole(whole[Income.SPENT])} spent, ${formats.whole(whole[Income.INVESTED])} invested, ${formats.whole(whole[Income.KEPT])} kept`,
 	);
 </script>
 
@@ -56,7 +56,7 @@
 		id="income"
 		label="Earned"
 		lead
-		figure={formats.amount(figure)}
+		figure={formats.whole(figure)}
 		exact={formats.exact(figure)}
 	>
 		{formats.share(Income.savedOf(shown), figure) ?? '0%'} saved:

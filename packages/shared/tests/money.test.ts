@@ -6,9 +6,7 @@ import {
 	BalanceAccount,
 	ExpenseAccount,
 	FlowAccount,
-	PostedOut,
 	parseAmount,
-	printPosted,
 } from '@rupea/shared/money.ts';
 
 describe('an amount', () => {
@@ -41,64 +39,6 @@ describe('an amount', () => {
 		expect(text).toBe('-2000.50');
 		expect(v.parse(Amount, text)).toBe(-2000_5000000000n);
 		expect(v.safeParse(AmountOut, '1.00').success).toBe(false);
-	});
-});
-
-const amount = (text: string) => parseAmount(text) as Amount;
-
-const wire = (posted: {
-	amount: string;
-	commodity: string;
-	price?: { amount: string; commodity: string; kind: 'unit' | 'total' };
-	cost?: { amount: string; commodity: string; date: Temporal.PlainDate | null };
-}) =>
-	v.parse(PostedOut, {
-		amount: amount(posted.amount),
-		commodity: posted.commodity,
-		price: posted.price ? { ...posted.price, amount: amount(posted.price.amount) } : null,
-		cost: posted.cost ? { ...posted.cost, amount: amount(posted.cost.amount) } : null,
-	});
-
-describe('printing a posting', () => {
-	it('leaves the base out, and names it in a ledger based elsewhere', () => {
-		expect(printPosted(wire({ amount: '20', commodity: 'USD' }), 'USD')).toBe('20.00');
-		expect(printPosted(wire({ amount: '20', commodity: 'INR' }), 'USD')).toBe('20.00 INR');
-	});
-
-	it('leaves the rupee out of a plain amount', () => {
-		expect(printPosted(wire({ amount: '2000.5', commodity: 'INR' }), 'INR')).toBe('2000.50');
-	});
-
-	it('keeps a sign', () => {
-		expect(printPosted(wire({ amount: '-15001.25', commodity: 'INR' }), 'INR')).toBe('-15001.25');
-	});
-
-	it('names another commodity', () => {
-		expect(printPosted(wire({ amount: '10', commodity: 'INFY' }), 'INR')).toBe('10.00 INFY');
-	});
-
-	it('shows a unit price with @ and a total price with @@', () => {
-		const price = { amount: '1500.125', commodity: 'INR' };
-		const unit = wire({ amount: '10', commodity: 'INFY', price: { ...price, kind: 'unit' } });
-		const total = wire({ amount: '10', commodity: 'INFY', price: { ...price, kind: 'total' } });
-		expect(printPosted(unit, 'INR')).toBe('10.00 INFY @ 1500.125');
-		expect(printPosted(total, 'INR')).toBe('10.00 INFY @@ 1500.125');
-	});
-
-	it('shows a lot cost with its date, and before a price', () => {
-		const cost = { amount: '1400', commodity: 'INR' };
-		const posted = {
-			amount: '-5',
-			commodity: 'INFY',
-			price: { amount: '1500', commodity: 'INR', kind: 'unit' as const },
-		};
-		const dated = { ...cost, date: Temporal.PlainDate.from('2026-01-02') };
-		expect(printPosted(wire({ ...posted, cost: dated }), 'INR')).toBe(
-			'-5.00 INFY {1400.00, 2026-01-02} @ 1500.00',
-		);
-		expect(printPosted(wire({ ...posted, cost: { ...cost, date: null } }), 'INR')).toBe(
-			'-5.00 INFY {1400.00} @ 1500.00',
-		);
 	});
 });
 

@@ -141,8 +141,8 @@
 							>
 								<a
 									href={href?.(day)}
-									title={formats.amount(String(rows[i]?.[y] ?? '0'))}
-									aria-label="{formats.date(day)}, {formats.amount(String(rows[i]?.[y] ?? '0'))}"
+									title={formats.whole(String(rows[i]?.[y] ?? '0'))}
+									aria-label="{formats.date(day)}, {formats.whole(String(rows[i]?.[y] ?? '0'))}"
 									tabindex={href ? undefined : 0}
 									onfocus={() => (hovered.index = i)}
 									onblur={() => (hovered.index = null)}

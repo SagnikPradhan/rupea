@@ -5,9 +5,12 @@
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import Field from '#lib/web/components/ui-field/ui-field.svelte';
 	import { explain } from '#lib/web/shared/errors.ts';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { refreshAll } from '$app/navigation';
 	import { untrack } from 'svelte';
 	import * as v from 'valibot';
+
+	const formats = formatsHere();
 
 	type Props = {
 		username: string;
@@ -85,7 +88,7 @@
 			<input bind:value={named.value} />
 		</Field>
 		<Button primary>Save username</Button>
-		{#each named.errors as error, i (i)}<p role="alert">{explain(error)}</p>{/each}
+		{#each named.errors as error, i (i)}<p role="alert">{explain(error, formats)}</p>{/each}
 		{#if named.saved}<p role="status">Saved.</p>{/if}
 	</form>
 
@@ -103,7 +106,7 @@
 			<Button primary>{action}</Button>
 			{#if mailed.sent}<Button type="button" onclick={restart}>Use another email</Button>{/if}
 		</div>
-		{#each mailed.errors as error, i (i)}<p role="alert">{explain(error)}</p>{/each}
+		{#each mailed.errors as error, i (i)}<p role="alert">{explain(error, formats)}</p>{/each}
 		{#if mailed.saved}<p role="status">Saved.</p>{/if}
 	</form>
 </div>

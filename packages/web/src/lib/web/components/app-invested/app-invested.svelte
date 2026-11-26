@@ -25,7 +25,7 @@
 			]}
 			label="Value against cost from {formats.date(first.day)} to {formats.date(
 				last.day,
-			)}, value {formats.amount(last.value)} on cost {formats.amount(last.cost)}"
+			)}, value {formats.whole(last.value)} on cost {formats.whole(last.cost)}"
 			summary={valueOn}
 		/>
 	</Panel>
@@ -38,7 +38,7 @@
 		<ChartSummary
 			id="invested"
 			label="Value"
-			figure={formats.amount(shown.value)}
+			figure={formats.whole(shown.value)}
 			exact={formats.exact(shown.value)}
 		>
 			<span class={gain.negative ? 'negative' : 'positive'}>

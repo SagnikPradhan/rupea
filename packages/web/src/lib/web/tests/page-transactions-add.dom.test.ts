@@ -209,13 +209,18 @@ describe('the add transaction panel', () => {
 		vi.mocked(createTransaction).mockResolvedValue({
 			ok: false,
 			data: null,
-			errors: [fault('ParseUnbalancedTransaction', { location: 'a:1', residual: '10.00' })],
+			errors: [
+				fault('ParseUnbalancedTransaction', {
+					location: 'a:1',
+					residual: [{ amount: '10.00', commodity: 'INR' }],
+				}),
+			],
 		} as never);
 		await opened();
 		await fill();
 		await save();
 
-		expect((await screen.findByRole('alert')).textContent).toContain('off by 10.00');
+		expect((await screen.findByRole('alert')).textContent).toContain('off by 10.');
 		expect((screen.getByLabelText(/^Description/) as HTMLInputElement).value).toBe('Groceries');
 	});
 

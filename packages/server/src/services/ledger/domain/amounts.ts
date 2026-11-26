@@ -36,12 +36,10 @@ export const postedOf = ({
 	cost,
 });
 
-/**
- * With its commodity always written, for a message that has no base to leave
- * out.
- */
-export const printQuantity = ({ amount, commodity }: Quantity): string =>
-	`${printAmount(amount)} ${commodity}`;
+export const quantityOutOf = (q: Quantity) => ({
+	amount: printAmount(q.amount),
+	commodity: q.commodity,
+});
 
 /** As written in a file, the base left out. */
 export const formatQuantity = ({ amount, commodity }: Quantity, b: string): string =>

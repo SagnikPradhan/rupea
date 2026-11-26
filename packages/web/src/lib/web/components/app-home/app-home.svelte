@@ -80,7 +80,7 @@
 		{#if bridge}
 			{@const change = formats.change(bridge.start, bridge.end)}
 			<ChartSummary id="moved" label="Net worth in {month}" lead figure={change.amount}>
-				from {formats.amount(bridge.start)} to {formats.amount(bridge.end)} ·
+				from {formats.whole(bridge.start)} to {formats.whole(bridge.end)} ·
 				{formats.date(bridge.from)} – {formats.date(bridge.to)}
 			</ChartSummary>
 			<Waterfall

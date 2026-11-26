@@ -3,32 +3,68 @@ import { formatColumn, formatIsoDate, formatsIn, toneOf } from '#lib/web/shared/
 
 const rupees = formatsIn('INR');
 
-describe('formatsIn(INR).amount', () => {
+describe('formatsIn(INR).whole', () => {
 	it('groups digits the Indian way, with no paise', () => {
-		expect(rupees.amount('1250000')).toBe('12,50,000');
-		expect(rupees.amount('-1250.5')).toBe('-1,251');
-	});
-
-	it('rounds rupees to whole ones, and units to four places', () => {
-		expect(rupees.amount('1250.5678')).toBe('1,251');
-		expect(rupees.amount('0.123456789 USD')).toBe('0.1235 USD');
-		expect(rupees.amount('7.123456', true)).toBe('7.1235');
-	});
-
-	it('keeps the commodity after the number', () => {
-		expect(rupees.amount('10 INFY')).toBe('10 INFY');
+		expect(rupees.whole('1250000')).toBe('12,50,000');
+		expect(rupees.whole('-1250.5')).toBe('-1,251');
 	});
 
 	it('drops the minus of an amount that rounds to nothing', () => {
-		expect(rupees.amount('-0.4')).toBe('0');
-		expect(rupees.whole('-0.3')).toBe('0');
+		expect(rupees.whole('-0.4')).toBe('0');
+	});
+});
+
+describe('formatsIn(INR).units', () => {
+	it('rounds to four places', () => {
+		expect(rupees.units('7.123456')).toBe('7.1235');
+		expect(rupees.units('1250000.5')).toBe('12,50,000.5');
+	});
+});
+
+describe('formatsIn(INR).quantity', () => {
+	it('leaves rupees bare, and names any other commodity', () => {
+		expect(rupees.quantity({ amount: '-1250.50', commodity: 'INR' })).toBe('-1,250.5');
+		expect(rupees.quantity({ amount: '0.123456789', commodity: 'USD' })).toBe('0.1235 USD');
+	});
+
+	it('shows a unit price with @ and a total price with @@', () => {
+		const posted = { amount: '10.00', commodity: 'INFY', cost: null };
+		const price = { amount: '1500.125', commodity: 'INR' };
+		expect(rupees.quantity({ ...posted, price: { ...price, kind: 'unit' } })).toBe(
+			'10 INFY @ 1,500.125',
+		);
+		expect(rupees.quantity({ ...posted, price: { ...price, kind: 'total' } })).toBe(
+			'10 INFY @@ 1,500.125',
+		);
+	});
+
+	it('shows a lot cost with its date, and before a price', () => {
+		const posted = {
+			amount: '-5.00',
+			commodity: 'INFY',
+			price: { amount: '1500.00', commodity: 'INR', kind: 'unit' as const },
+		};
+		const cost = { amount: '1400.00', commodity: 'INR' };
+		expect(rupees.quantity({ ...posted, cost: { ...cost, date: '2026-01-02' } })).toBe(
+			'-5 INFY {1,400, 2026-01-02} @ 1,500',
+		);
+		expect(rupees.quantity({ ...posted, cost: { ...cost, date: null } })).toBe(
+			'-5 INFY {1,400} @ 1,500',
+		);
+	});
+});
+
+describe('formatsIn(INR).suffix', () => {
+	it('is what follows the number, and nothing for rupees', () => {
+		expect(rupees.suffix({ amount: '10.00', commodity: 'INFY' })).toBe('INFY');
+		expect(rupees.suffix({ amount: '10.00', commodity: 'INR' })).toBe('');
 	});
 });
 
 describe('formatsIn(INR).exact', () => {
-	it('gives every digit only when rupees.amount rounds some away', () => {
+	it('gives every digit only when rupees.whole rounds some away', () => {
 		expect(rupees.exact('1250.5678')).toBe('1,250.5678');
-		expect(rupees.exact('0.123456789 USD')).toBe('0.123456789 USD');
+		expect(rupees.exact('0.123456789', '0.1235')).toBe('0.123456789');
 		expect(rupees.exact('1250.5')).toBe('1,250.5');
 		expect(rupees.exact('1250', '1,250')).toBeUndefined();
 	});
@@ -160,15 +196,15 @@ describe('formatsIn(USD)', () => {
 	});
 
 	it('names every commodity but the base', () => {
-		expect(dollars.quantity({ amount: '20.00', commodity: 'USD' })).toBe('20.00');
-		expect(dollars.quantity({ amount: '100.00', commodity: 'INR' })).toBe('100.00 INR');
+		expect(dollars.quantity({ amount: '20.00', commodity: 'USD' })).toBe('20');
+		expect(dollars.quantity({ amount: '100000.00', commodity: 'INR' })).toBe('100,000 INR');
 		expect(
-			dollars.posted({
+			dollars.quantity({
 				amount: '2.00',
 				commodity: 'AAPL',
 				price: { amount: '150.00', commodity: 'USD', kind: 'unit' },
 				cost: null,
 			}),
-		).toBe('2.00 AAPL @ 150.00');
+		).toBe('2 AAPL @ 150');
 	});
 });

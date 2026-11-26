@@ -1,7 +1,10 @@
 <script lang="ts">
 	import type { RupeaError } from '@rupea/shared/errors.ts';
 	import { detail, explain, isWarning, placesOf } from '#lib/web/shared/errors.ts';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';
+
+	const formats = formatsHere();
 
 	type Props = {
 		handle: string;
@@ -22,7 +25,7 @@
 		<ul role="list" class:warning>
 			{#each shown as error, i (i)}
 				<li role={warning ? 'status' : 'alert'}>
-					{detailed ? detail(error) : explain(error)}
+					{detailed ? detail(error) : explain(error, formats)}
 					{#each placesOf(error) as place (`${place.file}:${place.line}`)}
 						<a href={fileHref(handle, place.file, place.line)}>
 							{place.line ? `${place.file}:${place.line}` : place.file}

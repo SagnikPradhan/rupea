@@ -271,7 +271,7 @@
 			<ChartSummary
 				id="payments"
 				label="Owed"
-				figure={formats.amount(printAmount(total))}
+				figure={formats.whole(printAmount(total))}
 				exact={formats.exact(printAmount(total))}
 			>
 				{payments.made}

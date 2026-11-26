@@ -108,8 +108,6 @@ export const CURRENCIES = Intl.supportedValuesOf('currency');
 
 export const hasLots = (c: string) => !CURRENCIES.includes(c);
 
-const SIGN = { unit: '@', total: '@@' };
-
 /**
  * What a posting moves, going out: an amount with its price and lot cost, if
  * any.
@@ -121,22 +119,6 @@ export const PostedOut = v.object({
 });
 
 export type PostedOut = v.InferOutput<typeof PostedOut>;
-
-/** An amount and its commodity, which an amount in the ledger's base leaves out. */
-export const printQuantity = ({ amount, commodity }: QuantityOut, b: string): string =>
-	commodity === b ? amount : `${amount} ${commodity}`;
-
-/** A posting's amount with its lot cost and price, as the page shows it. */
-export const printPosted = ({ price, cost, ...quantity }: PostedOut, base: string): string => {
-	const print = (q: QuantityOut) => printQuantity(q, base);
-	const lot = cost && [print(cost), ...(cost.date ? [cost.date] : [])].join(', ');
-
-	return [
-		print(quantity),
-		...(lot ? [`{${lot}}`] : []),
-		...(price ? [SIGN[price.kind], print(price)] : []),
-	].join(' ');
-};
 
 export const EXPENSES = 'Expenses';
 export const ASSETS = 'Assets';

@@ -91,7 +91,13 @@ describe('parse transactions', () => {
 
 	it('reports amounts that do not sum to zero', () => {
 		expect(run(['2026-08-29 Oops', '\tExpenses:Food 100', '\tAssets:Bank -99.5'])).toEqual({
-			failed: [{ type: 'ParseUnbalancedTransaction', location: at, residual: '0.50' }],
+			failed: [
+				{
+					type: 'ParseUnbalancedTransaction',
+					location: at,
+					residual: [{ amount: '0.50', commodity: 'INR' }],
+				},
+			],
 			succeeded: [],
 		});
 	});
@@ -403,12 +409,23 @@ describe('commodities', () => {
 			{
 				type: 'ParseUnbalancedTransaction',
 				location: at,
-				residual: '10.00 AAPL, -1802.50 USD',
+				residual: [
+					{ amount: '10.00', commodity: 'AAPL' },
+					{ amount: '-1802.50', commodity: 'USD' },
+				],
 			},
 		]);
 		expect(
 			buy(['\tAssets:IBKR 10 AAPL', '\tAssets:IBKR:Cash 5 USD', '\tEquity:Conversion']).failed,
-		).toMatchObject([{ type: 'ParseUnbalancedTransaction', residual: '10.00 AAPL, 5.00 USD' }]);
+		).toMatchObject([
+			{
+				type: 'ParseUnbalancedTransaction',
+				residual: [
+					{ amount: '10.00', commodity: 'AAPL' },
+					{ amount: '5.00', commodity: 'USD' },
+				],
+			},
+		]);
 	});
 
 	it('asserts a balance in the posting commodity', () => {
@@ -769,7 +786,11 @@ describe('lot costs', () => {
 
 	it('leaves the gain unbalanced when it is missing', () => {
 		expect(sell(['\tAssets:Zerodha -4 INFY {1500} @ 1700', '\tAssets:Bank 6800']).failed).toEqual([
-			{ type: 'ParseUnbalancedTransaction', location: at, residual: '800.00' },
+			{
+				type: 'ParseUnbalancedTransaction',
+				location: at,
+				residual: [{ amount: '800.00', commodity: 'INR' }],
+			},
 		]);
 	});
 

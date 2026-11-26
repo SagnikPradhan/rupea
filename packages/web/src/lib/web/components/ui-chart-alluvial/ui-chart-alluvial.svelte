@@ -169,7 +169,7 @@
 		{#if hovered.node}
 			<Tooltip left={hovered.node.x0 + NODE / 2} top={hovered.node.y0}>
 				{hovered.node.flow.label}
-				<data>{formats.amount(String(hovered.node.flow.amount))}</data>
+				<data>{formats.whole(String(hovered.node.flow.amount))}</data>
 			</Tooltip>
 		{/if}
 	</div>

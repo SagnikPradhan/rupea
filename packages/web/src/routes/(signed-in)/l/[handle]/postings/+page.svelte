@@ -90,7 +90,7 @@
 						<th scope="row" class="truncate" title={posting.description}>
 							<a href={editHref(params, posting.transaction)}>{posting.description}</a>
 						</th>
-						<Amount value={formats.posted(posting.quantity)} />
+						<Amount value={posting.quantity} />
 					</tr>
 				{/if}
 			{/snippet}

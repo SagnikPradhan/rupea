@@ -341,7 +341,7 @@
 									<tr class="child">
 										<td></td>
 										<td><Account account={posting.account} /></td>
-										<Amount value={formats.posted(posting.quantity)} />
+										<Amount value={posting.quantity} />
 									</tr>
 								{/each}
 							</tbody>

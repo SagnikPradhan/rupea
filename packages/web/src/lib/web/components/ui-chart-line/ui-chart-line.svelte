@@ -51,7 +51,7 @@
 	const FORMATS = {
 		amount: {
 			tick: formats.compact,
-			value: formats.amount,
+			value: formats.whole,
 			short: (v: string) => formats.compact(Number(v)),
 		},
 		percent: {

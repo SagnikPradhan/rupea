@@ -58,10 +58,9 @@
 		),
 	);
 
-	/** A commodity's row is named by it, so its units need no code after them. */
 	const unitsOf = (u: Quantity, child: boolean) => {
 		if (u.commodity === formats.base) return null;
-		return child ? u.amount : formats.quantity(u);
+		return child ? u.amount : u;
 	};
 
 	/**
@@ -116,10 +115,7 @@
 		</td>
 		<Amount value={unitsOf(holding.units, child)} units optional />
 		<Amount value={holding.cost} optional />
-		<Amount
-			value={holding.value}
-			note={holding.price && `@ ${formats.amount(formats.quantity(holding.price), true)}`}
-		>
+		<Amount value={holding.value} note={holding.price && `@ ${formats.quantity(holding.price)}`}>
 			<span class="unpriced">unpriced</span>
 		</Amount>
 		<Amount value={holding.gain} signed />

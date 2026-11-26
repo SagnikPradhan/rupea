@@ -68,9 +68,9 @@
 				<span
 					class={{ pin: true, past: p.past }}
 					role="listitem"
-					aria-label="{line.label}, {formats.amount(printAmount(p.amount))}, {formats.bucket[
-						bucket
-					](p.at.toString())}"
+					aria-label="{line.label}, {formats.whole(printAmount(p.amount))}, {formats.bucket[bucket](
+						p.at.toString(),
+					)}"
 					style:left="{leftOf(p.at, bucket)}%"
 					style:--lane={lane}
 					style:--spread={Math.sqrt(toNumber(p.amount) / widest)}
@@ -89,11 +89,11 @@
 					{#if hovered.pin === id}
 						<Tooltip left={50} top={0}>
 							{line.label}
-							<data value={printAmount(p.amount)}>{formats.amount(printAmount(p.amount))}</data>
+							<data value={printAmount(p.amount)}>{formats.whole(printAmount(p.amount))}</data>
 							{#if split}
 								<small>
 									about <data value={printAmount(p.interest)}>
-										{formats.amount(printAmount(p.interest))}
+										{formats.whole(printAmount(p.interest))}
 									</data> interest
 								</small>
 							{/if}

@@ -42,6 +42,13 @@ describe('a kpi strip', () => {
 
 		expect(screen.getByRole('region', { name: 'Figures' }).textContent).toBe('one');
 	});
+
+	it('takes a name of its own when a page has more than one', () => {
+		const children = createRawSnippet(() => ({ render: () => '<p>one</p>' }));
+		render(KpiStrip, { label: 'Income figures', children });
+
+		expect(screen.getByRole('region', { name: 'Income figures' })).toBeTruthy();
+	});
 });
 
 describe('a chart summary', () => {

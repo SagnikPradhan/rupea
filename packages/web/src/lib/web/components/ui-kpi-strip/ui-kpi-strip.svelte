@@ -1,10 +1,10 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	const { children }: { children: Snippet } = $props();
+	const { label = 'Figures', children }: { label?: string; children: Snippet } = $props();
 </script>
 
-<section aria-label="Figures">
+<section aria-label={label}>
 	{@render children()}
 </section>
 

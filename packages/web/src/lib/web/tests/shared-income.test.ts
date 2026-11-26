@@ -1,9 +1,7 @@
 import { describe, expect, it } from 'vitest';
-import * as v from 'valibot';
 import {
 	incomeOf,
 	investmentIncomeOf,
-	IncomeQuery,
 	monthsOf,
 	sourcesOf,
 	wholeOf,
@@ -190,31 +188,5 @@ describe('sourcesOf', () => {
 			],
 			total: { month: amount('1100'), range: amount('3000') },
 		});
-	});
-});
-
-describe('IncomeQuery', () => {
-	const read = (q: Record<string, string>) => v.parse(IncomeQuery('2026-11-16'), q);
-
-	it('reads the last 12 months when the URL picks no period', () => {
-		const query = read({});
-
-		expect(query.dated).toBe(false);
-		expect(query.period).toEqual({ kind: 'custom', from: '2025-11-16', to: '2026-11-16' });
-	});
-
-	it('reads a span chip ending today', () => {
-		expect(read({ span: '3' }).period).toEqual({
-			kind: 'custom',
-			from: '2026-08-16',
-			to: '2026-11-16',
-		});
-	});
-
-	it('reads a period of its own, and says the URL dated it', () => {
-		const query = read({ at: '2026-03' });
-
-		expect(query.dated).toBe(true);
-		expect(query.period).toEqual({ kind: 'month', at: '2026-03' });
 	});
 });

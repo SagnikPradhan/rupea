@@ -85,8 +85,7 @@ describe('the navigation', () => {
 		).toEqual([
 			['Home', '/'],
 			['Accounts', '/l/h/accounts'],
-			['Income', '/l/h/income'],
-			['Expenses', '/l/h/expenses'],
+			['Spending', '/l/h/spending'],
 			['Liabilities', '/l/h/liabilities'],
 			['Transactions', '/l/h/transactions'],
 			['Files', '/l/h/files'],

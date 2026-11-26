@@ -25,7 +25,7 @@
 	);
 </script>
 
-<KpiStrip>
+<KpiStrip label="Income figures">
 	<Kpi
 		label="Income in {month}"
 		figure={formatWhole(printAmount(earned))}

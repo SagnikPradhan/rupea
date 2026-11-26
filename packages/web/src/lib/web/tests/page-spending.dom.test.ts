@@ -1,16 +1,17 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
-import { describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import {
 	listAccounts,
 	listBudgets,
 	listDailyDeltas,
 	listDeltas,
+	listInvested,
 } from '#lib/endpoints/accounts.remote.ts';
 import { goto } from '#tests/shared/app-navigation.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
 import { openFilter } from '#tests/shared/filter.ts';
-import Page from '#routes/(signed-in)/l/[handle]/expenses/+page.svelte';
+import Page from '#routes/(signed-in)/l/[handle]/spending/+page.svelte';
 import { type Amount, parseAmount } from '@rupea/shared/money.ts';
 
 const on = (d: string) => Temporal.PlainDate.from(d);
@@ -24,6 +25,7 @@ vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
 	saveBudget: Object.assign(vi.fn(), { pending: 0 }),
 	listDailyDeltas: vi.fn(),
 	listDeltas: vi.fn(),
+	listInvested: vi.fn(() => answer([])),
 }));
 vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
 	findFirstDay: vi.fn(() => answer('2025-03-14')),
@@ -69,9 +71,9 @@ const spending = {
 };
 const previous = { ...spending, from: on('2025-01-01'), buckets: [on('2025-01-01')] };
 
-describe('the expenses page', () => {
+describe('the spending page', () => {
 	it('draws a calendar of what was spent on each day', async () => {
-		visit('/l/h/expenses?at=2026');
+		visit('/l/h/spending?at=2026');
 		vi.mocked(listDeltas).mockReturnValue(answer([spending, previous]));
 		vi.mocked(listDailyDeltas).mockReturnValue(
 			answer(
@@ -91,7 +93,7 @@ describe('the expenses page', () => {
 	});
 
 	it('lists each account with its share, and links to its postings over the period picked', async () => {
-		visit('/l/h/expenses?at=2026');
+		visit('/l/h/spending?at=2026');
 		vi.mocked(listDeltas).mockReturnValue(answer([spending, previous]));
 		render(Page, { data });
 
@@ -101,19 +103,16 @@ describe('the expenses page', () => {
 		expect(screen.getAllByText('1 unpriced')).toHaveLength(2);
 	});
 
-	it('draws how the expenses divide, and never asks for income', async () => {
-		visit('/l/h/expenses?at=2026');
+	it('draws how the expenses divide', async () => {
+		visit('/l/h/spending?at=2026');
 		vi.mocked(listDeltas).mockImplementation(() => answer([spending, previous]));
 		render(Page, { data });
 
 		expect(await screen.findByRole('img', { name: /How Expenses divides into/ })).toBeTruthy();
-		expect(vi.mocked(listDeltas)).not.toHaveBeenCalledWith(
-			expect.objectContaining({ account: 'Income' }),
-		);
 	});
 
 	it('folds the accounts under one until it is opened', async () => {
-		visit('/l/h/expenses?at=2026');
+		visit('/l/h/spending?at=2026');
 		const dining = {
 			account: 'Expenses:Food:Dining',
 			parent: 'Expenses:Food',
@@ -139,7 +138,7 @@ describe('the expenses page', () => {
 	});
 
 	it('says when nothing was spent', async () => {
-		visit('/l/h/expenses');
+		visit('/l/h/spending');
 		vi.mocked(listDeltas).mockReturnValue(answer([]));
 		render(Page, { data });
 
@@ -147,7 +146,7 @@ describe('the expenses page', () => {
 	});
 
 	it('shows a month as a calendar of days, with no monthly rate', async () => {
-		visit('/l/h/expenses?at=2026-01');
+		visit('/l/h/spending?at=2026-01');
 		vi.mocked(listDeltas).mockReturnValue(answer([{ ...spending, bucket: 'day' }]));
 		render(Page, { data });
 
@@ -156,7 +155,7 @@ describe('the expenses page', () => {
 	});
 
 	it('narrows to an account, listing it and those under it against its own total', async () => {
-		visit('/l/h/expenses?account=Expenses:Food');
+		visit('/l/h/spending?account=Expenses:Food');
 		vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 		render(Page, { data });
 
@@ -169,7 +168,7 @@ describe('the expenses page', () => {
 	});
 
 	it('picks from the accounts right under Expenses', async () => {
-		visit('/l/h/expenses');
+		visit('/l/h/spending');
 		vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 		render(Page, { data });
 		await openFilter();
@@ -180,11 +179,11 @@ describe('the expenses page', () => {
 				name: 'All accounts',
 			},
 		);
-		expect(all.getAttribute('href')).toBe('/l/h/expenses');
+		expect(all.getAttribute('href')).toBe('/l/h/spending');
 	});
 
 	it('draws how the spending divides beside the spending over time', async () => {
-		visit('/l/h/expenses');
+		visit('/l/h/spending');
 		vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 		render(Page, { data });
 
@@ -194,7 +193,7 @@ describe('the expenses page', () => {
 
 	it('sums up the month under the pointer against the same month before', async () => {
 		Element.prototype.getBoundingClientRect = () => DOMRect.fromRect({ width: 100, height: 100 });
-		visit('/l/h/expenses?at=2026');
+		visit('/l/h/spending?at=2026');
 		vi.mocked(listDeltas).mockReturnValue(answer([spending, previous]));
 		render(Page, { data });
 
@@ -205,7 +204,7 @@ describe('the expenses page', () => {
 	});
 
 	it('rises from nothing, with no percent, when the period before spent nothing there', async () => {
-		visit('/l/h/expenses?at=2026');
+		visit('/l/h/spending?at=2026');
 		vi.mocked(listDeltas).mockReturnValue(answer([spending, { ...previous, totals: [] }]));
 		render(Page, { data });
 
@@ -214,7 +213,7 @@ describe('the expenses page', () => {
 	});
 
 	it('offers an account deeper than the groups as a choice of its own', async () => {
-		visit('/l/h/expenses?account=Expenses:Food:Dining');
+		visit('/l/h/spending?account=Expenses:Food:Dining');
 		vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 		render(Page, { data });
 		await openFilter();
@@ -224,7 +223,7 @@ describe('the expenses page', () => {
 	});
 
 	it('reads the months before today for a span', async () => {
-		visit('/l/h/expenses?span=3&account=Expenses:Food');
+		visit('/l/h/spending?span=3&account=Expenses:Food');
 		vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 		render(Page, { data });
 
@@ -235,7 +234,7 @@ describe('the expenses page', () => {
 	});
 
 	it('names the account under it that took the most as the largest', async () => {
-		visit('/l/h/expenses');
+		visit('/l/h/spending');
 		const total = (account: string, value: string) => ({
 			account,
 			parent: account === 'Expenses' ? null : 'Expenses',
@@ -252,12 +251,12 @@ describe('the expenses page', () => {
 		render(Page, { data });
 
 		await screen.findByTitle('Expenses:Rent');
-		const strip = within(screen.getByRole('region', { name: 'Figures' }));
+		const strip = within(screen.getByRole('region', { name: 'Spending figures' }));
 		expect(strip.getByText('Rent')).toBeTruthy();
 	});
 
 	it('marks no span when the link asks for a period of its own', async () => {
-		visit('/l/h/expenses?at=2026');
+		visit('/l/h/spending?at=2026');
 		vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 		render(Page, { data });
 		await openFilter();
@@ -267,7 +266,7 @@ describe('the expenses page', () => {
 	});
 
 	it('shows what went wrong reading the days of the month', async () => {
-		visit('/l/h/expenses?at=2026');
+		visit('/l/h/spending?at=2026');
 		vi.mocked(listDeltas).mockReturnValue(answer([spending, previous]));
 		vi.mocked(listDailyDeltas).mockReturnValue(
 			answer(undefined, [{ type: 'ParseInvalidPosting', location: 'main.ledger:3' }]),
@@ -278,7 +277,7 @@ describe('the expenses page', () => {
 	});
 
 	it('says so when nothing lies under the account', async () => {
-		visit('/l/h/expenses?account=Expenses:Rent');
+		visit('/l/h/spending?account=Expenses:Rent');
 		vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 		render(Page, { data });
 
@@ -299,7 +298,7 @@ describe('the expenses page', () => {
 		});
 
 		it('lists them in the panel and counts the ones over in the figures', async () => {
-			visit('/l/h/expenses');
+			visit('/l/h/spending');
 			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 			vi.mocked(listBudgets).mockReturnValue(
 				answer([budget('Expenses:Food', '100', '150'), budget('Expenses:Rent', '500', '100')]),
@@ -313,7 +312,7 @@ describe('the expenses page', () => {
 		});
 
 		it('reads the budgets over the period shown, from its first day to its last', async () => {
-			visit('/l/h/expenses?at=2025-09');
+			visit('/l/h/spending?at=2025-09');
 			vi.mocked(listBudgets).mockClear();
 			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 			render(Page, { data });
@@ -327,7 +326,7 @@ describe('the expenses page', () => {
 		});
 
 		it('reads a year back from today as its twelve months, from the day a year ago', async () => {
-			visit('/l/h/expenses');
+			visit('/l/h/spending');
 			vi.mocked(listBudgets).mockClear();
 			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 			render(Page, { data });
@@ -340,7 +339,7 @@ describe('the expenses page', () => {
 		});
 
 		it('says there are none when none are set', async () => {
-			visit('/l/h/expenses');
+			visit('/l/h/spending');
 			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 			vi.mocked(listBudgets).mockReturnValue(answer([]));
 			render(Page, { data });
@@ -350,7 +349,7 @@ describe('the expenses page', () => {
 		});
 
 		it('links Add budget with add set, keeping the other params', async () => {
-			visit('/l/h/expenses?at=2026');
+			visit('/l/h/spending?at=2026');
 			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 			render(Page, { data });
 
@@ -360,7 +359,7 @@ describe('the expenses page', () => {
 		});
 
 		it('shows no aside when no budget is asked for', async () => {
-			visit('/l/h/expenses');
+			visit('/l/h/spending');
 			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 			render(Page, { data });
 
@@ -369,7 +368,7 @@ describe('the expenses page', () => {
 		});
 
 		it('opens Add budget beside the budgets with the accounts under Expenses to pick from', async () => {
-			visit('/l/h/expenses?add=1');
+			visit('/l/h/spending?add=1');
 			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 			vi.mocked(listAccounts).mockReturnValue(
 				answer([
@@ -386,7 +385,7 @@ describe('the expenses page', () => {
 		});
 
 		it('offers only the accounts that have no budget yet', async () => {
-			visit('/l/h/expenses?add=1');
+			visit('/l/h/spending?add=1');
 			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 			vi.mocked(listBudgets).mockReturnValue(answer([budget('expenses:food', '100', '10')]));
 			vi.mocked(listAccounts).mockReturnValue(
@@ -403,7 +402,7 @@ describe('the expenses page', () => {
 		});
 
 		it('lists the accounts only while adding', async () => {
-			visit('/l/h/expenses');
+			visit('/l/h/spending');
 			vi.mocked(listAccounts).mockClear();
 			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 			render(Page, { data });
@@ -413,7 +412,7 @@ describe('the expenses page', () => {
 		});
 
 		it('opens the budget asked for with its account and what it has now', async () => {
-			visit('/l/h/expenses?budget=Expenses:Food');
+			visit('/l/h/spending?budget=Expenses:Food');
 			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 			vi.mocked(listBudgets).mockReturnValue(
 				answer([{ ...budget('Expenses:Food', '100', '150'), current: { limit: '100' } }]),
@@ -426,18 +425,18 @@ describe('the expenses page', () => {
 		});
 
 		it('closes Add budget back to the page without add', async () => {
-			visit('/l/h/expenses?at=2026&add=1');
+			visit('/l/h/spending?at=2026&add=1');
 			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 			render(Page, { data });
 
 			const aside = await screen.findByRole('complementary', { name: 'Add budget' });
 			await fireEvent.click(within(aside).getByRole('button', { name: 'Close' }));
 
-			expect(goto).toHaveBeenLastCalledWith('/l/h/expenses?at=2026');
+			expect(goto).toHaveBeenLastCalledWith('/l/h/spending?at=2026');
 		});
 
 		it('closes a budget back to the page without budget', async () => {
-			visit('/l/h/expenses?at=2026&budget=Expenses:Food');
+			visit('/l/h/spending?at=2026&budget=Expenses:Food');
 			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 			vi.mocked(listBudgets).mockReturnValue(
 				answer([{ ...budget('Expenses:Food', '100', '150'), current: { limit: '100' } }]),
@@ -447,11 +446,11 @@ describe('the expenses page', () => {
 			const aside = await screen.findByRole('complementary', { name: 'Budget for Food' });
 			await fireEvent.click(within(aside).getByRole('button', { name: 'Close' }));
 
-			expect(goto).toHaveBeenLastCalledWith('/l/h/expenses?at=2026');
+			expect(goto).toHaveBeenLastCalledWith('/l/h/spending?at=2026');
 		});
 
 		it('shows what went wrong reading them', async () => {
-			visit('/l/h/expenses');
+			visit('/l/h/spending');
 			vi.mocked(listDeltas).mockReturnValue(answer([spending]));
 			vi.mocked(listBudgets).mockReturnValue(
 				answer(undefined, [{ type: 'ParseInvalidPosting', location: 'main.ledger:3' }]),
@@ -460,5 +459,211 @@ describe('the expenses page', () => {
 
 			expect(await screen.findByText(/This posting can’t be read\./)).toBeTruthy();
 		});
+	});
+});
+
+const range = (account: string, totals: [string, string | null, string][]) => ({
+	from: on('2026-01-01'),
+	to: on('2026-10-31'),
+	bucket: 'month',
+	buckets: [on('2026-09-01'), on('2026-10-01')],
+	totals: totals.map(([name, parent, total]) => ({
+		account: name,
+		parent,
+		amount: amount(total),
+		unpriced: 0,
+	})),
+	deltas: [
+		{ account, bucket: on('2026-09-01'), amount: amount(totals[0]?.[2] ?? '0') },
+		{ account, bucket: on('2026-10-01'), amount: amount(totals[0]?.[2] ?? '0') },
+	],
+});
+
+const dated = (r: ReturnType<typeof range>, from: string) => ({ ...r, from: on(from) });
+
+const earned = range('Income', [
+	['Income', null, '-2000'],
+	['Income:Salary', 'Income', '-1800'],
+	['Income:Dividends', 'Income', '-200'],
+]);
+const outgoing = range('Expenses', [['Expenses', null, '1000']]);
+
+describe('the income on the spending page', () => {
+	beforeEach(() => {
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-11-16T10:00:00Z'));
+		visit('/l/h/spending');
+		vi.mocked(listInvested).mockReturnValue(
+			answer([
+				{ day: '2026-08-31', value: '600', cost: '500' },
+				{ day: '2026-09-30', value: '1100', cost: '900' },
+				{ day: '2026-10-31', value: '6000', cost: '5000' },
+			]),
+		);
+		vi.mocked(listDeltas).mockImplementation(({ account, period }) => {
+			const whole = account === 'Income' ? earned : outgoing;
+
+			return answer(
+				period.kind === 'month'
+					? [dated(whole, '2026-10-01'), dated(whole, '2026-09-01')]
+					: [whole],
+			);
+		});
+	});
+
+	afterEach(() => {
+		vi.useRealTimers();
+	});
+
+	it('titles the page and says what it answers', async () => {
+		render(Page, { data });
+
+		expect(await screen.findByRole('heading', { level: 1, name: 'Spending' })).toBeTruthy();
+		expect(screen.getByText('What came in, and where it went')).toBeTruthy();
+	});
+
+	it('reads income and spending over the period and over last month', async () => {
+		render(Page, { data });
+		await screen.findByText('Income in October');
+
+		expect(listDeltas).toHaveBeenCalledWith(
+			expect.objectContaining({ account: 'Income', period: { kind: 'month', at: '2026-10' } }),
+		);
+		expect(listDeltas).toHaveBeenCalledWith(
+			expect.objectContaining({ account: 'Expenses', period: { kind: 'month', at: '2026-10' } }),
+		);
+		expect(listDeltas).toHaveBeenCalledWith(
+			expect.objectContaining({
+				account: 'Income',
+				period: { kind: 'custom', from: '2025-11-16', to: '2026-11-16' },
+			}),
+		);
+	});
+
+	it('shows last month as what came in, what was saved, what investments paid and what they cover', async () => {
+		render(Page, { data });
+
+		const figures = within(await screen.findByLabelText('Income figures'));
+		expect(figures.getByText('Income in October')).toBeTruthy();
+		expect(figures.getByText('2,000')).toBeTruthy();
+		expect(figures.getByText('50%')).toBeTruthy();
+		expect(figures.getByText('1,000 saved')).toBeTruthy();
+		expect(figures.getByText('From investments')).toBeTruthy();
+		expect(figures.getByText('10% of income')).toBeTruthy();
+		expect(figures.getByText('20%')).toBeTruthy();
+		expect(figures.getByText('200 of 1,000')).toBeTruthy();
+	});
+
+	it('draws income by month, split into what was spent, invested and kept', async () => {
+		render(Page, { data });
+
+		expect(
+			await screen.findByRole('img', {
+				name: /^Income from .*, 2,000 in all, 1,000 spent, 1,000 invested, 0 kept$/,
+			}),
+		).toBeTruthy();
+	});
+
+	it('lists each source for last month and over the period, with the total', async () => {
+		render(Page, { data });
+
+		const heading = await screen.findByRole('heading', { name: 'Income by source' });
+		const table = within(heading.closest('section') as HTMLElement);
+		expect(table.getByText('Salary')).toBeTruthy();
+		expect(table.getByText('Dividends')).toBeTruthy();
+		expect(table.getByText('Last 12 months')).toBeTruthy();
+	});
+
+	it('shows no saving rate or cover while the spending cannot be read', async () => {
+		vi.mocked(listDeltas).mockImplementation(({ account }) =>
+			answer(account === 'Income' ? [earned, earned] : undefined),
+		);
+		render(Page, { data });
+
+		const figures = within(await screen.findByLabelText('Income figures'));
+		expect(figures.getAllByText('–')).toHaveLength(2);
+		expect(figures.queryByText('100%')).toBeNull();
+	});
+
+	it('says when income fell against the month before, and names a period of its own', async () => {
+		visit('/l/h/spending?at=2026-03');
+		const larger = range('Income', [['Income', null, '-4000']]);
+		vi.mocked(listDeltas).mockImplementation(({ account, period }) =>
+			answer(
+				account === 'Income' && period.kind === 'month' && period.at === '2026-10'
+					? [dated(earned, '2026-10-01'), dated(larger, '2026-09-01')]
+					: [account === 'Income' ? earned : outgoing],
+			),
+		);
+		render(Page, { data });
+
+		const figures = within(await screen.findByLabelText('Income figures'));
+		expect(figures.getByText(/50% on September/)).toBeTruthy();
+		expect(listDeltas).toHaveBeenCalledWith(
+			expect.objectContaining({ account: 'Income', period: { kind: 'month', at: '2026-03' } }),
+		);
+		expect(screen.getByText('Period')).toBeTruthy();
+	});
+
+	it('offers the periods to read in the filter, with the one picked marked', async () => {
+		visit('/l/h/spending?span=3');
+		render(Page, { data });
+
+		const dialog = within(await openFilter());
+		expect(dialog.getByRole('link', { name: '12M' })).toBeTruthy();
+		expect(dialog.getByRole('link', { name: '3M' }).getAttribute('aria-current')).toBeTruthy();
+	});
+
+	it('sums up the month under the pointer as income and the shares invested and kept', async () => {
+		Element.prototype.getBoundingClientRect = () => DOMRect.fromRect({ width: 100, height: 100 });
+		render(Page, { data });
+
+		const plot = await screen.findByRole('img', { name: /^Income from .*kept$/ });
+		await fireEvent.pointerMove(plot, { clientX: 25, clientY: 0 });
+
+		expect(screen.getByText(/kept ·/).textContent).toMatch(/20% invested ·\s+30% kept ·/);
+		expect(screen.getByText(/kept ·/).textContent).toContain('Sept 2026');
+	});
+
+	it('reads what was paid for lots from the day before the period', async () => {
+		render(Page, { data });
+		await screen.findByText('Income in October');
+
+		expect(listInvested).toHaveBeenCalledWith(
+			expect.objectContaining({
+				account: 'Assets',
+				period: { kind: 'custom', from: '2025-11-15', to: '2026-11-16' },
+			}),
+		);
+	});
+
+	it('reads all of time as it is, with nothing paid before it', async () => {
+		visit('/l/h/spending?range=all');
+		render(Page, { data });
+		await screen.findByText('Income in October');
+
+		expect(listInvested).toHaveBeenCalledWith(
+			expect.objectContaining({ period: { kind: 'all' }, account: 'Assets' }),
+		);
+	});
+
+	it('names a year bucket by its year, not as the January it starts on', async () => {
+		Element.prototype.getBoundingClientRect = () => DOMRect.fromRect({ width: 100, height: 100 });
+		visit('/l/h/spending?range=all');
+		const yearly = (r: ReturnType<typeof range>) => ({
+			...r,
+			bucket: 'year',
+			buckets: [on('2025-01-01'), on('2026-01-01')],
+		});
+		vi.mocked(listDeltas).mockImplementation(({ account }) =>
+			answer([yearly(account === 'Income' ? earned : outgoing)]),
+		);
+		render(Page, { data });
+
+		const plot = await screen.findByRole('img', { name: /^Income from .*kept$/ });
+		await fireEvent.pointerMove(plot, { clientX: 25, clientY: 0 });
+
+		expect(screen.getByText(/kept ·/).textContent).toMatch(/·\s+2025/);
+		expect(screen.getByText(/kept ·/).textContent).not.toContain('Jan');
 	});
 });

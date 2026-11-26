@@ -28,7 +28,7 @@
 	);
 </script>
 
-<KpiStrip>
+<KpiStrip label="Spending figures">
 	<Kpi
 		label="Spent"
 		figure={formatWhole(printAmount(total))}

@@ -1,7 +1,6 @@
 import * as v from 'valibot';
 import { Amount, EXPENSES, INCOME, ZERO, max, min, printAmount, sum } from '@rupea/shared/money.ts';
-import { PERIOD_PARAMS, periodIn } from './filter';
-import { MONTHS, spanOf, statementOf } from './home';
+import { statementOf } from './home';
 import { totalOf, type Spent } from './spending';
 
 export const SPENT = 'Spent';
@@ -12,23 +11,6 @@ export const FROM_SAVINGS = 'From savings';
 const LAST_DAY = '9999-12-31';
 
 const INVESTMENTS = ['Income:Interest', 'Income:Dividends'];
-
-/** The income page's URL query, whose period runs up to the day. */
-export const IncomeQuery = (day: string) =>
-	v.pipe(
-		v.object({
-			span: v.fallback(v.picklist(Object.keys(MONTHS)), ''),
-			at: v.optional(v.string()),
-			range: v.optional(v.string()),
-			from: v.optional(v.string()),
-			to: v.optional(v.string()),
-		}),
-		v.transform((fields) => ({
-			span: fields.span,
-			dated: PERIOD_PARAMS.some((k) => fields[k] !== undefined),
-			period: fields.span ? spanOf(fields.span, day) : periodIn(fields, spanOf('12', day)),
-		})),
-	);
 
 /**
  * What an account and those under it earned, without the minus income is

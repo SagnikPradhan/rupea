@@ -32,13 +32,13 @@ test('adds up spending by account over a period, net of refunds', async ({
 		.getByRole('figure')
 		.filter({ has: page.getByRole('heading', { name: 'Spending', exact: true }) });
 
-	await visit(page, `${ledger}/expenses?at=${year}`);
+	await visit(page, `${ledger}/spending?at=${year}`);
 	await expect(chart.locator('.figure')).toHaveText('10,000');
 	await expect(chart.locator('.summary')).toContainText('+5,000 (+100%) vs previous');
 	const groceries = page.getByRole('row').filter({ hasText: 'Groceries' });
 	await expect(groceries).toContainText('2,000');
 	await expect(groceries).toContainText('20%');
-	await expect(page.locator('figcaption')).toContainText('Housing 8K');
+	await expect(chart.locator('figcaption')).toContainText('Housing 8K');
 	await page.getByRole('img', { name: /^Spending/ }).hover({ position: { x: 105, y: 50 } });
 	await expect(chart.locator('.figure')).toHaveText('8,000');
 
@@ -48,7 +48,7 @@ test('adds up spending by account over a period, net of refunds', async ({
 	await expect(page).toHaveURL(/account=Expenses%3AHousing/);
 	await expect(chart.locator('.figure')).toHaveText('8,000');
 
-	await visit(page, `${ledger}/expenses?span=all&account=Expenses:Housing`);
+	await visit(page, `${ledger}/spending?span=all&account=Expenses:Housing`);
 	await expect(chart.locator('.figure')).toHaveText('13,000');
 
 	await page.getByRole('table').getByRole('link', { name: 'Housing' }).click();
@@ -68,7 +68,7 @@ test('lays a month of spending out as a calendar, each day leading to its postin
 		[`${day} Dinner`, '\tExpenses:Food 1200', '\tAssets:Bank', ''].join('\n'),
 	);
 
-	await visit(page, `${ledger}/expenses?at=${day.toPlainYearMonth()}`);
+	await visit(page, `${ledger}/spending?at=${day.toPlainYearMonth()}`);
 	const chart = page
 		.getByRole('figure')
 		.filter({ has: page.getByRole('heading', { name: 'Spending', exact: true }) });
@@ -79,4 +79,15 @@ test('lays a month of spending out as a calendar, each day leading to its postin
 	await cell.click();
 	await expect(page).toHaveURL(new RegExp(`postings\\?account=Expenses&from=${day}&to=${day}`));
 	await expect(page.getByRole('rowgroup').filter({ hasText: 'Dinner' })).toBeVisible();
+});
+
+test('sends the old income and expenses links to spending, keeping the filter', async ({
+	signedIn: page,
+	ledger,
+}) => {
+	await visit(page, `${ledger}/income?span=3`);
+	await expect(page).toHaveURL(/\/spending\?span=3$/);
+
+	await visit(page, `${ledger}/expenses?account=Expenses:Food`);
+	await expect(page).toHaveURL(/\/spending\?account=Expenses:Food$/);
 });

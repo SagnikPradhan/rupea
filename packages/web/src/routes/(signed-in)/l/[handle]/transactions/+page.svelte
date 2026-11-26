@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { getContext } from 'svelte';
 	import { ICONS } from '#lib/web/shared/icons.ts';
 	import { listAccounts } from '#lib/endpoints/accounts.remote.ts';
 	import { findFirstDay, listProblems } from '#lib/endpoints/ledger.remote.ts';
@@ -19,11 +20,13 @@
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
 	import * as Accounts from '#lib/web/shared/accounts.ts';
-	import { formatDate, formatIsoDate } from '#lib/web/shared/format.ts';
+	import { formatIsoDate, BASE, formatsIn } from '#lib/web/shared/format.ts';
 	import { editHref, hrefWith } from '#lib/web/shared/links.ts';
 	import { rowOf } from '#lib/web/shared/transaction-row.ts';
 	import { paged } from '#lib/web/shared/paged.svelte.ts';
 	import { page } from '$app/state';
+
+	const formats = formatsIn(getContext<() => string>(BASE)?.());
 
 	const { data } = $props();
 
@@ -84,10 +87,12 @@
 			{#snippet row(index: number)}
 				{@const transaction = list.rows[index]}
 				{#if transaction}
-					{@const { from, to, more, amount } = rowOf(transaction.postings)}
+					{@const { from, to, more, amount } = rowOf(
+						transaction.postings.map((p) => ({ ...p, quantity: formats.posted(p.quantity) })),
+					)}
 					<tr class:evidence={!transaction.counted}>
 						<td class="date">
-							<time datetime={transaction.date}>{formatDate(transaction.date)}</time>
+							<time datetime={transaction.date}>{formats.date(transaction.date)}</time>
 							{#if transaction.time}<span>{transaction.time}</span>{/if}
 						</td>
 						<td class="optional truncate">

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { getContext } from 'svelte';
 	import { ICONS } from '#lib/web/shared/icons.ts';
 	import { deleteFiles, listFiles, renameFiles } from '#lib/endpoints/files.remote.ts';
 	import type { RupeaError } from '@rupea/shared/errors.ts';
@@ -6,11 +7,13 @@
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
-	import { formatMoment, formatSize } from '#lib/web/shared/format.ts';
+	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
 	import { isCounted } from '@rupea/shared/files.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';
 	import { SvelteSet } from 'svelte/reactivity';
 	import { keysUnder, movedTo, treeRows } from './file-tree';
+
+	const formats = formatsIn(getContext<() => string>(BASE)?.());
 
 	type Step = 'choosing' | 'moving' | 'deleting';
 
@@ -159,8 +162,8 @@
 								{#if row.depth === 0 && !isCounted(row.path)}<Tag>not counted</Tag>{/if}
 							</span>
 						</th>
-						<td class="date">{row.file ? formatMoment(new Date(row.file.modified)) : ''}</td>
-						<td class="amount size">{row.file ? formatSize(row.file.size) : ''}</td>
+						<td class="date">{row.file ? formats.moment(new Date(row.file.modified)) : ''}</td>
+						<td class="amount size">{row.file ? formats.size(row.file.size) : ''}</td>
 					</tr>
 				{/each}
 			</tbody>

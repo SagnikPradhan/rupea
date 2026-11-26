@@ -2,7 +2,7 @@
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import ChartSummary from '#lib/web/components/ui-chart-summary/ui-chart-summary.svelte';
 	import LineChart from '#lib/web/components/ui-chart-line/ui-chart-line.svelte';
-	import { BASE, formatsIn, formatDate } from '#lib/web/shared/format.ts';
+	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
 	import { getContext } from 'svelte';
 
 	const formats = formatsIn(getContext<() => string>(BASE)?.());
@@ -24,7 +24,7 @@
 				{ key: 'value', label: 'Value', role: 'primary' },
 				{ key: 'cost', label: 'Cost', role: 'band' },
 			]}
-			label="Value against cost from {formatDate(first.day)} to {formatDate(
+			label="Value against cost from {formats.date(first.day)} to {formats.date(
 				last.day,
 			)}, value {formats.amount(last.value)} on cost {formats.amount(last.cost)}"
 			summary={valueOn}
@@ -45,7 +45,7 @@
 			<span class={gain.negative ? 'negative' : 'positive'}>
 				Gain {gain.amount}{#if gain.percent !== null}&nbsp;({gain.percent}){/if}
 			</span>
-			{formatDate(shown.day)}
+			{formats.date(shown.day)}
 		</ChartSummary>
 	{/if}
 {/snippet}

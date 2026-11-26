@@ -32,8 +32,14 @@ const groceries = {
 	description: 'Groceries',
 	comment: null,
 	postings: [
-		{ account: 'Expenses:Food', quantity: '100.00' },
-		{ account: 'Assets:Bank', quantity: '-100.00' },
+		{
+			account: 'Expenses:Food',
+			quantity: { amount: '100.00', commodity: 'INR', price: null, cost: null },
+		},
+		{
+			account: 'Assets:Bank',
+			quantity: { amount: '-100.00', commodity: 'INR', price: null, cost: null },
+		},
 	],
 };
 const evidence = { ...groceries, id: '2', counted: false, time: null, description: 'Card bill' };
@@ -72,9 +78,18 @@ describe('the transactions page', () => {
 			{
 				...groceries,
 				postings: [
-					{ account: 'Expenses:Food', quantity: '60.00' },
-					{ account: 'Expenses:Gifts', quantity: '40.00' },
-					{ account: 'Assets:Bank', quantity: '-100.00' },
+					{
+						account: 'Expenses:Food',
+						quantity: { amount: '60.00', commodity: 'INR', price: null, cost: null },
+					},
+					{
+						account: 'Expenses:Gifts',
+						quantity: { amount: '40.00', commodity: 'INR', price: null, cost: null },
+					},
+					{
+						account: 'Assets:Bank',
+						quantity: { amount: '-100.00', commodity: 'INR', price: null, cost: null },
+					},
 				],
 			},
 		]);

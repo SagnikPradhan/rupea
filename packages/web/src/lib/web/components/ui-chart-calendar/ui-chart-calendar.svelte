@@ -1,11 +1,5 @@
 <script lang="ts" generics="Row extends Record<string, unknown>">
-	import {
-		BASE,
-		formatsIn,
-		formatBucket,
-		formatDate,
-		formatMonth,
-	} from '#lib/web/shared/format.ts';
+	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
 	import { getContext } from 'svelte';
 	import type { ResolvedPathname } from '$app/types';
 	import type { Snippet } from 'svelte';
@@ -94,7 +88,7 @@
 	const months = $derived.by(() => {
 		const names = weeks.map((week) => {
 			const first = week.find((i) => i !== null && String(rows[i]?.[x]).endsWith('-01'));
-			return first === undefined || first === null ? '' : formatMonth(String(rows[first]?.[x]));
+			return first === undefined || first === null ? '' : formats.month(String(rows[first]?.[x]));
 		});
 		const crowded = names[0] !== '' && names.slice(1, 3).some((n) => n !== '');
 
@@ -104,7 +98,7 @@
 	/** The first of a month, and the first day shown, also name their month. */
 	const nameOf = (day: string, i: number) =>
 		weekly && (i === 0 || day.endsWith('-01'))
-			? formatBucket.day(day)
+			? formats.bucket.day(day)
 			: String(Number(day.slice(8)));
 
 	const weekdayOf = (day: string) => (new Date(day).getUTCDay() + 6) % 7;
@@ -149,7 +143,7 @@
 								<a
 									href={href?.(day)}
 									title={formats.amount(String(rows[i]?.[y] ?? '0'))}
-									aria-label="{formatDate(day)}, {formats.amount(String(rows[i]?.[y] ?? '0'))}"
+									aria-label="{formats.date(day)}, {formats.amount(String(rows[i]?.[y] ?? '0'))}"
 									tabindex={href ? undefined : 0}
 									onfocus={() => (hovered.index = i)}
 									onblur={() => (hovered.index = null)}

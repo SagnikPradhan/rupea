@@ -15,7 +15,7 @@
 		VIEW,
 	} from '#lib/web/shared/chart.ts';
 	import type { Scale } from '#lib/web/shared/choices.ts';
-	import { BASE, formatsIn, formatBucket } from '#lib/web/shared/format.ts';
+	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
 	import { getContext } from 'svelte';
 	import { curveMonotoneX, line } from 'd3-shape';
 	import type { Snippet } from 'svelte';
@@ -116,7 +116,7 @@
 	const across = $derived.by(() => {
 		const room = VIEW / labelsIn(box.width, 'across');
 		const stride = STRIDES.find((s) => s * step >= room) ?? STRIDES.length;
-		const name = formatBucket[bucket];
+		const name = formats.bucket[bucket];
 
 		return rows
 			.map((r, i) => ({ at: centreOf(i), label: name(String(r[x])) }))

@@ -15,13 +15,7 @@
 	import KpiStrip from '#lib/web/components/ui-kpi-strip/ui-kpi-strip.svelte';
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
 	import { stepsOf } from '#lib/web/shared/bridge.ts';
-	import {
-		BASE,
-		formatsIn,
-		formatDate,
-		formatIsoDate,
-		formatMonthName,
-	} from '#lib/web/shared/format.ts';
+	import { BASE, formatsIn, formatIsoDate } from '#lib/web/shared/format.ts';
 	import { setContext } from 'svelte';
 	import { lastMonthOf, savedOf, statementOf } from '#lib/web/shared/home.ts';
 	import * as Liabilities from '#lib/web/shared/liabilities.ts';
@@ -54,8 +48,8 @@
 	const spentChange = $derived(
 		formats.change(printAmount(spent.total.before), printAmount(spent.total.amount)),
 	);
-	const month = $derived(formatMonthName(lastMonth.at + '-01'));
-	const before = $derived(formatMonthName(lastMonthOf(lastMonth.at + '-01') + '-01'));
+	const month = $derived(formats.monthName(lastMonth.at + '-01'));
+	const before = $derived(formats.monthName(lastMonthOf(lastMonth.at + '-01') + '-01'));
 
 	const debts = $derived(
 		Liabilities.debtsFrom(Liabilities.accountsIn(balance.data ?? []), termed.data ?? []),
@@ -87,7 +81,7 @@
 			{@const change = formats.change(bridge.start, bridge.end)}
 			<ChartSummary id="moved" label="Net worth in {month}" lead figure={change.amount}>
 				from {formats.amount(bridge.start)} to {formats.amount(bridge.end)} ·
-				{formatDate(bridge.from)} – {formatDate(bridge.to)}
+				{formats.date(bridge.from)} – {formats.date(bridge.to)}
 			</ChartSummary>
 			<Waterfall
 				steps={stepsOf(bridge)}
@@ -104,7 +98,7 @@
 		<Kpi
 			label="Net worth"
 			figure={formats.whole(bridge?.end ?? '0')}
-			detail="on {formatDate(bridge?.to ?? day)}"
+			detail="on {formats.date(bridge?.to ?? day)}"
 			href={worth}
 		/>
 		<Kpi

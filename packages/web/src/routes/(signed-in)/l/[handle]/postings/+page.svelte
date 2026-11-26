@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { getContext } from 'svelte';
 	import { ICONS } from '#lib/web/shared/icons.ts';
 	import { listAccounts } from '#lib/endpoints/accounts.remote.ts';
 	import { findFirstDay, listProblems } from '#lib/endpoints/ledger.remote.ts';
@@ -18,10 +19,12 @@
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import * as Accounts from '#lib/web/shared/accounts.ts';
-	import { formatDate, formatIsoDate } from '#lib/web/shared/format.ts';
+	import { formatIsoDate, BASE, formatsIn } from '#lib/web/shared/format.ts';
 	import { editHref, hrefWith } from '#lib/web/shared/links.ts';
 	import { paged } from '#lib/web/shared/paged.svelte.ts';
 	import { page } from '$app/state';
+
+	const formats = formatsIn(getContext<() => string>(BASE)?.());
 
 	const { data } = $props();
 
@@ -83,12 +86,12 @@
 				{@const posting = list.rows[index]}
 				{#if posting}
 					<tr>
-						<td class="date"><time datetime={posting.date}>{formatDate(posting.date)}</time></td>
+						<td class="date"><time datetime={posting.date}>{formats.date(posting.date)}</time></td>
 						<td class="truncate"><Account account={posting.account} /></td>
 						<th scope="row" class="truncate" title={posting.description}>
 							<a href={editHref(params, posting.transaction)}>{posting.description}</a>
 						</th>
-						<Amount value={posting.quantity} />
+						<Amount value={formats.posted(posting.quantity)} />
 					</tr>
 				{/if}
 			{/snippet}

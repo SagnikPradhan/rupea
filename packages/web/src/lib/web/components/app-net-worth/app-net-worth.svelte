@@ -1,7 +1,7 @@
 <script lang="ts">
 	import ChartSummary from '#lib/web/components/ui-chart-summary/ui-chart-summary.svelte';
 	import LineChart from '#lib/web/components/ui-chart-line/ui-chart-line.svelte';
-	import { BASE, formatsIn, formatDate } from '#lib/web/shared/format.ts';
+	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
 	import { getContext } from 'svelte';
 	import { areasOf, withAreas } from '#lib/web/shared/worth.ts';
 
@@ -40,7 +40,7 @@
 				})),
 				...(owing ? [{ key: 'liabilities', label: 'Owed', role: 'negative' as const }] : []),
 			]}
-			label="Net worth from {formatDate(first.day)} to {formatDate(last.day)}, {formats.amount(
+			label="Net worth from {formats.date(first.day)} to {formats.date(last.day)}, {formats.amount(
 				first.worth,
 			)} to {formats.amount(last.worth)}"
 			summary={worthOn}
@@ -62,7 +62,7 @@
 			<span class={change.negative ? 'negative' : 'positive'}>
 				{change.amount}{#if change.percent !== null}&nbsp;({change.percent}){/if}
 			</span>
-			{formatDate(first.day)} – {formatDate(shown.day)}
+			{formats.date(first.day)} – {formats.date(shown.day)}
 			{#if shown.unpriced > 0}
 				<span class="nowrap">· excludes {shown.unpriced} unpriced</span>
 			{/if}

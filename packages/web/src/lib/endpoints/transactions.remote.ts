@@ -3,7 +3,7 @@ import { Filter } from '#lib/web/shared/filter.ts';
 import { Handle } from '@rupea/shared/text.ts';
 import { query } from '$app/server';
 import * as v from 'valibot';
-import { api, findBase } from './api';
+import { api } from './api';
 import { replyFromCall } from './reply';
 import { viewCounted, viewPosting } from './views';
 
@@ -18,10 +18,9 @@ export const listTransactions = query(
 	v.object({ handle: Handle, day: Day, filter: Filter, after: v.nullable(Cursor) }),
 	({ handle, day, filter, after }) =>
 		replyFromCall(
-			Promise.all([
-				api().transactions.list({ handle, ...listed(filter, day), after: after ?? undefined }),
-				findBase(handle),
-			]).then(([p, base]) => ({ ...p, rows: p.rows.map((r) => viewCounted(r, base)) })),
+			api()
+				.transactions.list({ handle, ...listed(filter, day), after: after ?? undefined })
+				.then((p) => ({ ...p, rows: p.rows.map(viewCounted) })),
 		),
 );
 
@@ -29,14 +28,9 @@ export const listPostings = query(
 	v.object({ handle: Handle, day: Day, filter: Filter, after: v.nullable(PostingCursor) }),
 	({ handle, day, filter, after }) =>
 		replyFromCall(
-			Promise.all([
-				api().transactions.listPostings({
-					handle,
-					...listed(filter, day),
-					after: after ?? undefined,
-				}),
-				findBase(handle),
-			]).then(([p, base]) => ({ ...p, rows: p.rows.map((r) => viewPosting(r, base)) })),
+			api()
+				.transactions.listPostings({ handle, ...listed(filter, day), after: after ?? undefined })
+				.then((p) => ({ ...p, rows: p.rows.map(viewPosting) })),
 		),
 );
 

@@ -26,7 +26,7 @@ Net worth, costs, lots and returns are reached in the base, so a ledger based in
 
 Settings writes the base line into `main.rupea` like any edit. It offers only the currencies a chain of the ledger's own prices links to the base, so the ledger can still be valued after the switch. The file may name any other, and then what has no price shows as unpriced.
 
-Numbers are written the way the base currency's country writes them: 12,34,567 for INR, 1,234,567 for USD, EUR and GBP, and as in the US for a currency with no country set. Dates do not change with the base.
+Numbers are written the way the base currency's country writes them: 12,34,567 for INR, 1,234,567 for USD, EUR and GBP, and as in the US for a currency with no country set. Dates follow the same locale, so a USD ledger reads Jan 2, 2026 where an INR one reads 2 Jan 2026. The web app's endpoints hand amounts on with their commodities, and the pages print and format them in one place, the formats of the ledger's base, leaving out the base and naming every other currency.
 
 ## Considered Options
 

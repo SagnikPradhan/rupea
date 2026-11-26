@@ -15,9 +15,8 @@ import {
 	Amount,
 	hasLots,
 	parseAmount,
+	type PostedOut,
 	printAmount,
-	printPosted,
-	printQuantity,
 	sum,
 	ZERO,
 } from '@rupea/shared/money.ts';
@@ -32,7 +31,7 @@ export type TransactionView = {
 	time: string | null;
 	description: string;
 	comment: string | null;
-	postings: { account: string; quantity: string }[];
+	postings: { account: string; quantity: PostedOut }[];
 };
 
 export type SuggestionView = {
@@ -44,8 +43,8 @@ export type SuggestionView = {
 	theirs: TransactionView;
 };
 
-/** For reading, not for writing back: amounts as text, the time to the minute. */
-export const viewTransaction = (transaction: Transaction, base: string): TransactionView => ({
+/** For reading, not for writing back: the time to the minute. */
+export const viewTransaction = (transaction: Transaction): TransactionView => ({
 	file: transaction.file,
 	line: transaction.line,
 	date: transaction.date,
@@ -54,22 +53,23 @@ export const viewTransaction = (transaction: Transaction, base: string): Transac
 	comment: transaction.comment,
 	postings: transaction.postings.map((p) => ({
 		account: p.account,
-		quantity: printPosted(p.quantity, base),
+		quantity: p.quantity,
 	})),
 });
 
-export const viewCounted = (
-	{ id, counted, ...transaction }: Transaction & { id: string; counted: boolean },
-	base: string,
-) => ({
+export const viewCounted = ({
 	id,
 	counted,
-	...viewTransaction(transaction, base),
+	...transaction
+}: Transaction & { id: string; counted: boolean }) => ({
+	id,
+	counted,
+	...viewTransaction(transaction),
 });
 
 type PostingOut = v.InferOutput<typeof Posting>;
 
-export const viewPosting = (posting: PostingOut, base: string) => ({
+export const viewPosting = (posting: PostingOut) => ({
 	key: `${posting.transaction}:${posting.position}`,
 	transaction: posting.transaction,
 	file: posting.file,
@@ -77,28 +77,25 @@ export const viewPosting = (posting: PostingOut, base: string) => ({
 	date: posting.date,
 	description: posting.description,
 	account: posting.account,
-	quantity: printPosted(posting.quantity, base),
+	quantity: posting.quantity,
 });
 
 type SuggestionOut = v.InferOutput<typeof Suggestion>;
 
-export const viewSuggestion = (
-	{ ours, theirs, ...suggestion }: SuggestionOut,
-	base: string,
-): SuggestionView => ({
+export const viewSuggestion = ({ ours, theirs, ...suggestion }: SuggestionOut): SuggestionView => ({
 	...suggestion,
-	ours: viewTransaction(ours, base),
-	theirs: viewTransaction(theirs, base),
+	ours: viewTransaction(ours),
+	theirs: viewTransaction(theirs),
 });
 
 type GroupOut = v.InferOutput<typeof Group>;
 
-export const viewGroup = ({ group, members }: GroupOut, base: string) => ({
+export const viewGroup = ({ group, members }: GroupOut) => ({
 	group,
 	members: members.map(({ role, counted, ...t }) => ({
 		role,
 		counted,
-		...viewTransaction(t, base),
+		...viewTransaction(t),
 	})),
 });
 
@@ -123,14 +120,14 @@ export const investedFrom = (deltas: DeltasOut) => {
 		}));
 };
 
-type ViewWorthOptions = { tree: AccountRow[]; account: string | null; base: string };
+type ViewWorthOptions = { tree: AccountRow[]; account: string | null };
 
 /**
  * Net worth at the end of each bucket: what the balance accounts held
  * themselves, assets and liabilities apart, and the parts worth is divided into
  * under the account, each one's commodities too when it divides into nothing.
  */
-export const worthFrom = (deltas: DeltasOut, { tree, account, base }: ViewWorthOptions) => {
+export const worthFrom = (deltas: DeltasOut, { tree, account }: ViewWorthOptions) => {
 	const seen = new Map<string, Amount>();
 	const parents = parentsIn(tree);
 	const { parts, byCommodity } = partsIn(tree, account);
@@ -148,7 +145,7 @@ export const worthFrom = (deltas: DeltasOut, { tree, account, base }: ViewWorthO
 			const own = rows.map((r) => ({
 				part: partOf[r.account] ?? r.account,
 				asset: /^assets(:|$)/i.test(r.account),
-				commodity: r.commodity ?? base,
+				commodity: r.commodity,
 				...ownValueOf(r, kids[r.account] ?? []),
 			}));
 			const shares = Object.values(
@@ -207,9 +204,7 @@ const closeOf = (bucket: string, last: string) => {
  * what it holds itself by commodity, which is what it and its rows came to less
  * what the accounts drawn under it came to, and the totals of all it holds.
  */
-type ViewHoldingsOptions = { parents: Record<string, string | null>; base: string };
-
-export const viewHoldings = (deltas: DeltasOut, { parents, base }: ViewHoldingsOptions) =>
+export const viewHoldings = (deltas: DeltasOut, parents: Record<string, string | null>) =>
 	Object.entries(Object.groupBy(deltas.rows, (r) => r.account)).map(([account, held = []]) => {
 		const under = deltas.rows.filter((r) => parents[r.account] === account);
 		const gained = held.filter((r) => hasLots(r.commodity ?? '') && r.unpriced === 0);
@@ -217,7 +212,7 @@ export const viewHoldings = (deltas: DeltasOut, { parents, base }: ViewHoldingsO
 		return {
 			account,
 			parent: parents[account] ?? null,
-			holdings: held.flatMap((r) => ownOf(r, { under, base })),
+			holdings: held.flatMap((r) => ownOf(r, under)),
 			total: sum(held.map((r) => amountOf(r.value))),
 			cost: gained.length === 0 ? null : sum(gained.map((r) => amountOf(r.cost))),
 			gain:
@@ -243,12 +238,12 @@ const amountOf = (t: string | undefined) => (t === undefined ? ZERO : (parseAmou
  * A row less the same commodity's rows of the accounts under it, if any is
  * left.
  */
-const ownOf = (r: RowOut, { under, base }: { under: RowOut[]; base: string }) => {
+const ownOf = (r: RowOut, under: RowOut[]) => {
 	const kids = under.filter((k) => k.commodity === r.commodity);
 	const units = amountOf(r.units) - sum(kids.map((k) => amountOf(k.units)));
 	if (units === 0n) return [];
 
-	const commodity = r.commodity ?? base;
+	const commodity = r.commodity ?? '';
 	const unpriced = r.unpriced - kids.reduce((n, k) => n + k.unpriced, 0);
 	const value = unpriced > 0 ? null : amountOf(r.value) - sum(kids.map((k) => amountOf(k.value)));
 	const paid = hasLots(commodity)
@@ -259,12 +254,9 @@ const ownOf = (r: RowOut, { under, base }: { under: RowOut[]; base: string }) =>
 		{
 			commodity,
 			hasLots: hasLots(commodity),
-			units:
-				commodity === base
-					? null
-					: printQuantity({ amount: printAmount(units as Amount), commodity }, base),
+			units: { amount: printAmount(units as Amount), commodity },
 			cost: paid === null ? null : printAmount(paid as Amount),
-			price: r.price ? printQuantity(r.price, base) : null,
+			price: r.price ?? null,
 			value: value === null ? null : printAmount(value as Amount),
 			gain: value === null || paid === null ? null : printAmount((value - paid) as Amount),
 		},
@@ -351,7 +343,7 @@ export const viewDaily = ({
 
 type LotOut = v.InferOutput<typeof Lot>;
 
-export const viewLot = (lot: LotOut, base: string) => ({
+export const viewLot = (lot: LotOut) => ({
 	file: lot.location.file,
 	line: lot.location.line,
 	date: lot.date,
@@ -359,15 +351,15 @@ export const viewLot = (lot: LotOut, base: string) => ({
 	from: lot.from,
 	units: lot.units,
 	remaining: lot.remaining,
-	cost: printQuantity(lot.cost, base),
+	cost: lot.cost,
 	disposals: lot.disposals.map((disposal) => ({
 		file: disposal.location.file,
 		line: disposal.location.line,
 		date: disposal.date,
 		kind: disposal.kind,
 		units: disposal.units,
-		price: disposal.price && printQuantity(disposal.price, base),
-		gain: disposal.gain && printQuantity(disposal.gain, base),
+		price: disposal.price,
+		gain: disposal.gain,
 	})),
 });
 

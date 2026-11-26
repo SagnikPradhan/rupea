@@ -12,12 +12,14 @@
 
 	const formats = formatsIn(getContext<() => string>(BASE)?.());
 
+	type Quantity = { amount: string; commodity: string };
+
 	type Holding = {
 		commodity: string;
 		hasLots: boolean;
-		units: string | null;
+		units: Quantity;
 		cost: string | null;
-		price: string | null;
+		price: Quantity | null;
 		value: string | null;
 		gain: string | null;
 	};
@@ -58,7 +60,10 @@
 	);
 
 	/** A commodity's row is named by it, so its units need no code after them. */
-	const numberOf = (quantity: string | null) => quantity?.split(' ')[0] ?? null;
+	const unitsOf = (u: Quantity, child: boolean) => {
+		if (u.commodity === formats.base) return null;
+		return child ? u.amount : formats.quantity(u);
+	};
 
 	/**
 	 * A group adds up sub-accounts or several holdings; any other account reads
@@ -110,11 +115,11 @@
 				{@render label()}
 			{/if}
 		</td>
-		<Amount value={child ? numberOf(holding.units) : holding.units} units optional />
+		<Amount value={unitsOf(holding.units, child)} units optional />
 		<Amount value={holding.cost} optional />
 		<Amount
 			value={holding.value}
-			note={holding.price && `@ ${formats.amount(holding.price, true)}`}
+			note={holding.price && `@ ${formats.amount(formats.quantity(holding.price), true)}`}
 		>
 			<span class="unpriced">unpriced</span>
 		</Amount>

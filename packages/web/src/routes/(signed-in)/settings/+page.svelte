@@ -32,7 +32,7 @@
 	</PageSection>
 {/if}
 
-{#each data.ledgers as l (l.handle)}
+{#each data.ledgers as l (`${l.handle} ${l.base}`)}
 	<SettingsLedger ledger={l} />
 {:else}
 	<p>You have no ledgers yet.</p>

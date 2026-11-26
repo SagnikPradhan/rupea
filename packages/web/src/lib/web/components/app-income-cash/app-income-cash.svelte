@@ -1,7 +1,7 @@
 <script lang="ts">
 	import BarChart from '#lib/web/components/ui-chart-bar/ui-chart-bar.svelte';
 	import ChartSummary from '#lib/web/components/ui-chart-summary/ui-chart-summary.svelte';
-	import { BASE, formatsIn, formatBucket, formatDate } from '#lib/web/shared/format.ts';
+	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
 	import { getContext } from 'svelte';
 	import type { Grain } from '@rupea/shared/dates.ts';
 	import * as Income from '#lib/web/shared/income.ts';
@@ -23,7 +23,7 @@
 	const bars = $derived(Income.monthsOf({ income, spending, paid }));
 	const whole = $derived(Income.wholeOf({ income, spending, paid }));
 	const label = $derived(
-		`Income from ${formatDate(first.toString())} to ${formatDate(last.toString())}, ${formats.amount(whole.total)} in all, ${formats.amount(whole[Income.SPENT])} spent, ${formats.amount(whole[Income.INVESTED])} invested, ${formats.amount(whole[Income.KEPT])} kept`,
+		`Income from ${formats.date(first.toString())} to ${formats.date(last.toString())}, ${formats.amount(whole.total)} in all, ${formats.amount(whole[Income.SPENT])} spent, ${formats.amount(whole[Income.INVESTED])} invested, ${formats.amount(whole[Income.KEPT])} kept`,
 	);
 </script>
 
@@ -64,7 +64,7 @@
 		{formats.share(shown[Income.INVESTED], figure) ?? '0%'} invested,
 		{formats.share(shown[Income.KEPT], figure) ?? '0%'} kept ·
 		{bar
-			? formatBucket[bucket](bar.bucket)
-			: `${formatDate(first.toString())} – ${formatDate(last.toString())}`}
+			? formats.bucket[bucket](bar.bucket)
+			: `${formats.date(first.toString())} – ${formats.date(last.toString())}`}
 	</ChartSummary>
 {/snippet}

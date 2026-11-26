@@ -11,7 +11,7 @@
 		valuesOf,
 		VIEW,
 	} from '#lib/web/shared/chart.ts';
-	import { BASE, formatsIn, formatBucket } from '#lib/web/shared/format.ts';
+	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
 	import { getContext } from 'svelte';
 	import { scaleUtc } from 'd3-scale';
 	import { area, line, type SeriesPoint } from 'd3-shape';
@@ -128,7 +128,7 @@
 	const across = $derived.by(() => {
 		const fit = labelsIn(box.width, 'across');
 		const ticks = dates.ticks(Math.min(fit, rows.length - 1));
-		const name = formatBucket[bucketOf(ticks)];
+		const name = formats.bucket[bucketOf(ticks)];
 		const gap = dates(ticks[1] ?? 0) - dates(ticks[0] ?? 0);
 		const stride = gap > 0 ? Math.ceil(VIEW / fit / gap) : 1;
 

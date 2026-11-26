@@ -1,14 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import {
-	formatColumn,
-	formatBucket,
-	formatDate,
-	formatIsoDate,
-	formatMoment,
-	formatSize,
-	formatsIn,
-	toneOf,
-} from '#lib/web/shared/format.ts';
+import { formatColumn, formatIsoDate, formatsIn, toneOf } from '#lib/web/shared/format.ts';
 
 const rupees = formatsIn('INR');
 
@@ -55,19 +46,19 @@ describe('formatsIn(INR).gain', () => {
 	});
 });
 
-describe('formatDate', () => {
+describe('rupees.date', () => {
 	it('reads an ISO date as the same day, whatever the time zone', () => {
-		expect(formatDate('2026-01-02')).toBe('2 Jan 2026');
+		expect(rupees.date('2026-01-02')).toBe('2 Jan 2026');
 	});
 });
 
-describe('formatMoment', () => {
+describe('rupees.moment', () => {
 	it('names the day of a moment', () => {
-		expect(formatMoment(new Date(2026, 7, 29, 12))).toBe('29 Aug 2026');
+		expect(rupees.moment(new Date(2026, 7, 29, 12))).toBe('29 Aug 2026');
 	});
 });
 
-describe('formatSize', () => {
+describe('rupees.size', () => {
 	it.each([
 		[0, '0 B'],
 		[999, '999 B'],
@@ -75,7 +66,7 @@ describe('formatSize', () => {
 		[3_400_000, '3.4 MB'],
 		[5_000_000_000, '5,000 MB'],
 	])('formats %i bytes as %s', (bytes, text) => {
-		expect(formatSize(bytes)).toBe(text);
+		expect(rupees.size(bytes)).toBe(text);
 	});
 });
 
@@ -85,11 +76,11 @@ describe('formatIsoDate', () => {
 	});
 });
 
-describe('formatBucket', () => {
+describe('rupees.bucket', () => {
 	it('names the day, month or year an ISO day starts', () => {
-		expect(formatBucket.day('2026-10-21')).toBe('21 Oct');
-		expect(formatBucket.month('2026-10-01')).toBe('Oct 2026');
-		expect(formatBucket.year('2026-01-01')).toBe('2026');
+		expect(rupees.bucket.day('2026-10-21')).toBe('21 Oct');
+		expect(rupees.bucket.month('2026-10-01')).toBe('Oct 2026');
+		expect(rupees.bucket.year('2026-01-01')).toBe('2026');
 	});
 });
 
@@ -157,5 +148,27 @@ describe('formatsIn', () => {
 	it('writes rupees without a base, and a currency it has no country for as dollars do', () => {
 		expect(formatsIn(undefined).whole('1234567')).toBe('12,34,567');
 		expect(formatsIn('JPY').whole('1234567')).toBe('1,234,567');
+	});
+});
+
+describe('formatsIn(USD)', () => {
+	const dollars = formatsIn('USD');
+
+	it('writes dates the way the base currency country does', () => {
+		expect(dollars.date('2026-01-02')).toBe('Jan 2, 2026');
+		expect(dollars.bucket.day('2026-10-21')).toBe('Oct 21');
+	});
+
+	it('names every commodity but the base', () => {
+		expect(dollars.quantity({ amount: '20.00', commodity: 'USD' })).toBe('20.00');
+		expect(dollars.quantity({ amount: '100.00', commodity: 'INR' })).toBe('100.00 INR');
+		expect(
+			dollars.posted({
+				amount: '2.00',
+				commodity: 'AAPL',
+				price: { amount: '150.00', commodity: 'USD', kind: 'unit' },
+				cost: null,
+			}),
+		).toBe('2.00 AAPL @ 150.00');
 	});
 });

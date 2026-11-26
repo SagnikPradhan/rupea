@@ -2,7 +2,7 @@
 	import Tooltip from '#lib/web/components/ui-tooltip/ui-tooltip.svelte';
 	import { AMOUNT_UNIT, type Amount, printAmount, toNumber } from '@rupea/shared/money.ts';
 	import { type Grain, bucketOf, bucketsIn } from '@rupea/shared/dates.ts';
-	import { BASE, formatsIn, formatBucket, formatMonth } from '#lib/web/shared/format.ts';
+	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
 	import { getContext } from 'svelte';
 
 	const formats = formatsIn(getContext<() => string>(BASE)?.());
@@ -69,9 +69,9 @@
 				<span
 					class={{ pin: true, past: p.past }}
 					role="listitem"
-					aria-label="{line.label}, {formats.amount(printAmount(p.amount))}, {formatBucket[bucket](
-						p.at.toString(),
-					)}"
+					aria-label="{line.label}, {formats.amount(printAmount(p.amount))}, {formats.bucket[
+						bucket
+					](p.at.toString())}"
 					style:left="{leftOf(p.at, bucket)}%"
 					style:--lane={lane}
 					style:--spread={Math.sqrt(toNumber(p.amount) / widest)}
@@ -98,7 +98,7 @@
 									</data> interest
 								</small>
 							{/if}
-							<time datetime={p.at.toString()}>{formatBucket[bucket](p.at.toString())}</time>
+							<time datetime={p.at.toString()}>{formats.bucket[bucket](p.at.toString())}</time>
 						</Tooltip>
 					{/if}
 				</span>
@@ -108,7 +108,7 @@
 	<div class="ticks" aria-hidden="true">
 		{#each ticks as t (t.toString())}
 			<time datetime={t.toString()} style:left="{leftOf(t, unit)}%">
-				{yearly ? formatBucket.year(t.toString()) : formatMonth(t.toString())}
+				{yearly ? formats.bucket.year(t.toString()) : formats.month(t.toString())}
 			</time>
 		{/each}
 	</div>

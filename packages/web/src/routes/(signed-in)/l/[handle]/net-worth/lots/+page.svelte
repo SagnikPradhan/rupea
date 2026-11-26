@@ -6,7 +6,7 @@
 	import Source from '#lib/web/components/app-ledger-table/source.svelte';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
-	import { BASE, formatsIn, formatDate } from '#lib/web/shared/format.ts';
+	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
 	import { getContext } from 'svelte';
 	import { fileHref } from '#lib/web/shared/links.ts';
 	import { page } from '$app/state';
@@ -40,7 +40,7 @@
 		{#each response.data ?? [] as lot (`${lot.file}:${lot.line}`)}
 			<tbody>
 				<tr>
-					<td class="date">{formatDate(lot.date)}</td>
+					<td class="date">{formats.date(lot.date)}</td>
 					<th scope="row" class="truncate">
 						{lot.origin}{lot.from ? ` from ${lot.from}` : ''}
 						<Tag title={formats.exact(lot.remaining, formats.amount(lot.remaining, true))}>
@@ -48,18 +48,18 @@
 						</Tag>
 					</th>
 					<Amount value={lot.units} units />
-					<Amount value={lot.cost} optional />
+					<Amount value={formats.quantity(lot.cost)} optional />
 					<Source {handle} file={lot.file} line={lot.line} />
 				</tr>
 				{#each lot.disposals as disposal, i (i)}
 					<tr class="child">
-						<td class="date">{formatDate(disposal.date)}</td>
+						<td class="date">{formats.date(disposal.date)}</td>
 						<td>
 							<a href={fileHref(handle, disposal.file, disposal.line)}>{disposal.kind}</a>
 						</td>
 						<Amount value={disposal.units} units />
-						<Amount value={disposal.price} units optional />
-						<Amount value={disposal.gain} signed />
+						<Amount value={disposal.price && formats.quantity(disposal.price)} units optional />
+						<Amount value={disposal.gain && formats.quantity(disposal.gain)} signed />
 					</tr>
 				{/each}
 			</tbody>

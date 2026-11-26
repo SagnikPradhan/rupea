@@ -13,14 +13,7 @@
 	import { spansOf } from '@rupea/shared/dates.ts';
 	import { paramsOf } from '#lib/web/shared/filter.ts';
 	import { depthOf, isUnder, nameOf } from '#lib/web/shared/accounts.ts';
-	import {
-		BASE,
-		formatsIn,
-		formatBucket,
-		formatDayMonth,
-		formatIsoDate,
-		toneOf,
-	} from '#lib/web/shared/format.ts';
+	import { BASE, formatsIn, formatIsoDate, toneOf } from '#lib/web/shared/format.ts';
 	import { getContext } from 'svelte';
 	import { owedOf } from '#lib/web/shared/home.ts';
 	import * as Cards from '#lib/web/shared/cards.ts';
@@ -116,8 +109,8 @@
 	const worth = $derived(worthy.data ?? []);
 	const latest = $derived(worth.at(-1));
 	const totals = $derived(totalsOf(groupsInvested(invested)));
-	const ownOn = $derived(`Where is it held, on ${formatDayMonth(day)}?`);
-	const oweOn = $derived(`Who is it owed to, on ${formatDayMonth(day)}?`);
+	const ownOn = $derived(`Where is it held, on ${formats.dayMonth(day)}?`);
+	const oweOn = $derived(`Who is it owed to, on ${formats.dayMonth(day)}?`);
 
 	const moved = $derived(flowed.data?.[0]);
 	const owed = $derived(Liabilities.accountsIn(accounts));
@@ -301,7 +294,7 @@
 				<Statement head="Due next" columns={['Amount']}>
 					{#each next as due (due.account)}
 						<StatementRow
-							name="{nameOf(due.account)}, {formatDayMonth(due.on.toString())}"
+							name="{nameOf(due.account)}, {formats.dayMonth(due.on.toString())}"
 							values={[printAmount(due.amount)]}
 						/>
 					{/each}
@@ -318,7 +311,7 @@
 			/>
 			<Kpi
 				label="Loans paid off by"
-				figure={payoff === null ? '–' : formatBucket.month(payoff.toString())}
+				figure={payoff === null ? '–' : formats.bucket.month(payoff.toString())}
 			/>
 		</KpiStrip>
 	</PanelGrid>

@@ -1,4 +1,3 @@
-import { printPosted } from '@rupea/shared/money.ts';
 import {
 	viewCounted,
 	viewDaily,
@@ -41,28 +40,18 @@ describe('viewing a transaction', () => {
 		],
 	};
 
-	it('prints the quantities and cuts the time to the minute', () => {
-		expect(viewTransaction(transaction, 'INR')).toEqual({
-			...transaction,
-			time: '18:45',
-			postings: [
-				{
-					account: 'Assets:Broker',
-					quantity: '10.00 INFY {1400.00, 2026-08-01} @ 1500.125',
-				},
-				{ account: 'Assets:Bank', quantity: '-15001.25' },
-			],
-		});
+	it('keeps the quantities for the page to print, and cuts the time to the minute', () => {
+		expect(viewTransaction(transaction)).toEqual({ ...transaction, time: '18:45' });
 	});
 
 	it('leaves an untimed transaction without a time', () => {
-		expect(viewTransaction({ ...transaction, time: null }, 'INR').time).toBeNull();
+		expect(viewTransaction({ ...transaction, time: null }).time).toBeNull();
 	});
 
 	it('keeps the role of each member of a group', () => {
 		const member = { ...transaction, role: 'evidence' as const, counted: false };
 
-		expect(viewGroup({ group: 'rent', members: [member] }, 'INR').members).toMatchObject([
+		expect(viewGroup({ group: 'rent', members: [member] }).members).toMatchObject([
 			{ role: 'evidence', counted: false, description: 'Bought shares', time: '18:45' },
 		]);
 	});
@@ -77,14 +66,14 @@ describe('viewing a transaction', () => {
 			links: [],
 		};
 
-		const viewed = viewSuggestion(suggestion, 'INR');
+		const viewed = viewSuggestion(suggestion);
 
 		expect(viewed).toMatchObject({ fingerprint: 'f', confidence: 'duplicate', links: [] });
 		expect([viewed.ours.time, viewed.theirs.time]).toEqual(['18:45', null]);
 	});
 
 	it('keeps whether a counted transaction counts', () => {
-		const counted = viewCounted({ ...transaction, id: 't1', counted: false }, 'INR');
+		const counted = viewCounted({ ...transaction, id: 't1', counted: false });
 
 		expect(counted).toMatchObject({ id: 't1', counted: false, description: 'Bought shares' });
 	});
@@ -100,7 +89,7 @@ describe('viewing a transaction', () => {
 			account: 'Expenses:Food',
 			quantity: { amount: '100.50', commodity: 'INR', price: null, cost: null },
 		};
-		expect(viewPosting(listed, 'INR')).toEqual({
+		expect(viewPosting(listed)).toEqual({
 			key: 't1:2',
 			transaction: 't1',
 			file: 'bank.rupea',
@@ -108,20 +97,8 @@ describe('viewing a transaction', () => {
 			date: '2026-08-29',
 			description: 'Groceries',
 			account: 'Expenses:Food',
-			quantity: '100.50',
+			quantity: { amount: '100.50', commodity: 'INR', price: null, cost: null },
 		});
-	});
-
-	it('leaves out only the ledger’s base, so rupees keep their code in a ledger in dollars', () => {
-		const posted = (commodity: string) => ({
-			amount: '100.50',
-			commodity,
-			price: null,
-			cost: null,
-		});
-
-		expect(printPosted(posted('INR'), 'USD')).toBe('100.50 INR');
-		expect(printPosted(posted('USD'), 'USD')).toBe('100.50');
 	});
 });
 
@@ -148,10 +125,7 @@ describe('viewing what accounts held', () => {
 	const parents = { Assets: null, 'Assets:Broker': 'Assets', 'Assets:Bank': 'Assets' };
 
 	it('shows a holding as the page does, with the gain its lots made', () => {
-		const viewed = viewHoldings(held([{ account: 'Assets:Broker', ...infy }]), {
-			parents,
-			base: 'INR',
-		});
+		const viewed = viewHoldings(held([{ account: 'Assets:Broker', ...infy }]), parents);
 
 		expect(viewed).toEqual([
 			{
@@ -161,9 +135,9 @@ describe('viewing what accounts held', () => {
 					{
 						commodity: 'INFY',
 						hasLots: true,
-						units: '7.00 INFY',
+						units: { amount: '7.00', commodity: 'INFY' },
 						cost: '10900.00',
-						price: '1800.00',
+						price: { amount: '1800.00', commodity: 'INR' },
 						value: '12600.00',
 						gain: '1700.00',
 					},
@@ -181,7 +155,7 @@ describe('viewing what accounts held', () => {
 			{ account: 'Assets', ...cash, units: '500.00', value: '500.00' },
 			{ account: 'Assets:Bank', ...cash },
 		];
-		const [assets, bank] = viewHoldings(held(rows), { parents, base: 'INR' });
+		const [assets, bank] = viewHoldings(held(rows), parents);
 
 		expect(assets?.holdings).toEqual([]);
 		expect(assets?.total).toBe(parseAmount('500'));
@@ -189,7 +163,7 @@ describe('viewing what accounts held', () => {
 			{
 				commodity: 'INR',
 				hasLots: false,
-				units: null,
+				units: { amount: '500.00', commodity: 'INR' },
 				cost: null,
 				price: null,
 				value: '500.00',
@@ -213,7 +187,7 @@ describe('viewing what accounts held', () => {
 				cost: '9000.00',
 			},
 		];
-		const [assets] = viewHoldings(held(rows), { parents: { Assets: null }, base: 'INR' });
+		const [assets] = viewHoldings(held(rows), { Assets: null });
 
 		expect(assets).toMatchObject({
 			cost: parseAmount('10900'),
@@ -230,7 +204,7 @@ describe('viewing what accounts held', () => {
 			price: undefined,
 			value: '0.00',
 		};
-		const [broker] = viewHoldings(held([lost]), { parents, base: 'INR' });
+		const [broker] = viewHoldings(held([lost]), parents);
 
 		expect(broker?.holdings[0]).toMatchObject({ value: null, gain: null });
 		expect(broker?.unpriced).toBe(1);
@@ -258,7 +232,7 @@ describe('viewing a lot', () => {
 	};
 
 	it('flattens the lot and each disposal from it for the page', () => {
-		expect(viewLot(lot, 'INR')).toEqual({
+		expect(viewLot(lot)).toEqual({
 			file: 'bank.rupea',
 			line: 12,
 			date: '2026-08-29',
@@ -266,7 +240,7 @@ describe('viewing a lot', () => {
 			from: null,
 			units: '10.00',
 			remaining: '7.00',
-			cost: '1700.00',
+			cost: { amount: '1700.00', commodity: 'INR' },
 			disposals: [
 				{
 					file: 'bank.rupea',
@@ -274,8 +248,8 @@ describe('viewing a lot', () => {
 					date: '2026-09-01',
 					kind: 'sale' as const,
 					units: '3.00',
-					price: '1800.00',
-					gain: '300.00',
+					price: { amount: '1800.00', commodity: 'INR' },
+					gain: { amount: '300.00', commodity: 'INR' },
 				},
 			],
 		});
@@ -283,14 +257,9 @@ describe('viewing a lot', () => {
 
 	it('leaves a disposal without a price or gain when it had none', () => {
 		const gift = { ...sale, kind: 'gift' as const, price: null, gain: null };
-		expect(viewLot({ ...lot, disposals: [gift] }, 'INR').disposals).toMatchObject([
+		expect(viewLot({ ...lot, disposals: [gift] }).disposals).toMatchObject([
 			{ kind: 'gift', price: null, gain: null },
 		]);
-	});
-
-	it('prints a price in another commodity beside it', () => {
-		const dollars = { ...sale, price: { amount: '20.00', commodity: 'USD' } };
-		expect(viewLot({ ...lot, disposals: [dollars] }, 'INR').disposals[0]?.price).toBe('20.00 USD');
 	});
 });
 
@@ -434,8 +403,8 @@ describe('viewing worth', () => {
 			rows: [...together('2026-09-01', '500.00'), ...together('2026-09-02', '510.00')],
 		};
 
-		expect(worthFrom(whole, { tree, account: null, base: 'INR' })).toEqual(
-			worthFrom(apart, { tree, account: null, base: 'INR' }),
+		expect(worthFrom(whole, { tree, account: null })).toEqual(
+			worthFrom(apart, { tree, account: null }),
 		);
 	});
 });

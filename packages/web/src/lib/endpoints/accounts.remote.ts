@@ -5,7 +5,7 @@ import { ASSETS, BalanceAccount, FlowAccount } from '@rupea/shared/money.ts';
 import { BudgetForm, TermsForm } from '@rupea/shared/forms.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
-import { api, findBase } from './api';
+import { api } from './api';
 import { listProblems } from './ledger.remote';
 import { parentsIn } from '@rupea/shared/account-tree.ts';
 import { Handle } from '@rupea/shared/text.ts';
@@ -56,11 +56,8 @@ export const listHoldings = query(
 					measures: ['value', 'units', 'price', 'cost'],
 				}),
 				api().accounts.list({ handle }),
-				findBase(handle),
-			]).then(([b, accounts, base]) => ({
-				succeeded: b.succeeded.flatMap((d) =>
-					viewHoldings(d, { parents: parentsIn(accounts), base }),
-				),
+			]).then(([b, accounts]) => ({
+				succeeded: b.succeeded.flatMap((d) => viewHoldings(d, parentsIn(accounts))),
 				failed: b.failed,
 			})),
 		);
@@ -83,9 +80,8 @@ export const listWorth = query(
 					measures: account === null ? ['value'] : ['value', 'units'],
 				}),
 				api().accounts.list({ handle }),
-				findBase(handle),
-			]).then(([b, accounts, base]) => ({
-				succeeded: b.succeeded.flatMap((d) => worthFrom(d, { tree: accounts, account, base })),
+			]).then(([b, accounts]) => ({
+				succeeded: b.succeeded.flatMap((d) => worthFrom(d, { tree: accounts, account })),
 				failed: b.failed,
 			})),
 		);
@@ -220,9 +216,9 @@ export const listLots = query(
 	v.object({ handle: Handle, account: v.string(), commodity: v.string() }),
 	({ handle, account, commodity }) =>
 		replyFromBatchCall(
-			Promise.all([api().accounts.listLots({ handle, account, commodity }), findBase(handle)]).then(
-				([b, base]) => ({ ...b, succeeded: b.succeeded.map((l) => viewLot(l, base)) }),
-			),
+			api()
+				.accounts.listLots({ handle, account, commodity })
+				.then((b) => ({ ...b, succeeded: b.succeeded.map(viewLot) })),
 		),
 );
 

@@ -97,11 +97,9 @@ const indexFile = ({ ledgerId, file, full, base }: IndexFileOptions): ResultAsyn
 	withContext('config')((config) =>
 		DB.findHeld(ledgerId, file.key).andThen((held) => {
 			const inLedger = isCounted(file.key);
-			const parsed = parseChanged(
-				{ ...config.ledger, base },
-				file,
-				inLedger && !full ? held.hashCounts : {},
-			);
+			const reading = { ...config.ledger, base };
+			const known = inLedger && !full ? held.hashCounts : {};
+			const parsed = parseChanged({ reading, file, known });
 			const found = inLedger
 				? parsed
 				: {

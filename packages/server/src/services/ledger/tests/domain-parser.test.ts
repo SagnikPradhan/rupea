@@ -985,7 +985,7 @@ describe('parseChanged', () => {
 	const config = READING;
 
 	const read = (content: string, held: Record<string, number> = {}, c = config) =>
-		parseChanged(c, { key: file, content }, held);
+		parseChanged({ reading: c, file: { key: file, content }, known: held });
 	const hashOf = (content: string, c = config) => read(content, {}, c).lineHashes[1] ?? '';
 
 	it('reads everything when nothing is held, and hashes each transaction by its line', () => {

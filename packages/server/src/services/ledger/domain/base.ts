@@ -1,5 +1,6 @@
 import type { LedgerReading } from '#lib/server/shared/context/config.ts';
 import { fault } from '@rupea/shared/errors.ts';
+import { byCodeUnit } from '@rupea/shared/text.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
 import { toMetadata } from './nodes';
 import { baseOf, parseTree } from './parser';
@@ -32,5 +33,5 @@ export const currenciesFrom = (pairs: [string, string][], base: string): string[
 			if (b === c && !reached.includes(a)) reached.push(a);
 		}
 
-	return reached.toSorted();
+	return reached.toSorted(byCodeUnit);
 };

@@ -127,14 +127,16 @@ export const printQuantity = (
 ): string => (commodity === b ? amount : `${amount} ${commodity}`);
 
 /** A posting's amount with its lot cost and price, as the page shows it. */
-export const printPosted = ({ price, cost, ...quantity }: PostedOut, base: string): string =>
-	[
-		printQuantity(quantity, base),
-		...(cost
-			? [`{${[printQuantity(cost, base), ...(cost.date ? [cost.date] : [])].join(', ')}}`]
-			: []),
-		...(price ? [SIGN[price.kind], printQuantity(price, base)] : []),
+export const printPosted = ({ price, cost, ...quantity }: PostedOut, base: string): string => {
+	const print = (q: v.InferOutput<typeof QuantityOut>) => printQuantity(q, base);
+	const lot = cost && [print(cost), ...(cost.date ? [cost.date] : [])].join(', ');
+
+	return [
+		print(quantity),
+		...(lot ? [`{${lot}}`] : []),
+		...(price ? [SIGN[price.kind], print(price)] : []),
 	].join(' ');
+};
 
 export const EXPENSES = 'Expenses';
 export const ASSETS = 'Assets';

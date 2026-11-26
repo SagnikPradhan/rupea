@@ -69,13 +69,19 @@ export type UnchangedEntry = { hash: string; line: number };
  * As parse, leaving out each transaction whose lines hash to one held, so only
  * what changed is read.
  */
-export const parseChanged = (
-	c: LedgerReading,
-	f: Pick<RupeaFile, 'key' | 'content'>,
-	hashCounts: Record<string, number>,
-) => {
-	const formats = JSON.stringify([c.dateFormats, c.timeFormats, c.base]);
-	const left = { ...hashCounts };
+type ParseChangedOptions = {
+	reading: LedgerReading;
+	file: Pick<RupeaFile, 'key' | 'content'>;
+	/**
+	 * How many times each entry hash the file held before, which are read no
+	 * more.
+	 */
+	known: Record<string, number>;
+};
+
+export const parseChanged = ({ reading, file, known }: ParseChangedOptions) => {
+	const formats = JSON.stringify([reading.dateFormats, reading.timeFormats, reading.base]);
+	const left = { ...known };
 	const unchanged: UnchangedEntry[] = [];
 	const lineHashes: Record<number, string> = {};
 
@@ -90,7 +96,7 @@ export const parseChanged = (
 		return true;
 	};
 
-	return { ...parsedFrom(readTree(c, f, isUnchanged)), unchanged, lineHashes };
+	return { ...parsedFrom(readTree(reading, file, isUnchanged)), unchanged, lineHashes };
 };
 
 /** Formats and the base go in the hash, as they decide what the same lines mean. */

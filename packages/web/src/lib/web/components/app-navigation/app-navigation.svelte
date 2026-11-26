@@ -266,7 +266,7 @@
 		display: flex;
 		align-items: center;
 		gap: var(--size-1);
-		margin-top: var(--size-2);
+		margin-top: var(--size-1);
 		margin-bottom: var(--size-0);
 		font: var(--text-base);
 		color: var(--color-ink);
@@ -283,8 +283,8 @@
 
 	.preview ul {
 		flex-direction: column;
-		gap: var(--size-1);
-		margin-top: var(--size-2);
+		gap: var(--size-0);
+		margin-top: var(--size-1);
 	}
 
 	.preview a {

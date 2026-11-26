@@ -30,7 +30,7 @@
 			note={owing}
 		/>
 	{:else}
-		<p>Nothing to divide.</p>
+		<p>Nothing owned.</p>
 	{/if}
 	{@render children?.()}
 </Panel>

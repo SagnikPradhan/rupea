@@ -25,7 +25,7 @@
 		formatWhole,
 		toneOf,
 	} from '#lib/web/shared/format.ts';
-	import { groupsOf, owedOf } from '#lib/web/shared/home.ts';
+	import { owedOf } from '#lib/web/shared/home.ts';
 	import * as Liabilities from '#lib/web/shared/liabilities.ts';
 	import { ringsOf } from '#lib/web/shared/rings.ts';
 	import AccountsTable from '#lib/web/components/app-accounts-table/app-accounts-table.svelte';
@@ -103,8 +103,6 @@
 	const worth = $derived(worthy.data ?? []);
 	const latest = $derived(worth.at(-1));
 	const totals = $derived(totalsOf(groupsInvested(invested)));
-	const ownedGroups = $derived(groupsOf(accounts, ASSETS));
-	const owedGroups = $derived(groupsOf(accounts, LIABILITIES));
 	const sheetOn = $derived(`on ${formatDayMonth(day)}, the inner ring the groups`);
 
 	const moved = $derived(flowed.data?.[0]);
@@ -201,8 +199,8 @@
 <PanelGrid>
 	<AssetsRings rings={heldRings} account={picked} subtitle={sheetOn}>
 		<Statement head="Assets">
-			{#each ownedGroups as group (group.name)}
-				<StatementRow name={group.name} values={[group.total]} />
+			{#each heldRings.arcs.filter((a) => a.own) as part (part.key)}
+				<StatementRow name={part.label} values={[String(part.value)]} />
 			{/each}
 			<StatementRow total name="Total owned" values={[latest?.assets ?? '0']} />
 		</Statement>
@@ -213,15 +211,14 @@
 				arcs={owedRings.arcs}
 				levels={owedRings.levels}
 				label="How what is owed divides across its accounts"
-				amounts
 				note={credit}
 			/>
 		{:else}
 			<p>Nothing owed.</p>
 		{/if}
 		<Statement head="Liabilities">
-			{#each owedGroups as group (group.name)}
-				<StatementRow name={group.name} values={[group.total]} />
+			{#each owedRings.arcs.filter((a) => a.own) as part (part.key)}
+				<StatementRow name={part.label} values={[String(part.value)]} />
 			{/each}
 			<StatementRow total name="Total owed" values={[owedOf(latest?.liabilities ?? '0')]} />
 			<StatementRow total name="Net worth" values={[latest?.worth ?? '0']} />

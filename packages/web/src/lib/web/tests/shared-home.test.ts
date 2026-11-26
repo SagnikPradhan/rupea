@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import {
-	groupsOf,
 	lastMonthOf,
 	owedOf,
 	savedOf,
@@ -32,38 +31,8 @@ describe('the days the home page reads', () => {
 	});
 });
 
-describe('the balance sheet', () => {
-	const accounts = [
-		{ account: 'Assets', total: amount('300') },
-		{ account: 'Assets:Bank', total: amount('100') },
-		{ account: 'Assets:Bank:HDFC', total: amount('100') },
-		{ account: 'Assets:Gold', total: amount('200') },
-		{ account: 'Liabilities', total: amount('-90') },
-		{ account: 'Liabilities:Home loan', total: amount('-90') },
-	];
-
-	it('lists the groups under a top account, the largest first', () => {
-		expect(groupsOf(accounts, 'Assets')).toEqual([
-			{ name: 'Gold', total: '200.00' },
-			{ name: 'Bank', total: '100.00' },
-		]);
-	});
-
-	it('adds up a group that is listed only through its accounts', () => {
-		const owed = [
-			{ account: 'Liabilities', total: amount('-150') },
-			{ account: 'Liabilities:Loans:Home', total: amount('-100') },
-			{ account: 'Liabilities:Loans:Car', total: amount('-20') },
-			{ account: 'Liabilities:Cards:Axis', total: amount('-30') },
-		];
-		expect(groupsOf(owed, 'Liabilities')).toEqual([
-			{ name: 'Loans', total: '120.00' },
-			{ name: 'Cards', total: '30.00' },
-		]);
-	});
-
+describe('what is owed', () => {
 	it('shows what is owed as a size', () => {
-		expect(groupsOf(accounts, 'Liabilities')).toEqual([{ name: 'Home loan', total: '90.00' }]);
 		expect(owedOf('-3543489')).toBe('3543489');
 	});
 });

@@ -252,7 +252,7 @@ describe('what you own on the net worth page', () => {
 		vi.mocked(listHoldings).mockReturnValue(answer([]));
 		render(Page, { data });
 
-		expect(await screen.findByText('Nothing to divide.')).toBeTruthy();
+		expect(await screen.findByText('Nothing owned.')).toBeTruthy();
 	});
 
 	it('leads with net worth, then lists what is owned and owed under their rings', async () => {

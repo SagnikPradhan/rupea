@@ -76,6 +76,6 @@ describe('the assets rings', () => {
 			subtitle: '',
 		});
 
-		expect(screen.getByText('Nothing to divide.')).toBeTruthy();
+		expect(screen.getByText('Nothing owned.')).toBeTruthy();
 	});
 });

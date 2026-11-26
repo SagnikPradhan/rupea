@@ -1,5 +1,5 @@
 import { type Amount, ZERO, byAmount, printAmount, sum } from '@rupea/shared/money.ts';
-import { depthOf, isUnder, nameOf } from './accounts';
+import { nameOf } from './accounts';
 import type { Period } from '@rupea/shared/dates.ts';
 import { formatChange } from './format';
 import type { Spent } from './spending';
@@ -45,28 +45,6 @@ export const spanOf = (k: string, d: string): Period =>
 export const lastMonthOf = (day: string) => {
 	const month = Number(day.slice(5, 7)) - 1;
 	return new Date(Date.UTC(Number(day.slice(0, 4)), month - 1, 1)).toISOString().slice(0, 7);
-};
-
-/**
- * The groups directly under a top account, each the sum of the accounts under
- * it, the largest first; what is owed counts as a size, not a sign. A group may
- * be missing from the list when only its accounts are.
- */
-export const groupsOf = (accounts: { account: string; total: Amount }[], top: string) => {
-	const under = accounts.filter((a) => depthOf(a.account) >= 1 && isUnder(a.account, top));
-	const leaves = under.filter((a) => !under.some((b) => b !== a && isUnder(b.account, a.account)));
-	const totals: Record<string, Amount> = {};
-	for (const leaf of leaves) {
-		const group = leaf.account.split(':').slice(0, 2).join(':');
-		totals[group] = sum([
-			totals[group] ?? ZERO,
-			leaf.total < 0n ? (-leaf.total as Amount) : leaf.total,
-		]);
-	}
-
-	return Object.entries(totals)
-		.toSorted(([, x], [, y]) => byAmount(y, x))
-		.map(([group, size]) => ({ name: nameOf(group), total: printAmount(size) }));
 };
 
 /** An amount of what is owed as a size, without the sign of a liability. */

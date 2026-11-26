@@ -200,6 +200,7 @@
 		title="Where the money came from"
 		subtitle="Which accounts brought in the most?"
 		label="Earned"
+		mirrored
 		spending={income}
 		account={INCOME}
 		parts={sources}

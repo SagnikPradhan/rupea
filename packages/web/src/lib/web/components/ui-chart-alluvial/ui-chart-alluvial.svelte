@@ -26,13 +26,15 @@
 		/** The bars, column by column, each in the order it stacks. */
 		flows: Flow[];
 		label: string;
+		/** Flows right to left, so the parts lead into the whole. */
+		mirrored?: boolean;
 		/** Drawn above the plot, as nothing is singled out by the cursor. */
 		summary?: Snippet<[number | null]>;
 		/** Drawn below the plot, such as a choice of chart. */
 		controls?: Snippet;
 	};
 
-	const { flows, label, summary, controls }: Props = $props();
+	const { flows, label, mirrored = false, summary, controls }: Props = $props();
 
 	/**
 	 * How wide a bar is, and the space between two in a column, as a percent of
@@ -94,8 +96,8 @@
 	 */
 	const boxOf = (node: SankeyNode<Flow, object>): Box => ({
 		flow: node,
-		x0: node.x0 as number,
-		x1: node.x1 as number,
+		x0: mirrored ? VIEW - (node.x1 as number) : (node.x0 as number),
+		x1: mirrored ? VIEW - (node.x0 as number) : (node.x1 as number),
 		y0: node.y0 as number,
 		y1: node.y1 as number,
 	});
@@ -105,8 +107,10 @@
 	 * stretched, as a stroke as wide as the band would not.
 	 */
 	const bandOf = (link: SankeyLink<Flow, object>) => {
-		const from = boxOf(link.source as SankeyNode<Flow, object>).x1;
-		const to = boxOf(link.target as SankeyNode<Flow, object>).x0;
+		const source = boxOf(link.source as SankeyNode<Flow, object>);
+		const target = boxOf(link.target as SankeyNode<Flow, object>);
+		const from = mirrored ? source.x0 : source.x1;
+		const to = mirrored ? target.x1 : target.x0;
 		const half = (link.width as number) / 2;
 		const [top, bottom] = [link.y0 as number, link.y1 as number];
 		const middle = (from + to) / 2;
@@ -148,12 +152,12 @@
 		</svg>
 		{#each boxes as box, i (i)}
 			{@const height = box.y1 - box.y0}
-			{@const last = box.x1 >= VIEW}
+			{@const before = mirrored ? box.x0 > 0 : box.x1 >= VIEW}
 			{#if box.flow.column > 0 && height >= NAMED}
 				<span
 					class="name"
-					class:last
-					style:left="{last ? box.x0 : box.x1}%"
+					class:before
+					style:left="{before ? box.x0 : box.x1}%"
 					style:top="{box.y0 + height / 2}%"
 				>
 					{box.flow.label}
@@ -219,7 +223,7 @@
 		transform: translateY(-50%);
 	}
 
-	.name.last {
+	.name.before {
 		transform: translate(-100%, -50%);
 	}
 

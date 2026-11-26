@@ -37,6 +37,15 @@ const barsIn = (plot: HTMLElement) =>
 	}));
 
 describe('the alluvial chart', () => {
+	it('mirrors the columns, the whole on the right, with the names inside', () => {
+		render(AlluvialChart, { flows: FLOWS, label: 'Flows', mirrored: true });
+		const [expenses, food, , groceries] = barsIn(screen.getByRole('img', { name: 'Flows' }));
+
+		expect([expenses, food, groceries].map((b) => b?.x)).toEqual([99, 49.5, 0]);
+		expect(screen.getByText('Groceries').classList).not.toContain('before');
+		expect(screen.getByText('Food').classList).toContain('before');
+	});
+
 	it('stands each column of bars at one scale, the first and last at the edges', () => {
 		const [expenses, food, rent, groceries] = barsIn(drawn());
 
@@ -58,7 +67,7 @@ describe('the alluvial chart', () => {
 		render(AlluvialChart, { flows: FLOWS.slice(0, 3), label: 'Flows' });
 		const names = [...screen.getByRole('img', { name: 'Flows' }).querySelectorAll('.name')];
 
-		expect(names.map((n) => n.classList.contains('last'))).toEqual([true, true]);
+		expect(names.map((n) => n.classList.contains('before'))).toEqual([true, true]);
 	});
 
 	it('names the bar under the cursor in a tip, fading the other parts, until it leaves', async () => {

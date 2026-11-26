@@ -9,9 +9,10 @@
 		account: string;
 		parts: string[];
 		colours: Record<string, number>;
+		mirrored?: boolean;
 	};
 
-	const { spending, account, parts, colours }: Props = $props();
+	const { spending, account, parts, colours, mirrored = false }: Props = $props();
 
 	const rows = $derived(Spending.rowsOf(spending, account));
 	const flows = $derived(flowsOf({ rows, account, parts, colours }));
@@ -20,6 +21,7 @@
 {#if rows.length > 1}
 	<AlluvialChart
 		{flows}
+		{mirrored}
 		label="How {nameOf(account)} divides into the accounts under it, two levels deep"
 	/>
 {:else}

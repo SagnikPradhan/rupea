@@ -9,6 +9,8 @@
 		title: string;
 		subtitle: string;
 		label: string;
+		/** Draws the flow right to left, as income flows into its whole. */
+		mirrored?: boolean;
 		spending: Spending.Spent | undefined;
 		account: string;
 		parts: string[];
@@ -30,6 +32,7 @@
 			account={props.account}
 			parts={props.parts}
 			colours={props.colours}
+			mirrored={props.mirrored}
 		/>
 		<SpendingAccounts {...props} />
 	</div>

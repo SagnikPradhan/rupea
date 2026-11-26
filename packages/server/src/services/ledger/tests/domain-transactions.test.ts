@@ -1,4 +1,4 @@
-import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
+import { READING } from '@rupea/server/tests/shared/reading.ts';
 import { TransactionForm } from '@rupea/shared/forms.ts';
 import { find, insert, remove, replace } from '#services/ledger/domain/transactions.ts';
 import { parse } from '#services/ledger/domain/parser.ts';
@@ -32,10 +32,10 @@ const january = '2026-01-01 Salary\n\tAssets:Bank    50000.00\n\tIncome:Salary\n
 const december = '2026-12-01 Rent\n\tExpenses:Rent  100.00\n\tAssets:Bank\n';
 
 const inserted = (content: string, f: TransactionForm = form) =>
-	insert(defaultConfiguration.ledger, { file: { key: 'a.rupea', content }, form: f });
+	insert(READING, { file: { key: 'a.rupea', content }, form: f });
 
 const two = `${january}\n${december}`;
-const config = defaultConfiguration.ledger;
+const config = READING;
 const at = (line: number, content = two) => ({ file: { key: 'a.rupea', content }, line });
 
 describe('finding a transaction', () => {
@@ -135,11 +135,9 @@ describe('inserting a transaction', () => {
 		const { content, line } = inserted(`${january}\n${december}`)._unsafeUnwrap();
 
 		expect(line).toBe(5);
-		expect(
-			parse(defaultConfiguration.ledger, { key: 'a.rupea', content }).succeeded.map(
-				(t) => t.description,
-			),
-		).toEqual(['Salary', 'Groceries', 'Rent']);
+		expect(parse(READING, { key: 'a.rupea', content }).succeeded.map((t) => t.description)).toEqual(
+			['Salary', 'Groceries', 'Rent'],
+		);
 	});
 
 	it('goes after a transaction of the same day, and at the end when none is later', () => {

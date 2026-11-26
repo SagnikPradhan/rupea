@@ -134,6 +134,13 @@
       "when": 1795072732035,
       "tag": "0018_budget_lines",
       "breakpoints": true
+    },
+    {
+      "idx": 19,
+      "version": "7",
+      "when": 1795694937800,
+      "tag": "0019_ledger_base",
+      "breakpoints": true
     }
   ]
 }

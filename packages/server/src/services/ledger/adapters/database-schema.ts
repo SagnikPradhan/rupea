@@ -39,6 +39,7 @@ export const ledgers = PG.pgTable(
 			.references(() => users.id, { onDelete: 'cascade' }),
 		handle: t.text().notNull().unique('ledgers_handle_unique'),
 		name: t.text().notNull(),
+		base: t.text().notNull().default('INR'), // the currency a bare amount is in, copied from main.rupea
 		checkedThrough: t.date(), // the last day monthly deltas were rebuilt to, or none to start again
 	}),
 	(t) => [PG.index('ledgers_owner_id').on(t.ownerId)],

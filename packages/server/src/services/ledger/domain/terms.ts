@@ -1,4 +1,4 @@
-import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
+import type { LedgerReading } from '#lib/server/shared/context/config.ts';
 import { fault } from '@rupea/shared/errors.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
 import { Terms } from '@rupea/shared/forms.ts';
@@ -62,7 +62,7 @@ const firstValues = (g: TermsLine[]) =>
  * one and at the end when not, only if the file then reads back as meant.
  */
 export const setTerms = (
-	c: LedgerConfiguration,
+	c: LedgerReading,
 	{ file, account, terms }: SetTermsOptions,
 ): Result<string> => {
 	const tree = parseTree(c, file);

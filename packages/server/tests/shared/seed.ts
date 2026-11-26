@@ -21,7 +21,7 @@ export const createLedger = async (db: Database): Promise<Ledger> => {
 		.insertInto('ledgers')
 		.values({ id, ownerId: userId, handle: id, name: 'Test' })
 		.execute();
-	return { id, handle: id, name: 'Test', owner: userId };
+	return { id, handle: id, name: 'Test', owner: userId, base: 'INR' };
 };
 
 /** The ledger's owner, as a signed-in request carries them. */

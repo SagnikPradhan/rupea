@@ -11,7 +11,7 @@ import type { Row } from '../domain/deltas';
 import { idsIn } from '../domain/tree';
 import type { Ledger } from '../domain/types';
 import * as Deltas from './deltas';
-import { MAIN, openFolder } from './ledger';
+import { MAIN, openFolder, readingOf } from './ledger';
 import { reindex } from './sync';
 
 const SPANS_AT_ONCE = 4;
@@ -137,7 +137,11 @@ const writeBudget = (ledger: Ledger, { key, account, keys }: WriteBudgetOptions)
 	openFolder({ ledger, folder: 'files' }).andThen((s) =>
 		findText(s, key).andThen((f) =>
 			withContext('config')((c) =>
-				setBudget(c.ledger, { file: { key, content: f?.content ?? '' }, account, keys }),
+				setBudget(readingOf(c, ledger), {
+					file: { key, content: f?.content ?? '' },
+					account,
+					keys,
+				}),
 			).asyncAndThen((t) =>
 				writeText(s, { key, content: t, ifVersion: f?.version ?? null })
 					.andTee((w) => reindex({ ledgerId: ledger.id, storage: s, changed: [w.key] }))

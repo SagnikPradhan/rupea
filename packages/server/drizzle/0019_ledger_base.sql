@@ -1,0 +1,1 @@
+ALTER TABLE "ledgers" ADD COLUMN "base" text DEFAULT 'INR' NOT NULL;

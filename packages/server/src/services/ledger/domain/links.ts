@@ -1,4 +1,4 @@
-import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
+import type { LedgerReading } from '#lib/server/shared/context/config.ts';
 import { UNSETTLED } from '@rupea/shared/account-tree.ts';
 import { fault } from '@rupea/shared/errors.ts';
 import { err, ok, type Result } from '#lib/server/shared/result/result.ts';
@@ -23,7 +23,7 @@ export type LinkEdit = {
  * names an account puts it where the transaction still says Unknown.
  */
 export const insertLinks = (
-	config: LedgerConfiguration,
+	config: LedgerReading,
 	file: Pick<RupeaFile, 'key' | 'content'>,
 	edits: LinkEdit[],
 ): Result<string> => {
@@ -84,7 +84,7 @@ export type Relink = (t: RupeaTransaction, l: GroupLink) => GroupLink;
 // Rewrites, in place, each link a transaction in the file has to the group;
 // formatting, comments and other metadata stay as they were.
 export const rewriteLinks = (
-	config: LedgerConfiguration,
+	config: LedgerReading,
 	file: Pick<RupeaFile, 'key' | 'content'>,
 	group: string,
 	relink: Relink,

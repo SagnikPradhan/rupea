@@ -2,6 +2,7 @@ import { sha256 } from '#lib/server/shared/hash.ts';
 import { UNSETTLED } from '@rupea/shared/account-tree.ts';
 import { byCodeUnit } from '@rupea/shared/text.ts';
 import {
+	DEFAULT_COMMODITY,
 	GroupRole,
 	type LinkEdit,
 	type RupeaTransaction,
@@ -191,7 +192,9 @@ const identity = (t: RupeaTransaction) =>
 		`${t.location.file}:${t.location.line}`,
 		t.date.toString(),
 		t.description,
-		...t.postings.map((p) => `${p.account} ${formatQuantity(p)}`).toSorted(byCodeUnit),
+		...t.postings
+			.map((p) => `${p.account} ${formatQuantity(p, DEFAULT_COMMODITY)}`)
+			.toSorted(byCodeUnit),
 	].join('|');
 
 const normalise = (d: string) => d.toLowerCase().replace(/\s+/g, ' ').trim();

@@ -1,4 +1,4 @@
-import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
+import type { LedgerReading } from '#lib/server/shared/context/config.ts';
 import { parseDate } from '#lib/server/shared/dates.ts';
 import { periodOf } from '#lib/server/shared/periods.ts';
 import { fault } from '@rupea/shared/errors.ts';
@@ -222,7 +222,7 @@ const startIn = (t: string, f: string[]) =>
  * one and at the end when not, only if the file then reads back as meant.
  */
 export const setBudget = (
-	c: LedgerConfiguration,
+	c: LedgerReading,
 	{ file, account, keys }: SetBudgetOptions,
 ): Result<string> => {
 	const tree = parseTree(c, file);

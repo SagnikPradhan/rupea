@@ -52,6 +52,7 @@ export const STATUS: Record<RupeaError['type'], 401 | 404 | 409 | 422 | 500 | 50
 	ParseDetachedMetadata: 422,
 	ParseInvalidPrice: 422,
 	ParseUnknownFeed: 422,
+	ParseInvalidBase: 422,
 	ParseInvalidAccountLine: 422,
 	ParseInvalidBudgetLine: 422,
 	ParseInvalidBudget: 422,

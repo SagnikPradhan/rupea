@@ -4,7 +4,7 @@ import { inOrder, ok, okAsync, type ResultAsync } from '#lib/server/shared/resul
 import { enqueue } from '#services/jobs/application/jobs.ts';
 import * as DB from '../adapters/database';
 import { embedTexts, MODEL } from '../adapters/prediction-model2vec';
-import { formatQuantity } from '../domain/amounts';
+import { printQuantity } from '../domain/amounts';
 import { checkGroups } from '../domain/groups';
 import { displayLocation } from '../domain/parser';
 import { filled, wordsOf, type Unembedded } from '../domain/text';
@@ -101,6 +101,6 @@ const toBalanceError = (c: DB.BalanceCheck): RupeaError =>
 		: fault('BalanceAssertionFailed', {
 				location: displayLocation(c.location),
 				account: c.account,
-				expected: formatQuantity({ amount: c.expected, commodity: c.commodity }),
-				actual: formatQuantity({ amount: c.actual, commodity: c.commodity }),
+				expected: printQuantity({ amount: c.expected, commodity: c.commodity }),
+				actual: printQuantity({ amount: c.actual, commodity: c.commodity }),
 			});

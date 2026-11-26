@@ -36,5 +36,13 @@ export const postedOf = ({
 	cost,
 });
 
-export const formatQuantity = ({ amount, commodity }: Quantity): string =>
-	commodity === DEFAULT_COMMODITY ? printAmount(amount) : `${printAmount(amount)} ${commodity}`;
+/**
+ * With its commodity always written, for a message that has no base to leave
+ * out.
+ */
+export const printQuantity = ({ amount, commodity }: Quantity): string =>
+	`${printAmount(amount)} ${commodity}`;
+
+/** As written in a file, the base left out. */
+export const formatQuantity = ({ amount, commodity }: Quantity, b: string): string =>
+	commodity === b ? printAmount(amount) : `${printAmount(amount)} ${commodity}`;

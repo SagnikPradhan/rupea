@@ -38,6 +38,7 @@ const Plain = v.variant('type', [
 	v.object({ type: v.literal('ParseDetachedMetadata'), location: str }),
 	v.object({ type: v.literal('ParseInvalidPrice'), location: str }),
 	v.object({ type: v.literal('ParseUnknownFeed'), location: str, feed: str }),
+	v.object({ type: v.literal('ParseInvalidBase'), location: str, base: str }),
 	v.object({ type: v.literal('ParseInvalidAccountLine'), location: str }),
 	v.object({ type: v.literal('ParseInvalidBudgetLine'), location: str }),
 	v.object({ type: v.literal('ParseInvalidBudget'), location: str, key: str }),

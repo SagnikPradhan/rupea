@@ -32,6 +32,10 @@ export const explain = (error: RupeaError): string =>
 		)
 		.with({ type: 'ParseUnknownFeed' }, (e) => `“${e.feed}” isn’t a feed. Link to mfapi or yahoo.`)
 		.with(
+			{ type: 'ParseInvalidBase' },
+			(e) => `“${e.base}” isn’t a currency code. Write one like INR or USD.`,
+		)
+		.with(
 			{ type: 'ParseInvalidAccountLine' },
 			() => 'This A line should give a date or *, then an account.',
 		)

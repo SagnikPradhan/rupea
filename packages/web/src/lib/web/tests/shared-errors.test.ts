@@ -63,6 +63,10 @@ describe('explain', () => {
 			'“google” isn’t a feed. Link to mfapi or yahoo.',
 		],
 		[
+			fault('ParseInvalidBase', { location: at, base: 'dollars' }),
+			'“dollars” isn’t a currency code. Write one like INR or USD.',
+		],
+		[
 			fault('ParseInvalidAccountLine', { location: at }),
 			'This A line should give a date or *, then an account.',
 		],

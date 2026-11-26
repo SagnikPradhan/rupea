@@ -1,4 +1,4 @@
-import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
+import { READING } from '@rupea/server/tests/shared/reading.ts';
 import { describe, expect, it } from 'vitest';
 import { GroupRole } from '#services/ledger/domain/groups.ts';
 import { insertLinks, rewriteLinks, type LinkEdit } from '#services/ledger/domain/links.ts';
@@ -28,7 +28,7 @@ const edit = (line: number, description: string, date: string, role: GroupRole):
 });
 
 const insert = (e: LinkEdit[], text = content) =>
-	insertLinks(defaultConfiguration.ledger, { key: 'a.rupea', content: text }, e);
+	insertLinks(READING, { key: 'a.rupea', content: text }, e);
 
 describe('inserting links', () => {
 	it('puts each link under its header and leaves the rest alone', () => {
@@ -125,15 +125,10 @@ describe('rewriting links', () => {
 	].join('\n');
 
 	const rewrite = (text: string) =>
-		rewriteLinks(
-			defaultConfiguration.ledger,
-			{ key: 'a.rupea', content: text },
-			'tea-otter',
-			() => ({
-				group: 'tea-cat',
-				role: GroupRole.Primary,
-			}),
-		);
+		rewriteLinks(READING, { key: 'a.rupea', content: text }, 'tea-otter', () => ({
+			group: 'tea-cat',
+			role: GroupRole.Primary,
+		}));
 
 	it('changes only the link to the group, keeping its indentation', () => {
 		expect(rewrite(linked)._unsafeUnwrap()).toBe(

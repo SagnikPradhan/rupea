@@ -1,4 +1,4 @@
-import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
+import type { LedgerReading } from '#lib/server/shared/context/config.ts';
 import { fault } from '@rupea/shared/errors.ts';
 import { err, ok } from '#lib/server/shared/result/result.ts';
 import { isBlank, isComment, isMetadata, isPosting, lines, parse, type RupeaLine } from './parser';
@@ -13,7 +13,7 @@ type MergeOptions = {
  * Writes a draft's transactions into a file by date, leaving out those it holds
  * already, and adds the draft's metadata to the file's.
  */
-export const merge = (c: LedgerConfiguration, { draft, file }: MergeOptions) => {
+export const merge = (c: LedgerReading, { draft, file }: MergeOptions) => {
 	const from = parse(c, draft);
 	const into = parse(c, file);
 	if (from.failed.length > 0 || from.prices.length > 0 || from.links.length > 0)

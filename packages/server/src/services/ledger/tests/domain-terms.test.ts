@@ -1,9 +1,9 @@
-import { defaultConfiguration } from '#lib/server/shared/context/config.ts';
+import { READING } from '@rupea/server/tests/shared/reading.ts';
 import { fault } from '@rupea/shared/errors.ts';
 import { setTerms, termsOn } from '#services/ledger/domain/terms.ts';
 import { describe, expect, it } from 'vitest';
 
-const c = defaultConfiguration.ledger;
+const c = READING;
 const set = (content: string, terms: [string, string][], account = 'Liabilities:Card') =>
 	setTerms(c, { file: { key: 'main.rupea', content }, account, terms });
 

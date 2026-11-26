@@ -4,6 +4,7 @@ import { textEmbedding, textTokenizer } from '#lib/server/shared/onnx/models.ts'
 import { createModels } from '#lib/server/shared/onnx/runtime.ts';
 import { embedTexts } from '#services/ledger/adapters/prediction-model2vec.ts';
 import { parse } from '#services/ledger/domain/parser.ts';
+import { DEFAULT_COMMODITY } from '@rupea/shared/money.ts';
 import {
 	classify,
 	textsOf,
@@ -154,7 +155,9 @@ async function readStatements(directory: string): Promise<Statement[]> {
 	const files = await Promise.all(
 		paths.map(async (p) => ({ key: relative(directory, p), content: await readFile(p, 'utf8') })),
 	);
-	return files.flatMap((f) => statementOf(parse(config.ledger, f).succeeded));
+	return files.flatMap((f) =>
+		statementOf(parse({ ...config.ledger, base: DEFAULT_COMMODITY }, f).succeeded),
+	);
 }
 
 function statementOf(transactions: RupeaTransaction[]): Statement[] {

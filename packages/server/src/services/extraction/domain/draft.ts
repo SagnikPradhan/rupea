@@ -1,9 +1,8 @@
-import type { LedgerConfiguration } from '#lib/server/shared/context/config.ts';
+import type { LedgerReading } from '#lib/server/shared/context/config.ts';
 import type { RupeaError } from '@rupea/shared/errors.ts';
 import { IMPORTS } from '@rupea/shared/files.ts';
 import {
 	type Amount,
-	DEFAULT_COMMODITY,
 	type RupeaTransaction,
 	accountType,
 	print,
@@ -24,7 +23,7 @@ type Source = {
 };
 
 type DraftOptions = {
-	config: LedgerConfiguration;
+	config: LedgerReading;
 	statement: Source;
 	account: string;
 	// In any order; they are written in the statement's.
@@ -49,7 +48,7 @@ export const draft = (options: DraftOptions): Draft => ({
 			metadata: sourceMetadata(options.statement),
 			transactions: options.records
 				.toSorted((a, b) => a.location.line - b.location.line)
-				.map(toTransaction(options.account)),
+				.map(toTransaction({ account: options.account, base: options.config.base })),
 			prices: [],
 			links: [],
 			accounts: [],
@@ -60,7 +59,7 @@ export const draft = (options: DraftOptions): Draft => ({
 });
 
 type CopyOptions = {
-	config: LedgerConfiguration;
+	config: LedgerReading;
 	statement: Source;
 	text: string[];
 };
@@ -93,7 +92,7 @@ const sourceMetadata = (statement: Source) => ({
 });
 
 const toTransaction =
-	(account: string) =>
+	({ account, base }: { account: string; base: string }) =>
 	(record: CategorisedRupeaRecord): RupeaTransaction => ({
 		location: record.location,
 		date: record.date,
@@ -105,7 +104,7 @@ const toTransaction =
 			{
 				account,
 				amount: record.amount,
-				commodity: DEFAULT_COMMODITY,
+				commodity: base,
 				price: null,
 				cost: null,
 				balance: record.balance,
@@ -115,7 +114,7 @@ const toTransaction =
 			{
 				account: record.account,
 				amount: -record.amount as Amount,
-				commodity: DEFAULT_COMMODITY,
+				commodity: base,
 				price: null,
 				cost: null,
 				balance: null,

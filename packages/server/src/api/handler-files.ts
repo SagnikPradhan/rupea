@@ -25,14 +25,17 @@ const readFile = os.files.read
 const formatFile = os.files.format
 	.use(signedIn)
 	.handler(({ input: { handle, content } }) =>
-		inLedger({ handle, action: () => okAsync(Files.formatFile({ content })) }),
+		inLedger({ handle, action: (l) => okAsync(Files.formatFile({ ledger: l, content })) }),
 	);
 
 const parseFile = os.files.parse
 	.use(signedIn)
 	.handler(async ({ input: { handle, key, content } }) => {
 		const parsed = sanitiseBatch(
-			await inLedger({ handle, action: () => okAsync(Files.parseFile({ key, content })) }),
+			await inLedger({
+				handle,
+				action: (l) => okAsync(Files.parseFile({ ledger: l, key, content })),
+			}),
 		);
 
 		return { ...parsed, succeeded: parsed.succeeded.map(transactionOf) };

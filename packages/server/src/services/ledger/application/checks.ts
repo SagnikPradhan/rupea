@@ -1,7 +1,7 @@
 import { fault, type RupeaError } from '@rupea/shared/errors.ts';
 import type { ResultAsync } from '#lib/server/shared/result/result.ts';
 import * as DB from '../adapters/database';
-import { formatQuantity, type Amount } from '../domain/amounts';
+import { printQuantity, type Amount } from '../domain/amounts';
 import type { UnmatchedDisposal } from '../domain/lots';
 import { displayLocation } from '../domain/parser';
 import { DisposalKind, type Ledger } from '../domain/types';
@@ -24,5 +24,5 @@ const toLotError = (disposal: UnmatchedDisposal): RupeaError =>
 		: fault('LotNotOpen', {
 				location: displayLocation(disposal.location),
 				account: disposal.account,
-				units: formatQuantity({ amount: -disposal.units as Amount, commodity: disposal.commodity }),
+				units: printQuantity({ amount: -disposal.units as Amount, commodity: disposal.commodity }),
 			});

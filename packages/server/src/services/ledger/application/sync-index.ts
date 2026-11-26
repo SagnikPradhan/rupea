@@ -6,13 +6,17 @@ import { readText, type Entry, type Storage } from '#lib/server/shared/storage/s
 import type { Span } from '@rupea/shared/dates.ts';
 import { isCounted, STATEMENTS } from '@rupea/shared/files.ts';
 import * as DB from '../adapters/database';
-import { parseChanged } from '../domain/parser';
-import type { RupeaFile } from '../domain/types';
+import { DEFAULT_COMMODITY } from '../domain/amounts';
+import { baseOf, parseChanged } from '../domain/parser';
+import type { RupeaFile, RupeaMetadata } from '../domain/types';
+import { MAIN } from './ledger';
 
 export const UNTOUCHED: DB.Touched = { commodities: [], spans: [], holdings: [], grouped: false };
 
 export type Indexed = {
 	failed: RupeaError[];
+	/** The base main.rupea names, when it was read or removed. */
+	based: string | null;
 	commodities: string[];
 	spans: Span[];
 	holdings: DB.HoldingKey[];
@@ -49,18 +53,14 @@ export const listLedgerFiles = (storage: Storage): ResultAsync<Entry[]> =>
 
 /**
  * Indexes one file at a time, each in a savepoint, so a file that fails is
- * reported and leaves the others.
+ * reported and leaves the others. A bare amount is read in the base.
  */
-export const indexEach = ({
-	ledgerId,
-	storage,
-	changed = [],
-	moved = [],
-	gone = [],
-	full = false,
-}: ReindexOptions): ResultAsync<Indexed> => {
+export const indexEach = (
+	{ ledgerId, storage, changed = [], moved = [], gone = [], full = false }: ReindexOptions,
+	base: string,
+): ResultAsync<Indexed> => {
 	const read = (k: string) =>
-		readText(storage, k).andThen((f) => indexFile({ ledgerId, file: f, full }));
+		readText(storage, k).andThen((f) => indexFile({ ledgerId, file: f, full, base }));
 
 	/**
 	 * A move between counted and review folders changes what the file counts, so
@@ -68,7 +68,7 @@ export const indexEach = ({
 	 */
 	const move = ({ from, to }: Move): ResultAsync<Indexed> =>
 		DB.renameIndexedFile(ledgerId, from, to).andThen((t) =>
-			isCounted(from) === isCounted(to) ? okAsync({ failed: [], ...t }) : read(to),
+			isCounted(from) === isCounted(to) ? okAsync({ failed: [], based: null, ...t }) : read(to),
 		);
 
 	const work = [
@@ -79,6 +79,7 @@ export const indexEach = ({
 
 	return inOrder(work.map((w) => () => reported(atomically(w)))).map((done) => ({
 		failed: done.flatMap((d) => d.failed),
+		based: done.findLast((d) => d.based !== null)?.based ?? null,
 		commodities: done.flatMap((d) => d.commodities),
 		spans: done.flatMap((d) => d.spans),
 		holdings: done.flatMap((d) => d.holdings),
@@ -86,17 +87,21 @@ export const indexEach = ({
 	}));
 };
 
-type IndexFileOptions = { ledgerId: string; file: RupeaFile; full: boolean };
+type IndexFileOptions = { ledgerId: string; file: RupeaFile; full: boolean; base: string };
 
 /**
  * A file waiting for review keeps only its metadata, so where it came from is
  * known, but nothing in it counts or fails.
  */
-const indexFile = ({ ledgerId, file, full }: IndexFileOptions): ResultAsync<Indexed> =>
+const indexFile = ({ ledgerId, file, full, base }: IndexFileOptions): ResultAsync<Indexed> =>
 	withContext('config')((config) =>
 		DB.findHeld(ledgerId, file.key).andThen((held) => {
 			const inLedger = isCounted(file.key);
-			const parsed = parseChanged(config.ledger, file, inLedger && !full ? held.hashCounts : {});
+			const parsed = parseChanged(
+				{ ...config.ledger, base },
+				file,
+				inLedger && !full ? held.hashCounts : {},
+			);
 			const found = inLedger
 				? parsed
 				: {
@@ -124,14 +129,21 @@ const indexFile = ({ ledgerId, file, full }: IndexFileOptions): ResultAsync<Inde
 				held,
 				unchanged: found.unchanged,
 				lineHashes: found.lineHashes,
-			}).map((t) => ({ failed: [], ...t }));
+			}).map((t) => ({ failed: [], based: basedIn(file.key, found.metadata), ...t }));
 		}),
 	);
+
+const basedIn = (k: string, m: RupeaMetadata) =>
+	k === MAIN ? (baseOf(m) ?? DEFAULT_COMMODITY) : null;
 
 type UnindexOptions = { ledgerId: string; key: string };
 
 const unindex = ({ ledgerId, key }: UnindexOptions): ResultAsync<Indexed> =>
-	DB.unindexFile(ledgerId, key).map((t) => ({ failed: [], ...t }));
+	DB.unindexFile(ledgerId, key).map((t) => ({
+		failed: [],
+		based: key === MAIN ? DEFAULT_COMMODITY : null,
+		...t,
+	}));
 
 const reported = (i: ResultAsync<Indexed>): ResultAsync<Indexed> =>
-	i.orElse((e) => ok({ failed: [e], ...UNTOUCHED }));
+	i.orElse((e) => ok({ failed: [e], based: null, ...UNTOUCHED }));

@@ -1,5 +1,6 @@
 <script lang="ts">
 	import { ICONS } from '#lib/web/shared/icons.ts';
+	import PageSketch from '#lib/web/components/ui-page-sketch/ui-page-sketch.svelte';
 	import { Dialog, LinkPreview } from 'bits-ui';
 	import { signOut } from '#lib/endpoints/auth.remote.ts';
 	import type { Theme } from '#lib/web/shared/theme.ts';
@@ -78,6 +79,7 @@
 								{@const Icon = ICONS[link.icon]}
 								<div {...wrapperProps}>
 									<div {...props} class="card preview">
+										<PageSketch page={link.icon} />
 										<strong><Icon />{link.label}</strong>
 										<span>{link.about}</span>
 										{#if link.sections.length > 0}
@@ -264,6 +266,7 @@
 		display: flex;
 		align-items: center;
 		gap: var(--size-1);
+		margin-top: var(--size-2);
 		margin-bottom: var(--size-0);
 		font: var(--text-base);
 		color: var(--color-ink);

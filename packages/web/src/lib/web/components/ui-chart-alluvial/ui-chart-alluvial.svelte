@@ -148,7 +148,7 @@
 		</svg>
 		{#each boxes as box, i (i)}
 			{@const height = box.y1 - box.y0}
-			{@const last = box.flow.column === 2}
+			{@const last = box.x1 >= VIEW}
 			{#if box.flow.column > 0 && height >= NAMED}
 				<span
 					class="name"

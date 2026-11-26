@@ -13,6 +13,15 @@ describe('a panel', () => {
 		expect(screen.getByText('what you own')).toBeTruthy();
 		expect(screen.getByText('rows')).toBeTruthy();
 	});
+
+	it('drops its box inside a plain page section', () => {
+		const { container } = render(Panel, {
+			props: { title: 'Budgets', subtitle: 'what is left' },
+			context: new Map([['plain', () => true]]),
+		});
+
+		expect(container.querySelector('section')?.classList.contains('plain')).toBe(true);
+	});
 });
 
 describe('a coming soon panel', () => {

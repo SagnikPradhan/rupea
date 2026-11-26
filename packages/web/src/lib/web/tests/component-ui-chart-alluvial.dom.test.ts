@@ -54,6 +54,13 @@ describe('the alluvial chart', () => {
 		expect(names).toEqual(['Food', 'Rent', 'Groceries']);
 	});
 
+	it('names the bars at the right edge inside the plot, so the names stay in it', () => {
+		render(AlluvialChart, { flows: FLOWS.slice(0, 3), label: 'Flows' });
+		const names = [...screen.getByRole('img', { name: 'Flows' }).querySelectorAll('.name')];
+
+		expect(names.map((n) => n.classList.contains('last'))).toEqual([true, true]);
+	});
+
 	it('names the bar under the cursor in a tip, fading the other parts, until it leaves', async () => {
 		const plot = drawn();
 		const food = plot.querySelectorAll('rect')[1] as Element;

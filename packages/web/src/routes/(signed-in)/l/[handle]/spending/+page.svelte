@@ -149,7 +149,7 @@
 	]}
 />
 
-<PageSection id="spent">
+<PageSection id="spent" plain>
 	<PanelGrid narrow>
 		<SpendingBars
 			{spending}
@@ -218,7 +218,7 @@
 	</PanelGrid>
 </PageSection>
 
-<PageSection id="earned">
+<PageSection id="earned" plain>
 	<PanelGrid wide>
 		<IncomeCash
 			bucket={earned.data?.[0]?.bucket ?? 'month'}

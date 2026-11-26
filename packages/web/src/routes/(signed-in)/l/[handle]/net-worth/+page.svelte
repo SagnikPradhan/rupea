@@ -162,7 +162,7 @@
 	]}
 />
 
-<PageSection id="owned">
+<PageSection id="owned" plain>
 	<PanelGrid narrow>
 		<div>
 			{#if (owned.data ?? []).length > 0}
@@ -203,7 +203,7 @@
 	<AccountsTable accounts={held} {returns} under={picked} {handle} />
 </PageSection>
 
-<PageSection id="owed">
+<PageSection id="owed" plain>
 	<PanelGrid narrow>
 		<div>
 			<ChartSummary

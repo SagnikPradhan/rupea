@@ -4,7 +4,6 @@
 	import { Dialog, LinkPreview } from 'bits-ui';
 	import { signOut } from '#lib/endpoints/auth.remote.ts';
 	import type { Theme } from '#lib/web/shared/theme.ts';
-	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import IconButton from '#lib/web/components/ui-button-icon/ui-button-icon.svelte';
 	import Avatar from '#lib/web/components/ui-avatar/ui-avatar.svelte';
 	import SyncButton from '#lib/web/components/app-sync-button/app-sync-button.svelte';
@@ -106,13 +105,13 @@
 	<div class="banner" style:--tint="var(--color-chart-{tint})">
 		<Avatar name={username ?? ''} />
 	</div>
-	<div class="body">
-		<div class="who">
-			<strong>Hello, {username}</strong>
-			<span>{status}</span>
-		</div>
-		{#if !local}<Button form="log-out">Sign out</Button>{/if}
-	</div>
+	<strong><ICONS.user />Hello, {username}</strong>
+	<span>{status}</span>
+	{#if !local}
+		<ul role="list">
+			<li><button form="log-out">Sign out</button></li>
+		</ul>
+	{/if}
 {/snippet}
 
 {#snippet tools()}
@@ -141,7 +140,9 @@
 				</LinkPreview.Trigger>
 				<LinkPreview.Content side="bottom" align="end" sideOffset={4}>
 					{#snippet child({ props, wrapperProps })}
-						<div {...wrapperProps}><div {...props} class="card">{@render signedIn()}</div></div>
+						<div {...wrapperProps}>
+							<div {...props} class="card preview">{@render signedIn()}</div>
+						</div>
 					{/snippet}
 				</LinkPreview.Content>
 			</LinkPreview.Root>
@@ -266,7 +267,7 @@
 		display: flex;
 		align-items: center;
 		gap: var(--size-1);
-		margin-top: var(--size-1);
+		margin-top: var(--size-2);
 		margin-bottom: var(--size-0);
 		font: var(--text-base);
 		color: var(--color-ink);
@@ -283,41 +284,33 @@
 
 	.preview ul {
 		flex-direction: column;
-		gap: var(--size-0);
-		margin-top: var(--size-1);
+		gap: var(--size-1);
+		margin-top: var(--size-2);
 	}
 
-	.preview a {
+	.preview :is(a, button) {
 		color: var(--color-ink);
+	}
+
+	.preview button {
+		padding: 0;
+		border: 0;
+		background: none;
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.preview button:hover {
+		text-decoration: underline;
 	}
 
 	.banner {
 		display: flex;
-		align-items: flex-end;
-		height: calc(var(--size-4) * 1.25);
+		align-items: center;
+		height: var(--size-4);
 		padding-inline: var(--size-1);
 		border-radius: var(--radius-1);
 		background: color-mix(in srgb, var(--tint) 12%, var(--color-surface));
-	}
-
-	.banner :global(svg) {
-		width: var(--size-4);
-		height: var(--size-4);
-		margin-bottom: calc(var(--size-4) / -2);
-		border: var(--size-line-1) solid var(--color-surface);
-		border-radius: 50%;
-	}
-
-	.body {
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-2);
-		padding: var(--size-1);
-		padding-top: calc(var(--size-4) / 2 + var(--size-1));
-	}
-
-	.body > :global(button) {
-		align-self: flex-start;
 	}
 
 	.who {

@@ -43,7 +43,7 @@
 	svg {
 		display: block;
 		width: 100%;
-		height: var(--size-5);
+		height: var(--size-4);
 	}
 
 	.soft,

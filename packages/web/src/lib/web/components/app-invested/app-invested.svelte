@@ -34,7 +34,8 @@
 		{@const gain = formatChange(shown.cost, shown.value)}
 		<ChartSummary
 			id="invested"
-			label="Value"
+			label="Invested"
+			lead
 			figure={formatAmount(shown.value)}
 			exact={formatExact(shown.value)}
 		>

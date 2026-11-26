@@ -453,7 +453,8 @@ describe('what you owe on the net worth page', () => {
 		const pins = within(chart).getAllByRole('listitem');
 		expect(pins.filter((p) => p.classList.contains('past'))).toHaveLength(3);
 		expect(pins).toHaveLength(4);
-		expect(screen.getByText(/3 made · 1 still to fall due/)).toBeTruthy();
+		expect(screen.getByText(/3 payments made · 1 still to fall due/)).toBeTruthy();
+		expect(screen.getByRole('heading', { level: 2, name: 'Owed' })).toBeTruthy();
 		vi.useRealTimers();
 	});
 
@@ -463,7 +464,7 @@ describe('what you owe on the net worth page', () => {
 
 		const chart = await screen.findByRole('list', { name: /^The payments made and due/ });
 		expect(within(chart).getAllByRole('listitem')).toHaveLength(1);
-		expect(screen.getByText(/1 made · 0 still to fall due/)).toBeTruthy();
+		expect(screen.getByText(/1 payment made · 0 still to fall due/)).toBeTruthy();
 		vi.useRealTimers();
 	});
 

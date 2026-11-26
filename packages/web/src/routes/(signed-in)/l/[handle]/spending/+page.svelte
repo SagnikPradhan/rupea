@@ -29,6 +29,7 @@
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
+	import PageSection from '#lib/web/components/ui-page-section/ui-page-section.svelte';
 	import {
 		formatChange,
 		formatIsoDate,
@@ -148,89 +149,93 @@
 	]}
 />
 
-<PanelGrid narrow>
-	<SpendingBars
-		{spending}
-		{previous}
-		account={url.query.account}
-		{parts}
-		{colours}
-		{bucket}
-		compare={url.query.compare}
-		scale={url.query.scale}
-		{handle}
-		{first}
-		{last}
-		{moved}
-	/>
-	<SpendingKpis {spending} account={url.query.account} {first} {last} {moved} budgets={rows} />
-</PanelGrid>
-
-{#snippet budgetsPanel()}
-	<SpendingBudgets {rows} {today} add={hrefWith(params, { add: '1' })} />
-{/snippet}
-
-{#if adding || budget}
-	<PanelGrid wide>
-		{@render budgetsPanel()}
-		{#if budget}
-			<Aside title="Budget for {nameOf(budget.account)}" onclose={() => goto(closeHref)}>
-				{#key budget.account}
-					<BudgetAside
-						{handle}
-						{day}
-						shown={span}
-						account={budget.account}
-						accounts={[]}
-						current={budget.current}
-					/>
-				{/key}
-			</Aside>
-		{/if}
-		{#if !budget}
-			<Aside title="Add budget" onclose={() => goto(closeHref)}>
-				<BudgetAside {handle} {day} shown={span} account="" accounts={expenses} current={{}} />
-			</Aside>
-		{/if}
-	</PanelGrid>
-{/if}
-
-<PanelGrid>
-	<div class="column">
-		<SpendingBreakdown
+<PageSection id="spent">
+	<PanelGrid narrow>
+		<SpendingBars
 			{spending}
+			{previous}
 			account={url.query.account}
 			{parts}
 			{colours}
 			{bucket}
+			compare={url.query.compare}
+			scale={url.query.scale}
+			{handle}
 			{first}
 			{last}
-			{handle}
-			period={url.query.period}
+			{moved}
 		/>
-	</div>
-	<div class="column">
-		{#if !adding && !budget}{@render budgetsPanel()}{/if}
-		<SpendingDays daily={daily.data ?? []} account={url.query.account} />
-	</div>
-</PanelGrid>
+		<SpendingKpis {spending} account={url.query.account} {first} {last} {moved} budgets={rows} />
+	</PanelGrid>
 
-<PanelGrid wide>
-	<IncomeCash
-		bucket={earned.data?.[0]?.bucket ?? 'month'}
-		income={earned.data?.[0]}
-		spending={spent.data?.[0]}
-		paid={invested.data ?? []}
-		first={earned.data?.[0]?.from ?? today}
-		last={earned.data?.[0]?.to ?? today}
-	/>
-	<IncomeSources
-		month={earnedLast.data?.[0]}
-		range={earned.data?.[0]}
-		name={month}
-		period={MONTHS[picked] ?? 'Period'}
-	/>
-</PanelGrid>
+	{#snippet budgetsPanel()}
+		<SpendingBudgets {rows} {today} add={hrefWith(params, { add: '1' })} />
+	{/snippet}
+
+	{#if adding || budget}
+		<PanelGrid wide>
+			{@render budgetsPanel()}
+			{#if budget}
+				<Aside title="Budget for {nameOf(budget.account)}" onclose={() => goto(closeHref)}>
+					{#key budget.account}
+						<BudgetAside
+							{handle}
+							{day}
+							shown={span}
+							account={budget.account}
+							accounts={[]}
+							current={budget.current}
+						/>
+					{/key}
+				</Aside>
+			{/if}
+			{#if !budget}
+				<Aside title="Add budget" onclose={() => goto(closeHref)}>
+					<BudgetAside {handle} {day} shown={span} account="" accounts={expenses} current={{}} />
+				</Aside>
+			{/if}
+		</PanelGrid>
+	{/if}
+
+	<PanelGrid>
+		<div class="column">
+			<SpendingBreakdown
+				{spending}
+				account={url.query.account}
+				{parts}
+				{colours}
+				{bucket}
+				{first}
+				{last}
+				{handle}
+				period={url.query.period}
+			/>
+		</div>
+		<div class="column">
+			{#if !adding && !budget}{@render budgetsPanel()}{/if}
+			<SpendingDays daily={daily.data ?? []} account={url.query.account} />
+		</div>
+	</PanelGrid>
+</PageSection>
+
+<PageSection id="earned">
+	<PanelGrid wide>
+		<IncomeCash
+			bucket={earned.data?.[0]?.bucket ?? 'month'}
+			income={earned.data?.[0]}
+			spending={spent.data?.[0]}
+			paid={invested.data ?? []}
+			first={earned.data?.[0]?.from ?? today}
+			last={earned.data?.[0]?.to ?? today}
+		/>
+		<IncomeSources
+			month={earnedLast.data?.[0]}
+			range={earned.data?.[0]}
+			name={month}
+			period={MONTHS[picked] ?? 'Period'}
+		/>
+	</PanelGrid>
+</PageSection>
 
 <style>
 	.column {

@@ -12,7 +12,13 @@
 	import { spansOf } from '@rupea/shared/dates.ts';
 	import { paramsOf } from '#lib/web/shared/filter.ts';
 	import { depthOf, isUnder, nameOf } from '#lib/web/shared/accounts.ts';
-	import { formatBucket, formatIsoDate, formatWhole } from '#lib/web/shared/format.ts';
+	import {
+		formatAmount,
+		formatBucket,
+		formatExact,
+		formatIsoDate,
+		formatWhole,
+	} from '#lib/web/shared/format.ts';
 	import * as Liabilities from '#lib/web/shared/liabilities.ts';
 	import { ringsOf } from '#lib/web/shared/rings.ts';
 	import AccountsTable from '#lib/web/components/app-accounts-table/app-accounts-table.svelte';
@@ -38,6 +44,8 @@
 	import KpiStrip from '#lib/web/components/ui-kpi-strip/ui-kpi-strip.svelte';
 	import Aside from '#lib/web/components/ui-aside/ui-aside.svelte';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
+	import PageSection from '#lib/web/components/ui-page-section/ui-page-section.svelte';
+	import ChartSummary from '#lib/web/components/ui-chart-summary/ui-chart-summary.svelte';
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import Field from '#lib/web/components/ui-field/ui-field.svelte';
@@ -154,184 +162,198 @@
 	]}
 />
 
-<PanelGrid narrow>
-	<div>
-		{#if (owned.data ?? []).length > 0}
-			<Invested invested={owned.data ?? []} />
-		{:else}
-			<p>No investments with a cost in this period.</p>
-		{/if}
-	</div>
-
-	<InvestedKpis {invested} />
-</PanelGrid>
-
-<PanelGrid>
-	<div class="column">
-		<InvestedReturns {invested} />
-
-		<Panel title="Biggest drops" subtitle="how far investments fell from their high">
-			{#if fallen.data?.[0]}
-				<Drops drops={fallen.data[0]} account={picked} />
+<PageSection id="owned">
+	<PanelGrid narrow>
+		<div>
+			{#if (owned.data ?? []).length > 0}
+				<Invested invested={owned.data ?? []} />
 			{:else}
-				<p>Needs price history.</p>
+				<p>No investments with a cost in this period.</p>
 			{/if}
-		</Panel>
-	</div>
+		</div>
 
-	<div class="column">
-		<AssetsRings rings={heldRings} account={picked} />
+		<InvestedKpis {invested} />
+	</PanelGrid>
 
-		<InvestedRisk
-			{invested}
-			swings={fallen.data?.[0]?.swings ?? []}
-			arcs={heldRings.arcs}
-			account={picked}
-		/>
-	</div>
-</PanelGrid>
+	<PanelGrid>
+		<div class="column">
+			<InvestedReturns {invested} />
 
-<AccountsTable accounts={held} {returns} under={picked} {handle} />
+			<Panel title="Biggest drops" subtitle="how far investments fell from their high">
+				{#if fallen.data?.[0]}
+					<Drops drops={fallen.data[0]} account={picked} />
+				{:else}
+					<p>Needs price history.</p>
+				{/if}
+			</Panel>
+		</div>
 
-<PanelGrid narrow>
-	<Panel title="Payments" subtitle="{payments.made} made · {payments.due} still to fall due">
-		{#if lines.length > 0}
-			<Timeline
-				{lines}
-				{from}
-				{to}
-				{bucket}
-				{today}
-				label="The payments made and due on each account"
+		<div class="column">
+			<AssetsRings rings={heldRings} account={picked} />
+
+			<InvestedRisk
+				{invested}
+				swings={fallen.data?.[0]?.swings ?? []}
+				arcs={heldRings.arcs}
+				account={picked}
 			/>
-		{:else}
-			<p>No payments in this period.</p>
-		{/if}
-	</Panel>
-	<KpiStrip label="Debt figures">
-		<Kpi label="Due in 30 days" soon />
-		<Kpi
-			label="Loan interest a month"
-			figure={interest === null ? '–' : `about ${formatWhole(printAmount(interest))}`}
-		/>
-		<Kpi label="Card limit used" soon />
-		<Kpi
-			label="Loans paid off by"
-			figure={payoff === null ? '–' : formatBucket.month(payoff.toString())}
-		/>
-	</KpiStrip>
-</PanelGrid>
+		</div>
+	</PanelGrid>
 
-<PanelGrid>
-	<div class="column">
-		<Panel title="What you owe" subtitle="owed by loan and card, the inner ring the groups">
-			{#if owedRings.arcs.length > 0}
-				<Donut
-					arcs={owedRings.arcs}
-					levels={owedRings.levels}
-					label="How what is owed divides across its accounts"
-					amounts
-					note={credit}
+	<AccountsTable accounts={held} {returns} under={picked} {handle} />
+</PageSection>
+
+<PageSection id="owed">
+	<PanelGrid narrow>
+		<div>
+			<ChartSummary
+				id="payments"
+				label="Owed"
+				lead
+				figure={formatAmount(printAmount(total))}
+				exact={formatExact(printAmount(total))}
+			>
+				{payments.made}
+				{payments.made === 1 ? 'payment' : 'payments'} made · {payments.due} still to fall due
+			</ChartSummary>
+			{#if lines.length > 0}
+				<Timeline
+					{lines}
+					{from}
+					{to}
+					{bucket}
+					{today}
+					label="The payments made and due on each account"
 				/>
+			{:else}
+				<p>No payments in this period.</p>
+			{/if}
+		</div>
+		<KpiStrip label="Debt figures">
+			<Kpi label="Due in 30 days" soon />
+			<Kpi
+				label="Loan interest a month"
+				figure={interest === null ? '–' : `about ${formatWhole(printAmount(interest))}`}
+			/>
+			<Kpi label="Card limit used" soon />
+			<Kpi
+				label="Loans paid off by"
+				figure={payoff === null ? '–' : formatBucket.month(payoff.toString())}
+			/>
+		</KpiStrip>
+	</PanelGrid>
+
+	<PanelGrid>
+		<div class="column">
+			<Panel title="What you owe" subtitle="owed by loan and card, the inner ring the groups">
+				{#if owedRings.arcs.length > 0}
+					<Donut
+						arcs={owedRings.arcs}
+						levels={owedRings.levels}
+						label="How what is owed divides across its accounts"
+						amounts
+						note={credit}
+					/>
+				{:else}
+					<p>Nothing owed.</p>
+				{/if}
+			</Panel>
+			<Panel
+				title="When each loan ends"
+				subtitle="how much of each loan is paid, and the year it ends"
+				soon
+			/>
+		</div>
+		<div class="column">
+			<Panel title="Card balance" subtitle="the average balance of the cards, by month" soon />
+			<Panel title="Card limits" subtitle="used out of each card’s limit" soon />
+		</div>
+	</PanelGrid>
+
+	<PanelGrid wide>
+		<Panel
+			title="All liabilities"
+			subtitle="{rows.length} {rows.length === 1 ? 'account' : 'accounts'} · {formatWhole(
+				printAmount(total),
+			)} owed"
+		>
+			{#if rows.length > 0}
+				<LedgerTable
+					columns={[
+						{ label: 'Account' },
+						{ label: 'Owed', kind: 'amount' },
+						{ label: 'Drawn', kind: 'amount' },
+						{ label: 'Paid', kind: 'amount' },
+						{ label: 'Rate', kind: 'amount' },
+						{ label: 'Monthly', kind: 'amount' },
+						{ label: 'Due', kind: 'amount' },
+						{ label: 'Terms' },
+					]}
+				>
+					<tbody>
+						{#each rows as row (row.account)}
+							<tr>
+								<th scope="row">
+									<a href={postingsOf(row.account)} title={row.account}>
+										<AccountName account={row.account} depth={depthOf(row.account) - 1} />
+									</a>
+									{#if row.unpriced > 0}<Tag>{row.unpriced} unpriced</Tag>{/if}
+								</th>
+								<Amount value={printAmount(row.owed)} />
+								<Amount value={printAmount(row.drawn)} />
+								<Amount value={printAmount(row.paid)} />
+								<td class="amount">{row.rate === null ? '' : `${row.rate}%`}</td>
+								<Amount value={printAmount(row.payment)} />
+								<td class="amount">{row.due ?? ''}</td>
+								<td class="nowrap">
+									{#if row.leaf}<a href={setupHref(row.account)}>
+											{row.setUp ? 'Edit' : 'Set up'}
+										</a>{/if}
+								</td>
+							</tr>
+						{/each}
+					</tbody>
+					<tfoot>
+						<tr>
+							<th scope="row">Total</th>
+							<Amount value={printAmount(total)} />
+							<Amount value={null} />
+							<Amount value={null} />
+						</tr>
+					</tfoot>
+				</LedgerTable>
 			{:else}
 				<p>Nothing owed.</p>
 			{/if}
 		</Panel>
-		<Panel
-			title="When each loan ends"
-			subtitle="how much of each loan is paid, and the year it ends"
-			soon
-		/>
-	</div>
-	<div class="column">
-		<Panel title="Card balance" subtitle="the average balance of the cards, by month" soon />
-		<Panel title="Card limits" subtitle="used out of each card’s limit" soon />
-	</div>
-</PanelGrid>
-
-<PanelGrid wide>
-	<Panel
-		title="All liabilities"
-		subtitle="{rows.length} {rows.length === 1 ? 'account' : 'accounts'} · {formatWhole(
-			printAmount(total),
-		)} owed"
-	>
-		{#if rows.length > 0}
-			<LedgerTable
-				columns={[
-					{ label: 'Account' },
-					{ label: 'Owed', kind: 'amount' },
-					{ label: 'Drawn', kind: 'amount' },
-					{ label: 'Paid', kind: 'amount' },
-					{ label: 'Rate', kind: 'amount' },
-					{ label: 'Monthly', kind: 'amount' },
-					{ label: 'Due', kind: 'amount' },
-					{ label: 'Terms' },
-				]}
-			>
-				<tbody>
-					{#each rows as row (row.account)}
-						<tr>
-							<th scope="row">
-								<a href={postingsOf(row.account)} title={row.account}>
-									<AccountName account={row.account} depth={depthOf(row.account) - 1} />
-								</a>
-								{#if row.unpriced > 0}<Tag>{row.unpriced} unpriced</Tag>{/if}
-							</th>
-							<Amount value={printAmount(row.owed)} />
-							<Amount value={printAmount(row.drawn)} />
-							<Amount value={printAmount(row.paid)} />
-							<td class="amount">{row.rate === null ? '' : `${row.rate}%`}</td>
-							<Amount value={printAmount(row.payment)} />
-							<td class="amount">{row.due ?? ''}</td>
-							<td class="nowrap">
-								{#if row.leaf}<a href={setupHref(row.account)}>
-										{row.setUp ? 'Edit' : 'Set up'}
-									</a>{/if}
-							</td>
-						</tr>
-					{/each}
-				</tbody>
-				<tfoot>
-					<tr>
-						<th scope="row">Total</th>
-						<Amount value={printAmount(total)} />
-						<Amount value={null} />
-						<Amount value={null} />
-					</tr>
-				</tfoot>
-			</LedgerTable>
+		{#if setup}
+			<Aside title="Set up {nameOf(setup)}" onclose={() => goto(setupHref(null))}>
+				{#key setup}
+					<TermsForm
+						{handle}
+						account={setup}
+						{current}
+						onsaved={() => listTerms({ handle, day }).refresh()}
+					/>
+				{/key}
+			</Aside>
 		{:else}
-			<p>Nothing owed.</p>
+			<Aside title="Add a liability" closeBeside={false} onclose={() => {}}>
+				<div class="add">
+					<Field label="Name" hint="Under Liabilities, like Loans:Car or Cards:Regalia.">
+						<input bind:value={fresh.name} />
+					</Field>
+					<TermsForm
+						{handle}
+						account="Liabilities:{fresh.name.trim()}"
+						current={{}}
+						onsaved={() => listTerms({ handle, day }).refresh()}
+					/>
+				</div>
+			</Aside>
 		{/if}
-	</Panel>
-	{#if setup}
-		<Aside title="Set up {nameOf(setup)}" onclose={() => goto(setupHref(null))}>
-			{#key setup}
-				<TermsForm
-					{handle}
-					account={setup}
-					{current}
-					onsaved={() => listTerms({ handle, day }).refresh()}
-				/>
-			{/key}
-		</Aside>
-	{:else}
-		<Aside title="Add a liability" closeBeside={false} onclose={() => {}}>
-			<div class="add">
-				<Field label="Name" hint="Under Liabilities, like Loans:Car or Cards:Regalia.">
-					<input bind:value={fresh.name} />
-				</Field>
-				<TermsForm
-					{handle}
-					account="Liabilities:{fresh.name.trim()}"
-					current={{}}
-					onsaved={() => listTerms({ handle, day }).refresh()}
-				/>
-			</div>
-		</Aside>
-	{/if}
-</PanelGrid>
+	</PanelGrid>
+</PageSection>
 
 <style>
 	.column {

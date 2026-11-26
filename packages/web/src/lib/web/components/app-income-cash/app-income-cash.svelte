@@ -53,7 +53,8 @@
 	{@const shown = bar ?? whole}
 	<ChartSummary
 		id="income"
-		label="Income"
+		label="Earned"
+		lead
 		figure={formatAmount(figure)}
 		exact={formatExact(figure)}
 	>

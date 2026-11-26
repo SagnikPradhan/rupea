@@ -30,7 +30,7 @@ test('adds up spending by account over a period, net of refunds', async ({
 	await createFile(page, ledger, 'bank.rupea', spending);
 	const chart = page
 		.getByRole('figure')
-		.filter({ has: page.getByRole('heading', { name: 'Spending', exact: true }) });
+		.filter({ has: page.getByRole('heading', { name: 'Spent', exact: true }) });
 
 	await visit(page, `${ledger}/spending?at=${year}`);
 	await expect(chart.locator('.figure')).toHaveText('10,000');
@@ -71,7 +71,7 @@ test('lays a month of spending out as a calendar, each day leading to its postin
 	await visit(page, `${ledger}/spending?at=${day.toPlainYearMonth()}`);
 	const chart = page
 		.getByRole('figure')
-		.filter({ has: page.getByRole('heading', { name: 'Spending', exact: true }) });
+		.filter({ has: page.getByRole('heading', { name: 'Spent', exact: true }) });
 	const cell = chart.getByRole('link', { name: /1,200/ });
 	await cell.hover();
 	await expect(chart.locator('.figure')).toHaveText('1,200');

@@ -130,7 +130,7 @@ describe('rates at days', () => {
 		endings.find((e) => e.commodity === commodity && e.day.equals(d))?.price?.amount ?? null;
 
 	it('are what endingsOf prices a commodity at on every day, null with none', () => {
-		const rates = ratesOn(options, every);
+		const rates = ratesOn({ ...options, base: 'INR' }, every);
 
 		for (const commodity of ['FUND', 'BOND', 'GHOST'])
 			expect(rates(commodity)).toEqual(days.map((d) => priceOn(commodity, d)));
@@ -141,7 +141,7 @@ describe('rates at days', () => {
 
 	it('are the same on a few days as on all of them', () => {
 		const few = [3, 200, 330, 500, every.length - 1];
-		const rates = ratesOn(options, few);
+		const rates = ratesOn({ ...options, base: 'INR' }, few);
 
 		expect(few).toHaveLength(5);
 		for (const commodity of ['FUND', 'BOND'])
@@ -150,7 +150,7 @@ describe('rates at days', () => {
 
 	it('value every bucket at one day when that day is given for each', () => {
 		const last = every.length - 1;
-		const rates = ratesOn(options, [last, last, last]);
+		const rates = ratesOn({ ...options, base: 'INR' }, [last, last, last]);
 
 		expect(new Set(rates('FUND')).size).toBe(1);
 		expect(rates('FUND')[0]).toBe(priceOn('FUND', options.to));
@@ -176,7 +176,11 @@ describe('exact rates on every day', () => {
 		prices?: PriceYear[];
 		sources?: PriceSources;
 		opening?: Record<string, Quantity>;
-	}) => ratesOn({ from, to, prices: [], sources: { own: [], links: [] }, opening: {}, ...o }, all);
+	}) =>
+		ratesOn(
+			{ from, to, prices: [], sources: { own: [], links: [] }, opening: {}, base: 'INR', ...o },
+			all,
+		);
 
 	it('keep amounts wider than a machine word, and round a hop as multiply does', () => {
 		const rates = read({

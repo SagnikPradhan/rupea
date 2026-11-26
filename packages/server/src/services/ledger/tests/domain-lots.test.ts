@@ -34,7 +34,7 @@ const booked = (lines: string[], commodity = 'INFY') => {
 				: [],
 		),
 	);
-	const { lots, disposals } = book(postings);
+	const { lots, disposals } = book(postings, 'INR');
 	const position = (id: string | null) => (id === null ? null : lots.findIndex((l) => l.id === id));
 
 	return {
@@ -71,6 +71,21 @@ describe('buying', () => {
 			'1 Assets:Zerodha 10.00 {1500.00, 2024-06-03} buy left 10.00',
 			'2 Assets:Zerodha 5.00 {1800.00, 2024-07-01} buy left 5.00',
 		]);
+	});
+
+	it('opens a lot nothing priced at nothing in the base', () => {
+		const posting: BookedPosting = {
+			id: 'p',
+			transaction: 't',
+			accountId: 'Assets:Broker',
+			held: true,
+			date: Temporal.PlainDate.from('2024-01-02'),
+			amount: parseAmount('10') as Amount,
+			price: null,
+			cost: null,
+		};
+
+		expect(book([posting], 'USD').lots[0]?.cost).toEqual({ amount: 0n, commodity: 'USD' });
 	});
 
 	it('opens nothing for an account that is a category', () => {

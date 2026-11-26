@@ -26,9 +26,10 @@ export const rebook = (ledgerId: string, commodities: string[]): ResultAsync<voi
 	atomically(() =>
 		withContext('db')((tx) =>
 			attempt(async () => {
+				const base = await baseIn(tx, ledgerId);
 				for (const commodity of commodities)
 					await bookedPostings(tx, { ledgerId, commodity }) // NOSONAR -- one transaction's connection runs one statement at a time
-						.then(book)
+						.then((p) => book(p, base))
 						.then((b) => replaceLots(tx, { ledgerId, commodity, booking: b }));
 			}),
 		),
@@ -342,6 +343,14 @@ export const listLots = (
 	);
 
 type BookedPostingsOptions = { ledgerId: string; commodity: string };
+
+const baseIn = (db: Database, ledgerId: string) =>
+	db
+		.selectFrom('ledgers')
+		.select('base')
+		.where('id', '=', ledgerId)
+		.executeTakeFirstOrThrow()
+		.then((l) => l.base);
 
 const bookedPostings = (
 	db: Database,

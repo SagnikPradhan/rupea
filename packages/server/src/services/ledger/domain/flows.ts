@@ -1,5 +1,5 @@
 import { dayNumberOf } from '#lib/server/shared/dates.ts';
-import { DEFAULT_COMMODITY, sum, type Amount } from './amounts';
+import { sum, type Amount } from './amounts';
 import type { Row } from './deltas';
 import type { Filter } from './filters';
 import type { Flow } from './returns';
@@ -28,7 +28,10 @@ type Moved = {
  * earning postings made: the postings of the transactions that have any, each
  * alone, with their commodity. Oldest account and day first.
  */
-export const flowsOf = (deltas: Row[], earning: Row[]): Flow[] => {
+export const flowsOf = (
+	{ deltas, earning }: { deltas: Row[]; earning: Row[] },
+	base: string,
+): Flow[] => {
 	const days = deltas.map((r) => ({
 		account: r.account,
 		day: dayNumberOf(r.bucket),
@@ -36,7 +39,7 @@ export const flowsOf = (deltas: Row[], earning: Row[]): Flow[] => {
 		unpriced: r.unpriced,
 	}));
 	const moved = earning
-		.map(movedFrom)
+		.map((r) => movedFrom(r, base))
 		.filter((m) => m.earned || accountType(m.account) === AccountType.Assets);
 	const shared = Object.values(Object.groupBy(moved, (m) => m.transaction)).flatMap((p) =>
 		sharedIn(p ?? []),
@@ -53,14 +56,14 @@ export const flowsOf = (deltas: Row[], earning: Row[]): Flow[] => {
 	return merged([...days, ...changes]);
 };
 
-const movedFrom = (r: Row): Moved => ({
+const movedFrom = (r: Row, base: string): Moved => ({
 	transaction: r.transaction ?? '',
 	position: r.position ?? 0,
 	account: r.account,
 	date: r.bucket,
 	amount: r.unpriced > 0 ? null : (r.value ?? (0n as Amount)),
 	earned: INVESTMENT_INCOME.some((n) => isUnder(r.account, n)),
-	held: r.commodity !== null && r.commodity !== DEFAULT_COMMODITY,
+	held: r.commodity !== null && r.commodity !== base,
 });
 
 const isUnder = (account: string, name: string) => {

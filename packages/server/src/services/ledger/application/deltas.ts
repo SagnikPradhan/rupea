@@ -10,7 +10,7 @@ import {
 import { BEGINNING, type Span } from '@rupea/shared/dates.ts';
 import { fault, type Batch, type RupeaError } from '@rupea/shared/errors.ts';
 import * as DB from '../adapters/database';
-import { DEFAULT_COMMODITY, type Quantity } from '../domain/amounts';
+import type { Quantity } from '../domain/amounts';
 import {
 	closesOf,
 	closingsOf,
@@ -78,7 +78,7 @@ export const listDeltas = ({
 			named,
 			shared,
 		}).andThen(({ failed, tree, accounts }) => {
-			const base = DEFAULT_COMMODITY;
+			const base = ledger.base;
 			const span = { from, to };
 			const read = { span, tree, accounts, filter, bucket, valued, measures, base, most };
 
@@ -127,7 +127,7 @@ export const listBalances = ({
 		if (refused) return errAsync(refused);
 
 		return findScope(ledger.id, { named, exact, shared }).andThen(({ failed, tree, accounts }) => {
-			const base = DEFAULT_COMMODITY;
+			const base = ledger.base;
 			const span = { from, to };
 			const read = { span, tree, accounts, bucket, measures, base, series, most };
 
@@ -287,7 +287,7 @@ const listClosings = (id: string, read: BalancesRead) => {
 			return pricesWalked({ id, start, years, sources, commodities, base, hops: HOPS }).map(
 				({ prices, opening }) => {
 					const { keys, days } = read.series ? daysOf(walked) : closesOf(walked, bucket);
-					const ratesFor = ratesOn({ ...walked, prices, sources, opening }, days);
+					const ratesFor = ratesOn({ ...walked, prices, sources, opening, base }, days);
 					const valuation = read.series
 						? { rows: [] as Delta[], ...seriesOf(holdings, { base, span: walked, ratesFor }) }
 						: {

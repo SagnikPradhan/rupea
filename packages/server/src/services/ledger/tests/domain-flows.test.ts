@@ -40,7 +40,7 @@ const rolled = (rows: Row[]): Row[] =>
 	);
 
 const summary = (deltas: Row[], earning: Row[]) =>
-	flowsOf(rolled(deltas), earning)
+	flowsOf({ deltas: rolled(deltas), earning }, 'INR')
 		.map((f) => [f.account, f.day, f.amount, f.unpriced])
 		.toSorted(([a], [b]) => String(a).localeCompare(String(b)));
 
@@ -72,6 +72,19 @@ describe('flowsOf', () => {
 			['Assets:A', DAY, amount('10') - 2n, 0],
 			['Assets:B', DAY, amount('10') - 1n, 0],
 			['Assets:Bank', DAY, amount('1'), 0],
+		]);
+	});
+
+	it('takes the base from the ledger, so rupees are held in a ledger based in dollars', () => {
+		const postings = [
+			posting({ account: 'Assets:A', value: amount('10') }),
+			posting({ account: 'Assets:Bank', value: amount('1'), commodity: 'USD', position: 1 }),
+			posting({ account: 'Income:Interest', value: amount('-1'), commodity: 'USD', position: 2 }),
+		];
+		const flows = flowsOf({ deltas: rolled(postings.slice(0, 2)), earning: postings }, 'USD');
+
+		expect(flows.filter((f) => f.account === 'Assets:A').map((f) => f.amount)).toEqual([
+			amount('9'),
 		]);
 	});
 

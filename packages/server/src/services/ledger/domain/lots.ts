@@ -1,5 +1,5 @@
 import { v7 as uuidv7 } from 'uuid';
-import { DEFAULT_COMMODITY, min, multiply, sum, type Amount, type Quantity } from './amounts';
+import { min, multiply, sum, type Amount, type Quantity } from './amounts';
 import { unitPrice } from './prices';
 import {
 	DisposalKind,
@@ -35,8 +35,6 @@ export type LotHistory = {
 		gain: Quantity | null;
 	}[];
 };
-
-const FREE: Quantity = { amount: 0n as Amount, commodity: DEFAULT_COMMODITY };
 
 /**
  * A commodity moves in kind when its units in a transaction net to zero, so lot
@@ -85,8 +83,10 @@ export type Booking = { lots: Lot[]; disposals: Disposal[] };
 
 type Piece = { lot: Lot; units: Amount };
 
-export const book = (postings: BookedPosting[]): Booking => {
+/** Books lots in order; a lot nothing priced costs nothing in the base. */
+export const book = (postings: BookedPosting[], base: string): Booking => {
 	const booking: Booking = { lots: [], disposals: [] };
+	const free: Quantity = { amount: 0n as Amount, commodity: base };
 
 	for (const transaction of Map.groupBy(postings, (p) => p.transaction).values()) {
 		const held = transaction.filter((p) => p.held);
@@ -94,8 +94,9 @@ export const book = (postings: BookedPosting[]): Booking => {
 
 		const moving = held
 			.filter((p) => p.amount < 0n)
-			.flatMap((p) => takeOut({ booking, posting: p, kind }));
-		for (const posting of held.filter((p) => p.amount > 0n)) bringIn({ booking, posting, moving });
+			.flatMap((p) => takeOut({ booking, posting: p, kind, free }));
+		for (const posting of held.filter((p) => p.amount > 0n))
+			bringIn({ booking, posting, moving, free });
 	}
 
 	return booking;
@@ -116,15 +117,15 @@ const disposalKind = (transaction: BookedPosting[]) => {
 	return arriving ? DisposalKind.Transfer : DisposalKind.Gift;
 };
 
-type TakeOut = { booking: Booking; posting: BookedPosting; kind: DisposalKind };
+type TakeOut = { booking: Booking; posting: BookedPosting; kind: DisposalKind; free: Quantity };
 
-const takeOut = ({ booking, posting, kind }: TakeOut): Piece[] => {
+const takeOut = ({ booking, posting, kind, free }: TakeOut): Piece[] => {
 	const openLots = openLotsFor(booking, posting);
 	const unnamedSale = kind === DisposalKind.Sale && posting.cost === null;
 
 	// No existing lots to sell, we open a short position
 	if (unnamedSale && openLots.length === 0) {
-		openLot({ booking, posting, origin: LotOrigin.Short, cost: unitPrice(posting) ?? FREE });
+		openLot({ booking, posting, origin: LotOrigin.Short, cost: unitPrice(posting) ?? free });
 		return [];
 	}
 
@@ -132,23 +133,23 @@ const takeOut = ({ booking, posting, kind }: TakeOut): Piece[] => {
 	return kind === DisposalKind.Transfer ? pieces : [];
 };
 
-type BringIn = { booking: Booking; posting: BookedPosting; moving: Piece[] };
+type BringIn = { booking: Booking; posting: BookedPosting; moving: Piece[]; free: Quantity };
 
-const bringIn = ({ booking, posting, moving }: BringIn) => {
+const bringIn = ({ booking, posting, moving, free }: BringIn) => {
 	if (posting.cost !== null) {
 		const lots = openLotsFor(booking, posting);
 		takeFromLots({ booking, posting, kind: DisposalKind.Cover, lots });
 		return;
 	}
 	if (posting.price !== null) {
-		openLot({ booking, posting, origin: LotOrigin.Buy, cost: unitPrice(posting) ?? FREE });
+		openLot({ booking, posting, origin: LotOrigin.Buy, cost: unitPrice(posting) ?? free });
 		return;
 	}
 
-	receiveTransfer({ booking, posting, moving });
+	receiveTransfer({ booking, posting, moving, free });
 };
 
-const receiveTransfer = ({ booking, posting, moving }: BringIn) => {
+const receiveTransfer = ({ booking, posting, moving, free }: BringIn) => {
 	const received: Amount[] = [];
 
 	// You send 8 shares out: 5 bought in January and 3 bought in March. Two accounts get 4 each.
@@ -175,7 +176,7 @@ const receiveTransfer = ({ booking, posting, moving }: BringIn) => {
 	}
 
 	const rest = (posting.amount - sum(received)) as Amount;
-	if (rest > 0n) openLot({ booking, posting, origin: LotOrigin.Unpriced, cost: FREE, units: rest });
+	if (rest > 0n) openLot({ booking, posting, origin: LotOrigin.Unpriced, cost: free, units: rest });
 };
 
 type Taking = { booking: Booking; posting: BookedPosting; kind: DisposalKind; lots: Lot[] };

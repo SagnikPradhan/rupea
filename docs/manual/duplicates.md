@@ -28,7 +28,7 @@ A group is just text, so you can write one by hand, or undo one by deleting its 
 
 ## Finding duplicates
 
-Open **Files**, then **Refine**, and choose a file. Rupea looks for transactions in other files that could be the same money. They must be on the same day, for the same amount, in the same bank, card or investment account. A transfer between two of your own accounts is matched differently, as the next section explains.
+Open **Ledger**, then **Review**, and choose a file. Rupea looks for transactions in other files that could be the same money. They must be on the same day, for the same amount, in the same bank, card or investment account. A transfer between two of your own accounts is matched differently, as the next section explains.
 
 Each match shows both transactions side by side, with the line it would add to each:
 

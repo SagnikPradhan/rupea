@@ -541,6 +541,21 @@ describe('what you owe on the net worth page', () => {
 		expect(screen.getByText('Due in 30 days').nextElementSibling?.textContent).not.toBe('0');
 	});
 
+	it('lists the next payment due on each debt, soonest first', async () => {
+		open('/l/h/net-worth');
+
+		await screen.findByTitle('Liabilities:Loans:Home');
+		expect(screen.getByText('Due next')).toBeTruthy();
+		expect(screen.getByText(/^Home, \d+ \w+$/)).toBeTruthy();
+	});
+
+	it('says nothing falls due while no debt has a due day', async () => {
+		open('/l/h/net-worth', [moved], []);
+
+		await screen.findByTitle('Liabilities:Loans:Home');
+		expect(screen.getByText('Nothing falls due in the next 30 days.')).toBeTruthy();
+	});
+
 	it('shows a dash for the estimates while a debt has no terms', async () => {
 		open('/l/h/net-worth');
 
@@ -579,6 +594,52 @@ describe('what you owe on the net worth page', () => {
 		expect(within(loans).queryByRole('link', { name: /^(Set up|Edit)$/ })).toBeNull();
 	});
 
+	it("shows a card's last bill, whether it was paid, and the limit used", async () => {
+		const card = {
+			account: 'Liabilities:Card',
+			current: { kind: 'card' },
+			held: { kind: 'card', limit: '1,00,000', statement: 1, due: 20 },
+		};
+		open('/l/h/net-worth', [moved], [...terms, card]);
+
+		const row = (await screen.findByTitle('Liabilities:Card')).closest('tr')!;
+		expect(within(row).getByText('25%')).toBeTruthy();
+		expect(within(row).queryByRole('link', { name: 'Set a statement day' })).toBeNull();
+	});
+
+	it("reads a card's cycle up to the end of a past period, and not the one before it", async () => {
+		vi.useFakeTimers({ toFake: ['Date'], now: new Date('2026-11-08') });
+		open('/l/h/net-worth?at=2025');
+
+		await screen.findByTitle('Liabilities:Loans:Home');
+		expect(listDeltas).toHaveBeenCalledWith(
+			expect.objectContaining({
+				period: { kind: 'custom', from: '2025-12-02', to: '2025-12-31' },
+				before: false,
+			}),
+		);
+		vi.useRealTimers();
+	});
+
+	it('asks for a statement day when a card has none', async () => {
+		const card = { account: 'Liabilities:Card', current: { kind: 'card' }, held: { kind: 'card' } };
+		open('/l/h/net-worth', [moved], [...terms, card]);
+
+		const row = (await screen.findByTitle('Liabilities:Card')).closest('tr')!;
+		expect(
+			within(row).getByRole('link', { name: 'Set a statement day' }).getAttribute('href'),
+		).toContain('setup=Liabilities%3ACard');
+	});
+
+	it('asks whether a liability with no kind is a card or a loan', async () => {
+		open('/l/h/net-worth');
+
+		expect(await screen.findByText(/Card or loan\?/)).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Card' }).getAttribute('href')).toContain(
+			'setup=Liabilities%3ACard',
+		);
+	});
+
 	it('opens the terms of the account asked for beside the table, with what it has now', async () => {
 		open('/l/h/net-worth?setup=Liabilities:Loans:Home');
 
@@ -596,11 +657,19 @@ describe('what you owe on the net worth page', () => {
 		expect(screen.queryByRole('complementary', { name: /^Set up/ })).toBeNull();
 	});
 
-	it('always offers to add a liability beside the table, saving under Liabilities', async () => {
+	it('offers to add a card or loan, opening the form beside the table', async () => {
 		open('/l/h/net-worth');
+
+		const add = await screen.findByRole('link', { name: 'Add a card or loan' });
+		expect(add.getAttribute('href')).toBe('/l/h/net-worth?add=1');
+		expect(screen.queryByRole('complementary', { name: 'Add a card or loan' })).toBeNull();
+	});
+
+	it('adds a liability from the form, saving under Liabilities', async () => {
+		open('/l/h/net-worth?add=1');
 		vi.mocked(saveTerms).mockResolvedValue({ data: { file: 'main.rupea' }, errors: [] } as never);
 
-		const aside = await screen.findByRole('complementary', { name: 'Add a liability' });
+		const aside = await screen.findByRole('complementary', { name: 'Add a card or loan' });
 		await fireEvent.input(within(aside).getByLabelText(/Name/), {
 			target: { value: 'Loans:Bike' },
 		});
@@ -618,10 +687,10 @@ describe('what you owe on the net worth page', () => {
 	});
 
 	it('asks for a name before adding a liability', async () => {
-		open('/l/h/net-worth');
+		open('/l/h/net-worth?add=1');
 		vi.mocked(saveTerms).mockClear();
 
-		const aside = await screen.findByRole('complementary', { name: 'Add a liability' });
+		const aside = await screen.findByRole('complementary', { name: 'Add a card or loan' });
 		await fireEvent.click(within(aside).getByRole('button', { name: 'Save' }));
 
 		expect(await within(aside).findByText('Pick an account.')).toBeTruthy();

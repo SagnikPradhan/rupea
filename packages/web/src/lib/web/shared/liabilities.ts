@@ -30,6 +30,9 @@ export type Debt = {
 	/** The day of the month a payment falls due. */
 	due: number | null;
 	loan: Loans.Loan | null;
+	/** A card's limit, and the day of the month its statement closes. */
+	limit: Amount | null;
+	statement: number | null;
 };
 
 type Paid = { account: string; bucket: Temporal.PlainDate; inflow: Amount };
@@ -178,6 +181,8 @@ const termsFrom = (terms: v.InferOutput<typeof Terms> | null) => {
 		payment,
 		due: terms?.due ?? null,
 		loan: loanFrom(terms, payment),
+		limit: terms?.kind === 'card' && terms.limit !== undefined ? parseAmount(terms.limit) : null,
+		statement: terms?.kind === 'card' ? (terms.statement ?? null) : null,
 	};
 };
 

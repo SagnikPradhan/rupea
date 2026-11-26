@@ -152,13 +152,19 @@ export const listReturns = query(
 
 /**
  * What flowed under an Expenses, Income or Liabilities account over a period,
- * then over the one before it when there is one.
+ * then over the one before it when there is one, unless before is false.
  */
 export const listDeltas = query(
-	v.object({ handle: Handle, day: Day, period: Period, account: FlowAccount }),
-	({ handle, day, period, account }) => {
+	v.object({
+		handle: Handle,
+		day: Day,
+		period: Period,
+		account: FlowAccount,
+		before: v.optional(v.boolean(), true),
+	}),
+	({ handle, day, period, account, before }) => {
 		const { current, previous, bucket } = spansOf(period, day);
-		const spans = (previous ? [current, previous] : [current]).map(writtenSpan);
+		const spans = (previous && before ? [current, previous] : [current]).map(writtenSpan);
 
 		return replyFromBatchCall(
 			Promise.all([

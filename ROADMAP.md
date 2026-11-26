@@ -4,7 +4,6 @@ What Rupea plans to build, in order, and what already works.
 
 ## Planned
 
-- [x] A page for income, month by month ([#71](https://github.com/SagnikPradhan/rupea/issues/71))
 - [ ] Set categories with rules, and change many at once ([#79](https://github.com/SagnikPradhan/rupea/issues/79))
 - [ ] Go from your first statement to a net worth chart in minutes ([#80](https://github.com/SagnikPradhan/rupea/issues/80))
 - [ ] Count transfers between your own accounts once ([#81](https://github.com/SagnikPradhan/rupea/issues/81))
@@ -16,7 +15,6 @@ What Rupea plans to build, in order, and what already works.
 - [ ] Back up and restore
 - [ ] Report capital gains for an Indian financial year, and show which gains can be harvested tax-free
 - [ ] Match refunds to charges
-- [x] Set a monthly or yearly budget for a category, and see how much is left ([#112](https://github.com/SagnikPradhan/rupea/issues/112))
 - [ ] Run Rupea on your own computer without signing in
 - [ ] Send sign-in codes by email, with an email provider you set up ([#82](https://github.com/SagnikPradhan/rupea/issues/82))
 - [ ] Use Rupea from other apps through a documented interface ([#103](https://github.com/SagnikPradhan/rupea/issues/103))
@@ -48,7 +46,9 @@ Not planned for now: futures and options trading, whose tax rules and trade volu
 - [x] Track shares and funds: lots, cost, prices, holdings and returns
 - [x] Chart spending and net worth over time
 - [x] Add, edit and delete transactions from a form, and see the lines it writes
-- [x] See a home page with your net worth, a balance sheet and last month's income statement
+- [x] See how last month went on the home page: how net worth moved, what you saved and spent, and what falls due
 - [x] See what you owe on each loan and card, and the interest in each payment
-- [x] See your accounts and your expenses on pages of their own, with charts and filters
+- [x] See where your income went, and what you are worth, on pages of their own
+- [x] See your income month by month ([#71](https://github.com/SagnikPradhan/rupea/issues/71))
+- [x] Set a monthly or yearly budget for a category, and see how much is left ([#112](https://github.com/SagnikPradhan/rupea/issues/112))
 - [x] Keep each ledger in your own storage

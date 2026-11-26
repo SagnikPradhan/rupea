@@ -76,7 +76,7 @@
 	</div>
 {/snippet}
 
-<PageHeader>Refine</PageHeader>
+<PageHeader subtitle="Duplicates and transfers to join, file by file">Review</PageHeader>
 
 <label>
 	Find matches for

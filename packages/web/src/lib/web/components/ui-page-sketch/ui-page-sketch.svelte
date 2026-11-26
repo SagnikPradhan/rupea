@@ -1,5 +1,5 @@
 <script lang="ts">
-	type Props = { page: 'home' | 'spending' | 'worth' | 'transactions' | 'files' };
+	type Props = { page: 'home' | 'spending' | 'worth' | 'ledger' };
 
 	const { page }: Props = $props();
 
@@ -24,17 +24,11 @@
 	{#if page === 'home'}
 		<rect class="strong" x="0" y="32" width="100" height="8" />
 	{/if}
-	{#if page === 'transactions' || page === 'files'}
+	{#if page === 'ledger'}
 		{#each ROWS as row (row)}
-			<rect class="strong" x="0" y={row * 10 + 3} width={page === 'files' ? 6 : 16} height="4" />
+			<rect class="strong" x="0" y={row * 10 + 3} width="16" height="4" />
 			<rect class="soft" x="22" y={row * 10 + 3} width={40 - row * 6} height="4" />
-			{#if page === 'transactions'}<rect
-					class="strong"
-					x="84"
-					y={row * 10 + 3}
-					width="16"
-					height="4"
-				/>{/if}
+			<rect class="strong" x="84" y={row * 10 + 3} width="16" height="4" />
 		{/each}
 	{/if}
 </svg>

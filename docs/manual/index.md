@@ -34,11 +34,11 @@ Pick a day to start from, and write down what each account held that day. Open *
     Equity:Opening
 ```
 
-`Assets` are what you own, and `Liabilities` what you owe, so a card bill is negative. `Equity:Opening` balances the rest: it stands for everything before your ledger starts. Your net worth now shows under **Accounts**.
+`Assets` are what you own, and `Liabilities` what you owe, so a card bill is negative. `Equity:Opening` balances the rest: it stands for everything before your ledger starts. Your net worth now shows under **Net worth**.
 
 ## Import your statements
 
-From that day on, let your statements fill the ledger. Open **Files**, then **Import**, and press **Upload statements**. Rupea reads PDF, CSV and Excel statements, and shows the transactions it finds. For each one, it suggests the other account from the transactions already in your ledger.
+From that day on, let your statements fill the ledger. Open **Ledger**, then **Import**, and press **Upload statements**. Rupea reads PDF, CSV and Excel statements, and shows the transactions it finds. For each one, it suggests the other account from the transactions already in your ledger.
 
 Check them, press **Add to ledger**, and name a file, such as `hdfc.rupea`. Each statement adds what's new to it.
 
@@ -46,9 +46,10 @@ Rupea knows statements from HDFC Bank, IDFC FIRST Bank and State Bank of India. 
 
 ## See where it went
 
-- **Accounts** shows your net worth over time, then every account that makes it up, with what it cost and what it gained.
-- **Expenses** shows what you spent each month, split by account and set against the period before.
-- **Transactions** lists every transaction, newest first, each with the file and line it came from.
+- **Home** reviews last month: how your net worth moved, what you saved and spent, and what falls due this week.
+- **Spending** sets what you earned against what you spent, then shows where the money went and how your budgets stand.
+- **Net worth** shows what you own and owe over time, every account that makes it up, and each card's last bill.
+- **Ledger** lists every transaction, newest first, each with the file and line it came from.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="/screenshots/expenses-dark.png">

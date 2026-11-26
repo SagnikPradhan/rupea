@@ -120,7 +120,6 @@
 	<ChartSummary
 		id="spending"
 		label="Spent"
-		lead
 		figure={formatAmount(figure)}
 		exact={formatExact(figure)}
 	>

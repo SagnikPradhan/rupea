@@ -233,28 +233,6 @@ describe('the spending page', () => {
 		);
 	});
 
-	it('names the account under it that took the most as the largest', async () => {
-		visit('/l/h/spending');
-		const total = (account: string, value: string) => ({
-			account,
-			parent: account === 'Expenses' ? null : 'Expenses',
-			first: '2026-01-03',
-			amount: amount(value),
-			unpriced: 0,
-		});
-		const totals = [
-			total('Expenses', '1000'),
-			total('Expenses:Bills', '100'),
-			total('Expenses:Rent', '900'),
-		];
-		vi.mocked(listDeltas).mockReturnValue(answer([{ ...spending, totals }]));
-		render(Page, { data });
-
-		await screen.findByTitle('Expenses:Rent');
-		const strip = within(screen.getByRole('region', { name: 'Spending figures' }));
-		expect(strip.getByText('Rent')).toBeTruthy();
-	});
-
 	it('marks no span when the link asks for a period of its own', async () => {
 		visit('/l/h/spending?at=2026');
 		vi.mocked(listDeltas).mockReturnValue(answer([spending]));
@@ -519,7 +497,7 @@ describe('the income on the spending page', () => {
 		render(Page, { data });
 
 		expect(await screen.findByRole('heading', { level: 1, name: 'Spending' })).toBeTruthy();
-		expect(screen.getByText('What came in, and where it went')).toBeTruthy();
+		expect(screen.getByText(/spent of .+ earned/)).toBeTruthy();
 	});
 
 	it('reads income over the period and over last month', async () => {

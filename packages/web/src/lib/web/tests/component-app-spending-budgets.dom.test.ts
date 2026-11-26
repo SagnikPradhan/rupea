@@ -30,7 +30,7 @@ const BUDGETS = [
 const props = (budgets: BudgetView[]) => ({
 	rows: rowsFor(budgets, 'Expenses'),
 	today: TODAY,
-	add: '/l/h/spending?add=1',
+	handle: 'h',
 });
 
 describe('the budgets panel', () => {
@@ -40,7 +40,7 @@ describe('the budgets panel', () => {
 		expect(screen.getByText('Budgets')).toBeTruthy();
 		expect(screen.getByText('Which budgets are running out?')).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'Add budget' }).getAttribute('href')).toBe(
-			'/l/h/spending?add=1',
+			'/settings?ledger=h&add=budget#h-budgets',
 		);
 	});
 
@@ -81,7 +81,7 @@ describe('the budgets panel', () => {
 		render(SpendingBudgets, props(BUDGETS));
 
 		expect(screen.getByText('Food').closest('a')?.getAttribute('href')).toBe(
-			'?budget=Expenses%3AFood',
+			'/settings?ledger=h&budget=Expenses%3AFood#h-budgets',
 		);
 	});
 

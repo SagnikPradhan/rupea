@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, within } from '@testing-library/svelte';
+import { render, screen, within } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import {
 	listDeltas,
@@ -8,7 +8,6 @@ import {
 	listReturns,
 	listTerms,
 	listWorth,
-	saveTerms,
 } from '#lib/endpoints/accounts.remote.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
@@ -28,7 +27,6 @@ vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
 	listDeltas: vi.fn(() => answer([])),
 	listTerms: vi.fn(() => answer([])),
 	listWorth: vi.fn(() => answer([])),
-	saveTerms: Object.assign(vi.fn(), { pending: 0 }),
 }));
 vi.mock('#lib/endpoints/ledger.remote.ts', () => ({
 	findFirstDay: vi.fn(() => answer('2025-03-14')),
@@ -640,100 +638,20 @@ describe('what you owe on the net worth page', () => {
 		);
 	});
 
-	it('opens the terms of the account asked for beside the table, with what it has now', async () => {
-		open('/l/h/net-worth?setup=Liabilities:Loans:Home');
+	it('links each liability to its terms in settings', async () => {
+		open('/l/h/net-worth');
 
-		const aside = await screen.findByRole('complementary', { name: 'Set up Home' });
-		expect((within(aside).getByLabelText(/Interest rate/) as HTMLInputElement).value).toBe('8.5');
-		expect((within(aside).getByLabelText(/Monthly payment/) as HTMLInputElement).value).toBe(
-			'42,000',
+		const home = (await screen.findByTitle('Liabilities:Loans:Home')).closest('tr')!;
+		expect(within(home).getByRole('link', { name: 'Edit' }).getAttribute('href')).toBe(
+			'/settings?ledger=h&setup=Liabilities%3ALoans%3AHome#h-accounts',
 		);
+		expect(screen.queryByRole('complementary')).toBeNull();
 	});
 
-	it('ignores a setup request for an account that is not a liability', async () => {
-		open('/l/h/net-worth?setup=Assets:Bank');
-
-		expect(await screen.findByText('What you owe')).toBeTruthy();
-		expect(screen.queryByRole('complementary', { name: /^Set up/ })).toBeNull();
-	});
-
-	it('offers to add a card or loan, opening the form beside the table', async () => {
+	it('links adding a card or loan to settings', async () => {
 		open('/l/h/net-worth');
 
 		const add = await screen.findByRole('link', { name: 'Add a card or loan' });
-		expect(add.getAttribute('href')).toBe('/l/h/net-worth?add=1');
-		expect(screen.queryByRole('complementary', { name: 'Add a card or loan' })).toBeNull();
-	});
-
-	it('adds a liability from the form, saving under Liabilities', async () => {
-		open('/l/h/net-worth?add=1');
-		vi.mocked(saveTerms).mockResolvedValue({ data: { file: 'main.rupea' }, errors: [] } as never);
-
-		const aside = await screen.findByRole('complementary', { name: 'Add a card or loan' });
-		await fireEvent.input(within(aside).getByLabelText(/Name/), {
-			target: { value: 'Loans:Bike' },
-		});
-		await fireEvent.input(within(aside).getByLabelText(/Interest rate/), {
-			target: { value: '9' },
-		});
-		await fireEvent.click(within(aside).getByRole('button', { name: 'Save' }));
-
-		expect(await within(aside).findByText('Saved in main.rupea')).toBeTruthy();
-		expect(vi.mocked(saveTerms)).toHaveBeenCalledWith(
-			expect.objectContaining({
-				form: expect.objectContaining({ account: 'Liabilities:Loans:Bike' }),
-			}),
-		);
-	});
-
-	it('asks for a name before adding a liability', async () => {
-		open('/l/h/net-worth?add=1');
-		vi.mocked(saveTerms).mockClear();
-
-		const aside = await screen.findByRole('complementary', { name: 'Add a card or loan' });
-		await fireEvent.click(within(aside).getByRole('button', { name: 'Save' }));
-
-		expect(await within(aside).findByText('Pick an account.')).toBeTruthy();
-		expect(vi.mocked(saveTerms)).not.toHaveBeenCalled();
-	});
-
-	it('writes the terms as asked, keeping the keys it does not know', async () => {
-		open('/l/h/net-worth?setup=Liabilities:Loans:Home');
-		vi.mocked(saveTerms).mockResolvedValue({ data: { file: 'main.rupea' }, errors: [] } as never);
-
-		const aside = await screen.findByRole('complementary', { name: 'Set up Home' });
-		await fireEvent.input(within(aside).getByLabelText(/Interest rate/), {
-			target: { value: '9' },
-		});
-		await fireEvent.click(within(aside).getByRole('button', { name: 'Save' }));
-
-		expect(await within(aside).findByText('Saved in main.rupea')).toBeTruthy();
-		expect(vi.mocked(saveTerms)).toHaveBeenCalledWith({
-			handle: 'h',
-			form: {
-				account: 'Liabilities:Loans:Home',
-				entries: [
-					['kind', 'loan'],
-					['rate', '9'],
-					['payment', '42,000'],
-					['due', '5'],
-					['note', 'keep'],
-				],
-			},
-		});
-	});
-
-	it('does not save a rate that is not a number', async () => {
-		open('/l/h/net-worth?setup=Liabilities:Card');
-		vi.mocked(saveTerms).mockClear();
-
-		const aside = await screen.findByRole('complementary', { name: 'Set up Card' });
-		await fireEvent.input(within(aside).getByLabelText(/Interest rate/), {
-			target: { value: 'high' },
-		});
-		await fireEvent.click(within(aside).getByRole('button', { name: 'Save' }));
-
-		expect(await within(aside).findByText('Check the terms against the hints.')).toBeTruthy();
-		expect(vi.mocked(saveTerms)).not.toHaveBeenCalled();
+		expect(add.getAttribute('href')).toBe('/settings?ledger=h&add=terms#h-accounts');
 	});
 });

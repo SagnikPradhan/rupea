@@ -9,7 +9,7 @@
 		listWorth,
 	} from '#lib/endpoints/accounts.remote.ts';
 	import { findFirstDay } from '#lib/endpoints/ledger.remote.ts';
-	import { printAmount, sum, ASSETS, BalanceAccount, LIABILITIES } from '@rupea/shared/money.ts';
+	import { printAmount, sum, ASSETS, LIABILITIES } from '@rupea/shared/money.ts';
 	import { spansOf } from '@rupea/shared/dates.ts';
 	import { paramsOf } from '#lib/web/shared/filter.ts';
 	import { depthOf, isUnder, nameOf } from '#lib/web/shared/accounts.ts';
@@ -42,7 +42,6 @@
 	import { readQuery } from '#lib/web/shared/query.svelte.ts';
 	import AccountName from '#lib/web/components/app-account-name/app-account-name.svelte';
 	import ListFilter from '#lib/web/components/app-list-filter/app-list-filter.svelte';
-	import TermsForm from '#lib/web/components/app-terms-form/app-terms-form.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import Amount from '#lib/web/components/app-ledger-table/amount.svelte';
 	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
@@ -51,19 +50,15 @@
 	import ChoiceChips from '#lib/web/components/ui-chip-choices/ui-chip-choices.svelte';
 	import Kpi from '#lib/web/components/ui-kpi/ui-kpi.svelte';
 	import KpiStrip from '#lib/web/components/ui-kpi-strip/ui-kpi-strip.svelte';
-	import Aside from '#lib/web/components/ui-aside/ui-aside.svelte';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import PageSection from '#lib/web/components/ui-page-section/ui-page-section.svelte';
 	import ChartSummary from '#lib/web/components/ui-chart-summary/ui-chart-summary.svelte';
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
-	import Field from '#lib/web/components/ui-field/ui-field.svelte';
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
-	import { hrefWith, postingsHref } from '#lib/web/shared/links.ts';
-	import { goto } from '$app/navigation';
+	import { postingsHref, settingsHref } from '#lib/web/shared/links.ts';
 	import { page } from '$app/state';
-	import * as v from 'valibot';
 
 	const SETTLED = { '': 'Including settled', no: 'Open only' };
 
@@ -163,18 +158,8 @@
 			: `${owedRings.skipped} ${owedRings.skipped === 1 ? 'account is' : 'accounts are'} in credit, so not drawn`,
 	);
 
-	const setup = $derived.by(() => {
-		const asked = v.parse(BalanceAccount, page.url.searchParams.get('setup'));
-		return asked !== null && isUnder(asked, LIABILITIES) ? asked : null;
-	});
-	const current = $derived(
-		termed.data?.find((t) => t.account.toLowerCase() === setup?.toLowerCase())?.current ?? {},
-	);
-	const adding = $derived(page.url.searchParams.has('add'));
-	const fresh = $state({ name: '' });
-	const setupHref = (a: string | null) =>
-		hrefWith(page.url.searchParams, { setup: a ?? '', add: '' });
-	const addHref = $derived(hrefWith(page.url.searchParams, { setup: '', add: '1' }));
+	const setupHref = (a: string) => settingsHref(handle, { setup: a });
+	const addHref = $derived(settingsHref(handle, { add: 'terms' }));
 
 	const postingsOf = (a: string) => postingsHref(handle, { account: a, ...paramsOf(period) });
 
@@ -339,7 +324,7 @@
 		</KpiStrip>
 	</PanelGrid>
 
-	<PanelGrid wide={setup !== null || adding} full={setup === null && !adding}>
+	<PanelGrid full>
 		<Panel title="All liabilities" subtitle="What is owed on each account?">
 			{#snippet actions()}
 				<ChoiceChips
@@ -420,47 +405,10 @@
 				</p>
 			{/if}
 		</Panel>
-		{#if setup}
-			<Aside title="Set up {nameOf(setup)}" onclose={() => goto(setupHref(null))}>
-				{#key setup}
-					<TermsForm
-						{handle}
-						account={setup}
-						{current}
-						onsaved={() => listTerms({ handle, day }).refresh()}
-					/>
-				{/key}
-			</Aside>
-		{/if}
-		{#if !setup && adding}
-			<Aside title="Add a card or loan" onclose={() => goto(setupHref(null))}>
-				<div class="add">
-					<Field label="Name" hint="Under Liabilities, like Loans:Car or Cards:Regalia.">
-						<input bind:value={fresh.name} />
-					</Field>
-					<TermsForm
-						{handle}
-						account="Liabilities:{fresh.name.trim()}"
-						current={{}}
-						onsaved={() => listTerms({ handle, day }).refresh()}
-					/>
-				</div>
-			</Aside>
-		{/if}
 	</PanelGrid>
 </PageSection>
 
 <style>
-	.add {
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-3);
-	}
-
-	input {
-		width: 100%;
-	}
-
 	.ask {
 		margin-top: var(--size-3);
 	}

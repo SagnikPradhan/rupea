@@ -1,6 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { visit } from '#tests/shared/app-state.ts';
-import { fileHref, hrefOnly, hrefWith, lotsHref, postingsHref } from '#lib/web/shared/links.ts';
+import {
+	fileHref,
+	hrefOnly,
+	hrefWith,
+	lotsHref,
+	postingsHref,
+	settingsHref,
+} from '#lib/web/shared/links.ts';
 
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 
@@ -35,6 +42,28 @@ describe('lotsHref', () => {
 		expect(lotsHref('quiet-heron', { account: 'Assets:Stocks', commodity: 'INFY LTD' })).toBe(
 			'/l/quiet-heron/net-worth/lots?account=Assets%3AStocks&commodity=INFY+LTD',
 		);
+	});
+});
+
+describe('settingsHref', () => {
+	it('opens an account in the accounts section of its ledger', () => {
+		expect(settingsHref('h', { setup: 'Liabilities:Card' })).toBe(
+			'/settings?ledger=h&setup=Liabilities%3ACard#h-accounts',
+		);
+	});
+
+	it('opens adding a budget in the budgets section', () => {
+		expect(settingsHref('h', { add: 'budget' })).toBe('/settings?ledger=h&add=budget#h-budgets');
+	});
+
+	it('opens a budget in the budgets section', () => {
+		expect(settingsHref('h', { budget: 'Expenses:Food' })).toBe(
+			'/settings?ledger=h&budget=Expenses%3AFood#h-budgets',
+		);
+	});
+
+	it('drops an empty value but keeps its section', () => {
+		expect(settingsHref('h', { budget: '' })).toBe('/settings?ledger=h#h-budgets');
 	});
 });
 

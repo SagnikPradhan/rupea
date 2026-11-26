@@ -1,20 +1,14 @@
 <script lang="ts">
 	import {
-		listAccounts,
 		listBudgets,
 		listDailyDeltas,
 		listDeltas,
 		listInvested,
 	} from '#lib/endpoints/accounts.remote.ts';
-	import { goto } from '$app/navigation';
-	import { page } from '$app/state';
 	import { openingOf, spansOf } from '@rupea/shared/dates.ts';
 	import { ZERO, printAmount, ASSETS, EXPENSES, INCOME } from '@rupea/shared/money.ts';
-	import { isUnder, nameOf } from '#lib/web/shared/accounts.ts';
 	import { PERIOD_PARAMS } from '#lib/web/shared/filter.ts';
 	import { coloursOf, distinctOf } from '#lib/web/shared/chart.ts';
-	import Aside from '#lib/web/components/ui-aside/ui-aside.svelte';
-	import BudgetAside from '#lib/web/components/app-budget-form/app-budget-form.svelte';
 	import ChoiceChips from '#lib/web/components/ui-chip-choices/ui-chip-choices.svelte';
 	import ChoicePicker from '#lib/web/components/ui-picker-choice/ui-picker-choice.svelte';
 	import FilterModal from '#lib/web/components/ui-filter-modal/ui-filter-modal.svelte';
@@ -31,7 +25,6 @@
 	import { formatChange, formatIsoDate } from '#lib/web/shared/format.ts';
 	import { MONTHS_BRIEF } from '#lib/web/shared/home.ts';
 	import { rowsFor } from '#lib/web/shared/budgets.ts';
-	import { hrefWith } from '#lib/web/shared/links.ts';
 	import { readQuery } from '#lib/web/shared/query.svelte.ts';
 	import * as Income from '#lib/web/shared/income.ts';
 	import * as Spending from '#lib/web/shared/spending.ts';
@@ -45,8 +38,6 @@
 	const shown = $derived(spansOf(url.query.period, today).current);
 	const span = $derived({ from: shown.from.toString(), to: shown.to.toString() });
 
-	const adding = $derived(page.url.searchParams.has('add'));
-
 	const [earned, spent, invested] = $derived(
 		await Promise.all([
 			listDeltas({ handle, day, period: url.query.period, account: INCOME }),
@@ -59,29 +50,15 @@
 			}),
 		]),
 	);
-	const [response, daily, budgets, accounts] = $derived(
+	const [response, daily, budgets] = $derived(
 		await Promise.all([
 			listDeltas({ handle, day, period: url.query.period, account: url.query.account }),
 			listDailyDeltas({ handle, day, period: url.query.period, account: url.query.account }),
 			listBudgets({ handle, from: span.from, day: span.to }),
-			adding ? listAccounts(handle) : undefined,
 		]),
 	);
 	const picked = $derived(url.query.span || (url.query.dated ? '' : '12'));
 	const rows = $derived(rowsFor(budgets.data ?? [], url.query.account));
-	const params = $derived([...page.url.searchParams]);
-	const editing = $derived(page.url.searchParams.get('budget'));
-	const budget = $derived(
-		(budgets.data ?? []).find((b) => b.account.toLowerCase() === editing?.toLowerCase()),
-	);
-	const budgeted = $derived((budgets.data ?? []).map((b) => b.account.toLowerCase()));
-	const expenses = $derived(
-		(accounts?.data ?? [])
-			.map((a) => a.account)
-			.filter((a) => a !== EXPENSES && isUnder(a, EXPENSES))
-			.filter((a) => !budgeted.includes(a.toLowerCase())),
-	);
-	const closeHref = $derived(hrefWith(params, { add: '', budget: '' }));
 	const spending = $derived(response.data?.[0]);
 	const previous = $derived(response.data?.[1]);
 	const bucket = $derived(spending?.bucket ?? 'month');
@@ -156,27 +133,8 @@
 </PanelGrid>
 
 <PanelGrid>
-	<SpendingBudgets {rows} {today} add={hrefWith(params, { add: '1' })} />
-	{#if budget}
-		<Aside title="Budget for {nameOf(budget.account)}" onclose={() => goto(closeHref)}>
-			{#key budget.account}
-				<BudgetAside
-					{handle}
-					{day}
-					shown={span}
-					account={budget.account}
-					accounts={[]}
-					current={budget.current}
-				/>
-			{/key}
-		</Aside>
-	{/if}
-	{#if adding && !budget}
-		<Aside title="Add budget" onclose={() => goto(closeHref)}>
-			<BudgetAside {handle} {day} shown={span} account="" accounts={expenses} current={{}} />
-		</Aside>
-	{/if}
-	{#if !adding && !budget}<SpendingDays daily={daily.data ?? []} />{/if}
+	<SpendingBudgets {rows} {today} {handle} />
+	<SpendingDays daily={daily.data ?? []} />
 </PanelGrid>
 
 <PanelGrid full>

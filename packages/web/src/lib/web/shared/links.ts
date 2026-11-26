@@ -19,6 +19,17 @@ export const lotsHref = (h: string, q: Record<string, string>) =>
 		new URLSearchParams(q),
 	);
 
+/**
+ * Opens a ledger's terms or budgets in settings, at the section they are in; an
+ * empty value drops its key but keeps the section.
+ */
+export const settingsHref = (h: string, q: Record<string, string>) => {
+	const section = 'budget' in q || q['add'] === 'budget' ? 'budgets' : 'accounts';
+	const kept = Object.entries(q).filter(([, value]) => value !== '');
+	const query = new URLSearchParams([['ledger', h], ...kept]);
+	return `${withQuery(resolve('/(signed-in)/settings'), query)}#${h}-${section}` as ResolvedPathname;
+};
+
 /** The current page on another ledger; home, which holds no ledger, asks for it. */
 export const ledgerHref = (h: string) =>
 	page.params.handle === undefined || page.route.id === null

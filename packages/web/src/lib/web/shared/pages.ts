@@ -34,6 +34,7 @@ export const PAGES = [
 			{ path: 'postings', label: 'Postings' },
 			{ path: 'files', label: 'Files' },
 			{ path: 'import', label: 'Import' },
+			{ path: 'refine', label: 'Review' },
 		],
 	},
 ] as const;

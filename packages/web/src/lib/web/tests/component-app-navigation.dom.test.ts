@@ -164,6 +164,7 @@ describe('the navigation', () => {
 			['Postings', '/l/h/postings'],
 			['Files', '/l/h/files'],
 			['Import', '/l/h/import'],
+			['Review', '/l/h/refine'],
 		]);
 	});
 

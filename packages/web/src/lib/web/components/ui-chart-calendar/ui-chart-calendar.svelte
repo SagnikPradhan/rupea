@@ -59,7 +59,7 @@
 	const hovered = $state({ index: null as number | null });
 
 	const amounts = $derived(rows.map((r) => Number(r[y] ?? 0)));
-	const most = $derived(Math.max(0, ...amounts));
+	const ranked = $derived(amounts.filter((n) => n > 0).toSorted((a, b) => a - b));
 
 	/**
 	 * Days in rows of seven from Monday, blank before the first day and after the
@@ -74,10 +74,11 @@
 	});
 
 	/**
-	 * How dark a day is, from none for nothing spent to the darkest for the
-	 * month's largest day.
+	 * How dark a day is, by where it ranks among the days with any spending, so
+	 * one large day leaves the rest apart.
 	 */
-	const shadeOf = (amount: number) => (amount > 0 ? Math.ceil((amount / most) * SHADES) : 0);
+	const shadeOf = (amount: number) =>
+		amount > 0 ? Math.ceil(((ranked.indexOf(amount) + 1) / ranked.length) * SHADES) : 0;
 
 	const lines = $derived(
 		across ? Array.from({ length: 7 }, (_, d) => weeks.map((w) => w[d] ?? null)) : weeks,

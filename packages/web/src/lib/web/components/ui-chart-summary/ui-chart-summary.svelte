@@ -6,13 +6,14 @@
 		label: string;
 		figure: string;
 		exact?: string;
+		lead?: boolean;
 		children: Snippet;
 	};
 
-	const { id, label, figure, exact, children }: Props = $props();
+	const { id, label, figure, exact, lead = false, children }: Props = $props();
 </script>
 
-<div class="summary">
+<div class={['summary', { lead }]}>
 	<h2 {id}>{label}</h2>
 	<p class="figure" title={exact}>{figure}</p>
 	<p class="line">{@render children()}</p>
@@ -31,11 +32,20 @@
 		font: var(--text-label);
 	}
 
+	.lead h2 {
+		color: var(--color-ink);
+		font: var(--text-title);
+	}
+
 	.figure {
-		font: var(--text-display);
-		font-size: min(var(--font-size-4), 12vw);
+		font: var(--text-figure);
 		font-variant-numeric: tabular-nums;
 		overflow-wrap: anywhere;
+	}
+
+	.lead .figure {
+		font: var(--text-display);
+		font-size: min(var(--font-size-4), 12vw);
 	}
 
 	.line {

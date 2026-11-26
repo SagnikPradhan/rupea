@@ -78,20 +78,8 @@ export const totalOf = (rows: BudgetRow[]) => {
 	return { spent, limit, gap: (spent > limit ? spent - limit : limit - spent) as Amount };
 };
 
-/** The line under the title, like 6 budgets · 2 over. */
-export const subtitleOf = (rows: BudgetRow[]) => {
-	if (rows.length === 0) return 'No budgets';
-
-	const count = `${rows.length} ${rows.length === 1 ? 'budget' : 'budgets'}`;
-	const over = rows.filter((r) => r.over).length;
-
-	return `${count} · ${over === 0 ? 'none' : over} over`;
-};
-
 /** The figure and detail of the tile naming the accounts that are over. */
 export const overOf = (rows: BudgetRow[]) => {
-	if (rows.length === 0) return { figure: '–', detail: 'None set' };
-
 	const names = rows.filter((r) => r.over).map((r) => nameOf(r.budget.account));
 
 	return {

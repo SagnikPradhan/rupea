@@ -75,6 +75,35 @@ describe('the navigation', () => {
 		expect(screen.queryByRole('button', { name: 'Sign out' })).toBeNull();
 	});
 
+	it('switches between ledgers from the account card, keeping the page', async () => {
+		at('/l/a/spending', { handle: 'a' }, '/(signed-in)/l/[handle]/spending');
+		const ledgers = [
+			{ handle: 'a', name: 'Personal' },
+			{ handle: 'b', name: 'Shared' },
+		];
+		render(Navigation, { handle: 'a', ledgers, username: 'asha', local: false, theme: 'system' });
+
+		await fireEvent.pointerEnter(await screen.findByRole('button', { name: 'Account' }));
+		const list = within(await screen.findByRole('list', { name: 'Ledgers' }));
+
+		expect(list.getByRole('link', { name: 'Personal' }).getAttribute('aria-current')).toBe('page');
+		expect(list.getByRole('link', { name: 'Shared' }).getAttribute('href')).toBe('/l/b/spending');
+	});
+
+	it('lists no ledgers when there is only one', async () => {
+		render(Navigation, {
+			handle: 'a',
+			ledgers: [{ handle: 'a', name: 'Personal' }],
+			username: 'asha',
+			local: false,
+			theme: 'system',
+		});
+		await fireEvent.pointerEnter(screen.getByRole('button', { name: 'Account' }));
+		await screen.findByText('Hello, asha');
+
+		expect(screen.queryByRole('list', { name: 'Ledgers' })).toBeNull();
+	});
+
 	it('links the ledger pages, and marks Home as the current page on the home page', () => {
 		render(Navigation, { handle: 'h', username: 'asha', local: false, theme: 'system' });
 
@@ -84,15 +113,31 @@ describe('the navigation', () => {
 				.map((a) => [a.textContent, a.getAttribute('href')]),
 		).toEqual([
 			['Home', '/'],
-			['Accounts', '/l/h/accounts'],
-			['Income', '/l/h/income'],
-			['Expenses', '/l/h/expenses'],
-			['Liabilities', '/l/h/liabilities'],
+			['Spending', '/l/h/spending'],
+			['Net worth', '/l/h/net-worth'],
 			['Transactions', '/l/h/transactions'],
 			['Files', '/l/h/files'],
 		]);
 		expect(bar().getByRole('link', { name: 'Home' }).getAttribute('aria-current')).toBe('page');
-		expect(bar().getByRole('link', { name: 'Accounts' }).getAttribute('aria-current')).toBeNull();
+		expect(bar().getByRole('link', { name: 'Spending' }).getAttribute('aria-current')).toBeNull();
+	});
+
+	it('shows what a page holds, with links to its sections, when its link is hovered', async () => {
+		at('/l/h/files', { handle: 'h' });
+		render(Navigation, { handle: 'h', username: 'asha', theme: 'system' });
+		await screen.findAllByRole('navigation', { name: 'Pages' });
+
+		await fireEvent.pointerEnter(bar().getByRole('link', { name: 'Net worth' }));
+
+		const about = await screen.findByText('What you are worth, and how it has grown');
+		expect(about.parentElement?.querySelector('strong svg')).toBeTruthy();
+		const sections = within(screen.getByRole('list', { name: 'Sections of Net worth' }));
+		expect(
+			sections.getAllByRole('link').map((a) => [a.textContent, a.getAttribute('href')]),
+		).toEqual([
+			['Owned', '/l/h/net-worth#owned'],
+			['Owed', '/l/h/net-worth#owed'],
+		]);
 	});
 
 	it('marks no page current on a page the bar does not list', async () => {
@@ -108,7 +153,7 @@ describe('the navigation', () => {
 	});
 
 	it('offers syncing on a ledger page only', async () => {
-		at('/l/h/accounts', { handle: 'h' });
+		at('/l/h/net-worth', { handle: 'h' });
 		render(Navigation, { handle: 'h', username: 'asha', local: false, theme: 'system' });
 		await fireEvent.click(await screen.findByRole('button', { name: 'Menu' }));
 

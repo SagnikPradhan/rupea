@@ -1,14 +1,16 @@
 <script lang="ts">
-	import { ZERO, printAmount } from '@rupea/shared/money.ts';
-	import { nameOf } from '#lib/web/shared/accounts.ts';
+	import { EXPENSES, INCOME, ZERO, printAmount, type Amount } from '@rupea/shared/money.ts';
 	import Kpi from '#lib/web/components/ui-kpi/ui-kpi.svelte';
 	import KpiStrip from '#lib/web/components/ui-kpi-strip/ui-kpi-strip.svelte';
 	import { overOf, type BudgetRow } from '#lib/web/shared/budgets.ts';
 	import { type Change, formatShare, formatWhole } from '#lib/web/shared/format.ts';
+	import * as Income from '#lib/web/shared/income.ts';
 	import * as Spending from '#lib/web/shared/spending.ts';
 
 	type Props = {
 		spending: Spending.Spent | undefined;
+		income: Spending.Spent | undefined;
+		expenses: Spending.Spent | undefined;
 		account: string;
 		first: Temporal.PlainDate;
 		last: Temporal.PlainDate;
@@ -16,23 +18,28 @@
 		budgets: BudgetRow[];
 	};
 
-	const { spending, account, first, last, moved, budgets }: Props = $props();
+	const { spending, income, expenses, account, first, last, moved, budgets }: Props = $props();
 
 	const total = $derived(Spending.totalOf(spending, account) ?? ZERO);
+	const earned = $derived(Income.incomeOf(income, INCOME));
+	const saved = $derived((earned - (Spending.totalOf(expenses, EXPENSES) ?? ZERO)) as Amount);
 	const days = $derived(Spending.daysIn(first, last));
 	const over = $derived(overOf(budgets));
-	const largest = $derived(
-		Spending.largestFirst(Spending.rowsOf(spending, account), account).find(
-			(r) => r.parent === account,
-		),
+	const unpriced = $derived(
+		Spending.rowsOf(spending, account).find((r) => r.account === account)?.unpriced ?? 0,
 	);
 </script>
 
-<KpiStrip>
+<KpiStrip label="Spending figures">
 	<Kpi
 		label="Spent"
 		figure={formatWhole(printAmount(total))}
-		detail={moved?.percent ? `${moved.percent} on the period before` : undefined}
+		detail={[
+			moved?.percent ? `${moved.percent} on the period before` : '',
+			unpriced > 0 ? `excludes ${unpriced} unpriced` : '',
+		]
+			.filter(Boolean)
+			.join(' · ') || undefined}
 	/>
 	<Kpi
 		label="A day"
@@ -40,16 +47,17 @@
 		detail="{days} {days === 1 ? 'day' : 'days'}"
 	/>
 	<Kpi
-		label="Largest"
-		figure={largest ? nameOf(largest.account) : '–'}
-		detail={largest
-			? `${formatWhole(printAmount(largest.amount))} · ${formatShare(printAmount(largest.amount), printAmount(total)) ?? '0%'} of spending`
-			: undefined}
+		label="Saved"
+		figure={formatWhole(printAmount(saved))}
+		detail="{formatShare(printAmount(saved), printAmount(earned)) ?? '0%'} of income"
+		tone={saved > 0n ? 'positive' : undefined}
 	/>
-	<Kpi
-		label="Budgets over"
-		figure={over.figure}
-		detail={over.detail}
-		tone={budgets.some((r) => r.over) ? 'negative' : undefined}
-	/>
+	{#if budgets.length > 0}
+		<Kpi
+			label="Budgets over"
+			figure={over.figure}
+			detail={over.detail}
+			tone={budgets.some((r) => r.over) ? 'negative' : undefined}
+		/>
+	{/if}
 </KpiStrip>

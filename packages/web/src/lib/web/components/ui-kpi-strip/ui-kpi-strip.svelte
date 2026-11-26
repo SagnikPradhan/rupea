@@ -1,10 +1,10 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
 
-	const { children }: { children: Snippet } = $props();
+	const { label = 'Figures', children }: { label?: string; children: Snippet } = $props();
 </script>
 
-<section aria-label="Figures">
+<section aria-label={label}>
 	{@render children()}
 </section>
 
@@ -13,7 +13,7 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--size-3);
-		align-self: center;
+		align-self: flex-start;
 		min-width: calc(var(--size-5) * 3);
 	}
 </style>

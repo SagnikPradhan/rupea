@@ -1,6 +1,6 @@
 import { render, screen, within } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { findBridge, listHoldings, listDeltas, listWorth } from '#lib/endpoints/accounts.remote.ts';
+import { findBridge, listHoldings, listDeltas, listTerms } from '#lib/endpoints/accounts.remote.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
 import Page from '#routes/(signed-in)/+page.svelte';
@@ -11,7 +11,7 @@ vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
 	findBridge: vi.fn(),
 	listHoldings: vi.fn(),
 	listDeltas: vi.fn(),
-	listWorth: vi.fn(),
+	listTerms: vi.fn(),
 }));
 
 const amount = (t: string) => parseAmount(t) as Amount;
@@ -32,25 +32,6 @@ const accounts = [
 	account('Assets:Gold', 'Assets', '200000'),
 	account('Liabilities', null, '-90000'),
 	account('Liabilities:Home loan', 'Liabilities', '-90000'),
-];
-
-const worth = [
-	{
-		day: '2024-11-03',
-		assets: '200000',
-		liabilities: '-100000',
-		worth: '100000',
-		parts: [],
-		unpriced: 0,
-	},
-	{
-		day: '2026-11-03',
-		assets: '300000',
-		liabilities: '-90000',
-		worth: '210000',
-		parts: [],
-		unpriced: 0,
-	},
 ];
 
 const spend = (day: string, amounts: Record<string, string>, top = 'Expenses') => ({
@@ -85,7 +66,7 @@ const bridge = {
 
 beforeEach(() => {
 	vi.mocked(findBridge).mockReturnValue(answer([bridge]));
-	vi.mocked(listWorth).mockReturnValue(answer(worth));
+	vi.mocked(listTerms).mockReturnValue(answer([]));
 	vi.mocked(listHoldings).mockReturnValue(answer(accounts));
 	vi.mocked(listDeltas).mockImplementation(({ account }) =>
 		answer(
@@ -107,119 +88,85 @@ beforeEach(() => {
 });
 
 describe('the home page', () => {
-	it('shows what you own and owe, and last month against the one before', async () => {
-		visit('/');
-		render(Page, { data: { ...data, ledgers: [ledgers[0]!] } });
-
-		expect(await screen.findByText('Balance sheet')).toBeTruthy();
-		const strip = within(screen.getByRole('region', { name: 'Figures' }));
-		expect(strip.getByText('3,00,000')).toBeTruthy();
-		expect(strip.getByText('in 2 groups')).toBeTruthy();
-		expect(strip.getByText('30% of assets')).toBeTruthy();
-
-		const sheet = within(screen.getByText('Balance sheet').closest('section')!);
-		expect(sheet.getByText('Gold')).toBeTruthy();
-		expect(sheet.getByText('Home loan')).toBeTruthy();
-		expect(sheet.getByText('Net worth').closest('tr')?.textContent).toContain('2,10,000');
-
-		const income = within(screen.getByText('Income statement').closest('section')!);
-		expect(income.getByText('Rent').closest('tr')?.textContent).toContain('200');
-		expect(income.getByText('Food').closest('tr')?.textContent).toContain('+50');
-		expect(income.getByText('Spent').closest('tr')?.textContent).toContain('+50');
-		expect(income.getByText('Salary').closest('tr')?.textContent).toContain('1,000');
-		expect(income.getByText('Saved').closest('tr')?.textContent).toContain('700');
-		expect(strip.getByText('70% of income')).toBeTruthy();
-	});
-
-	it('reads the last two years of net worth, and last month of spending', async () => {
-		visit('/');
-		render(Page, { data: { ...data, ledgers: [ledgers[0]!] } });
-		await screen.findByText('Balance sheet');
-
-		expect(vi.mocked(listWorth)).toHaveBeenCalledWith(
-			expect.objectContaining({ handle: 'a', period: expect.objectContaining({ kind: 'custom' }) }),
-		);
-		expect(vi.mocked(listDeltas)).toHaveBeenCalledWith(
-			expect.objectContaining({
-				period: { kind: 'month', at: expect.stringMatching(/^\d{4}-\d{2}$/) },
-			}),
-		);
-	});
-
-	it('narrows the balance sheet to the side the Accounts filter picks', async () => {
-		visit('/?account=Liabilities');
-		render(Page, { data: { ...data, ledgers: [ledgers[0]!] } });
-		await screen.findByText('Balance sheet');
-
-		const sheet = within(screen.getByText('Balance sheet').closest('section')!);
-		expect(sheet.queryByText('Gold')).toBeNull();
-		expect(sheet.getByText('Home loan')).toBeTruthy();
-	});
-
-	it('marks the blocks it has no data for as coming soon', async () => {
-		visit('/');
-		render(Page, { data: { ...data, ledgers: [ledgers[0]!] } });
-		await screen.findByText('Balance sheet');
-
-		expect(screen.getAllByText(/^Coming soon · /)).toHaveLength(1);
-		expect(screen.queryByText('Cash cushion')).toBeNull();
-	});
-
-	it('draws what moved net worth, and says so when nothing was held', async () => {
+	it('leads with how net worth moved last month, and what moved it', async () => {
 		visit('/');
 		render(Page, { data: { ...data, ledgers: [ledgers[0]!] } });
 
 		const plot = await screen.findByRole('img', { name: /^Net worth from 1,00,000 to 2,10,000/ });
 		expect(plot.querySelectorAll('rect')).toHaveLength(5);
-		expect(screen.getByText(/^3 Nov 2024 to 3 Nov 2026 · from 1,00,000 to 2,10,000/)).toBeTruthy();
-
-		vi.mocked(findBridge).mockReturnValue(answer([]));
-		render(Page, { data: { ...data, ledgers: [ledgers[0]!] } });
-
-		expect(await screen.findByText('Nothing held in this period.')).toBeTruthy();
+		expect(screen.getByText(/^Net worth in /)).toBeTruthy();
+		expect(screen.getByText(/from 1,00,000 to 2,10,000/)).toBeTruthy();
+		expect(vi.mocked(findBridge)).toHaveBeenCalledWith(
+			expect.objectContaining({
+				period: expect.objectContaining({ kind: 'custom', from: expect.stringMatching(/-\d{2}$/) }),
+			}),
+		);
 	});
 
-	it('says the bridge covers all accounts when the Accounts filter is on', async () => {
-		visit('/?account=Assets:Bank');
+	it('says so when nothing was held last month', async () => {
+		vi.mocked(findBridge).mockReturnValue(answer([]));
+		visit('/');
 		render(Page, { data: { ...data, ledgers: [ledgers[0]!] } });
 
-		expect(await screen.findByText(/from 1,00,000 to 2,10,000 · all accounts$/)).toBeTruthy();
+		expect(await screen.findByText('Nothing held last month.')).toBeTruthy();
+	});
+
+	it('shows net worth, what was saved and spent, and what falls due, each linking to its page', async () => {
+		visit('/');
+		render(Page, { data: { ...data, ledgers: [ledgers[0]!] } });
+
+		const strip = within(await screen.findByRole('region', { name: 'Last month' }));
+		expect(strip.getByText('2,10,000')).toBeTruthy();
+		expect(strip.getByText('700')).toBeTruthy();
+		expect(strip.getByText('70% of income')).toBeTruthy();
+		expect(strip.getByText('+20% on', { exact: false })).toBeTruthy();
+		expect(strip.getByRole('link', { name: 'Net worth' }).getAttribute('href')).toBe(
+			'/l/a/net-worth',
+		);
+		expect(strip.getByRole('link', { name: /^Saved in/ }).getAttribute('href')).toMatch(
+			/^\/l\/a\/spending\?at=\d{4}-\d{2}$/,
+		);
+		expect(strip.getByRole('link', { name: /^Spent in/ }).getAttribute('href')).toMatch(
+			/^\/l\/a\/spending\?at=\d{4}-\d{2}$/,
+		);
+		expect(strip.getByRole('link', { name: /^Due in/ }).getAttribute('href')).toBe(
+			'/l/a/net-worth#owed',
+		);
+	});
+
+	it('adds up the payments falling due in the next week', async () => {
+		vi.mocked(listTerms).mockReturnValue(
+			answer([{ account: 'Liabilities:Home loan', current: {}, held: { kind: 'card', due: 1 } }]),
+		);
+		vi.useFakeTimers({ toFake: ['Date'] });
+		vi.setSystemTime(new Date('2026-11-28T12:00:00Z'));
+		visit('/');
+		render(Page, { data: { ...data, ledgers: [ledgers[0]!] } });
+
+		const strip = within(await screen.findByRole('region', { name: 'Last month' }));
+		expect(strip.getByText('90,000')).toBeTruthy();
+		expect(strip.getByText('1 payment')).toBeTruthy();
+		vi.useRealTimers();
+	});
+
+	it('starts every figure at zero on a ledger with nothing in it yet', async () => {
+		vi.mocked(findBridge).mockReturnValue(answer([]));
+		vi.mocked(listHoldings).mockReturnValue(answer([]));
+		vi.mocked(listDeltas).mockReturnValue(answer([]));
+		visit('/');
+		render(Page, { data: { ...data, ledgers: [ledgers[0]!] } });
+
+		const strip = within(await screen.findByRole('region', { name: 'Last month' }));
+		expect(strip.getByText('0% of income')).toBeTruthy();
+		expect(strip.getByText('0 payments')).toBeTruthy();
 	});
 
 	it('shows the first ledger, and the one asked for when there are several', async () => {
 		visit('/?ledger=b');
 		render(Page, { data: { ...data, ledgers } });
-		await screen.findByText('Balance sheet');
+		await screen.findByRole('region', { name: 'Last month' });
 
 		expect(vi.mocked(listHoldings)).toHaveBeenCalledWith(expect.objectContaining({ handle: 'b' }));
-		const picker = within(screen.getByRole('navigation', { name: 'Ledger' }));
-		expect(picker.getByRole('link', { name: 'Shared' }).getAttribute('aria-current')).toBe('page');
-		expect(picker.getByRole('link', { name: 'Personal' }).getAttribute('href')).toBe('/?ledger=a');
-	});
-
-	it('starts every figure at zero on a ledger with nothing in it yet', async () => {
-		vi.mocked(listWorth).mockReturnValue(answer([]));
-		vi.mocked(listHoldings).mockReturnValue(answer([]));
-		vi.mocked(listDeltas).mockReturnValue(answer([]));
-		visit('/');
-		render(Page, { data: { ...data, ledgers: [ledgers[0]!] } });
-		await screen.findByText('Balance sheet');
-
-		const strip = within(screen.getByRole('region', { name: 'Figures' }));
-		expect(strip.getByText('in 0 groups')).toBeTruthy();
-		expect(strip.getByText('0% of assets')).toBeTruthy();
-		expect(strip.getByText('0% of income')).toBeTruthy();
-		const sheet = within(screen.getByText('Balance sheet').closest('section')!);
-		expect(sheet.getByText('Net worth').closest('tr')?.textContent).toContain('0');
-	});
-
-	it('names a lone group of assets in the singular', async () => {
-		vi.mocked(listHoldings).mockReturnValue(answer(accounts.slice(0, 2)));
-		visit('/');
-		render(Page, { data: { ...data, ledgers: [ledgers[0]!] } });
-		await screen.findByText('Balance sheet');
-
-		expect(screen.getByText('in 1 group')).toBeTruthy();
 	});
 
 	it('says so when there is no ledger', () => {

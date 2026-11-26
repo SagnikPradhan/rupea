@@ -1,5 +1,5 @@
 <script lang="ts">
-	import type { Snippet } from 'svelte';
+	import { getContext, type Snippet } from 'svelte';
 
 	type Props = {
 		title: string;
@@ -10,7 +10,14 @@
 		children?: Snippet;
 	};
 
-	const { title, subtitle, soon = false, plain = false, actions, children }: Props = $props();
+	const {
+		title,
+		subtitle,
+		soon = false,
+		plain = getContext<(() => boolean) | undefined>('plain')?.() ?? false,
+		actions,
+		children,
+	}: Props = $props();
 </script>
 
 <section class={{ soon, plain }}>
@@ -48,11 +55,6 @@
 		border-radius: var(--radius-1);
 	}
 
-	.plain {
-		padding: 0;
-		border: 0;
-	}
-
 	.soon {
 		align-items: center;
 		justify-content: center;
@@ -63,6 +65,11 @@
 
 	.soon header {
 		align-items: center;
+	}
+
+	.plain {
+		padding: 0;
+		border: 0;
 	}
 
 	p {

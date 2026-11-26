@@ -20,7 +20,7 @@
 		display: grid;
 		grid-template-columns: subgrid;
 		align-items: start;
-		row-gap: var(--size-3);
+		row-gap: var(--size-4);
 	}
 
 	div > :global(*) {

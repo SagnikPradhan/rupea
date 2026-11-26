@@ -1,13 +1,14 @@
 import { expect, test } from './support/test.ts';
 import { visit } from './support/visit.ts';
 
-test('home shows the balance sheet, and says what it cannot read yet', async ({
-	signedIn: page,
-}) => {
+test('home reviews last month, each figure leading to its page', async ({ signedIn: page }) => {
 	await visit(page, '/');
-	await expect(page.getByRole('heading', { name: 'Balance sheet' })).toBeVisible();
-	await expect(page.getByRole('heading', { name: 'Income statement' })).toBeVisible();
-	await expect(page.getByText(/^Coming soon · /).first()).toBeVisible();
+	const month = page.getByRole('region', { name: 'Last month' });
+	for (const label of ['Net worth', /^Saved in/, /^Spent in/, 'Due in 7 days'])
+		await expect(month.getByRole('link', { name: label })).toBeVisible();
+
+	await month.getByRole('link', { name: /^Spent in/ }).click();
+	await page.waitForURL(/\/spending\?at=\d{4}-\d{2}$/);
 });
 
 test('the menu opens the ledger pages and closes on the way', async ({ signedIn: page }) => {

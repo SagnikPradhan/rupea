@@ -3,93 +3,104 @@
 		findBridge,
 		listHoldings,
 		listDeltas,
-		listWorth,
+		listTerms,
 	} from '#lib/endpoints/accounts.remote.ts';
-	import { ASSETS, INCOME, LIABILITIES, printAmount } from '@rupea/shared/money.ts';
-	import type { Period } from '@rupea/shared/dates.ts';
+	import { resolve } from '$app/paths';
+	import { openingOf } from '@rupea/shared/dates.ts';
+	import { EXPENSES, INCOME, printAmount, sum, type Amount } from '@rupea/shared/money.ts';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import Waterfall from '#lib/web/components/ui-chart-waterfall/ui-chart-waterfall.svelte';
+	import ChartSummary from '#lib/web/components/ui-chart-summary/ui-chart-summary.svelte';
 	import Kpi from '#lib/web/components/ui-kpi/ui-kpi.svelte';
 	import KpiStrip from '#lib/web/components/ui-kpi-strip/ui-kpi-strip.svelte';
-	import NetWorth from '#lib/web/components/app-net-worth/app-net-worth.svelte';
-	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
-	import { isUnder } from '#lib/web/shared/accounts.ts';
-	import Statement from '#lib/web/components/app-statement/app-statement.svelte';
-	import StatementRow from '#lib/web/components/app-statement/app-statement-row.svelte';
 	import { stepsOf } from '#lib/web/shared/bridge.ts';
 	import {
+		formatAmount,
+		formatChange,
 		formatDate,
-		formatWhole,
 		formatIsoDate,
-		formatDayMonth,
 		formatMonthName,
 		formatShare,
+		formatWhole,
 	} from '#lib/web/shared/format.ts';
-	import { groupsOf, lastMonthOf, owedOf, savedOf, statementOf } from '#lib/web/shared/home.ts';
+	import { lastMonthOf, savedOf, statementOf } from '#lib/web/shared/home.ts';
+	import * as Liabilities from '#lib/web/shared/liabilities.ts';
 
-	const { handle, period, account }: { handle: string; period: Period; account: string | null } =
-		$props();
+	const { handle }: { handle: string } = $props();
 
 	const day = formatIsoDate(new Date());
+	const today = Temporal.PlainDate.from(day);
 	const now = { kind: 'month', at: day.slice(0, 7) } as const;
 	const lastMonth = { kind: 'month', at: lastMonthOf(day) } as const;
 
 	const loaded = $derived(
 		await Promise.all([
-			listWorth({ handle, day, period, account }),
-			findBridge({ handle, day, period }),
-			listHoldings({ handle, day, period: now }),
-			listDeltas({ handle, day, period: lastMonth, account: 'Expenses' }),
+			findBridge({ handle, day, period: openingOf(lastMonth, today) }),
+			listDeltas({ handle, day, period: lastMonth, account: EXPENSES }),
 			listDeltas({ handle, day, period: lastMonth, account: INCOME }),
+			listHoldings({ handle, day, period: now }),
+			listTerms({ handle, day }),
 		]),
 	);
-	const [worth, moved, balance, spending, earning] = $derived(loaded);
+	const [moved, spending, earning, balance, termed] = $derived(loaded);
 
-	const last = $derived(worth.data?.at(-1));
 	const bridge = $derived(moved.data?.[0]);
-	const accounts = $derived(balance.data ?? []);
-	const chosen = $derived(accounts.filter((a) => isUnder(a.account, account)));
-	const owned = $derived(groupsOf(chosen, ASSETS));
-	const owes = $derived(groupsOf(chosen, LIABILITIES));
-	const owed = $derived(owedOf(last?.liabilities ?? '0'));
-	const spent = $derived(statementOf('Expenses', spending.data?.[0], spending.data?.[1]));
-	const income = $derived(statementOf('Income', earning.data?.[0], earning.data?.[1]));
+	const spent = $derived(statementOf(EXPENSES, spending.data?.[0], spending.data?.[1]));
+	const income = $derived(statementOf(INCOME, earning.data?.[0], earning.data?.[1]));
 	const saved = $derived(savedOf(income.total, spent.total));
-	const month = $derived(
-		formatMonthName(spending.data?.[0]?.from.toString() ?? lastMonth.at + '-01'),
+	const month = $derived(formatMonthName(lastMonth.at + '-01'));
+	const before = $derived(formatMonthName(lastMonthOf(lastMonth.at + '-01') + '-01'));
+
+	const debts = $derived(
+		Liabilities.debtsFrom(Liabilities.accountsIn(balance.data ?? []), termed.data ?? []),
 	);
-	const before = $derived(
-		formatMonthName(
-			spending.data?.[1]?.from.toString() ?? lastMonthOf(lastMonth.at + '-01') + '-01',
-		),
+	const week = $derived({ from: today, to: today.add({ days: 7 }) });
+	const dues = $derived(debts.flatMap((d) => Liabilities.duesOn(d, week)));
+	const due = $derived(sum(dues.map((d) => d.amount)) as Amount);
+
+	const worth = $derived(resolve('/(signed-in)/l/[handle]/net-worth', { handle }));
+	const spentIn = $derived(
+		`${resolve('/(signed-in)/l/[handle]/spending', { handle })}?at=${lastMonth.at}`,
 	);
 </script>
 
 <Issues
 	{handle}
 	errors={[
-		...(worth.errors ?? []),
 		...(moved.errors ?? []),
-		...(balance.errors ?? []),
 		...(spending.errors ?? []),
 		...(earning.errors ?? []),
+		...(balance.errors ?? []),
+		...(termed.errors ?? []),
 	]}
 />
 
 <PanelGrid narrow>
-	<NetWorth worth={worth.data ?? []} />
+	<div>
+		{#if bridge}
+			{@const change = formatChange(bridge.start, bridge.end)}
+			<ChartSummary id="moved" label="Net worth in {month}" lead figure={change.amount}>
+				from {formatAmount(bridge.start)} to {formatAmount(bridge.end)} ·
+				{formatDate(bridge.from)} – {formatDate(bridge.to)}
+			</ChartSummary>
+			<Waterfall
+				steps={stepsOf(bridge)}
+				label="Net worth from {formatWhole(bridge.start)} to {formatWhole(
+					bridge.end,
+				)}, by income, expenses and what prices did"
+			/>
+		{:else}
+			<p>Nothing held last month.</p>
+		{/if}
+	</div>
 
-	<KpiStrip>
+	<KpiStrip label="Last month">
 		<Kpi
-			label="Assets"
-			figure={formatWhole(last?.assets ?? '0')}
-			detail="in {owned.length} {owned.length === 1 ? 'group' : 'groups'}"
-		/>
-		<Kpi
-			label="Owed"
-			figure={formatWhole(owed)}
-			detail="{formatShare(owed, last?.assets ?? '0') ?? '0%'} of assets"
+			label="Net worth"
+			figure={formatWhole(bridge?.end ?? '0')}
+			detail="on {formatDate(bridge?.to ?? day)}"
+			href={worth}
 		/>
 		<Kpi
 			label="Saved in {month}"
@@ -97,132 +108,21 @@
 			detail="{formatShare(printAmount(saved.amount), printAmount(income.total.amount)) ??
 				'0%'} of income"
 			tone={saved.amount > 0n ? 'positive' : undefined}
+			href={spentIn}
 		/>
-		<Kpi label="Cash cushion" soon />
+		<Kpi
+			label="Spent in {month}"
+			figure={formatWhole(printAmount(spent.total.amount))}
+			detail={spent.total.change.percent
+				? `${spent.total.change.percent} on ${before}`
+				: `as in ${before}`}
+			href={spentIn}
+		/>
+		<Kpi
+			label="Due in 7 days"
+			figure={formatWhole(printAmount(due))}
+			detail="{dues.length} {dues.length === 1 ? 'payment' : 'payments'}"
+			href="{worth}#owed"
+		/>
 	</KpiStrip>
 </PanelGrid>
-
-<div class="statements">
-	<div class="column">
-		<Panel
-			plain
-			title="Balance sheet"
-			subtitle="what you own, and how it is paid for, on {formatDayMonth(day)}"
-		>
-			<div class="sides">
-				<Statement head="Assets">
-					{#each owned as group (group.name)}
-						<StatementRow name={group.name} values={[group.total]} />
-					{/each}
-					<StatementRow total name="Total assets" values={[last?.assets ?? '0']} />
-				</Statement>
-				<Statement head="Owed">
-					{#each owes as group (group.name)}
-						<StatementRow name={group.name} values={[group.total]} />
-					{/each}
-					<StatementRow total name="Total owed" values={[owed]} />
-					<StatementRow total name="Net worth" values={[last?.worth ?? '0']} />
-				</Statement>
-			</div>
-		</Panel>
-
-		<Panel
-			title="What moved net worth"
-			subtitle={bridge
-				? `${formatDate(bridge.from)} to ${formatDate(bridge.to)} · from ${formatWhole(bridge.start)} to ${formatWhole(bridge.end)}${account ? ' · all accounts' : ''}`
-				: 'what saved, gained or lost money'}
-		>
-			{#if bridge}
-				<Waterfall
-					steps={stepsOf(bridge)}
-					label="Net worth from {formatWhole(bridge.start)} to {formatWhole(
-						bridge.end,
-					)}, by income, expenses and what prices did"
-				/>
-			{:else}
-				<p>Nothing held in this period.</p>
-			{/if}
-		</Panel>
-
-		<Panel title="Needs attention" subtitle="what to look at this week" soon />
-	</div>
-
-	<Panel plain title="Income statement" subtitle="{month} against {before}">
-		<Statement head="In rupees" columns={[month, before, 'Change']}>
-			{#each income.rows as row (row.account)}
-				<StatementRow
-					name={row.name}
-					values={[printAmount(row.amount), printAmount(row.before)]}
-					change={row.change.amount}
-				/>
-			{/each}
-			<StatementRow
-				total
-				name="Income"
-				values={[printAmount(income.total.amount), printAmount(income.total.before)]}
-				change={income.total.change.amount}
-			/>
-			{#each spent.rows as row (row.account)}
-				<StatementRow
-					name={row.name}
-					values={[printAmount(row.amount), printAmount(row.before)]}
-					change={row.change.amount}
-				/>
-			{/each}
-			<StatementRow
-				total
-				name="Spent"
-				values={[printAmount(spent.total.amount), printAmount(spent.total.before)]}
-				change={spent.total.change.amount}
-			/>
-			<StatementRow
-				total
-				name="Saved"
-				values={[printAmount(saved.amount), printAmount(saved.before)]}
-				change={saved.change.amount}
-			/>
-		</Statement>
-	</Panel>
-</div>
-
-<style>
-	.column {
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-3);
-	}
-
-	.statements {
-		display: grid;
-		grid-template-columns: subgrid;
-		row-gap: var(--size-3);
-		align-items: start;
-	}
-
-	.statements > :global(*) {
-		grid-column: span 12;
-	}
-
-	.sides {
-		display: grid;
-		align-items: start;
-		grid-template-columns: repeat(12, minmax(0, 1fr));
-		gap: var(--size-3);
-	}
-
-	.sides > :global(*) {
-		grid-column: span 6;
-	}
-
-	@media (width < 48rem) {
-		.sides > :global(*) {
-			grid-column: span 12;
-		}
-	}
-
-	@media (width >= 90rem) {
-		.statements > :global(*) {
-			grid-column: span 6;
-		}
-	}
-</style>

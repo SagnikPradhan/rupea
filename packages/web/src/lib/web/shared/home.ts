@@ -1,23 +1,11 @@
 import { type Amount, ZERO, byAmount, printAmount, sum } from '@rupea/shared/money.ts';
-import { depthOf, isUnder, nameOf } from './accounts';
+import { nameOf } from './accounts';
 import type { Period } from '@rupea/shared/dates.ts';
-import { ALL_ACCOUNTS } from './choices';
 import { formatChange } from './format';
 import type { Spent } from './spending';
 
 /** The most expense groups the income statement names before the rest. */
 const NAMED = 5;
-
-/**
- * What the span chip offers, in the order a click steps through them; the key
- * is the months it reaches back.
- */
-export const SPANS: Record<string, string> = {
-	'12': 'Last year',
-	'24': 'Last 2 years',
-	'60': 'Last 5 years',
-	all: 'All time',
-};
 
 /**
  * What the span chip of a page about a year of money offers, in the order a
@@ -30,30 +18,12 @@ export const MONTHS: Record<string, string> = {
 	all: 'All time',
 };
 
-/** The span choices, named short enough for a segment. */
-export const SPANS_BRIEF: Record<string, string> = {
-	'12': '1Y',
-	'24': '2Y',
-	'60': '5Y',
-	all: 'All',
-};
-
 /** The month choices, named short enough for a segment. */
 export const MONTHS_BRIEF: Record<string, string> = {
 	'3': '3M',
 	'6': '6M',
 	'12': '12M',
 	all: 'All',
-};
-
-/**
- * What the account chip offers, in the order a click steps through them; the
- * key is the account.
- */
-export const SIDES: Record<string, string> = {
-	'': ALL_ACCOUNTS,
-	Assets: 'Assets',
-	Liabilities: 'Liabilities',
 };
 
 /** The same day some months earlier, a day the month lacks moving to its last. */
@@ -76,17 +46,6 @@ export const lastMonthOf = (day: string) => {
 	const month = Number(day.slice(5, 7)) - 1;
 	return new Date(Date.UTC(Number(day.slice(0, 4)), month - 1, 1)).toISOString().slice(0, 7);
 };
-
-/**
- * The accounts directly under a top account, the largest first; what is owed
- * counts as a size, not a sign.
- */
-export const groupsOf = (accounts: { account: string; total: Amount }[], top: string) =>
-	accounts
-		.filter((a) => depthOf(a.account) === 1 && isUnder(a.account, top))
-		.map((a) => ({ name: nameOf(a.account), size: (a.total < 0n ? -a.total : a.total) as Amount }))
-		.toSorted((a, b) => byAmount(b.size, a.size))
-		.map((a) => ({ name: a.name, total: printAmount(a.size) }));
 
 /** An amount of what is owed as a size, without the sign of a liability. */
 export const owedOf = (l: string) => String(Math.abs(Number(l)));

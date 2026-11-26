@@ -7,6 +7,9 @@ const on = (d: string) => Temporal.PlainDate.from(d);
 const amount = (t: string) => parseAmount(t) as Amount;
 
 const PROPS = {
+	title: 'Where the money went',
+	subtitle: 'Which accounts took the most?',
+	label: 'Spent',
 	spending: {
 		buckets: [on('2026-01-01')],
 		totals: [
@@ -27,23 +30,17 @@ const PROPS = {
 };
 
 describe('the spending breakdown', () => {
-	it('names the largest account and its share in the subtitle', () => {
+	it('asks which accounts took the most', () => {
 		render(SpendingBreakdown, PROPS);
 
-		expect(screen.getByText('Food took 60% of Expenses')).toBeTruthy();
+		expect(screen.getByText('Which accounts took the most?')).toBeTruthy();
 	});
 
-	it('draws the flow above the table in one card', () => {
+	it('draws the flow beside the table under one heading', () => {
 		render(SpendingBreakdown, PROPS);
 
 		expect(screen.getAllByRole('heading', { name: 'Where the money went' })).toHaveLength(1);
 		expect(screen.getByRole('img', { name: /divides into/ })).toBeTruthy();
 		expect(screen.getByText('Per month')).toBeTruthy();
-	});
-
-	it('says nothing was spent when no account is under it', () => {
-		render(SpendingBreakdown, { ...PROPS, spending: undefined });
-
-		expect(screen.getByText('what each account took, and its share of the whole')).toBeTruthy();
 	});
 });

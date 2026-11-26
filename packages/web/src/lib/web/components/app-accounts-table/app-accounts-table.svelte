@@ -11,7 +11,6 @@
 		formatPercent,
 		formatShare,
 		formatReturn,
-		formatWhole,
 		toneOf,
 	} from '#lib/web/shared/format.ts';
 	import { lotsHref } from '#lib/web/shared/links.ts';
@@ -126,13 +125,7 @@
 	</tr>
 {/snippet}
 
-<Panel
-	plain
-	title="All accounts"
-	subtitle="{trees.length} {trees.length === 1 ? 'group' : 'groups'} · {formatWhole(
-		printAmount(assets),
-	)} in all"
->
+<Panel plain title="All accounts" subtitle="What does each account hold?">
 	<LedgerTable
 		columns={[
 			{ label: 'Account' },

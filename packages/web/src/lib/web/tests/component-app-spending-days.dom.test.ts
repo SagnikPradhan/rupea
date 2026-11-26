@@ -7,14 +7,13 @@ const PROPS = {
 		{ day: '2026-01-01', amount: '120' },
 		{ day: '2026-01-02', amount: '45' },
 	],
-	account: 'Expenses',
 };
 
 describe('the spending days', () => {
-	it('names the account in the subtitle', () => {
-		render(SpendingDays, { ...PROPS, account: 'Expenses:Food' });
+	it('asks which days cost the most', () => {
+		render(SpendingDays, PROPS);
 
-		expect(screen.getByText('what Food came to on each day')).toBeTruthy();
+		expect(screen.getByText('Which days cost the most?')).toBeTruthy();
 	});
 
 	it('leaves each day unnamed and names the busiest day until one is hovered', async () => {
@@ -22,9 +21,19 @@ describe('the spending days', () => {
 
 		const chart = screen.getByLabelText('Spending on each day of the period');
 		expect(chart.querySelectorAll('td a')[0]?.textContent).toBe('');
-		expect(screen.getByText(/Most, on/)).toBeTruthy();
+		expect(screen.getByText('Most in a day')).toBeTruthy();
 
 		await fireEvent.pointerEnter(chart.querySelectorAll('td a')[1]?.closest('td') as Element);
-		expect(screen.getByText(/On .*2/)).toBeTruthy();
+		expect(screen.getByText('Spent')).toBeTruthy();
+		expect(screen.getByText(/2 Jan 2026/)).toBeTruthy();
+	});
+
+	it('names the day that cost the most, not a refund', () => {
+		render(SpendingDays, {
+			daily: [...PROPS.daily, { day: '2026-01-03', amount: '-500' }],
+		});
+
+		expect(screen.getByText('1 Jan 2026')).toBeTruthy();
+		expect(screen.queryByText('3 Jan 2026')).toBeNull();
 	});
 });

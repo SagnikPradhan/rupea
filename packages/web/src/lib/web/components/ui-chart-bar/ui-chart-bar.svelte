@@ -29,6 +29,8 @@
 		role: 'part' | 'reference';
 		/** Which chart colour a part takes; the next free one without. */
 		colour?: number;
+		/** A colour token of a scale instead, for parts that rank, not name. */
+		shade?: string;
 		/** Where its key entry leads when clicked. */
 		href?: string | undefined;
 	};
@@ -83,6 +85,7 @@
 	const hovered = $state({ index: null as number | null, part: null as number | null });
 
 	const parts = $derived(series.filter((s) => s.role === 'part'));
+	const shadeOf = (k: number) => parts[k]?.shade ?? seriesOf(parts[k]?.colour ?? k);
 	const references = $derived(series.filter((s) => s.role === 'reference'));
 	const piles = $derived(
 		stackOf(
@@ -121,13 +124,15 @@
 	const shown = $derived((hovered.index === null ? undefined : rows[hovered.index]) ?? whole);
 
 	const entries = $derived([
-		...parts.map((p, k) => ({
-			label: p.label,
-			amount: formatCompact(Number(shown[p.key] ?? 0)),
-			shade: seriesOf(p.colour ?? k),
-			part: k,
-			href: p.href,
-		})),
+		...parts
+			.map((p, k) => ({
+				label: p.label,
+				amount: formatCompact(Number(shown[p.key] ?? 0)),
+				shade: shadeOf(k),
+				part: k,
+				href: p.href,
+			}))
+			.filter((e) => [whole, ...rows].some((r) => Number(r[parts[e.part]?.key ?? ''] ?? 0) !== 0)),
 		...references.map((r) => ({
 			label: r.label,
 			amount: shown[r.key] == null ? undefined : formatCompact(Number(shown[r.key])),
@@ -184,8 +189,8 @@
 				{#each parts as part, k (part.key)}
 					<g
 						class:faded={hovered.part !== null && hovered.part !== k}
-						style:--shade="var({seriesOf(parts[k]?.colour ?? k)})"
-						style:--edge="var({edgeOf(seriesOf(parts[k]?.colour ?? k))})"
+						style:--shade="var({shadeOf(k)})"
+						style:--edge="var({edgeOf(shadeOf(k))})"
 					>
 						{#each rows, i}
 							{@const bar = barOf(k, i)}

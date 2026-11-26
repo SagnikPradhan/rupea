@@ -16,11 +16,19 @@ const SPENDING = {
 	deltas: [],
 };
 
+const INCOME = {
+	buckets: [on('2026-01-01')],
+	totals: [{ account: 'Income', parent: null, amount: amount('-4000'), unpriced: 0 }],
+	deltas: [],
+};
+
 const PROPS = {
 	spending: SPENDING,
+	income: INCOME,
+	expenses: SPENDING,
 	account: 'Expenses',
 	first: on('2026-01-01'),
-	last: on('2026-01-10'),
+	last: on('2026-01-31'),
 	moved: null,
 	budgets: [],
 };
@@ -51,28 +59,20 @@ describe('the spending KPIs', () => {
 		expect(screen.getByText('+25% on the period before')).toBeTruthy();
 	});
 
-	it('counts one day in the singular and several in the plural', () => {
-		const { unmount } = render(SpendingKpis, { ...PROPS, last: on('2026-01-01') });
-
-		expect(screen.getByText('1 day')).toBeTruthy();
-		unmount();
-
-		render(SpendingKpis, PROPS);
-		expect(screen.getByText('10 days')).toBeTruthy();
-	});
-
-	it('names the largest account under and its share', () => {
+	it('shows what was spent a day, and what was saved out of what was earned', () => {
 		render(SpendingKpis, PROPS);
 
-		expect(screen.getByText('Food')).toBeTruthy();
-		expect(screen.getByText(/of spending/).textContent).toContain('25%');
+		expect(screen.getByText('A day').nextElementSibling?.textContent).toBe('32');
+		expect(screen.getByText('31 days')).toBeTruthy();
+		expect(screen.getByText('Saved').nextElementSibling?.textContent).toBe('3,000');
+		expect(screen.getByText('75% of income')).toBeTruthy();
 	});
 
-	it('shows a dash when no account is under', () => {
+	it('saves what all expenses left, whatever account is shown', () => {
 		render(SpendingKpis, { ...PROPS, account: 'Expenses:Food' });
 
-		expect(screen.getAllByText('–')).toHaveLength(2);
-		expect(screen.queryByText(/of spending/)).toBeNull();
+		expect(screen.getByText('Spent').nextElementSibling?.textContent).toBe('250');
+		expect(screen.getByText('Saved').nextElementSibling?.textContent).toBe('3,000');
 	});
 
 	it('names the budgets over, as a count of all', () => {
@@ -83,12 +83,22 @@ describe('the spending KPIs', () => {
 		render(SpendingKpis, { ...PROPS, budgets });
 
 		expect(screen.getByText('1 of 2')).toBeTruthy();
-		expect(screen.getAllByText('Food')).toHaveLength(2);
+		expect(screen.getByText('Food')).toBeTruthy();
 	});
 
-	it('shows a dash and none set without budgets', () => {
+	it('leaves out the budgets figure when none are set', () => {
 		render(SpendingKpis, PROPS);
 
-		expect(screen.getByText('None set')).toBeTruthy();
+		expect(screen.queryByText('Budgets over')).toBeNull();
+	});
+
+	it('notes the unpriced postings of the account beside what was spent', () => {
+		const unpriced = {
+			...SPENDING,
+			totals: [{ account: 'Expenses', parent: null, amount: amount('1000'), unpriced: 3 }],
+		};
+		render(SpendingKpis, { ...PROPS, spending: unpriced });
+
+		expect(screen.getByText('excludes 3 unpriced')).toBeTruthy();
 	});
 });

@@ -1,5 +1,9 @@
 <script lang="ts">
+	import { setContext } from 'svelte';
+
 	const { children } = $props();
+
+	setContext('plain', () => true);
 </script>
 
 <div class="content">
@@ -10,7 +14,7 @@
 	.content {
 		display: grid;
 		grid-template-columns: subgrid;
-		row-gap: var(--size-3);
+		gap: var(--size-4);
 	}
 
 	.content > :global(*) {

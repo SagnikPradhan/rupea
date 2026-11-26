@@ -33,7 +33,7 @@ describe('postingsHref', () => {
 describe('lotsHref', () => {
 	it('opens the lots of a commodity in an account', () => {
 		expect(lotsHref('quiet-heron', { account: 'Assets:Stocks', commodity: 'INFY LTD' })).toBe(
-			'/l/quiet-heron/accounts/lots?account=Assets%3AStocks&commodity=INFY+LTD',
+			'/l/quiet-heron/net-worth/lots?account=Assets%3AStocks&commodity=INFY+LTD',
 		);
 	});
 });

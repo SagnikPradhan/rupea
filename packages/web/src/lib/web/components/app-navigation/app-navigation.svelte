@@ -1,9 +1,9 @@
 <script lang="ts">
 	import { ICONS } from '#lib/web/shared/icons.ts';
+	import PageSketch from '#lib/web/components/ui-page-sketch/ui-page-sketch.svelte';
 	import { Dialog, LinkPreview } from 'bits-ui';
 	import { signOut } from '#lib/endpoints/auth.remote.ts';
 	import type { Theme } from '#lib/web/shared/theme.ts';
-	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import IconButton from '#lib/web/components/ui-button-icon/ui-button-icon.svelte';
 	import Avatar from '#lib/web/components/ui-avatar/ui-avatar.svelte';
 	import SyncButton from '#lib/web/components/app-sync-button/app-sync-button.svelte';
@@ -13,16 +13,18 @@
 	import { afterNavigate } from '$app/navigation';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
+	import { ledgerHref } from '#lib/web/shared/links.ts';
 
 	type Props = {
 		handle: string | null;
+		ledgers?: { handle: string; name: string }[];
 		username: string | null;
 		/** Whether sign-in is off, so there is no signing out. */
 		local: boolean;
 		theme: Theme;
 	};
 
-	const { handle, username, local, theme }: Props = $props();
+	const { handle, ledgers = [], username, local, theme }: Props = $props();
 	const status = $derived(local ? 'Sign-in is off on this computer.' : 'You are signed in.');
 
 	const drawer = $state({ open: false });
@@ -31,6 +33,9 @@
 		label: 'Home',
 		href: resolve('/(signed-in)'),
 		current: page.route.id === '/(signed-in)',
+		icon: 'home' as const,
+		about: 'What you own, what you owe, and how last month went',
+		sections: [] as readonly { id: string; label: string }[],
 	});
 	const ledger = $derived(
 		handle
@@ -38,6 +43,9 @@
 					label: p.label,
 					href: resolve(`/(signed-in)/l/[handle]/${p.path}`, { handle }),
 					current: page.params.handle !== undefined && p.path === section,
+					icon: p.icon,
+					about: p.about,
+					sections: p.sections,
 				}))
 			: [],
 	);
@@ -47,10 +55,50 @@
 	afterNavigate(() => (drawer.open = false));
 </script>
 
-{#snippet pages()}
+{#snippet pages(previews: boolean)}
 	<ul role="list">
 		{#each links as link (link.href)}
-			<li><a href={link.href} aria-current={link.current ? 'page' : undefined}>{link.label}</a></li>
+			<li>
+				{#if previews}
+					<LinkPreview.Root openDelay={300} closeDelay={150}>
+						<LinkPreview.Trigger>
+							{#snippet child({ props })}
+								<a
+									{...props}
+									role={null}
+									aria-haspopup={null}
+									aria-expanded={null}
+									href={link.href}
+									aria-current={link.current ? 'page' : undefined}
+								>
+									{link.label}
+								</a>
+							{/snippet}
+						</LinkPreview.Trigger>
+						<LinkPreview.Content side="bottom" sideOffset={8}>
+							{#snippet child({ props, wrapperProps })}
+								{@const Icon = ICONS[link.icon]}
+								<div {...wrapperProps}>
+									<div {...props} class="card preview">
+										<PageSketch page={link.icon} />
+										<strong><Icon />{link.label}</strong>
+										<span>{link.about}</span>
+										{#if link.sections.length > 0}
+											<ul role="list" aria-label="Sections of {link.label}">
+												{#each link.sections as part (part.id)}
+													<li><a href="{link.href}#{part.id}">{part.label}</a></li>
+												{/each}
+											</ul>
+										{/if}
+									</div>
+								</div>
+							{/snippet}
+						</LinkPreview.Content>
+					</LinkPreview.Root>
+				{:else}
+					<a href={link.href} aria-current={link.current ? 'page' : undefined}>{link.label}</a>
+				{/if}
+			</li>
 		{/each}
 	</ul>
 {/snippet}
@@ -59,13 +107,28 @@
 	<div class="banner" style:--tint="var(--color-chart-{tint})">
 		<Avatar name={username ?? ''} />
 	</div>
-	<div class="body">
-		<div class="who">
-			<strong>Hello, {username}</strong>
-			<span>{status}</span>
-		</div>
-		{#if !local}<Button form="log-out">Sign out</Button>{/if}
-	</div>
+	<strong><Avatar name={username ?? ''} />Hello, {username}</strong>
+	<span>{status}</span>
+	{@render ledgerLinks()}
+	{#if !local}
+		<ul role="list">
+			<li><button form="log-out">Sign out</button></li>
+		</ul>
+	{/if}
+{/snippet}
+
+{#snippet ledgerLinks()}
+	{#if ledgers.length > 1}
+		<ul role="list" aria-label="Ledgers">
+			{#each ledgers as l (l.handle)}
+				<li>
+					<a href={ledgerHref(l.handle)} aria-current={l.handle === handle ? 'page' : undefined}>
+						{l.name}
+					</a>
+				</li>
+			{/each}
+		</ul>
+	{/if}
 {/snippet}
 
 {#snippet tools()}
@@ -78,7 +141,7 @@
 
 	{#if username}
 		{#if !local}<form {...signOut} id="log-out" hidden></form>{/if}
-		<nav aria-label="Pages" class="wide">{@render pages()}</nav>
+		<nav aria-label="Pages" class="wide">{@render pages(true)}</nav>
 	{/if}
 
 	<div class="end">
@@ -94,7 +157,9 @@
 				</LinkPreview.Trigger>
 				<LinkPreview.Content side="bottom" align="end" sideOffset={4}>
 					{#snippet child({ props, wrapperProps })}
-						<div {...wrapperProps}><div {...props} class="card">{@render signedIn()}</div></div>
+						<div {...wrapperProps}>
+							<div {...props} class="card preview">{@render signedIn()}</div>
+						</div>
 					{/snippet}
 				</LinkPreview.Content>
 			</LinkPreview.Root>
@@ -120,7 +185,7 @@
 									</Dialog.Close>
 								</div>
 							</div>
-							<nav aria-label="Pages in the menu">{@render pages()}</nav>
+							<nav aria-label="Pages in the menu">{@render pages(false)}</nav>
 							<div class="account">
 								<Avatar name={username} />
 								<div class="who">
@@ -131,6 +196,7 @@
 									<IconButton form="log-out" label="Sign out" icon={ICONS.signOut} outlined />
 								{/if}
 							</div>
+							{@render ledgerLinks()}
 						</div>
 					{/snippet}
 				</Dialog.Content>
@@ -210,33 +276,59 @@
 		color: var(--color-muted);
 	}
 
+	.preview {
+		gap: var(--size-0);
+		padding: var(--size-2);
+	}
+
+	.preview strong {
+		display: flex;
+		align-items: center;
+		gap: var(--size-1);
+		margin-top: var(--size-2);
+		margin-bottom: var(--size-0);
+		font: var(--text-base);
+		color: var(--color-ink);
+	}
+
+	.preview strong :global(svg) {
+		width: var(--size-2);
+		height: var(--size-2);
+	}
+
+	.preview span {
+		font: var(--text-label);
+	}
+
+	.preview ul {
+		flex-direction: column;
+		gap: var(--size-1);
+		margin-top: var(--size-2);
+	}
+
+	.preview :is(a, button) {
+		color: var(--color-ink);
+	}
+
+	.preview button {
+		padding: 0;
+		border: 0;
+		background: none;
+		font: inherit;
+		cursor: pointer;
+	}
+
+	.preview button:hover {
+		text-decoration: underline;
+	}
+
 	.banner {
 		display: flex;
-		align-items: flex-end;
-		height: calc(var(--size-4) * 1.25);
+		align-items: center;
+		height: var(--size-4);
 		padding-inline: var(--size-1);
 		border-radius: var(--radius-1);
 		background: color-mix(in srgb, var(--tint) 12%, var(--color-surface));
-	}
-
-	.banner :global(svg) {
-		width: var(--size-4);
-		height: var(--size-4);
-		margin-bottom: calc(var(--size-4) / -2);
-		border: var(--size-line-1) solid var(--color-surface);
-		border-radius: 50%;
-	}
-
-	.body {
-		display: flex;
-		flex-direction: column;
-		gap: var(--size-2);
-		padding: var(--size-1);
-		padding-top: calc(var(--size-4) / 2 + var(--size-1));
-	}
-
-	.body > :global(button) {
-		align-self: flex-start;
 	}
 
 	.who {

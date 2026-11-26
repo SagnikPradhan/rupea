@@ -45,11 +45,11 @@ describe('the calendar', () => {
 		]);
 	});
 
-	it('shades a day by its share of the largest, and none for refunds or nothing', () => {
+	it('shades a day by its rank among the days spent on, and none for refunds or nothing', () => {
 		drawn();
 		const shades = ['1 Oct', '2', '3', '4', '5'].map((d) => cellOf(d)?.dataset['shade']);
 
-		expect(shades).toEqual(['1', '0', '0', '4', '3']);
+		expect(shades).toEqual(['2', '0', '0', '4', '3']);
 		expect(cellOf('3')?.classList).toContain('negative');
 	});
 

@@ -65,6 +65,7 @@ export const divide = (a: Amount, b: Amount): Amount =>
 export const sum = (a: Amount[]): Amount => a.reduce((t, x) => t + x, 0n) as Amount;
 
 export const min = (a: Amount, b: Amount): Amount => (a < b ? a : b);
+export const max = (a: Amount, b: Amount): Amount => (a > b ? a : b);
 
 /** An amount as a float, for drawing; digits past about fifteen are lost. */
 export const toNumber = (a: Amount) => Number(printAmount(a));

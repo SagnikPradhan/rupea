@@ -3,15 +3,16 @@
 	import { page } from '$app/state';
 	import HorizontalBars from '#lib/web/components/ui-chart-hbar/ui-chart-hbar.svelte';
 	import Totals from '#lib/web/components/ui-chart-totals/ui-chart-totals.svelte';
+	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import { nameOf } from '#lib/web/shared/accounts.ts';
-	import { subtitleOf, totalOf, watchOf, type BudgetRow } from '#lib/web/shared/budgets.ts';
+	import { totalOf, watchOf, type BudgetRow } from '#lib/web/shared/budgets.ts';
 	import { formatCompact, formatWhole } from '#lib/web/shared/format.ts';
 	import { hrefWith } from '#lib/web/shared/links.ts';
 
-	type Props = { rows: BudgetRow[]; today: Temporal.PlainDate };
+	type Props = { rows: BudgetRow[]; today: Temporal.PlainDate; add: string };
 
-	const { rows, today }: Props = $props();
+	const { rows, today, add }: Props = $props();
 
 	const total = $derived(totalOf(rows));
 
@@ -45,7 +46,10 @@
 			: `${show((limit - spent) as Amount)} left`;
 </script>
 
-<Panel title="Budgets" subtitle={subtitleOf(rows)}>
+<Panel title="Budgets" subtitle="Which budgets are running out?">
+	{#snippet actions()}
+		<Button href={add}>Add budget</Button>
+	{/snippet}
 	{#if rows.length > 0}
 		<Totals
 			totals={[

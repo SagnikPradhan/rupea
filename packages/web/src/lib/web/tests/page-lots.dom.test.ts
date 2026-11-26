@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { listLots } from '#lib/endpoints/accounts.remote.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
-import Page from '#routes/(signed-in)/l/[handle]/accounts/lots/+page.svelte';
+import Page from '#routes/(signed-in)/l/[handle]/net-worth/lots/+page.svelte';
 
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({ listLots: vi.fn() }));
@@ -32,7 +32,7 @@ describe('the lots page', () => {
 	};
 
 	it('lists each lot with what was left and how it was sold', async () => {
-		visit('/l/h/accounts/lots?account=Assets:Broker&commodity=INFY');
+		visit('/l/h/net-worth/lots?account=Assets:Broker&commodity=INFY');
 		vi.mocked(listLots).mockReturnValue(answer([lot]));
 		render(Page, { data });
 
@@ -44,7 +44,7 @@ describe('the lots page', () => {
 	});
 
 	it('says when the account holds no lots of it', async () => {
-		visit('/l/h/accounts/lots?account=Assets:Bank&commodity=INFY');
+		visit('/l/h/net-worth/lots?account=Assets:Bank&commodity=INFY');
 		vi.mocked(listLots).mockReturnValue(answer([]));
 		render(Page, { data });
 

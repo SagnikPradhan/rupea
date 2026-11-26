@@ -3,6 +3,7 @@ import { createRawSnippet } from 'svelte';
 import { describe, expect, it } from 'vitest';
 import ChartSummary from '#lib/web/components/ui-chart-summary/ui-chart-summary.svelte';
 import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
+import PageSection from '#lib/web/components/ui-page-section/ui-page-section.svelte';
 import Kpi from '#lib/web/components/ui-kpi/ui-kpi.svelte';
 import KpiStrip from '#lib/web/components/ui-kpi-strip/ui-kpi-strip.svelte';
 
@@ -42,6 +43,13 @@ describe('a kpi strip', () => {
 
 		expect(screen.getByRole('region', { name: 'Figures' }).textContent).toBe('one');
 	});
+
+	it('takes a name of its own when a page has more than one', () => {
+		const children = createRawSnippet(() => ({ render: () => '<p>one</p>' }));
+		render(KpiStrip, { label: 'Income figures', children });
+
+		expect(screen.getByRole('region', { name: 'Income figures' })).toBeTruthy();
+	});
 });
 
 describe('a chart summary', () => {
@@ -59,6 +67,19 @@ describe('a chart summary', () => {
 		expect(screen.getByText('2,70,000').getAttribute('title')).toBe('270000.00');
 		expect(screen.getByText('vs previous')).toBeTruthy();
 	});
+
+	it('heads a section when it leads one', () => {
+		const children = createRawSnippet(() => ({ render: () => '<span>this year</span>' }));
+		const { container } = render(ChartSummary, {
+			id: 'spending',
+			label: 'Spent',
+			figure: '7,00,000',
+			lead: true,
+			children,
+		});
+
+		expect(container.querySelector('.summary')?.classList.contains('lead')).toBe(true);
+	});
 });
 
 describe('a panel grid', () => {
@@ -67,5 +88,15 @@ describe('a panel grid', () => {
 		render(PanelGrid, { children });
 
 		expect(screen.getByText('panel')).toBeTruthy();
+	});
+});
+
+describe('a page section', () => {
+	it('holds one part of a page under an id the navigation links to', () => {
+		const children = createRawSnippet(() => ({ render: () => '<p>owed</p>' }));
+		const { container } = render(PageSection, { id: 'owed', title: 'Owed', children });
+
+		expect(screen.getByRole('region', { name: 'Owed' }).id).toBe('owed');
+		expect(container.querySelector('section#owed p')?.textContent).toBe('owed');
 	});
 });

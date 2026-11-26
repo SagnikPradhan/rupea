@@ -5,7 +5,6 @@
 	import { paramsOf } from '#lib/web/shared/filter.ts';
 	import { depthOf, nameOf } from '#lib/web/shared/accounts.ts';
 	import { seriesOf, tintOf } from '#lib/web/shared/chart.ts';
-	import AccountName from '#lib/web/components/app-account-name/app-account-name.svelte';
 	import Amount from '#lib/web/components/app-ledger-table/amount.svelte';
 	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
 	import Swatch from '#lib/web/components/ui-swatch/ui-swatch.svelte';
@@ -16,6 +15,7 @@
 	import { SvelteSet } from 'svelte/reactivity';
 
 	type Props = {
+		label: string;
 		spending: Spending.Spent | undefined;
 		account: string;
 		parts: string[];
@@ -27,7 +27,7 @@
 		period: Period;
 	};
 
-	const { spending, account, parts, colours, bucket, first, last, handle, period }: Props =
+	const { label, spending, account, parts, colours, bucket, first, last, handle, period }: Props =
 		$props();
 
 	const rows = $derived(Spending.rowsOf(spending, account));
@@ -51,7 +51,7 @@
 	<LedgerTable
 		columns={[
 			{ label: 'Account' },
-			{ label: 'Spent', kind: 'amount' },
+			{ label, kind: 'amount' },
 			{ label: 'Share', kind: 'amount', optional: true },
 			...(bucket === 'day'
 				? []
@@ -73,7 +73,9 @@
 							>
 								<Chevron size={16} />
 							</button>{/if}<a href={postingsOf(row.account)} title={row.account}>
-							<AccountName account={row.account} depth={folds ? depth - 1 : depth} />
+							<span class="name" style:--depth={folds ? depth - 1 : depth}>
+								{nameOf(row.account)}
+							</span>
 						</a>
 						{#if partOf(row.account)}
 							{@const under = partOf(row.account)}
@@ -99,10 +101,15 @@
 		</tbody>
 	</LedgerTable>
 {:else}
-	<p>Nothing spent in this period.</p>
+	<p>Nothing {label.toLowerCase()} in this period.</p>
 {/if}
 
 <style>
+	.name {
+		display: inline-block;
+		padding-left: calc(var(--depth) * var(--size-2));
+	}
+
 	.share {
 		color: var(--color-muted);
 	}

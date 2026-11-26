@@ -31,15 +31,18 @@ test('shows what each account holds and what it is worth', async ({ signedIn: pa
 	await page.getByRole('button', { name: 'Save', exact: true }).click();
 	await expect(page.getByText('Unsaved')).toBeHidden();
 
-	await visit(page, `${ledger}/accounts`);
-	const zerodha = page.getByRole('row').filter({ hasText: 'Zerodha' });
+	await visit(page, `${ledger}/net-worth`);
+	const all = page
+		.locator('section')
+		.filter({ has: page.getByRole('heading', { name: 'All accounts', exact: true }) });
+	const zerodha = all.getByRole('row').filter({ hasText: 'Zerodha' });
 	for (const cell of ['1 unpriced', '9,000', '10,800', '1,800', '+20%'])
 		await expect(zerodha).toContainText(cell);
-	const infy = page.getByRole('row').filter({ hasText: 'INFY' });
+	const infy = all.getByRole('row').filter({ hasText: 'INFY' });
 	for (const cell of ['6', '9,000', '10,800', '1,800', '+20%'])
 		await expect(infy.getByRole('cell', { name: cell, exact: true })).toBeVisible();
 	await expect(infy.getByTitle('@ 1,800')).toHaveText('10,800');
-	await expect(page.getByRole('row').filter({ hasText: 'TCS' })).toContainText('unpriced');
+	await expect(all.getByRole('row').filter({ hasText: 'TCS' })).toContainText('unpriced');
 	await expect(page.getByRole('img', { name: /^Value against cost from/ })).toBeVisible();
 	await expect(page.getByRole('img', { name: /^How Assets divides/ })).toBeVisible();
 
@@ -52,10 +55,10 @@ test('shows what each account holds and what it is worth', async ({ signedIn: pa
 	await account.getByRole('link', { name: 'Assets', exact: true }).click();
 	await account.getByRole('link', { name: /Bank/ }).click();
 	await expect(page).toHaveURL(/account=Assets%3ABank/);
-	await expect(page.getByRole('row').filter({ hasText: 'Zerodha' })).toHaveCount(0);
+	await expect(all.getByRole('row').filter({ hasText: 'Zerodha' })).toHaveCount(0);
 	await page.getByRole('link', { name: 'Select all' }).click();
 	await expect(page).not.toHaveURL(/account=/);
-	await expect(page.getByRole('row').filter({ hasText: 'Zerodha' })).not.toHaveCount(0);
+	await expect(all.getByRole('row').filter({ hasText: 'Zerodha' })).not.toHaveCount(0);
 
 	await page.getByRole('link', { name: 'INFY' }).click();
 	await expect(page.getByRole('heading', { name: 'INFY in Assets:Zerodha' })).toBeVisible();

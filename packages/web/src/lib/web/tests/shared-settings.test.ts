@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { liabilitiesOf } from '#lib/web/shared/settings.ts';
+import { askedIn, liabilitiesOf } from '#lib/web/shared/settings.ts';
 
 const account = (a: string, parent: string | null) => ({ account: a, parent });
 
@@ -56,5 +56,14 @@ describe('liabilitiesOf', () => {
 		const friend = unset.find((l) => l.account === 'Liabilities:Friend');
 
 		expect(friend?.terms?.current).toEqual({ kind: 'bond' });
+	});
+});
+
+describe('askedIn', () => {
+	it('hands over what a link asks of its own ledger only', () => {
+		const q = new URLSearchParams('ledger=h&setup=Liabilities:Card');
+
+		expect(askedIn(q, 'h').get('setup')).toBe('Liabilities:Card');
+		expect(askedIn(q, 'other').get('setup')).toBeNull();
 	});
 });

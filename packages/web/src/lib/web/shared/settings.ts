@@ -11,6 +11,10 @@ type ListedTerms = {
 	held: v.InferOutput<typeof Terms> | null;
 };
 
+/** What the settings link asks of this ledger, or nothing when it names another. */
+export const askedIn = (q: { get(key: string): string | null }, h: string) =>
+	q.get('ledger') === h ? q : new URLSearchParams();
+
 /** A liability that takes payments, with its terms when it has any. */
 export type Liability = { account: string; terms: ListedTerms | null };
 

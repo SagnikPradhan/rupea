@@ -162,7 +162,7 @@
 	]}
 />
 
-<PageSection id="owned" plain>
+<PageSection id="owned">
 	<PanelGrid narrow>
 		<div>
 			{#if (owned.data ?? []).length > 0}
@@ -203,7 +203,7 @@
 	<AccountsTable accounts={held} {returns} under={picked} {handle} />
 </PageSection>
 
-<PageSection id="owed" plain>
+<PageSection id="owed">
 	<PanelGrid narrow>
 		<div>
 			<ChartSummary
@@ -359,7 +359,7 @@
 	.column {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-3);
+		gap: var(--size-4);
 	}
 
 	.add {

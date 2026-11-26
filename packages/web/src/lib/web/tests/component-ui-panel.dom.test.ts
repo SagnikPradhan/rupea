@@ -14,7 +14,7 @@ describe('a panel', () => {
 		expect(screen.getByText('rows')).toBeTruthy();
 	});
 
-	it('drops its box inside a plain page section', () => {
+	it('drops its box while the pages are plain', () => {
 		const { container } = render(Panel, {
 			props: { title: 'Budgets', subtitle: 'what is left' },
 			context: new Map([['plain', () => true]]),

@@ -189,13 +189,13 @@
 	.column {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-3);
+		gap: var(--size-4);
 	}
 
 	.statements {
 		display: grid;
 		grid-template-columns: subgrid;
-		row-gap: var(--size-3);
+		row-gap: var(--size-4);
 		align-items: start;
 	}
 

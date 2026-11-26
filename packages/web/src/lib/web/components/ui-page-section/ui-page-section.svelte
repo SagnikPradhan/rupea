@@ -1,19 +1,10 @@
 <script lang="ts">
-	import { setContext, type Snippet } from 'svelte';
+	import type { Snippet } from 'svelte';
 
-	type Props = {
-		id: string;
-		/** Draws every panel in the section without its box. */
-		plain?: boolean;
-		children: Snippet;
-	};
-
-	const { id, plain = false, children }: Props = $props();
-
-	setContext('plain', () => plain);
+	const { id, children }: { id: string; children: Snippet } = $props();
 </script>
 
-<section {id} class={['page-section', { plain }]}>
+<section {id} class="page-section">
 	{@render children()}
 </section>
 
@@ -23,10 +14,6 @@
 		grid-template-columns: subgrid;
 		row-gap: var(--size-3);
 		scroll-margin-top: var(--size-4);
-	}
-
-	.plain {
-		column-gap: var(--size-4);
 	}
 
 	section > :global(*) {

@@ -149,7 +149,7 @@
 	]}
 />
 
-<PageSection id="spent" plain>
+<PageSection id="spent">
 	<PanelGrid narrow>
 		<SpendingBars
 			{spending}
@@ -218,7 +218,7 @@
 	</PanelGrid>
 </PageSection>
 
-<PageSection id="earned" plain>
+<PageSection id="earned">
 	<PanelGrid wide>
 		<IncomeCash
 			bucket={earned.data?.[0]?.bucket ?? 'month'}
@@ -241,6 +241,6 @@
 	.column {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-3);
+		gap: var(--size-4);
 	}
 </style>

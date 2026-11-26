@@ -14,6 +14,12 @@ vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
 	saveBudget: Object.assign(vi.fn(), { pending: 0 }),
 }));
 
+vi.mock('#lib/endpoints/auth.remote.ts', () => ({
+	saveUsername: vi.fn(),
+	requestEmailCode: vi.fn(),
+	saveEmail: vi.fn(),
+}));
+
 const ledgers = [
 	{ handle: 'a', name: 'Personal' },
 	{ handle: 'b', name: 'Family' },
@@ -21,10 +27,19 @@ const ledgers = [
 
 const open = (shown: { handle: string; name: string }[]) => {
 	visit('/settings');
-	render(Page, { data: { user: { username: 'asha' }, theme: 'system', ledgers: shown } as never });
+	const user = { username: 'asha', email: 'asha@example.com', local: false };
+	render(Page, { data: { user, theme: 'system', ledgers: shown } as never });
 };
 
 describe('the settings page', () => {
+	it('starts with who you are', async () => {
+		open(ledgers);
+
+		expect(((await screen.findByLabelText(/Username/)) as HTMLInputElement).value).toBe('asha');
+		expect((screen.getByLabelText(/Email/) as HTMLInputElement).value).toBe('asha@example.com');
+		expect(screen.getByRole('link', { name: 'You' }).getAttribute('href')).toBe('#you');
+	});
+
 	it('sets up each ledger in a section of its own', async () => {
 		open(ledgers);
 

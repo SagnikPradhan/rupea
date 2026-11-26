@@ -65,6 +65,24 @@ export const createUser = (options: CreateUserOptions): ResultAsync<User> =>
 		),
 	);
 
+export const saveUser = (id: string, changes: { username?: string; email?: string }) =>
+	withContext('db')((db) =>
+		attemptWrite(() =>
+			db
+				.updateTable('users')
+				.set(changes)
+				.where('id', '=', id)
+				.returning(userColumns)
+				.executeTakeFirstOrThrow(),
+		).mapErr((e) => {
+			if (violates(e, 'users_username_unique'))
+				return fault('NameTaken', { name: changes.username ?? '' });
+			return violates(e, 'users_email_unique')
+				? fault('EmailTaken', { email: changes.email ?? '' })
+				: e;
+		}),
+	);
+
 type SaveEmailCodeOptions = {
 	email: string;
 	codeHash: string;

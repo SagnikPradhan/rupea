@@ -13,6 +13,7 @@ export const STATUS: Record<RupeaError['type'], 401 | 404 | 409 | 422 | 500 | 50
 
 	StorageConflict: 409,
 	NameTaken: 409,
+	EmailTaken: 409,
 	UniqueViolation: 409,
 	GroupIdTaken: 409,
 

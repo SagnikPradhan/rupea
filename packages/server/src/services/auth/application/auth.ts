@@ -118,6 +118,47 @@ export const withCurrentUser = <T>(
 	return user ? okAsync(user).andThen(use) : errAsync(fault('AuthUnauthenticated'));
 };
 
+export const saveUsername = (n: string): ResultAsync<User> =>
+	withCurrentUser((u) => DB.saveUser(u.id, { username: n }));
+
+/**
+ * Fails before mailing an address another user has, as it could not be moved
+ * to.
+ */
+export const requestEmailCode = (email: string): ResultAsync<void> =>
+	withContext('mailer')((mailer) =>
+		withCurrentUser(() =>
+			DB.findUserByEmail(email).andThen((taken) => {
+				if (taken) return errAsync(fault('EmailTaken', { email }));
+
+				const fresh = newCode(Date.now());
+				return DB.saveEmailCode({ email, ...fresh.stored }).andThen(() =>
+					mailer.send({
+						to: email,
+						subject: `Your Rupea code to change your email: ${fresh.code}`,
+						text: `Your code is ${fresh.code}. It expires in 10 minutes.`,
+					}),
+				);
+			}),
+		),
+	);
+
+type SaveEmailOptions = { email: string; code: string };
+
+/** With sign-in off no mail reaches anyone, so the address is taken as given. */
+export const saveEmail = ({ email, code }: SaveEmailOptions): ResultAsync<User> =>
+	withContext('config')((c) =>
+		withCurrentUser((u) => {
+			const checked =
+				c.accounts.signin === 'none'
+					? okAsync()
+					: DB.takeEmailCode(email).andThen((s) =>
+							codeMatches(s, code, Date.now()) ? ok() : err(fault('AuthInvalidCode')),
+						);
+			return checked.andThen(() => DB.saveUser(u.id, { email }));
+		}),
+	);
+
 const canSignIn = (email: string): ResultAsync<boolean> =>
 	withContext('config')((c) => {
 		if (c.accounts.signin === 'none') return okAsync(false);

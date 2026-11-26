@@ -20,9 +20,24 @@ const findUser = os.auth.findUser.use(signedInRenewing).handler(({ context }) =>
 	return { user, expiresAt: extended && expiresAt ? expiresAt.toTemporalInstant() : null };
 });
 
+const saveUsername = os.auth.saveUsername
+	.use(signedIn)
+	.handler(({ input }) => answer(Auth.saveUsername(input.username)));
+
+const requestEmailCode = os.auth.requestEmailCode.use(signedIn).handler(async ({ input }) => {
+	await answer(Auth.requestEmailCode(input.email));
+});
+
+const saveEmail = os.auth.saveEmail
+	.use(signedIn)
+	.handler(({ input }) => answer(Auth.saveEmail({ email: input.email, code: input.code ?? '' })));
+
 export const auth = {
 	requestCode,
 	signIn,
 	signOut,
 	findUser,
+	saveUsername,
+	requestEmailCode,
+	saveEmail,
 };

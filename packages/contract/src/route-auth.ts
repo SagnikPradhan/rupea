@@ -1,7 +1,7 @@
 import { oc } from '@orpc/contract';
 import dedent from 'dedent';
 import { InstantOut } from '@rupea/shared/dates.ts';
-import { Email } from '@rupea/shared/text.ts';
+import { Email, Username } from '@rupea/shared/text.ts';
 import * as v from 'valibot';
 import { errors } from './errors.ts';
 
@@ -66,9 +66,59 @@ const findUser = oc
 	.errors(errors)
 	.output(v.object({ user: User, expiresAt: v.nullable(InstantOut) }));
 
+const saveUsername = oc
+	.route({
+		method: 'PUT',
+		path: '/auth/user/username',
+		operationId: 'auth.saveUsername',
+		description: dedent`
+			Renames the bearer and answers who they are now.
+
+			Fails with NameTaken when another user has the name.
+		`,
+	})
+	.errors(errors)
+	.input(v.object({ username: Username }))
+	.output(User);
+
+const requestEmailCode = oc
+	.route({
+		method: 'POST',
+		path: '/auth/user/email-code',
+		operationId: 'auth.requestEmailCode',
+		description: dedent`
+			Mails a six-digit code to a new address for the bearer, which saveEmail
+			takes to move them to it.
+
+			Fails with EmailTaken when another user has the address.
+		`,
+	})
+	.errors(errors)
+	.input(v.object({ email: Email }));
+
+const saveEmail = oc
+	.route({
+		method: 'PUT',
+		path: '/auth/user/email',
+		operationId: 'auth.saveEmail',
+		description: dedent`
+			Moves the bearer to a new address with the code mailed to it, or without
+			one while sign-in is off, and answers who they are now.
+
+			Fails with AuthInvalidCode when the code is wrong or has expired, and with
+			EmailTaken when another user has the address.
+		`,
+	})
+	.errors(errors)
+	.input(v.object({ email: Email, code: v.optional(v.pipe(v.string(), v.trim())) }))
+	.output(User);
+
 export const auth = {
 	requestCode,
 	signIn,
 	signOut,
 	findUser,
+	saveUsername,
+	requestEmailCode,
+	saveEmail,
 };

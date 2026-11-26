@@ -148,7 +148,10 @@ describe('explain', () => {
 		[fault('AccountNotFound', { account: 'Assets:Nope' }), 'Assets:Nope is not in this ledger.'],
 		[fault('StorageNotFound', { key: 'a.rupea' }), 'This file no longer exists.'],
 		[fault('StorageInvalidKey', { key: 'a.txt' }), '“a.txt” isn’t a valid file name.'],
-		[fault('AuthInvalidCode'), 'Something went wrong (AuthInvalidCode).'],
+		[fault('AuthInvalidCode'), 'That code is wrong or has expired.'],
+		[fault('NameTaken', { name: 'grace' }), 'Someone already has the name grace.'],
+		[fault('EmailTaken', { email: 'g@x.org' }), 'Another account already uses g@x.org.'],
+		[fault('AuthManyLocalUsers', { count: 2 }), 'Something went wrong (AuthManyLocalUsers).'],
 		[fault('UnknownError', { message: 'fetch failed' }), 'Something went wrong: fetch failed'],
 	])('explains %o', (error, sentence) => {
 		expect(explain(error)).toBe(sentence);

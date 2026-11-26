@@ -1,5 +1,4 @@
 <script lang="ts">
-	import { getContext } from 'svelte';
 	import { ICONS } from '#lib/web/shared/icons.ts';
 	import { listAccounts } from '#lib/endpoints/accounts.remote.ts';
 	import { findFirstDay, listProblems } from '#lib/endpoints/ledger.remote.ts';
@@ -20,13 +19,13 @@
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
 	import * as Accounts from '#lib/web/shared/accounts.ts';
-	import { formatIsoDate, BASE, formatsIn } from '#lib/web/shared/format.ts';
+	import { formatsHere, formatIsoDate } from '#lib/web/shared/format.ts';
 	import { editHref, hrefWith } from '#lib/web/shared/links.ts';
 	import { rowOf } from '#lib/web/shared/transaction-row.ts';
 	import { paged } from '#lib/web/shared/paged.svelte.ts';
 	import { page } from '$app/state';
 
-	const formats = formatsIn(getContext<() => string>(BASE)?.());
+	const formats = formatsHere();
 
 	const { data } = $props();
 

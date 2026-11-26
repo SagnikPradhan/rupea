@@ -2,10 +2,9 @@
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import ChartSummary from '#lib/web/components/ui-chart-summary/ui-chart-summary.svelte';
 	import LineChart from '#lib/web/components/ui-chart-line/ui-chart-line.svelte';
-	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
-	import { getContext } from 'svelte';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 
-	const formats = formatsIn(getContext<() => string>(BASE)?.());
+	const formats = formatsHere();
 
 	type Invested = { day: string; value: string; cost: string };
 

@@ -16,7 +16,7 @@ export const UNTOUCHED: DB.Touched = { commodities: [], spans: [], holdings: [],
 export type Indexed = {
 	failed: RupeaError[];
 	/** The base main.rupea names, when it was read or removed. */
-	based: string | null;
+	base: string | null;
 	commodities: string[];
 	spans: Span[];
 	holdings: DB.HoldingKey[];
@@ -51,14 +51,30 @@ export const listLedgerFiles = (storage: Storage): ResultAsync<Entry[]> =>
 		.mapErr((e) => fault('CannotReadDirectory', { path: '', cause: [e] }))
 		.map((e) => e.filter((f) => f.key.endsWith('.rupea') && !f.key.startsWith(`${STATEMENTS}/`)));
 
+type IndexEachOptions = {
+	ledgerId: string;
+	storage: Storage;
+	changed?: string[];
+	moved?: Move[];
+	gone?: string[];
+	full?: boolean;
+	/** The currency a bare amount is read in. */
+	base: string;
+};
+
 /**
  * Indexes one file at a time, each in a savepoint, so a file that fails is
- * reported and leaves the others. A bare amount is read in the base.
+ * reported and leaves the others.
  */
-export const indexEach = (
-	{ ledgerId, storage, changed = [], moved = [], gone = [], full = false }: ReindexOptions,
-	base: string,
-): ResultAsync<Indexed> => {
+export const indexEach = ({
+	ledgerId,
+	storage,
+	changed = [],
+	moved = [],
+	gone = [],
+	full = false,
+	base,
+}: IndexEachOptions): ResultAsync<Indexed> => {
 	const read = (k: string) =>
 		readText(storage, k).andThen((f) => indexFile({ ledgerId, file: f, full, base }));
 
@@ -68,7 +84,7 @@ export const indexEach = (
 	 */
 	const move = ({ from, to }: Move): ResultAsync<Indexed> =>
 		DB.renameIndexedFile(ledgerId, from, to).andThen((t) =>
-			isCounted(from) === isCounted(to) ? okAsync({ failed: [], based: null, ...t }) : read(to),
+			isCounted(from) === isCounted(to) ? okAsync({ failed: [], base: null, ...t }) : read(to),
 		);
 
 	const work = [
@@ -79,7 +95,7 @@ export const indexEach = (
 
 	return inOrder(work.map((w) => () => reported(atomically(w)))).map((done) => ({
 		failed: done.flatMap((d) => d.failed),
-		based: done.findLast((d) => d.based !== null)?.based ?? null,
+		base: done.findLast((d) => d.base !== null)?.base ?? null,
 		commodities: done.flatMap((d) => d.commodities),
 		spans: done.flatMap((d) => d.spans),
 		holdings: done.flatMap((d) => d.holdings),
@@ -97,9 +113,8 @@ const indexFile = ({ ledgerId, file, full, base }: IndexFileOptions): ResultAsyn
 	withContext('config')((config) =>
 		DB.findHeld(ledgerId, file.key).andThen((held) => {
 			const inLedger = isCounted(file.key);
-			const reading = { ...config.ledger, base };
 			const known = inLedger && !full ? held.hashCounts : {};
-			const parsed = parseChanged({ reading, file, known });
+			const parsed = parseChanged({ reading: { ...config.ledger, base }, file, known });
 			const found = inLedger
 				? parsed
 				: {
@@ -127,11 +142,11 @@ const indexFile = ({ ledgerId, file, full, base }: IndexFileOptions): ResultAsyn
 				held,
 				unchanged: found.unchanged,
 				lineHashes: found.lineHashes,
-			}).map((t) => ({ failed: [], based: basedIn(file.key, found.metadata), ...t }));
+			}).map((t) => ({ failed: [], base: baseIn(file.key, found.metadata), ...t }));
 		}),
 	);
 
-const basedIn = (k: string, m: RupeaMetadata) =>
+const baseIn = (k: string, m: RupeaMetadata) =>
 	k === MAIN ? (baseOf(m) ?? DEFAULT_COMMODITY) : null;
 
 type UnindexOptions = { ledgerId: string; key: string };
@@ -139,9 +154,9 @@ type UnindexOptions = { ledgerId: string; key: string };
 const unindex = ({ ledgerId, key }: UnindexOptions): ResultAsync<Indexed> =>
 	DB.unindexFile(ledgerId, key).map((t) => ({
 		failed: [],
-		based: key === MAIN ? DEFAULT_COMMODITY : null,
+		base: key === MAIN ? DEFAULT_COMMODITY : null,
 		...t,
 	}));
 
 const reported = (i: ResultAsync<Indexed>): ResultAsync<Indexed> =>
-	i.orElse((e) => ok({ failed: [e], based: null, ...UNTOUCHED }));
+	i.orElse((e) => ok({ failed: [e], base: null, ...UNTOUCHED }));

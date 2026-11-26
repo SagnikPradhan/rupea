@@ -98,6 +98,8 @@ export const AmountOut = v.pipe(
 /** An amount of a commodity going out. */
 export const QuantityOut = v.object({ amount: AmountOut, commodity: v.string() });
 
+export type QuantityOut = v.InferOutput<typeof QuantityOut>;
+
 /** What a bare amount is in. */
 export const DEFAULT_COMMODITY = 'INR';
 
@@ -121,14 +123,12 @@ export const PostedOut = v.object({
 export type PostedOut = v.InferOutput<typeof PostedOut>;
 
 /** An amount and its commodity, which an amount in the ledger's base leaves out. */
-export const printQuantity = (
-	{ amount, commodity }: v.InferOutput<typeof QuantityOut>,
-	b: string,
-): string => (commodity === b ? amount : `${amount} ${commodity}`);
+export const printQuantity = ({ amount, commodity }: QuantityOut, b: string): string =>
+	commodity === b ? amount : `${amount} ${commodity}`;
 
 /** A posting's amount with its lot cost and price, as the page shows it. */
 export const printPosted = ({ price, cost, ...quantity }: PostedOut, base: string): string => {
-	const print = (q: v.InferOutput<typeof QuantityOut>) => printQuantity(q, base);
+	const print = (q: QuantityOut) => printQuantity(q, base);
 	const lot = cost && [print(cost), ...(cost.date ? [cost.date] : [])].join(', ');
 
 	return [

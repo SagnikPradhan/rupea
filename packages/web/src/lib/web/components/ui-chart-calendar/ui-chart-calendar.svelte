@@ -1,10 +1,9 @@
 <script lang="ts" generics="Row extends Record<string, unknown>">
-	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
-	import { getContext } from 'svelte';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import type { ResolvedPathname } from '$app/types';
 	import type { Snippet } from 'svelte';
 
-	const formats = formatsIn(getContext<() => string>(BASE)?.());
+	const formats = formatsHere();
 
 	type Props = {
 		/**

@@ -3,12 +3,11 @@
 	import Kpi from '#lib/web/components/ui-kpi/ui-kpi.svelte';
 	import KpiStrip from '#lib/web/components/ui-kpi-strip/ui-kpi-strip.svelte';
 	import { overOf, type BudgetRow } from '#lib/web/shared/budgets.ts';
-	import { BASE, formatsIn, type Change } from '#lib/web/shared/format.ts';
-	import { getContext } from 'svelte';
+	import { formatsHere, type Change } from '#lib/web/shared/format.ts';
 	import * as Income from '#lib/web/shared/income.ts';
 	import * as Spending from '#lib/web/shared/spending.ts';
 
-	const formats = formatsIn(getContext<() => string>(BASE)?.());
+	const formats = formatsHere();
 
 	type Props = {
 		spending: Spending.Spent | undefined;

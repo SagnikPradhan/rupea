@@ -3,11 +3,10 @@
 	import Tooltip from '#lib/web/components/ui-tooltip/ui-tooltip.svelte';
 	import { labelsIn, seriesOf, VIEW } from '#lib/web/shared/chart.ts';
 	import type { Dot } from '#lib/web/shared/dots.ts';
-	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
-	import { getContext } from 'svelte';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { scaleLinear, scaleSqrt } from 'd3-scale';
 
-	const formats = formatsIn(getContext<() => string>(BASE)?.());
+	const formats = formatsHere();
 
 	type Props = {
 		dots: Dot[];

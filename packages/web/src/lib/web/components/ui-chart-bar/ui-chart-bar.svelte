@@ -15,12 +15,11 @@
 		VIEW,
 	} from '#lib/web/shared/chart.ts';
 	import type { Scale } from '#lib/web/shared/choices.ts';
-	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
-	import { getContext } from 'svelte';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { curveMonotoneX, line } from 'd3-shape';
 	import type { Snippet } from 'svelte';
 
-	const formats = formatsIn(getContext<() => string>(BASE)?.());
+	const formats = formatsHere();
 
 	/**
 	 * A field of the rows to plot: a part piled into every bar, in order from

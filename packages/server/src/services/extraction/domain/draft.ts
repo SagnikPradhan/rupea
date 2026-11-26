@@ -48,7 +48,7 @@ export const draft = (options: DraftOptions): Draft => ({
 			metadata: sourceMetadata(options.statement),
 			transactions: options.records
 				.toSorted((a, b) => a.location.line - b.location.line)
-				.map(toTransaction({ account: options.account, base: options.config.base })),
+				.map(toTransaction(options.account, options.config.base)),
 			prices: [],
 			links: [],
 			accounts: [],
@@ -92,7 +92,7 @@ const sourceMetadata = (statement: Source) => ({
 });
 
 const toTransaction =
-	({ account, base }: { account: string; base: string }) =>
+	(account: string, base: string) =>
 	(record: CategorisedRupeaRecord): RupeaTransaction => ({
 		location: record.location,
 		date: record.date,

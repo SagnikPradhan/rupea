@@ -6,11 +6,10 @@
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import { nameOf } from '#lib/web/shared/accounts.ts';
 	import { totalOf, watchOf, type BudgetRow } from '#lib/web/shared/budgets.ts';
-	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
-	import { getContext } from 'svelte';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { settingsHref } from '#lib/web/shared/links.ts';
 
-	const formats = formatsIn(getContext<() => string>(BASE)?.());
+	const formats = formatsHere();
 
 	type Props = { rows: BudgetRow[]; today: Temporal.PlainDate; handle: string };
 

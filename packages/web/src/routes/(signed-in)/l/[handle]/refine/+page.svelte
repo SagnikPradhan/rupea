@@ -10,17 +10,16 @@
 	import type { RupeaError } from '@rupea/shared/errors.ts';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import { detail } from '#lib/web/shared/errors.ts';
-	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { fileHref, hrefOnly } from '#lib/web/shared/links.ts';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
-	import { getContext } from 'svelte';
 
 	const KEYS: Record<string, string> = { primary: 'group', evidence: 'same-as' };
 
 	const { data } = $props();
 
-	const formats = formatsIn(getContext<() => string>(BASE)?.());
+	const formats = formatsHere();
 
 	const handle = $derived(data.ledger.handle);
 	const file = $derived(page.url.searchParams.get('file'));

@@ -13,13 +13,12 @@
 	import BarChart from '#lib/web/components/ui-chart-bar/ui-chart-bar.svelte';
 	import Calendar from '#lib/web/components/ui-chart-calendar/ui-chart-calendar.svelte';
 	import ChoicePicker from '#lib/web/components/ui-picker-choice/ui-picker-choice.svelte';
-	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
-	import { getContext } from 'svelte';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { hrefWith, postingsHref } from '#lib/web/shared/links.ts';
 	import { page } from '$app/state';
 	import * as Spending from '#lib/web/shared/spending.ts';
 
-	const formats = formatsIn(getContext<() => string>(BASE)?.());
+	const formats = formatsHere();
 
 	type Props = {
 		spending: Spending.Spent | undefined;

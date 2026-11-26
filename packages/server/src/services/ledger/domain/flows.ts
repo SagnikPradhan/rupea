@@ -22,16 +22,15 @@ type Moved = {
 	held: boolean;
 };
 
+type FlowsOfOptions = { deltas: Row[]; earning: Row[]; base: string };
+
 /**
  * What flowed into each account on each day, as the deltas of the Assets
  * accounts say, less each posting's share of the income its transaction's
  * earning postings made: the postings of the transactions that have any, each
  * alone, with their commodity. Oldest account and day first.
  */
-export const flowsOf = (
-	{ deltas, earning }: { deltas: Row[]; earning: Row[] },
-	base: string,
-): Flow[] => {
+export const flowsOf = ({ deltas, earning, base }: FlowsOfOptions): Flow[] => {
 	const days = deltas.map((r) => ({
 		account: r.account,
 		day: dayNumberOf(r.bucket),

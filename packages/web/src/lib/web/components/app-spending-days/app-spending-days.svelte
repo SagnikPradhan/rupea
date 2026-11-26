@@ -1,11 +1,10 @@
 <script lang="ts">
 	import Calendar from '#lib/web/components/ui-chart-calendar/ui-chart-calendar.svelte';
 	import ChartSummary from '#lib/web/components/ui-chart-summary/ui-chart-summary.svelte';
-	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
-	import { getContext } from 'svelte';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 
-	const formats = formatsIn(getContext<() => string>(BASE)?.());
+	const formats = formatsHere();
 
 	type Props = {
 		daily: { day: string; amount: string }[];

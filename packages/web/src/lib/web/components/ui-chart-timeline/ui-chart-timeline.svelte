@@ -2,10 +2,9 @@
 	import Tooltip from '#lib/web/components/ui-tooltip/ui-tooltip.svelte';
 	import { AMOUNT_UNIT, type Amount, printAmount, toNumber } from '@rupea/shared/money.ts';
 	import { type Grain, bucketOf, bucketsIn } from '@rupea/shared/dates.ts';
-	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
-	import { getContext } from 'svelte';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 
-	const formats = formatsIn(getContext<() => string>(BASE)?.());
+	const formats = formatsHere();
 
 	type Datum = {
 		at: Temporal.PlainDate;

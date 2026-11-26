@@ -1,9 +1,8 @@
 <script lang="ts">
 	import type { Snippet } from 'svelte';
-	import { BASE, formatsIn, toneOf } from '#lib/web/shared/format.ts';
-	import { getContext } from 'svelte';
+	import { formatsHere, toneOf } from '#lib/web/shared/format.ts';
 
-	const formats = formatsIn(getContext<() => string>(BASE)?.());
+	const formats = formatsHere();
 
 	type Props = {
 		value: string | null;

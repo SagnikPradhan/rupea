@@ -3,12 +3,11 @@
 	import Swatch from '#lib/web/components/ui-swatch/ui-swatch.svelte';
 	import Tooltip from '#lib/web/components/ui-tooltip/ui-tooltip.svelte';
 	import { seriesOf, tintOf, VIEW } from '#lib/web/shared/chart.ts';
-	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
-	import { getContext } from 'svelte';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import type { Arc } from '#lib/web/shared/rings.ts';
 	import { arc } from 'd3-shape';
 
-	const formats = formatsIn(getContext<() => string>(BASE)?.());
+	const formats = formatsHere();
 
 	type Props = {
 		/** The arcs of every ring, as ringsOf lays them out. */

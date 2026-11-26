@@ -92,11 +92,7 @@ type GroupOut = v.InferOutput<typeof Group>;
 
 export const viewGroup = ({ group, members }: GroupOut) => ({
 	group,
-	members: members.map(({ role, counted, ...t }) => ({
-		role,
-		counted,
-		...viewTransaction(t),
-	})),
+	members: members.map(({ role, counted, ...t }) => ({ role, counted, ...viewTransaction(t) })),
 });
 
 /**

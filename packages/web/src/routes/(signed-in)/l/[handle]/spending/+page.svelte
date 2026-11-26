@@ -22,15 +22,14 @@
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
-	import { BASE, formatsIn, formatIsoDate } from '#lib/web/shared/format.ts';
-	import { getContext } from 'svelte';
+	import { formatsHere, formatIsoDate } from '#lib/web/shared/format.ts';
 	import { MONTHS_BRIEF } from '#lib/web/shared/home.ts';
 	import { rowsFor } from '#lib/web/shared/budgets.ts';
 	import { readQuery } from '#lib/web/shared/query.svelte.ts';
 	import * as Income from '#lib/web/shared/income.ts';
 	import * as Spending from '#lib/web/shared/spending.ts';
 
-	const formats = formatsIn(getContext<() => string>(BASE)?.());
+	const formats = formatsHere();
 
 	const { data } = $props();
 

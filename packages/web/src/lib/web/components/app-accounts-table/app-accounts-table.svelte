@@ -6,11 +6,10 @@
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
 	import { depthOf, isUnder } from '#lib/web/shared/accounts.ts';
-	import { BASE, formatsIn, toneOf } from '#lib/web/shared/format.ts';
-	import { getContext } from 'svelte';
+	import { formatsHere, toneOf } from '#lib/web/shared/format.ts';
 	import { lotsHref } from '#lib/web/shared/links.ts';
 
-	const formats = formatsIn(getContext<() => string>(BASE)?.());
+	const formats = formatsHere();
 
 	type Quantity = { amount: string; commodity: string };
 

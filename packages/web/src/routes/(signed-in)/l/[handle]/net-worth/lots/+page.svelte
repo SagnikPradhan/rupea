@@ -6,12 +6,11 @@
 	import Source from '#lib/web/components/app-ledger-table/source.svelte';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
-	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
-	import { getContext } from 'svelte';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';
 	import { page } from '$app/state';
 
-	const formats = formatsIn(getContext<() => string>(BASE)?.());
+	const formats = formatsHere();
 
 	const { data } = $props();
 

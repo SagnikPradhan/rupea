@@ -4,11 +4,10 @@
 	import SegmentedControl from '#lib/web/components/ui-segmented-control/ui-segmented-control.svelte';
 	import Totals from '#lib/web/components/ui-chart-totals/ui-chart-totals.svelte';
 	import { prefixOf } from '#lib/web/shared/accounts.ts';
-	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
-	import { getContext } from 'svelte';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { type Invested, byDepthOf, groupsInvested, totalsOf } from '#lib/web/shared/invested.ts';
 
-	const formats = formatsIn(getContext<() => string>(BASE)?.());
+	const formats = formatsHere();
 
 	type Props = { invested: Invested[] };
 

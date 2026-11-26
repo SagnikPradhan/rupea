@@ -1,12 +1,11 @@
 <script lang="ts">
 	import Tooltip from '#lib/web/components/ui-tooltip/ui-tooltip.svelte';
 	import { seriesOf, tintOf, VIEW } from '#lib/web/shared/chart.ts';
-	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
-	import { getContext } from 'svelte';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { sankey, type SankeyLink, type SankeyNode } from 'd3-sankey';
 	import type { Snippet } from 'svelte';
 
-	const formats = formatsIn(getContext<() => string>(BASE)?.());
+	const formats = formatsHere();
 
 	/**
 	 * A bar in a column, the part whose shade it takes, and the bar before it

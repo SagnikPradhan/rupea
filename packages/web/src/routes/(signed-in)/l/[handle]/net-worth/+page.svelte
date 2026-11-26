@@ -13,8 +13,7 @@
 	import { spansOf } from '@rupea/shared/dates.ts';
 	import { paramsOf } from '#lib/web/shared/filter.ts';
 	import { depthOf, isUnder, nameOf } from '#lib/web/shared/accounts.ts';
-	import { BASE, formatsIn, formatIsoDate, toneOf } from '#lib/web/shared/format.ts';
-	import { getContext } from 'svelte';
+	import { formatsHere, formatIsoDate, toneOf } from '#lib/web/shared/format.ts';
 	import { owedOf } from '#lib/web/shared/home.ts';
 	import * as Cards from '#lib/web/shared/cards.ts';
 	import * as Liabilities from '#lib/web/shared/liabilities.ts';
@@ -50,7 +49,7 @@
 	import { postingsHref, settingsHref } from '#lib/web/shared/links.ts';
 	import { page } from '$app/state';
 
-	const formats = formatsIn(getContext<() => string>(BASE)?.());
+	const formats = formatsHere();
 
 	const SETTLED = { '': 'Including settled', no: 'Open only' };
 

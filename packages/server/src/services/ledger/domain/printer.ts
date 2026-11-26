@@ -110,8 +110,10 @@ const printTerms = (
 	...(p.price === null ? [] : [PRICE_SIGN[p.price.kind], formatQuantity(p.price, c.base)]),
 ];
 
-const printCost = (c: LedgerReading, l: LotCost): string =>
-	`{${[formatQuantity(l, c.base), ...(l.date ? [printDate(c.dateFormats[0], l.date)] : [])].join(', ')}}`;
+const printCost = (c: LedgerReading, l: LotCost): string => {
+	const dated = l.date ? [printDate(c.dateFormats[0], l.date)] : [];
+	return `{${[formatQuantity(l, c.base), ...dated].join(', ')}}`;
+};
 
 const printPrice = ({ dateFormats, base }: LedgerReading, p: RupeaMarketPrice): string =>
 	`P ${printDate(dateFormats[0], p.date)} ${p.commodity} ${formatQuantity(p.price, base)}\n`;

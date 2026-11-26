@@ -11,8 +11,7 @@
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
 	import { isUnder, nameOf } from '#lib/web/shared/accounts.ts';
-	import { BASE, formatIsoDate, formatsIn } from '#lib/web/shared/format.ts';
-	import { getContext } from 'svelte';
+	import { formatsHere, formatIsoDate } from '#lib/web/shared/format.ts';
 	import { settingsHref } from '#lib/web/shared/links.ts';
 	import { askedIn, liabilitiesOf, type Liability } from '#lib/web/shared/settings.ts';
 	import { goto } from '$app/navigation';
@@ -23,7 +22,7 @@
 
 	const { ledger }: Props = $props();
 
-	const formats = formatsIn(getContext<() => string>(BASE)?.());
+	const formats = formatsHere();
 
 	const handle = $derived(ledger.handle);
 	const day = formatIsoDate(new Date());

@@ -1,16 +1,15 @@
 <script lang="ts">
-	import { getContext } from 'svelte';
 	import type { Period } from '@rupea/shared/dates.ts';
 	import Chip from '#lib/web/components/ui-chip/ui-chip.svelte';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import FilterSection from '#lib/web/components/ui-filter-section/ui-filter-section.svelte';
 	import SegmentedControl from '#lib/web/components/ui-segmented-control/ui-segmented-control.svelte';
-	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { hrefWith } from '#lib/web/shared/links.ts';
 	import { goto } from '$app/navigation';
 	import { page } from '$app/state';
 
-	const formats = formatsIn(getContext<() => string>(BASE)?.());
+	const formats = formatsHere();
 
 	type Props = {
 		current: Period;

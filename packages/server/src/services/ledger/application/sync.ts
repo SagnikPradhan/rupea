@@ -108,14 +108,14 @@ const indexAndSettle = (o: ReindexOptions): ResultAsync<RupeaError[]> =>
  */
 const indexInBase = (o: ReindexOptions): ResultAsync<{ indexed: Indexed; rebased: boolean }> =>
 	DB.findBase(o.ledgerId).andThen((held) =>
-		indexEach(o, held).andThen((i) => {
-			const based = i.based ?? held;
-			if (based === held) return okAsync({ indexed: i, rebased: false });
+		indexEach({ ...o, base: held }).andThen((i) => {
+			const base = i.base ?? held;
+			if (base === held) return okAsync({ indexed: i, rebased: false });
 
-			return DB.saveBase(o.ledgerId, based)
+			return DB.saveBase(o.ledgerId, base)
 				.andThen(() => listLedgerFiles(o.storage))
 				.andThen((f) =>
-					indexEach({ ...o, changed: f.map((e) => e.key), moved: [], gone: [], full: true }, based),
+					indexEach({ ...o, changed: f.map((e) => e.key), moved: [], gone: [], full: true, base }),
 				)
 				.map((a) => ({ indexed: a, rebased: true }));
 		}),

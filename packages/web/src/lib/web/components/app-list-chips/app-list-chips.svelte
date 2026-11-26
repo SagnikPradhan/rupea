@@ -1,12 +1,11 @@
 <script lang="ts">
-	import { getContext } from 'svelte';
 	import type { Filter } from '#lib/web/shared/filter.ts';
 	import Chip from '#lib/web/components/ui-chip/ui-chip.svelte';
-	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { hrefWith } from '#lib/web/shared/links.ts';
 	import { page } from '$app/state';
 
-	const formats = formatsIn(getContext<() => string>(BASE)?.());
+	const formats = formatsHere();
 
 	type Props = { filter: Filter };
 

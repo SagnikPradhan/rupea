@@ -2,11 +2,10 @@
 	import Axes from '#lib/web/components/ui-chart-axes/ui-chart-axes.svelte';
 	import { labelsIn, VIEW } from '#lib/web/shared/chart.ts';
 	import type { Step } from '#lib/web/shared/bridge.ts';
-	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
-	import { getContext } from 'svelte';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { scaleLinear } from 'd3-scale';
 
-	const formats = formatsIn(getContext<() => string>(BASE)?.());
+	const formats = formatsHere();
 
 	type Props = {
 		steps: Step[];

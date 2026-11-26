@@ -185,10 +185,9 @@ const shapeOf = (node: RupeaFileNode | RupeaEntryNode) =>
 const isElided = (x: unknown): x is RupeaPostingNode =>
 	typeof x === 'object' && x !== null && 'elided' in x && x.elided === true;
 
-const nodeOf = (
-	form: TransactionForm,
-	{ file, base }: { file: string; base: string },
-): RupeaTransactionNode => ({
+type NodeOfOptions = { file: string; base: string };
+
+const nodeOf = (form: TransactionForm, { file, base }: NodeOfOptions): RupeaTransactionNode => ({
 	kind: NodeKind.Transaction,
 	location: { file, line: 1 },
 	comments: commentsOf(form.comment),

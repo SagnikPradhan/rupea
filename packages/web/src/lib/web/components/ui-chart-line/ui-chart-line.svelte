@@ -11,14 +11,13 @@
 		valuesOf,
 		VIEW,
 	} from '#lib/web/shared/chart.ts';
-	import { BASE, formatsIn } from '#lib/web/shared/format.ts';
-	import { getContext } from 'svelte';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { scaleUtc } from 'd3-scale';
 	import { area, line, type SeriesPoint } from 'd3-shape';
 	import type { Snippet } from 'svelte';
 	import type { Grain } from '@rupea/shared/dates.ts';
 
-	const formats = formatsIn(getContext<() => string>(BASE)?.());
+	const formats = formatsHere();
 
 	type Series = {
 		key: keyof Row & string;

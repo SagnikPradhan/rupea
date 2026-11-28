@@ -38,7 +38,7 @@ Pick a day to start from, and write down what each account held that day. Open *
 
 ## Import your statements
 
-From that day on, let your statements fill the ledger. Open **Ledger**, then **Import**, and press **Upload statements**. Rupea reads PDF, CSV and Excel statements, and shows the transactions it finds. For each one, it suggests the other account from the transactions already in your ledger.
+From that day on, let your statements fill the ledger. Open **Ledger**, then **Files**, and drop your statements on the **Import statements** panel. Rupea reads PDF, CSV and Excel statements, and shows the transactions it finds. For each one, it suggests the other account from the transactions already in your ledger.
 
 Check them, press **Add to ledger**, and name a file, such as `hdfc.rupea`. Each statement adds what's new to it.
 

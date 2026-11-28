@@ -2,13 +2,25 @@ import { isCounted, isLedgerFile } from '@rupea/shared/files.ts';
 
 export type Status = 'added' | 'ready' | 'reading' | 'setup' | 'failed' | 'new';
 
-export const STATUS_LABELS: Record<Status, string> = {
-	added: 'Added',
-	ready: 'Ready to add',
-	reading: 'Reading…',
-	setup: 'Needs setup',
-	failed: 'Failed',
-	new: 'New',
+export const STATUSES: Record<Status, { label: string; action?: string }> = {
+	added: { label: 'Added to your ledger' },
+	ready: { label: 'Ready to review', action: 'Review' },
+	reading: { label: 'Reading…' },
+	setup: { label: 'Rupea doesn’t recognise this bank yet', action: 'Set up' },
+	failed: { label: 'Failed', action: 'Open' },
+	new: { label: 'Just uploaded' },
+};
+
+export const STEPS = ['Uploaded', 'Read', 'Review', 'Added'];
+
+/** The step each status is at; past the last one means all are done. */
+export const STEP_AT: Record<Status, number> = {
+	new: 1,
+	reading: 1,
+	setup: 1,
+	failed: 1,
+	ready: 2,
+	added: STEPS.length,
 };
 
 /**
@@ -45,3 +57,26 @@ export function suggestedFile(
 
 	return `${statement.replace(/^.*\//, '').replace(/\.[^.]*$/, '')}.rupea`;
 }
+
+const TYPES: Record<string, string> = {
+	pdf: 'application/pdf',
+	csv: 'text/csv',
+	xls: 'application/vnd.ms-excel',
+	xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+};
+
+const extensionOf = (s: string) => s.split('.').pop()?.toLowerCase() ?? '';
+
+/** Whether the browser can show the original statement itself. */
+export const isShowable = (s: string) => extensionOf(s) === 'pdf';
+
+/**
+ * The headers that serve an original statement: shown inline when a browser
+ * can, else saved.
+ */
+export const headersForOriginal = (s: string) => ({
+	'Content-Type': TYPES[extensionOf(s)] ?? 'application/octet-stream',
+	'Content-Disposition': `${isShowable(s) ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(s.split('/').pop() ?? s)}`,
+	'X-Content-Type-Options': 'nosniff',
+	'Cache-Control': 'private',
+});

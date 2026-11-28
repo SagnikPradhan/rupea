@@ -1,3 +1,4 @@
+import { REVIEW } from '@rupea/shared/files.ts';
 import { resolve } from '$app/paths';
 import { page } from '$app/state';
 import type { ResolvedPathname } from '$app/types';
@@ -11,11 +12,21 @@ export const fileHref = (handle: string, file: string, line: number | string | n
 	);
 };
 
+/** Opens a stored statement, which sits among the files like any other. */
+export const statementHref = (h: string, s: string) => fileHref(h, `${REVIEW}/${s}`);
+
 /** Opens a ledger file in the editor, on its transactions as a list to edit. */
 export const uiHref = (handle: string, file: string) =>
 	withQuery(
 		resolve('/(signed-in)/l/[handle]/files/[...key]', { handle, key: encoded(file) }),
 		new URLSearchParams({ view: 'ui' }),
+	);
+
+/** Where a statement's original file is served, for a frame and a download link. */
+export const originalHref = (handle: string, statement: string) =>
+	withQuery(
+		resolve('/(signed-in)/l/[handle]/original', { handle }),
+		new URLSearchParams({ key: statement }),
 	);
 
 /** Opens a ledger's postings, narrowed by the query. */

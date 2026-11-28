@@ -12,7 +12,6 @@
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
 	import { placesOf } from '#lib/web/shared/errors.ts';
 	import { ledger } from '#lib/web/shared/ledger-syntax.ts';
-	import { isCounted } from '@rupea/shared/files.ts';
 	import type { ResolvedPathname } from '$app/types';
 
 	type Props = {
@@ -21,19 +20,51 @@
 		line: number | null;
 		onopen: (key: string) => void;
 		onremoved: () => void;
+		/** What a file under review ends with, such as adding it to the ledger. */
+		footer?: Snippet | undefined;
+		/** What a file under review shows between the header and the views. */
+		below?: Snippet | undefined;
+		/** False when something else points at the file's name. */
+		renamable?: boolean;
+		/** What the header calls the file when its key is not its name. */
+		named?: string | undefined;
 		/**
 		 * The file as text or as a list of its transactions, and the switch between
 		 * them.
 		 */
 		view?: {
-			chosen: 'file' | 'ui';
+			chosen: 'file' | 'ui' | 'grid' | 'original';
 			segments: { name: string; chosen: boolean; href: ResolvedPathname }[];
 		};
 		/** The list of the file's transactions, shown in the UI view. */
 		ui?: Snippet;
+		/** The statement the file was made from as a grid, shown in the grid view. */
+		grid?: Snippet;
+		/**
+		 * The statement the file was made from as uploaded, shown in the original
+		 * view.
+		 */
+		original?: Snippet;
+		/** The steps a statement is going through, shown in the header. */
+		progress?: Snippet;
 	};
 
-	const { handle, editor, line, onopen, onremoved, view, ui }: Props = $props();
+	const {
+		handle,
+		editor,
+		line,
+		onopen,
+		onremoved,
+		footer,
+		below,
+		renamable = true,
+		named,
+		view,
+		ui,
+		grid,
+		original,
+		progress,
+	}: Props = $props();
 	const state = $derived(editor.state);
 	const texting = $derived((view?.chosen ?? 'file') === 'file');
 
@@ -74,13 +105,12 @@
 	}
 </script>
 
-<PageHeader>
+<PageHeader {progress}>
 	Files
 	{#if editor.dirty}<Tag>Unsaved</Tag>{/if}
-	{#if state.file && !isCounted(state.file.key)}<Tag>Not counted</Tag>{/if}
 	{#snippet subtitle()}
 		{#if state.file}
-			<FilePath path={state.file.key} />
+			<FilePath path={named ?? state.file.key} />
 		{/if}
 	{/snippet}
 	{#snippet actions()}
@@ -99,9 +129,11 @@
 						</Button>
 						<Button title="Format (Shift+Alt+F)" onclick={editor.format}>Format</Button>
 					{/if}
-					<Button icon={ICONS.edit} onclick={() => begin('renaming', state.file?.key)}>
-						Rename
-					</Button>
+					{#if renamable}
+						<Button icon={ICONS.edit} onclick={() => begin('renaming', state.file?.key)}>
+							Rename
+						</Button>
+					{/if}
 					<Button icon={ICONS.delete} onclick={() => begin('deleting')}>Delete</Button>
 				{:else}
 					<Button primary icon={ICONS.add} onclick={() => begin('creating', 'new.rupea')}>
@@ -149,6 +181,8 @@
 	</div>
 {/if}
 
+{@render below?.()}
+
 {#if state.file && view}
 	<div class="views"><SegmentedControl label="View" segments={view.segments} /></div>
 {/if}
@@ -157,6 +191,12 @@
 
 {#if state.file && view?.chosen === 'ui'}
 	{@render ui?.()}
+{/if}
+{#if state.file && view?.chosen === 'grid'}
+	{@render grid?.()}
+{/if}
+{#if state.file && view?.chosen === 'original'}
+	{@render original?.()}
 {/if}
 {#if state.file && texting}
 	<CodeEditor
@@ -170,6 +210,8 @@
 		onformat={() => void editor.format()}
 	/>
 {/if}
+
+{@render footer?.()}
 
 <style>
 	.toolbar {

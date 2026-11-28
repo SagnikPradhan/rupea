@@ -92,6 +92,7 @@
 	--color-subtle: var(--color-ink-1);
 	--color-border: var(--color-ink-2);
 	--color-muted: color-mix(in srgb, var(--color-ink) 56%, transparent);
+	--color-scrim: light-dark(rgb(0 0 0 / 55%), rgb(0 0 0 / 70%));
 }
 
 /* Theme chosen in the app */

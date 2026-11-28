@@ -4,7 +4,7 @@ Importing turns a statement from your bank, card or broker into transactions in 
 
 ## What you can upload
 
-Open **Files**, then **Import**, and press **Upload statements**. You can pick several files at once:
+Open **Files**. In the **Import statements** panel next to your files (below them on a narrow screen), drop your files on it or click it to choose them. You can add several files at once:
 
 - **Statements** as PDF, CSV, XLS or XLSX.
 - **Ledger files** you already keep, as `.rupea`, `.ledger`, `.journal`, `.dat` or `.txt`. They import as they are written, with no schema. They must be UTF-8, and `include` lines in them aren't followed.
@@ -25,7 +25,7 @@ Rupea ships schemas for:
 - IDFC FIRST Bank credit cards
 - State Bank of India savings accounts
 
-For any other statement, it asks you to **Describe this statement**. [Writing schemas](schemas.md) shows how. You write a schema once for each bank and layout, and every statement like it imports by itself from then on.
+For any other statement, it shows the statement beside a **Schema** to fill in. Flip the statement between the original file, the grid Rupea reads and the transactions it finds, and the transactions update as you type. [Writing schemas](schemas.md) shows how. You write a schema once for each bank and layout, and every statement like it imports by itself from then on.
 
 <picture>
   <source media="(prefers-color-scheme: dark)" srcset="/screenshots/import-dark.png">
@@ -41,18 +41,21 @@ The transactions Rupea finds show in a list, with the account they belong to. Ea
   <img class="frame" src="/screenshots/import-draft-light.png" alt="Ten transactions read from a savings statement, each with an account" width="2880" height="1800">
 </picture>
 
-- **Edit transactions** opens the draft as text, to fix an account or a description.
-- **Start over** throws the draft and your edits away, and reads the statement again.
-- **Add to ledger** asks for a file to add the transactions to.
+- **Continue to review**, on the step before, makes the draft from what Rupea found. It is available once Rupea has found something. In the draft, choose any transaction in the list to fix its account or description in a form beside it, or switch the draft to Text to edit it as written. Grid shows the sheet you uploaded, as Rupea read it, and Original shows the file itself (a PDF in the page, any other file to download), to check the draft against.
+- **Delete** throws the draft and your edits away, and reads the statement again. A draft is a file marked Not counted, so it has the same buttons as any file (All files, Save and Format in Text, Delete).
+- **Check for matches** at the bottom opens the review of possible matches for the draft.
+- **Add transactions to ledger**, also at the bottom, opens a dialog that asks for a file to add the transactions to. Type a new name, or choose a file already in the ledger from the list.
 
 Adding to a file you already have puts the transactions in by date. It leaves out any the file already holds with the same date, description, account and amount, so adding an overlapping statement only adds what's new. A new name makes a new file.
+
+When it is added, the last screen says what was added and where. **Undo** puts it back in review, **Open** shows the file, and **Import another** goes back to your files.
 
 ## Where statements and drafts are kept
 
 Until you add them to the ledger, uploads and drafts wait in the review area, the `_/` folder of your files:
 
-- a statement under the day you uploaded it, as `_/statements/20261028/savings-oct-2026.pdf`, and
-- its draft beside it, as `_/imports/20261028/savings-oct-2026.rupea`.
+- a statement under the day you uploaded it, as `_/20261028/savings-oct-2026.pdf`, and
+- its draft beside it, with `.rupea` added, as `_/20261028/savings-oct-2026.pdf.rupea`.
 
 Nothing under `_/` counts: its transactions don't show in your accounts, and its balances aren't checked.
 

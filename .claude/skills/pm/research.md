@@ -10,28 +10,46 @@ These would change the personas if closed. Close them before giving a weak perso
 - **Caretaker.** Family threads were picked for the topic and skew to conflict. No survey sizes the need for a tool.
 - **Money in two countries.** Vendor pages only.
 - **Willingness to pay.** No one measured Indian willingness to pay for hosting or sync, and surveys are off the table for now. Public evidence is indirect: no Indian was heard paying for file hosting, and Fold's payer count is unknown. Whether a ₹300 to ₹500 rung beats ₹1,000 is not shown either way.
-- **Fold's price.** The stores charge ₹999 a year, the blog lists ₹2,999. When and why it changed is unknown.
+- **Fold's price.** The stores charge ₹999 a year. The blog's regular price is ₹2,999, with early-bird phases from ₹1,499 to ₹2,009. No announcement of ₹999 was found, and whether paying changed is not known. Whether Fold's web checkout charges ₹999 or the blog price was not checked.
 - **Hosting law.** Everything on privacy, logging and tax is from law-firm and vendor commentary. The Gazette, the CERT-In directions and the EDPB guidelines were not read, and a lawyer has not been asked.
 - **App reviews.** About 80 low-rated Play Store reviews per app, newest first. App Store reviews exist only for Fold (414). None for axio, INDmoney or Kuvera, and none at all for Copilot.
 - **Reddit search.** The Arctic Shift search endpoints time out, so threads must be found by web search. The Monarch cheaper-tier thread returned 7 of its comments.
 - **Competitor prices.** ET Money Genius, Value Research and Lunch Money prices are snippets only, since their sites block fetches. Kuvera is free.
 - **Plain-text and self-hosted users.** Their complaints come from GitHub issue titles, not users. No Indian user of Paisa, hledger or Firefly was found.
 - **Plain text as a ramp.** No evidence either way. Only talking to people who try it will tell.
+- **Mapping UX.** The harshness ranking is from docs, with no user test. Complaints are about 10 GitHub and forum threads read and about 25 titles, none from Reddit or app stores. Paisa's docs were read on a mirror, not upstream. Fold's statement upload, Walnut and the CAMS and KFin parsers were not checked. How often Indian statements need PDF rather than CSV is unknown.
 - **Coding.** Personas and comfort with technology were inferred from short comments by an agent, partly by regex.
 
 ## Next questions
 
 Sorted by how much the answer would change the roadmap. `/pm research` takes the first. No surveys: answer these from public sources.
 
-1. When and why did Fold's Plus price go from ₹2,999 to ₹999, and did paying rise? Read Fold's subreddit announcements, its Discord if reachable, and the Believer launch threads. It shows whether ₹999 is settled or an early-bird anchor. One reading is that ₹2,999 did not sell and the price was cut, which fits the self-reported payers but not Fold's own top-10 grossing claim.
-2. What do NaviPlan buyers say about ₹2,500, and what does Artos premium sell at today? They are the only Indian privacy-first trackers with a price, so they set the ceiling for hosted files.
-3. What do the free tiers of Fold, INDmoney, Kuvera, CRED and Tickertape include for net worth and returns? It sets what Rupea must give free so no one leaves over a paywall on basics.
-4. How do people outside the investing forums keep track, such as r/india, the city subreddits and r/CreditCardsIndia? It tests whether the Tracker and Investor hold for the wider public.
-5. Do Fold's family features lift paying? Compare reviews before and after the March 2026 free-tier cut, and read the split on its ₹24,999 lifetime plan. It decides the Caretaker's work and whether to sell lifetime.
-6. How many Indian self-hosters of Actual, Paisa or Firefly pay for hosting? It tests whether the Bookkeeper pays.
-7. Where do Kuvera and ET Money leavers land after three months? It shows which product replaces the tracker, and whether hosted files could catch them.
+1. How many distinct statement layouts cover 90% of Indian savings and card statements (CSV, XLS and PDF) from the top 10 banks? It decides how many built-in schemas spare most Trackers the harsh path.
+2. Which fields of an unseen statement can be guessed right without help (header row, date, amount columns, DR or CR marker)? Test on 20 real statements across banks. It decides whether a guess can be the first step or only a hint.
+3. Does Paisa's Smart Ingestion exist upstream, and what does it do for Indian PDFs? Paisa is the closest rival.
+4. What do people say when a CSV import goes wrong in YNAB, Monarch or Lunch Money (Reddit and app-store reviews)? It sizes what this pass sampled only from GitHub.
+5. Do users trust a guessed schema they cannot read? It decides whether YAML can be hidden for the Tracker.
+6. What do NaviPlan buyers say about ₹2,500, and what does Artos premium sell at today? They are the only Indian privacy-first trackers with a price, so they set the ceiling for hosted files.
+7. What do the free tiers of Fold, INDmoney, Kuvera, CRED and Tickertape include for net worth and returns?
+8. How do people outside the investing forums keep track, such as r/india, the city subreddits and r/CreditCardsIndia?
+9. Do Fold's family features lift paying? Compare reviews before and after the March 2026 free-tier cut, and read the split on its ₹24,999 lifetime plan.
+10. How many Indian self-hosters of Actual, Paisa or Firefly pay for hosting?
+11. Where do Kuvera and ET Money leavers land after three months?
 
 ## Findings
+
+### Writing a mapping for a statement
+
+Read 2026-11-25 from product docs, GitHub issues and forums (see sources). The ranking is my judgment, not a measurement.
+
+- From gentlest to harshest: auto-matched columns you confirm (Flatfile, OneSchema, Monarch, snippets), a dropdown per column with a live preview (YNAB, Lunch Money, Actual, GnuCash), a column role from a long list (Firefly III), a template or schema edited against a live preview (Paisa, Rupea), hand-written rules or code with no preview (hledger, beangulp).
+- The apps with a click-a-column mapping read CSV or OFX only. Firefly III says PDF will never be supported. Paisa's PDF import is experimental. Docparser and Parseur point at PDFs but are paid and not made for statements.
+- Saving the mapping so the next file skips the setup is standard: Lunch Money, GnuCash, Firefly III's JSON config, Tabula templates, Flatfile's historical matches.
+- Date format is the most common failure (Goodbudget, PocketSmith, MoneyWiz and Moneydance help pages, snippets). Actual shows the parsed date in green so a misread is visible.
+- Even click-a-column apps struggle when one cell holds several values, which Indian narration strings do. Actual users preprocess files (issue 9062).
+- Users ask makers to write their mapping: "Could you please create an import template for this csv" (Paisa issue 266).
+- hledger reads CSV through rules files and has `hledger import --dry-run`. It does not read PDFs. This changes an earlier note that it had no statement import.
+- Rupea's YAML schema is likely too harsh for the Tracker as the only path. Gentler steps the best examples suggest: guess the columns and confirm, click a column to give it a role, type an example of a date instead of a format, and show YAML as an advanced view.
 
 ### How people track
 
@@ -81,6 +99,7 @@ Some stop happily once saving is automatic, and spend the rest. Many outgrow app
 - Fold's blog (2025-10-02) lists ₹2,999 a year and ₹49,999 lifetime, with a 15-day trial and refund. Its FAQ and the stores show ₹349 a month, ₹799 a quarter, ₹999 a year, ₹24,999 lifetime and a 7-day trial. Of 414 App Store India reviews, 10 (2.4%) say they pay, for bank fetch, auto-tagging and an AI assistant, never for storage or sync. 12 more (2.9%) say they would. This changes the earlier "small one-off amounts": a few Indians pay ₹2,999 a year for an aggregator, but reviewers are self-selected, so it says nothing about how many. The only rupee figure offered unprompted was "2-300 a year" (June 2025).
 - Four Fold reviews complain that web access, family accounts or export moved behind the paywall, and one paying user still wants Excel export.
 - Fold is freemium. Its free tier (Lite) has net worth, 5 cards, 1 Gmail, 5 refreshes a month and shared Spaces for 3. Plus adds more refreshes and cards, a web app with CSV export, MCP and Spaces for 8. It claims "2L+" users, and the Play Store shows 1L+ downloads. Payer count: not found. Since paid plans began in October 2025, 13 of 180 App Store reviews (about 7%, self-selected) say they pay. This changes the 10 of 414 above, which mostly predates the plans. Fold's own post claims a top-10 grossing rank among finance apps on Google Play India, which shows revenue but not a conversion rate. Payers name a second bank account, family accounts and MCP. No cancellation posts were found, which is absence of evidence.
+- Fold's launch post is dated 2025-10-05, and its subreddit says paid plans began that weekend, so the 2025-10-02 above is the blog's own date and not the start of paid plans. The archived post lists a regular ₹2,999 and an early-bird ₹1,499. By 2025-11-13 the early bird was in phases of ₹1,499, ₹1,799 and ₹2,009, and the 2026-04-18 archive shows the same table. ₹999 is below every price on the blog and appears only in the stores and the FAQ. No post or article dating or explaining it was found, and the 39 posts on r/foldmoney from 2025-10 to 2026-02 announce no price change. This disagrees with the earlier reading that ₹2,999 became ₹999: the blog never listed ₹999. The "Fold+" at $10 a month is a US company and not this app.
 - Leavers do not say they would pay. Of about 172 Kuvera comments in three threads, none says so, and 1 of 306 low App Store reviews mentions a subscription. At ET Money, 95 of 347 low reviews (the newest 500, 2025-03-28 to 2026-11-10) are about Genius or paywalls, resenting payment for basics such as external portfolio tracking, XIRR and gain reports. Counts are by regex.
 - Investors pay for analysis, not storage. Tickertape Pro is ₹2,999 a year with free portfolio tracking, Equitymaster's tracker ₹2,000 (snippet), and ET Money Genius about ₹249 a month (snippet). No one said they pay for hosting or sync.
 - Vendors say the same about tracking. Fold's co-founder and D91 Labs say people will not pay for basic expense tracking, and about 1 in 4 would pay for nudges. Stated willingness overstates payment, and a "68% would pay" figure from Billcut traces to no primary source.
@@ -147,6 +166,7 @@ Gathered on 2026-10-29, except the rows dated 2026-11-08. Reddit comments came f
 | Fold pricing blog, 2026-11-08 | fold.money/blog/price-of-free-software, read in full | page |
 | App Store India reviews, Fold, 2026-11-08 | Newest first, 2023-03-03 to 2026-11-05. Coded by regex and reading. | 414 reviews, 81 mention paying or price |
 | Monarch pricing, 2026-11-08 | monarch.com/pricing, and the cheaper-tier thread r/MonarchMoney 1x0pmqq | page, 7 comments returned |
+| Mapping UX, 2026-11-25 | Docs read: Actual, YNAB, Lunch Money, GnuCash, hledger, Firefly III, Paisa (mirror), Parseur, Tabula, QuickBooks, regex101, Grok Debugger. About 30 other tools by snippet. | about 25 pages, about 10 issue and forum threads, about 25 titles |
 | Hosted open-source analogues, 2026-11-08 | r/ynab 1dtlg6t, 1e4ewh5, 1dta2it and r/selfhosted 1dcq0e6, on YNAB's price and Actual on PikaPods. Abroad. | 187 comments |
 | r/india 1s8kxw0, 2026-11-08 | UPI tracking apps. Everything named is free. | 19 of 27 comments |
 | Fold FAQ, blog and site, 2026-11-16 | Plans, free tier, trial, refunds, "2L+" | 3 pages |
@@ -156,4 +176,5 @@ Gathered on 2026-10-29, except the rows dated 2026-11-08. Reddit comments came f
 | Kuvera threads, 2026-11-16 | 1shy50i, 1ucmqu9, 1u1t2vi, grepped for payment | about 172 comments |
 | Tracker pages and stores, 2026-11-16 | Play Store listings (Fold, Artos, WealthYogi, Vridho), freefincal NaviPlan pages, Tickertape pricing, PriLytics, D91 Labs substack | read |
 | Hosting prices and rules, 2026-11-16 | Search commentary on Hetzner, R2, SES, Resend, Razorpay, DPDP, CERT-In, GDPR and GST. No primary text read. | about 40 pages |
+| Fold pricing history, 2026-11-24 | Wayback snapshots of the pricing blog (2025-10-06, 2025-11-13, 2026-04-18; two others had no prices), r/foldmoney posts 2025-10 to 2026-02, three searches | 3 snapshots, 39 posts |
 | Search snippets and blogs | Thread titles and vendor posts, from before comments could be read. Leads, not evidence. | — |

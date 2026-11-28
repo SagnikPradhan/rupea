@@ -15,13 +15,18 @@ What no competitor does well, and Rupea could.
 - **Count once, and show why.** Link duplicates across statements and explain each link. Double counting is named for axio and for Value Research's CAS import, where a wrong holding cannot be deleted. Tracker.
 - **Returns that are right.** Correct returns from lots, cost and prices. Kuvera showed a 400% XIRR, and 18 of Paisa's 82 open issues are calculations. Investor.
 - **Paid for by the people it serves.** No loans (axio, INDmoney), commission (ET Money) or ads (Money Manager, Fold's free tier). Investor.
-- **Plain text that is easy to start.** About 26 of Paisa's 82 open issues are install and setup, and hledger and Fava have no statement import. A form and an import that show the lines they wrote has no direct rival. Bookkeeper, Tracker.
+- **Plain text that is easy to start.** About 26 of Paisa's 82 open issues are install and setup, and hledger and Fava have no statement import. A form and an import that show the lines they wrote has no direct rival. hledger reads CSV through hand-written rules files and `hledger import --dry-run`, but not PDFs. Bookkeeper, Tracker.
 - **Hosting that costs about a convenience fee, with files you keep.** Hosted Rupea would set up the server and sync, and leave files you can download any time. Actual users accept about $1.40 a month only because the data stays theirs. In India, the one unprompted figure was "2-300 a year" (one review), Fold's stores charge ₹999 a year, Artos ₹750 and NaviPlan ₹2,500, and no one was heard paying for hosting or sync alone. Investor, Bookkeeper.
 - **Sync for privacy-first tracking, with files you keep.** NaviPlan charges ₹2,500 a year for local-first tracking with no sync between devices, and Artos keeps data on one phone. A hosted ledger that syncs and lets you download everything is a gap. Investor, Bookkeeper.
 - **A written promise about what stays free.** Fold moved web access, family tracking and card limits into Plus, and 95 of ET Money's 347 low App Store reviews are about Genius paywalls on basics. Rupea could say what never moves behind a price (export, history, returns) and keep the renewal price locked. Investor, Tracker.
 - **A free exit.** Charge for hosting, sync and backup, never for export, history, returns or a web app. Fold sells its web app and CSV export in Plus, and a paying user still asked for Excel export. Investor, Tracker.
 - **Family sync that does not charge per account.** Fold's Plus gives 5 secondary accounts, each needing an OTP from its owner, and took family tracking out of free. No Indian app publishes a family plan price. Files per person could be hosted for one price. The Caretaker is parked, so test demand first.
+- **One price, in writing.** Fold's blog lists a regular price and phased early-bird prices, and its stores and FAQ show ₹999 a year, so a reader cannot tell from one page what Plus costs. Rupea could publish one price and say how it can change. Investor, Tracker.
 - **A trial that needs no card.** Monarch's card for the trial draws complaints (3 of 80), and YNAB's 34 days need none. Tracker.
+- **A PDF statement mapping a non-programmer can do.** The apps with a click-a-column mapping (YNAB, Lunch Money, Actual, GnuCash) read CSV or OFX only. Firefly III says PDF will never be supported. Docparser and Parseur point at PDFs but are paid business tools with no finance model. Paisa's PDF import is experimental. Tracker. Checked 2026-11-25.
+- **Row-level reasons for every skipped row.** YNAB and Lunch Money list skipped or malformed lines, and QuickBooks says only "Incorrect mapping". Rupea can make the reason for each row the main surface. Tracker, Bookkeeper.
+- **A running balance that tests the mapping.** None of the import docs read use a statement's balance column to confirm the amounts were read right. Rupea already checks balances against the ledger. Tracker. Absence of evidence in the sources read.
+- **A mapping that is a text file you keep.** Firefly III's config and Paisa's presets live inside the app. A schema in the ledger's `schemas/` folder is portable and shared. Bookkeeper.
 - **A first import that pays off in minutes.** Fold's five-minute setup is what its fans praise. A first statement that ends in a net-worth chart can match it. Tracker.
 
 Pricing ideas from abroad, for later: a trial with no credit card (YNAB), a cheaper tier that only tracks (a Monarch thread asking for one scored 74), one plan shared by up to six people (YNAB), free self-hosting (Actual), and a lifetime option (Cashew, Fold).
@@ -50,10 +55,10 @@ Apps that Indian users name in the research.
 
 | Name | Kind | Checked |
 |---|---|---|
-| hledger and Fava | Plain-text ledgers and their web views | 2026-10-29 |
-| Paisa | Plain-text ledger, built for India | 2026-10-29 |
-| Firefly III | Self-hosted, database | 2026-10-29 |
-| Actual Budget | Self-hosted budgeting | 2026-11-08 |
+| hledger and Fava | Plain-text ledgers and their web views | 2026-11-25 |
+| Paisa | Plain-text ledger, built for India | 2026-11-25 |
+| Firefly III | Self-hosted, database | 2026-11-25 |
+| Actual Budget | Self-hosted budgeting | 2026-11-25 |
 
 ## Abroad
 
@@ -61,10 +66,10 @@ For ideas on design and pricing, not direct competition.
 
 | Name | Kind | Checked |
 |---|---|---|
-| YNAB | Budgeting | 2026-10-29 |
-| Monarch | Spending and net worth | 2026-11-08 |
+| YNAB | Budgeting | 2026-11-25 |
+| Monarch | Spending and net worth | 2026-11-25 |
 | Copilot | Spending and net worth | 2026-10-29 |
-| Lunch Money | Spending, for people who like control | 2026-10-29 |
+| Lunch Money | Spending, for people who like control | 2026-11-25 |
 
 ## Entries
 
@@ -96,11 +101,11 @@ For ideas on design and pricing, not direct competition.
 - **Rupea is worse at:** cannot buy funds or run SIPs.
 - **Sources:** Play Store; [1u1t2vi](https://reddit.com/comments/1u1t2vi); snippets.
 
-### Fold · checked 2026-11-16
+### Fold · checked 2026-11-24
 
 - **Does well:** account aggregator for banks, cards, funds, stocks and EPF, "no SMS scraping". Setup in about five minutes, a responsive team (the co-founder replies on Reddit). New lately: custom net worth entries, health insurance, an MCP server. 4.55 from 1,309 App Store ratings, 4.58 from 1,468 Play ratings, 1L+ Play downloads, "2L+" users on its site.
 - **Complaints:** about 14 of 421 App Store reviews are bank or card sync failures. About 4 are paywall moves (web app, family accounts, export), and 1 is a trial that ends in a degraded app. The free-tier limit of 5 cards drew 3 Reddit comments, 2 of them accepting it. Earlier, of 71 Play reviews, about 14 were bank fetch failures (SBI, Kotak, IDFC) and 9 paywalls. Three called export behind the paywall a dealbreaker: "It's my own bank data."
-- **Price:** freemium. Free (Lite) has net worth, 5 cards, 1 Gmail, 5 bank refreshes a month and Spaces for 3. Plus is ₹349 a month, ₹799 a quarter or ₹999 a year in the stores and the FAQ, and adds 15 refreshes, 30 cards, 5 Gmail accounts, secondary accounts, a web app with CSV export, MCP and Spaces for 8. Believer (lifetime) is ₹24,999. The blog (2025-10-02) lists ₹2,999 and ₹49,999 as regular prices, with early-bird phases at ₹1,499 to ₹2,009 and ₹24,999 to ₹33,499. When ₹2,999 became ₹999 is unknown. The trial is 7 days in the FAQ and 15 in the blog. Yearly store purchases are price-locked on renewal (a Fold reply). A family plan is not published.
+- **Price:** freemium. Free (Lite) has net worth, 5 cards, 1 Gmail, 5 bank refreshes a month and Spaces for 3. Plus is ₹349 a month, ₹799 a quarter or ₹999 a year in the stores and the FAQ, and adds 15 refreshes, 30 cards, 5 Gmail accounts, secondary accounts, a web app with CSV export, MCP and Spaces for 8. Believer (lifetime) is ₹24,999. The blog (launch post 2025-10-05) lists ₹2,999 and ₹49,999 as regular prices, with early-bird phases at ₹1,499 to ₹2,009 and ₹24,999 to ₹33,499, and the 2026-04-18 archive still shows the same table. ₹999 is below every blog price, and no post dating or explaining it was found. The trial is 7 days in the FAQ and 15 in the blog. Yearly store purchases are price-locked on renewal (a Fold reply). A family plan is not published.
 - **How many pay:** not found. 13 of 180 App Store reviews since paid plans began (2025-10-02) say they pay, and reviewers are self-selected. Fold's own post claims a top-10 grossing rank among finance apps on Google Play India. Payers name secondary bank accounts, family accounts and MCP.
 - **Rupea is better at:** any bank through statements, full history, free plain-text export, no ads, no tiers on history.
 - **Rupea is worse at:** no automatic sync, no MCP or AI assistant, polish.
@@ -179,57 +184,57 @@ For ideas on design and pricing, not direct competition.
 - **Rupea is worse at:** they are already launched, and most are lighter to start.
 - **Sources:** r/personalfinanceindia [1vsejen](https://reddit.com/comments/1vsejen); Play (com.vridho.android, com.dyogi.wealthtracker.android); prilytics.com.
 
-### hledger and Fava · checked 2026-10-29
+### hledger and Fava · checked 2026-11-25 (import rechecked)
 
 - **Does well:** a precise plain-text format, a strong community, web views. hledger 4.8k stars (GPL-3.0), Fava 2.6k (MIT), both active.
-- **Complaints:** from issue titles, not users: unrealised gains, arithmetic in amounts, packaging, envelope budgeting in Fava, a hosted image. No statement import.
+- **Complaints:** from issue titles, not users: unrealised gains, arithmetic in amounts, packaging, envelope budgeting in Fava, a hosted image. Import reads CSV only, through hand-written rules files with no live preview (rechecked 2026-11-25, import only). No PDF import.
 - **Price:** free.
-- **Rupea is better at:** statement import, duplicates, categories, Indian funds and shares, a form instead of hand-written lines.
+- **Rupea is better at:** PDF statement import, a live draft, duplicates, categories, Indian funds and shares, a form instead of hand-written lines.
 - **Rupea is worse at:** years of format coverage, community and tools.
 - **Sources:** [hledger](https://github.com/simonmichael/hledger), [Fava](https://github.com/beancount/fava).
 
-### Paisa · checked 2026-10-29
+### Paisa · checked 2026-11-25 (import rechecked)
 
 The closest competitor.
 
 - **Does well:** ledger-based and built for India: fund and NPS prices, capital gains and tax harvesting. 3.2k stars, AGPL-3.0, v0.7.8 on 2026-10-21.
-- **Complaints:** of 82 open issues, about 26 install, Docker or setup, 18 calculations (lot prices ignored, FIFO), 13 import (CAS, CSV), 6 NPS or price fetching. People add data by editing the ledger.
+- **Complaints:** of 82 open issues, about 26 install, Docker or setup, 18 calculations (lot prices ignored, FIFO), 13 import (CAS, CSV), 6 NPS or price fetching. People add data by editing the ledger. Import (read 2026-11-25 from a docs mirror, not upstream): a template editor in Handlebars with a File Preview and a Ledger Preview, a valid or invalid badge per row, presets for Generic, Chase, SBI, ICICI card and Kotak, and CSV, XLS, OFX and PDF (PDF experimental). Users ask the maintainer to write their template (issue 266).
 - **Price:** free.
-- **Rupea is better at:** statement import without hand-written lines, duplicates, an easier start in the browser.
+- **Rupea is better at:** duplicates, an easier start in the browser, a schema recognised by the statement and shared across the ledger. Paisa already has the live preview and Indian presets, so statement import without hand-written lines holds only if Rupea's schema gets gentler than a template.
 - **Rupea is worse at:** Paisa already reports tax harvesting and NPS.
 - **Sources:** [github.com/ananthakumaran/paisa](https://github.com/ananthakumaran/paisa).
 
-### Firefly III · checked 2026-10-29
+### Firefly III · checked 2026-11-25 (import rechecked)
 
 - **Does well:** self-hosted, rules, recurring transactions, many currencies, an API. 25k stars, AGPL-3.0, active.
-- **Complaints:** from issue titles: bank import, OFX, CSV options, linking transactions, merging accounts. The importer is a separate app.
+- **Complaints:** from issue titles: bank import, OFX, CSV options, linking transactions, merging accounts. The importer is a separate app. Import (read 2026-11-25): give every column a role from a long list, with a downloadable JSON config and community configs by bank, but no row preview found, CSV and CAMT only, and PDF never supported.
 - **Price:** free.
 - **Rupea is better at:** import, duplicates, investments, files instead of a database.
 - **Rupea is worse at:** API, rules, maturity.
 - **Sources:** [github.com/firefly-iii/firefly-iii](https://github.com/firefly-iii/firefly-iii).
 
-### Actual Budget · checked 2026-11-08
+### Actual Budget · checked 2026-11-25 (import rechecked)
 
 - **Does well:** fast, local-first, offline, optional end-to-end encryption, self-hosted, imports from YNAB. 29.8k stars, MIT.
-- **Complaints:** from issue titles: bank sync providers, currency symbols, reports. Sync covers the US and Europe only.
+- **Complaints:** from issue titles: bank sync providers, currency symbols, reports. Sync covers the US and Europe only. Import (read 2026-11-25): a dropdown per CSV field, the date shown as read in green, options for date format, delimiter, flip amount and split inflow and outflow. A Category column stays blank with no error (issue 7353), and users preprocess files when one cell holds several labelled values (9062). The docs do not say whether mappings are saved.
 - **Price:** free; paid hosting through PikaPods at about $1.40 a month (user-reported, 20% to the Actual developers per one user), and bank sync at about $15 a year. In four threads, 13 of 187 comments say setup is too hard, and the iOS app asks for $7.99 a month when it cannot reach a self-hosted server.
 - **Rupea is better at:** Indian PDF statements, investments, text files.
 - **Rupea is worse at:** budgeting, polish, offline sync.
 - **Sources:** [actualbudget.org](https://actualbudget.org), [GitHub](https://github.com/actualbudget/actual).
 
-### YNAB · checked 2026-10-29
+### YNAB · checked 2026-11-25 (import rechecked)
 
 - **Does well:** a budgeting method people say changes how they see money. One plan shared by up to six people. Good support.
-- **Complaints:** of 80 (3.5 from 25,416 ratings), about 10 price, 10 broken bank sync, 8 updates that broke a workflow.
+- **Complaints:** of 80 (3.5 from 25,416 ratings), about 10 price, 10 broken bank sync, 8 updates that broke a workflow. Import (read 2026-11-25): a dropdown per CSV column, Swap Inflow and Outflow and No header row options, a preview before saving and named errors with skipped rows listed. CSV and OFX only.
 - **Price:** $109 a year. A 34-day trial with no credit card. Free for students for a year.
 - **Rupea is better at:** cost, Indian banks, investments.
 - **Rupea is worse at:** budgeting and goals.
 - **Sources:** [ynab.com/pricing](https://www.ynab.com/pricing); Play Store.
 
-### Monarch · checked 2026-11-08
+### Monarch · checked 2026-11-25 (import rechecked)
 
 - **Does well:** clean dashboards for spending and net worth, quick linking, listens to feedback.
-- **Complaints:** of 80, about 15 bank disconnects, 6 against paying, 3 against a card for the trial. A thread asking for a cheaper tier scored 74.
+- **Complaints:** of 80, about 15 bank disconnects, 6 against paying, 3 against a card for the trial. A thread asking for a cheaper tier scored 74. Import (snippets, 2026-11-25): keyword column matching, a preview and three duplicate modes, where Prioritize CSV deletes existing transactions between the first and last date.
 - **Price:** Core is $99.99 a year or $14.99 a month, with a one-week trial. A Plus tier above Core adds forecasting and business income, and people asking for a cheaper tier got one above instead.
 - **Rupea is better at:** cost, India, no aggregator.
 - **Rupea is worse at:** polish, automatic sync, a phone app.
@@ -244,10 +249,10 @@ The closest competitor.
 - **Rupea is worse at:** design polish.
 - **Sources:** [copilot.money](https://copilot.money); snippets.
 
-### Lunch Money · checked 2026-10-29
+### Lunch Money · checked 2026-11-25 (import rechecked)
 
 - **Does well:** snippets only: control, many currencies, an API, liked by developers.
-- **Complaints:** snippets only: weak phone app, bank connections.
+- **Complaints:** snippets only: weak phone app, bank connections. Import (read 2026-11-25): the gentlest mapping seen. Click a column header to pick a field, pre-matched by header name, with Fix dates and Flip types buttons, malformed lines listed, and a saved configuration that skips the first steps on the next upload to that account. CSV only.
 - **Price:** about $100 a year (snippet).
 - **Rupea is better at:** India, statements, investments.
 - **Rupea is worse at:** currencies, API.

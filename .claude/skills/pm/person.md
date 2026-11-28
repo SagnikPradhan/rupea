@@ -29,7 +29,7 @@ The evidence is thin in places. Each persona says how strong its evidence is, an
 - **Triggers:** a first salary, a month where UPI spending ran away, quitting an app after typing every expense.
 - **Must never:** make them type every transaction.
 - **Turned off by:** effort, transactions counted twice, broken capture, ads, asking for a phone number, loan and marketing spam, losing their data.
-- **Evidence:** medium. Spending is what most people track (about 80% of coded comments). Manual-entry fatigue is the top reason people quit. About 12% already use their card or bank statement as the log. The phone is where most people say they note spending; whether they want Rupea there is untested. Everything named in one r/india thread on small UPI spends is free, and no one said they pay. Vendors report that most users will not pay for basic expense tracking.
+- **Evidence:** medium. Spending is what most people track (about 80% of coded comments). Manual-entry fatigue is the top reason people quit. About 12% already use their card or bank statement as the log. The phone is where most people say they note spending; whether they want Rupea there is untested. Everything named in one r/india thread on small UPI spends is free, and no one said they pay. Vendors report that most users will not pay for basic expense tracking. Mapping a statement by writing a schema is likely too harsh as the only path (a judgment from docs, not a user test): the apps people find gentle ask them to pick a field from a dropdown on each column, and even Paisa users ask its maker to write their template. Editing a built-in example for a similar bank is within reach, a new layout is not.
 
 ## Bookkeeper
 

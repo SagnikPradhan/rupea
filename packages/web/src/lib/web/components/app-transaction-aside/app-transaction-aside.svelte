@@ -28,7 +28,10 @@
 
 	const saved = async () => {
 		await refresh();
-		if (editing) await goto(closed);
+		if (!editing) return;
+
+		await findTransaction({ handle, id: editing }).refresh();
+		await goto(closed);
 	};
 </script>
 

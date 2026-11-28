@@ -63,4 +63,17 @@ describe('the chart key', () => {
 
 		expect(screen.getByRole('link', { name: 'Food' }).getAttribute('href')).toBe('/?account=food');
 	});
+
+	it('lists two accounts of the same name, such as a bank and its card', () => {
+		render(Key, {
+			entries: [
+				{ label: 'HDFC', part: 0 },
+				{ label: 'HDFC', part: 1 },
+			],
+			focus: null,
+			onfocus: vi.fn(),
+		});
+
+		expect(screen.getAllByText('HDFC')).toHaveLength(2);
+	});
 });

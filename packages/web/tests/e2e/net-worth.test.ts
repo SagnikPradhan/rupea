@@ -1,3 +1,4 @@
+import { createFile } from './support/files.ts';
 import { expect, test } from './support/test.ts';
 import { visit } from './support/visit.ts';
 
@@ -19,17 +20,32 @@ const ledgerFile = [
 	'',
 ].join('\n');
 
+const opening = [
+	'2026-10-01 Opening balances',
+	'\tAssets:Bank:HDFC         2,50,000.00',
+	'\tLiabilities:Card:HDFC      -12,400.00',
+	'\tEquity:Opening',
+	'',
+].join('\n');
+
+test('writes opening balances, and sees what they are worth on home and in net worth', async ({
+	signedIn: page,
+	ledger,
+}) => {
+	await createFile(page, ledger, 'opening.rupea', opening);
+
+	await visit(page, '/');
+	const month = page.getByRole('region', { name: 'Last month' });
+	await expect(month).toContainText('2,37,600');
+	await month.getByRole('link', { name: 'Net worth' }).click();
+	await page.waitForURL(/\/net-worth/);
+
+	for (const row of ['HDFC 2,50,000', 'HDFC 12,400', 'Net worth 2,37,600'])
+		await expect(page.getByRole('row', { name: row, exact: true })).toBeVisible();
+});
+
 test('shows what each account holds and what it is worth', async ({ signedIn: page, ledger }) => {
-	await visit(page, `${ledger}/files`);
-	await page.getByRole('button', { name: 'New file' }).click();
-	await page.getByLabel('New file').fill('shares.rupea');
-	await page.getByRole('button', { name: 'Create' }).click();
-	await expect(page.locator('h1 + p', { hasText: 'shares.rupea' })).toBeVisible();
-	await page.getByRole('link', { name: 'All files' }).click();
-	await page.getByRole('link', { name: 'shares.rupea' }).click();
-	await page.getByLabel('Ledger file').fill(ledgerFile);
-	await page.getByRole('button', { name: 'Save', exact: true }).click();
-	await expect(page.getByText('Unsaved')).toBeHidden();
+	await createFile(page, ledger, 'shares.rupea', ledgerFile);
 
 	await visit(page, `${ledger}/net-worth`);
 	const all = page

@@ -1,58 +1,47 @@
 import type { Page } from '@playwright/test';
 import { readFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { addToLedger, data, describeStatement, upload } from './support/imports.ts';
 import { expect, test } from './support/test.ts';
 import { visit } from './support/visit.ts';
 
-const data = (name: string) => resolve('tests/e2e/data', name);
+test.slow();
 
-/**
- * Uploads the statement under a name, with as many trailing newlines, so each
- * upload is its own.
- */
-const upload = async (page: Page, ledger: string, name: string, copy: number) => {
-	const content = (await readFile(data('statement.csv'), 'utf8')) + '\n'.repeat(copy);
-	await visit(page, `${ledger}/files`);
-	await page
-		.getByLabel('Statements', { exact: true })
-		.setInputFiles({ name, mimeType: 'text/csv', buffer: Buffer.from(content) });
-};
-
-const addTo = async (page: Page, key: string) => {
-	await expect(page.getByRole('table', { name: 'Transactions found' })).toContainText('UPI GROCER');
-	await page.getByRole('button', { name: 'Continue to review' }).click();
-	await page.getByRole('button', { name: /^Add \d+ transactions? to ledger$/ }).click();
-	await page.getByLabel('Add to file').fill(key);
-	await page.getByRole('button', { name: 'Add', exact: true }).click();
-	await expect(page.getByText(/^Added \d+ to/)).toBeVisible();
-};
-
+/** Imports the same statement to two files, the second time under another name. */
 const importTwice = async (page: Page, ledger: string) => {
-	await upload(page, ledger, 'aug.csv', 0);
-	await page.getByLabel('Name', { exact: true }).fill('bank.yml');
-	await readFile(data('bank.yml'), 'utf8').then((s) =>
-		page.getByLabel('Schema', { exact: true }).fill(s),
-	);
+	await upload(page, ledger, 'statement.csv');
+	await describeStatement(page);
 	await page.getByRole('button', { name: 'Save schema' }).click();
 	await expect(page.getByText('Saved.')).toBeVisible();
-	await addTo(page, 'imports/aug.rupea');
+	await page.getByRole('button', { name: 'Continue to review' }).click();
+	await addToLedger(page, 'imports/aug.rupea');
 
-	await upload(page, ledger, 'aug-again.csv', 1);
-	await addTo(page, 'imports/aug-again.rupea');
-
-	await visit(page, `${ledger}/refine?file=imports/aug-again.rupea`);
+	const again = (await readFile(data('statement.csv'), 'utf8')) + '\n';
+	await upload(page, ledger, { name: 'aug-again.csv', text: again });
+	await addToLedger(page, 'imports/aug-again.rupea');
 };
 
-test('reviews the duplicates of a statement imported twice', async ({ signedIn: page, ledger }) => {
+const spent = (page: Page) =>
+	page
+		.getByRole('region', { name: 'Spending figures' })
+		.getByText(/^[\d,]+$/)
+		.first();
+
+test('accepts the duplicates of a statement imported twice, and the money counts once', async ({
+	signedIn: page,
+	ledger,
+}) => {
 	await importTwice(page, ledger);
+	await visit(page, `${ledger}/spending`);
+	await expect(spent(page)).toHaveText('2,501');
+
+	await visit(page, `${ledger}/refine?file=imports/aug-again.rupea`);
 	await expect(page.getByText('2 possible matches.')).toBeVisible();
 	await expect(page.getByRole('article')).toHaveCount(2);
 	await page.getByRole('button', { name: 'Accept all 2 duplicates' }).click();
 	await expect(page.getByText('No possible matches for imports/aug-again.rupea.')).toBeVisible();
 
-	await visit(page, `${ledger}/postings`);
-	await expect(page.getByRole('rowgroup').filter({ hasText: 'UPI GROCER' })).toHaveCount(2);
-	await expect(page.getByRole('rowgroup').filter({ hasText: 'SALARY' })).toHaveCount(2);
+	await visit(page, `${ledger}/spending`);
+	await expect(spent(page)).toHaveText('1,251');
 
 	await visit(page, `${ledger}/files/imports/aug.rupea`);
 	const groups = page.getByRole('region', { name: 'Groups' });
@@ -75,6 +64,7 @@ test('dismisses one match, and accepts the other with its primary swapped', asyn
 	ledger,
 }) => {
 	await importTwice(page, ledger);
+	await visit(page, `${ledger}/refine?file=imports/aug-again.rupea`);
 	const matches = page.getByRole('article');
 	await expect(matches).toHaveCount(2);
 

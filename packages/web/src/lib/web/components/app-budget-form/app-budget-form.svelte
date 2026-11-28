@@ -188,7 +188,8 @@
 		align-self: start;
 	}
 
-	input {
+	input,
+	form :global([data-select-trigger]) {
 		width: 100%;
 	}
 

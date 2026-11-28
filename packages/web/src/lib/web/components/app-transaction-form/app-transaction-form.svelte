@@ -12,6 +12,7 @@
 	import IconButton from '#lib/web/components/ui-button-icon/ui-button-icon.svelte';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import Field from '#lib/web/components/ui-field/ui-field.svelte';
+	import Combobox from '#lib/web/components/ui-combobox/ui-combobox.svelte';
 	import SegmentedControl from '#lib/web/components/ui-segmented-control/ui-segmented-control.svelte';
 	import * as Accounts from '#lib/web/shared/accounts.ts';
 	import { explain } from '#lib/web/shared/errors.ts';
@@ -305,16 +306,16 @@
 		<div class="pair">
 			{#each KINDS[simple.kind] as box, index (box.label)}
 				<Field label={box.label} hint={box.hint} issues={issuesAt(`postings.${index}.account`)}>
-					<input
-						bind:value={simple.accounts[index]}
-						list="transaction-accounts"
+					<Combobox
+						value={simple.accounts[index] ?? ''}
+						options={status.accounts}
 						placeholder={box.placeholder}
-						spellcheck="false"
-						oninput={(e) => {
+						onchange={(account: string) => {
+							simple.accounts[index] = account;
 							simple.balances[index] = '';
-							suggestFor(e.currentTarget.value, box.types);
+							suggestFor(account, box.types);
 						}}
-						onfocus={(e) => suggestFor(e.currentTarget.value, box.types)}
+						onfocus={() => suggestFor(simple.accounts[index] ?? '', box.types)}
 					/>
 				</Field>
 			{/each}
@@ -323,10 +324,6 @@
 		{@render day()}
 		{@render description()}
 	{/if}
-
-	<datalist id="transaction-accounts">
-		{#each status.accounts as account (account)}<option value={account}></option>{/each}
-	</datalist>
 
 	{#if mode.detail}
 		<section class="lines" aria-labelledby="lines-heading">
@@ -352,13 +349,15 @@
 					</div>
 					<div class="row">
 						<Field label="Account" issues={issuesAt(`${at}.account`)}>
-							<input
+							<Combobox
+								value={posting.account}
+								options={status.accounts}
 								placeholder="Expenses:Food"
-								bind:value={posting.account}
-								list="transaction-accounts"
-								spellcheck="false"
-								oninput={(e) => suggest(e.currentTarget.value)}
-								onfocus={(e) => suggest(e.currentTarget.value)}
+								onchange={(account: string) => {
+									posting.account = account;
+									suggest(account);
+								}}
+								onfocus={() => suggest(posting.account)}
 							/>
 						</Field>
 						<Field label="Amount" issues={issuesAt(`${at}.amount`)}>
@@ -426,15 +425,11 @@
 
 		{#if !edit}
 			<Field label="File" hint="A new name starts a new file." issues={issuesAt('file')}>
-				<input bind:value={form.file} list="transaction-files" spellcheck="false" />
+				<Combobox value={form.file} options={keys} onchange={(key: string) => (form.file = key)} />
 			</Field>
 		{/if}
 
 		{@render entries(form.metadata, 'metadata')}
-
-		<datalist id="transaction-files">
-			{#each keys as key (key)}<option value={key}></option>{/each}
-		</datalist>
 	{/if}
 
 	{#each status.errors as error, index (index)}

@@ -1,4 +1,5 @@
-import { fireEvent, render, screen } from '@testing-library/svelte';
+import userEvent from '@testing-library/user-event';
+import { render, screen } from '@testing-library/svelte';
 import { describe, expect, it, vi } from 'vitest';
 import PeriodPicker from '#lib/web/components/ui-picker-period/ui-picker-period.svelte';
 import { goto } from '$app/navigation';
@@ -122,9 +123,10 @@ describe('the period picker', () => {
 			first: '2019-02-01',
 		});
 		const year = screen.getByRole('combobox', { name: 'Year' });
-		expect(year.querySelectorAll('option')).toHaveLength(8);
+		await userEvent.click(year);
+		expect(await screen.findAllByRole('option')).toHaveLength(8);
 
-		await fireEvent.change(year, { target: { value: '2026' } });
+		await userEvent.click(screen.getByRole('option', { name: '2026' }));
 		expect(vi.mocked(goto)).toHaveBeenCalledWith('/l/h/expenses?scale=log&at=2026-10');
 	});
 

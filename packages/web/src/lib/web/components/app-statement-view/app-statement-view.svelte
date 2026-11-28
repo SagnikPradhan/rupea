@@ -23,6 +23,7 @@
 	import { isCounted } from '@rupea/shared/files.ts';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import Field from '#lib/web/components/ui-field/ui-field.svelte';
+	import Combobox from '#lib/web/components/ui-combobox/ui-combobox.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import Account from '#lib/web/components/app-ledger-table/account.svelte';
 	import Amount from '#lib/web/components/app-ledger-table/amount.svelte';
@@ -294,11 +295,13 @@
 					<form class="toolbar" onsubmit={add}>
 						<label>
 							Add to file
-							<input bind:value={action.to} list="ledger-files" required />
+							<Combobox
+								value={action.to}
+								options={counted}
+								required
+								onchange={(key: string) => (action.to = key)}
+							/>
 						</label>
-						<datalist id="ledger-files">
-							{#each counted as key (key)}<option value={key}></option>{/each}
-						</datalist>
 						<Button primary>Add</Button>
 						<Button type="button" onclick={() => (action.step = 'reading')}>Cancel</Button>
 					</form>

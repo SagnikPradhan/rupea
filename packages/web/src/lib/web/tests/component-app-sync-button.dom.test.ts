@@ -1,6 +1,6 @@
 import { render, screen } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, describe, expect, it, onTestFinished, vi } from 'vitest';
 import { findSync, resync } from '#lib/endpoints/ledger.remote.ts';
 import SyncButton from '#lib/web/components/app-sync-button/app-sync-button.svelte';
 import { answer } from '#tests/shared/queries.ts';
@@ -35,15 +35,28 @@ describe('the sync button', () => {
 		expect(button.hasAttribute('disabled')).toBe(true);
 	});
 
-	it('reads the page again once the sync is done', async () => {
-		const { rerender } = rendered('running');
+	it('reads the page again once a poll finds the sync done', async () => {
+		vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+		onTestFinished(() => void vi.useRealTimers());
+		rendered('running');
 		await screen.findByRole('button', { name: 'Syncing…' });
+		expect(refreshAll).not.toHaveBeenCalled();
 
 		vi.mocked(findSync).mockReturnValue(answer('succeeded'));
-		await rerender({ handle: 'g' });
+		await vi.advanceTimersByTimeAsync(2000);
 
-		await screen.findByRole('button', { name: 'Sync now' });
 		expect(refreshAll).toHaveBeenCalledOnce();
+	});
+
+	it('reads nothing again while the sync still runs', async () => {
+		vi.useFakeTimers({ toFake: ['setInterval', 'clearInterval'] });
+		onTestFinished(() => void vi.useRealTimers());
+		rendered('running');
+		await screen.findByRole('button', { name: 'Syncing…' });
+
+		await vi.advanceTimersByTimeAsync(2000);
+
+		expect(refreshAll).not.toHaveBeenCalled();
 	});
 
 	it('is the outlined square the theme toggle is', async () => {

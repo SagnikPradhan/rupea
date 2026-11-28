@@ -6,18 +6,26 @@
 
 	const { handle }: { handle: string } = $props();
 
-	const latest = $derived((await findSync(handle)).data ?? null);
-	const syncing = $derived(latest === 'queued' || latest === 'running');
+	const isSyncing = (s: string | null | undefined) => s === 'queued' || s === 'running';
+
+	const syncing = $derived(isSyncing((await findSync(handle)).data));
 
 	$effect(() => {
 		if (!syncing) return;
 
-		const timer = setInterval(() => void findSync(handle).refresh(), 2000);
-		return () => {
-			clearInterval(timer);
-			void refreshAll();
-		};
+		const timer = setInterval(() => void poll(handle), 2000);
+		return () => clearInterval(timer);
 	});
+
+	/**
+	 * Refreshes the pages once the sync is done; from the effect's teardown it
+	 * would run mid-update, which leaves a page that awaits stuck blank.
+	 */
+	async function poll(h: string) {
+		const sync = findSync(h);
+		await sync.refresh();
+		if (!isSyncing(sync.current?.data)) await refreshAll();
+	}
 </script>
 
 <span class:syncing>

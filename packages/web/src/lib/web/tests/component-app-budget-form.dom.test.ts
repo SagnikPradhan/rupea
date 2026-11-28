@@ -17,6 +17,7 @@ const props = (more: Record<string, unknown> = {}) => ({
 	account: 'Expenses:Food',
 	accounts: [],
 	current: {},
+	oncancel: vi.fn(),
 	...more,
 });
 
@@ -54,7 +55,8 @@ describe('the budget form', () => {
 		render(BudgetForm, props());
 		await limit('90000');
 		await fireEvent.click(screen.getByRole('button', { name: 'Each year' }));
-		await user.selectOptions(screen.getByLabelText(/Starts on/), '4');
+		await user.click(screen.getByRole('combobox', { name: /Starts on/ }));
+		await user.click(await screen.findByRole('option', { name: 'April' }));
 		await save();
 
 		await screen.findByText('Saved in main.rupea');
@@ -92,9 +94,8 @@ describe('the budget form', () => {
 	it('picks the account when adding', async () => {
 		saved();
 		render(BudgetForm, props({ account: '', accounts: ['Expenses:Food', 'Expenses:Rent'] }));
-		await fireEvent.change(screen.getByLabelText(/Account/), {
-			target: { value: 'Expenses:Rent' },
-		});
+		await user.click(screen.getByRole('combobox', { name: /Account/ }));
+		await user.click(await screen.findByRole('option', { name: 'Expenses:Rent' }));
 		await limit('100');
 		await save();
 
@@ -138,16 +139,17 @@ describe('the budget form', () => {
 		const log = vi.spyOn(console, 'log');
 		render(BudgetForm, props());
 		await fireEvent.click(screen.getByRole('button', { name: 'Each year' }));
-		await user.selectOptions(screen.getByLabelText(/Starts on/), '7');
+		await user.click(screen.getByRole('combobox', { name: /Starts on/ }));
+		await user.click(await screen.findByRole('option', { name: 'July' }));
 
-		expect((screen.getByLabelText(/Starts on/) as HTMLSelectElement).value).toBe('7');
+		expect(screen.getByRole('combobox', { name: /Starts on/ }).textContent).toContain('July');
 		expect(log).not.toHaveBeenCalled();
 	});
 
 	it('opens a yearly budget on its month and goes back to a monthly one on the 1st', async () => {
 		render(BudgetForm, props({ current: { limit: '5000', period: 'year', start: '2026-04-01' } }));
 
-		expect((screen.getByLabelText(/Starts on/) as HTMLSelectElement).value).toBe('4');
+		expect(screen.getByRole('combobox', { name: /Starts on/ }).textContent).toContain('April');
 		await fireEvent.click(screen.getByRole('button', { name: 'Each month' }));
 
 		expect((screen.getByLabelText(/Starts on/) as HTMLInputElement).value).toBe('1');
@@ -207,5 +209,14 @@ describe('the budget form', () => {
 		await save();
 
 		expect(await screen.findByText('B * Expenses:Food')).toBeTruthy();
+	});
+
+	it('hands cancelling back to the page', async () => {
+		const oncancel = vi.fn();
+		render(BudgetForm, props({ oncancel }));
+
+		await user.click(screen.getByRole('button', { name: 'Cancel' }));
+
+		expect(oncancel).toHaveBeenCalledOnce();
 	});
 });

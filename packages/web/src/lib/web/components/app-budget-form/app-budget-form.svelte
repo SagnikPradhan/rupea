@@ -5,6 +5,7 @@
 	import { BudgetForm } from '@rupea/shared/forms.ts';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import Field from '#lib/web/components/ui-field/ui-field.svelte';
+	import Select from '#lib/web/components/ui-select/ui-select.svelte';
 	import SegmentedControl from '#lib/web/components/ui-segmented-control/ui-segmented-control.svelte';
 	import { startOf, startsOnOf } from '#lib/web/shared/budgets.ts';
 	import { explain } from '#lib/web/shared/errors.ts';
@@ -44,9 +45,10 @@
 		 * knows none of them.
 		 */
 		current: Record<string, string>;
+		oncancel: () => void;
 	};
 
-	const { handle, day, shown, account, accounts, current }: Props = $props();
+	const { handle, day, shown, account, accounts, current, oncancel }: Props = $props();
 
 	const today = $derived(Temporal.PlainDate.from(day));
 
@@ -121,12 +123,12 @@
 <form onsubmit={save} novalidate autocomplete="off">
 	{#if accounts.length > 0}
 		<Field label="Account" hint="What the budget limits." issues={issuesAt('account')}>
-			<select value={form.account} onchange={(e) => (form.account = e.currentTarget.value)}>
-				<option value="">Pick an account</option>
-				{#each accounts as name (name)}
-					<option value={name}>{name}</option>
-				{/each}
-			</select>
+			<Select
+				value={form.account}
+				placeholder="Pick an account"
+				options={accounts.map((name) => ({ value: name, label: name }))}
+				onchange={(name: string) => (form.account = name)}
+			/>
 		</Field>
 	{/if}
 
@@ -135,7 +137,6 @@
 	</Field>
 
 	<SegmentedControl
-		fill
 		label="Period"
 		segments={[
 			{ name: 'Each month', chosen: form.length === 'month', onclick: () => choose('month') },
@@ -150,11 +151,11 @@
 	{/if}
 	{#if form.length === 'year'}
 		<Field label="Starts on" hint="The month the year begins.">
-			<select value={form.on} onchange={(e) => (form.on = e.currentTarget.value)}>
-				{#each MONTHS as name, index (name)}
-					<option value={String(index + 1)}>{name}</option>
-				{/each}
-			</select>
+			<Select
+				value={form.on}
+				options={MONTHS.map((name, index) => ({ value: String(index + 1), label: name }))}
+				onchange={(month: string) => (form.on = month)}
+			/>
 		</Field>
 	{/if}
 
@@ -167,6 +168,7 @@
 
 	<div class="buttons">
 		<Button primary icon={ICONS.check} disabled={saveBudget.pending > 0}>Save</Button>
+		<Button type="button" onclick={oncancel}>Cancel</Button>
 	</div>
 
 	{#if status.saved}
@@ -182,8 +184,11 @@
 		gap: var(--size-3);
 	}
 
-	input,
-	select {
+	form > :global(nav) {
+		align-self: start;
+	}
+
+	input {
 		width: 100%;
 	}
 
@@ -203,7 +208,6 @@
 
 	.buttons {
 		display: flex;
-		padding-block-start: var(--size-3);
-		border-block-start: var(--size-line-0) solid var(--color-border);
+		gap: var(--size-1);
 	}
 </style>

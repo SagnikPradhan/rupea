@@ -1,4 +1,5 @@
 import { fireEvent, render, screen, within } from '@testing-library/svelte';
+import userEvent from '@testing-library/user-event';
 import { describe, expect, it, vi } from 'vitest';
 import { listAccounts, listBudgets, listTerms, saveTerms } from '#lib/endpoints/accounts.remote.ts';
 import { goto } from '#tests/shared/app-navigation.ts';
@@ -97,10 +98,10 @@ describe('the accounts of a ledger in settings', () => {
 		);
 	});
 
-	it('opens the terms asked for beside the tables, with what they have now', async () => {
+	it('opens the terms asked for under the tables, with what they have now', async () => {
 		open('/settings?ledger=h&setup=Liabilities:Card');
 
-		const aside = await screen.findByRole('complementary', { name: 'Set up Card' });
+		const aside = await screen.findByRole('region', { name: 'Edit Card' });
 		expect((within(aside).getByLabelText(/Card limit/) as HTMLInputElement).value).toBe('200000');
 	});
 
@@ -108,28 +109,47 @@ describe('the accounts of a ledger in settings', () => {
 		open('/settings?ledger=other&setup=Liabilities:Card');
 
 		await screen.findByRole('table', { name: 'Cards in Personal' });
-		expect(screen.queryByRole('complementary')).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
 	});
 
 	it('ignores a setup asked for an account that is not a liability', async () => {
 		open('/settings?ledger=h&setup=Assets:Bank');
 
 		await screen.findByRole('table', { name: 'Cards in Personal' });
-		expect(screen.queryByRole('complementary')).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Cancel' })).toBeNull();
 	});
 
-	it('closes the terms back to the accounts section', async () => {
+	it('cancels the terms back to the accounts section', async () => {
 		open('/settings?ledger=h&setup=Liabilities:Card');
 
-		const aside = await screen.findByRole('complementary', { name: 'Set up Card' });
-		within(aside).getByRole('button', { name: 'Close' }).click();
+		const aside = await screen.findByRole('region', { name: 'Edit Card' });
+		within(aside).getByRole('button', { name: 'Cancel' }).click();
 		expect(goto).toHaveBeenLastCalledWith('/settings?ledger=h#h-accounts');
+	});
+
+	it('says so when there are no cards or loans, and offers to add one', async () => {
+		visit('/settings');
+		vi.mocked(listAccounts).mockReturnValue(answer([]));
+		vi.mocked(listTerms).mockReturnValue(answer([]));
+		vi.mocked(listBudgets).mockReturnValue(answer([]));
+		render(SettingsLedger, { ledger });
+
+		expect(await screen.findByText('No cards or loans yet.')).toBeTruthy();
+		expect(screen.queryByRole('table')).toBeNull();
+		expect(screen.getByRole('link', { name: 'Add a card or loan' })).toBeTruthy();
+	});
+
+	it('sets up an account with no terms under the name it has', async () => {
+		open('/settings?ledger=h&setup=Liabilities:Friend');
+
+		expect(await screen.findByRole('region', { name: 'Set up Friend' })).toBeTruthy();
+		expect(screen.queryByRole('link', { name: 'Add a card or loan' })).toBeNull();
 	});
 
 	it('opens adding a card or loan with a name to give', async () => {
 		open('/settings?ledger=h&add=terms');
 
-		const aside = await screen.findByRole('complementary', { name: 'Add a card or loan' });
+		const aside = await screen.findByRole('region', { name: 'Add a card or loan' });
 		expect(within(aside).getByLabelText(/Name/)).toBeTruthy();
 	});
 });
@@ -139,7 +159,7 @@ describe('saving terms from settings', () => {
 		open('/settings?ledger=h&add=terms');
 		vi.mocked(saveTerms).mockResolvedValue({ data: { file: 'main.rupea' }, errors: [] } as never);
 
-		const aside = await screen.findByRole('complementary', { name: 'Add a card or loan' });
+		const aside = await screen.findByRole('region', { name: 'Add a card or loan' });
 		await fireEvent.input(within(aside).getByLabelText(/Name/), {
 			target: { value: 'Loans:Bike' },
 		});
@@ -160,7 +180,7 @@ describe('saving terms from settings', () => {
 		open('/settings?ledger=h&add=terms');
 		vi.mocked(saveTerms).mockClear();
 
-		const aside = await screen.findByRole('complementary', { name: 'Add a card or loan' });
+		const aside = await screen.findByRole('region', { name: 'Add a card or loan' });
 		await fireEvent.click(within(aside).getByRole('button', { name: 'Save' }));
 
 		expect(await within(aside).findByText('Pick an account.')).toBeTruthy();
@@ -171,7 +191,7 @@ describe('saving terms from settings', () => {
 		open('/settings?ledger=h&setup=Liabilities:Home');
 		vi.mocked(saveTerms).mockResolvedValue({ data: { file: 'main.rupea' }, errors: [] } as never);
 
-		const aside = await screen.findByRole('complementary', { name: 'Set up Home' });
+		const aside = await screen.findByRole('region', { name: 'Edit Home' });
 		await fireEvent.input(within(aside).getByLabelText(/Interest rate/), {
 			target: { value: '9' },
 		});
@@ -195,7 +215,7 @@ describe('saving terms from settings', () => {
 		open('/settings?ledger=h&setup=Liabilities:Card');
 		vi.mocked(saveTerms).mockClear();
 
-		const aside = await screen.findByRole('complementary', { name: 'Set up Card' });
+		const aside = await screen.findByRole('region', { name: 'Edit Card' });
 		await fireEvent.input(within(aside).getByLabelText(/Interest rate/), {
 			target: { value: 'high' },
 		});
@@ -219,24 +239,23 @@ describe('the budgets of a ledger in settings', () => {
 	it('opens the budget asked for', async () => {
 		open('/settings?ledger=h&budget=expenses:food');
 
-		expect(await screen.findByRole('complementary', { name: 'Budget for Food' })).toBeTruthy();
+		expect(await screen.findByRole('region', { name: 'Budget for Food' })).toBeTruthy();
 	});
 
 	it('offers only the expenses with no budget when adding one', async () => {
 		open('/settings?ledger=h&add=budget');
 
-		const aside = await screen.findByRole('complementary', { name: 'Add budget' });
-		const options = within(aside)
-			.getAllByRole('option')
-			.map((o) => o.textContent);
-		expect(options).toEqual(['Pick an account', 'Expenses:Rent']);
+		const aside = await screen.findByRole('region', { name: 'Add budget' });
+		await userEvent.click(within(aside).getByRole('combobox', { name: /Account/ }));
+		const options = await screen.findAllByRole('option');
+		expect(options.map((o) => o.textContent?.trim())).toEqual(['Expenses:Rent']);
 	});
 
-	it('closes a budget back to the budgets section', async () => {
+	it('cancels a budget back to the budgets section', async () => {
 		open('/settings?ledger=h&add=budget');
 
-		const aside = await screen.findByRole('complementary', { name: 'Add budget' });
-		within(aside).getByRole('button', { name: 'Close' }).click();
+		const aside = await screen.findByRole('region', { name: 'Add budget' });
+		within(aside).getByRole('button', { name: 'Cancel' }).click();
 		expect(goto).toHaveBeenLastCalledWith('/settings?ledger=h#h-budgets');
 	});
 });

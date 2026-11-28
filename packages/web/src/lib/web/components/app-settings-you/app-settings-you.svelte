@@ -4,6 +4,7 @@
 	import { Email, Username } from '@rupea/shared/text.ts';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import Field from '#lib/web/components/ui-field/ui-field.svelte';
+	import Setting from '#lib/web/components/ui-setting/ui-setting.svelte';
 	import { explain } from '#lib/web/shared/errors.ts';
 	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { refreshAll } from '$app/navigation';
@@ -21,115 +22,108 @@
 
 	const { username, email, local }: Props = $props();
 
-	const named = $state({
-		value: untrack(() => username),
-		issues: [] as { message: string }[],
-		errors: [] as RupeaError[],
-		saved: false,
-	});
-	const mailed = $state({
-		value: untrack(() => email),
+	const you = $state({
+		username: untrack(() => username),
+		email: untrack(() => email),
 		code: '',
 		sent: false,
-		issues: [] as { message: string }[],
+		issues: { username: [] as { message: string }[], email: [] as { message: string }[] },
 		errors: [] as RupeaError[],
 		saved: false,
 	});
 
-	async function saveName(event: SubmitEvent) {
-		event.preventDefault();
-		named.saved = false;
-		const checked = v.safeParse(Username, named.value);
-		named.issues = checked.success ? [] : [{ message: checked.issues[0].message }];
-		if (!checked.success) return;
+	const mailing = $derived(!local && !you.sent && you.email !== email);
 
-		const saved = await saveUser({ username: checked.output });
-		named.errors = saved.errors;
-		named.saved = saved.data !== null;
+	async function save(event: SubmitEvent) {
+		event.preventDefault();
+		you.saved = false;
+		const valid = checked();
+		if (!valid) return;
+
+		if (mailing) return mail(valid.email);
+
+		const saved = await saveUser({ ...valid, code: you.code });
+		you.errors = saved.errors;
+		you.saved = saved.data !== null;
+		you.sent = you.sent && !you.saved;
 		if (saved.data) await refreshAll();
 	}
 
-	async function submitEmail(event: SubmitEvent) {
-		event.preventDefault();
-		mailed.saved = false;
-		const checked = v.safeParse(Email, mailed.value);
-		mailed.issues = checked.success ? [] : [{ message: checked.issues[0].message }];
-		if (!checked.success) return;
+	function checked() {
+		const named = v.safeParse(Username, you.username);
+		const mailed = v.safeParse(Email, you.email);
+		you.issues.username = named.success ? [] : [{ message: named.issues[0].message }];
+		you.issues.email = mailed.success ? [] : [{ message: mailed.issues[0].message }];
 
-		if (local || mailed.sent) return saveAddress(checked.output);
-
-		const sent = await sendCode({ email: checked.output });
-		mailed.errors = sent.errors;
-		mailed.sent = sent.errors.length === 0;
+		return named.success && mailed.success
+			? { username: named.output, email: mailed.output }
+			: null;
 	}
 
-	async function saveAddress(address: string) {
-		const saved = await saveUser({ email: address, code: mailed.code });
-		mailed.errors = saved.errors;
-		mailed.saved = saved.data !== null;
-		mailed.sent = mailed.sent && !mailed.saved;
-		if (saved.data) await refreshAll();
+	async function mail(address: string) {
+		const sent = await sendCode({ email: address });
+		you.errors = sent.errors;
+		you.sent = sent.errors.length === 0;
 	}
 
 	const restart = () => {
-		mailed.sent = false;
-		mailed.code = '';
+		you.sent = false;
+		you.code = '';
 	};
 
 	const action = $derived.by(() => {
-		if (local) return 'Save email';
-		return mailed.sent ? 'Confirm email' : 'Email me a code';
+		if (you.sent) return 'Confirm email';
+		return mailing ? 'Email me a code' : 'Save';
 	});
 </script>
 
-<div class="forms">
-	<form onsubmit={saveName} novalidate autocomplete="off">
-		<Field label="Username" hint="Letters, digits and dashes." issues={named.issues}>
-			<input bind:value={named.value} />
+<Setting
+	id="you-profile"
+	title="Profile"
+	hint="Your name in Rupea, and the address you sign in with."
+>
+	<form onsubmit={save} novalidate autocomplete="off">
+		<Field label="Username" hint="Letters, digits and dashes." issues={you.issues.username}>
+			<input bind:value={you.username} />
 		</Field>
-		<Button primary>Save username</Button>
-		{#each named.errors as error, i (i)}<p role="alert">{explain(error, formats)}</p>{/each}
-		{#if named.saved}<p role="status">Saved.</p>{/if}
-	</form>
-
-	<form onsubmit={submitEmail} novalidate autocomplete="off">
-		<Field label="Email" issues={mailed.issues}>
-			<input type="email" bind:value={mailed.value} readonly={mailed.sent} />
+		<Field
+			label="Email"
+			hint={local ? undefined : 'A new address gets a code to confirm it.'}
+			issues={you.issues.email}
+		>
+			<input type="email" bind:value={you.email} readonly={you.sent} />
 		</Field>
-		{#if mailed.sent}
-			<p>A code is on its way to {mailed.value}. It expires in 10 minutes.</p>
-			<Field label="Code">
-				<input bind:value={mailed.code} inputmode="numeric" autocomplete="one-time-code" />
+		{#if you.sent}
+			<Field label="Code" hint="On its way to {you.email}. It expires in 10 minutes.">
+				<input bind:value={you.code} inputmode="numeric" autocomplete="one-time-code" />
 			</Field>
 		{/if}
+
 		<div class="actions">
 			<Button primary>{action}</Button>
-			{#if mailed.sent}<Button type="button" onclick={restart}>Use another email</Button>{/if}
+			{#if you.sent}<Button type="button" onclick={restart}>Use another email</Button>{/if}
 		</div>
-		{#each mailed.errors as error, i (i)}<p role="alert">{explain(error, formats)}</p>{/each}
-		{#if mailed.saved}<p role="status">Saved.</p>{/if}
+		{#each you.errors as error, i (i)}<p role="alert">{explain(error, formats)}</p>{/each}
+		{#if you.saved}<p role="status">Saved.</p>{/if}
 	</form>
-</div>
+</Setting>
 
 <style>
-	.forms {
-		display: flex;
-		flex-wrap: wrap;
-		gap: var(--size-4);
-	}
-
 	form {
 		display: flex;
-		flex: 1;
 		flex-direction: column;
 		gap: var(--size-3);
 		align-items: start;
-		min-width: calc(var(--size-5) * 3);
+	}
+
+	input {
+		width: calc(var(--size-5) * 3);
+		max-width: 100%;
 	}
 
 	.actions {
 		display: flex;
-		gap: var(--size-2);
+		gap: var(--size-1);
 	}
 
 	p {

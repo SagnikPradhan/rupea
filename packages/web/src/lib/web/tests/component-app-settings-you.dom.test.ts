@@ -24,10 +24,14 @@ describe('changing your username', () => {
 		open();
 
 		await type(/Username/, 'Countess');
-		await fireEvent.click(screen.getByRole('button', { name: 'Save username' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
 		expect(await screen.findByText('Saved.')).toBeTruthy();
-		expect(saveUser).toHaveBeenCalledWith({ username: 'countess' });
+		expect(saveUser).toHaveBeenCalledWith({
+			username: 'countess',
+			email: 'ada@example.com',
+			code: '',
+		});
 		expect(refreshAll).toHaveBeenCalled();
 	});
 
@@ -36,7 +40,7 @@ describe('changing your username', () => {
 		open();
 
 		await type(/Username/, 'ada lovelace');
-		await fireEvent.click(screen.getByRole('button', { name: 'Save username' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
 		expect(await screen.findByText('Use 3 to 32 letters, digits or dashes.')).toBeTruthy();
 		expect(saveUser).not.toHaveBeenCalled();
@@ -50,7 +54,7 @@ describe('changing your username', () => {
 		open();
 
 		await type(/Username/, 'grace');
-		await fireEvent.click(screen.getByRole('button', { name: 'Save username' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
 		expect(await screen.findByText('Someone already has the name grace.')).toBeTruthy();
 	});
@@ -69,7 +73,33 @@ describe('changing your email', () => {
 
 		expect(await screen.findByText('Saved.')).toBeTruthy();
 		expect(sendCode).toHaveBeenCalledWith({ email: 'lovelace@example.com' });
-		expect(saveUser).toHaveBeenCalledWith({ email: 'lovelace@example.com', code: '123456' });
+		expect(saveUser).toHaveBeenCalledWith({
+			username: 'ada',
+			email: 'lovelace@example.com',
+			code: '123456',
+		});
+	});
+
+	it('saves a new name and address together once the code is in', async () => {
+		vi.mocked(sendCode).mockResolvedValue({ data: null, errors: [] } as never);
+		vi.mocked(saveUser)
+			.mockClear()
+			.mockResolvedValue({ data: user, errors: [] } as never);
+		open();
+
+		await type(/Username/, 'countess');
+		await type(/Email/, 'lovelace@example.com');
+		await fireEvent.click(screen.getByRole('button', { name: 'Email me a code' }));
+		await type(/Code/, '123456');
+		await fireEvent.click(await screen.findByRole('button', { name: 'Confirm email' }));
+
+		expect(await screen.findByText('Saved.')).toBeTruthy();
+		expect(saveUser).toHaveBeenCalledOnce();
+		expect(saveUser).toHaveBeenCalledWith({
+			username: 'countess',
+			email: 'lovelace@example.com',
+			code: '123456',
+		});
 	});
 
 	it('says when another account uses the address', async () => {
@@ -106,10 +136,14 @@ describe('changing your email', () => {
 		open(true);
 
 		await type(/Email/, 'lovelace@example.com');
-		await fireEvent.click(screen.getByRole('button', { name: 'Save email' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
 		expect(await screen.findByText('Saved.')).toBeTruthy();
 		expect(sendCode).not.toHaveBeenCalled();
-		expect(saveUser).toHaveBeenCalledWith({ email: 'lovelace@example.com', code: '' });
+		expect(saveUser).toHaveBeenCalledWith({
+			username: 'ada',
+			email: 'lovelace@example.com',
+			code: '',
+		});
 	});
 });

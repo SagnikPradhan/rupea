@@ -2,7 +2,8 @@
 	import { listCurrencies, saveBase } from '#lib/endpoints/ledger.remote.ts';
 	import type { RupeaError } from '@rupea/shared/errors.ts';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
-	import Field from '#lib/web/components/ui-field/ui-field.svelte';
+	import Select from '#lib/web/components/ui-select/ui-select.svelte';
+	import Setting from '#lib/web/components/ui-setting/ui-setting.svelte';
 	import { explain } from '#lib/web/shared/errors.ts';
 	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { refreshAll } from '$app/navigation';
@@ -32,22 +33,29 @@
 	}
 </script>
 
-<form onsubmit={save} novalidate>
-	<Field
-		label="Base currency"
-		hint="Amounts written without a currency are in this one. Changing it relabels them and converts nothing."
-	>
-		<select value={chosen.value} onchange={(e) => (chosen.value = e.currentTarget.value)}>
-			{#each currencies.data ?? [base] as c (c)}<option value={c}>{c}</option>{/each}
-		</select>
-	</Field>
-	<p>Only currencies a price in this ledger links to are offered.</p>
-	<Button primary>Save currency</Button>
-	{#each [...(currencies.errors ?? []), ...chosen.errors] as error, i (i)}
-		<p role="alert">{explain(error, formats)}</p>
-	{/each}
-	{#if chosen.saved}<p role="status">Saved.</p>{/if}
-</form>
+<Setting
+	id="{handle}-currency"
+	title="Base currency"
+	hint="Amounts written without a currency are in this one. Changing it relabels them and converts nothing."
+>
+	<form onsubmit={save} novalidate>
+		<div class="pick">
+			<Select
+				label="Base currency"
+				value={chosen.value}
+				options={(currencies.data ?? [base]).map((c) => ({ value: c, label: c }))}
+				onchange={(c: string) => (chosen.value = c)}
+			/>
+			<p>Only currencies a price in this ledger links to are offered.</p>
+		</div>
+
+		<Button primary>Save</Button>
+		{#each [...(currencies.errors ?? []), ...chosen.errors] as error, i (i)}
+			<p role="alert">{explain(error, formats)}</p>
+		{/each}
+		{#if chosen.saved}<p role="status">Saved.</p>{/if}
+	</form>
+</Setting>
 
 <style>
 	form {
@@ -57,12 +65,24 @@
 		align-items: start;
 	}
 
+	.pick {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-1);
+		align-items: start;
+	}
+
 	p {
-		margin: 0;
 		color: var(--color-muted);
+		font: var(--text-label);
 	}
 
 	p[role='alert'] {
 		color: var(--color-negative);
+		font: var(--text-base);
+	}
+
+	p[role='status'] {
+		font: var(--text-base);
 	}
 </style>

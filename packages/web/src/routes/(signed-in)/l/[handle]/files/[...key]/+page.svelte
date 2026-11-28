@@ -17,6 +17,7 @@
 	import FileTransactionAside from '#lib/web/components/app-file-transaction-aside/app-file-transaction-aside.svelte';
 	import FileTransactions from '#lib/web/components/app-file-transactions/app-file-transactions.svelte';
 	import FileMatches from '#lib/web/components/app-file-matches/app-file-matches.svelte';
+	import StatementSteps from '#lib/web/components/app-statement-steps/app-statement-steps.svelte';
 	import StatementView from '#lib/web/components/app-statement-view/app-statement-view.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import FilePath from '#lib/web/components/ui-file-path/ui-file-path.svelte';
@@ -28,7 +29,8 @@
 	import { fileHref, hrefWith } from '#lib/web/shared/links.ts';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
-	import { untrack, type Snippet } from 'svelte';
+	import { untrack } from 'svelte';
+	import type { Parts } from '#lib/web/components/app-statement-view/parts.ts';
 
 	const { data } = $props();
 
@@ -77,6 +79,7 @@
 	const draftKey = $derived((statements.data ?? []).find((s) => s.key === statement)?.file ?? null);
 	const draft = $derived(draftKey !== null && !isCounted(draftKey) ? draftKey : null);
 	const target = $derived(selected ?? draft);
+	const reading = $derived(statement !== null && draft === null);
 	const revision = $state({ count: 0 });
 	const ui = $derived(
 		page.url.searchParams.get('view') === 'ui' ||
@@ -84,13 +87,22 @@
 	);
 	const at = $derived(Number(page.url.searchParams.get('edit')) || null);
 	const editing = $derived(ui ? target : null);
-	const original = $derived(draft !== null && page.url.searchParams.get('view') === 'statement');
+	const aside = $derived(editing !== null && at !== null);
+	const roomy = $derived(statement !== null && !aside);
+	const grid = $derived(draft !== null && page.url.searchParams.get('view') === 'grid');
+	const original = $derived(draft !== null && page.url.searchParams.get('view') === 'original');
 	const view = $derived({
-		chosen: original ? ('statement' as const) : ui ? ('ui' as const) : ('file' as const),
+		chosen: grid
+			? ('grid' as const)
+			: original
+				? ('original' as const)
+				: ui
+					? ('ui' as const)
+					: ('file' as const),
 		segments: [
 			{
 				name: 'Text',
-				chosen: !ui && !original,
+				chosen: !ui && !grid && !original,
 				href: hrefWith(page.url.searchParams, { view: 'text', edit: '' }),
 			},
 			{
@@ -102,9 +114,14 @@
 				? []
 				: [
 						{
-							name: 'Statement',
+							name: 'Grid',
+							chosen: grid,
+							href: hrefWith(page.url.searchParams, { view: 'grid', edit: '', line: '' }),
+						},
+						{
+							name: 'Original',
 							chosen: original,
-							href: hrefWith(page.url.searchParams, { view: 'statement', edit: '', line: '' }),
+							href: hrefWith(page.url.searchParams, { view: 'original', edit: '', line: '' }),
 						},
 					]),
 		],
@@ -174,15 +191,23 @@
 	});
 </script>
 
-{#snippet fileEditor(next?: Snippet, below?: Snippet, sheet?: Snippet)}
+{#snippet progress()}
+	{#if statement !== null}
+		<StatementSteps {handle} {statement} />
+	{/if}
+{/snippet}
+
+{#snippet fileEditor(parts?: Parts)}
 	<FileEditor
 		{handle}
 		{editor}
 		{line}
 		{view}
-		{next}
-		{below}
-		original={sheet}
+		{progress}
+		footer={parts?.footer}
+		below={parts?.below}
+		grid={parts?.grid}
+		original={parts?.original}
 		renamable={draft === null}
 		named={draft === null ? undefined : (statement ?? undefined)}
 		onopen={open}
@@ -202,13 +227,13 @@
 	</FileEditor>
 {/snippet}
 
-<PanelGrid wide>
-	<div class={{ main: true, docked: editing !== null && at !== null }}>
+<PanelGrid wide={!roomy} full={roomy}>
+	<div class={{ main: true, docked: editing !== null && at !== null, reading }}>
 		{#if statement === null}
 			{@render fileEditor()}
 		{/if}
 		{#if statement !== null && draft === null}
-			<PageHeader>
+			<PageHeader {progress}>
 				Files
 				{#snippet subtitle()}
 					<FilePath path={statement} />
@@ -218,8 +243,8 @@
 		{#if statement !== null}
 			{#key statement}
 				<StatementView {handle} {statement} revision={revision.count} dirty={editor.dirty}>
-					{#snippet filed(next: Snippet, below: Snippet, sheet: Snippet)}
-						{@render fileEditor(next, below, sheet)}
+					{#snippet filed(parts: Parts)}
+						{@render fileEditor(parts)}
 					{/snippet}
 				</StatementView>
 			{/key}
@@ -228,21 +253,22 @@
 		<Issues {handle} errors={response.errors} />
 	</div>
 
-	<div class="side">
-		{#if editing !== null && at !== null}
-			<FileTransactionAside
-				{handle}
-				file={editing}
-				line={at}
-				onsaved={transactionSaved}
-				onclose={() => goto(hrefWith(page.url.searchParams, { edit: '' }), { reset: false })}
-			/>
-		{:else}
-			{#if target !== null}
+	{#if !roomy}
+		<div class="side">
+			{#if editing !== null && at !== null}
+				<FileTransactionAside
+					{handle}
+					file={editing}
+					line={at}
+					onsaved={transactionSaved}
+					onclose={() => goto(hrefWith(page.url.searchParams, { edit: '' }), { reset: false })}
+				/>
+			{/if}
+			{#if !aside && target !== null}
 				<FileMatches {handle} file={target} {...found} />
 			{/if}
-		{/if}
-	</div>
+		</div>
+	{/if}
 </PanelGrid>
 
 <style>
@@ -272,6 +298,15 @@
 
 	.main > :global(*) {
 		margin-block: 0;
+	}
+
+	.reading {
+		display: grid;
+		grid-template-columns: subgrid;
+	}
+
+	.main.reading > :global(*) {
+		grid-column: span 12;
 	}
 
 	@media (48rem <= width < 90rem) {

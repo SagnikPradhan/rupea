@@ -15,7 +15,7 @@ const books = '2026-08-29 Tea\n\tExpenses:Food 10\n\tAssets:Cash\n';
 const describeStatement = async (page: Page, ledger: string) => {
 	await visit(page, `${ledger}/files`);
 	await page.getByLabel('Statements', { exact: true }).setInputFiles(data('statement.csv'));
-	await expect(page.getByRole('heading', { name: 'Describe this statement' })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Schema' })).toBeVisible();
 	await expect(page.getByRole('table', { name: 'Statement' })).toContainText('UPI GROCER');
 
 	await page.getByLabel('Name', { exact: true }).fill('bank.yml');
@@ -31,7 +31,8 @@ test('reads a statement it learns, and adds it to the ledger', async ({
 	ledger,
 }) => {
 	await describeStatement(page, ledger);
-	await page.getByRole('button', { name: 'Add to ledger' }).click();
+	await page.getByRole('button', { name: 'Continue to review' }).click();
+	await page.getByRole('button', { name: /^Add \d+ transactions? to ledger$/ }).click();
 	await page.getByLabel('Add to file').fill('bank/statement.rupea');
 	await page.getByRole('button', { name: 'Add', exact: true }).click();
 	await expect(page.getByText(/^Added \d+ to/)).toBeVisible();
@@ -48,7 +49,8 @@ test('adds a later statement to the file its account went to, and undoes it', as
 }) => {
 	await describeStatement(page, ledger);
 	await page.getByRole('button', { name: 'Save schema' }).click();
-	await page.getByRole('button', { name: 'Add to ledger' }).click();
+	await page.getByRole('button', { name: 'Continue to review' }).click();
+	await page.getByRole('button', { name: /^Add \d+ transactions? to ledger$/ }).click();
 	await page.getByLabel('Add to file').fill('bank.rupea');
 	await page.getByRole('button', { name: 'Add', exact: true }).click();
 	await expect(page.getByText(/^Added \d+ to/)).toBeVisible();
@@ -59,13 +61,16 @@ test('adds a later statement to the file its account went to, and undoes it', as
 		.getByLabel('Statements', { exact: true })
 		.setInputFiles({ name: 'later.csv', mimeType: 'text/csv', buffer: Buffer.from(again) });
 	await page.waitForURL(/\/files\/_\/\d+\/later\.csv/);
-	await page.getByRole('button', { name: 'Add to ledger' }).click();
+	await page.getByRole('button', { name: 'Continue to review' }).click();
+	await page.getByRole('button', { name: /^Add \d+ transactions? to ledger$/ }).click();
 	await expect(page.getByRole('combobox', { name: 'Add to file' })).toHaveValue('bank.rupea');
 	await page.getByRole('button', { name: 'Add', exact: true }).click();
 	await expect(page.getByText('Added 0 to')).toContainText('already there');
 
 	await page.getByRole('button', { name: 'Undo' }).click();
-	await expect(page.getByRole('button', { name: 'Add to ledger' })).toBeVisible();
+	await expect(
+		page.getByRole('button', { name: /^Add \d+ transactions? to ledger$/ }),
+	).toBeVisible();
 	await visit(page, `${ledger}/files`);
 	await expect(page.getByRole('row', { name: /^\d+\/later\.csv/ })).toContainText(
 		'Ready to review',
@@ -74,7 +79,7 @@ test('adds a later statement to the file its account went to, and undoes it', as
 
 test('files a draft for review to edit its transactions', async ({ signedIn: page, ledger }) => {
 	await describeStatement(page, ledger);
-	await page.getByRole('button', { name: 'Edit transactions' }).click();
+	await page.getByRole('button', { name: 'Continue to review' }).click();
 	await page.getByRole('link', { name: 'UPI GROCER' }).click();
 	await page.getByLabel(/^Description/).fill('Groceries');
 	await page.getByRole('button', { name: 'Save changes' }).click();
@@ -86,7 +91,9 @@ test('files a draft for review to edit its transactions', async ({ signedIn: pag
 
 	const statement = new URL(page.url()).pathname.split('/files/')[1];
 	await visit(page, `${ledger}/files/${statement}.rupea`);
-	await expect(page.getByRole('button', { name: 'Add to ledger' })).toBeVisible();
+	await expect(
+		page.getByRole('button', { name: /^Add \d+ transactions? to ledger$/ }),
+	).toBeVisible();
 	await expect(page.getByRole('link', { name: 'Text', exact: true })).toBeVisible();
 
 	await visit(page, `${ledger}/files`);
@@ -105,18 +112,22 @@ test('unlocks a statement with its password', async ({ signedIn: page, ledger })
 });
 
 test('saves, opens and deletes formats', async ({ signedIn: page, ledger }) => {
+	const name = page.getByRole('combobox', { name: 'Name' });
 	await describeStatement(page, ledger);
 	await page.getByRole('button', { name: 'Save schema' }).click();
-	await expect(page.getByRole('button', { name: 'bank.yml', exact: true })).toBeVisible();
+	await name.click();
+	await expect(page.getByRole('option', { name: 'bank.yml', exact: true })).toBeVisible();
 
-	await page.getByRole('button', { name: 'The example' }).click();
-	await expect(page.getByLabel('Name', { exact: true })).toHaveValue('my-bank.yml');
-	await page.getByRole('button', { name: 'bank.yml', exact: true }).click();
+	await page.getByRole('button', { name: 'Start from the example' }).click();
+	await expect(name).toHaveValue('my-bank.yml');
+	await name.click();
+	await page.getByRole('option', { name: 'bank.yml', exact: true }).click();
 	await expect(page.getByLabel('Schema', { exact: true })).toHaveValue(/name: Bank/);
 
 	await page.getByRole('button', { name: 'Delete bank.yml' }).click();
 	await page.getByRole('button', { name: 'Delete', exact: true }).click();
-	await expect(page.getByRole('button', { name: 'bank.yml', exact: true })).toHaveCount(0);
+	await name.click();
+	await expect(page.getByRole('option', { name: 'bank.yml', exact: true })).toHaveCount(0);
 });
 
 test('imports a ledger file as written, naming its upload', async ({ signedIn: page, ledger }) => {
@@ -127,7 +138,8 @@ test('imports a ledger file as written, naming its upload', async ({ signedIn: p
 	await page.waitForURL(/\/files\/_\/\d+\/books\.ledger/);
 	await expect(page.getByRole('table', { name: 'Transactions found' })).toContainText('Tea');
 
-	await page.getByRole('button', { name: 'Add to ledger' }).click();
+	await page.getByRole('button', { name: 'Continue to review' }).click();
+	await page.getByRole('button', { name: /^Add \d+ transactions? to ledger$/ }).click();
 	await page.getByRole('button', { name: 'Add', exact: true }).click();
 	await expect(page.getByRole('link', { name: 'books.rupea' })).toBeVisible();
 

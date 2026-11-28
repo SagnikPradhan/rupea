@@ -15,7 +15,7 @@
 	const { handle, file, count, locked, onchanged }: Props = $props();
 </script>
 
-<Panel title="Matches" subtitle="Transactions of this file that may repeat others.">
+<Panel plain title="Matches" subtitle="Transactions of this file that may repeat others.">
 	<a href={resolve(`/(signed-in)/l/[handle]/refine?file=${encodeURIComponent(file)}`, { handle })}>
 		{count > 0 ? `${count} possible matches: review` : 'Find matches'}
 	</a>

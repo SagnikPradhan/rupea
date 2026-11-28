@@ -11,6 +11,18 @@ export const STATUSES: Record<Status, { label: string; action?: string }> = {
 	new: { label: 'Just uploaded' },
 };
 
+export const STEPS = ['Uploaded', 'Read', 'Review', 'Added'];
+
+/** The step each status is at; past the last one means all are done. */
+export const STEP_AT: Record<Status, number> = {
+	new: 1,
+	reading: 1,
+	setup: 1,
+	failed: 1,
+	ready: 2,
+	added: STEPS.length,
+};
+
 /**
  * Where a statement stands: added once a counted file cites it, ready while its
  * draft waits in review, and waiting for setup when its job drafted nothing.
@@ -45,3 +57,26 @@ export function suggestedFile(
 
 	return `${statement.replace(/^.*\//, '').replace(/\.[^.]*$/, '')}.rupea`;
 }
+
+const TYPES: Record<string, string> = {
+	pdf: 'application/pdf',
+	csv: 'text/csv',
+	xls: 'application/vnd.ms-excel',
+	xlsx: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+};
+
+const extensionOf = (s: string) => s.split('.').pop()?.toLowerCase() ?? '';
+
+/** Whether the browser can show the original statement itself. */
+export const isShowable = (s: string) => extensionOf(s) === 'pdf';
+
+/**
+ * The headers that serve an original statement: shown inline when a browser
+ * can, else saved.
+ */
+export const headersForOriginal = (s: string) => ({
+	'Content-Type': TYPES[extensionOf(s)] ?? 'application/octet-stream',
+	'Content-Disposition': isShowable(s) ? 'inline' : 'attachment',
+	'X-Content-Type-Options': 'nosniff',
+	'Cache-Control': 'private',
+});

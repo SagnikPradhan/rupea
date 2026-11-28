@@ -36,8 +36,8 @@
 
 <Issues {handle} errors={response.errors} />
 
-<PanelGrid>
-	<Panel title="Your files" subtitle={countLabel(count)}>
+<PanelGrid spaced>
+	<Panel plain title="Your files" subtitle={countLabel(count)}>
 		<FileIndex {handle} />
 	</Panel>
 

@@ -22,6 +22,13 @@ export const uiHref = (handle: string, file: string) =>
 		new URLSearchParams({ view: 'ui' }),
 	);
 
+/** Where a statement's original file is served, for a frame and a download link. */
+export const originalHref = (handle: string, statement: string) =>
+	withQuery(
+		resolve('/(signed-in)/l/[handle]/original', { handle }),
+		new URLSearchParams({ key: statement }),
+	);
+
 /** Opens a ledger's postings, narrowed by the query. */
 export const postingsHref = (h: string, q: Record<string, string>) =>
 	withQuery(resolve('/(signed-in)/l/[handle]/postings', { handle: h }), new URLSearchParams(q));

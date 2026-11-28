@@ -21,7 +21,11 @@
 	import type { RupeaError, Reply } from '@rupea/shared/errors.ts';
 	import { isCounted } from '@rupea/shared/files.ts';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
+	import WizardFooter from '#lib/web/components/ui-wizard-footer/ui-wizard-footer.svelte';
 	import Original from '#lib/web/components/app-statement-original/app-statement-original.svelte';
+	import Sheet from '#lib/web/components/app-statement-sheet/app-statement-sheet.svelte';
+	import StatementFile from '#lib/web/components/app-statement-file/app-statement-file.svelte';
+	import SegmentedControl from '#lib/web/components/ui-segmented-control/ui-segmented-control.svelte';
 	import Dialog from '#lib/web/components/ui-dialog/ui-dialog.svelte';
 	import Combobox from '#lib/web/components/ui-combobox/ui-combobox.svelte';
 	import Field from '#lib/web/components/ui-field/ui-field.svelte';
@@ -32,7 +36,11 @@
 	import type { TransactionView } from '#lib/endpoints/views.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';
 	import { accountOf, statusOf, suggestedFile } from '#lib/web/shared/statements.ts';
+	import type { Parts } from '#lib/web/components/app-statement-view/parts.ts';
+	import { resolve } from '$app/paths';
 	import { untrack, type Snippet } from 'svelte';
+
+	const PREVIEW_ROWS = 5;
 
 	type Schema = { key: string; content: string };
 
@@ -55,10 +63,10 @@
 		/** Whether the draft has edits not saved yet. */
 		dirty: boolean;
 		/**
-		 * Shows the draft like any file, given the button and the form for adding
+		 * Shows the draft like any file, given the footer and the form for adding
 		 * it.
 		 */
-		filed: Snippet<[Snippet, Snippet, Snippet]>;
+		filed: Snippet<[Parts]>;
 	};
 
 	const { handle, statement, revision, dirty, filed }: Props = $props();
@@ -87,6 +95,8 @@
 		grid: [] as string[][],
 		schema: null as Schema | null,
 		setup: false,
+		shown: 'grid' as 'original' | 'grid',
+		all: false,
 		found: null as Reply<TransactionView[]> | null,
 		errors: [] as RupeaError[],
 	});
@@ -97,6 +107,18 @@
 		view.errors.flatMap((e) => (e.type === 'ExtractionLocked' ? [e.path] : []))[0],
 	);
 	const found = $derived(view.found?.data ?? []);
+	const tabs = $derived(
+		(
+			[
+				['original', 'Original file'],
+				['grid', 'Grid'],
+			] as const
+		).map(([name, label]) => ({
+			name: label,
+			chosen: view.shown === name,
+			onclick: () => (view.shown = name),
+		})),
+	);
 	const problems = $derived(
 		[...(job?.error ? [job.error] : []), ...view.errors].filter(
 			(e) => !(view.setup && e.type === 'ExtractionUnrecognised'),
@@ -111,6 +133,8 @@
 	const addition = $derived(done.addition?.statement === statement ? done.addition : null);
 
 	const drafted = $derived(file !== null && !isCounted(file));
+	const filesHref = $derived(resolve('/(signed-in)/l/[handle]/files', { handle }));
+	const noun = $derived(found.length === 1 ? 'transaction' : 'transactions');
 
 	const sleep = (t: number) => new Promise<void>((r) => setTimeout(r, t));
 
@@ -124,7 +148,15 @@
 
 	async function load(key: string, at: string | null) {
 		const ticket = ++view.ticket;
-		Object.assign(view, { grid: [], schema: null, setup: false, found: null, errors: [] });
+		Object.assign(view, {
+			grid: [],
+			schema: null,
+			setup: false,
+			shown: 'grid',
+			all: false,
+			found: null,
+			errors: [],
+		});
 		action.step = 'reading';
 		if (at !== null && isCounted(at)) return;
 		if (at !== null) return showDraft(ticket, at);
@@ -229,15 +261,44 @@
 		await listStatements(handle).refresh();
 	}
 
-	async function edit() {
+	async function review() {
 		if ((await draft()) !== null) await listStatements(handle).refresh();
 	}
 </script>
 
-{#snippet next()}
-	<Button primary disabled={dirty || found.length === 0} onclick={startAdding}>
-		Add to ledger
-	</Button>
+{#snippet footer()}
+	<WizardFooter>
+		{#snippet back()}
+			{#if file !== null}
+				<a
+					class="muted"
+					href={resolve(`/(signed-in)/l/[handle]/refine?file=${encodeURIComponent(file)}`, {
+						handle,
+					})}
+				>
+					Check for matches
+				</a>
+			{/if}
+		{/snippet}
+		{#snippet next()}
+			<Button primary disabled={dirty || found.length === 0} onclick={startAdding}>
+				Add {found.length}
+				{noun} to ledger
+			</Button>
+		{/snippet}
+	</WizardFooter>
+{/snippet}
+
+{#snippet end(to: string)}
+	<WizardFooter>
+		{#snippet back()}
+			{#if addition}<Button onclick={undo}>Undo</Button>{/if}
+		{/snippet}
+		{#snippet next()}
+			<Button href={fileHref(handle, to)}>Open {to}</Button>
+			<Button primary href={filesHref}>Import another</Button>
+		{/snippet}
+	</WizardFooter>
 {/snippet}
 
 {#snippet form()}
@@ -269,33 +330,37 @@
 	</Dialog>
 {/snippet}
 
-{#snippet original()}
+{#snippet grid()}
 	<Original {handle} {statement} />
 {/snippet}
 
+{#snippet original()}
+	<StatementFile {handle} {statement} />
+{/snippet}
+
 {#snippet below()}
+	<p class="hint">Check what Rupea found, then add it to your ledger.</p>
 	<Issues {handle} errors={view.errors} detailed />
 	{@render form()}
 {/snippet}
 
 {#if drafted && !addition}
-	{@render filed(next, below, original)}
+	{@render filed({ footer, below, grid, original })}
 {:else}
 	<section>
 		{#if row === undefined}
 			<p class="hint">This statement is no longer here.</p>
 		{:else if addition}
-			<div class="toolbar">
-				<p>
-					Added {addition.added} to <a href={fileHref(handle, addition.to)}>{addition.to}</a>.
-					{#if addition.skipped > 0}Left out {addition.skipped} already there.{/if}
-				</p>
-				<Button onclick={undo}>Undo</Button>
-			</div>
+			<p>
+				Added {addition.added} to <a href={fileHref(handle, addition.to)}>{addition.to}</a>.
+				{#if addition.skipped > 0}Left out {addition.skipped} already there.{/if}
+			</p>
+			{@render end(addition.to)}
 		{:else if status === 'added' && file !== null}
 			<p>
 				Its transactions are in the ledger, in <a href={fileHref(handle, file)}>{file}</a>.
 			</p>
+			{@render end(file)}
 		{:else if status === 'reading'}
 			<p class="hint">Reading this file…</p>
 		{:else}
@@ -322,98 +387,150 @@
 				</form>
 			{/if}
 
-			{#if view.setup && view.grid.length > 0}
-				<div class="group">
-					<h2>Describe this statement</h2>
-					<p class="hint">
-						Rupea doesn’t know this statement yet. Tell it which columns hold the date, description
-						and amount; the transactions it finds show below as you type.
-					</p>
-					<StatementFormat
-						{handle}
-						grid={view.grid}
-						schema={view.schema ?? { key: 'my-bank.yml', content: '' }}
-						onchange={change}
-					/>
-				</div>
-			{/if}
+			{#if view.grid.length > 0}
+				<p class="hint">
+					{#if view.setup}
+						Rupea doesn’t recognise this bank yet. Choose which columns hold the date, description
+						and amount, or start from the example.
+					{:else}
+						Rupea read this as {view.schema?.key}. Check what it found, then continue.
+					{/if}
+				</p>
 
-			{#if view.found}
-				<div class="group">
-					<div class="heading">
-						<p class="found">
-							{found.length}
-							{found.length === 1 ? 'transaction' : 'transactions'} found
-							{#if account}for <Account {account} />{/if}
-						</p>
-						{#if action.step === 'reading'}
-							<div class="toolbar">
-								<Button primary disabled={found.length === 0} onclick={startAdding}>
-									Add to ledger
-								</Button>
-								<Button onclick={edit} disabled={found.length === 0}>Edit transactions</Button>
-							</div>
+				<div class="pipeline">
+					<div class="column" role="region" aria-label="Statement">
+						<SegmentedControl label="Statement view" segments={tabs} />
+						{#if view.shown === 'original'}
+							<StatementFile {handle} {statement} />
+						{/if}
+						{#if view.shown === 'grid'}
+							<Sheet grid={view.grid} rows={view.all ? undefined : PREVIEW_ROWS} />
+							{#if view.grid.length > PREVIEW_ROWS}
+								<button class="link" onclick={() => (view.all = !view.all)}>
+									{view.all ? 'Show fewer rows' : `Show all ${view.grid.length} rows`}
+								</button>
+							{/if}
 						{/if}
 					</div>
 
-					{@render form()}
-					<Issues {handle} errors={view.found.errors} detailed />
+					<div class="pair">
+						<div class="schema" role="region" aria-label="Schema setup">
+							<StatementFormat
+								{handle}
+								schema={view.schema ?? { key: 'my-bank.yml', content: '' }}
+								onchange={change}
+							/>
+						</div>
 
-					{#if found.length > 0}
-						<TransactionsFound transactions={found} editable={false} chosen={null} />
-					{/if}
+						<div class="output" role="region" aria-label="Transactions found">
+							<p class="found">
+								{#if found.length > 0}
+									{found.length}
+									{noun} found
+									{#if account}for <Account {account} />{/if}
+								{:else}
+									No transactions found yet. They appear here as you edit the schema.
+								{/if}
+							</p>
 
-					{#if view.grid.length > 0 && !view.setup}
-						<p class="hint">
-							Read as {view.schema?.key}.
-							<button class="link" onclick={() => (view.setup = true)}>
-								Read it with another schema
-							</button>
-						</p>
-					{/if}
+							<div class="body">
+								{#if view.found}
+									<Issues {handle} errors={view.found.errors} detailed />
+									{#if found.length > 0}
+										<TransactionsFound transactions={found} editable={false} chosen={null} />
+									{/if}
+								{/if}
+							</div>
+						</div>
+					</div>
 				</div>
+
+				<WizardFooter>
+					{#snippet back()}
+						<Button href={filesHref}>All files</Button>
+					{/snippet}
+					{#snippet next()}
+						<Button primary disabled={found.length === 0} onclick={review}>
+							Continue to review
+						</Button>
+					{/snippet}
+				</WizardFooter>
 			{/if}
 		{/if}
 	</section>
 {/if}
 
 <style>
-	section,
-	.group {
-		display: flex;
-		flex-direction: column;
-	}
-
 	section {
-		gap: var(--size-4);
+		display: grid;
+		grid-template-columns: subgrid;
+		row-gap: var(--size-4);
 	}
 
-	.group {
-		gap: var(--size-2);
+	section > :global(*) {
+		margin: 0;
+		grid-column: span 12;
 	}
 
-	section > :global(*),
-	.group > :global(*),
-	.heading > :global(*) {
+	.pipeline,
+	.column {
+		display: flex;
+		min-width: 0;
+		flex-direction: column;
+		gap: var(--size-3);
+	}
+
+	.column {
+		align-items: start;
+	}
+
+	.column > :global(*) {
 		margin: 0;
 	}
 
-	.heading {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		justify-content: space-between;
+	.pair {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		gap: var(--size-3) var(--size-4);
+	}
+
+	.schema,
+	.output {
+		display: grid;
+		min-width: 0;
+		grid-row: span 2;
+		grid-template-rows: subgrid;
 		gap: var(--size-2);
 	}
 
-	h2 {
+	.body {
 		display: flex;
-		flex-wrap: wrap;
-		align-items: baseline;
-		gap: var(--size-1);
+		min-width: 0;
+		flex-direction: column;
+		gap: var(--size-2);
+	}
+
+	@media (width >= 90rem) {
+		.pair {
+			grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+		}
+	}
+
+	.link {
+		padding: 0;
+		color: var(--color-muted);
+		font: inherit;
+		text-decoration: underline;
+		background: none;
+		border: none;
 	}
 
 	.found {
+		margin: 0;
+		color: var(--color-muted);
+	}
+
+	.muted {
 		color: var(--color-muted);
 	}
 
@@ -439,15 +556,6 @@
 	.toolbar input {
 		min-width: 0;
 		flex: 1;
-	}
-
-	.link {
-		padding: 0;
-		color: var(--color-ink);
-		font: inherit;
-		text-decoration: underline;
-		background: none;
-		border: none;
 	}
 
 	form {

@@ -3,9 +3,11 @@
 
 	type Props = {
 		grid: string[][];
+		/** Shows only the first rows, when set. */
+		rows?: number;
 	};
 
-	const { grid }: Props = $props();
+	const { grid, rows }: Props = $props();
 
 	const width = $derived(Math.max(0, ...grid.map((r) => r.length)));
 	const columns = $derived([...Array(width).keys()].map(formatColumn));
@@ -22,11 +24,11 @@
 			</tr>
 		</thead>
 		<tbody>
-			{#each grid as row, index (index)}
+			{#each grid.slice(0, rows) as row, index (index)}
 				<tr>
 					<th>{index + 1}</th>
 					{#each columns as column, at (column)}
-						<td>{row[at] ?? ''}</td>
+						<td title={row[at]}>{row[at] ?? ''}</td>
 					{/each}
 				</tr>
 			{/each}
@@ -44,6 +46,7 @@
 
 	table {
 		width: 100%;
+		table-layout: fixed;
 		font: var(--text-data);
 		border-collapse: collapse;
 	}
@@ -66,20 +69,18 @@
 
 	td {
 		text-align: left;
+		text-overflow: ellipsis;
+		white-space: nowrap;
+		overflow: hidden;
 	}
 
 	tbody th {
 		left: 0;
 	}
 
-	td,
-	thead th:not(:first-child) {
-		min-width: 14ch;
-		overflow-wrap: anywhere;
-	}
-
 	thead th:first-child {
 		left: 0;
 		z-index: var(--layer-raised);
+		width: var(--size-4);
 	}
 </style>

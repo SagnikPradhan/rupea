@@ -20,7 +20,8 @@ const upload = async (page: Page, ledger: string, name: string, copy: number) =>
 
 const addTo = async (page: Page, key: string) => {
 	await expect(page.getByRole('table', { name: 'Transactions found' })).toContainText('UPI GROCER');
-	await page.getByRole('button', { name: 'Add to ledger' }).click();
+	await page.getByRole('button', { name: 'Continue to review' }).click();
+	await page.getByRole('button', { name: /^Add \d+ transactions? to ledger$/ }).click();
 	await page.getByLabel('Add to file').fill(key);
 	await page.getByRole('button', { name: 'Add', exact: true }).click();
 	await expect(page.getByText(/^Added \d+ to/)).toBeVisible();

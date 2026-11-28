@@ -83,6 +83,10 @@
 		overflow: hidden;
 	}
 
+	.description {
+		overflow-wrap: anywhere;
+	}
+
 	.cell {
 		display: flex;
 		flex-wrap: wrap;

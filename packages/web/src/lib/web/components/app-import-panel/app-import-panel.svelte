@@ -45,7 +45,11 @@
 	});
 </script>
 
-<Panel title="Import statements" subtitle="Bank, card and broker statements, or ledger files.">
+<Panel
+	plain
+	title="Import statements"
+	subtitle="Bank, card and broker statements, or ledger files."
+>
 	<form
 		enctype="multipart/form-data"
 		{...uploadStatements.enhance(async (form) => {

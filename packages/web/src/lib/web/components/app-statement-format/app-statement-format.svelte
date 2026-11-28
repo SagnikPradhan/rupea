@@ -7,9 +7,9 @@
 	} from '#lib/endpoints/schemas.remote.ts';
 	import type { RupeaError } from '@rupea/shared/errors.ts';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
+	import Combobox from '#lib/web/components/ui-combobox/ui-combobox.svelte';
 	import Field from '#lib/web/components/ui-field/ui-field.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
-	import Sheet from '#lib/web/components/app-statement-sheet/app-statement-sheet.svelte';
 
 	/**
 	 * A starting point: Rupea's built-in HDFC savings schema, which the manual
@@ -35,12 +35,11 @@ fields:
 
 	type Props = {
 		handle: string;
-		grid: string[][];
 		schema: { key: string; content: string };
 		onchange: (schema: { key: string; content: string }) => void;
 	};
 
-	const { handle, grid, schema, onchange }: Props = $props();
+	const { handle, schema, onchange }: Props = $props();
 
 	const schemas = $derived(await listSchemas(handle));
 	const stored = $derived((schemas.data ?? []).some((s) => s.key === schema.key));
@@ -50,6 +49,11 @@ fields:
 	function edit(changed: { key: string; content: string }) {
 		state.saved = false;
 		onchange(changed);
+	}
+
+	function rename(key: string) {
+		if ((schemas.data ?? []).some((s) => s.key === key)) void open(key);
+		if (!(schemas.data ?? []).some((s) => s.key === key)) edit({ ...schema, key });
 	}
 
 	async function open(key: string) {
@@ -70,65 +74,60 @@ fields:
 </script>
 
 <div class="setup">
-	{#if grid.length > 0}
-		<Sheet {grid} />
-	{/if}
-
-	<p class="hint">
-		A starter is a ready-made setup for one bank’s sheet. Pick the closest one, then adjust its
-		columns.
-	</p>
-
-	<div class="choices" role="group" aria-labelledby="start">
-		<span id="start">Starters</span>
-		{#each schemas.data ?? [] as saved (saved.key)}
-			<button
-				class="choice"
-				aria-current={saved.key === schema.key ? 'true' : undefined}
-				onclick={() => open(saved.key)}
-			>
-				{saved.key}
-			</button>
-		{/each}
-		<button class="choice" onclick={() => edit({ key: 'my-bank.yml', content: EXAMPLE })}>
-			The example
-		</button>
-	</div>
-
 	<Field label="Name">
-		<input value={schema.key} oninput={(e) => edit({ ...schema, key: e.currentTarget.value })} />
+		<Combobox
+			value={schema.key}
+			options={(schemas.data ?? []).map((s) => s.key)}
+			onchange={rename}
+		/>
 	</Field>
 
-	<Field label="Schema">
-		<textarea
-			value={schema.content}
-			oninput={(e) => edit({ ...schema, content: e.currentTarget.value })}
-			rows="16"
-			spellcheck="false"></textarea>
-	</Field>
+	<div class="body">
+		{#if schema.content === ''}
+			<button class="choice" onclick={() => edit({ key: schema.key, content: EXAMPLE })}>
+				Start from the example
+			</button>
+		{/if}
 
-	{#if state.asking}
-		<div class="toolbar" role="group" aria-label="Confirm delete">
-			<p>Delete the schema {schema.key}?</p>
-			<Button primary onclick={remove}>Delete</Button>
-			<Button onclick={() => (state.asking = false)}>Cancel</Button>
-		</div>
-	{:else}
-		<div class="toolbar">
-			<Button onclick={save} disabled={saveSchema.pending > 0}>Save schema</Button>
-			{#if stored}
-				<Button aria-label="Delete {schema.key}" onclick={() => (state.asking = true)}>
-					Delete
-				</Button>
-			{/if}
-			{#if state.saved}<p role="status">Saved.</p>{/if}
-		</div>
-	{/if}
-	<Issues {handle} errors={[...schemas.errors, ...state.errors]} detailed />
+		<Field label="Schema">
+			<textarea
+				value={schema.content}
+				oninput={(e) => edit({ ...schema, content: e.currentTarget.value })}
+				rows="10"
+				spellcheck="false"></textarea>
+		</Field>
+
+		{#if state.asking}
+			<div class="toolbar" role="group" aria-label="Confirm delete">
+				<p>Delete the schema {schema.key}?</p>
+				<Button primary onclick={remove}>Delete</Button>
+				<Button onclick={() => (state.asking = false)}>Cancel</Button>
+			</div>
+		{:else}
+			<div class="toolbar">
+				<Button onclick={save} disabled={saveSchema.pending > 0}>Save schema</Button>
+				{#if stored}
+					<Button aria-label="Delete {schema.key}" onclick={() => (state.asking = true)}>
+						Delete
+					</Button>
+				{/if}
+				{#if state.saved}<p role="status">Saved.</p>{/if}
+			</div>
+		{/if}
+		<Issues {handle} errors={[...schemas.errors, ...state.errors]} detailed />
+	</div>
 </div>
 
 <style>
 	.setup {
+		display: grid;
+		min-width: 0;
+		grid-row: span 2;
+		grid-template-rows: subgrid;
+		gap: var(--size-2);
+	}
+
+	.body {
 		display: flex;
 		flex-direction: column;
 		gap: var(--size-2);
@@ -145,23 +144,10 @@ fields:
 		align-self: center;
 	}
 
-	.hint {
-		color: var(--color-muted);
-	}
-
-	.choices {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: baseline;
-		gap: var(--size-1) var(--size-3);
-	}
-
-	.choices span {
-		color: var(--color-muted);
-	}
-
 	.choice {
 		padding: 0;
+		align-self: start;
+		color: var(--color-muted);
 		font: inherit;
 		background: none;
 		border: none;
@@ -169,11 +155,6 @@ fields:
 
 	.choice:hover {
 		text-decoration: underline;
-	}
-
-	.choice[aria-current] {
-		text-decoration: underline var(--size-line-1);
-		text-underline-offset: var(--size-0);
 	}
 
 	textarea {

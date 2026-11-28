@@ -20,11 +20,8 @@
 		line: number | null;
 		onopen: (key: string) => void;
 		onremoved: () => void;
-		/**
-		 * What a file under review adds to the toolbar, such as adding it to the
-		 * ledger.
-		 */
-		next?: Snippet | undefined;
+		/** What a file under review ends with, such as adding it to the ledger. */
+		footer?: Snippet | undefined;
 		/** What a file under review shows between the header and the views. */
 		below?: Snippet | undefined;
 		/** False when something else points at the file's name. */
@@ -36,13 +33,20 @@
 		 * them.
 		 */
 		view?: {
-			chosen: 'file' | 'ui' | 'statement';
+			chosen: 'file' | 'ui' | 'grid' | 'original';
 			segments: { name: string; chosen: boolean; href: ResolvedPathname }[];
 		};
 		/** The list of the file's transactions, shown in the UI view. */
 		ui?: Snippet;
-		/** The statement the file was made from, shown in the statement view. */
+		/** The statement the file was made from as a grid, shown in the grid view. */
+		grid?: Snippet;
+		/**
+		 * The statement the file was made from as uploaded, shown in the original
+		 * view.
+		 */
 		original?: Snippet;
+		/** The steps a statement is going through, shown in the header. */
+		progress?: Snippet;
 	};
 
 	const {
@@ -51,13 +55,15 @@
 		line,
 		onopen,
 		onremoved,
-		next,
+		footer,
 		below,
 		renamable = true,
 		named,
 		view,
 		ui,
+		grid,
 		original,
+		progress,
 	}: Props = $props();
 	const state = $derived(editor.state);
 	const texting = $derived((view?.chosen ?? 'file') === 'file');
@@ -99,7 +105,7 @@
 	}
 </script>
 
-<PageHeader>
+<PageHeader {progress}>
 	Files
 	{#if editor.dirty}<Tag>Unsaved</Tag>{/if}
 	{#snippet subtitle()}
@@ -129,7 +135,6 @@
 						</Button>
 					{/if}
 					<Button icon={ICONS.delete} onclick={() => begin('deleting')}>Delete</Button>
-					{@render next?.()}
 				{:else}
 					<Button primary icon={ICONS.add} onclick={() => begin('creating', 'new.rupea')}>
 						New file
@@ -187,7 +192,10 @@
 {#if state.file && view?.chosen === 'ui'}
 	{@render ui?.()}
 {/if}
-{#if state.file && view?.chosen === 'statement'}
+{#if state.file && view?.chosen === 'grid'}
+	{@render grid?.()}
+{/if}
+{#if state.file && view?.chosen === 'original'}
 	{@render original?.()}
 {/if}
 {#if state.file && texting}
@@ -202,6 +210,8 @@
 		onformat={() => void editor.format()}
 	/>
 {/if}
+
+{@render footer?.()}
 
 <style>
 	.toolbar {

@@ -257,13 +257,35 @@ describe('the import panel', () => {
 });
 
 describe('a statement Rupea knows', () => {
-	it('shows what it found, and adds it to a new file named for its account and month', async () => {
-		const { user } = showing('/l/h/files/_/hdfc.xls');
-		expect(await screen.findByText(/1 transaction found/)).toBeTruthy();
+	it('shows what it found, and holds back Continue until something is found', async () => {
+		showing('/l/h/files/_/hdfc.xls');
+		expect(await screen.findByText(/1 transaction found for/)).toBeTruthy();
 		expect(screen.getByRole('table', { name: 'Transactions found' }).textContent).toContain('NEFT');
-		expect(screen.queryByLabelText('Schema')).toBeNull();
+		expect(screen.getByText(/Rupea read this as hdfc\.yml/)).toBeTruthy();
+		expect(screen.queryByRole('button', { name: /Add .* to ledger/ })).toBeNull();
+		expect(screen.queryByRole('button', { name: 'Edit transactions' })).toBeNull();
 
-		await user.click(screen.getByRole('button', { name: 'Add to ledger' }));
+		const all = screen.getByRole('link', { name: 'All files' });
+		expect(all.getAttribute('href')).toBe('/l/h/files');
+		expect(
+			screen.getByRole<HTMLButtonElement>('button', { name: 'Continue to review' }).disabled,
+		).toBe(false);
+	});
+
+	it('says so while nothing is found yet, and keeps Continue disabled', async () => {
+		showing('/l/h/files/_/hdfc.xls', jobs, () =>
+			vi.mocked(previewStatement).mockReturnValue(ok([])),
+		);
+
+		expect(await screen.findByText(/No transactions found yet/)).toBeTruthy();
+		expect(
+			screen.getByRole<HTMLButtonElement>('button', { name: 'Continue to review' }).disabled,
+		).toBe(true);
+	});
+
+	it('adds a draft to a new file named for its account and month', async () => {
+		const { user } = showing('/l/h/files/_/sep.xls');
+		await user.click(await screen.findByRole('button', { name: 'Add 1 transaction to ledger' }));
 		const where = screen.getByLabelText<HTMLInputElement>('Add to file');
 		expect(where.value).toBe('hdfc/2026-10.rupea');
 		expect(screen.getByText('Makes a new file.')).toBeTruthy();
@@ -272,23 +294,23 @@ describe('a statement Rupea knows', () => {
 		await waitFor(() =>
 			expect(addFile).toHaveBeenCalledWith({
 				handle: 'h',
-				from: '_/imports/hdfc.rupea',
+				from: '_/imports/sep.rupea',
 				to: 'hdfc/2026-10.rupea',
 			}),
 		);
-		expect(importStatement).toHaveBeenCalledWith({
-			handle: 'h',
-			statement: 'hdfc.xls',
-			schema: { key: 'hdfc.yml', content: 'name: HDFC' },
-		});
+		expect(importStatement).not.toHaveBeenCalled();
 		expect((await screen.findByText(/Added 1 to/)).textContent).not.toContain('Left out');
+		expect(screen.getByRole('link', { name: 'Import another' }).getAttribute('href')).toBe(
+			'/l/h/files',
+		);
+		expect(screen.getByRole('link', { name: 'Open hdfc/2026-10.rupea' })).toBeTruthy();
 	});
 
 	it('offers the file its account was last added to', async () => {
-		const { user } = showing('/l/h/files/_/hdfc.xls', jobs, () =>
+		const { user } = showing('/l/h/files/_/sep.xls', jobs, () =>
 			vi.mocked(findLatestFile).mockReturnValue(answer('hdfc.rupea')),
 		);
-		await user.click(await screen.findByRole('button', { name: 'Add to ledger' }));
+		await user.click(await screen.findByRole('button', { name: 'Add 1 transaction to ledger' }));
 
 		expect((screen.getByRole('combobox', { name: 'Add to file' }) as HTMLInputElement).value).toBe(
 			'hdfc.rupea',
@@ -298,8 +320,8 @@ describe('a statement Rupea knows', () => {
 	});
 
 	it('adds to a file chosen from those in the ledger', async () => {
-		const { user } = showing('/l/h/files/_/hdfc.xls');
-		await user.click(await screen.findByRole('button', { name: 'Add to ledger' }));
+		const { user } = showing('/l/h/files/_/sep.xls');
+		await user.click(await screen.findByRole('button', { name: 'Add 1 transaction to ledger' }));
 		const file = screen.getByRole('combobox', { name: 'Add to file' });
 		await user.clear(file);
 		await user.click(await screen.findByRole('option', { name: 'hdfc.rupea' }));
@@ -308,21 +330,21 @@ describe('a statement Rupea knows', () => {
 		await waitFor(() =>
 			expect(addFile).toHaveBeenCalledWith({
 				handle: 'h',
-				from: '_/imports/hdfc.rupea',
+				from: '_/imports/sep.rupea',
 				to: 'hdfc.rupea',
 			}),
 		);
 	});
 
 	it('undoes a move by moving the file back to review', async () => {
-		const { user } = showing('/l/h/files/_/hdfc.xls');
-		await user.click(await screen.findByRole('button', { name: 'Add to ledger' }));
+		const { user } = showing('/l/h/files/_/sep.xls');
+		await user.click(await screen.findByRole('button', { name: 'Add 1 transaction to ledger' }));
 		await user.click(screen.getByRole('button', { name: 'Add' }));
 		await user.click(await screen.findByRole('button', { name: 'Undo' }));
 
 		expect(renameFiles).toHaveBeenCalledWith({
 			handle: 'h',
-			moves: [{ from: 'hdfc/2026-10.rupea', to: '_/imports/hdfc.rupea' }],
+			moves: [{ from: 'hdfc/2026-10.rupea', to: '_/imports/sep.rupea' }],
 		});
 		expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
 	});
@@ -334,10 +356,10 @@ describe('a statement Rupea knows', () => {
 			skipped: 2,
 			before: 'old',
 		};
-		const { user } = showing('/l/h/files/_/hdfc.xls', jobs, () =>
+		const { user } = showing('/l/h/files/_/sep.xls', jobs, () =>
 			vi.mocked(addFile).mockReturnValue(ok(merged)),
 		);
-		await user.click(await screen.findByRole('button', { name: 'Add to ledger' }));
+		await user.click(await screen.findByRole('button', { name: 'Add 1 transaction to ledger' }));
 		await user.click(screen.getByRole('button', { name: 'Add' }));
 		expect((await screen.findByText(/Added 1 to/)).textContent).toContain(
 			'Left out 2 already there.',
@@ -352,24 +374,45 @@ describe('a statement Rupea knows', () => {
 		});
 		expect(createFile).toHaveBeenCalledWith({
 			handle: 'h',
-			key: '_/imports/hdfc.rupea',
+			key: '_/imports/sep.rupea',
 			content: 'drafted',
 		});
 	});
 
-	it('files a draft to edit, without leaving the page', async () => {
+	it('makes the draft on Continue, without leaving the page', async () => {
 		const { user } = showing('/l/h/files/_/hdfc.xls');
-		await user.click(await screen.findByRole('button', { name: 'Edit transactions' }));
+		await user.click(await screen.findByRole('button', { name: 'Continue to review' }));
 
-		await waitFor(() => expect(importStatement).toHaveBeenCalled());
+		await waitFor(() =>
+			expect(importStatement).toHaveBeenCalledWith({
+				handle: 'h',
+				statement: 'hdfc.xls',
+				schema: { key: 'hdfc.yml', content: 'name: HDFC' },
+			}),
+		);
 		expect(goto).not.toHaveBeenCalled();
 	});
 
-	it('opens its format on asking', async () => {
+	it('shows the statement, its schema and what it finds together, flipping the statement to the original', async () => {
 		const { user } = showing('/l/h/files/_/hdfc.xls');
-		await user.click(await screen.findByRole('button', { name: 'Read it with another schema' }));
-
+		await screen.findByText(/1 transaction found/);
 		expect(screen.getByLabelText<HTMLTextAreaElement>('Schema').value).toBe('name: HDFC');
+		expect(screen.getByRole('table', { name: 'Statement' })).toBeTruthy();
+
+		await user.click(screen.getByRole('button', { name: 'Original file' }));
+		expect(screen.getByText('This kind of file can’t be shown here.')).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Download original' }).getAttribute('href')).toBe(
+			'/l/h/original?key=hdfc.xls',
+		);
+		expect(screen.getByText(/1 transaction found/)).toBeTruthy();
+	});
+
+	it('shows the grid and no transactions while it finds nothing', async () => {
+		showing('/l/h/files/_/hdfc.xls', jobs, () =>
+			vi.mocked(previewStatement).mockReturnValue(ok([])),
+		);
+
+		expect(await screen.findByRole('table', { name: 'Statement' })).toBeTruthy();
 	});
 });
 
@@ -409,7 +452,7 @@ describe('a statement being read', () => {
 describe('a statement with a draft in review', () => {
 	it('shows the draft, which moves to the ledger as it is', async () => {
 		const { user } = showing('/l/h/files/_/sep.xls');
-		await user.click(await screen.findByRole('button', { name: 'Add to ledger' }));
+		await user.click(await screen.findByRole('button', { name: 'Add 1 transaction to ledger' }));
 		expect(readStatement).not.toHaveBeenCalled();
 		await user.click(screen.getByRole('button', { name: 'Add' }));
 
@@ -433,22 +476,63 @@ describe('a statement with a draft in review', () => {
 	it('offers no import panel beside a statement', async () => {
 		showing('/l/h/files/_/sep.xls');
 
-		await screen.findByRole('button', { name: 'Add to ledger' });
+		await screen.findByRole('button', { name: 'Add 1 transaction to ledger' });
 		expect(screen.queryByRole('heading', { name: 'Import statements' })).toBeNull();
+	});
+
+	it('tells what to do, and ends with checking for matches and adding, in the footer', async () => {
+		showing('/l/h/files/_/sep.xls');
+
+		expect(
+			await screen.findByText('Check what Rupea found, then add it to your ledger.'),
+		).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Check for matches' }).getAttribute('href')).toBe(
+			'/l/h/refine?file=_%2Fimports%2Fsep.rupea',
+		);
+		const header = document.querySelector('header');
+		expect(within(header!).queryByRole('button', { name: /Add .* to ledger/ })).toBeNull();
+	});
+
+	it('counts the transactions it adds, with the plural', async () => {
+		showing('/l/h/files/_/sep.xls', jobs, () =>
+			vi.mocked(parseFile).mockReturnValue(ok([found, { ...found, line: 5 }])),
+		);
+
+		expect(
+			await screen.findByRole('button', { name: 'Add 2 transactions to ledger' }),
+		).toBeTruthy();
+	});
+
+	it('shows no Matches panel beside a statement draft', async () => {
+		showing('/l/h/files/_/sep.xls');
+
+		await screen.findByRole('button', { name: 'Add 1 transaction to ledger' });
+		expect(screen.queryByRole('heading', { name: 'Matches' })).toBeNull();
 	});
 
 	it('shows the statement the draft was made from, without the text controls', async () => {
 		vi.mocked(readStatement).mockReturnValue(
 			ok({ key: 'sep.xls', grid: [['Date'], ['29/08/26']] }),
 		);
-		showing('/l/h/files/_/sep.xls?view=statement');
+		showing('/l/h/files/_/sep.xls?view=grid');
 
 		expect(await screen.findByRole('table', { name: 'Statement' })).toBeTruthy();
-		expect(screen.getByRole('link', { name: 'Statement' }).getAttribute('aria-current')).toBe(
-			'page',
-		);
+		expect(screen.getByRole('link', { name: 'Grid' }).getAttribute('aria-current')).toBe('page');
 		expect(screen.queryByRole('button', { name: 'Format' })).toBeNull();
 		expect(readStatement).toHaveBeenCalledWith({ handle: 'h', statement: 'sep.xls' });
+	});
+
+	it('shows the file as uploaded, in a frame for a PDF', async () => {
+		showing('/l/h/files/_/sep.xls?view=original');
+
+		expect(await screen.findByText('This kind of file can’t be shown here.')).toBeTruthy();
+		expect(screen.getByRole('link', { name: 'Original' }).getAttribute('aria-current')).toBe(
+			'page',
+		);
+		expect(screen.getByRole('link', { name: 'Download original' }).getAttribute('href')).toBe(
+			'/l/h/original?key=sep.xls',
+		);
+		expect(readStatement).not.toHaveBeenCalled();
 	});
 
 	it('starts over by throwing the draft away', async () => {
@@ -470,6 +554,8 @@ describe('a statement added already', () => {
 
 		const link = await screen.findByRole('link', { name: 'hdfc/aug.rupea' });
 		expect(link.getAttribute('href')).toBe('/l/h/files/hdfc/aug.rupea');
+		expect(screen.getByRole('link', { name: 'Import another' })).toBeTruthy();
+		expect(screen.queryByRole('button', { name: 'Undo' })).toBeNull();
 	});
 });
 
@@ -483,7 +569,10 @@ describe('a statement Rupea does not know', () => {
 
 	it('asks for its format beside the statement, reading it again as it changes', async () => {
 		unknown();
-		expect(await screen.findByRole('heading', { name: 'Describe this statement' })).toBeTruthy();
+		expect(await screen.findByRole('region', { name: 'Schema setup' })).toBeTruthy();
+		expect(
+			screen.getByText(/Rupea doesn’t recognise this bank yet\. Choose which columns/),
+		).toBeTruthy();
 		expect(screen.getByRole('table', { name: 'Statement' }).textContent).toContain('Narration');
 
 		await fireEvent.input(screen.getByLabelText('Schema'), { target: { value: 'name: Mine' } });
@@ -498,7 +587,8 @@ describe('a statement Rupea does not know', () => {
 
 	it('starts from a saved format, then saves and deletes it', async () => {
 		const { user } = unknown();
-		await user.click(await screen.findByRole('button', { name: 'hdfc.yml' }));
+		await user.click(await screen.findByRole('combobox', { name: 'Name' }));
+		await user.click(await screen.findByRole('option', { name: 'hdfc.yml' }));
 		await waitFor(() =>
 			expect(screen.getByLabelText<HTMLTextAreaElement>('Schema').value).toBe('name: Saved'),
 		);
@@ -522,7 +612,7 @@ describe('a statement Rupea does not know', () => {
 
 	it('starts from the example', async () => {
 		const { user } = unknown();
-		await user.click(await screen.findByRole('button', { name: 'The example' }));
+		await user.click(await screen.findByRole('button', { name: 'Start from the example' }));
 
 		expect(screen.getByLabelText<HTMLTextAreaElement>('Schema').value).toContain(
 			'name: HDFC Bank savings account',

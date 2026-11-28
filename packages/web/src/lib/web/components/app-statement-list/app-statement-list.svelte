@@ -39,7 +39,10 @@
 			transactions to this ledger.
 		</p>
 	{:else}
-		<LedgerTable columns={[{ label: 'Statement' }, { label: 'Status' }, { label: '' }]}>
+		<LedgerTable
+			scroll={false}
+			columns={[{ label: 'Statement' }, { label: 'Status' }, { label: '' }]}
+		>
 			<tbody>
 				{#each rows as row (row.key)}
 					{@const status = STATUSES[row.status]}
@@ -107,6 +110,7 @@
 	tr {
 		display: grid;
 		padding-block: var(--size-2);
+		padding-bottom: var(--size-2);
 		grid-template-areas:
 			'name actions'
 			'status .';
@@ -126,7 +130,8 @@
 		padding-top: 0;
 	}
 
-	tr :is(th, td) {
+	tr :is(th, td),
+	tr:last-of-type {
 		padding: 0;
 	}
 

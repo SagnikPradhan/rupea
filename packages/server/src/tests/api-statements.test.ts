@@ -475,6 +475,49 @@ describe('reading statements', () => {
 		}));
 });
 
+describe('reading the original statement', () => {
+	it('answers the stored bytes under the name they were uploaded with', ({ context }) =>
+		provide(context, async () => {
+			const { api, base, headers, upload } = await seeded(context);
+			const key = await upload('aug.csv');
+
+			const reply = await api.inject({
+				url: `${base}/statements/original?statement=${key}`,
+				headers,
+			});
+
+			expect(reply.statusCode).toBe(200);
+			expect(reply.body).toBe(statement);
+			expect(reply.headers['content-disposition']).toContain('aug.csv');
+		}));
+
+	it('answers 404 for a statement that is not stored', ({ context }) =>
+		provide(context, async () => {
+			const { api, base, headers } = await seeded(context);
+
+			const reply = await api.inject({
+				url: `${base}/statements/original?statement=20200101/none.csv`,
+				headers,
+			});
+
+			expect(reply.statusCode).toBe(404);
+		}));
+
+	it('answers 404 for the ledger of another owner', ({ context }) =>
+		provide(context, async () => {
+			const { api, base, upload } = await seeded(context);
+			const key = await upload('aug.csv');
+			const stranger = await bearerOf((await createLedger(context.db)).owner);
+
+			const reply = await api.inject({
+				url: `${base}/statements/original?statement=${key}`,
+				headers: stranger,
+			});
+
+			expect(reply.statusCode).toBe(404);
+		}));
+});
+
 describe('unlocking a statement', () => {
 	it('opens a locked sheet with its password, and answers its grid', ({ context }) =>
 		provide(context, async () => {

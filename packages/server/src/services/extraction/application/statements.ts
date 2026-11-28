@@ -98,6 +98,12 @@ export const readStatement = ({ ledger, key }: ReadStatementOptions): ResultAsyn
 		),
 	);
 
+type ReadOriginalOptions = { ledger: Ledger; key: string };
+
+/** A statement's file as stored, with the bytes it was uploaded as. */
+export const readOriginal = ({ ledger, key }: ReadOriginalOptions): ResultAsync<Stored> =>
+	openStatements(ledger).andThen((s) => readStored(s, ledger.id, key));
+
 type DropMissingOptions = { ledger: Ledger; keys: string[] };
 
 /** Forgets the statements whose file is gone, and returns the keys still stored. */

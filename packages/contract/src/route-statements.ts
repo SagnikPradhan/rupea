@@ -86,6 +86,21 @@ const readStatement = oc
 	.errors(errors)
 	.output(Contents);
 
+const readOriginalStatement = oc
+	.route({
+		method: 'GET',
+		path: '/ledgers/{handle}/statements/original',
+		operationId: 'statements.readOriginal',
+		description: dedent`
+			Answers a stored statement as the file it was uploaded as, with its bytes.
+
+			Fails with LedgerNotFound when the caller cannot open the ledger.
+		`,
+	})
+	.input(v.object({ handle: Handle, statement: StatementKey }))
+	.errors(errors)
+	.output(v.file());
+
 const deleteStatements = oc
 	.route({
 		method: 'DELETE',
@@ -179,6 +194,7 @@ export const statements = {
 	list: listStatements,
 	listImports,
 	read: readStatement,
+	readOriginal: readOriginalStatement,
 	delete: deleteStatements,
 	unlock: unlockStatement,
 	recognise: recogniseStatement,

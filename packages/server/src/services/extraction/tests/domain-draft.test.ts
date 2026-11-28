@@ -60,7 +60,7 @@ describe('drafting a ledger file', () => {
 			records: [],
 			failed: [],
 		});
-		expect(drafted.key).toBe('_/imports/20260829/hdfc-aug.2026.rupea');
+		expect(drafted.key).toBe('_/20260829/hdfc-aug.2026.csv.rupea');
 	});
 
 	it('copies a ledger file as written, below the metadata of where it came from', () => {
@@ -70,7 +70,7 @@ describe('drafting a ledger file', () => {
 			text: ['- owner: me', '', '2026-08-29 Tea', '\tExpenses:Food 10', '\tAssets:Cash', ''],
 		});
 
-		expect(copied.key).toBe('_/imports/20260829/books.rupea');
+		expect(copied.key).toBe('_/20260829/books.ledger.rupea');
 		expect(copied.content).toBe(
 			[
 				'- statement: 20260829/books.ledger',

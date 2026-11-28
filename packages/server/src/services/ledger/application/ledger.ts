@@ -2,7 +2,7 @@ import { petName } from '#lib/server/shared/names.ts';
 import { errAsync, ok, type Result, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { scoped, type Storage } from '#lib/server/shared/storage/storage.ts';
 import { withStorage } from '#services/storage/application/storage.ts';
-import { STATEMENTS } from '@rupea/shared/files.ts';
+import { REVIEW } from '@rupea/shared/files.ts';
 import * as DB from '../adapters/database';
 import type { LedgerReading, RupeaConfiguration } from '#lib/server/shared/context/config.ts';
 import type { Ledger } from '../domain/types';
@@ -12,13 +12,10 @@ export type { Ledger };
 // A random handle clashes rarely enough that a few tries settle it.
 const TRIES = 5;
 
-/**
- * Statements wait for review among the files, beside what is imported from
- * them.
- */
+/** Statements wait for review among the files, each beside its draft. */
 const FOLDERS = {
 	files: 'files',
-	statements: `files/${STATEMENTS}`,
+	statements: `files/${REVIEW}`,
 	schemas: 'schemas',
 };
 

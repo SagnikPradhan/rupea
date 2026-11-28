@@ -11,12 +11,10 @@ export const MOST_DRAFT = 1024 * 1024;
 export const MOST_KEYS = 1000;
 
 /**
- * Where uploads and their imports wait for review; the ledger counts nothing
- * under it.
+ * Where uploads and their imports wait for review, a statement and its draft
+ * side by side; the ledger counts nothing under it.
  */
-const REVIEW = '_';
-export const STATEMENTS = `${REVIEW}/statements`;
-export const IMPORTS = `${REVIEW}/imports`;
+export const REVIEW = '_';
 
 export const isCounted = (k: string) => !k.startsWith(`${REVIEW}/`);
 

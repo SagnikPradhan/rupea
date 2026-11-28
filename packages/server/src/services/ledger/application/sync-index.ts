@@ -4,7 +4,7 @@ import { fault, type RupeaError } from '@rupea/shared/errors.ts';
 import { inOrder, ok, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { readText, type Entry, type Storage } from '#lib/server/shared/storage/storage.ts';
 import type { Span } from '@rupea/shared/dates.ts';
-import { isCounted, STATEMENTS } from '@rupea/shared/files.ts';
+import { isCounted } from '@rupea/shared/files.ts';
 import * as DB from '../adapters/database';
 import { DEFAULT_COMMODITY } from '../domain/amounts';
 import { baseOf, parseChanged } from '../domain/parser';
@@ -49,7 +49,7 @@ export const listLedgerFiles = (storage: Storage): ResultAsync<Entry[]> =>
 	storage
 		.list()
 		.mapErr((e) => fault('CannotReadDirectory', { path: '', cause: [e] }))
-		.map((e) => e.filter((f) => f.key.endsWith('.rupea') && !f.key.startsWith(`${STATEMENTS}/`)));
+		.map((e) => e.filter((f) => f.key.endsWith('.rupea')));
 
 type IndexEachOptions = {
 	ledgerId: string;

@@ -48,6 +48,17 @@ const readStatement = os.statements.read
 		return { key: read.key, grid: read.grid };
 	});
 
+const readOriginalStatement = os.statements.readOriginal
+	.use(signedIn)
+	.handler(async ({ input: { handle, statement } }) => {
+		const original = await inLedger({
+			handle,
+			action: (l) => Statements.readOriginalStatement({ ledger: l, key: statement }),
+		});
+
+		return new File([new Uint8Array(original.content)], statement.split('/').pop() ?? statement);
+	});
+
 const deleteStatements = os.statements.delete
 	.use(signedIn)
 	.handler(async ({ input: { handle, keys } }) =>
@@ -105,6 +116,7 @@ export const statements = {
 	list: listStatements,
 	listImports,
 	read: readStatement,
+	readOriginal: readOriginalStatement,
 	delete: deleteStatements,
 	unlock: unlockStatement,
 	recognise: recogniseStatement,

@@ -475,6 +475,17 @@ describe('the edit transaction panel', () => {
 		});
 	});
 
+	it('reads the transaction afresh after saving, so opening it again shows the change', async () => {
+		const refresh = vi.fn(() => Promise.resolve());
+		vi.mocked(findTransaction).mockReturnValue(Object.assign(answer(read), { refresh }));
+		vi.mocked(saveTransaction).mockResolvedValue(done);
+		await editing();
+		await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
+
+		await vi.waitFor(() => expect(goto).toHaveBeenCalled());
+		expect(refresh).toHaveBeenCalled();
+	});
+
 	it('says why the server refused, and stays', async () => {
 		vi.mocked(saveTransaction).mockResolvedValue({
 			ok: false,

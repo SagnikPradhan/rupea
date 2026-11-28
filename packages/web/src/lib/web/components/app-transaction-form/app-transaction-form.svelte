@@ -7,7 +7,7 @@
 		saveTransaction,
 	} from '#lib/endpoints/files.remote.ts';
 	import type { RupeaError } from '@rupea/shared/errors.ts';
-	import { TransactionForm } from '@rupea/shared/forms.ts';
+	import { TransactionEdit, TransactionForm } from '@rupea/shared/forms.ts';
 	import { KINDS, simpleOf, type Kind } from '#lib/web/shared/transaction-simple.ts';
 	import IconButton from '#lib/web/components/ui-button-icon/ui-button-icon.svelte';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
@@ -38,8 +38,8 @@
 		newest: string | null;
 		/** A transaction to change, as it was read from its file. */
 		edit?: { file: string; line: number; version: string; form: TransactionForm } | undefined;
-		/** Called after a transaction is written. */
-		onsaved: () => void;
+		/** Called after a transaction is written, with the line an edit ended up on. */
+		onsaved: (line?: number) => void;
 	};
 
 	type Entries = { key: string; value: string }[];
@@ -166,7 +166,11 @@
 
 		const postings = mode.detail ? form.postings : postingsOfSimple();
 		const description = form.description.trim() || (mode.detail ? '' : describedSimple());
-		const checked = v.safeParse(TransactionForm, { ...form, description, postings });
+		const checked = v.safeParse(edit ? TransactionEdit : TransactionForm, {
+			...form,
+			description,
+			postings,
+		});
 		const noAmount = !mode.detail && simple.amount.trim() === '';
 		status.issues = {
 			...(checked.success ? {} : issuesByPath(checked.issues)),
@@ -187,7 +191,7 @@
 		if (!written.data) return;
 
 		status.saved = written.data;
-		onsaved();
+		onsaved(edit ? written.data.line : undefined);
 		if (edit) return;
 
 		Object.assign(form, {

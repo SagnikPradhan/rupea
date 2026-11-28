@@ -110,8 +110,14 @@ const tea = {
 	description: 'Tea',
 	comment: null,
 	postings: [
-		{ account: 'Expenses:Food', quantity: '10' },
-		{ account: 'Assets:Cash', quantity: '-10' },
+		{
+			account: 'Expenses:Food',
+			quantity: { amount: '10', commodity: 'INR', price: null, cost: null },
+		},
+		{
+			account: 'Assets:Cash',
+			quantity: { amount: '-10', commodity: 'INR', price: null, cost: null },
+		},
 	],
 };
 

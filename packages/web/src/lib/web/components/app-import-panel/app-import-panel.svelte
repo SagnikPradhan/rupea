@@ -88,16 +88,16 @@
 <style>
 	.drop {
 		display: flex;
-		flex-direction: column;
-		gap: var(--size-0);
-		align-items: center;
 		width: 100%;
 		padding: var(--size-4) var(--size-2);
-		border: var(--size-line-1) dashed var(--color-ink-3);
-		border-radius: var(--radius-1);
-		background: none;
+		flex-direction: column;
+		align-items: center;
+		gap: var(--size-0);
 		color: var(--color-ink);
 		font: var(--text-base);
+		background: none;
+		border: var(--size-line-1) dashed var(--color-ink-3);
+		border-radius: var(--radius-1);
 		cursor: pointer;
 	}
 
@@ -107,8 +107,8 @@
 
 	.drop:hover,
 	.over {
-		border-color: var(--color-ink);
 		background: var(--color-subtle);
+		border-color: var(--color-ink);
 	}
 
 	.drop:disabled {

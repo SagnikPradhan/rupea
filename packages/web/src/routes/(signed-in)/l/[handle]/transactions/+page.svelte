@@ -22,8 +22,6 @@
 	import { paged } from '#lib/web/shared/paged.svelte.ts';
 	import { page } from '$app/state';
 
-	const formats = formatsHere();
-
 	const { data } = $props();
 
 	const day = formatIsoDate(new Date());

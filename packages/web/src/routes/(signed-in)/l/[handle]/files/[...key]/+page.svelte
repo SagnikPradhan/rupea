@@ -248,16 +248,16 @@
 <style>
 	.main {
 		display: flex;
+		min-width: 0;
 		flex-direction: column;
 		gap: var(--size-3);
-		min-width: 0;
 	}
 
 	.side {
 		display: flex;
+		min-width: 0;
 		flex-direction: column;
 		gap: var(--size-3);
-		min-width: 0;
 	}
 
 	.side > :global(*) {

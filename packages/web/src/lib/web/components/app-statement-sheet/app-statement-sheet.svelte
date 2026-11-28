@@ -37,31 +37,31 @@
 <style>
 	.sheet {
 		width: 100%;
-		overflow-x: auto;
 		border: var(--size-line-0) solid var(--color-border);
 		border-radius: var(--radius-1);
+		overflow-x: auto;
 	}
 
 	table {
 		width: 100%;
-		border-collapse: collapse;
 		font: var(--text-data);
+		border-collapse: collapse;
 	}
 
 	th,
 	td {
 		padding: var(--size-1) var(--size-2);
-		border: var(--size-line-0) solid var(--color-border);
 		vertical-align: top;
+		border: var(--size-line-0) solid var(--color-border);
 	}
 
 	th {
 		position: sticky;
-		background: var(--color-surface);
 		color: var(--color-muted);
 		font: var(--text-label);
 		font-family: var(--font-mono);
 		text-align: center;
+		background: var(--color-surface);
 	}
 
 	td {
@@ -80,6 +80,6 @@
 
 	thead th:first-child {
 		left: 0;
-		z-index: 1;
+		z-index: var(--layer-raised);
 	}
 </style>

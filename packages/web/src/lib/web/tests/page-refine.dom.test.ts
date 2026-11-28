@@ -1,4 +1,3 @@
-import userEvent from '@testing-library/user-event';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';

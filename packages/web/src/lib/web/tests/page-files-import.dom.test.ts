@@ -103,8 +103,14 @@ const found = {
 	time: null,
 	description: 'NEFT',
 	postings: [
-		{ account: 'Assets:Bank:HDFC', quantity: '-100.00' },
-		{ account: 'Expenses:Unknown', quantity: '100.00' },
+		{
+			account: 'Assets:Bank:HDFC',
+			quantity: { amount: '-100.00', commodity: 'INR', price: null, cost: null },
+		},
+		{
+			account: 'Expenses:Unknown',
+			quantity: { amount: '100.00', commodity: 'INR', price: null, cost: null },
+		},
 	],
 };
 

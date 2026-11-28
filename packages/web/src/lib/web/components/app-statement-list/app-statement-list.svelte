@@ -100,18 +100,18 @@
 		position: absolute;
 		width: var(--size-line-0);
 		height: var(--size-line-0);
-		overflow: hidden;
 		clip-path: inset(50%);
+		overflow: hidden;
 	}
 
 	tr {
 		display: grid;
-		grid-template-columns: minmax(0, 1fr) auto;
+		padding-block: var(--size-2);
 		grid-template-areas:
 			'name actions'
 			'status .';
+		grid-template-columns: minmax(0, 1fr) auto;
 		align-items: center;
-		padding-block: var(--size-2);
 	}
 
 	section :global(tbody tr) {
@@ -136,8 +136,8 @@
 	}
 
 	td.status {
-		grid-area: status;
 		padding-top: var(--size-0);
+		grid-area: status;
 		color: var(--color-muted);
 	}
 
@@ -146,8 +146,8 @@
 	}
 
 	td.actions {
-		grid-area: actions;
 		margin-block: calc(var(--size-1) * -1);
+		grid-area: actions;
 	}
 
 	tr.child td {

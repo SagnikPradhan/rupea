@@ -25,7 +25,6 @@
 	import Dialog from '#lib/web/components/ui-dialog/ui-dialog.svelte';
 	import Combobox from '#lib/web/components/ui-combobox/ui-combobox.svelte';
 	import Field from '#lib/web/components/ui-field/ui-field.svelte';
-	import Combobox from '#lib/web/components/ui-combobox/ui-combobox.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import Account from '#lib/web/components/app-ledger-table/account.svelte';
 	import TransactionsFound from '#lib/web/components/app-transactions-found/app-transactions-found.svelte';
@@ -34,8 +33,6 @@
 	import { fileHref } from '#lib/web/shared/links.ts';
 	import { accountOf, statusOf, suggestedFile } from '#lib/web/shared/statements.ts';
 	import { untrack, type Snippet } from 'svelte';
-
-	const formats = formatsHere();
 
 	type Schema = { key: string; content: string };
 
@@ -465,7 +462,7 @@
 
 	footer {
 		display: flex;
-		gap: var(--size-1);
 		justify-content: flex-end;
+		gap: var(--size-1);
 	}
 </style>

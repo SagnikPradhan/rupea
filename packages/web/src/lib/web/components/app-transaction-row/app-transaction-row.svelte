@@ -2,9 +2,12 @@
 	import Account from '#lib/web/components/app-ledger-table/account.svelte';
 	import Amount from '#lib/web/components/app-ledger-table/amount.svelte';
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
-	import { formatDate } from '#lib/web/shared/format.ts';
+	import { formatsHere } from '#lib/web/shared/format.ts';
 	import type { ResolvedPathname } from '$app/types';
 	import { rowOf } from '#lib/web/shared/transaction-row.ts';
+	import type { PostedOut } from '@rupea/shared/money.ts';
+
+	const formats = formatsHere();
 
 	type Props = {
 		transaction: {
@@ -12,7 +15,7 @@
 			time: string | null;
 			description: string;
 			comment: string | null;
-			postings: { account: string; quantity: string }[];
+			postings: { account: string; quantity: PostedOut }[];
 		};
 		/** Where the description leads; plain text without it. */
 		href?: ResolvedPathname | undefined;
@@ -27,7 +30,7 @@
 
 <tr class:evidence>
 	<td class="date">
-		<time datetime={transaction.date}>{formatDate(transaction.date)}</time>
+		<time datetime={transaction.date}>{formats.date(transaction.date)}</time>
 		{#if transaction.time}<span>{transaction.time}</span>{/if}
 	</td>
 	<td class="optional truncate">
@@ -69,22 +72,22 @@
 
 	.line {
 		display: flex;
-		gap: var(--size-0) var(--size-2);
 		align-items: baseline;
+		gap: var(--size-0) var(--size-2);
 	}
 
 	.name {
 		min-width: 0;
-		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+		overflow: hidden;
 	}
 
 	.cell {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--size-0) var(--size-2);
 		align-items: baseline;
+		gap: var(--size-0) var(--size-2);
 	}
 
 	.evidence :is(td, th, a) {

@@ -108,7 +108,7 @@ describe('the add transaction panel', () => {
 		await save();
 
 		const link = (await screen.findByRole('link', { name: 'b.rupea:7' })) as HTMLAnchorElement;
-		expect(link.getAttribute('href')).toBe('/l/h/files?file=b.rupea&line=7');
+		expect(link.getAttribute('href')).toBe('/l/h/files/b.rupea?line=7');
 		expect(vi.mocked(createTransaction).mock.calls[0]?.[0]).toMatchObject({
 			handle: 'h',
 			form: {
@@ -172,7 +172,7 @@ describe('the add transaction panel', () => {
 		await fireEvent.keyDown(window, { key: 'Escape' });
 
 		expect(goto).toHaveBeenCalledTimes(2);
-		expect(goto).toHaveBeenCalledWith('/l/h/transactions?at=2026-08');
+		expect(goto).toHaveBeenCalledWith('/l/h/transactions?at=2026-08', { reset: false });
 		expect(screen.queryByRole('link', { name: 'Cancel' })).toBeNull();
 	});
 
@@ -463,7 +463,9 @@ describe('the edit transaction panel', () => {
 		await type('Description', 'Groceries and fruit');
 		await fireEvent.click(screen.getByRole('button', { name: 'Save changes' }));
 
-		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/l/h/transactions?at=2026-08'));
+		await vi.waitFor(() =>
+			expect(goto).toHaveBeenCalledWith('/l/h/transactions?at=2026-08', { reset: false }),
+		);
 		expect(vi.mocked(saveTransaction).mock.calls[0]?.[0]).toMatchObject({
 			handle: 'h',
 			file: 'a.rupea',
@@ -495,7 +497,9 @@ describe('the edit transaction panel', () => {
 		await editing();
 		await fireEvent.click(screen.getByRole('button', { name: 'Delete' }));
 
-		await vi.waitFor(() => expect(goto).toHaveBeenCalledWith('/l/h/transactions?at=2026-08'));
+		await vi.waitFor(() =>
+			expect(goto).toHaveBeenCalledWith('/l/h/transactions?at=2026-08', { reset: false }),
+		);
 		expect(vi.mocked(deleteTransaction).mock.calls[0]?.[0]).toEqual({
 			handle: 'h',
 			file: 'a.rupea',

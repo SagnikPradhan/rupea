@@ -32,7 +32,7 @@
 	:global([data-dialog-overlay]) {
 		position: fixed;
 		inset: 0;
-		z-index: 2;
+		z-index: var(--layer-overlay);
 		background: var(--color-scrim);
 		backdrop-filter: blur(var(--size-1));
 	}
@@ -41,19 +41,19 @@
 		position: fixed;
 		inset-block-start: 50%;
 		inset-inline-start: 50%;
-		z-index: 3;
+		z-index: var(--layer-overlay);
 		display: flex;
-		flex-direction: column;
-		gap: var(--size-2);
 		width: min(100vw - var(--size-3) * 2, var(--size-2) * 30);
 		max-height: calc(100svh - var(--size-3) * 2);
-		overflow-y: auto;
 		padding: var(--size-3);
+		flex-direction: column;
+		gap: var(--size-2);
+		color: var(--color-ink);
+		background: var(--color-surface);
 		border: var(--size-line-0) solid var(--color-border);
 		border-radius: var(--radius-2);
-		background: var(--color-surface);
-		color: var(--color-ink);
 		transform: translate(-50%, -50%);
+		overflow-y: auto;
 	}
 
 	header {

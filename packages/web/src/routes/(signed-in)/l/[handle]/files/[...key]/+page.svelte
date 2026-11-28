@@ -166,7 +166,7 @@
 
 	async function transactionSaved(moved?: number) {
 		revision.count++;
-		if (target !== null) await editor.reload();
+		if (target !== null && !editor.dirty) await editor.reload();
 		if (target !== null) void refreshAfterSave(target);
 		if (target !== null && moved !== undefined)
 			await findTransactionAt({ handle, file: target, line: moved }).refresh();

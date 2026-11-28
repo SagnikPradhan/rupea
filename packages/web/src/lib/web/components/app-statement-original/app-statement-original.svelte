@@ -18,7 +18,8 @@
 	});
 
 	async function load(key: string) {
-		read.found = await readStatement({ handle, statement: key });
+		const found = await readStatement({ handle, statement: key });
+		if (key === statement) read.found = found;
 	}
 </script>
 

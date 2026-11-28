@@ -5,6 +5,7 @@
 	import { TermsForm } from '@rupea/shared/forms.ts';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import Field from '#lib/web/components/ui-field/ui-field.svelte';
+	import Select from '#lib/web/components/ui-select/ui-select.svelte';
 	import SegmentedControl from '#lib/web/components/ui-segmented-control/ui-segmented-control.svelte';
 	import { explain } from '#lib/web/shared/errors.ts';
 	import { formatsHere } from '#lib/web/shared/format.ts';
@@ -38,9 +39,10 @@
 		 */
 		current: Record<string, string>;
 		onsaved: () => void;
+		oncancel: () => void;
 	};
 
-	const { handle, account, current, onsaved }: Props = $props();
+	const { handle, account, current, onsaved, oncancel }: Props = $props();
 
 	const first = (key: string) => untrack(() => current[key] ?? '');
 
@@ -108,7 +110,6 @@
 
 <form onsubmit={save} novalidate autocomplete="off">
 	<SegmentedControl
-		fill
 		label="Kind"
 		segments={[
 			{ name: 'Loan', chosen: form.kind === 'loan', onclick: () => (form.kind = 'loan') },
@@ -126,11 +127,11 @@
 
 	{#if form.kind === 'loan'}
 		<Field label="Interest" hint="How the interest is worked out.">
-			<select bind:value={form.method}>
-				{#each Object.entries(METHODS) as [value, label] (value)}
-					<option {value}>{label}</option>
-				{/each}
-			</select>
+			<Select
+				value={form.method}
+				options={Object.entries(METHODS).map(([value, label]) => ({ value, label }))}
+				onchange={(value: string) => (form.method = value === 'flat' ? 'flat' : 'reducing')}
+			/>
 		</Field>
 	{/if}
 	{#if flat}
@@ -151,6 +152,7 @@
 
 	<div class="buttons">
 		<Button primary icon={ICONS.check} disabled={saveTerms.pending > 0}>Save</Button>
+		<Button type="button" onclick={oncancel}>Cancel</Button>
 	</div>
 
 	{#if status.saved}<p role="status">Saved in {status.saved}</p>{/if}
@@ -163,15 +165,18 @@
 		gap: var(--size-3);
 	}
 
-	input,
-	select {
+	form > :global(nav) {
+		align-self: start;
+	}
+
+	input {
 		width: 100%;
 	}
 
 	.pair {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--size-2);
+		gap: var(--size-3) var(--size-2);
 	}
 
 	p {
@@ -184,7 +189,6 @@
 
 	.buttons {
 		display: flex;
-		padding-block-start: var(--size-3);
-		border-block-start: var(--size-line-0) solid var(--color-border);
+		gap: var(--size-1);
 	}
 </style>

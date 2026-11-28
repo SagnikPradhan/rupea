@@ -72,10 +72,12 @@ Boards exist at 1920, 1280 and 768 wide, in light and dark, and the page follows
 - **Segmented control.** Pick one of a few views. The chosen segment sits on a bordered surface; the others are muted text.
 - **Toggle and checkbox.** A setting, or a selected row. On is ink.
 - **Field.** A muted label over an outlined input.
+- **Select.** Pick one of many: an outlined button holding the choice and a chevron, opening a list under it with a check by the choice. Use `ui-select`, never a native select.
 - **Search popover.** Results under a search field, with the matching part of an account path in ink.
 - **Filter card.** A page's filters: groups of chips and segments, and one toggle for extra options.
 - **Filter modal.** What the Filter button in a page header opens: an outlined card at the top right with a title and a close button, the filter card, then Reset and Apply. The page behind it is not dimmed.
 - **Aside.** What add and edit open: a panel beside the page from 90rem, a card at the top right below that, and the whole screen under 48rem, with a title and a close button. The close button may be left out beside the page when the page keeps its own way to close in view. Use `ui-aside` inside a wide `ui-panel-grid` for any such side form.
+- **Setting.** Settings is one long page, so its add and edit forms open in place under the setting, not in an aside. Groups take `text-heading-1`, each setting a panel heading, and its fields the usual labels.
 - **Coming soon.** A dashed outline with a title and one muted line, "Needs data Rupea does not read yet". It stands in for a block whose data does not exist, so a page never shows invented numbers.
 
 ## Code

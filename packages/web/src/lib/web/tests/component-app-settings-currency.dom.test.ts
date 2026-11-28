@@ -18,17 +18,21 @@ describe('the base currency in settings', () => {
 	it('offers only the currencies a price links to, the base chosen', async () => {
 		open(['EUR', 'INR', 'USD']);
 
-		const picker = (await screen.findByLabelText(/Base currency/)) as HTMLSelectElement;
-		expect([...picker.options].map((o) => o.value)).toEqual(['EUR', 'INR', 'USD']);
-		expect(picker.value).toBe('INR');
+		const picker = await screen.findByRole('combobox', { name: 'Base currency' });
+		expect(picker.textContent).toContain('INR');
+
+		await userEvent.click(picker);
+		const offered = await screen.findAllByRole('option');
+		expect(offered.map((o) => o.textContent?.trim())).toEqual(['EUR', 'INR', 'USD']);
 	});
 
 	it('saves the currency chosen and refreshes the ledgers', async () => {
 		vi.mocked(saveBase).mockResolvedValue({ data: null, errors: [] } as never);
 		open(['INR', 'USD']);
 
-		await userEvent.selectOptions(await screen.findByLabelText(/Base currency/), 'USD');
-		await fireEvent.click(screen.getByRole('button', { name: 'Save currency' }));
+		await userEvent.click(await screen.findByRole('combobox', { name: 'Base currency' }));
+		await userEvent.click(await screen.findByRole('option', { name: 'USD' }));
+		await fireEvent.click(screen.getByRole('button', { name: 'Save' }));
 
 		expect(await screen.findByText('Saved.')).toBeTruthy();
 		expect(saveBase).toHaveBeenCalledWith({ handle: 'h', base: 'USD' });
@@ -42,7 +46,7 @@ describe('the base currency in settings', () => {
 		} as never);
 		open(['INR']);
 
-		await fireEvent.click(await screen.findByRole('button', { name: 'Save currency' }));
+		await fireEvent.click(await screen.findByRole('button', { name: 'Save' }));
 
 		expect(
 			await screen.findByText(

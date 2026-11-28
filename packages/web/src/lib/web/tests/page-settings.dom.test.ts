@@ -22,6 +22,13 @@ vi.mock('#lib/endpoints/auth.remote.ts', () => ({
 	sendCode: vi.fn(),
 }));
 
+vi.stubGlobal(
+	'IntersectionObserver',
+	vi.fn(function () {
+		return { observe: vi.fn(), disconnect: vi.fn() };
+	}),
+);
+
 const ledgers = [
 	{ handle: 'a', name: 'Personal', base: 'INR' },
 	{ handle: 'b', name: 'Family', base: 'USD' },
@@ -42,29 +49,31 @@ describe('the settings page', () => {
 		expect(screen.getByRole('link', { name: 'You' }).getAttribute('href')).toBe('#you');
 	});
 
-	it('sets up each ledger in a section of its own', async () => {
+	it('sets up each ledger in a section under its name', async () => {
 		open(ledgers);
 
-		expect(await screen.findByText('What each category may spend in Personal')).toBeTruthy();
-		expect(screen.getByText('What each category may spend in Family')).toBeTruthy();
+		expect(await screen.findByRole('region', { name: 'Personal' })).toBeTruthy();
+		expect(screen.getByRole('region', { name: 'Family' })).toBeTruthy();
 	});
 
-	it('lists the sections of each ledger, under its name', async () => {
+	it('lists the sections of each ledger, under a link to it', async () => {
 		open(ledgers);
 
-		const family = within(await screen.findByRole('list', { name: 'Family' }));
-		expect(family.getByText('Family')).toBeTruthy();
-		expect(family.getByRole('link', { name: 'Budgets' }).getAttribute('href')).toBe('#b-budgets');
+		const nav = within(await screen.findByRole('navigation', { name: 'Settings sections' }));
+		expect(nav.getByRole('link', { name: 'Family' }).getAttribute('href')).toBe('#b');
+		const family = within(nav.getByRole('list', { name: 'Family' }));
 		expect(family.getByRole('link', { name: 'Currency' }).getAttribute('href')).toBe('#b-currency');
+		expect(family.getByRole('link', { name: 'Cards and loans' }).getAttribute('href')).toBe(
+			'#b-accounts',
+		);
+		expect(family.getByRole('link', { name: 'Budgets' }).getAttribute('href')).toBe('#b-budgets');
 	});
 
-	it('leaves out the name of a ledger that is the only one', async () => {
-		open(ledgers.slice(0, 1));
+	it('marks where the page starts as the section in view', async () => {
+		open(ledgers);
 
-		const sections = within(await screen.findByRole('list', { name: 'Personal' }));
-		expect(sections.queryByText('Personal')).toBeNull();
-		expect(sections.getByRole('link', { name: 'Accounts' }).getAttribute('href')).toBe(
-			'#a-accounts',
-		);
+		const you = await screen.findByRole('link', { name: 'You' });
+		expect(you.getAttribute('aria-current')).toBe('location');
+		expect(screen.getByRole('link', { name: 'Personal' }).getAttribute('aria-current')).toBeNull();
 	});
 });

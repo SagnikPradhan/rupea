@@ -85,6 +85,15 @@ export const TransactionForm = v.object({
 
 export type TransactionForm = v.InferOutput<typeof TransactionForm>;
 
+/**
+ * A transaction rewritten where it stands, which may be in a draft in the
+ * review area, where a new one may not go.
+ */
+export const TransactionEdit = v.object({
+	...TransactionForm.entries,
+	file: v.pipe(Line, v.endsWith('.rupea', 'Ledger files end in .rupea.')),
+});
+
 const MetadataOut = v.object({ key: v.string(), value: v.string() });
 
 /**

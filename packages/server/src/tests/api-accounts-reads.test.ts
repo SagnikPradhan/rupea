@@ -309,7 +309,7 @@ describe('the accounts api', () => {
 		['GET', 'files/content?key=a.rupea'],
 		['GET', 'latest-file?account=Assets:Bank'],
 		['GET', 'transaction-files'],
-		['GET', 'transactions/0194f5e0-0000-7000-8000-000000000000'],
+		['GET', 'transaction?id=0194f5e0-0000-7000-8000-000000000000'],
 		['POST', 'transactions', { form: draft }],
 		['PUT', 'transactions', { file: 'a.rupea', line: 1, version: 'v', form: draft }],
 		['DELETE', 'transactions', { file: 'a.rupea', line: 1, version: 'v' }],

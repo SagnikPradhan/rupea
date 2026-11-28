@@ -148,33 +148,30 @@ export const createTransaction = ({
 
 type TransactionAt = { ledger: Ledger; file: string; line: number };
 
-type FindTransactionOptions = { ledger: Ledger; id: string };
-
-/**
- * The form of an indexed transaction, with where it stands and the version of
- * the file it was read from.
- */
-export const findTransaction = ({
-	ledger,
-	id,
-}: FindTransactionOptions): ResultAsync<{
+type FoundTransaction = {
 	file: string;
 	line: number;
 	form: TransactionForm;
 	version: string;
-}> =>
-	DB.findTransactions(ledger.id, [id]).andThen(([indexed]) => {
-		if (!indexed) return errAsync(fault('TransactionNotFound', { path: id, line: 0 }));
+};
 
-		const { file, line } = indexed.location;
-		return openFolder({ ledger, folder: 'files' }).andThen((s) =>
-			readText(s, file).andThen((f) =>
-				withContext('config')((c) => find(readingOf(c, ledger), { file: f, line })).asyncAndThen(
-					(t) => okAsync({ file, line, form: t, version: f.version }),
-				),
-			),
-		);
-	});
+type FindTransactionOptions = { ledger: Ledger; id: string } | TransactionAt;
+
+/**
+ * The form of a transaction, found by its id or by the line it starts at, with
+ * where it stands and the version of the file it was read from. A draft's
+ * transactions have no id, as nothing waiting for review is indexed.
+ */
+export const findTransaction = (options: FindTransactionOptions): ResultAsync<FoundTransaction> => {
+	const ledger = options.ledger;
+	if (!('id' in options)) return readTransaction(ledger, options);
+
+	return DB.findTransactions(ledger.id, [options.id]).andThen(([indexed]) =>
+		indexed
+			? readTransaction(ledger, indexed.location)
+			: errAsync(fault('TransactionNotFound', { path: options.id, line: 0 })),
+	);
+};
 
 type SaveTransactionOptions = TransactionAt & { version: string; form: TransactionForm };
 
@@ -256,6 +253,18 @@ export const deleteFiles = ({ ledger, keys }: DeleteFilesOptions): ResultAsync<B
 	openFolder({ ledger, folder: 'files' }).andThen((s) =>
 		batchInOrder(keys.map((k) => () => s.delete(k).map(() => k))).andThen((b) =>
 			withFailures(b, reindex({ ledgerId: ledger.id, storage: s, gone: b.succeeded })),
+		),
+	);
+
+const readTransaction = (
+	ledger: Ledger,
+	{ file, line }: { file: string; line: number },
+): ResultAsync<FoundTransaction> =>
+	openFolder({ ledger, folder: 'files' }).andThen((s) =>
+		readText(s, file).andThen((f) =>
+			withContext('config')((c) => find(readingOf(c, ledger), { file: f, line })).asyncAndThen(
+				(t) => okAsync({ file, line, form: t, version: f.version }),
+			),
 		),
 	);
 

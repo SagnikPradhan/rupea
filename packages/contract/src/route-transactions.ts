@@ -1,7 +1,7 @@
 import { oc } from '@orpc/contract';
 import dedent from 'dedent';
 import { Key, Line } from '@rupea/shared/files.ts';
-import { TransactionForm, TransactionFormOut } from '@rupea/shared/forms.ts';
+import { TransactionEdit, TransactionForm, TransactionFormOut } from '@rupea/shared/forms.ts';
 import { Handle } from '@rupea/shared/text.ts';
 import * as v from 'valibot';
 import { errors } from './errors.ts';
@@ -86,17 +86,29 @@ const createTransaction = oc
 const findTransaction = oc
 	.route({
 		method: 'GET',
-		path: '/ledgers/{handle}/transactions/{id}',
+		path: '/ledgers/{handle}/transaction',
 		operationId: 'transactions.find',
 		description: dedent`
-			Answers the form of an indexed transaction by id, with the file and line
-			it stands at and the version of the file it was read from.
+			Answers the form of a transaction, by its id or by the file and line it
+			starts at, with where it stands and the version of the file it was read
+			from. A draft's transactions have no id, so they are found by line. A
+			query string carries the line as text.
 
-			Fails with TransactionNotFound when the ledger has no such transaction.
-			Fails with LedgerNotFound when the caller cannot open the ledger.
+			Fails with TransactionNotFound when there is no such transaction. Fails
+			with StorageNotFound when there is no such file. Fails with
+			LedgerNotFound when the caller cannot open the ledger.
 		`,
 	})
-	.input(v.object({ handle: Handle, id: v.pipe(v.string(), v.uuid()) }))
+	.input(
+		v.union([
+			v.object({ handle: Handle, id: v.pipe(v.string(), v.uuid()) }),
+			v.object({
+				handle: Handle,
+				file: Key,
+				line: v.union([Line, v.pipe(v.string(), v.regex(/^\d+$/), v.transform(Number), Line)]),
+			}),
+		]),
+	)
 	.errors(errors)
 	.output(v.object({ ...Location.entries, version: Version, form: TransactionFormOut }));
 
@@ -114,7 +126,7 @@ const saveTransaction = oc
 		`,
 	})
 	.input(
-		v.object({ handle: Handle, file: Key, line: Line, version: Version, form: TransactionForm }),
+		v.object({ handle: Handle, file: Key, line: Line, version: Version, form: TransactionEdit }),
 	)
 	.errors(errors)
 	.output(Location);

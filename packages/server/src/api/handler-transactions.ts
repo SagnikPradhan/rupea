@@ -69,8 +69,8 @@ const createTransaction = os.transactions.create
 
 const findTransaction = os.transactions.find
 	.use(signedIn)
-	.handler(({ input: { handle, id } }) =>
-		inLedger({ handle, action: (l) => Files.findTransaction({ ledger: l, id }) }),
+	.handler(({ input: { handle, ...by } }) =>
+		inLedger({ handle, action: (l) => Files.findTransaction({ ledger: l, ...by }) }),
 	);
 
 const saveTransaction = os.transactions.save

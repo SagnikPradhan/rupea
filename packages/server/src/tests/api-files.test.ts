@@ -366,7 +366,7 @@ describe('the files api', () => {
 				headers,
 			});
 			const id = listed.json().rows[0].id;
-			const found = await api.inject({ url: `${url}/transactions/${id}`, headers });
+			const found = await api.inject({ url: `${url}/transaction?id=${id}`, headers });
 			const changed = { ...form, description: 'Coffee' };
 			const saved = await api.inject({
 				method: 'PUT',
@@ -379,7 +379,7 @@ describe('the files api', () => {
 				headers,
 			});
 			const reread = await api.inject({
-				url: `${url}/transactions/${renamed.json().rows[0].id}`,
+				url: `${url}/transaction?id=${renamed.json().rows[0].id}`,
 				headers,
 			});
 			const deleted = await api.inject({
@@ -418,10 +418,10 @@ describe('the files api', () => {
 				payload: { file: 'a.rupea', line: 1, version: 'old' },
 			});
 			const unknown = await api.inject({
-				url: `${url}/transactions/0194f5e0-0000-7000-8000-000000000000`,
+				url: `${url}/transaction?id=0194f5e0-0000-7000-8000-000000000000`,
 				headers,
 			});
-			const malformed = await api.inject({ url: `${url}/transactions/nope`, headers });
+			const malformed = await api.inject({ url: `${url}/transaction?id=nope`, headers });
 
 			expect(stale.statusCode).toBe(409);
 			expect(unknown.statusCode).toBe(404);
@@ -440,7 +440,7 @@ describe('the files api', () => {
 			const storage = (await openFolder({ ledger, folder: 'files' }))._unsafeUnwrap();
 			await storage.delete('a.rupea');
 
-			const reply = await api.inject({ url: `${url}/transactions/${id}`, headers });
+			const reply = await api.inject({ url: `${url}/transaction?id=${id}`, headers });
 
 			expect(reply.statusCode).toBe(404);
 			expect(reply.json()).toMatchObject({ data: { type: 'StorageNotFound', key: 'a.rupea' } });
@@ -486,7 +486,7 @@ describe('the files api', () => {
 			});
 
 			const found = await api.inject({
-				url: `${url}/transactions/${listed.json().rows[0].id}`,
+				url: `${url}/transaction?id=${listed.json().rows[0].id}`,
 				headers,
 			});
 

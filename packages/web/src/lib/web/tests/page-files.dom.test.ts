@@ -193,7 +193,7 @@ describe('the files page', () => {
 		expect(goto).not.toHaveBeenCalled();
 	});
 
-	it('lets a transaction open and close over unsaved edits, but not another file', async () => {
+	it('lets the import review open and close over unsaved edits, but not another file', async () => {
 		showing('/l/h/files/bank.rupea');
 		await screen.findByRole('link', { name: 'Find matches' });
 		const view = EditorView.findFromDOM(screen.getByRole('textbox'));
@@ -216,10 +216,18 @@ describe('the files page', () => {
 		vi.unstubAllGlobals();
 	});
 
-	it('offers the matches once a file is open, and not on the index', async () => {
+	it('offers the import panel on the index, without matches', async () => {
+		showing('/l/h/files');
+
+		expect(await screen.findByRole('heading', { name: 'Import statements' })).toBeTruthy();
+		expect(screen.queryByRole('heading', { name: 'Matches' })).toBeNull();
+	});
+
+	it('offers the matches, not the import panel, once a file is open', async () => {
 		showing('/l/h/files/bank.rupea');
 
 		expect(await screen.findByRole('heading', { name: 'Matches' })).toBeTruthy();
+		expect(screen.queryByRole('heading', { name: 'Import statements' })).toBeNull();
 	});
 
 	it('titles a counted file by its key', async () => {
@@ -229,12 +237,12 @@ describe('the files page', () => {
 		expect(document.querySelector('h1 + p')?.textContent).toContain('bank.rupea');
 	});
 
-	it('titles the page Files, over your files', async () => {
+	it('titles the page Files, over your files and the import panel, in that order', async () => {
 		showing('/l/h/files');
 
 		expect(await screen.findByRole('heading', { level: 1, name: 'Files' })).toBeTruthy();
 		const titles = screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent);
-		expect(titles).toEqual(['Your files']);
+		expect(titles).toEqual(['Your files', 'Import statements']);
 	});
 
 	it('offers New file at the header, linking to the new file page', async () => {

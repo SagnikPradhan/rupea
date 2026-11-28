@@ -11,19 +11,26 @@
 		readFile,
 		renameFiles,
 	} from '#lib/endpoints/files.remote.ts';
+	import { listStatements } from '#lib/endpoints/import.remote.ts';
 	import { listGroups, listSuggestions } from '#lib/endpoints/refinement.remote.ts';
 	import FileEditor from '#lib/web/components/app-file-editor/app-file-editor.svelte';
 	import FileTransactionAside from '#lib/web/components/app-file-transaction-aside/app-file-transaction-aside.svelte';
 	import FileTransactions from '#lib/web/components/app-file-transactions/app-file-transactions.svelte';
 	import FileMatches from '#lib/web/components/app-file-matches/app-file-matches.svelte';
+	import StatementSteps from '#lib/web/components/app-statement-steps/app-statement-steps.svelte';
+	import StatementView from '#lib/web/components/app-statement-view/app-statement-view.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
+	import FilePath from '#lib/web/components/ui-file-path/ui-file-path.svelte';
+	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
+	import { isCounted, REVIEW } from '@rupea/shared/files.ts';
 	import type { Reply } from '@rupea/shared/errors.ts';
 	import { beforeNavigate, goto } from '$app/navigation';
 	import { fileHref, hrefWith } from '#lib/web/shared/links.ts';
 	import { resolve } from '$app/paths';
 	import { page } from '$app/state';
 	import { untrack } from 'svelte';
+	import type { Parts } from '#lib/web/components/app-statement-view/parts.ts';
 
 	const { data } = $props();
 
@@ -55,17 +62,47 @@
 	);
 
 	const response = $derived(await listFiles(handle));
-	const selected = $derived(page.params.key ?? '');
+	const key = $derived(page.params.key ?? '');
+	const stored = $derived(
+		!isCounted(key) && !key.endsWith('.rupea') ? key.slice(REVIEW.length + 1) : null,
+	);
+	const selected = $derived(stored === null ? key : null);
 	const line = $derived(Number(page.url.searchParams.get('line')) || null);
-	const ui = $derived(page.url.searchParams.get('view') === 'ui');
+	const statements = $derived(await listStatements(handle));
+	const statement = $derived(
+		stored ??
+			(selected !== null && !isCounted(selected)
+				? (statements.data ?? []).find((s) => s.file === selected)?.key
+				: null) ??
+			null,
+	);
+	const draftKey = $derived((statements.data ?? []).find((s) => s.key === statement)?.file ?? null);
+	const draft = $derived(draftKey !== null && !isCounted(draftKey) ? draftKey : null);
+	const target = $derived(selected ?? draft);
+	const reading = $derived(statement !== null && draft === null);
+	const revision = $state({ count: 0 });
+	const ui = $derived(
+		page.url.searchParams.get('view') === 'ui' ||
+			(draft !== null && page.url.searchParams.get('view') === null),
+	);
 	const at = $derived(Number(page.url.searchParams.get('edit')) || null);
-	const editing = $derived(ui ? selected : null);
+	const editing = $derived(ui ? target : null);
+	const aside = $derived(editing !== null && at !== null);
+	const roomy = $derived(statement !== null && !aside);
+	const grid = $derived(draft !== null && page.url.searchParams.get('view') === 'grid');
+	const original = $derived(draft !== null && page.url.searchParams.get('view') === 'original');
 	const view = $derived({
-		chosen: ui ? ('ui' as const) : ('file' as const),
+		chosen: grid
+			? ('grid' as const)
+			: original
+				? ('original' as const)
+				: ui
+					? ('ui' as const)
+					: ('file' as const),
 		segments: [
 			{
 				name: 'Text',
-				chosen: !ui,
+				chosen: !ui && !grid && !original,
 				href: hrefWith(page.url.searchParams, { view: 'text', edit: '' }),
 			},
 			{
@@ -73,16 +110,30 @@
 				chosen: ui,
 				href: hrefWith(page.url.searchParams, { view: 'ui', line: '' }),
 			},
+			...(draft === null
+				? []
+				: [
+						{
+							name: 'Grid',
+							chosen: grid,
+							href: hrefWith(page.url.searchParams, { view: 'grid', edit: '', line: '' }),
+						},
+						{
+							name: 'Original',
+							chosen: original,
+							href: hrefWith(page.url.searchParams, { view: 'original', edit: '', line: '' }),
+						},
+					]),
 		],
 	});
 
 	// Untracked: a command updates its own pending state, which would re-run this effect.
 	$effect(() => {
-		const key = selected;
+		const key = target;
 		untrack(() => void editor.open(key));
 	});
 
-	// Opening or closing a transaction leaves the file in the editor as it is.
+	// Opening or closing the import modal leaves the file in the editor as it is.
 	beforeNavigate((navigation) => {
 		if (!editor.dirty) return;
 		if (navigation.to?.url.pathname === page.url.pathname) return;
@@ -92,6 +143,7 @@
 	// The save is done whatever these answer, so one that fails leaves what is shown.
 	// A slow answer to an older save must not replace the count of a newer one.
 	function afterSave(key: string) {
+		revision.count++;
 		void refreshAfterSave(key);
 	}
 
@@ -113,10 +165,11 @@
 		);
 
 	async function transactionSaved(moved?: number) {
-		if (!editor.dirty) await editor.reload();
-		void refreshAfterSave(selected);
-		if (moved !== undefined)
-			await findTransaction({ handle, file: selected, line: moved }).refresh();
+		revision.count++;
+		if (target !== null && !editor.dirty) await editor.reload();
+		if (target !== null) void refreshAfterSave(target);
+		if (target !== null && moved !== undefined)
+			await findTransaction({ handle, file: target, line: moved }).refresh();
 
 		await goto(
 			hrefWith(page.url.searchParams, { edit: moved === undefined ? '' : String(moved) }),
@@ -126,46 +179,96 @@
 		);
 	}
 
+	async function removed() {
+		await listStatements(handle).refresh();
+		if (selected !== null) await open(null);
+	}
+
 	const found = $derived({
-		count: matches.key === selected ? matches.count : 0,
+		count: matches.key === target ? matches.count : 0,
 		locked: editor.dirty,
 		onchanged: editor.reload,
 	});
 </script>
 
-<PanelGrid wide>
-	<div class={{ main: true, docked: editing !== null && at !== null }}>
-		<FileEditor {handle} {editor} {line} {view} onopen={open} onremoved={() => open(null)}>
-			{#snippet ui()}
-				{#if editor.state.file}
-					<FileTransactions
-						{handle}
-						file={editor.state.file.key}
-						content={editor.state.file.content}
-						{at}
-						unsaved={editor.dirty}
-					/>
-				{/if}
-			{/snippet}
-		</FileEditor>
+{#snippet progress()}
+	{#if statement !== null}
+		<StatementSteps {handle} {statement} />
+	{/if}
+{/snippet}
+
+{#snippet fileEditor(parts?: Parts)}
+	<FileEditor
+		{handle}
+		{editor}
+		{line}
+		{view}
+		{progress}
+		footer={parts?.footer}
+		below={parts?.below}
+		grid={parts?.grid}
+		original={parts?.original}
+		renamable={draft === null}
+		named={draft === null ? undefined : (statement ?? undefined)}
+		onopen={open}
+		onremoved={removed}
+	>
+		{#snippet ui()}
+			{#if editor.state.file}
+				<FileTransactions
+					{handle}
+					file={editor.state.file.key}
+					content={editor.state.file.content}
+					{at}
+					unsaved={editor.dirty}
+				/>
+			{/if}
+		{/snippet}
+	</FileEditor>
+{/snippet}
+
+<PanelGrid wide={!roomy} full={roomy}>
+	<div class={{ main: true, docked: editing !== null && at !== null, reading }}>
+		{#if statement === null}
+			{@render fileEditor()}
+		{/if}
+		{#if statement !== null && draft === null}
+			<PageHeader {progress}>
+				Files
+				{#snippet subtitle()}
+					<FilePath path={statement} />
+				{/snippet}
+			</PageHeader>
+		{/if}
+		{#if statement !== null}
+			{#key statement}
+				<StatementView {handle} {statement} revision={revision.count} dirty={editor.dirty}>
+					{#snippet filed(parts: Parts)}
+						{@render fileEditor(parts)}
+					{/snippet}
+				</StatementView>
+			{/key}
+		{/if}
 
 		<Issues {handle} errors={response.errors} />
 	</div>
 
-	<div class="side">
-		{#if editing !== null && at !== null}
-			<FileTransactionAside
-				{handle}
-				file={editing}
-				line={at}
-				onsaved={transactionSaved}
-				onclose={() => goto(hrefWith(page.url.searchParams, { edit: '' }), { reset: false })}
-			/>
-		{/if}
-		{#if at === null}
-			<FileMatches {handle} file={selected} {...found} />
-		{/if}
-	</div>
+	{#if !roomy}
+		<div class="side">
+			{#if editing !== null && at !== null}
+				<FileTransactionAside
+					{handle}
+					file={editing}
+					line={at}
+					onsaved={transactionSaved}
+					onclose={() => goto(hrefWith(page.url.searchParams, { edit: '' }), { reset: false })}
+				/>
+			{/if}
+			{#if !aside && target !== null}
+				<FileMatches {handle} file={target} {...found} />
+			{/if}
+		</div>
+	{/if}
 </PanelGrid>
 
 <style>
@@ -195,6 +298,15 @@
 
 	.main > :global(*) {
 		margin-block: 0;
+	}
+
+	.reading {
+		display: grid;
+		grid-template-columns: subgrid;
+	}
+
+	.main.reading > :global(*) {
+		grid-column: span 12;
 	}
 
 	@media (48rem <= width < 90rem) {

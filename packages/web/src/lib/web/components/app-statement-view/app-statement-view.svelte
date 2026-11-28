@@ -2,7 +2,6 @@
 	import {
 		addFile,
 		createFile,
-		deleteFiles,
 		editFile,
 		findLatestFile,
 		listFiles,
@@ -22,21 +21,26 @@
 	import type { RupeaError, Reply } from '@rupea/shared/errors.ts';
 	import { isCounted } from '@rupea/shared/files.ts';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
-	import Field from '#lib/web/components/ui-field/ui-field.svelte';
+	import WizardFooter from '#lib/web/components/ui-wizard-footer/ui-wizard-footer.svelte';
+	import Original from '#lib/web/components/app-statement-original/app-statement-original.svelte';
+	import Sheet from '#lib/web/components/app-statement-sheet/app-statement-sheet.svelte';
+	import StatementFile from '#lib/web/components/app-statement-file/app-statement-file.svelte';
+	import SegmentedControl from '#lib/web/components/ui-segmented-control/ui-segmented-control.svelte';
+	import Dialog from '#lib/web/components/ui-dialog/ui-dialog.svelte';
 	import Combobox from '#lib/web/components/ui-combobox/ui-combobox.svelte';
+	import Field from '#lib/web/components/ui-field/ui-field.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import Account from '#lib/web/components/app-ledger-table/account.svelte';
-	import Amount from '#lib/web/components/app-ledger-table/amount.svelte';
-	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
+	import TransactionsFound from '#lib/web/components/app-transactions-found/app-transactions-found.svelte';
 	import StatementFormat from '#lib/web/components/app-statement-format/app-statement-format.svelte';
 	import type { TransactionView } from '#lib/endpoints/views.ts';
-	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';
 	import { accountOf, statusOf, suggestedFile } from '#lib/web/shared/statements.ts';
-	import { goto } from '$app/navigation';
-	import { untrack } from 'svelte';
+	import type { Parts } from '#lib/web/components/app-statement-view/parts.ts';
+	import { resolve } from '$app/paths';
+	import { untrack, type Snippet } from 'svelte';
 
-	const formats = formatsHere();
+	const PREVIEW_ROWS = 5;
 
 	type Schema = { key: string; content: string };
 
@@ -51,7 +55,21 @@
 		draft: string;
 	};
 
-	const { handle, statement }: { handle: string; statement: string } = $props();
+	type Props = {
+		handle: string;
+		statement: string;
+		/** Changes when a transaction of the draft was saved, to read it again. */
+		revision: number;
+		/** Whether the draft has edits not saved yet. */
+		dirty: boolean;
+		/**
+		 * Shows the draft like any file, given the footer and the form for adding
+		 * it.
+		 */
+		filed: Snippet<[Parts]>;
+	};
+
+	const { handle, statement, revision, dirty, filed }: Props = $props();
 
 	const uploaded = $derived(await listStatements(handle));
 	const imports = $derived(await listImports(handle));
@@ -60,21 +78,47 @@
 	const status = $derived(row ? statusOf(row, job) : null);
 	const file = $derived(row?.file ?? null);
 
+	$effect(() => {
+		if (status !== 'reading') return;
+
+		const timer = setInterval(() => {
+			if (!document.hidden) void listImports(handle).refresh();
+		}, 2000);
+		return () => {
+			clearInterval(timer);
+			void listStatements(handle).refresh();
+		};
+	});
+
 	const view = $state({
 		ticket: 0,
 		grid: [] as string[][],
 		schema: null as Schema | null,
 		setup: false,
+		shown: 'grid' as 'original' | 'grid',
+		all: false,
 		found: null as Reply<TransactionView[]> | null,
 		errors: [] as RupeaError[],
 	});
-	const action = $state({ step: 'reading' as 'reading' | 'adding' | 'restarting', to: '' });
+	const action = $state({ step: 'reading' as 'reading' | 'adding', to: '' });
 	const done = $state({ addition: null as Addition | null });
 
 	const locked = $derived(
 		view.errors.flatMap((e) => (e.type === 'ExtractionLocked' ? [e.path] : []))[0],
 	);
 	const found = $derived(view.found?.data ?? []);
+	const tabs = $derived(
+		(
+			[
+				['original', 'Original file'],
+				['grid', 'Grid'],
+			] as const
+		).map(([name, label]) => ({
+			name: label,
+			chosen: view.shown === name,
+			onclick: () => (view.shown = name),
+		})),
+	);
 	const problems = $derived(
 		[...(job?.error ? [job.error] : []), ...view.errors].filter(
 			(e) => !(view.setup && e.type === 'ExtractionUnrecognised'),
@@ -88,18 +132,31 @@
 	const counted = $derived((files.data ?? []).map((f) => f.key).filter(isCounted));
 	const addition = $derived(done.addition?.statement === statement ? done.addition : null);
 
+	const drafted = $derived(file !== null && !isCounted(file));
+	const filesHref = $derived(resolve('/(signed-in)/l/[handle]/files', { handle }));
+	const noun = $derived(found.length === 1 ? 'transaction' : 'transactions');
+
 	const sleep = (t: number) => new Promise<void>((r) => setTimeout(r, t));
 
 	// Untracked: the commands below update their own pending state, which would re-run this effect.
 	$effect(() => {
 		const key = statement;
-		const at = file;
-		untrack(() => void load(key, at));
+		const draftKey = file;
+		void revision;
+		untrack(() => void load(key, draftKey));
 	});
 
 	async function load(key: string, at: string | null) {
 		const ticket = ++view.ticket;
-		Object.assign(view, { grid: [], schema: null, setup: false, found: null, errors: [] });
+		Object.assign(view, {
+			grid: [],
+			schema: null,
+			setup: false,
+			shown: 'grid',
+			all: false,
+			found: null,
+			errors: [],
+		});
 		action.step = 'reading';
 		if (at !== null && isCounted(at)) return;
 		if (at !== null) return showDraft(ticket, at);
@@ -161,7 +218,8 @@
 	}
 
 	function startAdding() {
-		Object.assign(action, { step: 'adding', to: latest ?? suggestedFile(statement, found) });
+		const to = latest ?? suggestedFile(statement, found);
+		Object.assign(action, { step: 'adding', to });
 	}
 
 	async function add(event: SubmitEvent) {
@@ -203,202 +261,277 @@
 		await listStatements(handle).refresh();
 	}
 
-	async function edit() {
-		const key = await draft();
-		if (key !== null) await goto(fileHref(handle, key));
-	}
-
-	async function restart() {
-		if (file === null) return;
-
-		const deleted = await deleteFiles({ handle, keys: [file] });
-		view.errors = deleted.errors;
-		await listStatements(handle).refresh();
+	async function review() {
+		if ((await draft()) !== null) await listStatements(handle).refresh();
 	}
 </script>
 
-<section>
-	{#if row === undefined}
-		<p class="hint">This statement is no longer here.</p>
-	{:else if addition}
-		<div class="toolbar">
+{#snippet footer()}
+	<WizardFooter>
+		{#snippet back()}
+			{#if file !== null}
+				<a
+					class="muted"
+					href={resolve(`/(signed-in)/l/[handle]/refine?file=${encodeURIComponent(file)}`, {
+						handle,
+					})}
+				>
+					Check for matches
+				</a>
+			{/if}
+		{/snippet}
+		{#snippet next()}
+			<Button primary disabled={dirty || found.length === 0} onclick={startAdding}>
+				Add {found.length}
+				{noun} to ledger
+			</Button>
+		{/snippet}
+	</WizardFooter>
+{/snippet}
+
+{#snippet end(to: string)}
+	<WizardFooter>
+		{#snippet back()}
+			{#if addition}<Button onclick={undo}>Undo</Button>{/if}
+		{/snippet}
+		{#snippet next()}
+			<Button href={fileHref(handle, to)}>Open {to}</Button>
+			<Button primary href={filesHref}>Import another</Button>
+		{/snippet}
+	</WizardFooter>
+{/snippet}
+
+{#snippet form()}
+	<Dialog
+		title="Add to ledger"
+		open={action.step === 'adding'}
+		onclose={() => (action.step = 'reading')}
+	>
+		<form onsubmit={add}>
+			<Field label="Add to file">
+				<Combobox
+					value={action.to}
+					options={counted}
+					onchange={(key: string) => (action.to = key)}
+				/>
+			</Field>
+
+			<p class="hint">
+				{counted.includes(action.to.trim())
+					? 'Adds them to this file by date, leaving out any it holds already.'
+					: 'Makes a new file.'}
+			</p>
+
+			<footer>
+				<Button type="button" onclick={() => (action.step = 'reading')}>Cancel</Button>
+				<Button primary>Add</Button>
+			</footer>
+		</form>
+	</Dialog>
+{/snippet}
+
+{#snippet grid()}
+	<Original {handle} {statement} />
+{/snippet}
+
+{#snippet original()}
+	<StatementFile {handle} {statement} />
+{/snippet}
+
+{#snippet below()}
+	<p class="hint">Check what Rupea found, then add it to your ledger.</p>
+	<Issues {handle} errors={view.errors} detailed />
+	{@render form()}
+{/snippet}
+
+{#if drafted && !addition}
+	{@render filed({ footer, below, grid, original })}
+{:else}
+	<section>
+		{#if row === undefined}
+			<p class="hint">This statement is no longer here.</p>
+		{:else if addition}
 			<p>
 				Added {addition.added} to <a href={fileHref(handle, addition.to)}>{addition.to}</a>.
 				{#if addition.skipped > 0}Left out {addition.skipped} already there.{/if}
 			</p>
-			<Button onclick={undo}>Undo</Button>
-		</div>
-	{:else if status === 'added' && file !== null}
-		<p>
-			Its transactions are in the ledger, in <a href={fileHref(handle, file)}>{file}</a>.
-		</p>
-	{:else if status === 'reading'}
-		<p class="hint">Reading this file…</p>
-	{:else}
-		<Issues {handle} errors={problems} detailed />
+			{@render end(addition.to)}
+		{:else if status === 'added' && file !== null}
+			<p>
+				Its transactions are in the ledger, in <a href={fileHref(handle, file)}>{file}</a>.
+			</p>
+			{@render end(file)}
+		{:else if status === 'reading'}
+			<p class="hint">Reading this file…</p>
+		{:else}
+			<Issues {handle} errors={problems} detailed />
 
-		{#if locked}
-			<form
-				class="toolbar"
-				{...unlockStatement.enhance(async (form) => {
-					await form.submit();
-					await opened(view.ticket, form.result);
-				})}
-			>
-				<input {...unlockStatement.fields.handle.as('hidden', handle)} />
-				<input {...unlockStatement.fields.statement.as('hidden', locked)} />
-				<Field label="This file has a password">
-					<input {...unlockStatement.fields.password.as('password')} autocomplete="off" required />
-				</Field>
-				<Button primary disabled={unlockStatement.pending > 0}>Unlock</Button>
-			</form>
-		{/if}
+			{#if locked}
+				<form
+					class="toolbar"
+					{...unlockStatement.enhance(async (form) => {
+						await form.submit();
+						await opened(view.ticket, form.result);
+					})}
+				>
+					<input {...unlockStatement.fields.handle.as('hidden', handle)} />
+					<input {...unlockStatement.fields.statement.as('hidden', locked)} />
+					<Field label="This file has a password">
+						<input
+							{...unlockStatement.fields.password.as('password')}
+							autocomplete="off"
+							required
+						/>
+					</Field>
+					<Button primary disabled={unlockStatement.pending > 0}>Unlock</Button>
+				</form>
+			{/if}
 
-		{#if view.setup && view.grid.length > 0}
-			<div class="group">
-				<h2>Describe this statement</h2>
+			{#if view.grid.length > 0}
 				<p class="hint">
-					Rupea doesn’t know this statement yet. Tell it which columns hold the date, description
-					and amount; the transactions it finds show below as you type.
-				</p>
-				<StatementFormat
-					{handle}
-					grid={view.grid}
-					schema={view.schema ?? { key: 'my-bank.yml', content: '' }}
-					onchange={change}
-				/>
-			</div>
-		{/if}
-
-		{#if view.found}
-			<div class="group">
-				<div class="heading">
-					<h2>
-						{found.length}
-						{found.length === 1 ? 'transaction' : 'transactions'} found
-						{#if account}<span class="hint">for <Account {account} /></span>{/if}
-					</h2>
-					{#if action.step === 'reading'}
-						<div class="toolbar">
-							<Button primary disabled={found.length === 0} onclick={startAdding}>
-								Add to ledger
-							</Button>
-							<Button onclick={edit} disabled={found.length === 0}>Edit transactions</Button>
-							{#if status === 'ready'}
-								<Button onclick={() => (action.step = 'restarting')}>Start over</Button>
-							{/if}
-						</div>
+					{#if view.setup}
+						Rupea doesn’t recognise this bank yet. Choose which columns hold the date, description
+						and amount, or start from the example.
+					{:else}
+						Rupea read this as {view.schema?.key}. Check what it found, then continue.
 					{/if}
+				</p>
+
+				<div class="pipeline">
+					<div class="column" role="region" aria-label="Statement">
+						<SegmentedControl label="Statement view" segments={tabs} />
+						{#if view.shown === 'original'}
+							<StatementFile {handle} {statement} />
+						{/if}
+						{#if view.shown === 'grid'}
+							<Sheet grid={view.grid} rows={view.all ? undefined : PREVIEW_ROWS} />
+							{#if view.grid.length > PREVIEW_ROWS}
+								<button class="link" onclick={() => (view.all = !view.all)}>
+									{view.all ? 'Show fewer rows' : `Show all ${view.grid.length} rows`}
+								</button>
+							{/if}
+						{/if}
+					</div>
+
+					<div class="pair">
+						<div class="schema" role="region" aria-label="Schema setup">
+							<StatementFormat
+								{handle}
+								schema={view.schema ?? { key: 'my-bank.yml', content: '' }}
+								onchange={change}
+							/>
+						</div>
+
+						<div class="output" role="region" aria-label="Transactions found">
+							<p class="found">
+								{#if found.length > 0}
+									{found.length}
+									{noun} found
+									{#if account}for <Account {account} />{/if}
+								{:else}
+									No transactions found yet. They appear here as you edit the schema.
+								{/if}
+							</p>
+
+							<div class="body">
+								{#if view.found}
+									<Issues {handle} errors={view.found.errors} detailed />
+									{#if found.length > 0}
+										<TransactionsFound transactions={found} editable={false} chosen={null} />
+									{/if}
+								{/if}
+							</div>
+						</div>
+					</div>
 				</div>
 
-				{#if action.step === 'adding'}
-					<form class="toolbar" onsubmit={add}>
-						<label>
-							Add to file
-							<Combobox
-								value={action.to}
-								options={counted}
-								required
-								onchange={(key: string) => (action.to = key)}
-							/>
-						</label>
-						<Button primary>Add</Button>
-						<Button type="button" onclick={() => (action.step = 'reading')}>Cancel</Button>
-					</form>
-					<p class="hint">
-						{counted.includes(action.to.trim())
-							? 'Adds them to this file by date, leaving out any it holds already.'
-							: 'Makes a new file.'}
-					</p>
-				{/if}
-				{#if action.step === 'restarting'}
-					<div class="toolbar" role="group" aria-label="Confirm start over">
-						<p>Throw away this draft and its edits?</p>
-						<Button primary onclick={restart}>Start over</Button>
-						<Button onclick={() => (action.step = 'reading')}>Cancel</Button>
-					</div>
-				{/if}
-				<Issues {handle} errors={view.found.errors} detailed />
-
-				{#if found.length > 0}
-					<LedgerTable
-						label="Transactions found"
-						columns={[
-							{ label: 'Date', kind: 'date' },
-							{ label: 'Description' },
-							{ label: 'Amount', kind: 'amount' },
-						]}
-					>
-						{#each found as transaction (transaction.line)}
-							<tbody>
-								<tr>
-									<td class="date">
-										<time datetime={transaction.date}>{formats.date(transaction.date)}</time>
-									</td>
-									<th scope="row" class="truncate" title={transaction.description}>
-										{transaction.description}
-									</th>
-									<td></td>
-								</tr>
-								{#each transaction.postings as posting, index (index)}
-									<tr class="child">
-										<td></td>
-										<td><Account account={posting.account} /></td>
-										<Amount value={posting.quantity} />
-									</tr>
-								{/each}
-							</tbody>
-						{/each}
-					</LedgerTable>
-				{/if}
-
-				{#if file === null && view.grid.length > 0 && !view.setup}
-					<p class="hint">
-						Read as {view.schema?.key}.
-						<button class="link" onclick={() => (view.setup = true)}>
-							Read it with another schema
-						</button>
-					</p>
-				{/if}
-			</div>
+				<WizardFooter>
+					{#snippet back()}
+						<Button href={filesHref}>All files</Button>
+					{/snippet}
+					{#snippet next()}
+						<Button primary disabled={found.length === 0} onclick={review}>
+							Continue to review
+						</Button>
+					{/snippet}
+				</WizardFooter>
+			{/if}
 		{/if}
-	{/if}
-</section>
+	</section>
+{/if}
 
 <style>
-	section,
-	.group {
-		display: flex;
-		flex-direction: column;
-	}
-
 	section {
-		gap: var(--size-4);
+		display: grid;
+		grid-template-columns: subgrid;
+		row-gap: var(--size-4);
 	}
 
-	.group {
-		gap: var(--size-2);
+	section > :global(*) {
+		margin: 0;
+		grid-column: span 12;
 	}
 
-	section > :global(*),
-	.group > :global(*),
-	.heading > :global(*) {
+	.pipeline,
+	.column {
+		display: flex;
+		min-width: 0;
+		flex-direction: column;
+		gap: var(--size-3);
+	}
+
+	.column {
+		align-items: start;
+	}
+
+	.column > :global(*) {
 		margin: 0;
 	}
 
-	.heading {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: center;
-		justify-content: space-between;
+	.pair {
+		display: grid;
+		grid-template-columns: minmax(0, 1fr);
+		gap: var(--size-3) var(--size-4);
+	}
+
+	.schema,
+	.output {
+		display: grid;
+		min-width: 0;
+		grid-row: span 2;
+		grid-template-rows: subgrid;
 		gap: var(--size-2);
 	}
 
-	h2 {
+	.body {
 		display: flex;
-		flex-wrap: wrap;
-		align-items: baseline;
-		gap: var(--size-1);
+		min-width: 0;
+		flex-direction: column;
+		gap: var(--size-2);
+	}
+
+	@media (width >= 90rem) {
+		.pair {
+			grid-template-columns: minmax(0, 5fr) minmax(0, 7fr);
+		}
+	}
+
+	.link {
+		padding: 0;
+		color: var(--color-muted);
+		font: inherit;
+		text-decoration: underline;
+		background: none;
+		border: none;
+	}
+
+	.found {
+		margin: 0;
+		color: var(--color-muted);
+	}
+
+	.muted {
+		color: var(--color-muted);
 	}
 
 	.hint {
@@ -412,17 +545,12 @@
 		gap: var(--size-1);
 	}
 
-	.toolbar p,
-	.toolbar label {
+	.toolbar p {
 		align-self: center;
 	}
 
-	.toolbar label {
-		display: flex;
-		flex: 1;
-		align-items: center;
-		gap: var(--size-1);
-		white-space: nowrap;
+	form input {
+		width: 100%;
 	}
 
 	.toolbar input {
@@ -430,12 +558,19 @@
 		flex: 1;
 	}
 
-	.link {
-		padding: 0;
-		color: var(--color-ink);
-		font: inherit;
-		text-decoration: underline;
-		background: none;
-		border: none;
+	form {
+		display: flex;
+		flex-direction: column;
+		gap: var(--size-2);
+	}
+
+	form > :global(*) {
+		margin: 0;
+	}
+
+	footer {
+		display: flex;
+		justify-content: flex-end;
+		gap: var(--size-1);
 	}
 </style>

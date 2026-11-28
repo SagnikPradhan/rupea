@@ -61,7 +61,7 @@
 	}
 
 	:global([data-combobox-content]) {
-		z-index: 4;
+		z-index: var(--layer-popover);
 		min-width: var(--bits-combobox-anchor-width);
 		max-height: min(var(--bits-combobox-content-available-height), calc(var(--size-2) * 15));
 		padding: var(--size-0);

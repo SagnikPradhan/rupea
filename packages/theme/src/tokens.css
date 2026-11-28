@@ -46,6 +46,12 @@
 	--radius-1: calc(var(--radius-0) * 2);
 	--radius-2: calc(var(--radius-0) * 3);
 
+	/* Layers, lowest first: raised above siblings, focused above raised, overlay panels above the page, popovers above everything */
+	--layer-raised: 1;
+	--layer-focused: 2;
+	--layer-overlay: 10;
+	--layer-popover: 20;
+
 	/* Base colours */
 	--color-surface: light-dark(#fff, #121212);
 	--color-ink: light-dark(#000, #e6e6e6);

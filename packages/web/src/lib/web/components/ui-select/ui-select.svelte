@@ -64,7 +64,7 @@
 	}
 
 	:global([data-select-content]) {
-		z-index: 4;
+		z-index: var(--layer-popover);
 		min-width: var(--bits-select-anchor-width);
 		max-height: min(var(--bits-select-content-available-height), calc(var(--size-2) * 15));
 		padding: var(--size-0);

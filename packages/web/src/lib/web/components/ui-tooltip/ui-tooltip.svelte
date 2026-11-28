@@ -19,7 +19,7 @@
 <style>
 	p {
 		position: absolute;
-		z-index: 1;
+		z-index: var(--layer-popover);
 		display: flex;
 		padding: var(--size-0) var(--size-1);
 		gap: var(--size-1);

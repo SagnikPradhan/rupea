@@ -52,6 +52,8 @@ Each is a `font` shorthand, used as `font: var(--text-label)`, with colour set b
 
 **Shape.** One corner, `--radius-1`, the same as `--size-1`, on every panel, field, chip and button. The small box inside a chip takes `--radius-0`, half of `--radius-1`. Every outline, border and rule is `--size-line-0`, 1px; `--size-line-1`, twice that, is for emphasis: focus, errors, underlines and the main line in a chart. Nothing casts a shadow.
 
+**Layers.** A `z-index` is always a layer token, never a number. `--layer-raised` lifts a thing above its siblings, such as a sticky table cell or a chart mark, and `--layer-focused` lifts the one being pointed at above those. `--layer-overlay` is for panels fixed over the page, the menu drawer and the aside. `--layer-popover` is for dropdowns and tooltips, which sit above everything, overlays included. Stylelint rejects any other value.
+
 ## Pages
 
 Every page is built from the same components, in the same order: the navigation bar, a page header, then panels.

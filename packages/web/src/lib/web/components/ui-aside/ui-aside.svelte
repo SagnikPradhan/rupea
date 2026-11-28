@@ -78,7 +78,7 @@
 			position: fixed;
 			inset-block-start: var(--size-5);
 			inset-inline-end: var(--size-4);
-			z-index: 1;
+			z-index: var(--layer-overlay);
 			width: min(100vw - var(--size-4) * 2, var(--size-2) * 30);
 			max-height: calc(100svh - var(--size-5) - var(--size-3));
 			border-color: var(--color-border);

@@ -398,7 +398,7 @@
 	.drawer {
 		position: fixed;
 		inset: var(--size-2) var(--size-2) auto auto;
-		z-index: 1;
+		z-index: var(--layer-overlay);
 		display: flex;
 		width: min(calc(100% - var(--size-4)), calc(var(--size-2) * 23));
 		margin: 0;

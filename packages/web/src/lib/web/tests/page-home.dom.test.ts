@@ -1,6 +1,12 @@
 import { render, screen, within } from '@testing-library/svelte';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
-import { findBridge, listHoldings, listDeltas, listTerms } from '#lib/endpoints/accounts.remote.ts';
+import {
+	findBridge,
+	listBudgets,
+	listHoldings,
+	listDeltas,
+	listTerms,
+} from '#lib/endpoints/accounts.remote.ts';
 import { data, visit } from '#tests/shared/app-state.ts';
 import { answer } from '#tests/shared/queries.ts';
 import Page from '#routes/(signed-in)/+page.svelte';
@@ -9,6 +15,7 @@ import { type Amount, parseAmount } from '@rupea/shared/money.ts';
 vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 vi.mock('#lib/endpoints/accounts.remote.ts', () => ({
 	findBridge: vi.fn(),
+	listBudgets: vi.fn(),
 	listHoldings: vi.fn(),
 	listDeltas: vi.fn(),
 	listTerms: vi.fn(),
@@ -67,6 +74,7 @@ const bridge = {
 beforeEach(() => {
 	vi.mocked(findBridge).mockReturnValue(answer([bridge]));
 	vi.mocked(listTerms).mockReturnValue(answer([]));
+	vi.mocked(listBudgets).mockReturnValue(answer([]));
 	vi.mocked(listHoldings).mockReturnValue(answer(accounts));
 	vi.mocked(listDeltas).mockImplementation(({ account }) =>
 		answer(

@@ -2,12 +2,14 @@
 	import {
 		findBridge,
 		listHoldings,
+		listBudgets,
 		listDeltas,
 		listTerms,
 	} from '#lib/endpoints/accounts.remote.ts';
 	import { resolve } from '$app/paths';
 	import { openingOf } from '@rupea/shared/dates.ts';
 	import { EXPENSES, INCOME, printAmount, sum, type Amount } from '@rupea/shared/money.ts';
+	import HomeBudgets from '#lib/web/components/app-home-budgets/app-home-budgets.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import Waterfall from '#lib/web/components/ui-chart-waterfall/ui-chart-waterfall.svelte';
 	import ChartSummary from '#lib/web/components/ui-chart-summary/ui-chart-summary.svelte';
@@ -17,6 +19,7 @@
 	import { stepsOf } from '#lib/web/shared/bridge.ts';
 	import { BASE, formatsIn, formatIsoDate } from '#lib/web/shared/format.ts';
 	import { setContext } from 'svelte';
+	import { rowsFor } from '#lib/web/shared/budgets.ts';
 	import { lastMonthOf, savedOf, statementOf } from '#lib/web/shared/home.ts';
 	import * as Liabilities from '#lib/web/shared/liabilities.ts';
 
@@ -37,9 +40,10 @@
 			listDeltas({ handle, day, period: lastMonth, account: INCOME }),
 			listHoldings({ handle, day, period: now }),
 			listTerms({ handle, day }),
+			listBudgets({ handle, from: `${now.at}-01`, day }),
 		]),
 	);
-	const [moved, spending, earning, balance, termed] = $derived(loaded);
+	const [moved, spending, earning, balance, termed, budgeted] = $derived(loaded);
 
 	const bridge = $derived(moved.data?.[0]);
 	const spent = $derived(statementOf(EXPENSES, spending.data?.[0], spending.data?.[1]));
@@ -58,6 +62,8 @@
 	const dues = $derived(debts.flatMap((d) => Liabilities.duesOn(d, week)));
 	const due = $derived(sum(dues.map((d) => d.amount)) as Amount);
 
+	const budgets = $derived(rowsFor(budgeted.data ?? [], EXPENSES));
+
 	const worth = $derived(resolve('/(signed-in)/l/[handle]/net-worth', { handle }));
 	const spentIn = $derived(
 		`${resolve('/(signed-in)/l/[handle]/spending', { handle })}?at=${lastMonth.at}`,
@@ -72,6 +78,7 @@
 		...(earning.errors ?? []),
 		...(balance.errors ?? []),
 		...(termed.errors ?? []),
+		...(budgeted.errors ?? []),
 	]}
 />
 
@@ -122,4 +129,8 @@
 			href="{worth}#owed"
 		/>
 	</KpiStrip>
+</PanelGrid>
+
+<PanelGrid>
+	<HomeBudgets rows={budgets} {today} {handle} />
 </PanelGrid>

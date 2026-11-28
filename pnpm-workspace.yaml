@@ -14,3 +14,6 @@ allowBuilds:
 
 minimumReleaseAgeExclude:
   - portable-pg
+
+patchedDependencies:
+  svelte@5.58.0: patches/svelte@5.58.0.patch

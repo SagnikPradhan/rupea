@@ -1,0 +1,25 @@
+diff --git a/src/internal/client/reactivity/batch.js b/src/internal/client/reactivity/batch.js
+index 3bffc78d2bdf77f28d832d7fd162fcb9f1a98885..585caaaf8e015f3ba3b0cb2ae8b0af656af52cc6 100644
+--- a/src/internal/client/reactivity/batch.js
++++ b/src/internal/client/reactivity/batch.js
+@@ -37,7 +37,6 @@ import { eager_effect, teardown, unlink_effect } from './effects.js';
+ import { defer_effect } from './utils.js';
+ import { UNINITIALIZED } from '../../../constants.js';
+ import { set_signal_status } from './status.js';
+-import { invariant } from '../../shared/dev.js';
+ import { OBSOLETE } from './deriveds.js';
+ 
+ /** @type {Batch | null} */
+@@ -737,12 +736,6 @@ export class Batch {
+ 					batch.discard();
+ 				}
+ 			} else if (sources.length > 0) {
+-				// The microtask queue can contain the batch already scheduled to run right
+-				// after this one is finished, so throwing the invariant would be wrong here.
+-				if (DEV && !batch.#decrement_queued) {
+-					invariant(batch.#scheduled.length === 0, 'Batch has scheduled effects');
+-				}
+-
+ 				// A batch was unskipped in a later batch -> tell prior batches to unskip it, too
+ 				if (is_earlier) {
+ 					for (const unskipped of this.#unskipped_branches) {

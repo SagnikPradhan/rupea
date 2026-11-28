@@ -47,9 +47,14 @@ describe('serving an original statement', () => {
 		const headers = headersForOriginal(name!);
 
 		expect(headers['Content-Type']).toBe(type);
-		expect(headers['Content-Disposition']).toBe(disposition);
+		expect(headers['Content-Disposition']).toBe(`${disposition}; filename*=UTF-8''${name}`);
 		expect(headers['X-Content-Type-Options']).toBe('nosniff');
 	});
+
+	it('names the file after its last segment, encoded', () =>
+		expect(headersForOriginal('20261121/my card.pdf')['Content-Disposition']).toBe(
+			"inline; filename*=UTF-8''my%20card.pdf",
+		));
 
 	it('shows only a PDF in a frame', () => {
 		expect(isShowable('20261121/card.pdf')).toBe(true);

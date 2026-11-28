@@ -76,7 +76,7 @@ export const isShowable = (s: string) => extensionOf(s) === 'pdf';
  */
 export const headersForOriginal = (s: string) => ({
 	'Content-Type': TYPES[extensionOf(s)] ?? 'application/octet-stream',
-	'Content-Disposition': isShowable(s) ? 'inline' : 'attachment',
+	'Content-Disposition': `${isShowable(s) ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(s.split('/').pop() ?? s)}`,
 	'X-Content-Type-Options': 'nosniff',
 	'Cache-Control': 'private',
 });

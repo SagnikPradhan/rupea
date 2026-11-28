@@ -63,8 +63,8 @@
 	thead tr,
 	table :global(:is(tbody, tfoot, tr)) {
 		display: grid;
-		grid-template-columns: subgrid;
 		grid-column: 1 / -1;
+		grid-template-columns: subgrid;
 	}
 
 	thead th {
@@ -78,9 +78,9 @@
 	}
 
 	table :global(:is(th, td)) {
-		align-content: center;
 		min-width: 0;
 		padding: var(--size-1) var(--size-2);
+		align-content: center;
 	}
 
 	table :global(:is(th, td):first-child) {
@@ -123,9 +123,9 @@
 	}
 
 	table :global(.truncate) {
-		overflow: hidden;
-		white-space: nowrap;
 		text-overflow: ellipsis;
+		white-space: nowrap;
+		overflow: hidden;
 	}
 
 	table :global(.truncate wbr) {

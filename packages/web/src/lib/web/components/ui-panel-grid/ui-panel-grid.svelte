@@ -50,13 +50,13 @@
 		}
 
 		.narrow > :global(:first-child:not(:last-child)) {
-			flex: 1;
 			min-width: 0;
+			flex: 1;
 		}
 
 		.narrow > :global(:last-child) {
-			flex: none;
 			margin-inline-start: auto;
+			flex: none;
 		}
 	}
 </style>

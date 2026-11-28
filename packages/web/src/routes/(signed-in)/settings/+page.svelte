@@ -86,24 +86,24 @@
 	nav {
 		position: sticky;
 		inset-block-start: var(--size-4);
-		align-self: start;
 		grid-column: span 2;
+		align-self: start;
 	}
 
 	.groups {
 		display: flex;
-		flex-direction: column;
-		gap: var(--size-5);
-		grid-column: 3 / -1;
 		min-width: 0;
+		flex-direction: column;
+		grid-column: 3 / -1;
+		gap: var(--size-5);
 	}
 
 	ul {
 		display: flex;
-		flex-direction: column;
-		gap: var(--size-1);
 		margin: 0;
 		padding: 0;
+		flex-direction: column;
+		gap: var(--size-1);
 		list-style: none;
 	}
 

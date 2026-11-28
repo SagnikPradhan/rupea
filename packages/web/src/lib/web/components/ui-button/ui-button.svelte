@@ -39,17 +39,17 @@
 	a,
 	button {
 		display: inline-flex;
-		gap: var(--size-1);
 		align-items: center;
+		gap: var(--size-1);
 	}
 
 	a {
 		padding: var(--size-1) var(--size-2);
-		border: var(--size-line-0) solid var(--color-border);
-		border-radius: var(--radius-1);
-		background: var(--color-surface);
 		color: var(--color-ink);
 		text-decoration: none;
+		background: var(--color-surface);
+		border: var(--size-line-0) solid var(--color-border);
+		border-radius: var(--radius-1);
 	}
 
 	a :global(svg),
@@ -59,14 +59,14 @@
 	}
 
 	.destructive {
-		border-color: var(--color-negative-3);
-		background: var(--color-negative-1);
 		color: var(--color-negative);
+		background: var(--color-negative-1);
+		border-color: var(--color-negative-3);
 	}
 
 	.primary {
-		border-color: var(--color-ink);
-		background: var(--color-ink);
 		color: var(--color-surface);
+		background: var(--color-ink);
+		border-color: var(--color-ink);
 	}
 </style>

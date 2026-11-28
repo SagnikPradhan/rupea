@@ -15,8 +15,8 @@
 <style>
 	section {
 		display: flex;
+		padding-bottom: var(--size-2);
 		flex-wrap: wrap;
 		gap: var(--size-2) var(--size-4);
-		padding-bottom: var(--size-2);
 	}
 </style>

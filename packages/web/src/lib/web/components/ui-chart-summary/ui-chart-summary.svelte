@@ -22,9 +22,9 @@
 <style>
 	div {
 		display: flex;
+		margin-bottom: var(--size-2);
 		flex-direction: column;
 		gap: var(--size-1);
-		margin-bottom: var(--size-2);
 	}
 
 	h2 {

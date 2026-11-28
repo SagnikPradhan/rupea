@@ -27,15 +27,15 @@
 	.track {
 		position: relative;
 		height: var(--size-1);
-		border-radius: var(--radius-1);
 		background: var(--color-subtle);
+		border-radius: var(--radius-1);
 		overflow: hidden;
 	}
 
 	.fill {
 		height: 100%;
-		border-radius: var(--radius-1);
 		background: var(--color-chart-1);
+		border-radius: var(--radius-1);
 	}
 
 	.negative {

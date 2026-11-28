@@ -35,9 +35,9 @@
 	header {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--size-3);
 		align-items: end;
 		justify-content: space-between;
+		gap: var(--size-3);
 	}
 
 	@media (width < 80rem) {
@@ -54,8 +54,8 @@
 	h1 {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--size-2);
 		align-items: baseline;
+		gap: var(--size-2);
 		overflow-wrap: anywhere;
 	}
 </style>

@@ -35,14 +35,14 @@
 		position: sticky;
 		inset-block-start: var(--size-3);
 		display: flex;
+		max-height: calc(100svh - var(--size-3) * 2);
 		flex-direction: column;
 		align-self: start;
-		max-height: calc(100svh - var(--size-3) * 2);
-		overflow: hidden;
+		color: var(--color-ink);
+		background: var(--color-surface);
 		border: var(--size-line-0) solid var(--color-subtle);
 		border-radius: var(--radius-1);
-		background: var(--color-surface);
-		color: var(--color-ink);
+		overflow: hidden;
 	}
 
 	header,
@@ -58,8 +58,8 @@
 	}
 
 	.body {
-		overflow-y: auto;
 		padding-block: 0 var(--size-4);
+		overflow-y: auto;
 	}
 
 	h2 {

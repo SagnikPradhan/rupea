@@ -196,8 +196,8 @@
 	}
 
 	label {
-		align-self: center;
 		margin-right: auto;
+		align-self: center;
 		white-space: nowrap;
 	}
 
@@ -215,13 +215,13 @@
 
 	.folder {
 		display: flex;
-		gap: var(--size-0);
-		align-items: center;
 		padding: 0;
-		border: none;
-		background: none;
+		align-items: center;
+		gap: var(--size-0);
 		color: var(--color-muted);
 		font-weight: inherit;
+		background: none;
+		border: none;
 	}
 
 	.size,

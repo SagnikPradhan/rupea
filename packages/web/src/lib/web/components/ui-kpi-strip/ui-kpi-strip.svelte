@@ -11,9 +11,9 @@
 <style>
 	section {
 		display: flex;
-		flex-direction: column;
-		gap: var(--size-3);
-		align-self: flex-start;
 		min-width: calc(var(--size-5) * 3);
+		flex-direction: column;
+		align-self: flex-start;
+		gap: var(--size-3);
 	}
 </style>

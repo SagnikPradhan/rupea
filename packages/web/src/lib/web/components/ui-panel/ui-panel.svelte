@@ -47,20 +47,20 @@
 
 	section {
 		display: flex;
-		flex-direction: column;
-		gap: var(--size-3);
 		min-width: 0;
 		padding: var(--size-3);
+		flex-direction: column;
+		gap: var(--size-3);
 		border: var(--size-line-0) solid var(--color-subtle);
 		border-radius: var(--radius-1);
 	}
 
 	.soon {
+		min-height: var(--size-height-0);
 		align-items: center;
 		justify-content: center;
-		min-height: var(--size-height-0);
-		border: var(--size-line-0) dashed var(--color-border);
 		text-align: center;
+		border: var(--size-line-0) dashed var(--color-border);
 	}
 
 	.soon header {

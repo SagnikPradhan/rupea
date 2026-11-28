@@ -61,15 +61,15 @@
 	form {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-3);
 		align-items: start;
+		gap: var(--size-3);
 	}
 
 	.pick {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-1);
 		align-self: stretch;
+		gap: var(--size-1);
 	}
 
 	.pick :global([data-select-trigger]) {

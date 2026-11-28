@@ -12,10 +12,10 @@ html {
 }
 
 body {
+	min-height: 100dvh;
+	color: var(--color-ink);
 	font: var(--text-base);
 	background: var(--color-surface);
-	color: var(--color-ink);
-	min-height: 100dvh;
 }
 
 h1 {
@@ -45,10 +45,10 @@ input:not([type='checkbox'], [type='radio'], [type='file']),
 textarea,
 button {
 	padding: var(--size-1) var(--size-2);
+	color: var(--color-ink);
+	background: var(--color-surface);
 	border: var(--size-line-0) solid var(--color-border);
 	border-radius: var(--radius-1);
-	background: var(--color-surface);
-	color: var(--color-ink);
 }
 
 /* Chrome pads the fields of a date input, which leaves it taller than a button beside it. */
@@ -58,8 +58,8 @@ button {
 
 input:focus-visible,
 textarea:focus-visible {
-	outline-offset: 0;
 	border-color: var(--color-ink);
+	outline-offset: 0;
 }
 
 button {
@@ -67,6 +67,6 @@ button {
 }
 
 button:disabled {
-	cursor: default;
 	opacity: 0.6;
+	cursor: default;
 }

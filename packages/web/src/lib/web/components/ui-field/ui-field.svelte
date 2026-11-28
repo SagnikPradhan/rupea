@@ -36,8 +36,8 @@
 	label {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-1);
 		align-items: start;
+		gap: var(--size-1);
 	}
 
 	.text {

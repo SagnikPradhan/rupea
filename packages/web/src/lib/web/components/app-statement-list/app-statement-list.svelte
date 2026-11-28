@@ -100,8 +100,8 @@
 
 	.confirm {
 		display: flex;
-		gap: var(--size-1);
 		justify-content: end;
+		gap: var(--size-1);
 	}
 
 	.negative {

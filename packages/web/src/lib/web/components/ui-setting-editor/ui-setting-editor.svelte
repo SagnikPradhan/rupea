@@ -16,10 +16,10 @@
 <style>
 	section {
 		display: flex;
-		flex-direction: column;
-		gap: var(--size-3);
 		width: min(100%, calc(var(--size-5) * 5));
 		margin-block-start: calc(var(--size-4) - var(--size-2));
+		flex-direction: column;
+		gap: var(--size-3);
 	}
 
 	h4 {

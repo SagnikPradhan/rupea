@@ -35,15 +35,15 @@
 <style>
 	.chip {
 		display: inline-flex;
+		padding: var(--size-1) var(--size-2);
 		align-items: center;
 		gap: var(--size-1);
-		padding: var(--size-1) var(--size-2);
-		border: var(--size-line-0) solid var(--color-border);
-		border-radius: var(--radius-1);
-		background: var(--color-surface);
 		color: var(--color-ink);
 		font: inherit;
 		text-decoration: none;
+		background: var(--color-surface);
+		border: var(--size-line-0) solid var(--color-border);
+		border-radius: var(--radius-1);
 	}
 
 	.chip:hover {
@@ -52,8 +52,8 @@
 
 	.bare {
 		padding: 0;
-		border: 0;
 		background: none;
+		border: 0;
 	}
 
 	.on {
@@ -62,17 +62,17 @@
 
 	.box {
 		display: grid;
-		place-items: center;
-		flex-shrink: 0;
 		width: var(--size-2);
 		height: var(--size-2);
+		flex-shrink: 0;
+		place-items: center;
 		border: var(--size-line-0) solid var(--color-border);
 		border-radius: var(--size-0);
 	}
 
 	.on .box {
-		border-color: var(--color-ink);
-		background: var(--color-ink);
 		color: var(--color-surface);
+		background: var(--color-ink);
+		border-color: var(--color-ink);
 	}
 </style>

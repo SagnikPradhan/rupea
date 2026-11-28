@@ -134,22 +134,22 @@
 
 	.line {
 		display: flex;
-		gap: var(--size-0) var(--size-2);
 		align-items: baseline;
+		gap: var(--size-0) var(--size-2);
 	}
 
 	.name {
 		min-width: 0;
-		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+		overflow: hidden;
 	}
 
 	.cell {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--size-0) var(--size-2);
 		align-items: baseline;
+		gap: var(--size-0) var(--size-2);
 	}
 
 	.evidence :is(td, th, a) {

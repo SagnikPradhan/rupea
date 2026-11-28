@@ -125,8 +125,8 @@
 		font: var(--font-size-0) var(--font-mono);
 		line-height: 1;
 		white-space: nowrap;
-		pointer-events: none;
 		transform: translate(-50%, calc(-100% - var(--size-0)));
+		pointer-events: none;
 	}
 
 	.figure.up {

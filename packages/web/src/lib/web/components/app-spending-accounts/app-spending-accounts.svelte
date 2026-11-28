@@ -120,10 +120,10 @@
 		display: inline-flex;
 		width: var(--size-2);
 		padding: 0;
-		border: none;
-		background: none;
 		color: var(--color-muted);
 		vertical-align: middle;
+		background: none;
+		border: none;
 	}
 
 	a {

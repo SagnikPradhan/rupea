@@ -149,10 +149,10 @@
 <style>
 	.toolbar {
 		display: flex;
-		flex-wrap: wrap;
-		gap: var(--size-1);
 		flex: 1;
+		flex-wrap: wrap;
 		align-items: end;
+		gap: var(--size-1);
 	}
 
 	div.toolbar {
@@ -179,15 +179,15 @@
 
 	.conflict {
 		display: flex;
-		flex-wrap: wrap;
-		gap: var(--size-1);
-		align-items: center;
 		padding-left: var(--size-2);
+		flex-wrap: wrap;
+		align-items: center;
+		gap: var(--size-1);
 		border-left: var(--size-line-1) solid var(--color-negative);
 	}
 
 	.conflict p {
-		flex-basis: 100%;
 		margin: 0 0 var(--size-1);
+		flex-basis: 100%;
 	}
 </style>

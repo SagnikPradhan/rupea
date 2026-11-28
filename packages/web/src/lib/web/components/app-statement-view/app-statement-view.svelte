@@ -389,16 +389,16 @@
 	.heading {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--size-2);
 		align-items: center;
 		justify-content: space-between;
+		gap: var(--size-2);
 	}
 
 	h2 {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--size-1);
 		align-items: baseline;
+		gap: var(--size-1);
 	}
 
 	.hint {
@@ -408,8 +408,8 @@
 	.toolbar {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--size-1);
 		align-items: end;
+		gap: var(--size-1);
 	}
 
 	.toolbar p,
@@ -420,22 +420,22 @@
 	.toolbar label {
 		display: flex;
 		flex: 1;
-		gap: var(--size-1);
 		align-items: center;
+		gap: var(--size-1);
 		white-space: nowrap;
 	}
 
 	.toolbar input {
-		flex: 1;
 		min-width: 0;
+		flex: 1;
 	}
 
 	.link {
 		padding: 0;
-		border: none;
-		background: none;
 		color: var(--color-ink);
 		font: inherit;
 		text-decoration: underline;
+		background: none;
+		border: none;
 	}
 </style>

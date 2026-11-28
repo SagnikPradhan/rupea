@@ -13,19 +13,19 @@
 }
 
 .wide {
+	box-sizing: border-box;
 	max-width: var(--site-width);
 	margin-inline: auto;
 	padding-inline: var(--size-3);
-	box-sizing: border-box;
 }
 
 .bar > .wide {
 	display: flex;
+	padding-block: var(--size-2);
 	flex-wrap: wrap;
 	align-items: center;
 	justify-content: space-between;
 	gap: var(--size-3);
-	padding-block: var(--size-2);
 }
 
 header.bar {
@@ -33,13 +33,13 @@ header.bar {
 }
 
 footer.bar {
-	border-top: var(--size-line-0) solid var(--color-border);
 	color: var(--color-muted);
+	border-top: var(--size-line-0) solid var(--color-border);
 }
 
 footer.bar > .wide {
-	align-items: flex-start;
 	padding-block: var(--size-4);
+	align-items: flex-start;
 }
 
 footer .about {
@@ -69,9 +69,9 @@ footer.bar nav {
 }
 
 .brand {
-	font-family: var(--font-heading);
-	font-size: var(--font-size-2);
 	font-weight: 500;
+	font-size: var(--font-size-2);
+	font-family: var(--font-heading);
 }
 
 .docs {
@@ -83,10 +83,10 @@ footer.bar nav {
 
 .sidebar,
 .contents {
-	flex: 1 1 12rem;
+	display: flex;
 	max-width: var(--sidebar);
 	padding-top: var(--size-4);
-	display: flex;
+	flex: 1 1 12rem;
 	flex-direction: column;
 	gap: var(--size-1);
 }
@@ -123,10 +123,10 @@ footer.bar nav {
 }
 
 .prose {
-	flex: 999 1 30rem;
 	min-width: 0;
 	max-width: var(--column);
 	padding-block: var(--size-4);
+	flex: 999 1 30rem;
 }
 
 .prose h1 {
@@ -181,9 +181,9 @@ code {
 
 .prose table {
 	display: block;
-	overflow-x: auto;
-	border-collapse: collapse;
 	font-size: var(--font-size-0);
+	border-collapse: collapse;
+	overflow-x: auto;
 }
 
 .label,
@@ -212,9 +212,9 @@ a.plain:hover {
 
 .pager {
 	display: flex;
+	margin-top: var(--size-4);
 	justify-content: space-between;
 	gap: var(--size-3);
-	margin-top: var(--size-4);
 }
 
 .pager a {
@@ -231,15 +231,15 @@ a.plain:hover {
 .button {
 	display: inline-flex;
 	padding: var(--size-1) var(--size-2);
-	border: var(--size-line-0) solid var(--color-border);
-	border-radius: var(--radius-1);
-	background: var(--color-surface);
 	color: var(--color-ink);
 	text-decoration: none;
+	background: var(--color-surface);
+	border: var(--size-line-0) solid var(--color-border);
+	border-radius: var(--radius-1);
 }
 
 .button.primary {
-	border-color: var(--color-ink);
-	background: var(--color-ink);
 	color: var(--color-surface);
+	background: var(--color-ink);
+	border-color: var(--color-ink);
 }

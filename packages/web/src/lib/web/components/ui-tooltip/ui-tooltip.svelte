@@ -21,15 +21,15 @@
 		position: absolute;
 		z-index: 1;
 		display: flex;
-		gap: var(--size-1);
 		padding: var(--size-0) var(--size-1);
-		background: var(--color-surface);
-		border: var(--size-line-0) solid var(--color-border);
-		border-radius: var(--radius-1);
+		gap: var(--size-1);
 		color: var(--color-ink);
 		font: var(--text-label);
 		white-space: nowrap;
-		pointer-events: none;
+		background: var(--color-surface);
+		border: var(--size-line-0) solid var(--color-border);
+		border-radius: var(--radius-1);
 		transform: translate(-50%, calc(-100% - var(--size-1)));
+		pointer-events: none;
 	}
 </style>

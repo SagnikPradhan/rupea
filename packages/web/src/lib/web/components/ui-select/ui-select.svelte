@@ -40,19 +40,19 @@
 <style>
 	:global([data-select-trigger]) {
 		display: inline-flex;
-		gap: var(--size-2);
-		align-items: center;
-		justify-content: space-between;
 		min-width: calc(var(--size-2) * 10);
 		max-width: 100%;
+		align-items: center;
+		justify-content: space-between;
+		gap: var(--size-2);
 		text-align: start;
 	}
 
 	:global([data-select-trigger]) span {
 		min-width: 0;
-		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+		overflow: hidden;
 	}
 
 	:global([data-select-trigger]) .placeholder {
@@ -67,20 +67,20 @@
 		z-index: 4;
 		min-width: var(--bits-select-anchor-width);
 		max-height: min(var(--bits-select-content-available-height), calc(var(--size-2) * 15));
-		overflow-y: auto;
 		padding: var(--size-0);
+		color: var(--color-ink);
+		background: var(--color-surface);
 		border: var(--size-line-0) solid var(--color-border);
 		border-radius: var(--radius-2);
-		background: var(--color-surface);
-		color: var(--color-ink);
+		overflow-y: auto;
 	}
 
 	:global([data-select-item]) {
 		display: flex;
-		gap: var(--size-2);
+		padding: var(--size-1) var(--size-2);
 		align-items: center;
 		justify-content: space-between;
-		padding: var(--size-1) var(--size-2);
+		gap: var(--size-2);
 		border-radius: var(--radius-1);
 		cursor: pointer;
 	}

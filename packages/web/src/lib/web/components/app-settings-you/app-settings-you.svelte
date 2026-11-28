@@ -121,8 +121,8 @@
 
 	.actions {
 		display: flex;
-		gap: var(--size-1);
 		align-self: start;
+		gap: var(--size-1);
 	}
 
 	p {

@@ -51,11 +51,16 @@ export const settingsHref = (h: string, q: Record<string, string>) => {
 	return `${withQuery(resolve('/(signed-in)/settings'), query)}#${h}-${section}` as ResolvedPathname;
 };
 
-/** The current page on another ledger; home, which holds no ledger, asks for it. */
-export const ledgerHref = (h: string) =>
-	page.params.handle === undefined || page.route.id === null
-		? hrefOnly({ ledger: h })
-		: resolve(...([page.route.id, { ...page.params, handle: h }] as Parameters<typeof resolve>));
+/**
+ * The current page on another ledger; home, which holds no ledger, asks for it,
+ * and a file, which the other ledger lacks, leads to its files.
+ */
+export const ledgerHref = (h: string) => {
+	if (page.params.handle === undefined || page.route.id === null) return hrefOnly({ ledger: h });
+	if (page.params.key !== undefined) return resolve('/(signed-in)/l/[handle]/files', { handle: h });
+
+	return resolve(...([page.route.id, { ...page.params, handle: h }] as Parameters<typeof resolve>));
+};
 
 /** The current page with exactly this query. */
 export const hrefOnly = (q: Record<string, string>) => withQuery(here(), new URLSearchParams(q));

@@ -4,6 +4,7 @@ import {
 	fileHref,
 	hrefOnly,
 	hrefWith,
+	ledgerHref,
 	lotsHref,
 	postingsHref,
 	settingsHref,
@@ -104,5 +105,17 @@ describe('hrefWith', () => {
 		expect(hrefWith(new URLSearchParams('at=2026&account=Assets'), { account: undefined })).toBe(
 			'/l/quiet-heron/postings?at=2026',
 		);
+	});
+});
+
+describe('ledgerHref', () => {
+	it('keeps the page on another ledger', () => {
+		visit('/l/quiet-heron/spending');
+		expect(ledgerHref('bold-otter')).toBe('/l/bold-otter/spending');
+	});
+
+	it('leads from a file to the files of another ledger, which lacks it', () => {
+		visit('/l/quiet-heron/files/bank/aug.rupea');
+		expect(ledgerHref('bold-otter')).toBe('/l/bold-otter/files');
 	});
 });

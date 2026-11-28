@@ -32,8 +32,7 @@
 
 	function toggle(folder: string) {
 		last.key = null;
-		if (toggled.has(folder)) toggled.delete(folder);
-		else toggled.add(folder);
+		if (!toggled.delete(folder)) toggled.add(folder);
 	}
 
 	const reveal = (folder: string) => {

@@ -92,9 +92,12 @@ const readOriginalStatement = oc
 		path: '/ledgers/{handle}/statements/original',
 		operationId: 'statements.readOriginal',
 		description: dedent`
-			Answers a stored statement as the file it was uploaded as, with its bytes.
+			Answers a stored statement as the file it was uploaded as, or as it was
+			unlocked, with its bytes.
 
-			Fails with LedgerNotFound when the caller cannot open the ledger.
+			Fails with LedgerNotFound when the caller cannot open the ledger, with
+			StorageNotFound when no statement is stored there, and with
+			ExtractionUnsupportedFile for a draft's key.
 		`,
 	})
 	.input(v.object({ handle: Handle, statement: StatementKey }))

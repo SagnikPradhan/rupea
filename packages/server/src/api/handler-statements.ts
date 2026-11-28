@@ -53,7 +53,7 @@ const readOriginalStatement = os.statements.readOriginal
 	.handler(async ({ input: { handle, statement } }) => {
 		const original = await inLedger({
 			handle,
-			action: (l) => Statements.readOriginal({ ledger: l, key: statement }),
+			action: (l) => Statements.readOriginalStatement({ ledger: l, key: statement }),
 		});
 
 		return new File([new Uint8Array(original.content)], statement.split('/').pop() ?? statement);

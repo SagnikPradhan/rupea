@@ -129,6 +129,44 @@ describe('uploading a statement', () => {
 			expect(draft._unsafeUnwrap().content).toContain(`- checksum: ${sha256(content)}`);
 		}));
 
+	it('stores an uploaded .rupea file as .ledger, as a .rupea beside the uploads is a draft', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = encode('2026-08-29 Tea\n\tExpenses:Food 10\n\tAssets:Cash\n');
+			const stored = await Statements.storeStatement({
+				ledger,
+				upload: { name: 'books.rupea', content },
+			});
+
+			expect(stored._unsafeUnwrap().key).toBe(`${day()}/books.ledger`);
+		}));
+
+	it('reads no draft as a statement', ({ context, db, storage }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const key = `${day()}/aug.csv.rupea`;
+			await storage.write({ key: `${folder(ledger)}/files/_/${key}`, content: encode('') });
+			const read = await Statements.readOriginalStatement({ ledger, key });
+
+			expect(read).toMatchObject({ error: { type: 'ExtractionUnsupportedFile', path: key } });
+		}));
+
+	it('deletes the draft read from a statement along with it', ({ context, db, storage }) =>
+		provide({ ...context, models: broken(context.models) }, async () => {
+			const ledger = await createLedger(db);
+			const uploaded = await upload(ledger);
+			const filed = await Drafts.importStatement({ ledger, statement: uploaded.key, schema: bank });
+			const draft = `${folder(ledger)}/files/${filed._unsafeUnwrap().key}`;
+			expect((await storage.read(draft)).isOk()).toBe(true);
+
+			await Statements.deleteStatements({ ledger, keys: [uploaded.key] });
+
+			expect((await storage.read(draft)).isErr()).toBe(true);
+		}));
+
 	it('keeps nothing it cannot read', ({ context, db, storage }) =>
 		provide(context, async () => {
 			const ledger = await createLedger(db);

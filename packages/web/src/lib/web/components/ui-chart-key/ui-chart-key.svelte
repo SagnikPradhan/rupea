@@ -32,7 +32,7 @@
 </script>
 
 <ul style:--name="{longest}ch">
-	{#each entries as entry (entry.label)}
+	{#each entries as entry, i (i)}
 		{@const part = entry.part}
 		<li
 			class={[entry.mark, { faded: focus !== null && part !== undefined && focus !== part }]}

@@ -32,7 +32,7 @@ describe('extracting a statement', () => {
 
 			expect(draft).toEqual(
 				ok({
-					key: `_/imports/${day()}/aug.rupea`,
+					key: `_/${day()}/aug.csv.rupea`,
 					content: [
 						`- statement: ${day()}/aug.csv`,
 						`- checksum: ${checksum}`,
@@ -168,7 +168,7 @@ describe('saving a draft', () => {
 			const recognised = (await Schemas.recogniseStatement({ ledger, statement }))._unsafeUnwrap();
 			const saved = await Drafts.importStatement({ ledger, statement, schema: recognised });
 
-			expect(saved).toMatchObject(ok({ key: `_/imports/${day()}/hdfc-card.rupea` }));
+			expect(saved).toMatchObject(ok({ key: `_/${day()}/hdfc-card.xls.rupea` }));
 			expect(await Schemas.listSchemas(ledger)).toMatchObject(ok([{ key: 'hdfc-card.yml' }]));
 		}));
 
@@ -188,11 +188,11 @@ describe('saving a draft', () => {
 		provide({ ...context, models: broken(context.models) }, async () => {
 			const ledger = await createLedger(db);
 			const statement = (await upload(ledger)).key;
-			const taken = `_/imports/${day()}/aug.rupea`;
+			const taken = `_/${day()}/aug.csv.rupea`;
 			await Files.createFile({ ledger, key: taken, content: '' });
 			const saved = await Drafts.importStatement({ ledger, statement, schema: bank });
 			const again = await Drafts.importStatement({ ledger, statement, schema: bank });
-			const key = `_/imports/${day()}/aug-02.rupea`;
+			const key = `_/${day()}/aug.csv-02.rupea`;
 
 			expect(saved).toMatchObject(ok({ key }));
 			expect(again).toMatchObject(ok({ key }));

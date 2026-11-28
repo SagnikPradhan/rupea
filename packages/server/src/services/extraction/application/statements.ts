@@ -4,7 +4,9 @@ import type { Batch } from '@rupea/shared/errors.ts';
 import { fault } from '@rupea/shared/errors.ts';
 import { errAsync, inOrder, okAsync, type ResultAsync } from '#lib/server/shared/result/result.ts';
 import { writeNumbered, type Storage } from '#lib/server/shared/storage/storage.ts';
+import { deleteFiles, findImported } from '#services/ledger/application/files.ts';
 import { openFolder, type Ledger } from '#services/ledger/application/ledger.ts';
+import { isCounted } from '@rupea/shared/files.ts';
 import * as DB from '../adapters/database';
 import { isReadable, READER_VERSION, readContents, unlock } from '../adapters/reader';
 import type { Contents, Grid, Upload } from '../domain/types';
@@ -31,7 +33,8 @@ type StoreStatementOptions = { ledger: Ledger; upload: Upload };
 
 /**
  * Stores an upload in a folder for the day; content the ledger has already
- * comes back where it is, and a taken name is numbered.
+ * comes back where it is, and a taken name is numbered. A .rupea upload is
+ * stored as .ledger, since a .rupea file beside the uploads is a draft.
  */
 export const storeStatement = ({ ledger, upload }: StoreStatementOptions): ResultAsync<Stored> => {
 	if (!isReadable(upload.name))
@@ -40,7 +43,7 @@ export const storeStatement = ({ ledger, upload }: StoreStatementOptions): Resul
 	const content = upload.content;
 	const sum = checksum(content);
 	const fresh = {
-		key: `${uploadDay()}/${upload.name}`,
+		key: `${uploadDay()}/${upload.name.replace(/\.rupea$/i, '.ledger')}`,
 		checksum: sum,
 		originalChecksum: null,
 		content,
@@ -98,6 +101,15 @@ export const readStatement = ({ ledger, key }: ReadStatementOptions): ResultAsyn
 		),
 	);
 
+type ReadOriginalOptions = { ledger: Ledger; key: string };
+
+/**
+ * A statement's file as stored: the bytes it was uploaded as, or unlocked once
+ * it is.
+ */
+export const readOriginalStatement = ({ ledger, key }: ReadOriginalOptions): ResultAsync<Stored> =>
+	openStatements(ledger).andThen((s) => readStored(s, ledger.id, key));
+
 type DropMissingOptions = { ledger: Ledger; keys: string[] };
 
 /** Forgets the statements whose file is gone, and returns the keys still stored. */
@@ -114,13 +126,21 @@ export const dropMissing = ({ ledger, keys }: DropMissingOptions): ResultAsync<s
 
 type DeleteStatementsOptions = { ledger: Ledger; keys: string[] };
 
-/** Deletes each statement on its own, so one that fails leaves the rest. */
+/**
+ * Deletes each statement on its own, so one that fails leaves the rest, and the
+ * drafts still waiting for review that were read from them.
+ */
 export const deleteStatements = ({
 	ledger,
 	keys,
 }: DeleteStatementsOptions): ResultAsync<Batch<string>> =>
-	openStatements(ledger).andThen((s) =>
-		batchInOrder(keys.map((k) => () => deleteStored(s, ledger.id, k))),
+	inOrder(keys.map((k) => () => DB.findStatement(ledger.id, k))).andThen((rows) =>
+		openStatements(ledger)
+			.andThen((s) => batchInOrder(keys.map((k) => () => deleteStored(s, ledger.id, k))))
+			.andThen((b) => {
+				const gone = rows.flatMap((r) => (r && b.succeeded.includes(r.key) ? [r.checksum] : []));
+				return deleteDrafts(ledger, gone).map(() => b);
+			}),
 	);
 
 const openStatements = (l: Ledger) => openFolder({ ledger: l, folder: 'statements' });
@@ -129,17 +149,24 @@ const uploadDay = () => Temporal.Now.plainDateISO().toString().replaceAll('-', '
 
 const checksum = (c: Uint8Array) => `sha256:${sha256(c)}`;
 
+const deleteDrafts = (l: Ledger, s: string[]) =>
+	findImported({ ledger: l, checksums: s })
+		.map((i) => i.map((f) => f.file).filter((f) => !isCounted(f)))
+		.andThen((k) => (k.length === 0 ? okAsync(null) : deleteFiles({ ledger: l, keys: k })));
+
 // A file the table does not know yet, such as one copied into the folder, is recorded as it is read.
 const readStored = (storage: Storage, ledgerId: string, key: string): ResultAsync<Stored> =>
-	storage.read(key).andThen(({ content }) =>
-		DB.findStatement(ledgerId, key).andThen((r) => {
-			const sum = checksum(content);
-			if (r?.checksum === sum)
-				return okAsync({ key, checksum: sum, originalChecksum: r.originalChecksum, content });
+	key.toLowerCase().endsWith('.rupea')
+		? errAsync(fault('ExtractionUnsupportedFile', { path: key }))
+		: storage.read(key).andThen(({ content }) =>
+				DB.findStatement(ledgerId, key).andThen((r) => {
+					const sum = checksum(content);
+					if (r?.checksum === sum)
+						return okAsync({ key, checksum: sum, originalChecksum: r.originalChecksum, content });
 
-			return record(ledgerId, { key, checksum: sum, originalChecksum: null, content });
-		}),
-	);
+					return record(ledgerId, { key, checksum: sum, originalChecksum: null, content });
+				}),
+			);
 
 const findByKey = (storage: Storage, ledgerId: string, key: string): ResultAsync<DB.StatementRow> =>
 	DB.findStatement(ledgerId, key).andThen((r) =>

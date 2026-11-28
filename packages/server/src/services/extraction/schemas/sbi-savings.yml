@@ -13,4 +13,3 @@ fields:
       pipe: [number, negate]
     - from: [col: F]
       pipe: [number]
-  balance: { from: [col: G], pipe: [number] }

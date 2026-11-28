@@ -77,7 +77,7 @@ describe('uploading statements', () => {
 				payload: sent.payload,
 				headers: { ...headers, ...sent.headers },
 			});
-			const stored = await storage.read(`${folder(ledger)}/files/_/statements/${day()}/card.pdf`);
+			const stored = await storage.read(`${folder(ledger)}/files/_/${day()}/card.pdf`);
 
 			expect(reply.statusCode).toBe(200);
 			expect(reply.json()).toEqual({
@@ -100,7 +100,7 @@ describe('uploading statements', () => {
 				handle: ledger.handle,
 				files: [new File([statement], 'aug.csv'), new File(['x,y'], 'sep.csv')],
 			});
-			const stored = await storage.read(`${folder(ledger)}/files/_/statements/${day()}/sep.csv`);
+			const stored = await storage.read(`${folder(ledger)}/files/_/${day()}/sep.csv`);
 
 			expect(uploaded).toEqual({
 				succeeded: [`${day()}/aug.csv`, `${day()}/sep.csv`],
@@ -182,7 +182,7 @@ describe('uploading statements', () => {
 				});
 
 			const replies = await Promise.all([send(many), send(large)]);
-			const stored = await storage.list(`${folder(ledger)}/files/_/statements/`);
+			const stored = await storage.list(`${folder(ledger)}/files/_/`);
 
 			expect(replies.map((r) => r.statusCode)).toEqual([400, 400]);
 			expect(stored._unsafeUnwrap()).toEqual([]);
@@ -224,7 +224,7 @@ describe('uploading statements', () => {
 				send(sent.payload, sent.headers['content-type'], { authorization: 'Bearer nope' }),
 			]);
 			const signedIn = await send(`{${padding}`, 'application/json', headers);
-			const stored = await storage.list(`${folder(ledger)}/files/_/statements/`);
+			const stored = await storage.list(`${folder(ledger)}/files/_/`);
 
 			expect(replies.map((r) => r.statusCode)).toEqual([401, 401, 401, 401]);
 			expect(replies[0]?.json()).toMatchObject({ code: 'UNAUTHORIZED', status: 401 });
@@ -472,6 +472,49 @@ describe('reading statements', () => {
 			const replies = await Promise.all([send([]), send(Array(1001).fill('20200101/a.csv'))]);
 
 			expect(replies.map((r) => r.statusCode)).toEqual([400, 400]);
+		}));
+});
+
+describe('reading the original statement', () => {
+	it('answers the stored bytes under the name they were uploaded with', ({ context }) =>
+		provide(context, async () => {
+			const { api, base, headers, upload } = await seeded(context);
+			const key = await upload('aug.csv');
+
+			const reply = await api.inject({
+				url: `${base}/statements/original?statement=${key}`,
+				headers,
+			});
+
+			expect(reply.statusCode).toBe(200);
+			expect(reply.body).toBe(statement);
+			expect(reply.headers['content-disposition']).toContain('aug.csv');
+		}));
+
+	it('answers 404 for a statement that is not stored', ({ context }) =>
+		provide(context, async () => {
+			const { api, base, headers } = await seeded(context);
+
+			const reply = await api.inject({
+				url: `${base}/statements/original?statement=20200101/none.csv`,
+				headers,
+			});
+
+			expect(reply.statusCode).toBe(404);
+		}));
+
+	it('answers 404 for the ledger of another owner', ({ context }) =>
+		provide(context, async () => {
+			const { api, base, upload } = await seeded(context);
+			const key = await upload('aug.csv');
+			const stranger = await bearerOf((await createLedger(context.db)).owner);
+
+			const reply = await api.inject({
+				url: `${base}/statements/original?statement=${key}`,
+				headers: stranger,
+			});
+
+			expect(reply.statusCode).toBe(404);
 		}));
 });
 

@@ -72,7 +72,7 @@ test('adds a later statement to the file its account went to, and undoes it', as
 test('files a draft for review to edit its transactions', async ({ signedIn: page, ledger }) => {
 	await describeStatement(page, ledger);
 	await page.getByRole('button', { name: 'Edit transactions' }).click();
-	await page.waitForURL(/files\?file=_%2Fimports%2F\d{8}%2Fstatement\.rupea$/);
+	await page.waitForURL(/files\?file=_%2F\d{8}%2Fstatement\.csv\.rupea$/);
 	await expect(page.getByRole('heading', { level: 1 })).toContainText('Not counted');
 
 	await visit(page, `${ledger}/import`);

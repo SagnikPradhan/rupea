@@ -94,7 +94,7 @@ describe('importing a ledger file', () => {
 			const ledger = await createLedger(db);
 			await uploads(ledger, { 'books.ledger': books });
 			await runImports(ledger);
-			const file = await Files.readFile({ ledger, key: `_/imports/${day()}/books.rupea` });
+			const file = await Files.readFile({ ledger, key: `_/${day()}/books.ledger.rupea` });
 
 			expect(file._unsafeUnwrap().content).toMatch(
 				new RegExp(`^- statement: ${day()}/books.ledger\n- checksum: sha256:\\w+\n${books}$`),
@@ -111,7 +111,7 @@ describe('importing a ledger file', () => {
 			await runImports(ledger);
 
 			const listed = (await Files.listFiles(ledger))._unsafeUnwrap();
-			expect(listed.map((f) => f.key)).toEqual([`_/imports/${day()}/books.rupea`]);
+			expect(listed.map((f) => f.key)).toEqual([`_/${day()}/books.ledger.rupea`]);
 		}));
 
 	it('runs again without a second copy', ({ context, db }) =>
@@ -124,7 +124,7 @@ describe('importing a ledger file', () => {
 			await runImports(ledger);
 
 			const listed = (await Files.listFiles(ledger))._unsafeUnwrap();
-			expect(listed.map((f) => f.key)).toEqual([`_/imports/${day()}/books.rupea`]);
+			expect(listed.map((f) => f.key)).toEqual([`_/${day()}/books.ledger.rupea`]);
 		}));
 });
 
@@ -137,7 +137,7 @@ describe('drafting a statement', () => {
 			await runImports(ledger);
 
 			expect(await Uploads.listStatements(ledger)).toEqual(
-				ok([{ key: `${day()}/aug.csv`, file: `_/imports/${day()}/aug.rupea` }]),
+				ok([{ key: `${day()}/aug.csv`, file: `_/${day()}/aug.csv.rupea` }]),
 			);
 		}));
 
@@ -174,7 +174,7 @@ describe('the statements and the imports', () => {
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			await uploads(ledger, { 'books.ledger': books, 'aug.csv': statement });
-			await Files.deleteFiles({ ledger, keys: [`_/statements/${day()}/aug.csv`] });
+			await Files.deleteFiles({ ledger, keys: [`_/${day()}/aug.csv`] });
 			await db
 				.updateTable('jobs')
 				.set({ payload: json({ ledger: ledger.handle }) })
@@ -196,7 +196,7 @@ describe('the uploaded statements', () => {
 			expect(await Uploads.listStatements(ledger)).toEqual(
 				ok([
 					{ key: `${day()}/sep.csv`, file: null },
-					{ key: `${day()}/aug.csv`, file: `_/imports/${day()}/aug.rupea` },
+					{ key: `${day()}/aug.csv`, file: `_/${day()}/aug.csv.rupea` },
 				]),
 			);
 		}));
@@ -206,7 +206,7 @@ describe('the uploaded statements', () => {
 			const ledger = await createLedger(db);
 			await uploads(ledger, { 'aug.csv': statement });
 			await Drafts.importStatement({ ledger, statement: `${day()}/aug.csv`, schema: bank });
-			const from = `_/imports/${day()}/aug.rupea`;
+			const from = `_/${day()}/aug.csv.rupea`;
 			await Files.renameFiles({ ledger, moves: [{ from, to: 'hdfc/aug.rupea' }] });
 
 			const [listed] = (await Uploads.listStatements(ledger))._unsafeUnwrap();

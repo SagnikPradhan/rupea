@@ -29,7 +29,7 @@ describe('uploading a statement', () => {
 		provide(context, async () => {
 			const ledger = await createLedger(db);
 			const uploaded = await upload(ledger);
-			const stored = await storage.read(`${folder(ledger)}/files/_/statements/${day()}/aug.csv`);
+			const stored = await storage.read(`${folder(ledger)}/files/_/${day()}/aug.csv`);
 
 			expect(uploaded).toMatchObject({
 				key: `${day()}/aug.csv`,
@@ -69,10 +69,10 @@ describe('uploading a statement', () => {
 			const first = await upload(ledger);
 			await Files.renameFiles({
 				ledger,
-				moves: [{ from: `_/statements/${first.key}`, to: 'aug.csv' }],
+				moves: [{ from: `_/${first.key}`, to: 'aug.csv' }],
 			});
 			const moved = await upload(ledger);
-			await Files.deleteFiles({ ledger, keys: [`_/statements/${moved.key}`] });
+			await Files.deleteFiles({ ledger, keys: [`_/${moved.key}`] });
 			const deleted = await upload(ledger);
 
 			expect(moved).toMatchObject({ key: first.key, checksum: first.checksum });
@@ -97,7 +97,7 @@ describe('uploading a statement', () => {
 				statement: key,
 				password: 'secret',
 			});
-			const stored = await storage.read(`${folder(ledger)}/files/_/statements/${key}`);
+			const stored = await storage.read(`${folder(ledger)}/files/_/${key}`);
 
 			expect(unlocked._unsafeUnwrap()).toMatchObject({ key, originalChecksum: sha256(content) });
 			expect(unlocked._unsafeUnwrap().grid[0]).toEqual(['Date', 'Narration']);
@@ -123,10 +123,48 @@ describe('uploading a statement', () => {
 		provide({ ...context, models: broken(context.models) }, async () => {
 			const ledger = await createLedger(db);
 			const content = encode(statement);
-			await storage.write({ key: `${folder(ledger)}/files/_/statements/aug.csv`, content });
+			await storage.write({ key: `${folder(ledger)}/files/_/aug.csv`, content });
 			const draft = await Drafts.extract({ ledger, statement: 'aug.csv', schema: bank });
 
 			expect(draft._unsafeUnwrap().content).toContain(`- checksum: ${sha256(content)}`);
+		}));
+
+	it('stores an uploaded .rupea file as .ledger, as a .rupea beside the uploads is a draft', ({
+		context,
+		db,
+	}) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const content = encode('2026-08-29 Tea\n\tExpenses:Food 10\n\tAssets:Cash\n');
+			const stored = await Statements.storeStatement({
+				ledger,
+				upload: { name: 'books.rupea', content },
+			});
+
+			expect(stored._unsafeUnwrap().key).toBe(`${day()}/books.ledger`);
+		}));
+
+	it('reads no draft as a statement', ({ context, db, storage }) =>
+		provide(context, async () => {
+			const ledger = await createLedger(db);
+			const key = `${day()}/aug.csv.rupea`;
+			await storage.write({ key: `${folder(ledger)}/files/_/${key}`, content: encode('') });
+			const read = await Statements.readOriginalStatement({ ledger, key });
+
+			expect(read).toMatchObject({ error: { type: 'ExtractionUnsupportedFile', path: key } });
+		}));
+
+	it('deletes the draft read from a statement along with it', ({ context, db, storage }) =>
+		provide({ ...context, models: broken(context.models) }, async () => {
+			const ledger = await createLedger(db);
+			const uploaded = await upload(ledger);
+			const filed = await Drafts.importStatement({ ledger, statement: uploaded.key, schema: bank });
+			const draft = `${folder(ledger)}/files/${filed._unsafeUnwrap().key}`;
+			expect((await storage.read(draft)).isOk()).toBe(true);
+
+			await Statements.deleteStatements({ ledger, keys: [uploaded.key] });
+
+			expect((await storage.read(draft)).isErr()).toBe(true);
 		}));
 
 	it('keeps nothing it cannot read', ({ context, db, storage }) =>
@@ -139,7 +177,7 @@ describe('uploading a statement', () => {
 					content: encode(statement),
 				},
 			});
-			const stored = await storage.read(`${folder(ledger)}/files/_/statements/${day()}/aug.doc`);
+			const stored = await storage.read(`${folder(ledger)}/files/_/${day()}/aug.doc`);
 
 			expect(unread).toMatchObject({ error: { type: 'ExtractionUnsupportedFile' } });
 			expect(stored.isErr()).toBe(true);

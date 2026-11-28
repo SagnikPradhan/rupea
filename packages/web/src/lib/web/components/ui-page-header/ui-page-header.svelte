@@ -2,18 +2,22 @@
 	import type { Snippet } from 'svelte';
 
 	type Props = {
-		subtitle?: string;
+		subtitle?: string | Snippet;
 		children: Snippet;
 		actions?: Snippet;
+		/** A line under the subtitle, such as the steps a file is going through. */
+		progress?: Snippet;
 	};
 
-	const { subtitle, children, actions }: Props = $props();
+	const { subtitle, children, actions, progress }: Props = $props();
 </script>
 
 <header>
 	<div class="title">
 		<h1>{@render children()}</h1>
-		{#if subtitle}<p>{subtitle}</p>{/if}
+		{#if typeof subtitle === 'string'}<p>{subtitle}</p>{/if}
+		{#if typeof subtitle === 'function'}<p>{@render subtitle()}</p>{/if}
+		{@render progress?.()}
 	</div>
 	{#if actions}<div class="actions">{@render actions()}</div>{/if}
 </header>

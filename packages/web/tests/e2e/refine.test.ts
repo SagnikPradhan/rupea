@@ -53,7 +53,7 @@ test('reviews the duplicates of a statement imported twice', async ({ signedIn: 
 	await expect(page.getByRole('rowgroup').filter({ hasText: 'UPI GROCER' })).toHaveCount(2);
 	await expect(page.getByRole('rowgroup').filter({ hasText: 'SALARY' })).toHaveCount(2);
 
-	await visit(page, `${ledger}/files?file=imports/aug.rupea`);
+	await visit(page, `${ledger}/files/imports/aug.rupea`);
 	const groups = page.getByRole('region', { name: 'Groups' });
 	await expect(groups.getByRole('article')).toHaveCount(2);
 	const salary = groups.getByRole('article').filter({ hasText: 'SALARY' });

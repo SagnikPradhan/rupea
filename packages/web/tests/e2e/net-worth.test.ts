@@ -1,3 +1,4 @@
+import { createFile } from './support/files.ts';
 import { expect, test } from './support/test.ts';
 import { visit } from './support/visit.ts';
 
@@ -20,16 +21,7 @@ const ledgerFile = [
 ].join('\n');
 
 test('shows what each account holds and what it is worth', async ({ signedIn: page, ledger }) => {
-	await visit(page, `${ledger}/files`);
-	await page.getByRole('button', { name: 'New file' }).click();
-	await page.getByLabel('New file').fill('shares.rupea');
-	await page.getByRole('button', { name: 'Create' }).click();
-	await expect(page.getByRole('heading', { name: 'shares.rupea' })).toBeVisible();
-	await page.getByRole('link', { name: 'All files' }).click();
-	await page.getByRole('link', { name: 'shares.rupea' }).click();
-	await page.getByLabel('Ledger file').fill(ledgerFile);
-	await page.getByRole('button', { name: 'Save', exact: true }).click();
-	await expect(page.getByText('Unsaved')).toBeHidden();
+	await createFile(page, ledger, 'shares.rupea', ledgerFile);
 
 	await visit(page, `${ledger}/net-worth`);
 	const all = page

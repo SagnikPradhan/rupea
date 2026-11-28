@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/svelte';
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/svelte';
 import userEvent from '@testing-library/user-event';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { deleteFiles, listFiles, renameFiles } from '#lib/endpoints/files.remote.ts';
@@ -32,10 +32,64 @@ describe('the file index', () => {
 		expect(await screen.findByText('No files yet.')).toBeTruthy();
 	});
 
+	it('never lists uploads or drafts, and selects only counted files', async () => {
+		const user = rendered([...keys, '_/20261121/hdfc.xls.rupea', '_/20261121/odd.csv']);
+		await screen.findByLabelText('Select bank/');
+
+		expect(screen.queryByText('_/')).toBeNull();
+		expect(screen.queryByLabelText('Select _/20261121/hdfc.xls.rupea')).toBeNull();
+
+		await user.click(screen.getByLabelText('Select all files'));
+		expect(screen.getByText('4 files selected')).toBeTruthy();
+		await user.click(screen.getByRole('button', { name: 'Delete' }));
+		await user.click(
+			within(screen.getByRole('group', { name: 'Confirm delete' })).getByRole('button', {
+				name: 'Delete',
+			}),
+		);
+		expect(deleteFiles).toHaveBeenCalledWith({ handle: 'h', keys });
+	});
+
+	it('starts with top-level folders open, deeper ones closed, and counts each', async () => {
+		rendered([...keys, 'bank/2026/d.rupea']);
+		const top = await screen.findByRole('button', { name: 'bank/' });
+		const deeper = screen.getByRole('button', { name: '2026/' });
+
+		expect(top.getAttribute('aria-expanded')).toBe('true');
+		expect(deeper.getAttribute('aria-expanded')).toBe('false');
+		expect(screen.getByText('4 files')).toBeTruthy();
+		expect(screen.getAllByText('1 file')).toHaveLength(2);
+		expect(screen.getByLabelText('Select bank/a.rupea')).toBeTruthy();
+		expect(screen.queryByLabelText('Select bank/2026/d.rupea')).toBeNull();
+	});
+
+	it('opens a deeper folder on click', async () => {
+		const user = rendered([...keys, 'bank/2026/d.rupea']);
+		await user.click(await screen.findByRole('button', { name: '2026/' }));
+
+		expect(screen.getByLabelText('Select bank/2026/d.rupea')).toBeTruthy();
+		expect(screen.getByRole('button', { name: '2026/' }).getAttribute('aria-expanded')).toBe(
+			'true',
+		);
+	});
+
+	it('says there are no files when only uploads exist', async () => {
+		rendered(['_/20261121/hdfc.xls.rupea']);
+
+		expect(await screen.findByText('No files yet.')).toBeTruthy();
+	});
+
+	it('selects only the counted files of a folder', async () => {
+		const user = rendered([...keys, '_/bank/draft.rupea']);
+		await user.click(await screen.findByLabelText('Select bank/'));
+
+		expect(screen.getByText('3 files selected')).toBeTruthy();
+	});
+
 	it('moves the chosen files into a folder', async () => {
 		const user = rendered(keys);
 		await user.click(await screen.findByLabelText('Select bank/'));
-		expect(screen.getByText('3 selected')).toBeTruthy();
+		expect(screen.getByText('3 files selected')).toBeTruthy();
 
 		await user.click(screen.getByRole('button', { name: 'Move' }));
 		await user.type(screen.getByPlaceholderText('bank/2026'), 'bank');
@@ -58,8 +112,38 @@ describe('the file index', () => {
 		await fireEvent.click(await screen.findByLabelText('Select bank/a.rupea'));
 		await fireEvent.click(screen.getByLabelText('Select bank/c.rupea'), { shiftKey: true });
 
-		expect(screen.getByText('3 selected')).toBeTruthy();
+		expect(screen.getByText('3 files selected')).toBeTruthy();
 		expect(screen.getByLabelText('Select imports/x.csv')).toHaveProperty('checked', false);
+	});
+
+	it('counts hidden files in what is selected, moved and deleted', async () => {
+		const user = rendered([...keys, 'bank/2026/d.rupea']);
+		await user.click(await screen.findByLabelText('Select bank/'));
+		expect(screen.queryByLabelText('Select bank/2026/d.rupea')).toBeNull();
+		expect(screen.getByText('4 files selected')).toBeTruthy();
+
+		await user.click(screen.getByRole('button', { name: 'Delete' }));
+		expect(screen.getByText('Delete 4 files?')).toBeTruthy();
+	});
+
+	it('opens the destination folder and the ones above it after a move', async () => {
+		const user = rendered([...keys, 'bank/2026/d.rupea']);
+		await user.click(await screen.findByLabelText('Select imports/x.csv'));
+		await user.click(screen.getByRole('button', { name: 'Move' }));
+		await user.type(screen.getByPlaceholderText('bank/2026'), 'bank/2026');
+		await user.click(screen.getByRole('button', { name: 'Move' }));
+
+		expect(await screen.findByLabelText('Select bank/2026/d.rupea')).toBeTruthy();
+	});
+
+	it('starts again when the clicked-from file is hidden by a closed folder', async () => {
+		const user = rendered([...keys, 'bank/2026/d.rupea']);
+		await user.click(await screen.findByRole('button', { name: '2026/' }));
+		await fireEvent.click(screen.getByLabelText('Select bank/2026/d.rupea'));
+		await user.click(screen.getByRole('button', { name: '2026/' }));
+		await fireEvent.click(screen.getByLabelText('Select bank/c.rupea'), { shiftKey: true });
+
+		expect(screen.getByText('2 files selected')).toBeTruthy();
 	});
 
 	it('deletes the chosen files only once confirmed', async () => {

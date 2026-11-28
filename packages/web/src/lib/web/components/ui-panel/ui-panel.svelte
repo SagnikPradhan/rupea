@@ -55,6 +55,11 @@
 		border-radius: var(--radius-1);
 	}
 
+	.plain {
+		padding: 0;
+		border: none;
+	}
+
 	.soon {
 		min-height: var(--size-height-0);
 		align-items: center;
@@ -65,11 +70,6 @@
 
 	.soon header {
 		align-items: center;
-	}
-
-	.plain {
-		padding: 0;
-		border: 0;
 	}
 
 	p {

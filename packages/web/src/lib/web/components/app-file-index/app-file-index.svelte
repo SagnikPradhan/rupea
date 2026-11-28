@@ -5,12 +5,11 @@
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import LedgerTable from '#lib/web/components/app-ledger-table/app-ledger-table.svelte';
-	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
 	import { formatsHere } from '#lib/web/shared/format.ts';
 	import { isCounted } from '@rupea/shared/files.ts';
 	import { fileHref } from '#lib/web/shared/links.ts';
 	import { SvelteSet } from 'svelte/reactivity';
-	import { keysUnder, movedTo, treeRows } from './file-tree';
+	import { countLabel, foldersOf, isOpen, keysUnder, movedTo, treeRows } from './file-tree';
 
 	const formats = formatsHere();
 
@@ -19,20 +18,26 @@
 	const { handle }: { handle: string } = $props();
 
 	const selected = new SvelteSet<string>();
-	const collapsed = new SvelteSet<string>();
+	const toggled = new SvelteSet<string>();
 	const step = $state({ now: 'choosing' as Step, folder: '', errors: [] as RupeaError[] });
 	const last = { key: null as string | null };
 
 	const response = $derived(await listFiles(handle));
-	const files = $derived(response.data ?? []);
-	const rows = $derived(treeRows(files, [...collapsed]));
-	const chosen = $derived(files.map((f) => f.key).filter((k) => selected.has(k)));
+	const counted = $derived((response.data ?? []).filter((f) => isCounted(f.key)));
+	const rows = $derived(treeRows(counted, [...toggled]));
+	const chosen = $derived(counted.map((f) => f.key).filter((k) => selected.has(k)));
 
 	const mark = (keys: string[], on: boolean) =>
 		keys.forEach(on ? (k) => selected.add(k) : (k) => selected.delete(k));
 
-	const fold = (folder: string) =>
-		collapsed.has(folder) ? collapsed.delete(folder) : collapsed.add(folder);
+	function toggle(folder: string) {
+		last.key = null;
+		if (!toggled.delete(folder)) toggled.add(folder);
+	}
+
+	const reveal = (folder: string) => {
+		if (!isOpen(folder, [...toggled])) toggle(folder);
+	};
 
 	function pick(
 		event: MouseEvent & { currentTarget: HTMLInputElement },
@@ -47,10 +52,12 @@
 	}
 
 	function shown(from: string | null, to: string) {
-		const keys = rows.flatMap((r) => (r.file ? [r.path] : []));
-		const at = [keys.indexOf(from ?? to), keys.indexOf(to)];
-		const start = Math.min(...at);
-		return start === -1 ? [to] : keys.slice(start, Math.max(...at) + 1);
+		const keys = rows.flatMap((r) => (r.file ? [r.file.key] : []));
+		const anchor = keys.indexOf(from ?? '');
+		const end = keys.indexOf(to);
+		if (anchor === -1) return [to];
+
+		return keys.slice(Math.min(anchor, end), Math.max(anchor, end) + 1);
 	}
 
 	function move(event: SubmitEvent) {
@@ -58,7 +65,10 @@
 		const moves = chosen
 			.map((k) => ({ from: k, to: movedTo(k, step.folder) }))
 			.filter((m) => m.from !== m.to);
-		return renameFiles({ handle, moves }).then((r) => done(r.errors));
+		return renameFiles({ handle, moves }).then((r) => {
+			if (r.errors.length === 0) moves.flatMap((m) => foldersOf(m.to)).forEach(reveal);
+			done(r.errors);
+		});
 	}
 
 	function remove() {
@@ -88,19 +98,22 @@
 <section>
 	<Issues {handle} errors={step.errors} />
 
-	{#if files.length === 0}
+	{#if rows.length === 0}
 		<p class="empty">No files yet.</p>
 	{:else}
 		<div class="toolbar">
 			{#if step.now === 'choosing'}
 				<label class="grow">
 					{@render checkbox(
-						files.map((f) => f.key),
+						counted.map((f) => f.key),
 						'Select all files',
 						null,
 					)}
-					{chosen.length === 0 ? 'Select all' : `${chosen.length} selected`}
+					Select all
 				</label>
+				{#if chosen.length > 0}
+					<span class="count">{countLabel(chosen.length)} selected</span>
+				{/if}
 				<Button disabled={chosen.length === 0} onclick={() => (step.now = 'moving')}>Move</Button>
 				<Button
 					icon={ICONS.delete}
@@ -114,7 +127,7 @@
 			{#if step.now === 'moving'}
 				<form class="toolbar grow" onsubmit={move}>
 					<label class="grow">
-						Move {chosen.length} files to
+						Move {countLabel(chosen.length)} to
 						<input class="grow" bind:value={step.folder} placeholder="bank/2026" />
 					</label>
 					<Button primary>Move</Button>
@@ -124,7 +137,7 @@
 
 			{#if step.now === 'deleting'}
 				<div class="toolbar grow" role="group" aria-label="Confirm delete">
-					<p class="grow">Delete {chosen.length} files?</p>
+					<p class="grow">Delete {countLabel(chosen.length)}?</p>
 					<Button primary onclick={remove}>Delete</Button>
 					<Button onclick={() => (step.now = 'choosing')}>Cancel</Button>
 				</div>
@@ -144,25 +157,25 @@
 						<th scope="row" class="truncate">
 							<span class="entry" style:--depth={row.depth}>
 								{#if row.file}
-									{@render checkbox([row.path], `Select ${row.path}`, row.path)}
+									{@render checkbox([row.file.key], `Select ${row.path}`, row.file.key)}
 									<a href={fileHref(handle, row.path)}>{row.name}</a>
 								{:else}
-									{@const Chevron = collapsed.has(row.path) ? ICONS.collapsed : ICONS.expanded}
-									{@render checkbox(keysUnder(files, row.path), `Select ${row.path}`, null)}
-									<button
-										class="folder"
-										aria-expanded={!collapsed.has(row.path)}
-										onclick={() => fold(row.path)}
-									>
+									{@const keys = keysUnder(counted, row.path)}
+									{@const open = isOpen(row.path, [...toggled])}
+									{@const Chevron = open ? ICONS.expanded : ICONS.collapsed}
+									{@render checkbox(keys, `Select ${row.path}`, null)}
+									<button class="folder" aria-expanded={open} onclick={() => toggle(row.path)}>
 										<Chevron size={16} />
 										{row.name}/
 									</button>
+									<span class="count">{countLabel(keys.length)}</span>
 								{/if}
-								{#if row.depth === 0 && !isCounted(row.path)}<Tag>not counted</Tag>{/if}
 							</span>
 						</th>
-						<td class="date">{row.file ? formats.moment(new Date(row.file.modified)) : ''}</td>
-						<td class="amount size">{row.file ? formats.size(row.file.size) : ''}</td>
+						<td class="date">
+							{row.file?.modified ? formats.moment(new Date(row.file.modified)) : ''}
+						</td>
+						<td class="amount size">{row.file?.size == null ? '' : formats.size(row.file.size)}</td>
 					</tr>
 				{/each}
 			</tbody>
@@ -225,6 +238,7 @@
 	}
 
 	.size,
+	.count,
 	.empty {
 		color: var(--color-muted);
 	}

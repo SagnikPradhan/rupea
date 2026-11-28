@@ -277,9 +277,7 @@ describe('a statement Rupea knows', () => {
 		const { user } = showing('/l/h/import?statement=hdfc.xls');
 		await user.click(await screen.findByRole('button', { name: 'Edit transactions' }));
 
-		await waitFor(() =>
-			expect(goto).toHaveBeenCalledWith('/l/h/files?file=_%2Fimports%2Fhdfc.rupea'),
-		);
+		await waitFor(() => expect(goto).toHaveBeenCalledWith('/l/h/files/_/imports/hdfc.rupea'));
 	});
 
 	it('opens its format on asking', async () => {
@@ -323,7 +321,7 @@ describe('a statement added already', () => {
 		showing('/l/h/import?statement=aug.xls');
 
 		const link = await screen.findByRole('link', { name: 'hdfc/aug.rupea' });
-		expect(link.getAttribute('href')).toBe('/l/h/files?file=hdfc%2Faug.rupea');
+		expect(link.getAttribute('href')).toBe('/l/h/files/hdfc/aug.rupea');
 	});
 });
 

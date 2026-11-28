@@ -5,6 +5,7 @@
 const current = { url: new URL('https://rupea.test/') };
 
 const LEDGER = /^\/l\/([^/]+)(\/.*)?$/;
+const FILE = /^\/l\/[^/]+\/files\/(.+)$/;
 
 export const page = {
 	get url() {
@@ -12,13 +13,16 @@ export const page = {
 	},
 	get route() {
 		const ledger = LEDGER.exec(current.url.pathname);
+		if (FILE.test(current.url.pathname)) return { id: '/(signed-in)/l/[handle]/files/[...key]' };
 		if (ledger) return { id: `/(signed-in)/l/[handle]${ledger[2] ?? ''}` };
 		if (current.url.pathname === '/') return { id: '/(signed-in)' };
 		return { id: current.url.pathname === '/sign-in' ? '/sign-in' : null };
 	},
 	get params() {
 		const handle = LEDGER.exec(current.url.pathname)?.[1];
-		return handle === undefined ? {} : { handle };
+		const key = FILE.exec(current.url.pathname)?.[1];
+		if (handle === undefined) return {};
+		return key === undefined ? { handle } : { handle, key: decodeURIComponent(key) };
 	},
 };
 

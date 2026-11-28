@@ -7,7 +7,7 @@ import { answer } from '#tests/shared/queries.ts';
 
 vi.mock('$app/state', async () => {
 	const state = await import('#tests/shared/app-state.ts');
-	state.visit('/l/h/files?file=a.rupea');
+	state.visit('/l/h/files/a.rupea');
 	return state;
 });
 vi.mock('#lib/endpoints/refinement.remote.ts', () => ({

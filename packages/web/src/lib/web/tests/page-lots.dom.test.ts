@@ -38,7 +38,7 @@ describe('the lots page', () => {
 
 		expect(await screen.findByText('INFY in Assets:Broker')).toBeTruthy();
 		expect(screen.getByRole('link', { name: 'sold' }).getAttribute('href')).toBe(
-			'/l/h/files?file=broker.rupea&line=9',
+			'/l/h/files/broker.rupea?line=9',
 		);
 		expect(screen.getByText(/left/).textContent).toContain('1');
 	});

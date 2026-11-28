@@ -1,3 +1,4 @@
+import { createFile } from './support/files.ts';
 import { expect, test } from './support/test.ts';
 import { visit } from './support/visit.ts';
 
@@ -24,16 +25,7 @@ test('lists cards and debts not set up, with the problems a ledger has', async (
 	signedIn: page,
 	ledger,
 }) => {
-	await visit(page, `${ledger}/files`);
-	await page.getByRole('button', { name: 'New file' }).click();
-	await page.getByLabel('New file').fill('cards.rupea');
-	await page.getByRole('button', { name: 'Create' }).click();
-	await expect(page.getByRole('heading', { name: 'cards.rupea' })).toBeVisible();
-	await page.getByRole('link', { name: 'All files' }).click();
-	await page.getByRole('link', { name: 'cards.rupea' }).click();
-	await page.getByLabel('Ledger file').fill(ledgerFile);
-	await page.getByRole('button', { name: 'Save', exact: true }).click();
-	await expect(page.getByText('Unsaved')).toBeHidden();
+	await createFile(page, ledger, 'cards.rupea', ledgerFile);
 
 	await visit(page, '/settings');
 	const regalia = page

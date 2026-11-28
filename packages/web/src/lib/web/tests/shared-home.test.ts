@@ -63,6 +63,18 @@ describe('the income statement', () => {
 		expect([spent.amount, spent.before]).toEqual([amount('300'), amount('250')]);
 	});
 
+	it('gives each group its own account, even when two share a name', () => {
+		const now = month({
+			Expenses: '30',
+			'Expenses:Food:Refund': '10',
+			'Expenses:Gifts:Refund': '20',
+		});
+
+		const { rows } = statementOf('Expenses', now, undefined);
+
+		expect(rows.map((r) => r.account)).toEqual(['Expenses:Gifts:Refund', 'Expenses:Food:Refund']);
+	});
+
 	it('keeps a group that spent only in the month before', () => {
 		const now = month({ Expenses: '100', 'Expenses:Food': '100' });
 		const then = month({ Expenses: '300', 'Expenses:Food': '100', 'Expenses:Travel': '200' });

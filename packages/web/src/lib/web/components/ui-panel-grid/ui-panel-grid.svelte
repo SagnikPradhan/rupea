@@ -5,13 +5,15 @@
 		wide?: boolean;
 		narrow?: boolean;
 		full?: boolean;
+		/** More room between columns, for panels without a card around them. */
+		spaced?: boolean;
 		children: Snippet;
 	};
 
-	const { wide = false, narrow = false, full = false, children }: Props = $props();
+	const { wide = false, narrow = false, full = false, spaced = false, children }: Props = $props();
 </script>
 
-<div class={{ wide, narrow, full }}>
+<div class={{ wide, narrow, full, spaced }}>
 	{@render children()}
 </div>
 
@@ -30,6 +32,14 @@
 	@media (width >= 90rem) {
 		div > :global(*) {
 			grid-column: span 6;
+		}
+
+		.spaced > :global(:first-child) {
+			padding-inline-end: var(--size-3);
+		}
+
+		.spaced > :global(:last-child:not(:first-child)) {
+			padding-inline-start: var(--size-3);
 		}
 
 		.wide > :global(:first-child) {

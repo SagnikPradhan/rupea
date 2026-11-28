@@ -1,7 +1,7 @@
 import { fault } from '@rupea/shared/errors.ts';
 import { Content, Draft, Key, Line, MOST_KEYS } from '@rupea/shared/files.ts';
 import { Handle } from '@rupea/shared/text.ts';
-import { TransactionForm } from '@rupea/shared/forms.ts';
+import { TransactionEdit, TransactionForm } from '@rupea/shared/forms.ts';
 import { command, query } from '$app/server';
 import * as v from 'valibot';
 import { api } from './api';
@@ -31,23 +31,27 @@ export const createTransaction = command(
 );
 
 /**
- * Answers an id that is no id as a transaction that is not there, as a stale
- * link has one.
+ * Finds a transaction by its id, or by the line it starts at in a file. An id
+ * that is no id answers as a transaction that is not there, as a stale link has
+ * one.
  */
 export const findTransaction = query(
-	v.object({ handle: Handle, id: v.string() }),
-	({ handle, id }) =>
-		v.is(v.pipe(v.string(), v.uuid()), id)
-			? replyFromCall(api().transactions.find({ handle, id }))
-			: Promise.resolve({
+	v.union([
+		v.object({ handle: Handle, id: v.string() }),
+		v.object({ handle: Handle, file: Key, line: Line }),
+	]),
+	(by) =>
+		'id' in by && !v.is(v.pipe(v.string(), v.uuid()), by.id)
+			? Promise.resolve({
 					ok: false,
 					data: null,
-					errors: [fault('TransactionNotFound', { path: id, line: 0 })],
-				}),
+					errors: [fault('TransactionNotFound', { path: by.id, line: 0 })],
+				})
+			: replyFromCall(api().transactions.find(by)),
 );
 
 export const saveTransaction = command(
-	v.object({ handle: Handle, file: Key, line: Line, version: v.string(), form: TransactionForm }),
+	v.object({ handle: Handle, file: Key, line: Line, version: v.string(), form: TransactionEdit }),
 	async ({ handle, file, line, version, form }) => {
 		const saved = await replyFromCall(
 			api().transactions.save({ handle, file, line, version, form }),

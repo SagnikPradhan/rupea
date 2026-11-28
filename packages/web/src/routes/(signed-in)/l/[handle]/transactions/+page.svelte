@@ -6,26 +6,21 @@
 	import { filterOf } from '#lib/web/shared/filter.ts';
 	import TransactionAside from '#lib/web/components/app-transaction-aside/app-transaction-aside.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
-	import Account from '#lib/web/components/app-ledger-table/account.svelte';
-	import Amount from '#lib/web/components/app-ledger-table/amount.svelte';
 	import ListChips from '#lib/web/components/app-list-chips/app-list-chips.svelte';
 	import ListFilter from '#lib/web/components/app-list-filter/app-list-filter.svelte';
 	import ListViews from '#lib/web/components/app-list-views/app-list-views.svelte';
 	import ListSearch from '#lib/web/components/app-list-search/app-list-search.svelte';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
 	import PagedTable from '#lib/web/components/app-ledger-table-paged/app-ledger-table-paged.svelte';
+	import TransactionRow from '#lib/web/components/app-transaction-row/app-transaction-row.svelte';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
 	import PanelGrid from '#lib/web/components/ui-panel-grid/ui-panel-grid.svelte';
 	import Panel from '#lib/web/components/ui-panel/ui-panel.svelte';
-	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
 	import * as Accounts from '#lib/web/shared/accounts.ts';
-	import { formatsHere, formatIsoDate } from '#lib/web/shared/format.ts';
+	import { formatIsoDate } from '#lib/web/shared/format.ts';
 	import { editHref, hrefWith } from '#lib/web/shared/links.ts';
-	import { rowOf } from '#lib/web/shared/transaction-row.ts';
 	import { paged } from '#lib/web/shared/paged.svelte.ts';
 	import { page } from '$app/state';
-
-	const formats = formatsHere();
 
 	const { data } = $props();
 
@@ -86,38 +81,11 @@
 			{#snippet row(index: number)}
 				{@const transaction = list.rows[index]}
 				{#if transaction}
-					{@const { from, to, more, amount } = rowOf(transaction.postings)}
-					<tr class:evidence={!transaction.counted}>
-						<td class="date">
-							<time datetime={transaction.date}>{formats.date(transaction.date)}</time>
-							{#if transaction.time}<span>{transaction.time}</span>{/if}
-						</td>
-						<td class="optional truncate">
-							<div class="line">
-								<span class="name">
-									{#if from}<Account account={from.account} />{/if}
-								</span>
-							</div>
-							<div class="line">
-								<span class="name">
-									{#if to}<Account account={to.account} />{/if}
-								</span>
-								{#if more > 0}<Tag>+{more}</Tag>{/if}
-							</div>
-						</td>
-						<th
-							scope="row"
-							class="description"
-							title={[transaction.description, transaction.comment].filter(Boolean).join('\n')}
-						>
-							<div class="cell">
-								<a href={editHref(params, transaction.id)}>{transaction.description}</a>
-								{#if !transaction.counted}<Tag>evidence</Tag>{/if}
-								{#if transaction.comment}<span class="comment">; {transaction.comment}</span>{/if}
-							</div>
-						</th>
-						<Amount value={amount} />
-					</tr>
+					<TransactionRow
+						{transaction}
+						href={editHref(params, transaction.id)}
+						evidence={!transaction.counted}
+					/>
 				{/if}
 			{/snippet}
 		</PagedTable>
@@ -125,34 +93,3 @@
 
 	<TransactionAside {handle} {refresh} />
 </PanelGrid>
-
-<style>
-	td span,
-	.comment {
-		color: var(--color-muted);
-	}
-
-	.line {
-		display: flex;
-		align-items: baseline;
-		gap: var(--size-0) var(--size-2);
-	}
-
-	.name {
-		min-width: 0;
-		text-overflow: ellipsis;
-		white-space: nowrap;
-		overflow: hidden;
-	}
-
-	.cell {
-		display: flex;
-		flex-wrap: wrap;
-		align-items: baseline;
-		gap: var(--size-0) var(--size-2);
-	}
-
-	.evidence :is(td, th, a) {
-		color: var(--color-muted);
-	}
-</style>

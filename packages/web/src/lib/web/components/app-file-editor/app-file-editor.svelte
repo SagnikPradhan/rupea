@@ -8,10 +8,12 @@
 	import FilePath from '#lib/web/components/ui-file-path/ui-file-path.svelte';
 	import Issues from '#lib/web/components/app-issues/app-issues.svelte';
 	import PageHeader from '#lib/web/components/ui-page-header/ui-page-header.svelte';
+	import SegmentedControl from '#lib/web/components/ui-segmented-control/ui-segmented-control.svelte';
 	import Tag from '#lib/web/components/ui-tag/ui-tag.svelte';
 	import { placesOf } from '#lib/web/shared/errors.ts';
 	import { ledger } from '#lib/web/shared/ledger-syntax.ts';
 	import { isCounted } from '@rupea/shared/files.ts';
+	import type { ResolvedPathname } from '$app/types';
 
 	type Props = {
 		handle: string;
@@ -19,11 +21,21 @@
 		line: number | null;
 		onopen: (key: string) => void;
 		onremoved: () => void;
-		links?: Snippet;
+		/**
+		 * The file as text or as a list of its transactions, and the switch between
+		 * them.
+		 */
+		view?: {
+			chosen: 'file' | 'ui';
+			segments: { name: string; chosen: boolean; href: ResolvedPathname }[];
+		};
+		/** The list of the file's transactions, shown in the UI view. */
+		ui?: Snippet;
 	};
 
-	const { handle, editor, line, onopen, onremoved, links }: Props = $props();
+	const { handle, editor, line, onopen, onremoved, view, ui }: Props = $props();
 	const state = $derived(editor.state);
+	const texting = $derived((view?.chosen ?? 'file') === 'file');
 
 	type Step = 'editing' | 'creating' | 'renaming' | 'deleting';
 
@@ -63,23 +75,30 @@
 </script>
 
 <PageHeader>
-	{#if state.file}<FilePath path={state.file.key} />{:else}Files{/if}
+	Files
 	{#if editor.dirty}<Tag>Unsaved</Tag>{/if}
 	{#if state.file && !isCounted(state.file.key)}<Tag>Not counted</Tag>{/if}
+	{#snippet subtitle()}
+		{#if state.file}
+			<FilePath path={state.file.key} />
+		{/if}
+	{/snippet}
 	{#snippet actions()}
 		{#if step.now === 'editing'}
 			<div class="toolbar">
 				{#if state.file}
 					<Button href="/l/{handle}/files">All files</Button>
-					<Button
-						primary={editor.dirty}
-						icon={ICONS.check}
-						onclick={editor.save}
-						disabled={!editor.dirty || state.saving}
-					>
-						Save
-					</Button>
-					<Button title="Format (Shift+Alt+F)" onclick={editor.format}>Format</Button>
+					{#if texting}
+						<Button
+							primary={editor.dirty}
+							icon={ICONS.check}
+							onclick={editor.save}
+							disabled={!editor.dirty || state.saving}
+						>
+							Save
+						</Button>
+						<Button title="Format (Shift+Alt+F)" onclick={editor.format}>Format</Button>
+					{/if}
 					<Button icon={ICONS.edit} onclick={() => begin('renaming', state.file?.key)}>
 						Rename
 					</Button>
@@ -89,7 +108,6 @@
 						New file
 					</Button>
 				{/if}
-				<span>{@render links?.()}</span>
 			</div>
 		{/if}
 
@@ -131,9 +149,16 @@
 	</div>
 {/if}
 
+{#if state.file && view}
+	<div class="views"><SegmentedControl label="View" segments={view.segments} /></div>
+{/if}
+
 <Issues {handle} errors={[...operation, ...state.errors.parse]} />
 
-{#if state.file}
+{#if state.file && view?.chosen === 'ui'}
+	{@render ui?.()}
+{/if}
+{#if state.file && texting}
 	<CodeEditor
 		label="Ledger file"
 		value={state.content}
@@ -172,9 +197,8 @@
 		align-self: center;
 	}
 
-	.toolbar span {
-		margin-left: auto;
-		align-self: center;
+	.views {
+		display: flex;
 	}
 
 	.conflict {

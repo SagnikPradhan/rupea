@@ -19,10 +19,10 @@ describe('issues', () => {
 
 		expect(screen.getByRole('alert').textContent).toContain('This transaction is off by 20.');
 		expect(screen.getByRole('link', { name: 'a.rupea:4' }).getAttribute('href')).toBe(
-			'/l/h/files?file=a.rupea&line=4',
+			'/l/h/files/a.rupea?line=4',
 		);
 		expect(screen.getByRole('link', { name: 'b.rupea' }).getAttribute('href')).toBe(
-			'/l/h/files?file=b.rupea',
+			'/l/h/files/b.rupea',
 		);
 	});
 

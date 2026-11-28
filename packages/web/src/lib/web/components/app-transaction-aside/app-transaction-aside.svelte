@@ -31,16 +31,16 @@
 		if (!editing) return;
 
 		await findTransaction({ handle, id: editing }).refresh();
-		await goto(closed);
+		await goto(closed, { reset: false });
 	};
 </script>
 
 {#if files?.data}
-	<Aside title="Add transaction" closeBeside={false} onclose={() => goto(closed)}>
+	<Aside title="Add transaction" closeBeside={false} onclose={() => goto(closed, { reset: false })}>
 		<TransactionForm {handle} keys={files.data.keys} newest={files.data.newest} onsaved={saved} />
 	</Aside>
 {:else if editing && open?.data}
-	<Aside title="Edit transaction" onclose={() => goto(closed)}>
+	<Aside title="Edit transaction" onclose={() => goto(closed, { reset: false })}>
 		{#key `${open.data.file}:${open.data.line}:${open.data.version}`}
 			<TransactionForm {handle} keys={[]} newest={null} edit={open.data} onsaved={saved} />
 		{/key}

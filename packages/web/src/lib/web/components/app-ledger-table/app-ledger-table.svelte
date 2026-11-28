@@ -8,15 +8,12 @@
 	type Props = {
 		columns: Column[];
 		label?: string;
-		/**
-		 * Sizes the columns by their headers, so rows that come and go do not move
-		 * them.
-		 */
 		fixed?: boolean;
+		scroll?: boolean;
 		children: Snippet;
 	};
 
-	const { columns, label, fixed = false, children }: Props = $props();
+	const { columns, label, fixed = false, scroll = true, children }: Props = $props();
 
 	const tracks = (shown: Column[]) =>
 		shown
@@ -29,7 +26,7 @@
 			.join(' ');
 </script>
 
-<div>
+<div class={{ scroll }}>
 	<table
 		aria-label={label}
 		style:--wide={tracks(columns)}
@@ -49,6 +46,9 @@
 <style>
 	div {
 		container-type: inline-size;
+	}
+
+	div.scroll {
 		overflow-x: auto;
 	}
 

@@ -4,6 +4,7 @@ import {
 	fileHref,
 	hrefOnly,
 	hrefWith,
+	ledgerHref,
 	lotsHref,
 	postingsHref,
 	settingsHref,
@@ -14,12 +15,12 @@ vi.mock('$app/state', () => import('#tests/shared/app-state.ts'));
 describe('fileHref', () => {
 	it('opens a file, escaping its path', () => {
 		expect(fileHref('quiet-heron', 'bank/aug 26.rupea')).toBe(
-			'/l/quiet-heron/files?file=bank%2Faug+26.rupea',
+			'/l/quiet-heron/files/bank/aug%2026.rupea',
 		);
 	});
 
 	it('opens a file at a line', () => {
-		expect(fileHref('quiet-heron', 'a.rupea', 4)).toBe('/l/quiet-heron/files?file=a.rupea&line=4');
+		expect(fileHref('quiet-heron', 'a.rupea', 4)).toBe('/l/quiet-heron/files/a.rupea?line=4');
 	});
 });
 
@@ -104,5 +105,17 @@ describe('hrefWith', () => {
 		expect(hrefWith(new URLSearchParams('at=2026&account=Assets'), { account: undefined })).toBe(
 			'/l/quiet-heron/postings?at=2026',
 		);
+	});
+});
+
+describe('ledgerHref', () => {
+	it('keeps the page on another ledger', () => {
+		visit('/l/quiet-heron/spending');
+		expect(ledgerHref('bold-otter')).toBe('/l/bold-otter/spending');
+	});
+
+	it('leads from a file to the files of another ledger, which lacks it', () => {
+		visit('/l/quiet-heron/files/bank/aug.rupea');
+		expect(ledgerHref('bold-otter')).toBe('/l/bold-otter/files');
 	});
 });

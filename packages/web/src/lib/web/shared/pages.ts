@@ -25,7 +25,7 @@ export const PAGES = [
 	},
 	{
 		path: 'transactions',
-		under: ['transactions', 'postings', 'files', 'import', 'refine'],
+		under: ['transactions', 'postings', 'files', 'refine'],
 		icon: 'ledger',
 		label: 'Ledger',
 		about: 'Every transaction, and the files they are kept in',
@@ -33,7 +33,6 @@ export const PAGES = [
 			{ path: 'transactions', label: 'Transactions' },
 			{ path: 'postings', label: 'Postings' },
 			{ path: 'files', label: 'Files' },
-			{ path: 'import', label: 'Import' },
 			{ path: 'refine', label: 'Review' },
 		],
 	},

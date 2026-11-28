@@ -17,7 +17,13 @@
 <nav aria-label={label} class:fill>
 	{#each segments as segment (segment.name)}
 		{#if segment.href}
-			<a href={segment.href} aria-current={segment.chosen ? 'page' : undefined}>{segment.name}</a>
+			<a
+				href={segment.href}
+				data-sveltekit-reset="false"
+				aria-current={segment.chosen ? 'page' : undefined}
+			>
+				{segment.name}
+			</a>
 		{/if}
 		{#if !segment.href}
 			<button type="button" aria-pressed={segment.chosen} onclick={segment.onclick}>

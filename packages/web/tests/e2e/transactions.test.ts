@@ -161,3 +161,40 @@ test('opens the transaction that was clicked, whichever order they are clicked i
 		await expect(panel.getByLabel('Amount')).toHaveValue(amount);
 	}
 });
+
+test('adds a transaction from the form, then changes and deletes it', async ({
+	signedIn: page,
+	ledger,
+}) => {
+	await visit(page, `${ledger}/transactions`);
+	await page.getByRole('link', { name: 'Add transaction' }).click();
+	const added = page.getByRole('complementary', { name: 'Add transaction' });
+	await added.getByLabel('Amount').fill('120');
+	await added.getByLabel('Category').fill('Expenses:Food');
+	await page.keyboard.press('Tab');
+	await added.getByLabel('Paid from').fill('Assets:Cash');
+	await page.keyboard.press('Tab');
+	await added.getByLabel('Description').fill('Chai');
+	await added.getByRole('button', { name: 'Save' }).click();
+
+	const rows = page.getByRole('rowgroup');
+	await expect(rows.filter({ hasText: 'Chai' })).toContainText('120');
+	await added.getByRole('link', { name: /^transactions\.rupea:\d+$/ }).click();
+	await expect(page.getByLabel('Ledger file')).toContainText('Chai');
+	await expect(page.getByLabel('Ledger file')).toContainText('Expenses:Food');
+
+	await visit(page, `${ledger}/transactions`);
+	await page.getByRole('link', { name: 'Chai' }).click();
+	const edited = page.getByRole('complementary', { name: 'Edit transaction' });
+	await edited.getByLabel('Amount').fill('150');
+	await edited.getByRole('button', { name: 'Save changes' }).click();
+	await expect(edited).toBeHidden();
+	await expect(rows.filter({ hasText: 'Chai' })).toContainText('150');
+
+	await page.getByRole('link', { name: 'Chai' }).click();
+	await expect(edited.getByLabel('Amount')).toHaveValue('150.00');
+	await edited.getByRole('button', { name: 'Delete' }).click();
+	await expect(rows.filter({ hasText: 'Chai' })).toHaveCount(0);
+	await page.reload();
+	await expect(rows.filter({ hasText: 'No transactions match.' })).toBeVisible();
+});

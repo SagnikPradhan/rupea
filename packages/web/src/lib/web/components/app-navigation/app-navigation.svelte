@@ -300,6 +300,7 @@
 	}
 
 	.preview {
+		z-index: var(--layer-popover);
 		padding: var(--size-2);
 		gap: var(--size-0);
 	}

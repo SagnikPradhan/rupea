@@ -34,13 +34,13 @@
 <style>
 	ul {
 		display: grid;
+		margin: 0;
+		padding: 0;
 		grid-template-columns: repeat(
 			auto-fill,
 			min(100%, calc(var(--size-2) + var(--size-1) + var(--chip) + var(--size-1) + var(--size-0)))
 		);
 		gap: var(--size-1) var(--size-0);
-		margin: 0;
-		padding: 0;
 		font: var(--text-label);
 		list-style: none;
 	}

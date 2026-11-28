@@ -16,14 +16,14 @@
 <style>
 	div {
 		display: flex;
+		padding: var(--size-3);
 		flex-direction: column;
-		gap: var(--size-0);
 		align-items: center;
 		justify-content: center;
-		padding: var(--size-3);
+		gap: var(--size-0);
+		text-align: center;
 		border: var(--size-line-0) dashed var(--color-border);
 		border-radius: var(--radius-1);
-		text-align: center;
 	}
 
 	.page {
@@ -35,7 +35,7 @@
 	}
 
 	.note {
-		font: var(--text-label);
 		color: var(--color-muted);
+		font: var(--text-label);
 	}
 </style>

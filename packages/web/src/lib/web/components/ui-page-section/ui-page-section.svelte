@@ -15,13 +15,13 @@
 	section,
 	div {
 		display: grid;
-		grid-template-columns: subgrid;
 		grid-column: 1 / -1;
+		grid-template-columns: subgrid;
 	}
 
 	section {
-		row-gap: var(--size-3);
 		padding-top: var(--size-4);
+		row-gap: var(--size-3);
 		scroll-margin-top: var(--size-4);
 	}
 

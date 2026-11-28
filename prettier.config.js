@@ -6,7 +6,13 @@ const config = {
 	printWidth: 100,
 	jsdocPrintWidth: 80,
 	tsdoc: true,
-	plugins: ['prettier-plugin-svelte', 'prettier-plugin-astro', 'prettier-plugin-jsdoc'],
+	cssDeclarationSorterOrder: 'frakto',
+	plugins: [
+		'prettier-plugin-svelte',
+		'prettier-plugin-astro',
+		'prettier-plugin-jsdoc',
+		'prettier-plugin-css-order',
+	],
 	overrides: [
 		{ files: '*.svelte', options: { parser: 'svelte' } },
 		{ files: '*.astro', options: { parser: 'astro' } },

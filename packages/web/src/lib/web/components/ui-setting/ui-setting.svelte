@@ -17,17 +17,17 @@
 <style>
 	section {
 		display: flex;
+		min-width: 0;
 		flex-direction: column;
 		gap: var(--size-3);
-		min-width: 0;
 		scroll-margin-top: var(--size-4);
 	}
 
 	div {
 		display: flex;
 		flex-direction: column;
-		gap: var(--size-2);
 		align-items: start;
+		gap: var(--size-2);
 	}
 
 	div > :global(*) {

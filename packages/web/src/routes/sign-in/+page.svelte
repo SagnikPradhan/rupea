@@ -52,16 +52,16 @@
 <style>
 	form {
 		display: flex;
-		flex-direction: column;
-		gap: var(--size-3);
-		align-items: start;
 		margin-top: var(--size-3);
+		flex-direction: column;
+		align-items: start;
+		gap: var(--size-3);
 	}
 
 	.actions {
 		display: flex;
-		gap: var(--size-2);
 		align-items: center;
+		gap: var(--size-2);
 		color: var(--color-muted);
 	}
 

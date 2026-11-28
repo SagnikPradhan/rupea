@@ -41,8 +41,8 @@
 	}
 
 	.figure {
-		font: var(--text-figure);
 		color: var(--color-ink);
+		font: var(--text-figure);
 	}
 
 	.positive,
@@ -52,12 +52,12 @@
 	}
 
 	.positive {
-		background: color-mix(in srgb, var(--color-positive) 12%, transparent);
 		color: var(--color-positive);
+		background: color-mix(in srgb, var(--color-positive) 12%, transparent);
 	}
 
 	.negative {
-		background: color-mix(in srgb, var(--color-negative) 12%, transparent);
 		color: var(--color-negative);
+		background: color-mix(in srgb, var(--color-negative) 12%, transparent);
 	}
 </style>

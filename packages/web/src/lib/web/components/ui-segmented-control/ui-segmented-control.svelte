@@ -30,10 +30,10 @@
 <style>
 	nav {
 		display: flex;
-		align-items: center;
 		padding: var(--size-0);
-		border-radius: var(--radius-1);
+		align-items: center;
 		background: var(--color-subtle);
+		border-radius: var(--radius-1);
 	}
 
 	nav.fill {
@@ -44,12 +44,12 @@
 	a,
 	button {
 		padding: var(--size-1) var(--size-2);
-		border: var(--size-line-0) solid transparent;
-		border-radius: var(--radius-1);
-		background: none;
 		color: var(--color-muted);
 		font: inherit;
 		text-decoration: none;
+		background: none;
+		border: var(--size-line-0) solid transparent;
+		border-radius: var(--radius-1);
 		cursor: pointer;
 	}
 
@@ -67,9 +67,9 @@
 
 	a[aria-current],
 	button[aria-pressed='true'] {
-		border-color: var(--color-border);
-		background: var(--color-surface);
 		color: var(--color-ink);
 		text-decoration: none;
+		background: var(--color-surface);
+		border-color: var(--color-border);
 	}
 </style>

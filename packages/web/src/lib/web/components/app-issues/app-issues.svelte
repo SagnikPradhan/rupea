@@ -61,7 +61,7 @@
 	a {
 		margin-left: var(--size-1);
 		color: inherit;
-		font-family: var(--font-mono);
 		font-size: var(--font-size-0);
+		font-family: var(--font-mono);
 	}
 </style>

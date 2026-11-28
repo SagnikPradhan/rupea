@@ -18,7 +18,7 @@
 	}
 
 	.content > :global(*) {
-		grid-column: 1 / -1;
 		margin-block: 0;
+		grid-column: 1 / -1;
 	}
 </style>

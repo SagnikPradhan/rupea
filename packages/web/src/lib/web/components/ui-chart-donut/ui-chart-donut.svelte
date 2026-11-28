@@ -102,9 +102,9 @@
 
 	.plot {
 		position: relative;
-		justify-self: center;
-		height: var(--size-height-0);
 		aspect-ratio: 1;
+		height: var(--size-height-0);
+		justify-self: center;
 	}
 
 	svg {
@@ -127,10 +127,10 @@
 
 	ul {
 		display: flex;
-		flex-direction: column;
-		gap: var(--size-1);
 		margin: 0;
 		padding: 0;
+		flex-direction: column;
+		gap: var(--size-1);
 		list-style: none;
 	}
 
@@ -146,11 +146,11 @@
 	}
 
 	.name {
-		flex: 1;
 		min-width: 0;
-		overflow: hidden;
+		flex: 1;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+		overflow: hidden;
 	}
 
 	data {

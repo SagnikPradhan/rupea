@@ -24,10 +24,10 @@
 <style>
 	button {
 		display: grid;
-		place-items: center;
 		padding: var(--size-1);
-		border-color: transparent;
+		place-items: center;
 		background: none;
+		border-color: transparent;
 	}
 
 	button :global(svg) {
@@ -36,9 +36,9 @@
 	}
 
 	.outlined {
+		color: var(--color-muted);
 		border-color: var(--color-border);
 		border-radius: var(--radius-1);
-		color: var(--color-muted);
 	}
 
 	button:hover:not(:disabled) {

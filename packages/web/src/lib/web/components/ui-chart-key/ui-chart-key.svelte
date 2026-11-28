@@ -53,6 +53,7 @@
 <style>
 	ul {
 		display: grid;
+		width: 100%;
 		grid-template-columns: repeat(
 			auto-fill,
 			min(
@@ -61,22 +62,21 @@
 			)
 		);
 		gap: var(--size-1) var(--size-0);
-		width: 100%;
 		font: var(--text-label);
 		list-style: none;
 	}
 
 	li {
 		display: flex;
-		gap: var(--size-0);
 		align-items: center;
+		gap: var(--size-0);
 	}
 
 	span,
 	a {
-		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+		overflow: hidden;
 	}
 
 	a {
@@ -101,10 +101,10 @@
 	li.band::before,
 	li.negative::before,
 	li.reference::before {
-		content: '';
 		width: var(--size-2);
 		margin-right: var(--size-0);
 		border-top: var(--size-line-0) solid var(--color-muted);
+		content: '';
 	}
 
 	li.primary::before {

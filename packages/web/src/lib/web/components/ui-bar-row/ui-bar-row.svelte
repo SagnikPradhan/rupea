@@ -42,8 +42,8 @@
 
 	p {
 		display: flex;
-		gap: var(--size-2);
 		align-items: baseline;
+		gap: var(--size-2);
 	}
 
 	.name {
@@ -77,12 +77,12 @@
 	}
 
 	.positive {
-		background: color-mix(in srgb, var(--color-positive) 12%, transparent);
 		color: var(--color-positive);
+		background: color-mix(in srgb, var(--color-positive) 12%, transparent);
 	}
 
 	.negative {
-		background: color-mix(in srgb, var(--color-negative) 12%, transparent);
 		color: var(--color-negative);
+		background: color-mix(in srgb, var(--color-negative) 12%, transparent);
 	}
 </style>

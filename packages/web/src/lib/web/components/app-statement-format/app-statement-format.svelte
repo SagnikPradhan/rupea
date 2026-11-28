@@ -155,8 +155,8 @@ fields:
 	.toolbar {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--size-1) var(--size-2);
 		align-items: end;
+		gap: var(--size-1) var(--size-2);
 	}
 
 	.toolbar p {
@@ -166,8 +166,8 @@ fields:
 	.choices {
 		display: flex;
 		flex-wrap: wrap;
-		gap: var(--size-1) var(--size-3);
 		align-items: baseline;
+		gap: var(--size-1) var(--size-3);
 	}
 
 	.choices span {
@@ -176,9 +176,9 @@ fields:
 
 	.choice {
 		padding: 0;
-		border: none;
-		background: none;
 		font: inherit;
+		background: none;
+		border: none;
 	}
 
 	.choice:hover {
@@ -193,46 +193,46 @@ fields:
 	textarea {
 		width: 100%;
 		padding: var(--size-1) 0;
-		border: none;
-		border-top: var(--size-line-0) solid var(--color-border);
-		background: none;
 		color: var(--color-ink);
 		font-family: var(--font-mono);
 		line-height: 1.5;
+		background: none;
+		border: none;
+		border-top: var(--size-line-0) solid var(--color-border);
 		resize: vertical;
 	}
 
 	textarea:focus-visible {
-		outline: none;
 		border-top-color: var(--color-ink);
+		outline: none;
 	}
 
 	.sheet {
 		width: fit-content;
 		max-width: 100%;
 		max-height: 40vh;
-		overflow: auto;
 		border: var(--size-line-0) solid var(--color-border);
+		overflow: auto;
 	}
 
 	.sheet table {
-		border-collapse: collapse;
-		font-family: var(--font-mono);
 		font-size: var(--font-size-0);
+		font-family: var(--font-mono);
+		border-collapse: collapse;
 	}
 
 	.sheet th,
 	.sheet td {
 		padding: var(--size-0) var(--size-1);
-		border: var(--size-line-0) solid var(--color-border);
 		text-align: left;
 		vertical-align: top;
+		border: var(--size-line-0) solid var(--color-border);
 	}
 
 	.sheet th {
 		position: sticky;
-		background: var(--color-subtle);
 		font-weight: 400;
+		background: var(--color-subtle);
 	}
 
 	.sheet thead th {

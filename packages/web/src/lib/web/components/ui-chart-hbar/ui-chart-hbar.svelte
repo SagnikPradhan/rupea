@@ -116,8 +116,8 @@
 	.chart {
 		display: grid;
 		grid-template-columns: max-content 1fr minmax(var(--size-4), max-content) max-content;
-		column-gap: var(--size-3);
 		grid-template-rows: repeat(var(--rows), var(--size-4)) var(--size-3);
+		column-gap: var(--size-3);
 	}
 
 	.plot {
@@ -166,9 +166,9 @@
 
 	.name {
 		min-width: 0;
-		overflow: hidden;
 		text-overflow: ellipsis;
 		white-space: nowrap;
+		overflow: hidden;
 	}
 
 	.prefix {

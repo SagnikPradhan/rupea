@@ -221,8 +221,8 @@
 		font: var(--font-size-0) var(--font-mono);
 		line-height: 1;
 		white-space: nowrap;
-		pointer-events: none;
 		transform: translateY(-50%);
+		pointer-events: none;
 	}
 
 	.name.before {

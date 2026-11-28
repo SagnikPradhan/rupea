@@ -20,14 +20,14 @@
 
 	:global(.code .cell) {
 		display: grid;
-		place-items: center;
 		width: var(--size-4);
 		height: var(--size-4);
+		place-items: center;
+		font-size: var(--font-size-2);
+		font-family: var(--font-mono);
+		background-color: var(--color-surface);
 		border: var(--size-line-0) solid var(--color-border);
 		border-radius: var(--radius-1);
-		background-color: var(--color-surface);
-		font-family: var(--font-mono);
-		font-size: var(--font-size-2);
 	}
 
 	:global(.code .cell[data-active]) {

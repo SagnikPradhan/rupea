@@ -178,9 +178,9 @@
 	table {
 		width: 100%;
 		table-layout: fixed;
+		font: var(--text-label);
 		border-collapse: separate;
 		border-spacing: var(--size-0);
-		font: var(--text-label);
 	}
 
 	th {
@@ -196,10 +196,10 @@
 
 	a {
 		display: flex;
+		min-height: var(--size-4);
+		padding: var(--size-0);
 		flex-direction: column;
 		gap: var(--size-0);
-		padding: var(--size-0);
-		min-height: var(--size-4);
 		color: inherit;
 		text-decoration: none;
 	}
@@ -209,10 +209,10 @@
 	}
 
 	.across th {
-		overflow: visible;
 		padding: 0;
-		white-space: nowrap;
 		text-transform: none;
+		white-space: nowrap;
+		overflow: visible;
 	}
 
 	.across tbody th {

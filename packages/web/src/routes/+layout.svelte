@@ -31,15 +31,15 @@
 <style>
 	main {
 		display: grid;
-		grid-template-columns: repeat(12, minmax(0, 1fr));
-		column-gap: var(--size-3);
 		padding-inline: var(--size-4);
 		padding-bottom: var(--size-5);
+		grid-template-columns: repeat(12, minmax(0, 1fr));
+		column-gap: var(--size-3);
 	}
 
 	main > :global(*) {
-		grid-column: 1 / -1;
 		margin-block: 0;
+		grid-column: 1 / -1;
 	}
 
 	@media (width < 48rem) {

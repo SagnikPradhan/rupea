@@ -489,9 +489,9 @@
 
 	.buttons {
 		display: flex;
+		padding-block-start: var(--size-3);
 		flex-wrap: wrap;
 		gap: var(--size-2);
-		padding-block-start: var(--size-3);
 		border-block-start: var(--size-line-0) solid var(--color-border);
 	}
 
@@ -519,9 +519,9 @@
 
 	.link {
 		padding: 0;
-		border: none;
-		background: none;
 		font: inherit;
+		background: none;
+		border: none;
 	}
 
 	form > :global(button) {
@@ -578,8 +578,8 @@
 	.row {
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
-		gap: var(--size-2);
 		align-items: start;
+		gap: var(--size-2);
 	}
 
 	.row > :global(:first-child) {
@@ -588,24 +588,24 @@
 
 	.tools {
 		display: flex;
-		gap: var(--size-3);
 		justify-content: end;
+		gap: var(--size-3);
 	}
 
 	.entry {
 		display: grid;
 		grid-column: 1 / -1;
 		grid-template-columns: repeat(2, minmax(0, 1fr)) auto;
-		gap: var(--size-2);
 		align-items: end;
+		gap: var(--size-2);
 	}
 
 	.check {
-		align-self: end;
-		padding-block: var(--size-2);
 		display: flex;
-		gap: var(--size-1);
+		padding-block: var(--size-2);
 		align-items: center;
+		align-self: end;
+		gap: var(--size-1);
 	}
 
 	@media (width < 40rem) {

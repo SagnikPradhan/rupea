@@ -62,17 +62,17 @@
 
 	.panel {
 		display: flex;
-		flex-direction: column;
-		gap: var(--size-2);
 		width: min(100vw - var(--size-3) * 2, var(--size-2) * 24);
 		min-height: min(100svh - var(--size-3) * 2, var(--size-2) * 27);
 		max-height: var(--bits-popover-content-available-height);
-		overflow-y: auto;
 		padding: var(--size-2);
+		flex-direction: column;
+		gap: var(--size-2);
+		color: var(--color-ink);
+		background: var(--color-surface);
 		border: var(--size-line-0) solid var(--color-border);
 		border-radius: var(--radius-2);
-		background: var(--color-surface);
-		color: var(--color-ink);
+		overflow-y: auto;
 	}
 
 	header {

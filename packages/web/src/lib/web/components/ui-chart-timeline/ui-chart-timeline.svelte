@@ -116,9 +116,9 @@
 <style>
 	.chart {
 		display: flex;
+		padding-inline: var(--size-3);
 		flex-direction: column;
 		gap: var(--size-1);
-		padding-inline: var(--size-3);
 	}
 
 	.plot {
@@ -135,27 +135,27 @@
 
 	.pin {
 		position: absolute;
-		pointer-events: none;
 		inset-block-end: 0;
 		display: flex;
-		flex-direction: column;
-		align-items: center;
 		width: calc(var(--size-3) * var(--spread));
 		min-width: var(--size-2);
+		flex-direction: column;
+		align-items: center;
 		transform: translateX(-50%);
+		pointer-events: none;
 	}
 
 	.circle {
 		position: relative;
-		min-width: var(--size-2);
-		pointer-events: auto;
 		z-index: 1;
-		width: 100%;
 		aspect-ratio: 1;
+		width: 100%;
+		min-width: var(--size-2);
 		background: var(--color-ink-2);
 		border: var(--size-line-0) solid var(--color-ink-2);
 		border-radius: 50%;
 		opacity: 0.35;
+		pointer-events: auto;
 	}
 
 	.past .circle {
@@ -169,8 +169,8 @@
 	.core {
 		position: absolute;
 		inset: 50% auto auto 50%;
-		width: calc(100% * var(--share));
 		aspect-ratio: 1;
+		width: calc(100% * var(--share));
 		background: var(--color-ink-2);
 		border-radius: 50%;
 		transform: translate(-50%, -50%);
@@ -190,12 +190,12 @@
 		position: absolute;
 		inset-block-end: 0;
 		inset-inline-start: 50%;
-		width: var(--size-0);
 		aspect-ratio: 1;
+		width: var(--size-0);
 		background: var(--color-ink);
 		border-radius: 50%;
-		content: '';
 		transform: translate(-50%, 50%);
+		content: '';
 	}
 
 	.pin:hover {

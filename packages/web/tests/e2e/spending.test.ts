@@ -78,3 +78,28 @@ test('lays a month of spending out as a calendar, each day leading to its postin
 	await expect(page).toHaveURL(new RegExp(`postings\\?account=Expenses&from=${day}&to=${day}`));
 	await expect(page.getByRole('rowgroup').filter({ hasText: 'Dinner' })).toBeVisible();
 });
+
+test('sets a monthly budget in settings, and sees on spending how much is left', async ({
+	signedIn: page,
+	ledger,
+}) => {
+	const today = Temporal.Now.plainDateISO();
+	const chai = `${today.with({ day: 1 })} Chai\n\tExpenses:Food 1500\n\tAssets:Cash\n`;
+	await createFile(page, ledger, 'cash.rupea', chai);
+
+	await visit(page, `${ledger}/spending`);
+	await page.getByRole('link', { name: 'Add budget' }).click();
+	const form = page.getByRole('region', { name: 'Add budget' });
+	await form.getByRole('combobox', { name: 'Account' }).click();
+	await page.getByRole('option', { name: 'Expenses:Food' }).click();
+	await form.getByRole('textbox', { name: 'Limit' }).fill('6000');
+	await form.getByRole('button', { name: 'Save' }).click();
+	await expect(form.getByRole('status')).toHaveText('Saved in main.rupea');
+
+	await visit(page, `${ledger}/spending`);
+	const totals = page.getByRole('region', { name: 'Totals' });
+	await expect(totals).toContainText('of 6,000 allowed');
+	await expect(totals).toContainText('4,500');
+	const bars = page.getByRole('img', { name: 'Spent of each budget' });
+	await expect(bars.getByRole('listitem').filter({ hasText: 'Food' })).toContainText('4.5K left');
+});

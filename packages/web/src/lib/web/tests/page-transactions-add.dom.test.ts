@@ -519,10 +519,7 @@ describe('the edit transaction panel', () => {
 });
 
 describe('the lines of an entry', () => {
-	const suggested = () =>
-		[...document.querySelectorAll('#transaction-accounts option')].map((o) =>
-			o.getAttribute('value'),
-		);
+	const suggested = () => screen.queryAllByRole('option').map((o) => o.textContent?.trim());
 
 	beforeEach(() => {
 		vi.mocked(createTransaction).mockReset();

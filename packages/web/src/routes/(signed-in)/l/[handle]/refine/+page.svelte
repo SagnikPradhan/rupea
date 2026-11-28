@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Select from '#lib/web/components/ui-select/ui-select.svelte';
 	import { listFiles } from '#lib/endpoints/files.remote.ts';
 	import {
 		linkGroups,
@@ -83,12 +84,12 @@
 
 <label>
 	Find matches for
-	<select value={file ?? ''} onchange={(e) => goto(hrefOnly({ file: e.currentTarget.value }))}>
-		<option value="" disabled>Choose a file</option>
-		{#each files.data ?? [] as f (f.key)}
-			<option value={f.key}>{f.key}</option>
-		{/each}
-	</select>
+	<Select
+		value={file ?? ''}
+		placeholder="Choose a file"
+		options={(files.data ?? []).map((f) => ({ value: f.key, label: f.key }))}
+		onchange={(key: string) => goto(hrefOnly({ file: key }))}
+	/>
 </label>
 
 {#each [...(response?.errors ?? []), ...failures.list] as error, i (i)}

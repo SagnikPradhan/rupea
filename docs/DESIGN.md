@@ -73,6 +73,7 @@ Boards exist at 1920, 1280 and 768 wide, in light and dark, and the page follows
 - **Toggle and checkbox.** A setting, or a selected row. On is ink.
 - **Field.** A muted label over an outlined input.
 - **Select.** Pick one of many: an outlined button holding the choice and a chevron, opening a list under it with a check by the choice. Use `ui-select`, never a native select.
+- **Suggest field.** Type or pick: an outlined input whose list under it narrows as you type and still takes any text. Use `ui-combobox`, never the browser's own suggestion list.
 - **Search popover.** Results under a search field, with the matching part of an account path in ink.
 - **Filter card.** A page's filters: groups of chips and segments, and one toggle for extra options.
 - **Filter modal.** What the Filter button in a page header opens: an outlined card at the top right with a title and a close button, the filter card, then Reset and Apply. The page behind it is not dimmed.

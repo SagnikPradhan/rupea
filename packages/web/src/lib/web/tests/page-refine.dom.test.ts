@@ -1,3 +1,4 @@
+import userEvent from '@testing-library/user-event';
 import { fireEvent, render, screen } from '@testing-library/svelte';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { listFiles } from '#lib/endpoints/files.remote.ts';
@@ -68,9 +69,8 @@ describe('the refine page', () => {
 		showing([]);
 		render(Page, { data });
 
-		await fireEvent.change(await screen.findByRole('combobox'), {
-			target: { value: 'hdfc.rupea' },
-		});
+		await userEvent.click(await screen.findByRole('combobox'));
+		await userEvent.click(await screen.findByRole('option', { name: 'hdfc.rupea' }));
 		expect(goto).toHaveBeenCalledWith('/l/h/refine?file=hdfc.rupea');
 		expect(listSuggestions).not.toHaveBeenCalled();
 	});

@@ -1,4 +1,5 @@
 <script lang="ts">
+	import Select from '#lib/web/components/ui-select/ui-select.svelte';
 	import type { Period } from '@rupea/shared/dates.ts';
 	import Chip from '#lib/web/components/ui-chip/ui-chip.svelte';
 	import Button from '#lib/web/components/ui-button/ui-button.svelte';
@@ -70,15 +71,12 @@
 {#if current.kind === 'month' || current.kind === 'year'}
 	<FilterSection label="Year">
 		{#if years.length > MANY}
-			<select
-				aria-label="Year"
+			<Select
+				label="Year"
 				value={at.slice(0, 4)}
-				onchange={(e) => goto(yearHref(e.currentTarget.value))}
-			>
-				{#each years as y (y)}
-					<option value={y}>{y}</option>
-				{/each}
-			</select>
+				options={years.map((y) => ({ value: y, label: y }))}
+				onchange={(y: string) => goto(yearHref(y))}
+			/>
 		{:else}
 			<SegmentedControl fill label="Year" segments={yearSegments} />
 		{/if}

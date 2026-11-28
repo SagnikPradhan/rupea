@@ -157,3 +157,9 @@
 
 	<Issues {handle} errors={[...(accounts.errors ?? []), ...(termed.errors ?? [])]} />
 </Setting>
+
+<style>
+	input {
+		width: 100%;
+	}
+</style>

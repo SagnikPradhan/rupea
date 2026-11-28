@@ -123,22 +123,21 @@
 				<input bind:value={form.values[field.key]} inputmode="decimal" />
 			</Field>
 		{/each}
+		{#if form.kind === 'loan'}
+			<Field label="Interest" hint="How the interest is worked out.">
+				<Select
+					value={form.method}
+					options={Object.entries(METHODS).map(([value, label]) => ({ value, label }))}
+					onchange={(value: string) => (form.method = value === 'flat' ? 'flat' : 'reducing')}
+				/>
+			</Field>
+		{/if}
+		{#if flat}
+			<Field label="Months" hint="How long the loan runs." issues={issuesAt('tenure')}>
+				<input bind:value={form.tenure} inputmode="numeric" />
+			</Field>
+		{/if}
 	</div>
-
-	{#if form.kind === 'loan'}
-		<Field label="Interest" hint="How the interest is worked out.">
-			<Select
-				value={form.method}
-				options={Object.entries(METHODS).map(([value, label]) => ({ value, label }))}
-				onchange={(value: string) => (form.method = value === 'flat' ? 'flat' : 'reducing')}
-			/>
-		</Field>
-	{/if}
-	{#if flat}
-		<Field label="Months" hint="How long the loan runs." issues={issuesAt('tenure')}>
-			<input bind:value={form.tenure} inputmode="numeric" />
-		</Field>
-	{/if}
 
 	{#each issuesAt('account') as issue (issue.message)}
 		<p role="alert">{issue.message}</p>
@@ -169,7 +168,8 @@
 		align-self: start;
 	}
 
-	input {
+	input,
+	form :global([data-select-trigger]) {
 		width: 100%;
 	}
 
@@ -177,6 +177,10 @@
 		display: grid;
 		grid-template-columns: repeat(2, minmax(0, 1fr));
 		gap: var(--size-3) var(--size-2);
+	}
+
+	.pair > :global(:last-child:nth-child(odd)) {
+		grid-column: 1 / -1;
 	}
 
 	p {

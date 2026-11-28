@@ -69,7 +69,11 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--size-1);
-		align-items: start;
+		align-self: stretch;
+	}
+
+	.pick :global([data-select-trigger]) {
+		width: 100%;
 	}
 
 	p {

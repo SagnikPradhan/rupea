@@ -34,6 +34,10 @@
 		max-width: 100%;
 	}
 
+	div > :global(form) {
+		width: min(100%, calc(var(--size-5) * 5));
+	}
+
 	div > :global(:has(table)) {
 		align-self: stretch;
 	}

@@ -113,17 +113,16 @@
 		display: flex;
 		flex-direction: column;
 		gap: var(--size-3);
-		align-items: start;
 	}
 
 	input {
-		width: calc(var(--size-5) * 3);
-		max-width: 100%;
+		width: 100%;
 	}
 
 	.actions {
 		display: flex;
 		gap: var(--size-1);
+		align-self: start;
 	}
 
 	p {

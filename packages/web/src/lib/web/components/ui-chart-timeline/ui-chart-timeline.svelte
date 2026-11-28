@@ -147,7 +147,7 @@
 
 	.circle {
 		position: relative;
-		z-index: 1;
+		z-index: var(--layer-raised);
 		aspect-ratio: 1;
 		width: 100%;
 		min-width: var(--size-2);
@@ -199,7 +199,7 @@
 	}
 
 	.pin:hover {
-		z-index: 2;
+		z-index: var(--layer-focused);
 	}
 
 	.pin:hover .circle {
